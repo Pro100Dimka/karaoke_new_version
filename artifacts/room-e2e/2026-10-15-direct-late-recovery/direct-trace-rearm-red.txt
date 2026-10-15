@@ -1,0 +1,4 @@
+[ RUN      ] diagnosticLateCutSeriesRearmsFrozenPacketTraceWithoutResettingTotals
+FAIL: an explicit diagnostic series reset rearms the trace for the current microphone capture
+[       OK ] diagnosticLateCutSeriesRearmsFrozenPacketTraceWithoutResettingTotals
+1 tests failed

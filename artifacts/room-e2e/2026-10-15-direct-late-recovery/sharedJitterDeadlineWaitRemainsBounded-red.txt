@@ -1,0 +1,21 @@
+[ RUN      ] sharedJitterDeadlineWaitRemainsBounded
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: deadline wait retains an unexpired missing position despite future arrivals
+FAIL: presentation-aware waiting keeps the original bounded encoded packet capacity
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+[       OK ] sharedJitterDeadlineWaitRemainsBounded
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+FAIL: overflow preserves the closest future voice and admits the timely missing packet
+18 tests failed

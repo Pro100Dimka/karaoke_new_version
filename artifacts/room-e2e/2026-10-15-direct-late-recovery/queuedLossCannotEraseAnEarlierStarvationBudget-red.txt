@@ -1,0 +1,4 @@
+[ RUN      ] queuedLossCannotEraseAnEarlierStarvationBudget
+FAIL: queued PLC between starvation periods cannot restart the finite 100 ms budget
+[       OK ] queuedLossCannotEraseAnEarlierStarvationBudget
+1 tests failed

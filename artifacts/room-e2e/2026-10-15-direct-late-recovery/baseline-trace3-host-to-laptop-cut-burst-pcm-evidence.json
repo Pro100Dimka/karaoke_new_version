@@ -1,0 +1,18 @@
+{
+  "scope": "Diagnostic shorttake only; exact master-minus-backing zero boundary around the fully recorded actual packet cut burst; not mandatory-window timing acceptance.",
+  "cutTargetSpan": [
+    86020536851280,
+    86020536852840
+  ],
+  "nativeZeroIntervalsNearby": [
+    {
+      "receiverWavStartFrame": 1071549,
+      "receiverWavFrames": 1731,
+      "durationMs": 36.0625,
+      "presentationBeginRoomFrame": 86020536851560,
+      "presentationEndRoomFrame": 86020536853306,
+      "overlapsCutPacketTargetSpan": true,
+      "allChannelsWithinPcm16Lsb": 2
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "coordinateSource": "baseline-host-to-laptop-voice-context-coordinates.json",
+  "method": "Native 48 kHz excerpts with 0.5 seconds before and after each verified missing interval. Remote residual is master channel 0 minus the exact simultaneously recorded backing channel 0. Sender reference uses one constant locally correlated offset per context only when NCC >=0.2 with a unique peak; otherwise it retains the clock-derived hint and is explicitly unidentified. No stretching, resampling, gain normalization or dynamics. Context NCC is for clip identity only, not a replacement lag/drift acceptance result.",
+  "events": [
+    {
+      "songSeconds": 31.5941285,
+      "durationMs": 64.02083,
+      "eventKind": "confirmed_missing",
+      "receiverWavStartFrame": 1280447,
+      "receiverWavFrameCount": 3073,
+      "senderWavExpectedFrame": 1380470,
+      "sampleRate": 48000,
+      "senderHintMethod": "independent effective packet clock from exact presentationCSV minusselecteddeadline; sourcehintonly, localNCCrefinesconstantoffset",
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 1256447,
+      "senderMatchedClipStartFrame": 1356492,
+      "localMatchAdjustmentFrames": 22,
+      "contextIdentityStatus": "IDENTIFIED",
+      "senderReferenceAlignment": "constant local NCC offset",
+      "contextNcc": 0.45241941704463007,
+      "contextSecondPeakNcc": 0.05640165477184839,
+      "contextUniquePeak": true,
+      "residualGapPeak": 6.103515625e-05,
+      "senderGapRms": 0.03218402110805686,
+      "paths": {
+        "master": "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-master.wav",
+        "remoteResidual": "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-remote-residual.wav",
+        "senderRealMic": "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-sender-real-mic.wav"
+      }
+    },
+    {
+      "songSeconds": 129.17815,
+      "durationMs": 60,
+      "eventKind": "unidentified_active",
+      "receiverWavStartFrame": 5964480,
+      "receiverWavFrameCount": 2880,
+      "senderWavExpectedFrame": 6064612,
+      "sampleRate": 48000,
+      "senderHintMethod": "independent effective packet clock from exact presentationCSV minusselecteddeadline; sourcehintonly, localNCCrefinesconstantoffset",
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 5940480,
+      "senderMatchedClipStartFrame": 6040612,
+      "localMatchAdjustmentFrames": 0,
+      "contextIdentityStatus": "UNIDENTIFIED",
+      "senderReferenceAlignment": "independent effective packet clock from exact presentationCSV minusselecteddeadline; sourcehintonly, localNCCrefinesconstantoffset; no low-confidence NCC offset applied",
+      "contextNcc": 0.1341605076622289,
+      "contextSecondPeakNcc": 0.06669260757115357,
+      "contextUniquePeak": true,
+      "residualGapPeak": 0.1591796875,
+      "senderGapRms": 0.052578298822385336,
+      "paths": {
+        "master": "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-master.wav",
+        "remoteResidual": "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-remote-residual.wav",
+        "senderRealMic": "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-sender-real-mic.wav"
+      }
+    }
+  ],
+  "analysisSource": "baseline-host-to-laptop-segmented-result.json",
+  "hashes": {
+    "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-master.wav": "f7264acb4d28681b00a368ba33d18632227628d042f466a247a2b12d229f8491",
+    "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-remote-residual.wav": "785d1ce7173b7a6528908cedd709156fa8692cc566bed6880e9da38bfa9b4395",
+    "baseline-host-to-laptop-voice-contexts\\gap-01-song-31.594-sender-real-mic.wav": "1669af0b2ee9886c4883b6a70e3c2eb91be822f81279c6944ef9a9dd4fdbf240",
+    "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-master.wav": "e6abb22f8aba6424defd2bfbe5ef8bc22e24f2bf8badae230fa73ec6466982fe",
+    "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-remote-residual.wav": "17f9095cb6dd5f22dde2297f68a9fe1b9b057b0aaf7579f82590a1c46eb53995",
+    "baseline-host-to-laptop-voice-contexts\\gap-02-song-129.178-sender-real-mic.wav": "5a3af67aa39ba740a892cc62a2a2fcefecdd54e5f32fa4e40eb6621d3b4f9f22"
+  },
+  "classificationNote": "Event kind comes from unchanged V2 matched-component gate. A good surrounding-contextNCC or nonzeroPLC doesnotchange missing/unidentified eventclassification."
+}

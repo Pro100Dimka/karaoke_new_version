@@ -1,0 +1,219 @@
+{
+  "status": "FAIL",
+  "nccGate": 0.2,
+  "analysisRate": 8000,
+  "backingSource": "exact rendered tap",
+  "globalBacking": {
+    "position": 1176425.804438731,
+    "ncc": 0.7188484254036936,
+    "signedNcc": 0.7188484254036936,
+    "floor": 0.012624645844418761,
+    "secondPeakNcc": 0.47121644369793525,
+    "peakRatio": 1.5255164267240606,
+    "uniquePeak": false,
+    "secondPeakPosition": 53667
+  },
+  "fileStartsAtSongSeconds": 5.053225554841367,
+  "windows": {
+    "start": {
+      "status": "ok",
+      "backingNcc": 0.7189872500186912,
+      "backingGain": 1.0,
+      "backingSongSeconds": 20.01854191990366,
+      "receiverFileSeconds": 14.94675,
+      "micAbsNcc": 0.20339375425487802,
+      "micSignedNcc": 0.20339375425487802,
+      "micNccFloor": 0.005011297666585192,
+      "secondPeakNcc": 0.03298981582642398,
+      "peakRatio": 6.165349795374273,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.1466374452171045,
+        "secondPeakNcc": 0.03355285344883436,
+        "status": "voice not found"
+      },
+      "effectiveMusicalLagMs": 51.848958333333336,
+      "captureRoomFrame": 86020684189924.56,
+      "presentationRoomFrame": 86020684192417.0,
+      "captureSongSeconds": 19.96919921875,
+      "effectiveVoiceSongSeconds": 19.969276041666667,
+      "physicalCaptureToBackingMs": 49.34270115366246,
+      "effectiveVoiceToBackingMs": 49.265878236994354,
+      "backingPresentationClockOffsetMs": 2.5830800963376532,
+      "micToRemoteMs": 51.92578,
+      "micFileSeconds": 11.600171895536466
+    },
+    "middle": {
+      "status": "voice not found",
+      "backingNcc": 0.6395057710157326,
+      "backingGain": 1.0,
+      "backingSongSeconds": 70.61870799155164,
+      "receiverFileSeconds": 65.55475,
+      "micAbsNcc": 0.1560767015872372,
+      "micSignedNcc": 0.1560767015872372,
+      "micNccFloor": 0.003931527426562274,
+      "secondPeakNcc": 0.02655974458142786,
+      "peakRatio": 5.876438348596741,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.13235439809822394,
+        "secondPeakNcc": 0.021667705345571376,
+        "status": "voice not found"
+      }
+    },
+    "end": {
+      "status": "voice not found",
+      "backingNcc": 0.6742747257142729,
+      "backingGain": 1.0,
+      "backingSongSeconds": 121.21902969710419,
+      "receiverFileSeconds": 116.162625,
+      "micAbsNcc": 0.19178085711913456,
+      "micSignedNcc": -0.19178085711913456,
+      "micNccFloor": 0.005367398393075958,
+      "secondPeakNcc": 0.04245326755692022,
+      "peakRatio": 4.517458093467125,
+      "uniquePeak": true,
+      "studioComparison": {
+        "absNcc": 0.17541173602174684,
+        "secondPeakNcc": 0.031771520284490894,
+        "status": "voice not found"
+      }
+    }
+  },
+  "medianLagMs": null,
+  "drift": null,
+  "dropouts": null,
+  "inputs": {
+    "receiverMaster": {
+      "path": "artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\final-laptop-to-host-receiver-master.wav",
+      "sampleRate": 48000,
+      "frames": 8081728,
+      "channels": 6,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.21618617795680287,
+        0.21373274356788624,
+        0.21373274356788624,
+        0.21373274356788624,
+        0.21373274356788624,
+        0.21373274356788624
+      ],
+      "peak": 0.966552734375,
+      "fullScaleSampleFraction": 0.0
+    },
+    "senderMic": {
+      "path": "artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\final-laptop-to-host-sender-mic.wav",
+      "sampleRate": 48000,
+      "frames": 7944000,
+      "channels": 1,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.007846139373623474
+      ],
+      "peak": 0.09637451171875,
+      "fullScaleSampleFraction": 0.0
+    },
+    "backing": {
+      "path": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+      "sampleRate": 44100,
+      "frames": 7109615,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.24500279721208942,
+        0.24178041465347266
+      ],
+      "peak": 1.0,
+      "fullScaleSampleFraction": 0.00029396809813189603
+    },
+    "studioVocal": {
+      "path": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+      "sampleRate": 44100,
+      "frames": 7109615,
+      "channels": 2,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.1284920455080424,
+        0.12876569351991607
+      ],
+      "peak": 1.0,
+      "fullScaleSampleFraction": 1.2658913316684517e-06
+    },
+    "renderedBacking": {
+      "path": "artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\final-laptop-to-host-receiver-master.wav.backing.wav",
+      "sampleRate": 48000,
+      "frames": 8081728,
+      "channels": 6,
+      "selectedChannel": 0,
+      "channelRms": [
+        0.21605047856645204,
+        0.21359201107293188,
+        0.21359201107293188,
+        0.21359201107293188,
+        0.21359201107293188,
+        0.21359201107293188
+      ],
+      "peak": 0.9130859375,
+      "fullScaleSampleFraction": 0.0
+    }
+  },
+  "config": {
+    "receiverMaster": "final-laptop-to-host-receiver-master.wav",
+    "senderMic": "final-laptop-to-host-sender-mic.wav",
+    "backing": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+    "studioVocal": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+    "songStartRoomFrame": 86020683231403,
+    "roomRate": 48000,
+    "senderNoiseSeconds": [
+      0,
+      1.5
+    ],
+    "senderActiveFromSeconds": 5.84,
+    "shortComparison": false,
+    "renderedBacking": "final-laptop-to-host-receiver-master.wav.backing.wav",
+    "senderActiveFromDerivation": {
+      "recordingStartControlUtc": "2026-10-15T20:52:55.142Z",
+      "vocalOnUtc": "2026-10-15T20:53:00.482Z",
+      "guardSeconds": 0.5
+    },
+    "songAnchor": {
+      "playbackStartedAt": "2026-10-15T20:52:47.320892Z",
+      "playbackPositionSeconds": 0,
+      "playbackRate": 1
+    },
+    "approvedOneSecondGate": true,
+    "selectedDeadlineMs": 50,
+    "analysisPreparation": {
+      "status": "ANCHORS_READY_B_COMPLETE",
+      "evidence": "final-laptop-to-host-evidence.json",
+      "nativeDeadlineAgreement": {
+        "host": [
+          "2400"
+        ],
+        "laptop": [
+          "2400"
+        ]
+      }
+    }
+  },
+  "timelineQuality": {
+    "sender": {
+      "path": "artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\final-laptop-to-host-sender-mic.wav.timeline.csv",
+      "rows": 66200,
+      "wavFrames": 7944000,
+      "invalidRows": 1,
+      "invalidPhysicalSpanRows": 1,
+      "minimumBoundaryJumpMs": -0.4375,
+      "maximumBoundaryJumpMs": 0.2708333333333333
+    },
+    "receiver": {
+      "path": "artifacts\\room-e2e\\2026-10-15-direct-late-recovery\\final-laptop-to-host-receiver-master.wav.timeline.csv",
+      "rows": 126277,
+      "wavFrames": 8081728,
+      "invalidRows": 0,
+      "invalidPhysicalSpanRows": 0,
+      "minimumBoundaryJumpMs": -0.8125,
+      "maximumBoundaryJumpMs": 1.5208333333333333
+    }
+  }
+}

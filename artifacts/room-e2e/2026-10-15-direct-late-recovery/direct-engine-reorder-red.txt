@@ -1,0 +1,7 @@
+[ RUN      ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+FAIL: the engine cannot commit loss before the missing packet's presentation position
+FAIL: the full-window delayed packet reaches the queue while its deadline is ahead
+FAIL: the worker expires one missing position and queues current voice at the fixed deadline
+FAIL: expired original PCM cannot be rendered later after concealment
+[       OK ] sharedVoiceReorderPreservesTimelyPacketsAndPumpsMissingOnes
+4 tests failed

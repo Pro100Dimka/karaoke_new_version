@@ -1,0 +1,6 @@
+[ RUN      ] directRenderContinuityBoundsSavedGapDurations
+DURATION_REPLAY gapMs=3.000000 missingPcmMs=0.000000 longestZeroMs=0.000000 lateCuts=0 recoveryMs=2.479167 addedLatencyMs=0 driftFrames=0 queueFrames=0
+DURATION_REPLAY gapMs=92.666667 missingPcmMs=0.000000 longestZeroMs=0.000000 lateCuts=0 recoveryMs=2.479167 addedLatencyMs=0 driftFrames=0 queueFrames=0
+DURATION_REPLAY gapMs=156.625000 missingPcmMs=57.375000 longestZeroMs=57.375000 lateCuts=0 recoveryMs=2.479167 addedLatencyMs=0 driftFrames=0 queueFrames=0
+[       OK ] directRenderContinuityBoundsSavedGapDurations
+All AudioService tests passed

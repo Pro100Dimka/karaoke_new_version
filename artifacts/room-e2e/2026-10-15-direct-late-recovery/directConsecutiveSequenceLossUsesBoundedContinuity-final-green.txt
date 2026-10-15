@@ -1,0 +1,6 @@
+[ RUN      ] directConsecutiveSequenceLossUsesBoundedContinuity
+CONSECUTIVE_LOSS packets=1 durationMs=2.500 missingPcmMs=0.000 longestZeroMs=0.000
+CONSECUTIVE_LOSS packets=37 durationMs=92.500 missingPcmMs=0.000 longestZeroMs=0.000
+CONSECUTIVE_LOSS packets=64 durationMs=160.000 missingPcmMs=60.729 longestZeroMs=60.729
+[       OK ] directConsecutiveSequenceLossUsesBoundedContinuity
+All AudioService tests passed

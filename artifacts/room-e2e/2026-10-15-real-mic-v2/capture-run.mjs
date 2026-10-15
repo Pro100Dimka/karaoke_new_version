@@ -9,7 +9,7 @@ const exec = promisify(execFile);
 const [code, direction, label, seconds = '150', mode = ''] = process.argv.slice(2);
 if (!code || !['host-to-laptop', 'laptop-to-host'].includes(direction) || !label)
   throw new Error('capture-run.mjs ROOM DIRECTION LABEL SECONDS');
-const dir = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1'));
+const dir = process.env.AD_VOICE_EVIDENCE_DIR || path.dirname(new URL(import.meta.url).pathname.replace(/^\/(\w:)/, '$1'));
 const control = 'D:/Git/karaoke_new_version/AudioService/build/Release/AudioControl.exe';
 const env = { ...process.env, AD_VOICE_AUDIO_ENDPOINT: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1` };
 const parse = raw => Object.fromEntries(raw.split(/\r?\n/).flatMap(line => {
@@ -78,8 +78,12 @@ const uiFailures = [];
 const snapshot = async () => {
   const results = await Promise.allSettled([
     fetch(`http://130.61.169.61:8081/rooms/${code}`).then(r => r.json()),
-    command('host', ['GetDiagnostics']).then(parse),
-    command('laptop', ['GetDiagnostics']).then(parse)
+    ...['host', 'laptop'].map(machine => command(machine, ['GetDiagnostics']).then(raw => {
+      if (process.env.AD_VOICE_SAVE_PACKET_TRACE === '1')
+        appendFileSync(path.join(dir, `${label}-${machine}-raw-diagnostics.jsonl`),
+          JSON.stringify({ at: new Date().toISOString(), raw }) + '\n');
+      return parse(raw);
+    }))
   ]);
   const row = { at: new Date().toISOString() };
   results.forEach((r, i) => { row[['room', 'host', 'laptop'][i]] = r.status === 'fulfilled' ? r.value : { error: String(r.reason) }; });
@@ -151,6 +155,12 @@ await exec(process.execPath, [
   senderPort, 'levels', JSON.stringify({ 'Вокал': 'End' })
 ], { timeout: 15000 });
 evidence.vocalOnAt = new Date().toISOString();
+if (process.env.AD_VOICE_SAVE_PACKET_TRACE === '1') {
+  evidence.traceRearm = [];
+  for (const machine of ['host', 'laptop'])
+    evidence.traceRearm.push({ machine, at: new Date().toISOString(),
+      reply: await command(machine, ['SetDiagnosticRoomInput', 'enabled=false', 'resetLateCutSeries=true']) });
+}
 physicalLevels = true;
 writeFileSync(path.join(dir, `${label}-evidence.json`), JSON.stringify(evidence, null, 2));
 console.log(JSON.stringify({ recordingReady: true, label, vocalOnAt: evidence.vocalOnAt }));

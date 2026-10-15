@@ -1,0 +1,6 @@
+[ RUN      ] udpSocketShortPollingPreservesPacedDatagrams
+PACED_UDP timeoutMs=100 sent=128 received=128 timeoutReturns=0
+PACED_UDP timeoutMs=2 sent=128 received=122 timeoutReturns=65
+[       OK ] udpSocketShortPollingPreservesPacedDatagrams
+FAIL: short receive polling preserves every paced loopback voice datagram
+1 tests failed

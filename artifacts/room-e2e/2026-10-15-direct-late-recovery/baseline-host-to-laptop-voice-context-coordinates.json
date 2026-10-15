@@ -1,0 +1,28 @@
+{
+  "receiverMaster": "baseline-host-to-laptop-receiver-master.wav",
+  "senderMic": "baseline-host-to-laptop-sender-mic.wav",
+  "renderedBacking": "baseline-host-to-laptop-receiver-master.wav.backing.wav",
+  "note": "Existing baseline only; context identity is independent of whole-song lag acceptance. Unknown contexts remain UNKNOWN.",
+  "events": [
+    {
+      "songSeconds": 31.5941285,
+      "durationMs": 64.02083,
+      "eventKind": "confirmed_missing",
+      "receiverWavStartFrame": 1280447,
+      "receiverWavFrameCount": 3073,
+      "senderWavExpectedFrame": 1380470,
+      "sampleRate": 48000,
+      "senderHintMethod": "independent effective packet clock from exact presentationCSV minusselecteddeadline; sourcehintonly, localNCCrefinesconstantoffset"
+    },
+    {
+      "songSeconds": 129.17815,
+      "durationMs": 60,
+      "eventKind": "unidentified_active",
+      "receiverWavStartFrame": 5964480,
+      "receiverWavFrameCount": 2880,
+      "senderWavExpectedFrame": 6064612,
+      "sampleRate": 48000,
+      "senderHintMethod": "independent effective packet clock from exact presentationCSV minusselecteddeadline; sourcehintonly, localNCCrefinesconstantoffset"
+    }
+  ]
+}

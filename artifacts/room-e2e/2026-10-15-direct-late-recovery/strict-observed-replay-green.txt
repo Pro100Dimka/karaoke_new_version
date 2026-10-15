@@ -1,0 +1,4 @@
+[ RUN      ] observedDirectPacketBurstKeepsBoundedPlayoutContinuity
+OBSERVED_PACKET_REPLAY packets=96 originalLate=13 actualLate=13 missingPcmMs=0.000000 longestZeroMs=0.000000 maxQueueFrames=3267 finalQueueFrames=0 deadlineMs=85.000
+[       OK ] observedDirectPacketBurstKeepsBoundedPlayoutContinuity
+All AudioService tests passed

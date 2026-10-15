@@ -1,0 +1,60 @@
+{
+  "scope": "READ_ONLY_HEADERS_CLOCKS_AND_SNAPSHOT_COUNTERS; no FFT or signal analysis before B completes",
+  "label": "final-host-to-laptop",
+  "nativeDeadlineAgreement": {
+    "host": [
+      "2760"
+    ],
+    "laptop": [
+      "2760"
+    ]
+  },
+  "deadlineMs": 57.5,
+  "epoch": "2026-10-15T20:43:05.132872Z",
+  "uiGate": {
+    "passed": true,
+    "failures": []
+  },
+  "wav": {
+    "senderMic": {
+      "frames": 7634160,
+      "rate": 48000,
+      "channels": 1,
+      "width": 2,
+      "seconds": 159.045
+    },
+    "receiverMaster": {
+      "frames": 7533600,
+      "rate": 48000,
+      "channels": 2,
+      "width": 2,
+      "seconds": 156.95
+    },
+    "renderedBacking": {
+      "frames": 7533600,
+      "rate": 48000,
+      "channels": 2,
+      "width": 2,
+      "seconds": 156.95
+    }
+  },
+  "timeline": {
+    "senderMic": {
+      "rows": 63618,
+      "invalidClockRows": 0,
+      "invalidCaptureSpanRows": 0,
+      "firstRoomFrame": 86020655394341,
+      "firstSongSeconds": 2.249229166666667,
+      "lastSongSeconds": 161.29454166666667
+    },
+    "receiverMaster": {
+      "rows": 15695,
+      "invalidClockRows": 0,
+      "invalidCaptureSpanRows": null,
+      "firstRoomFrame": 86020655496690,
+      "firstSongSeconds": 4.3815,
+      "lastSongSeconds": 161.32991666666666
+    }
+  },
+  "observedOriginalPlayingCutDelta": 297
+}

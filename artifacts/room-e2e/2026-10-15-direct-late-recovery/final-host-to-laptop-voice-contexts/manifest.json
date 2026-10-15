@@ -1,0 +1,77 @@
+{
+  "coordinateSource": "final-host-to-laptop-voice-context-coordinates.json",
+  "method": "Native 48 kHz excerpts with 0.5 seconds before and after each selected active or mandatory interval. Remote residual is master channel 0 minus the exact simultaneously recorded backing channel 0. Sender reference uses one constant locally correlated offset per context only when NCC >=0.2 with a unique peak; otherwise it retains the clock-derived hint and is explicitly unidentified. No stretching, resampling, gain normalization or dynamics. Context NCC is for clip identity only, not a replacement lag/drift acceptance result.",
+  "events": [
+    {
+      "songSeconds": 38.91867,
+      "durationMs": 80,
+      "eventKind": "UNKNOWN_ACTIVE",
+      "originalClassification": "UNKNOWN; neither confirmed missing voice nor confirmed recovered voice",
+      "receiverWavStartFrame": 1657920,
+      "receiverWavFrameCount": 3840,
+      "senderWavExpectedFrame": 1757529,
+      "sampleRate": 48000,
+      "senderHintMethod": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only",
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 1633920,
+      "senderMatchedClipStartFrame": 1733529,
+      "localMatchAdjustmentFrames": 0,
+      "contextIdentityStatus": "UNIDENTIFIED",
+      "senderReferenceAlignment": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only; no low-confidence NCC offset applied",
+      "contextNcc": 0.1349612373731356,
+      "contextSecondPeakNcc": 0.0701721275279717,
+      "contextUniquePeak": true,
+      "residualGapPeak": 0.12725830078125,
+      "senderGapRms": 0.039088117105352295,
+      "paths": {
+        "master": "final-host-to-laptop-voice-contexts\\unknown-active-02-song-38.919-master.wav",
+        "remoteResidual": "final-host-to-laptop-voice-contexts\\unknown-active-02-song-38.919-remote-residual.wav",
+        "senderRealMic": "final-host-to-laptop-voice-contexts\\unknown-active-02-song-38.919-sender-real-mic.wav"
+      },
+      "sha256": {
+        "master": "002592803D8B6519D14AE70376C6938234939DB73D66A7C93F773348568BCD5E",
+        "remoteResidual": "3F8DA27AE5D9B326345E502BCACFFE28D431355FC8BE4AEBF3693449DE74BFDB",
+        "senderRealMic": "D44763E6BBC34894D0FE20342B987B3EBF2DD39E4AD1ACBB32A271053D677C9B"
+      }
+    },
+    {
+      "songSeconds": 39.0,
+      "durationMs": 1000,
+      "eventKind": "FAILED_MANDATORY_CELL",
+      "originalClassification": "Low NCC in mandatory timing cell; no accepted timing",
+      "originalNcc": 0.12159332988169626,
+      "originalSecondPeakNcc": 0.08650278821713678,
+      "receiverWavStartFrame": 1661824,
+      "receiverWavFrameCount": 48000,
+      "senderWavExpectedFrame": 1761426,
+      "sampleRate": 48000,
+      "senderHintMethod": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only",
+      "contextBeforeSeconds": 0.5,
+      "contextAfterSeconds": 0.5,
+      "receiverClipStartFrame": 1637824,
+      "senderMatchedClipStartFrame": 1737426,
+      "localMatchAdjustmentFrames": 0,
+      "contextIdentityStatus": "UNIDENTIFIED",
+      "senderReferenceAlignment": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only; no low-confidence NCC offset applied",
+      "contextNcc": 0.08689543667576213,
+      "contextSecondPeakNcc": 0.04627409205795961,
+      "contextUniquePeak": true,
+      "residualGapPeak": 0.20947265625,
+      "senderGapRms": 0.06056545785521523,
+      "paths": {
+        "master": "final-host-to-laptop-voice-contexts\\failed-mandatory-cell-06-song-39.000-master.wav",
+        "remoteResidual": "final-host-to-laptop-voice-contexts\\failed-mandatory-cell-06-song-39.000-remote-residual.wav",
+        "senderRealMic": "final-host-to-laptop-voice-contexts\\failed-mandatory-cell-06-song-39.000-sender-real-mic.wav"
+      },
+      "sha256": {
+        "master": "05053FAEFA084E481B767EA2CCD602980F8D42D877298075826A97BEF015888A",
+        "remoteResidual": "A9CFB8D7178163519203E5FE6577383191C71E0669140A8D8D694DAC9A4B7456",
+        "senderRealMic": "1404702141838E56512E21F619DD333C58D61C0701A5B9994B7EC7C1F5BE180D"
+      }
+    }
+  ],
+  "analysisSource": "Unmodified ../2026-10-15-real-mic-v2/export_missing_voice_snippets.py",
+  "classificationCaveat": "Local wider-context identification does not reclassify UNKNOWN active intervals or repair failed mandatory cells. Nonzero residual/PLC is not proof of recovered original phonemes.",
+  "selection": "Minimal audit contexts: A representative 80ms UNKNOWN and failed mandatory cell; B identified control. Other full-source evidence remains local."
+}

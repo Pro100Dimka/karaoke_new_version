@@ -1,0 +1,22 @@
+{
+  "receiverMaster": "final-laptop-to-host-receiver-master.wav",
+  "senderMic": "final-laptop-to-host-sender-mic.wav",
+  "renderedBacking": "final-laptop-to-host-receiver-master.wav.backing.wav",
+  "note": "Representative native source/residual contexts. UNKNOWN and failed cells remain unaccepted regardless of wider clip NCC. No stretch or gate changes.",
+  "events": [
+    {
+      "songSeconds": 39.0,
+      "durationMs": 1000,
+      "eventKind": "IDENTIFIED_MANDATORY_CONTEXT",
+      "originalClassification": "Accepted by unchanged approved 1s timing method; this context does not replace that gate",
+      "originalNcc": 0.3858038117729791,
+      "originalSecondPeakNcc": 0.10834860008825428,
+      "originalContextSeconds": 1.0,
+      "receiverWavStartFrame": 1629445,
+      "receiverWavFrameCount": 48000,
+      "senderWavExpectedFrame": 1468756,
+      "sampleRate": 48000,
+      "senderHintMethod": "Independent effective packet-clock hint from exact receiver CSV presentation minus selected deadline; context NCC may refine one constant offset only"
+    }
+  ]
+}

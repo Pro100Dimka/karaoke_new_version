@@ -1,0 +1,4 @@
+[ RUN      ] directSteadyQueuedRealVoiceCannotBecomeConcealment
+FAIL: one second of continuously queued real voice is never attenuated as synthetic loss
+[       OK ] directSteadyQueuedRealVoiceCannotBecomeConcealment
+1 tests failed

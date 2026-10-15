@@ -1,0 +1,39 @@
+{
+  "receiverMaster": "final-laptop-to-host-receiver-master.wav",
+  "senderMic": "final-laptop-to-host-sender-mic.wav",
+  "backing": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\instrumental.wav",
+  "studioVocal": "C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Dev\\backend-data\\songs\\252c8e32-5654-48fd-b64b-09d2cac55640\\revisions\\2\\audio\\reference-vocal.wav",
+  "songStartRoomFrame": 86020683231403,
+  "roomRate": 48000,
+  "senderNoiseSeconds": [
+    0,
+    1.5
+  ],
+  "senderActiveFromSeconds": 5.84,
+  "shortComparison": false,
+  "renderedBacking": "final-laptop-to-host-receiver-master.wav.backing.wav",
+  "senderActiveFromDerivation": {
+    "recordingStartControlUtc": "2026-10-15T20:52:55.142Z",
+    "vocalOnUtc": "2026-10-15T20:53:00.482Z",
+    "guardSeconds": 0.5
+  },
+  "songAnchor": {
+    "playbackStartedAt": "2026-10-15T20:52:47.320892Z",
+    "playbackPositionSeconds": 0,
+    "playbackRate": 1
+  },
+  "approvedOneSecondGate": true,
+  "selectedDeadlineMs": 50,
+  "analysisPreparation": {
+    "status": "ANALYSIS_COMPLETE_UNCHANGED_V2",
+    "evidence": "final-laptop-to-host-evidence.json",
+    "nativeDeadlineAgreement": {
+      "host": [
+        "2400"
+      ],
+      "laptop": [
+        "2400"
+      ]
+    }
+  }
+}

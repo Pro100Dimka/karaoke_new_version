@@ -1,0 +1,17 @@
+[ RUN      ] sharedJitterLossCarriesItsMissingMusicalPosition
+[       OK ] sharedJitterLossCarriesItsMissingMusicalPosition
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: an expired original packet cannot move old PCM to a later musical position
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: shared loss is released at its presentation horizon, including timestamp wrap
+FAIL: concealment retains the missing sequence, shared timestamp and audio format
+FAIL: an expired original packet cannot move old PCM to a later musical position
+14 tests failed
