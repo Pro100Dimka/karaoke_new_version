@@ -57,7 +57,8 @@ class RecordingEngine {
     RecordingEngine();
     ~RecordingEngine();
     void prepare(std::string recordingId, std::string filePath, std::uint32_t sampleRateHz,
-                 std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames);
+                 std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames,
+                 bool backing = false);
     void setGeneration(GenerationId generation) noexcept;
     /** leadInFrames: frames of the incoming stream to drop first. The aligned performance trails
      * the music by that lead, so dropping it keeps `playbackPosition` true for the first frame. */
@@ -73,7 +74,10 @@ class RecordingEngine {
                                std::uint32_t frames);
     void push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
               std::span<const float> samples, std::uint32_t frames,
-              RecordingTimeline timeline = {}) noexcept;
+              RecordingTimeline timeline = {}, std::span<const float> backing = {}) noexcept;
+    [[nodiscard]] bool backingEnabled() const noexcept {
+        return backingEnabled_.load(std::memory_order_relaxed);
+    }
     [[nodiscard]] RecordingState state() const noexcept {
         return state_.load(std::memory_order_acquire);
     }
@@ -100,6 +104,7 @@ class RecordingEngine {
         RecordingTimeline timeline{};
     };
     PcmRingBuffer queue_;
+    PcmRingBuffer backingQueue_;
     // One descriptor per possible queued frame also supports arbitrarily small backend packets.
     std::vector<QueuedBlock> blocks_;
     std::vector<float> scratch_;
@@ -111,6 +116,8 @@ class RecordingEngine {
     std::atomic<std::uint32_t> producers_{0};
     std::atomic<std::uint64_t> wakeSequence_{0};
     WavWriter writer_;
+    WavWriter backingWriter_;
+    std::atomic<bool> backingEnabled_{false};
     std::ofstream timelineWriter_;
     std::uint32_t sampleRateHz_{0};
     std::thread worker_;

@@ -25,6 +25,7 @@ RecordingEngine::~RecordingEngine() {
     timelineWriter_.clear();
     drainProducers();
     writer_.abandon();
+    backingWriter_.abandon();
 }
 
 void RecordingEngine::startWorker() {
@@ -57,16 +58,21 @@ void RecordingEngine::drainProducers() noexcept {
 }
 
 void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sampleRateHz,
-                              std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames) {
+                              std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames,
+                              bool backing) {
     constexpr std::array activeStates{RecordingState::Recording, RecordingState::Paused,
                                       RecordingState::Finalizing};
     if (std::ranges::find(activeStates, state()) != activeStates.end()) {
         throw std::logic_error("recording is active");
     }
+    if (backing && tap != RecordingTap::MasterMix)
+        throw std::invalid_argument("backing companion requires the master tap");
 
     epoch_.fetch_add(1);
     drainProducers();
     stopWorker();
+    backingEnabled_.store(false, std::memory_order_relaxed);
+    backingWriter_.abandon();
     if (timelineWriter_.is_open())
         timelineWriter_.close();
     timelineWriter_.clear();
@@ -76,6 +82,10 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     }
     try {
         writer_.open(path, sampleRateHz, channels);
+        if (backing) {
+            backingWriter_.open(path + ".backing.wav", sampleRateHz, channels);
+            backingQueue_.prepare(queueFrames, channels);
+        }
         if (tap == RecordingTap::NetworkInput || tap == RecordingTap::MasterMix) {
             const auto timelinePath = path + ".timeline.csv";
             timelineWriter_.open(
@@ -95,6 +105,7 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
         lastSessionFrame_.store(SessionFrame{0});
         channels_ = channels;
         sampleRateHz_ = sampleRateHz;
+        backingEnabled_.store(backing, std::memory_order_relaxed);
         selectedTap_.store(tap, std::memory_order_relaxed);
         realtimeGapCount_.store(0, std::memory_order_relaxed);
         realtimeOverrunCount_.store(0, std::memory_order_relaxed);
@@ -114,6 +125,7 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     } catch (...) {
         state_.store(RecordingState::Failed);
         writer_.abandon();
+        backingWriter_.abandon();
         if (timelineWriter_.is_open())
             timelineWriter_.close();
         throw;
@@ -237,6 +249,7 @@ void RecordingEngine::fail(std::string_view error) noexcept {
     drainProducers();
     stopWorker();
     writer_.abandon();
+    backingWriter_.abandon();
     if (timelineWriter_.is_open())
         timelineWriter_.close();
     // Even an allocation failure while saving diagnostics must retain the failed state.
@@ -253,7 +266,7 @@ void RecordingEngine::fail(std::string_view error) noexcept {
 
 void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
                            std::span<const float> samples, std::uint32_t frames,
-                           RecordingTimeline timeline) noexcept {
+                           RecordingTimeline timeline, std::span<const float> backing) noexcept {
     const auto epoch = epoch_.load();
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleBlocks_.fetch_add(1, std::memory_order_relaxed);
@@ -273,6 +286,13 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
         releaseProducer();
         return;
     }
+    const auto paired = backingEnabled();
+    if (paired && backing.size() < static_cast<std::size_t>(frames) * channels_) {
+        // Prepare/start can race the preceding render block's staging point. Begin with the
+        // next complete pair; never save unrelated scratch samples as a backing reference.
+        releaseProducer();
+        return;
+    }
     if (const auto leadIn = leadInRemaining_.load(std::memory_order_relaxed); leadIn != 0) {
         const auto dropped = std::min(leadIn, frames);
         leadInRemaining_.store(leadIn - dropped, std::memory_order_relaxed);
@@ -281,6 +301,8 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
             return;
         }
         samples = samples.subspan(static_cast<std::size_t>(dropped) * channels_);
+        if (paired)
+            backing = backing.subspan(static_cast<std::size_t>(dropped) * channels_);
         frames -= dropped;
         sessionFrame = SessionFrame{sessionFrame.value() + dropped};
     }
@@ -290,8 +312,12 @@ void RecordingEngine::push(GenerationId generation, RecordingTap tap, SessionFra
     if (tap != RecordingTap::NetworkInput)
         lastSessionFrame_.store(sessionFrame + frames, std::memory_order_relaxed);
     const auto write = blockWrite_.load(std::memory_order_relaxed);
+    // The sole producer reserves capacity in both queues before publishing either stream.
+    // Only this worker consumes them, and prepare/clear waits for producers, so both pushes
+    // succeed together. One descriptor then publishes their common offset and frame count.
     if (write - blockRead_.load(std::memory_order_acquire) >= blocks_.size() ||
-        !queue_.push(samples, frames)) {
+        frames > queue_.freeFrames() || (paired && frames > backingQueue_.freeFrames()) ||
+        !queue_.push(samples, frames) || (paired && !backingQueue_.push(backing, frames))) {
         // Realtime has one producer. Publish the count only after the gap data is complete.
         const auto index = realtimeGapCount_.load(std::memory_order_relaxed);
         if (index < MaxRecordedGaps) {
@@ -316,6 +342,8 @@ RecordingResult RecordingEngine::result() const {
 
 void RecordingEngine::finalize(std::uint64_t writtenFrames) {
     writer_.close();
+    if (backingEnabled())
+        backingWriter_.close();
     if (timelineWriter_.is_open()) {
         timelineWriter_.close();
         if (!timelineWriter_)
@@ -358,6 +386,9 @@ void RecordingEngine::workerMain() noexcept {
             const auto frames = std::min<std::uint64_t>(2048U, offset - writtenFrames);
             writer_.write(std::span<const float>{scratch_.data(),
                                                  static_cast<std::size_t>(frames) * channels_});
+            if (backingEnabled())
+                backingWriter_.write(std::span<const float>{scratch_.data(),
+                                                            static_cast<std::size_t>(frames) * channels_});
             writtenFrames += frames;
         }
     };
@@ -385,6 +416,12 @@ void RecordingEngine::workerMain() noexcept {
                         throw std::runtime_error("recording queue lost a published block");
                     writer_.write(std::span<const float>{
                         scratch_.data(), static_cast<std::size_t>(frames) * channels_});
+                    if (backingEnabled()) {
+                        if (backingQueue_.pop(scratch_, wanted) != frames)
+                            throw std::runtime_error("recording backing queue lost a published block");
+                        backingWriter_.write(std::span<const float>{
+                            scratch_.data(), static_cast<std::size_t>(frames) * channels_});
+                    }
                     writtenFrames += frames;
                     remaining -= frames;
                 }
@@ -407,6 +444,7 @@ void RecordingEngine::workerMain() noexcept {
                 result_.errorMessage = error.what();
             }
             writer_.abandon();
+            backingWriter_.abandon();
             if (timelineWriter_.is_open())
                 timelineWriter_.close();
             {

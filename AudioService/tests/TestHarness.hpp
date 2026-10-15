@@ -9,6 +9,8 @@
 #include <vector>
 
 namespace Tests {
+void masterCompanionRecordsTheExactRenderedBacking();
+void masterCompanionSharesOverrunsAndLifecycle();
 void networkReferenceRecordsTheActualPreCodecMicrophone();
 void masterRecordingTimelineUsesActualPresentation();
 void recordingTimelineClosesWithLifecycle();

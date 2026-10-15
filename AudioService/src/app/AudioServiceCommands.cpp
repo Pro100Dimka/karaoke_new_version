@@ -462,7 +462,8 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
         recording_.prepare(std::string(request.value("id")), std::string(request.value("path")),
                            network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz,
                            network ? 1U : session_.plan().outputChannels, tap,
-                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz);
+                           network ? VoiceProtocolSampleRateHz : session_.plan().internalSampleRateHz,
+                           boolValue(request.value("backing"), false));
         return ControlResponse{ControlStatus::Ok, "RecordingPrepared"};
     }
     case ControlCommand::StartRecording:

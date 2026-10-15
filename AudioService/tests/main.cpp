@@ -40,6 +40,9 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"masterCompanionRecordsTheExactRenderedBacking",
+         Tests::masterCompanionRecordsTheExactRenderedBacking},
+    Test{"masterCompanionSharesOverrunsAndLifecycle", Tests::masterCompanionSharesOverrunsAndLifecycle},
     Test{"networkReferenceRecordsTheActualPreCodecMicrophone",
          Tests::networkReferenceRecordsTheActualPreCodecMicrophone},
     Test{"masterRecordingTimelineUsesActualPresentation",

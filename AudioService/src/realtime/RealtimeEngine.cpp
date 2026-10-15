@@ -995,6 +995,13 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // Add backing to the headphones, never copy a monitor-limited voice into the recording.
         mixer_.add(output, performance, 1.0F);
     }
+    std::span<const float> recordedBacking;
+    if (recording_.backingEnabled()) {
+        // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
+        // here before the performance aligner reuses buffer 3 for an aligned recording mix.
+        std::copy(performance.begin(), performance.end(), rawMic.begin());
+        recordedBacking = rawMic;
+    }
     if (performanceActive)
         aligner_.add(performance, buffer.frames, 1.0F, 0);
     // The user recording always gets the processed voice exactly once, with the same timeline
@@ -1048,7 +1055,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     recording_.push(generation, RecordingTap::MasterMix, sessionFrame(), output, buffer.frames,
                     {scaleFramePosition(network_.roomTimelineFrame(buffer.presentationTicks, 0),
                                          plan_.internalSampleRateHz, VoiceProtocolSampleRateHz),
-                     0, 0, network_.hasRoomClock() && buffer.presentationTicks > 0});
+                     0, 0, network_.hasRoomClock() && buffer.presentationTicks > 0}, recordedBacking);
     // Last of all, and after the recording: what leaves the speakers follows the Windows volume
     // like every other app, while saved performances keep their own level.
     if (const auto system = systemGain_.load(std::memory_order_relaxed); system != 1.0F)

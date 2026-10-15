@@ -1,6 +1,7 @@
 #include "TestHarness.hpp"
 #include "app/AudioService.hpp"
 #include "backend/fake/FakeAudioBackend.hpp"
+#include "media/WavDecoder.hpp"
 #include "network/AdaptiveJitterBuffer.hpp"
 #include "network/NetworkAudioEngine.hpp"
 #include "network/NetworkPacket.hpp"
@@ -192,6 +193,84 @@ struct NetworkTestAccess {
 };
 
 namespace Tests {
+void masterCompanionRecordsTheExactRenderedBacking() {
+    constexpr std::uint32_t frames = 480, blocks = 32;
+    const auto musicPath = tempRoot / "companion-source-44100.wav";
+    makeTestWav(musicPath, 44'100, 44'100);
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare({});
+    service.session().start();
+    service.realtime().setMicrophoneEnabled(false);
+    service.realtime().setMonitoring(false);
+    service.realtime().setMixerGains(MixerGains{.music = 0.4F, .remote = 0.7F, .master = 0.5F});
+    expect(service.network().addRemoteParticipant("companion-remote"), "remote voice slot exists");
+    service.network().setRoomClock(1'000'000, 1'000'000);
+    service.media().load(MediaSlot::Music, musicPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "44.1 kHz backing is decoded for ordinary 48 kHz rendering");
+    const auto filledBy = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < frames * blocks &&
+           std::chrono::steady_clock::now() < filledBy)
+        std::this_thread::yield();
+    const auto path = tempRoot / "companion-master.wav";
+    expect(service.handleLine("1|PrepareRecording|id=paired|tap=master|backing=true|path=" +
+                              path.string()).status == ControlStatus::Ok &&
+               service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+           "master can request its exact simultaneous backing companion");
+    service.media().play(MediaContext::Karaoke);
+    std::vector<float> input(frames), output(frames * 2U), remote(frames);
+    std::vector<float> processedRemote(frames);
+    DspChain remoteDsp;
+    remoteDsp.prepare(48'000, frames, 1);
+    remoteDsp.setEnabled(true);
+    std::vector<float> expectedMaster, expectedBacking;
+    expectedMaster.reserve(frames * blocks * 2U);
+    expectedBacking.reserve(frames * blocks * 2U);
+    for (std::uint32_t block = 0; block < blocks; ++block) {
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
+            remote[frame] = 0.05F * std::sin((block * frames + frame) * 0.037F);
+        expect(NetworkTestAccess::queueVoice(service.network(), "companion-remote", remote),
+               "the known remote waveform enters the ordinary remote render queue");
+        std::copy(remote.begin(), remote.end(), processedRemote.begin());
+        remoteDsp.process(processedRemote, frames);
+        RealtimeInstrumentation::reset();
+        fake->pump(input, 1, output, 2, block * frames, block * frames);
+        const auto rt = RealtimeInstrumentation::snapshot();
+        expect(rt.allocations == 0 && rt.deallocations == 0 && rt.blockingCalls == 0 &&
+                   rt.diskIoCalls == 0 && rt.networkIoCalls == 0 && rt.ipcCalls == 0,
+               "paired recording has no realtime allocation, blocking or I/O");
+        expectedMaster.insert(expectedMaster.end(), output.begin(), output.end());
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
+            for (std::uint32_t channel = 0; channel < 2U; ++channel)
+                expectedBacking.push_back(output[frame * 2U + channel] - processedRemote[frame] * 0.7F);
+    }
+    expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+           "master and companion finalize together");
+    const auto backingPath = path.string() + ".backing.wav";
+    expect(std::filesystem::exists(backingPath), "the optional exact rendered backing WAV exists");
+    if (!std::filesystem::exists(backingPath))
+        return;
+    for (const auto& [file, expected] : {
+             std::pair{path.string(), std::span<const float>{expectedMaster}},
+             std::pair{backingPath, std::span<const float>{expectedBacking}}}) {
+        WavDecoder decoder;
+        const auto format = decoder.open(file);
+        std::vector<float> actual(expected.size());
+        expect(format.sampleRateHz == 48'000 && format.channels == 2 &&
+                   format.totalFrames == frames * blocks &&
+                   decoder.read(actual, frames * blocks) == frames * blocks,
+               "both files have identical format, start sample and duration");
+        float maximumError = 0.0F;
+        for (std::size_t sample = 0; sample < actual.size(); ++sample)
+            maximumError = std::max(maximumError, std::abs(actual[sample] - expected[sample]));
+        expect(maximumError < 0.00005F,
+               "companion is the exact rendered, gained backing; master additionally has voice");
+    }
+}
+
 void roomQueuePositionCannotCombineANewRenderCursorWithOldPcm() {
     NetworkAudioEngine engine;
     engine.prepare(48'000, 1, 1'440, 120, GenerationId{1});

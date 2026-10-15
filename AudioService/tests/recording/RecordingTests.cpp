@@ -38,6 +38,9 @@ struct RecordingTestAccess {
     static bool timelineOpen(const RecordingEngine& recording) {
         return recording.timelineWriter_.is_open();
     }
+    static bool backingOpen(const RecordingEngine& recording) {
+        return recording.backingWriter_.open();
+    }
     static void failOutput(WavWriter& writer) {
         writer.file_.setstate(std::ios::badbit);
     }
@@ -50,6 +53,46 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+void masterCompanionSharesOverrunsAndLifecycle() {
+    RecordingEngine recording;
+    const auto path = tempRoot / "paired-overrun.wav";
+    recording.prepare("paired", path.string(), 48'000, 1, RecordingTap::MasterMix, 4, true);
+    recording.start(SessionFrame{0}, 0);
+    const std::vector<float> oversizedMaster(8, 0.9F), oversizedBacking(8, 0.8F);
+    const std::array<float, 4> master{0.5F, 0.4F, 0.3F, 0.2F};
+    const std::array<float, 4> backing{0.2F, 0.1F, 0.0F, -0.1F};
+    recording.push(GenerationId{0}, RecordingTap::MasterMix, SessionFrame{0}, oversizedMaster, 8,
+                    {48'000, 0, 0, true}, oversizedBacking);
+    recording.push(GenerationId{0}, RecordingTap::MasterMix, SessionFrame{8}, master, 4,
+                    {48'008, 0, 0, true}, backing);
+    const auto result = recording.stop(SessionFrame{12});
+    expect(result.finalized && result.durationFrames == 12 && result.overrunCount == 1 &&
+               result.gaps.size() == 1 && result.gaps.front().frameCount == 8,
+           "one rejected pair creates one known shared timeline gap");
+    for (const auto& [file, expected] : {
+             std::pair{path.string(), std::span<const float>{master}},
+             std::pair{path.string() + ".backing.wav", std::span<const float>{backing}}}) {
+        WavDecoder decoder;
+        const auto format = decoder.open(file);
+        std::vector<float> actual(12, -1.0F);
+        expect(format.totalFrames == 12 && decoder.read(actual, 12) == 12 &&
+                   std::ranges::all_of(std::span{actual}.first(8), [](float value) { return value == 0.0F; }),
+               "both WAVs insert identical overrun silence at the same sample offsets");
+        for (std::size_t frame = 0; frame < expected.size(); ++frame)
+            expect(std::abs(actual[8 + frame] - expected[frame]) < 0.00005F,
+                   "the next accepted master/backing pair stays sample-aligned after the gap");
+    }
+    expect(!RecordingTestAccess::backingOpen(recording), "successful finalization closes the companion");
+    recording.prepare("failure", (tempRoot / "paired-failure.wav").string(), 48'000, 1,
+                       RecordingTap::MasterMix, 4, true);
+    recording.fail("controlled paired failure");
+    expect(!RecordingTestAccess::backingOpen(recording), "failure abandons both WAV writers");
+    recording.prepare("legacy", (tempRoot / "paired-legacy.wav").string(), 48'000, 1,
+                       RecordingTap::MasterMix, 4);
+    expect(!recording.backingEnabled() && !RecordingTestAccess::backingOpen(recording),
+           "an ordinary master caller keeps its previous single-WAV behavior");
+}
+
 void recordingTimelineClosesWithLifecycle() {
     RecordingEngine recording;
     const auto first = tempRoot / "timeline-prepared.wav";
