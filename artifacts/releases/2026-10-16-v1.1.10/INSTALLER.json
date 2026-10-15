@@ -1,0 +1,10 @@
+{
+  "version": "1.1.10",
+  "appFileVersion": "1.1.10",
+  "bytes": 1106554318,
+  "sha256": "6608FB387779A4D78562643BE831AFEB3DA84ADB08D88C5501B8419A79A8DFB8",
+  "sourceCommit": "d10df920491a4b93d796cc583c172a5dae801974",
+  "build": "PASS",
+  "offlineRuntime": "PASS",
+  "authenticode": "NotSigned"
+}

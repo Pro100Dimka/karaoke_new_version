@@ -1,0 +1,44 @@
+[
+  {
+    "ProcessId": 35064,
+    "ParentProcessId": 33824,
+    "Name": "AD Voice.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe\" --remote-debugging-port=9228"
+  },
+  {
+    "ProcessId": 45716,
+    "ParentProcessId": 35064,
+    "Name": "AD Voice.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe\" --type=gpu-process --disable-gpu-rasterization --force_high_performance_gpu --user-data-dir=\"C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Release Smoke 1.1.10 20261016\" --gpu-preferences=SAAAAAAAAADgAAAEAAAAAAAAAAAAAGAAAQAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAAAAAACAAAAAAAAAAIAAAAAAAAAA== --field-trial-handle=1908,i,16972694032880242270,8744394300202054628,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1916,i,7740906770299673828,11827648071797271652,4 --trace-process-track-uuid=3190708988185955192 --mojo-platform-channel-handle=1864 /prefetch:2"
+  },
+  {
+    "ProcessId": 43636,
+    "ParentProcessId": 35064,
+    "Name": "AD Voice.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe\" --type=utility --utility-sub-type=network.mojom.NetworkService --lang=ru --service-sandbox-type=none --user-data-dir=\"C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Release Smoke 1.1.10 20261016\" --standard-schemes=scene --secure-schemes=scene --fetch-schemes=scene --streaming-schemes=scene --field-trial-handle=1908,i,16972694032880242270,8744394300202054628,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1916,i,7740906770299673828,11827648071797271652,4 --trace-process-track-uuid=3190708989122997041 --mojo-platform-channel-handle=2072 /prefetch:3"
+  },
+  {
+    "ProcessId": 44852,
+    "ParentProcessId": 35064,
+    "Name": "python.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\resources\\python-runtime\\python.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\resources\\python-runtime\\python.exe\" -m backend.main"
+  },
+  {
+    "ProcessId": 22892,
+    "ParentProcessId": 35064,
+    "Name": "AudioService.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\resources\\audio-service\\AudioService.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\resources\\audio-service\\AudioService.exe\""
+  },
+  {
+    "ProcessId": 30292,
+    "ParentProcessId": 35064,
+    "Name": "AD Voice.exe",
+    "ExecutablePath": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe",
+    "CommandLine": "\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe\" --type=renderer --user-data-dir=\"C:\\Users\\YOJIK\\AppData\\Roaming\\AD Voice Release Smoke 1.1.10 20261016\" --standard-schemes=scene --secure-schemes=scene --fetch-schemes=scene --streaming-schemes=scene --app-user-model-id=ADVoice.App.ReleaseSmoke111020261016 --app-path=\"D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\resources\\app\" --enable-sandbox --remote-debugging-port=9228 --video-capture-use-gpu-memory-buffer --lang=ru --device-scale-factor=1 --num-raster-threads=4 --enable-main-frame-before-activation --renderer-client-id=5 --time-ticks-at-unix-epoch=-1792084116243286 --launch-time-ticks=16945939051 --field-trial-handle=1908,i,16972694032880242270,8744394300202054628,262144 --enable-features=PdfUseShowSaveFilePicker --disable-features=DropInputEventsWhilePaintHolding,LocalNetworkAccessChecks,NetworkServiceSandbox,ScreenAIOCREnabled,SpareRendererForSitePerProcess,TraceSiteInstanceGetProcessCreation --variations-seed-version --pseudonymization-salt-handle=1916,i,7740906770299673828,11827648071797271652,4 --trace-process-track-uuid=3190708990997080739 --mojo-platform-channel-handle=3684 --ad-voice-room-participant=005f4170fb1d71d184af2f912f113cbd /prefetch:1"
+  }
+]

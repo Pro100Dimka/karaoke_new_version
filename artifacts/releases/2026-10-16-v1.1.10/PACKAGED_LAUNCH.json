@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-15T21:51:01.8570195Z",
+  "pid": 35064,
+  "path": "D:\\Git\\karaoke_new_version\\.release-cache\\app\\AD Voice\\AD Voice.exe",
+  "fileVersion": "1.1.10",
+  "sourceCommit": "d10df920491a4b93d796cc583c172a5dae801974",
+  "profile": "AD Voice Release Smoke 1.1.10 20261016",
+  "data": "D:\\Git\\karaoke_new_version\\artifacts\\releases\\2026-10-16-v1.1.10\\smoke-runtime\\data",
+  "cdp": 9228
+}

@@ -1,0 +1,11 @@
+{
+    "machine":  "DESKTOP-N0C710F",
+    "branch":  "main",
+    "commit":  "d10df920491a4b93d796cc583c172a5dae801974",
+    "clean":  true,
+    "version":  "1.1.10",
+    "build":  "PASS",
+    "audioServicePath":  "C:\\Users\\pro10\\Documents\\karaoke_new_version\\AudioService\\build-release\\Release\\AudioService.exe",
+    "audioServiceSha256":  "D5A4A2C2B3E1B5B5D45F8666188C5FABAD4AFB405FEBE037F553A4450430EEF8",
+    "frontendBuilt":  true
+}
