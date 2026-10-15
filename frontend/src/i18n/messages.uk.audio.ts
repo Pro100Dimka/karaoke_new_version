@@ -50,6 +50,7 @@ export const audioUk = {
   acousticLatencyUncertaintyHint: "Поправка до синхронізації зберігається окремо від оцінки за часовими мітками. Це не вимірювання окремих затримок входу й виходу.",
   acousticLatencyFailed: "Не вдалося виміряти затримку",
   audioBackendWindows: "Windows",
+  latencyMeasuring: "Вимірюється…",
   lowLatencyMicrophone: "Мінімальна затримка мікрофона",
   lowLatencyMicrophoneHint:
     "Зменшує затримку мікрофона. Інші застосунки можуть тимчасово втратити доступ до цього мікрофона.",

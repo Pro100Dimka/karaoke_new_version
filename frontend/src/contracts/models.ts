@@ -139,7 +139,7 @@ export interface RuntimeAudioConfiguration {
   /** The parts of estimatedLatencyMs, each from its own source; null where AudioService gave none. */
   latencyParts?: LatencyParts;
   /** Device timeline observation or fallback model; never a full physical loopback measurement. */
-  latencyEstimateSource?: "device-timeline" | "driver-model" | "unavailable";
+  latencyEstimateSource?: "device-timeline" | "driver-model" | "measuring" | "unavailable";
   captureTimestampAdjusted?: boolean;
   /** Callback elapsed times and waiting; NOT additional parts of estimatedLatencyMs. */
   latencyTiming?: {

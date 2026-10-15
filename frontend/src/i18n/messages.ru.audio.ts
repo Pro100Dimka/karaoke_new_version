@@ -45,6 +45,7 @@ export const audioRu = {
   acousticLatencyUncertaintyHint: "Поправка к синхронизации сохраняется отдельно от оценки по временным меткам. Это не измерение отдельных задержек входа и выхода.",
   acousticLatencyFailed: "Не удалось измерить задержку",
   audioBackendWindows: "Windows",
+  latencyMeasuring: "Измеряется…",
   lowLatencyMicrophone: "Минимальная задержка микрофона",
   lowLatencyMicrophoneHint:
     "Уменьшает задержку микрофона. Другие приложения могут временно потерять доступ к этому микрофону.",

@@ -725,6 +725,10 @@ std::string AudioService::diagnostics() {
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "LOCAL LATENCY BUDGET\n"
         << "LocalObservedMonitoringMs: " << observedLatencyMs << '\n'
+        << "LocalObservedLatencyState: "
+        << (observedLatencyNs >= 0 ? "AVAILABLE"
+            : realtime_.observedMonitoringLatencySettled() ? "UNAVAILABLE" : "MEASURING")
+        << '\n'
         << "LocalObservedLatencyScope: CAPTURE_TIMELINE_TO_PRESENTATION_PLUS_ALGORITHMIC_DSP\n"
         << "LocalObservedLatencyIncludes: DELIVERY_WORK_WAIT_QUEUES_ONCE\n"
         << "LocalObservedLatencyKind: SIGNAL_AGE_NOT_CPU_TIME\n"

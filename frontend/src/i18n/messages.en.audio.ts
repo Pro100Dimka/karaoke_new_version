@@ -45,6 +45,7 @@ export const audioEn = {
   acousticLatencyUncertaintyHint: "The synchronization correction is kept separately from the timestamp estimate. It does not measure input and output delays individually.",
   acousticLatencyFailed: "Could not measure the latency",
   audioBackendWindows: "Windows",
+  latencyMeasuring: "Measuring…",
   lowLatencyMicrophone: "Minimum microphone latency",
   lowLatencyMicrophoneHint:
     "Reduces microphone latency. Other apps may temporarily lose access to this microphone.",

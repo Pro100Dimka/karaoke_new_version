@@ -89,7 +89,10 @@ export const runtimeConfigurationFromDiagnostics = (
   const observed = finiteOrNull(values.LocalObservedMonitoringMs);
   const model = estimatedLatency(values, sampleRate);
   const available = values.LocalCaptureEstimateSource !== "NO_CAPTURE" && sampleRate > 0;
-  const latency = available ? observed ?? model : null;
+  // Right after streams open no full microphone block has reached render yet: that is "still
+  // measuring", and the driver model must not stand in for the path being measured.
+  const measuring = values.LocalObservedLatencyState === "MEASURING";
+  const latency = available && !measuring ? observed ?? model : null;
   const elapsedP95Ms = (metric: string) => {
     if (values[`${metric}Samples`] !== undefined && !(Number(values[`${metric}Samples`]) > 0))
       return null;
@@ -125,7 +128,7 @@ export const runtimeConfigurationFromDiagnostics = (
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
     estimatedLatencyMs: latency,
-    latencyEstimateSource: latency === null ? "unavailable"
+    latencyEstimateSource: available && measuring ? "measuring" : latency === null ? "unavailable"
       : observed !== null ? "device-timeline" : "driver-model",
     captureTimestampAdjusted: values.LocalCaptureTimestampAdjusted === "1",
     latencyParts: latencyParts(values),

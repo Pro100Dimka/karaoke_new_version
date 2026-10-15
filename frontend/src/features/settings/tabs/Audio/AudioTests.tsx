@@ -91,7 +91,8 @@ export const AudioTests = ({
             <div className="audioLatencyRow">
               <Typography variant="h3" as="strong">
                 {latencyMs === null
-                  ? t("unavailable")
+                  ? t(audioAvailable && runtime.latencyEstimateSource === "measuring"
+                      ? "latencyMeasuring" : "unavailable")
                   : t("approximateMillisecondsValue", {
                       value: Math.round(latencyMs),
                     })}

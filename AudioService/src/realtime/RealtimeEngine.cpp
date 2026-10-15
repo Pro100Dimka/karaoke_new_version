@@ -97,6 +97,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     // Acoustic correlation is optional diagnostics, not a worker started for normal singing.
     observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
     captureTimelineUsable_.store(false, std::memory_order_relaxed);
+    observedLatencySettled_.store(false, std::memory_order_relaxed);
     updateGraphSnapshot();
     latency_.set(LatencyRegistry::Stage::ClockBridge,
                  LatencyRegistry::convertFrames(plan.clockBridgeCapacityFrames,
@@ -905,6 +906,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                    dspLatencyFrames(), plan_.internalSampleRateHz)
         : -1;
     observedMonitoringLatencyNs_.store(observedAge, std::memory_order_relaxed);
+    if (micFrames == buffer.frames && buffer.frames != 0)
+        observedLatencySettled_.store(true, std::memory_order_relaxed);
     if (monitoring && microphoneEnabled && !diagnosticInputEnabled_.load(std::memory_order_relaxed) &&
         micFrames != 0 && micCaptured > 0 && presentationTicks > micCaptured) {
         const auto dspNs = static_cast<MonotonicTicks>(dspLatencyFrames()) *

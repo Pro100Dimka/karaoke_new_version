@@ -171,6 +171,9 @@ class RealtimeEngine final : public IAudioCallback {
     [[nodiscard]] MonotonicTicks observedMonitoringLatencyNs() const noexcept {
         return observedMonitoringLatencyNs_.load(std::memory_order_relaxed);
     }
+    [[nodiscard]] bool observedMonitoringLatencySettled() const noexcept {
+        return observedLatencySettled_.load(std::memory_order_relaxed);
+    }
     [[nodiscard]] MonotonicTicks acousticLatencyNs() const noexcept {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
     }
@@ -420,6 +423,9 @@ class RealtimeEngine final : public IAudioCallback {
     PassiveLatencyEstimator passiveLatency_; // dormant; no automatic acoustic experiment
     std::atomic<MonotonicTicks> observedMonitoringLatencyNs_{-1};
     std::atomic<bool> captureTimelineUsable_{false};
+    // False until the clock bridge first hands render a full microphone block after prepare(): an
+    // unknown observed latency before that means "still measuring", not "unusable timestamps".
+    std::atomic<bool> observedLatencySettled_{false};
     double voiceLateFrames_{-1.0};           // render thread only; negative until measured
     MonotonicTicks lastRenderAt_{0};         // render thread only
     std::uint32_t bridgeFillAfterRenderFrames_{0}; // render thread only
