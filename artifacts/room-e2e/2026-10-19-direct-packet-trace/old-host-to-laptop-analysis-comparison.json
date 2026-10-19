@@ -1,0 +1,235 @@
+{
+  "scope": "Reanalysis of the frozen old take only; does not replace the old physical report or classify packets from a future take.",
+  "gate": 0.2,
+  "waveformTimeScaleChanged": false,
+  "backingAnalysisChanged": false,
+  "analyzerSha256": "94f8425ee5de00debfaedb65c9b17254d31bcba1fa9753140f339fa4c8afc29c",
+  "testsSha256": "dfb5b360bb69d983e3d697837cfdcfc9ee53d83f204c65aa5a69d6dcaa6dbdf7",
+  "tests": {
+    "dedicatedBefore": "2 FAIL as expected",
+    "dedicatedAfter": "2 PASS",
+    "fullAfter": "31 PASS, 26.563 seconds"
+  },
+  "cells": [
+    {
+      "songSeconds": 32.0,
+      "receiverFileSeconds": 27.621375,
+      "unchangedVoiceActiveMs": 820,
+      "old": {
+        "micNcc": 0.18044017313903174,
+        "secondPeakNcc": 0.07516327927177358,
+        "uniquePeak": true,
+        "accepted": false
+      },
+      "corrected": {
+        "micNcc": 0.24682827292240028,
+        "secondPeakNcc": 0.07752127258021174,
+        "uniquePeak": true,
+        "accepted": true
+      },
+      "cause": "INTEGER_8KHZ_LAG_GRID_FALSE_NEGATIVE"
+    },
+    {
+      "songSeconds": 39.0,
+      "receiverFileSeconds": 34.621375,
+      "unchangedVoiceActiveMs": 720,
+      "old": {
+        "micNcc": 0.12159332988169626,
+        "secondPeakNcc": 0.08650278821713678,
+        "uniquePeak": true,
+        "accepted": false
+      },
+      "corrected": {
+        "micNcc": 0.12276676652205155,
+        "secondPeakNcc": 0.09198733012330779,
+        "uniquePeak": true,
+        "accepted": false
+      },
+      "cause": "NOT_RESOLVED_BY_FINE_GRID; continuous historical packet/render events unavailable"
+    },
+    {
+      "songSeconds": 73.6079375,
+      "receiverFileSeconds": 69.22925,
+      "unchangedVoiceActiveMs": 620,
+      "old": {
+        "micNcc": 0.17946631841030067,
+        "secondPeakNcc": 0.06864343143648313,
+        "uniquePeak": true,
+        "accepted": false
+      },
+      "corrected": {
+        "micNcc": 0.23633416357453654,
+        "secondPeakNcc": 0.07861983330803052,
+        "uniquePeak": true,
+        "accepted": true
+      },
+      "cause": "INTEGER_8KHZ_LAG_GRID_FALSE_NEGATIVE"
+    }
+  ],
+  "oldUnknown": [
+    {
+      "songSeconds": 38.03867,
+      "durationMs": 60,
+      "originalPositive20msNccMinMax": [
+        0.1486625569337396,
+        0.17601116793142013
+      ],
+      "constantWholeEventCandidateNcc": 0.184742107541637,
+      "candidateSignedNcc": -0.184742107541637,
+      "candidateMinusClockMs": 83.75705857707362,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 38.91867,
+      "durationMs": 80,
+      "originalPositive20msNccMinMax": [
+        0.16510639503610902,
+        0.19908769982760657
+      ],
+      "constantWholeEventCandidateNcc": 0.19984231182132708,
+      "candidateSignedNcc": -0.19984231182132708,
+      "candidateMinusClockMs": -66.47789381019538,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 39.17867,
+      "durationMs": 80,
+      "originalPositive20msNccMinMax": [
+        0.1530741145531943,
+        0.19711781010490062
+      ],
+      "constantWholeEventCandidateNcc": 0.35246090855702233,
+      "candidateSignedNcc": 0.35246090855702233,
+      "candidateMinusClockMs": 29.937944997116574,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 70.47867,
+      "durationMs": 60,
+      "originalPositive20msNccMinMax": [
+        0.14392516865505733,
+        0.1681466624715369
+      ],
+      "constantWholeEventCandidateNcc": 0.9378324530057304,
+      "candidateSignedNcc": 0.9378324530057304,
+      "candidateMinusClockMs": -24.956259304482955,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 76.19867,
+      "durationMs": 80,
+      "originalPositive20msNccMinMax": [
+        0.09206522450778856,
+        0.1804181011713253
+      ],
+      "constantWholeEventCandidateNcc": 0.30117960384682024,
+      "candidateSignedNcc": 0.30117960384682024,
+      "candidateMinusClockMs": -20.72143853867601,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 85.39867,
+      "durationMs": 80,
+      "originalPositive20msNccMinMax": [
+        0.10713970749992684,
+        0.19861111963335762
+      ],
+      "constantWholeEventCandidateNcc": 0.4986756108120591,
+      "candidateSignedNcc": 0.4986756108120591,
+      "candidateMinusClockMs": -20.78921468423505,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 113.93867,
+      "durationMs": 60,
+      "originalPositive20msNccMinMax": [
+        0.16323725638264994,
+        0.1740948349183177
+      ],
+      "constantWholeEventCandidateNcc": 0.4899080851047451,
+      "candidateSignedNcc": 0.4899080851047451,
+      "candidateMinusClockMs": -104.19250424718484,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    },
+    {
+      "songSeconds": 130.75867,
+      "durationMs": 80,
+      "originalPositive20msNccMinMax": [
+        0.14229492855327663,
+        0.19584551945805626
+      ],
+      "constantWholeEventCandidateNcc": 0.28898673970600647,
+      "candidateSignedNcc": 0.28898673970600647,
+      "candidateMinusClockMs": 21.532552476099227,
+      "classification": "UNRESOLVED_PACKET_PROVENANCE; short waveform candidates cannot prove REAL or PLC"
+    }
+  ],
+  "oldOverall": "FAIL",
+  "correctedOverall": "FAIL",
+  "correctedOverallLagMs": null,
+  "correctedOverallDrift": null,
+  "oldUnknownIntervals": [
+    {
+      "songSeconds": 38.03867,
+      "durationMs": 60
+    },
+    {
+      "songSeconds": 38.91867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 39.17867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 70.47867,
+      "durationMs": 60
+    },
+    {
+      "songSeconds": 76.19867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 85.39867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 113.93867,
+      "durationMs": 60
+    },
+    {
+      "songSeconds": 130.75867,
+      "durationMs": 80
+    }
+  ],
+  "correctedUnknownIntervals": [
+    {
+      "songSeconds": 38.03867,
+      "durationMs": 60
+    },
+    {
+      "songSeconds": 38.91867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 39.17867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 70.47867,
+      "durationMs": 60
+    },
+    {
+      "songSeconds": 76.19867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 85.39867,
+      "durationMs": 80
+    },
+    {
+      "songSeconds": 113.91867,
+      "durationMs": 80
+    }
+  ]
+}

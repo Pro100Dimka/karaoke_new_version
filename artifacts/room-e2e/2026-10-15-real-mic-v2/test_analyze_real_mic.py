@@ -350,6 +350,31 @@ class RealMicrophoneAnalysis(unittest.TestCase):
         self.assertGreater(match["secondPeakNcc"], .99)
         self.assertFalse(match["uniquePeak"])
 
+    def fractional_lag_fixture(self):
+        rng = np.random.default_rng(1045)
+        count = 4 * self.rate
+        frequencies = np.fft.rfftfreq(count, 1 / self.rate)
+        band = (frequencies >= 300) & (frequencies <= 3400)
+        spectrum = np.fft.rfft(rng.normal(size=count)) * band
+        reference = np.fft.irfft(spectrum, count)
+        shifted = np.fft.irfft(spectrum * np.exp(2j * np.pi * frequencies / self.rate * .5), count)[self.rate:2 * self.rate]
+        unrelated = np.fft.irfft(np.fft.rfft(rng.normal(size=count)) * band, count)[self.rate:2 * self.rate]
+        segment = .26 * shifted / shifted.std() + np.sqrt(1 - .26 ** 2) * unrelated / unrelated.std()
+        return reference, segment
+
+    def test_fractional_lag_peak_does_not_fail_unchanged_ncc_gate_on_integer_grid(self):
+        reference, segment = self.fractional_lag_fixture()
+        match = analysis.locate(segment, reference, self.rate - 1000, self.rate + 1000, self.rate)
+        self.assertGreater(match["ncc"], .24)
+        self.assertLess(abs(match["position"] - (self.rate + .5)), .1)
+        self.assertTrue(match["uniquePeak"])
+
+    def test_fractional_lag_competitor_is_refined_before_uniqueness_gate(self):
+        reference, segment = self.fractional_lag_fixture()
+        match = analysis.locate(segment, np.tile(reference, 2), self.rate - 1000, 5 * self.rate + 1000, self.rate)
+        self.assertGreater(match["secondPeakNcc"], .24)
+        self.assertFalse(match["uniquePeak"])
+
     def test_equal_repeated_candidates_cannot_pass_identification(self):
         sender = np.tile(self.sender[:self.rate // 4], 400)
         n = np.arange(96 * self.rate)

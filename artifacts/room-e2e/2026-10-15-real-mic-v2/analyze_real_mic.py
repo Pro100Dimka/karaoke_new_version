@@ -33,8 +33,9 @@ def read_channel(path, channel=0, resample=True):
 def locate(segment, reference, start, stop, rate, polarity_free=True, backing=False):
     """True locally normalized, DC-removed NCC; positions are in caller samples.
 
-    Backing initially uses raw 4 kHz PCM, as in TEST_PLAN. Main vocal correlation
-    remains 8 kHz so the entire 300–3400 Hz band is represented.
+    Backing initially uses raw 4 kHz PCM, as in TEST_PLAN. The 8 kHz vocal
+    representation preserves 300–3400 Hz; constant 6x interpolation searches
+    fractional lag at 48 kHz without changing either waveform's time scale.
     """
     if backing and rate == RATE:
         result = locate(resample_poly(segment, 1, 2), resample_poly(reference, 1, 2),
@@ -50,6 +51,17 @@ def locate(segment, reference, start, stop, rate, polarity_free=True, backing=Fa
              "uniquePeak": False, "secondPeakPosition": None}
     if stop <= start or len(segment) < 3:
         return empty
+    if rate == RATE and not backing:
+        # An integer 8 kHz lag can miss a narrow high-frequency NCC maximum.
+        # Search the same entire segment and all competing peaks on one finer
+        # grid; refining only the winning coarse peak could hide ambiguity.
+        result = locate(resample_poly(segment, 6, 1),
+                        resample_poly(reference[start:stop + len(segment)], 6, 1),
+                        0, (stop - start) * 6, rate * 6, polarity_free=polarity_free)
+        for field in ("position", "secondPeakPosition"):
+            if result[field] is not None:
+                result[field] = start + result[field] / 6
+        return result
     segment = segment - np.mean(segment)
     segment_energy = float(np.dot(segment, segment))
     if segment_energy < 1e-16:
