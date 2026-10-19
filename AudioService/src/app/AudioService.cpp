@@ -427,6 +427,7 @@ std::string AudioService::diagnostics() {
     const auto music = media_.snapshot(MediaSlot::Music);
     const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
     const auto net = network_.diagnostics();
+    const auto fullTrace = network_.diagnosticPacketTrace().status();
     const auto sig = signal_.snapshot();
     const auto observedAt = monotonicTicksNow();
     const auto presentationPosition = roomPlaybackFrame(observedAt);
@@ -705,6 +706,14 @@ std::string AudioService::diagnostics() {
         << "OutputHardwareMute: " << ((backend.outputHardwareSupport & 2U) != 0 ? 1 : 0) << '\n'
         << "BackendOutputNonzeroBlocks: " << backend.outputNonzeroBlocks << '\n'
         << "BackendOutputPeak: " << backend.outputPeak << '\n'
+        << "FullPacketTraceActive: " << fullTrace.active << '\n'
+        << "FullPacketTraceEpoch: " << fullTrace.captureEpoch << '\n'
+        << "FullPacketTraceSenderEvents: " << fullTrace.senderEvents << '\n'
+        << "FullPacketTraceReceiveEvents: " << fullTrace.receiveEvents << '\n'
+        << "FullPacketTraceRenderEvents: " << fullTrace.renderEvents << '\n'
+        << "FullPacketTraceSenderOverflow: " << fullTrace.senderOverflow << '\n'
+        << "FullPacketTraceReceiveOverflow: " << fullTrace.receiveOverflow << '\n'
+        << "FullPacketTraceRenderOverflow: " << fullTrace.renderOverflow << '\n'
         << "SystemVolumeGain: " << realtime_.systemGain() << '\n'
         << "MicrophoneEnabled: " << (realtime_.microphoneEnabled() ? 1 : 0) << '\n'
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'

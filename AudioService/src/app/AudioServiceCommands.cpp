@@ -259,6 +259,30 @@ std::optional<ControlResponse> AudioService::handleMixerControl(const ControlReq
     case ControlCommand::SetDiagnosticRoomInput: {
         if (!roomE2eEnabled())
             return ControlResponse{ControlStatus::NotSupported, "Room E2E mode is disabled"};
+        if (const auto mode = request.value("packetTrace"); !mode.empty()) {
+            auto& trace = network_.diagnosticPacketTrace();
+            try {
+                if (mode == "start") {
+                    if (!trace.status().prepared)
+                        trace.prepare();
+                    trace.start();
+                } else if (mode == "stop") {
+                    trace.stop();
+                } else if (mode == "export") {
+                    const auto prefix = request.value("tracePath");
+                    if (prefix.empty() || trace.active())
+                        return ControlResponse{ControlStatus::InvalidRequest,
+                                               "Packet trace export requires a stopped capture and path"};
+                    trace.exportCsv(std::string{prefix});
+                } else {
+                    return ControlResponse{ControlStatus::InvalidRequest,
+                                           "Unknown packet trace action"};
+                }
+                return ControlResponse{ControlStatus::Ok, "DiagnosticPacketTraceUpdated"};
+            } catch (const std::exception& error) {
+                return ControlResponse{ControlStatus::InvalidRequest, error.what()};
+            }
+        }
         const auto frequency = floatValue(request.value("frequencyHz"), 0.0F);
         const auto gain = floatValue(request.value("gain"), 0.0F);
         const auto pilotGain = floatValue(request.value("pilotGain"), 0.0F);

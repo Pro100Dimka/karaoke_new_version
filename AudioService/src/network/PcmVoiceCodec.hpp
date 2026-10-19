@@ -54,6 +54,8 @@ constexpr float FullScale = 32767.0F;
  */
 class PcmPlayoutConcealer {
   public:
+    [[nodiscard]] std::uint32_t missingFrames() const noexcept { return missingFrames_; }
+    [[nodiscard]] std::uint32_t recoveryFrames() const noexcept { return recoveryFrames_; }
     void reset() noexcept {
         written_ = available_ = missingFrames_ = periodFrames_ = recoveryFrames_ = 0;
         lastOutput_ = recoveryFrom_ = 0.0F;

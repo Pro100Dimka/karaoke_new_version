@@ -9,6 +9,21 @@
 #include <vector>
 
 namespace Tests {
+void rejectedPcmPacketsCannotSeedReceiveLossConcealment();
+void traceRejectsAnOldTakeTokenAfterImmediateRearm();
+void packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender();
+void ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay();
+void packetTraceFollowsAdmittedFramesIntoUnchangedRender();
+void fullSongTraceRetainsFirstMiddleAndLastPacketWithoutOverwrite();
+void traceOverflowIsExplicitAndDoesNotOverwriteEarlierEvents();
+void stoppedTraceRejectsPacketsAndNewTakeDoesNotInheritOldEvents();
+void traceAppendDoesNotAllocateOrBlockOnRealtimeThread();
+void stoppedTraceExportsExactPacketAndQueueJoinFields();
+void traceStopAndRearmAreSafeAgainstConcurrentProducers();
+void tracePcmMetricsIdentifyContentWithoutChangingSamples();
+void pcmRingSourceTagsFollowPartialMultichannelOperations();
+void pcmRingSourceTagsPublishWithPcmAcrossThreads();
+void pcmRingTransfersIdentifyExactQueueSpans();
 void masterCompanionRecordsTheExactRenderedBacking();
 void masterCompanionSharesOverrunsAndLifecycle();
 void networkReferenceRecordsTheActualPreCodecMicrophone();

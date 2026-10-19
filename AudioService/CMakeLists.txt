@@ -34,6 +34,7 @@ option(AUDIOSERVICE_ENABLE_ASIO "Build native ASIO backend on Windows" ON)
 option(AUDIOSERVICE_ENABLE_MSVC_ANALYSIS "Enable MSVC code analysis" OFF)
 
 set(AUDIOSERVICE_CORE_SOURCES
+    src/network/VoicePacketTrace.cpp
     src/realtime/RealtimeInstrumentation.cpp
     src/realtime/RealtimeBufferPool.cpp
     src/diagnostics/GraphIntrospection.cpp
@@ -169,6 +170,7 @@ if(AUDIOSERVICE_BUILD_TESTS)
         tests/clock/ClockTests.cpp
         tests/analysis/SignalTests.cpp
         tests/network/NetworkTests.cpp
+        tests/network/VoicePacketTraceTests.cpp
         tests/network/NativeVoiceRelayTests.cpp
         tests/network/RoomTimingTests.cpp
         tests/network/NetworkSimulationTests.cpp

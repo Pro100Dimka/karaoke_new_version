@@ -15,16 +15,25 @@
 
 class PcmRingBuffer {
   public:
+    struct Transfer {
+        std::uint64_t epoch{0}, firstFrame{0};
+        std::uint32_t frames{0};
+        bool valid{false};
+    };
+
     PcmRingBuffer() = default;
     PcmRingBuffer(std::uint32_t capacityFrames, std::uint32_t channels);
 
     // prepare requires stopped producers/consumers; clear drains them on a non-realtime thread.
     void prepare(std::uint32_t capacityFrames, std::uint32_t channels, bool trackFrameTags = false);
     void clear() noexcept;
+    // Optional diagnostic spans use the same publication lease as their PCM; empty reads keep
+    // a valid cursor, while rejected calls invalidate the span. No queue position is changed.
     [[nodiscard]] bool push(std::span<const float> interleaved, std::uint32_t frames,
-                            std::uint8_t frameTag = 1) noexcept;
+                            std::uint8_t frameTag = 1, Transfer* transfer = nullptr) noexcept;
     [[nodiscard]] std::uint32_t pop(std::span<float> output, std::uint32_t frames,
-                                    std::span<std::uint8_t> frameTags = {}) noexcept;
+                                    std::span<std::uint8_t> frameTags = {},
+                                    Transfer* transfer = nullptr) noexcept;
     [[nodiscard]] std::uint32_t peek(std::span<float> output, std::uint32_t frames) const noexcept;
     std::uint32_t discard(std::uint32_t frames) noexcept;
     [[nodiscard]] std::uint32_t availableFrames() const noexcept;
@@ -44,10 +53,12 @@ class PcmRingBuffer {
     [[nodiscard]] bool enter() const noexcept;
     void leave() const noexcept;
     [[nodiscard]] bool pushAvailable(std::span<const float> samples, std::uint32_t frames,
-                                     std::uint8_t frameTag = 1) noexcept;
+                                     std::uint8_t frameTag = 1,
+                                     Transfer* transfer = nullptr) noexcept;
     [[nodiscard]] std::uint32_t peekAvailable(std::span<float> output,
                                               std::uint32_t frames,
-                                              std::span<std::uint8_t> frameTags = {}) const noexcept;
+                                              std::span<std::uint8_t> frameTags = {},
+                                              Transfer* transfer = nullptr) const noexcept;
     std::uint32_t discardAvailable(std::uint32_t frames) noexcept;
     mutable std::atomic<std::uint32_t> users_{0};
     mutable std::atomic_flag clearing_ = ATOMIC_FLAG_INIT;

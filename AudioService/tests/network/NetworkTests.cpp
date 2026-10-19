@@ -169,6 +169,11 @@ struct NetworkTestAccess {
         const auto* slot = engine.slotForId(participant);
         return slot ? slot->queue.availableFrames() : 0U;
     }
+    static std::vector<float> concealReceivePcm(NetworkAudioEngine& engine,
+                                               std::string_view participant,
+                                               std::uint32_t frames) {
+        return engine.slotForId(participant)->pcmLossConcealer.conceal(frames, engine.channels_);
+    }
     static void seedLateCutSeries(NetworkAudioEngine& engine, std::string_view participant,
                                   std::uint32_t current, std::uint32_t maximum) {
         auto* slot = engine.slotForId(participant);
@@ -2315,6 +2320,67 @@ void pcmRecoveryPreviewDoesNotCommitAnUnqueuedPacket() {
     expect(next.front() == -0.2F, "only admission of real PCM commits recovery");
 }
 
+void rejectedPcmPacketsCannotSeedReceiveLossConcealment() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120, Capacity = Rate / 2U;
+    constexpr std::uint32_t Target = 2'400;
+    const auto seed = PcmVoiceCodec::encode(std::vector<float>(Frames, 0.2F));
+    const auto rejected = PcmVoiceCodec::encode(std::vector<float>(Frames, -0.6F));
+    for (const bool queueFull : {false, true}) {
+        NetworkAudioEngine observed, control;
+        for (auto* engine : {&observed, &control}) {
+            engine->prepare(Rate, 1, Capacity, Frames, GenerationId{1});
+            engine->setSharedTimeline(true);
+            engine->setRoomPlayoutDelay(50.0F);
+            expect(engine->addRemoteParticipant("rejected-singer"), "PCM rejection source joins");
+            NetworkTestAccess::useSinglePacketReorder(*engine, "rejected-singer");
+            NetworkTestAccess::pumpRemotePackets(*engine, "rejected-singer",
+                NetworkAudioPacket{1, SharedAudioTimelineFlag, 1, Frames, seed, VoiceCodec::Pcm16});
+        }
+        auto& trace = observed.diagnosticPacketTrace();
+        trace.prepare({0, 16, 4});
+        trace.start();
+        std::uint64_t timestamp = Frames;
+        if (queueFull) {
+            const auto queued = NetworkTestAccess::queuedFrames(observed, "rejected-singer");
+            expect(queued < Capacity, "previous admitted PCM leaves room for a controlled full FIFO");
+            expect(NetworkTestAccess::queueVoice(observed, "rejected-singer",
+                       std::vector<float>(Capacity - queued, 0.0F), false),
+                   "fill the existing FIFO without changing receive concealment history");
+            // Align the packet with the full FIFO's tail so it reaches push, rather than the
+            // separate deadline rejection. The next fixed-size admission must fail capacity.
+            timestamp = Capacity - Target;
+        } else {
+            std::array<float, Frames> output{};
+            for (auto* engine : {&observed, &control})
+                (void)engine->renderRemote(GenerationId{1}, output, Frames, 6'000);
+        }
+        NetworkTestAccess::pumpRemotePackets(observed, "rejected-singer",
+            NetworkAudioPacket{2, timestamp | SharedAudioTimelineFlag, 1, Frames, rejected,
+                               VoiceCodec::Pcm16});
+        trace.stop();
+        const auto decisions = trace.receiveEvents();
+        const auto decision = std::ranges::find_if(decisions, [](const auto& event) {
+            return event.packet.sequence == 2 &&
+                   event.stage == VoicePacketTrace::ReceiveStage::Decision;
+        });
+        const auto reason = queueFull ? VoicePacketTrace::ReceiveReason::QueueFull
+                                      : VoicePacketTrace::ReceiveReason::QueueLate;
+        expect(decision != decisions.end() && decision->reason == reason &&
+                   decision->decodedKind == VoicePacketTrace::DecodedKind::Real &&
+                   !decision->queueAccepted,
+               queueFull ? "actual drain rejects decoded REAL when its PCM FIFO is full"
+                         : "actual drain rejects the entire decoded REAL packet after deadline");
+        if (!queueFull && decision != decisions.end())
+            expect(decision->lateSkipFrames >= Frames,
+                   "the deadline case must discard the whole packet, not admit a partial tail");
+        const auto next = NetworkTestAccess::concealReceivePcm(observed, "rejected-singer", Frames);
+        const auto expected = NetworkTestAccess::concealReceivePcm(control, "rejected-singer", Frames);
+        expect(next == expected && !next.empty() && next.front() > 0.15F,
+               queueFull ? "queue-full rejection cannot seed the next PCM concealment"
+                         : "fully late rejection cannot seed the next PCM concealment");
+    }
+}
+
 void directRenderContinuityBoundsSavedGapDurations() {
     // These are the saved PCM gap durations, not a replay of unavailable packet arrival times.
     // No receive-side Lost event occurs: the realtime reader alone must cover the absent audio.
@@ -3768,6 +3834,167 @@ void roomRouteHistoryResetsWithRouteIdentity() {
         expect(network.diagnostics().participants.front().stableBlocks == (change.preserves ? before : 0U),
                change.message);
     }
+}
+
+void packetTraceFollowsAdmittedFramesIntoUnchangedRender() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120;
+    NetworkAudioEngine observed, control;
+    for (auto* engine : {&observed, &control}) {
+        engine->prepare(Rate, 1, Rate / 2U, Frames, GenerationId{1});
+        engine->setSharedTimeline(true);
+        engine->setRoomPlayoutDelay(50.0F);
+        expect(engine->addRemoteParticipant("trace-singer"), "trace singer joins");
+        NetworkTestAccess::bypassRemoteEffects(*engine, "trace-singer");
+        NetworkTestAccess::useSinglePacketReorder(*engine, "trace-singer");
+    }
+    auto& trace = observed.diagnosticPacketTrace();
+    trace.prepare({16, 128, 8'192});
+    trace.start();
+    std::vector<float> voice(Frames), actual(Frames), expected(Frames);
+    for (std::uint32_t frame = 0; frame < Frames; ++frame)
+        voice[frame] = 0.2F * static_cast<float>(std::sin(frame * 0.11));
+    const auto payload = PcmVoiceCodec::encode(voice);
+    for (auto* engine : {&observed, &control})
+        NetworkTestAccess::pumpRemotePackets(*engine, "trace-singer",
+            NetworkAudioPacket{11, SharedAudioTimelineFlag, 1, Frames, payload, VoiceCodec::Pcm16});
+    RealtimeInstrumentation::reset();
+    for (std::uint64_t position = 0; position < 3'120; position += Frames) {
+        {
+            RealtimeScope scope;
+            (void)observed.renderRemote(GenerationId{1}, actual, Frames, position);
+        }
+        (void)control.renderRemote(GenerationId{1}, expected, Frames, position);
+        expect(actual == expected, "diagnostic trace must preserve every rendered PCM sample");
+    }
+    std::chrono::nanoseconds observedTime{0}, controlTime{0};
+    constexpr std::uint32_t MeasuredBlocks = 4'096;
+    for (std::uint32_t block = 0; block < MeasuredBlocks; ++block) {
+        expect(NetworkTestAccess::queueVoice(observed, "trace-singer", voice) &&
+                   NetworkTestAccess::queueVoice(control, "trace-singer", voice),
+               "bounded performance comparison gets the same real PCM on both paths");
+        const auto position = 3'120ULL + static_cast<std::uint64_t>(block) * Frames;
+        {
+            RealtimeScope realtime;
+            const auto begin = std::chrono::steady_clock::now();
+            (void)observed.renderRemote(GenerationId{1}, actual, Frames, position);
+            const auto middle = std::chrono::steady_clock::now();
+            (void)control.renderRemote(GenerationId{1}, expected, Frames, position);
+            const auto end = std::chrono::steady_clock::now();
+            observedTime += middle - begin;
+            controlTime += end - middle;
+        }
+        expect(actual == expected, "tracing preserves PCM throughout the measured comparison");
+    }
+    std::cout << "TRACE_RENDER_BUDGET blocks=" << MeasuredBlocks << " frames=" << Frames
+              << " enabledMeanNs=" << observedTime.count() / MeasuredBlocks
+              << " disabledMeanNs=" << controlTime.count() / MeasuredBlocks
+              << " packetBudgetNs=" << (1'000'000'000ULL * Frames / Rate) << '\n';
+    trace.stop();
+    const auto events = trace.receiveEvents();
+    const auto admitted = std::ranges::find_if(events, [](const auto& event) {
+        return event.packet.sequence == 11 && event.queueAccepted &&
+               event.decodedKind == VoicePacketTrace::DecodedKind::Real;
+    });
+    expect(admitted != events.end(), "actual receive admission must retain sequence and REAL provenance");
+    const auto renders = trace.renderEvents();
+    expect(!renders.empty(), "each actual render pop must be recorded");
+    if (admitted != events.end()) {
+        const auto rendered = std::ranges::find_if(renders, [&](const auto& event) {
+            return event.queue.epoch == admitted->queue.epoch && event.tagOneFrames != 0 &&
+                   event.queue.startFrame < admitted->queue.startFrame + admitted->queue.frames &&
+                   event.queue.startFrame + event.queue.frames > admitted->queue.startFrame;
+        });
+        expect(rendered != renders.end() && rendered->after.peak > 0.0F,
+               "exact queue span must join admitted REAL to its final render contribution");
+    }
+    const auto violations = RealtimeInstrumentation::snapshot();
+    expect(violations.allocations == 0 && violations.deallocations == 0 &&
+           violations.blockingCalls == 0 && violations.diskIoCalls == 0,
+           "full render tracing cannot allocate, block or write files in realtime");
+    expect(trace.status().complete(), "instrumented pipeline trace must stop without overflow");
+}
+
+void packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender() {
+    constexpr std::uint32_t Rate = 48'000, Frames = 120, Packets = 8;
+    NetworkAudioEngine sender, receiver;
+    for (auto* engine : {&sender, &receiver}) {
+        engine->prepare(Rate, 1, Rate / 2U, Frames, GenerationId{1});
+        engine->setSessionToken(0x4A17);
+        engine->setSharedTimeline(true);
+        engine->setRoomPlayoutDelay(50.0F);
+        engine->diagnosticPacketTrace().prepare({32, 128, 128});
+        engine->diagnosticPacketTrace().start();
+    }
+    sender.setLocalParticipant("trace-live-sender");
+    receiver.setLocalParticipant("trace-live-receiver");
+    expect(receiver.addRemoteParticipant("trace-live-sender"), "actual traced UDP source joins");
+    NetworkTestAccess::bypassRemoteEffects(receiver, "trace-live-sender");
+    receiver.startReceive(0);
+    sender.startReceive(0);
+    sender.startSend("127.0.0.1", receiver.localPort());
+    std::array<float, Frames * Packets> voice{};
+    for (std::size_t frame = 0; frame < voice.size(); ++frame)
+        voice[frame] = 0.2F * static_cast<float>(std::sin(static_cast<double>(frame) * 0.11));
+    sender.pushLocal(GenerationId{1}, voice, static_cast<std::uint32_t>(voice.size()), 0, 1.0F,
+                     0, true);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    while (receiver.diagnostics().packetsReceived < Packets &&
+           std::chrono::steady_clock::now() < deadline)
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    expect(receiver.diagnostics().packetsReceived == Packets,
+           "all actual encoded packets must pass socket receive and redundant-copy deduplication");
+    // The receive worker finishes admission under remoteMutex_ before diagnostics returns.
+    std::array<float, Frames> output{};
+    for (std::uint64_t position = 0; position < 4'320; position += Frames) {
+        RealtimeScope realtime;
+        (void)receiver.renderRemote(GenerationId{1}, output, Frames, position);
+    }
+    sender.stop();
+    receiver.stop();
+    auto& outgoing = sender.diagnosticPacketTrace();
+    auto& incoming = receiver.diagnosticPacketTrace();
+    outgoing.stop();
+    incoming.stop();
+    const auto sent = outgoing.senderEvents();
+    const auto received = incoming.receiveEvents();
+    const auto rendered = incoming.renderEvents();
+    expect(sent.size() == Packets, "actual sender trace must cover every packetized microphone block");
+    for (const auto& packet : sent) {
+        const auto identityMatches = [&](const auto& event) {
+            return event.packet.participantKey == packet.packet.participantKey &&
+                   event.packet.streamEpoch == packet.packet.streamEpoch &&
+                   event.packet.sequence == packet.packet.sequence &&
+                   event.payloadHash == packet.payloadHash;
+        };
+        const auto socket = std::ranges::find_if(received, [&](const auto& event) {
+            return event.stage == VoicePacketTrace::ReceiveStage::Socket && identityMatches(event);
+        });
+        expect(socket != received.end() && socket->socketMicros != 0,
+               "actual TX identity and encoded payload hash must match a socket-arrival event");
+        const auto admission = std::ranges::find_if(received, [&](const auto& event) {
+            return event.stage == VoicePacketTrace::ReceiveStage::Decision &&
+                   event.decodedKind == VoicePacketTrace::DecodedKind::Real &&
+                   event.queueAccepted && identityMatches(event);
+        });
+        expect(admission != received.end(), "each actual UDP packet must retain its REAL admission span");
+        if (admission == received.end())
+            continue;
+        std::uint64_t covered = 0;
+        for (const auto& render : rendered) {
+            if (render.participantKey != packet.packet.participantKey ||
+                render.queue.epoch != admission->queue.epoch)
+                continue;
+            const auto first = std::max(render.queue.startFrame, admission->queue.startFrame);
+            const auto last = std::min(render.queue.startFrame + render.queue.frames,
+                                       admission->queue.startFrame + admission->queue.frames);
+            if (last > first && render.after.peak > 0.0F)
+                covered += last - first;
+        }
+        expect(covered == admission->queue.frames,
+               "packet admission must join completely to actual nonzero render contribution");
+    }
+    expect(outgoing.status().complete() && incoming.status().complete(),
+           "actual end-to-end trace must retain complete bounded storage without overflow");
 }
 
 } // namespace Tests

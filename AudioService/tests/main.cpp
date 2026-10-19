@@ -40,6 +40,21 @@ class TestDirectory {
 using Test = std::pair<const char*, void (*)()>;
 
 constexpr std::array tests{
+    Test{"rejectedPcmPacketsCannotSeedReceiveLossConcealment", Tests::rejectedPcmPacketsCannotSeedReceiveLossConcealment},
+    Test{"traceRejectsAnOldTakeTokenAfterImmediateRearm", Tests::traceRejectsAnOldTakeTokenAfterImmediateRearm},
+    Test{"packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender", Tests::packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender},
+    Test{"ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay", Tests::ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay},
+    Test{"packetTraceFollowsAdmittedFramesIntoUnchangedRender", Tests::packetTraceFollowsAdmittedFramesIntoUnchangedRender},
+    Test{"fullSongTraceRetainsFirstMiddleAndLastPacketWithoutOverwrite", Tests::fullSongTraceRetainsFirstMiddleAndLastPacketWithoutOverwrite},
+    Test{"traceOverflowIsExplicitAndDoesNotOverwriteEarlierEvents", Tests::traceOverflowIsExplicitAndDoesNotOverwriteEarlierEvents},
+    Test{"stoppedTraceRejectsPacketsAndNewTakeDoesNotInheritOldEvents", Tests::stoppedTraceRejectsPacketsAndNewTakeDoesNotInheritOldEvents},
+    Test{"traceAppendDoesNotAllocateOrBlockOnRealtimeThread", Tests::traceAppendDoesNotAllocateOrBlockOnRealtimeThread},
+    Test{"stoppedTraceExportsExactPacketAndQueueJoinFields", Tests::stoppedTraceExportsExactPacketAndQueueJoinFields},
+    Test{"traceStopAndRearmAreSafeAgainstConcurrentProducers", Tests::traceStopAndRearmAreSafeAgainstConcurrentProducers},
+    Test{"tracePcmMetricsIdentifyContentWithoutChangingSamples", Tests::tracePcmMetricsIdentifyContentWithoutChangingSamples},
+    Test{"pcmRingSourceTagsFollowPartialMultichannelOperations", Tests::pcmRingSourceTagsFollowPartialMultichannelOperations},
+    Test{"pcmRingSourceTagsPublishWithPcmAcrossThreads", Tests::pcmRingSourceTagsPublishWithPcmAcrossThreads},
+    Test{"pcmRingTransfersIdentifyExactQueueSpans", Tests::pcmRingTransfersIdentifyExactQueueSpans},
     Test{"masterCompanionRecordsTheExactRenderedBacking",
          Tests::masterCompanionRecordsTheExactRenderedBacking},
     Test{"masterCompanionSharesOverrunsAndLifecycle", Tests::masterCompanionSharesOverrunsAndLifecycle},

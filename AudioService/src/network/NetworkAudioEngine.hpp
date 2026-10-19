@@ -7,6 +7,7 @@
 #include "network/OpusCodec.hpp"
 #include "network/PcmVoiceCodec.hpp"
 #include "network/UdpSocket.hpp"
+#include "network/VoicePacketTrace.hpp"
 #include "realtime/PcmRingBuffer.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
 #include "realtime/VoiceLoudness.hpp"
@@ -200,6 +201,8 @@ class NetworkAudioEngine {
     void setRoomPlayoutDelay(float milliseconds) noexcept;
     void setDiagnosticRequestedDelay(float milliseconds) noexcept;
     void resetDiagnosticLateAudioCutSeries() noexcept;
+    VoicePacketTrace& diagnosticPacketTrace() noexcept { return fullPacketTrace_; }
+    const VoicePacketTrace& diagnosticPacketTrace() const noexcept { return fullPacketTrace_; }
     [[nodiscard]] std::uint32_t roomPlayoutDelayFrames() const noexcept {
         return sharedTimelineEnabled()
                    ? roomPlayoutDelayFrames_.load(std::memory_order_acquire)
@@ -352,6 +355,7 @@ class NetworkAudioEngine {
         std::string host;
         std::uint16_t port{0};
         std::uint64_t receiveToken{0};
+        std::uint64_t endpointIdentity{0}; // resolved on the control thread for diagnostic events
     };
 
     [[nodiscard]] static std::uint32_t participantKey(std::string_view id) noexcept;
@@ -425,6 +429,7 @@ class NetworkAudioEngine {
     std::atomic<bool> sendMmcssActive_{false};
     std::atomic<bool> receiveMmcssActive_{false};
     bool packetTraceEnabled_{false};
+    VoicePacketTrace fullPacketTrace_;
     std::atomic<bool> packetTraceResetRequested_{false};
     std::string remoteHost_;
     std::uint16_t localPort_{0};

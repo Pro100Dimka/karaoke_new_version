@@ -56,16 +56,19 @@ std::uint32_t PcmRingBuffer::freeFrames() const noexcept {
 }
 
 bool PcmRingBuffer::push(std::span<const float> interleaved, std::uint32_t frames,
-                          std::uint8_t frameTag) noexcept {
+                          std::uint8_t frameTag, Transfer* transfer) noexcept {
+    if (transfer)
+        *transfer = {};
     if (!enter())
         return false;
-    const auto result = pushAvailable(interleaved, frames, frameTag);
+    const auto result = pushAvailable(interleaved, frames, frameTag, transfer);
     leave();
     return result;
 }
 
 bool PcmRingBuffer::pushAvailable(std::span<const float> interleaved,
-                                  std::uint32_t frames, std::uint8_t frameTag) noexcept {
+                                  std::uint32_t frames, std::uint8_t frameTag,
+                                  Transfer* transfer) noexcept {
     if (capacityFrames_ == 0 || channels_ == 0 || frames > freeFrames() ||
         interleaved.size() < static_cast<std::size_t>(frames) * channels_) {
         return false;
@@ -87,6 +90,8 @@ bool PcmRingBuffer::pushAvailable(std::span<const float> interleaved,
         }
     }
     writeFrame_.store(write + frames, std::memory_order_release);
+    if (transfer)
+        *transfer = {epoch_.load(std::memory_order_acquire), write, frames, true};
     return true;
 }
 
@@ -100,7 +105,8 @@ std::uint32_t PcmRingBuffer::peek(std::span<float> output, std::uint32_t frames)
 
 std::uint32_t PcmRingBuffer::peekAvailable(std::span<float> output,
                                            std::uint32_t frames,
-                                           std::span<std::uint8_t> frameTags) const noexcept {
+                                           std::span<std::uint8_t> frameTags,
+                                           Transfer* transfer) const noexcept {
     const auto read = readFrame_.load(std::memory_order_acquire);
     const auto write = writeFrame_.load(std::memory_order_acquire);
     const auto available = write > read ? write - read : 0U;
@@ -128,6 +134,8 @@ std::uint32_t PcmRingBuffer::peekAvailable(std::span<float> output,
             }
         }
     }
+    if (transfer && capacityFrames_ != 0 && channels_ != 0)
+        *transfer = {epoch_.load(std::memory_order_acquire), read, count, true};
     return count;
 }
 
@@ -147,10 +155,12 @@ std::uint32_t PcmRingBuffer::discardAvailable(std::uint32_t frames) noexcept {
 }
 
 std::uint32_t PcmRingBuffer::pop(std::span<float> output, std::uint32_t frames,
-                                std::span<std::uint8_t> frameTags) noexcept {
+                                std::span<std::uint8_t> frameTags, Transfer* transfer) noexcept {
+    if (transfer)
+        *transfer = {};
     if (!enter())
         return 0;
-    const auto count = peekAvailable(output, frames, frameTags);
+    const auto count = peekAvailable(output, frames, frameTags, transfer);
     (void)discardAvailable(count);
     leave();
     return count;

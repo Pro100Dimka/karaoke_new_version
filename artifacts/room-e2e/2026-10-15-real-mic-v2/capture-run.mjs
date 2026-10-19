@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { appendFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 const require = createRequire('D:/Git/karaoke_new_version/frontend/package.json');
@@ -38,6 +38,34 @@ const uiPages = uiBrowsers.map(browser => {
   return pages[0];
 });
 await Promise.all(uiPages.map(page => page.bringToFront()));
+const fullPacketTrace = process.env.AD_VOICE_SAVE_FULL_PACKET_TRACE === '1';
+const activeTraceMachines = [];
+const recordTraceCommand = async (machine, action) => {
+  const args = ['SetDiagnosticRoomInput', `packetTrace=${action}`,
+    ...(action === 'export' ? [`tracePath=${evidence.fullPacketTrace.prefixes[machine]}`] : [])];
+  const observation = { machine, action, at: new Date().toISOString(), args };
+  evidence.fullPacketTrace.commands.push(observation);
+  observation.reply = await command(machine, args);
+};
+try {
+if (fullPacketTrace) {
+  const relativeDir = path.relative('D:/Git/karaoke_new_version', dir);
+  if (relativeDir.startsWith('..') || path.isAbsolute(relativeDir))
+    throw new Error('Full packet evidence directory must be inside the repository');
+  const laptopDir = path.win32.join('C:\\Users\\pro10\\Documents\\karaoke_new_version', relativeDir);
+  evidence.fullPacketTrace = { enabled: true, prefixes: {
+    host: path.join(dir, `${label}-main-packet-trace`),
+    laptop: path.win32.join(laptopDir, `${label}-laptop-packet-trace`),
+  }, commands: [] };
+  mkdirSync(dir, { recursive: true });
+  await exec('ssh', ['pro10@192.168.0.194',
+    `powershell -NoProfile -Command "$null = New-Item -ItemType Directory -Force -Path '${laptopDir.replaceAll("'", "''")}'"`], { timeout: 12000 });
+  for (const machine of ['host', 'laptop']) {
+    activeTraceMachines.push(machine);
+    await recordTraceCommand(machine, 'start');
+  }
+  writeFileSync(path.join(dir, `${label}-evidence.json`), JSON.stringify(evidence, null, 2));
+}
 if (mode === 'start') {
   await uiPages[0].locator('.songCard').filter({ hasText: 'Мне 25' }).first()
     .getByRole('button', { name: /Запустить караоке/i }).click();
@@ -155,7 +183,7 @@ await exec(process.execPath, [
   senderPort, 'levels', JSON.stringify({ 'Вокал': 'End' })
 ], { timeout: 15000 });
 evidence.vocalOnAt = new Date().toISOString();
-if (process.env.AD_VOICE_SAVE_PACKET_TRACE === '1') {
+if (process.env.AD_VOICE_SAVE_PACKET_TRACE === '1' && !fullPacketTrace) {
   evidence.traceRearm = [];
   for (const machine of ['host', 'laptop'])
     evidence.traceRearm.push({ machine, at: new Date().toISOString(),
@@ -181,6 +209,20 @@ evidence.after = await snapshot();
 evidence.finishedAt = new Date().toISOString();
 evidence.uiGate = { passed: uiFailures.length === 0, failures: uiFailures };
 writeFileSync(path.join(dir, `${label}-evidence.json`), JSON.stringify(evidence, null, 2));
-await Promise.all(uiBrowsers.map(browser => browser.close()));
 console.log(JSON.stringify({ done: true, label, at: evidence.finishedAt }));
 if (uiFailures.length) process.exitCode = 1;
+} finally {
+  const traceResults = await Promise.allSettled(activeTraceMachines.map(async machine => {
+    await recordTraceCommand(machine, 'stop');
+    await recordTraceCommand(machine, 'export');
+  }));
+  const errors = traceResults.flatMap((result, index) => result.status === 'rejected'
+    ? [{ machine: activeTraceMachines[index], error: String(result.reason) }] : []);
+  if (evidence.fullPacketTrace) {
+    evidence.fullPacketTrace.finishedAt = new Date().toISOString();
+    evidence.fullPacketTrace.errors = errors;
+    writeFileSync(path.join(dir, `${label}-evidence.json`), JSON.stringify(evidence, null, 2));
+  }
+  await Promise.all(uiBrowsers.map(browser => browser.close()));
+  if (errors.length) throw new Error(`Full packet trace stop/export failed: ${JSON.stringify(errors)}`);
+}
