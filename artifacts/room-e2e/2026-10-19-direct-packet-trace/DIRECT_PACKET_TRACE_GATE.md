@@ -359,6 +359,19 @@ Current dedicated evidence already present in this directory:
   packet identity, coverage and queue/render classification regressions.
 - [PROVENANCE_AUDIT.md](PROVENANCE_AUDIT.md): source ownership and existing
   PLC/starvation/history regression coverage.
+- [rejected-history-green.txt](rejected-history-green.txt): explicit receive
+  history rejection regression for both fully late and queue-full real PCM.
+
+The completed [native-full-release.txt](native-full-release.txt) passes all 473
+cases present in that full run. The additional history regression above then
+passed separately, bringing the registered total to 474. The four auxiliary
+CTest checks passed in [ctest-release.txt](ctest-release.txt); that initial log
+also retains its failed main-suite attempt and must not be relabelled as a
+5/5 CTest pass. The later complete native run is the replacement native proof.
+The measured 4096-block trace/control comparison in the full native log reports
+1861 ns versus 862 ns mean per 120-frame block (2.5 ms block budget), exact PCM
+identity and zero RT violations. This is the recorded test measurement, not a
+claim about worst-case physical callback duration.
 
 These tests do not establish physical PASS. Add the completed full native
 suite/build log, exact commits/native hashes, both raw trace sets, all source/

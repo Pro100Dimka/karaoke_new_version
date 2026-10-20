@@ -19,6 +19,7 @@ Scope: source inspection, automated coverage and an optional diagnostic queue-sp
 | Render starvation has a finite tail; real PCM resumes at its original position | `directRenderContinuityBoundsSavedGapDurations` |
 | Mute and queue epoch reset cannot leak an old tail | `directRenderContinuityCannotLeakAcrossMuteOrQueueReset` |
 | Expired UDP backlog is cut; first current PCM preserves phase, queue and deadline | `directRenderContinuitySurvivesSocketSilenceAndRejectsStaleBacklog` |
+| Fully late and queue-full rejected real packets cannot seed receive concealment | `rejectedPcmPacketsCannotSeedReceiveLossConcealment` |
 | Consecutive queued PCM Lost remains finite and real recovery is phase-correct | `directConsecutiveSequenceLossUsesBoundedContinuity` |
 | Queued PLC then starvation shares one 100 ms budget | `directMixedLossCannotRestartTheContinuationBudget` |
 | Future queued REAL does not reset budget before consumption | `queuedFutureVoiceCannotResetAnUnconsumedLossBudget` |
@@ -28,7 +29,7 @@ Scope: source inspection, automated coverage and an optional diagnostic queue-sp
 | Already readable originals precede timer-only missing decisions | `sharedVoiceReadsReadyDatagramsBeforeExpiringMissingPositions` |
 | Recorded 96-packet arrival fixture | `observedDirectPacketBurstKeepsBoundedPlayoutContinuity` |
 
-The stale-backlog test proves queue rejection and current phase recovery. It does **not** directly inspect receive-concealer history after a fully late/queue-full rejection. Inspection shows the commit guards are correct, but a future regression could add a direct behavioral assertion at the network boundary. This gap is not a demonstrated runtime fault. Source-only evidence also does not prove physical packet classification at the remaining low-NCC cells.
+The stale-backlog test proves queue rejection and current phase recovery. The additional `rejectedPcmPacketsCannotSeedReceiveLossConcealment` now directly checks receive concealment after both fully late and queue-full real packet rejection; it passes in `rejected-history-green.txt`. The identified coverage gap is therefore closed without a production audio change. Automated/source evidence does not establish physical packet classification at the remaining low-NCC cells.
 
 ## Added coverage (tests only)
 
@@ -43,10 +44,10 @@ These two tests are coverage additions for existing behavior, not a claimed bug 
 
 An optional `PcmRingBuffer::Transfer*` output adds `{epoch, firstFrame, frames, valid}` to the existing push/pop calls. It reports the absolute write/read cursor captured inside the same existing publication lease. Failed calls invalidate the entire output; a valid empty read retains the current cursor with zero frames. `clear` changes the epoch and keeps the monotonic write origin; `prepare` changes the epoch and restarts storage at frame zero. The diagnostic output adds no allocation, mutex, queue operation or change to existing PCM/tag publication.
 
-Dedicated regression: `pcmRingTransfersIdentifyExactQueueSpans`. A compilation-compatible stub always returned an invalid transfer while preserving PCM operations. Root's `native-red.txt` records 15 failed span expectations, with the two tag regressions passing. Only then was the transfer output implemented. Root owns GREEN and broader-suite execution in the single shared build tree.
+Dedicated regression: `pcmRingTransfersIdentifyExactQueueSpans`. A compilation-compatible stub always returned an invalid transfer while preserving PCM operations. Root's `native-red.txt` records 15 failed span expectations, with the two tag regressions passing. Only then was the transfer output implemented. GREEN is recorded in `native-first-green-gain-red.txt` and the completed `native-full-release.txt`.
 
 ## Trace-only IPC control
 
 `SetDiagnosticRoomInput` reuses its existing `AD_VOICE_ROOM_E2E=1` guard and handles `packetTrace=start|stop|export` before parsing any microphone, WAV, pilot or requested-delay arguments. This is an engineering recording control only. `start` prepares trace storage once, `stop` drains trace producers, and `export` requires a stopped capture and explicit `tracePath` prefix. Unknown actions and export exceptions return `InvalidRequest`.
 
-Dedicated regression: `ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay`. Root's `ipc-red.txt` records 20 failures with the original input-control fallthrough. The test verifies the environment guard; intentionally invalid input/tone arguments on trace-only start/stop; unknown mode; active export rejection; empty prefix; filesystem error handling; four exported CSV files; and the unchanged microphone report and four network-delay values after every command. The early trace branch was added only after that RED run. Root owns GREEN/broader verification.
+Dedicated regression: `ipcPacketTraceControlNeverReplacesTheMicrophoneOrDelay`. Root's `ipc-red.txt` records 20 failures with the original input-control fallthrough. The test verifies the environment guard; intentionally invalid input/tone arguments on trace-only start/stop; unknown mode; active export rejection; empty prefix; filesystem error handling; four exported CSV files; and the unchanged microphone report and four network-delay values after every command. The early trace branch was added only after that RED run. GREEN is recorded in `ipc-green.txt` and the completed `native-full-release.txt`.
