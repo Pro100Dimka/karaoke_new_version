@@ -145,16 +145,58 @@ def _heard_words(result: Mapping[str, object]) -> list[tuple[str, float, float]]
     return heard
 
 
-def _windows(words: list[str], heard: list[tuple[str, float, float]], total: float) -> list[Window]:
+def _matching_blocks(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[AlignedWord] | None = None,
+) -> list[difflib.Match]:
+    keys = [_key(word) for word in words]
+    heard_keys = [item[0] for item in heard]
+    if whole is None:
+        return difflib.SequenceMatcher(a=keys, b=heard_keys, autojunk=False).get_matching_blocks()
+    # Text-only longest matching blocks attach a repeated chorus to the wrong occurrence when ASR
+    # misses one repeat. A monotonic match uses independent CTC starts as soft temporal evidence:
+    # distant matches remain possible, while equally worded nearby repeats are preferred.
+    scores = np.zeros((len(words) + 1, len(heard) + 1))
+    for i in range(len(words) - 1, -1, -1):
+        for j in range(len(heard) - 1, -1, -1):
+            match = (
+                scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+                if keys[i] == heard_keys[j]
+                else 0.0
+            )
+            scores[i, j] = max(scores[i + 1, j], scores[i, j + 1], match)
+    blocks: list[difflib.Match] = []
+    i, j = 0, 0
+    while i < len(words) and j < len(heard):
+        if keys[i] == heard_keys[j] and scores[i, j] == (
+            scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+        ):
+            if blocks and blocks[-1].a + blocks[-1].size == i and blocks[-1].b + blocks[-1].size == j:
+                previous = blocks[-1]
+                blocks[-1] = difflib.Match(previous.a, previous.b, previous.size + 1)
+            else:
+                blocks.append(difflib.Match(i, j, 1))
+            i, j = i + 1, j + 1
+        elif scores[i + 1, j] >= scores[i, j + 1]:
+            i += 1
+        else:
+            j += 1
+    return blocks
+
+
+def _windows(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    total: float,
+    whole: Sequence[AlignedWord] | None = None,
+) -> list[Window]:
     """Splits the text into stretches whose place in the song is known from the words Whisper recognised.
 
     A run of at least ``_MINIMUM_BLOCK`` words heard in the same order as written pins its stretch to the time it was
     heard; the text between such runs gets the audio between them. Without any such run the whole song is one stretch.
     """
-    matcher = difflib.SequenceMatcher(
-        a=[_key(word) for word in words], b=[item[0] for item in heard], autojunk=False
-    )
-    blocks = [block for block in matcher.get_matching_blocks() if block.size >= _MINIMUM_BLOCK]
+    blocks = [block for block in _matching_blocks(words, heard, whole) if block.size >= _MINIMUM_BLOCK]
     if not blocks:
         return [Window(0, len(words), 0.0, total)]
     windows: list[Window] = []
@@ -204,14 +246,23 @@ def _alignment_evidence(
         return scores, frame_seconds, _heard_words(guidance.result())
 
 
-def _heard_positions(words: list[str], heard: list[tuple[str, float, float]]) -> dict[int, float]:
+def _heard_positions(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[AlignedWord] | None = None,
+) -> dict[int, float]:
     """Start second of every lyric word that Whisper heard in the same order as written."""
-    matcher = difflib.SequenceMatcher(
-        a=[_key(word) for word in words], b=[item[0] for item in heard], autojunk=False
-    )
+    return {index: times[0] for index, times in _heard_timings(words, heard, whole).items()}
+
+
+def _heard_timings(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[AlignedWord] | None = None,
+) -> dict[int, tuple[float, float]]:
     return {
-        block.a + offset: heard[block.b + offset][1]
-        for block in matcher.get_matching_blocks()
+        block.a + offset: (heard[block.b + offset][1], heard[block.b + offset][2])
+        for block in _matching_blocks(words, heard, whole)
         for offset in range(block.size)
     }
 
@@ -321,7 +372,26 @@ def _alignment_windows(
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
             return windows
-    return _windows(words, heard, total)
+    return _windows(words, heard, total, whole)
+
+
+def _aligned_word_payload(
+    word: AlignedWord, heard_timing: tuple[float, float] | None
+) -> dict[str, float | str | list[float] | list[str]]:
+    reasons = {
+        "ApproximateAlignment": word.score <= 0.0,
+        "AsrCtcBoundaryDisagreement": heard_timing is not None and max(
+            abs(word.start - heard_timing[0]), abs(word.end - heard_timing[1])
+        ) > _MARGIN_SECONDS,
+    }
+    return {
+        "text": word.text,
+        "start": round(word.start, 3),
+        "end": round(word.end, 3),
+        "confidence": word.score,
+        "letters": list(word.letters),
+        "diagnostics": [reason for reason, present in reasons.items() if present],
+    }
 
 
 def align(
@@ -329,7 +399,7 @@ def align(
     lyrics: str,
     language: str,
     timing_hints: Sequence[Mapping[str, object]] = (),
-) -> dict[str, list[dict[str, float | str | list[float]]]]:
+) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
     """Timing of every word and letter of ``lyrics`` against the vocal track.
 
     Whisper first says roughly where each stretch of the text is sung; a character-level CTC model (forced alignment) then
@@ -339,25 +409,17 @@ def align(
     words = lyrics.split()
     scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics)
     whole = align_words(scores, frame_seconds, words)
+    heard_timings = _heard_timings(words, heard, whole)
     guided = align_guided(
         scores,
         frame_seconds,
         words,
         _alignment_windows(lyrics, timing_hints, heard, whole, samples),
-        _heard_positions(words, heard),
+        {index: times[0] for index, times in heard_timings.items()},
         voiced_frames(samples, _SAMPLE_RATE, _HOP),
         whole,
     )
     timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples))
-    return {
-        "words": [
-            {
-                "text": word.text,
-                "start": round(word.start, 3),
-                "end": round(word.end, 3),
-                "confidence": 1.0,
-                "letters": list(word.letters),
-            }
-            for word in timed
-        ]
-    }
+    return {"words": [
+        _aligned_word_payload(word, heard_timings.get(index)) for index, word in enumerate(timed)
+    ]}

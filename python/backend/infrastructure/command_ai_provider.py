@@ -170,16 +170,23 @@ def _word(value: JsonValue) -> WordTiming:
         if isinstance(letters, list)
         else ()
     )
-    return WordTiming(_text(value, "text"), start, end, _number(value, "confidence"), starts)
+    diagnostics = value.get("diagnostics", [])
+    return WordTiming(
+        _text(value, "text"), start, end, _number(value, "confidence"), starts,
+        tuple(item for item in diagnostics if isinstance(item, str))
+        if isinstance(diagnostics, list) else (),
+    )
 
 
 def _pitch(value: JsonValue) -> PitchPoint:
     if not isinstance(value, dict):
         raise DependencyError("AiProviderInvalidOutput", "Pitch item is malformed")
+    active = value.get("audioActive")
     return PitchPoint(
         _number(value, "time"),
         _number(value, "frequency"),
         _number(value, "confidence"),
+        active if isinstance(active, bool) else None,
     )
 
 

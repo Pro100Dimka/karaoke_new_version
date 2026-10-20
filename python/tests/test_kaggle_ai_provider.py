@@ -41,6 +41,7 @@ class _Client:
         self.calls.append((api_name, args))
         values: dict[str, object] = {
             "/separate": (str(self.instrumental), str(self.vocal), "a1b2"),
+            "/prepare_vocal": "b2c3",
             "/transcribe": "hello",
             "/align": {
                 "words": [
@@ -80,6 +81,24 @@ class _Provider(KaggleAiProvider):
     @staticmethod
     def _handle_file(path: Path) -> str:
         return str(path)
+
+
+@pytest.mark.parametrize("activity", [True, False, None])
+def test_remote_pitch_preserves_optional_audio_activity(activity) -> None:
+    value = {"time": 0.1, "frequency": 440.0, "confidence": 0.1}
+    if activity is not None:
+        value["audioActive"] = activity
+    assert KaggleAiProvider._pitch(value).audio_active is activity
+
+
+@pytest.mark.parametrize("diagnostics", [[], ["AsrCtcBoundaryDisagreement"]])
+def test_remote_alignment_preserves_optional_word_diagnostics(diagnostics) -> None:
+    word = KaggleAiProvider._word({
+        "text": "la", "start": 1.0, "end": 1.5, "confidence": 0.8,
+        "diagnostics": diagnostics,
+    })
+
+    assert word.diagnostics == tuple(diagnostics)
 
 
 def test_cancelled_kaggle_call_never_submits_remote_work(tmp_path: Path) -> None:
@@ -216,6 +235,155 @@ def test_remote_session_reuses_uploaded_vocal_for_later_stages(tmp_path: Path) -
     assert client.calls[3][1][0] == "a1b2"
 
 
+def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_path: Path) -> None:
+    vocal = tmp_path / "existing-vocal.wav"
+    vocal.write_bytes(b"existing project vocal")
+    client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    execution = ExecutionContext(ComputeDevice.CPU, 1)
+    cancel = threading.Event()
+
+    provider.align(vocal, "hello", Language.ENGLISH, cancel, execution=execution)
+    provider.pitch(vocal, cancel, execution=execution)
+
+    assert [name for name, _args in client.calls] == ["/prepare_vocal", "/align", "/pitch"]
+    assert client.calls[0][1] == (str(vocal),)
+    assert client.calls[1][1][0] == client.calls[2][1][0] == "b2c3"
+    assert vocal.read_bytes() == b"existing project vocal"
+
+
+@pytest.mark.parametrize("change", ["generation", "url", "token"])
+def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch, change):
+    from gradio_client.exceptions import AppError
+
+    state = {"generation": "first", "url": "https://first.gradio.live", "token": "token-one"}
+    calls, probes = [], []
+
+    class Notebook:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def predict(self, *, api_name):
+            assert api_name == "/health"
+            probes.append(tuple(state.values()))
+            return {"protocolVersion": 4, "sessionGeneration": state["generation"]}
+
+        def submit(self, *args, api_name):
+            calls.append((api_name, args))
+            session = "a" * 32 if len(set(probes)) == 1 else "b" * 32
+            if api_name == "/prepare_vocal":
+                return _Job(session)
+            if args[0] != session:
+                raise AppError('{"code":"KaggleSessionExpired"}')
+            return _Job({"points": [{"time": 0.1, "frequency": 440, "confidence": 0.9}]})
+
+    monkeypatch.setattr(kaggle_provider_module, "Client", Notebook)
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(
+            2, processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url=state["url"], kaggle_token=state["token"]
+        ), discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+    monkeypatch.setattr(provider, "_handle_file", str)
+    vocal = tmp_path / "vocal.wav"
+    provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
+    state[change] = {"generation": "second", "url": "https://second.gradio.live", "token": "token-two"}[change]
+
+    provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
+
+    assert [name for name, _args in calls] == ["/prepare_vocal", "/pitch", "/prepare_vocal", "/pitch"]
+    assert calls[-1][1][0] == "b" * 32
+    assert len(set(probes)) == 2
+
+
+@pytest.mark.parametrize("expires_twice", [False, True])
+def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twice):
+    from gradio_client.exceptions import AppError
+
+    class ExpiringClient(_Client):
+        def submit(self, *args, api_name):
+            if api_name == "/pitch" and (args[0] == "expired" or expires_twice):
+                self.calls.append((api_name, args))
+                raise AppError('{"code":"KaggleSessionExpired"}')
+            return super().submit(*args, api_name=api_name)
+
+    client = ExpiringClient(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    vocal = tmp_path / "vocal.wav"
+    provider._sessions[vocal.resolve()] = "expired"
+    def invoke():
+        return provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
+    if expires_twice:
+        with pytest.raises(DependencyError) as error:
+            invoke()
+        assert error.value.code == "KaggleSessionExpired"
+    else:
+        assert invoke()[0].frequency == 440
+    assert [name for name, _args in client.calls] == ["/pitch", "/prepare_vocal", "/pitch"]
+
+
+def test_shutdown_discards_cached_vocal_sessions(tmp_path):
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(2),
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+    provider._sessions[tmp_path / "vocal.wav"] = "expired"
+    provider.shutdown()
+    assert provider._sessions == {}
+
+
+def test_unrelated_remote_errors_do_not_reupload_the_vocal(tmp_path):
+    from gradio_client.exceptions import AppError
+
+    class FailedClient(_Client):
+        def submit(self, *args, api_name):
+            self.calls.append((api_name, args))
+            raise AppError("ordinary remote failure")
+
+    client = FailedClient(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    vocal = tmp_path / "vocal.wav"
+    provider._sessions[vocal.resolve()] = "cached"
+    with pytest.raises(DependencyError) as error:
+        provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
+    assert error.value.code == "KaggleUnavailable"
+    assert [name for name, _args in client.calls] == ["/pitch"]
+
+
+def test_cancellation_interrupts_waiting_for_an_existing_vocal_upload(tmp_path, monkeypatch):
+    provider = _Provider(_Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav"))
+    cancel, entered, done = threading.Event(), threading.Event(), threading.Event()
+    errors = []
+    original = kaggle_provider_module._ensure_not_cancelled
+
+    def observe(token):
+        original(token)
+        entered.set()
+
+    monkeypatch.setattr(kaggle_provider_module, "_ensure_not_cancelled", observe)
+
+    def invoke():
+        try:
+            provider.pitch(tmp_path / "vocal.wav", cancel, execution=ExecutionContext(ComputeDevice.CPU, 1))
+        except DomainError as error:
+            errors.append(error.code)
+        finally:
+            done.set()
+
+    provider._session_lock.acquire()
+    worker = threading.Thread(target=invoke)
+    worker.start()
+    try:
+        assert entered.wait(1)
+        cancel.set()
+        assert done.wait(1), "Vocal-upload lock waiting must remain cancellable"
+    finally:
+        provider._session_lock.release()
+        worker.join(1)
+    assert errors == ["JobCancelled"]
+    assert provider.client.calls == []
+
+
 def test_lossless_flac_stems_are_restored_as_pcm_wav(tmp_path: Path) -> None:
     samples = np.array([[0, 1200], [-16000, 16000], [32767, -32768]], dtype=np.int16)
     remote_instrumental = tmp_path / "instrumental.flac"
@@ -286,8 +454,9 @@ def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allow
         assert connections == []
 
 
-def test_kaggle_health_check_uses_a_short_timeout_before_enabling_long_transfers(
-    monkeypatch,
+@pytest.mark.parametrize("protocol_version", [3, 4])
+def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_workers(
+    monkeypatch, protocol_version,
 ) -> None:
     timeouts: list[object] = []
 
@@ -295,9 +464,9 @@ def test_kaggle_health_check_uses_a_short_timeout_before_enabling_long_transfers
         def __init__(self, *_args: object, **kwargs: object) -> None:
             timeouts.append(kwargs["httpx_kwargs"]["timeout"])
 
-        def predict(self, *, api_name: str) -> dict[str, int]:
+        def predict(self, *, api_name: str) -> dict[str, int | str]:
             assert api_name == "/health"
-            return {"protocolVersion": 3}
+            return {"protocolVersion": protocol_version, "sessionGeneration": "worker-test"}
 
     monkeypatch.setattr(kaggle_provider_module, "Client", ClientStub)
     provider = KaggleAiProvider(
@@ -312,9 +481,14 @@ def test_kaggle_health_check_uses_a_short_timeout_before_enabling_long_transfers
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
 
-    provider.validate_configuration()
-
-    assert timeouts == [20, 15 * 60]
+    if protocol_version == 3:
+        with pytest.raises(DependencyError) as error:
+            provider.validate_configuration()
+        assert error.value.code == "KaggleProtocolMismatch"
+        assert timeouts == [20]
+    else:
+        provider.validate_configuration()
+        assert timeouts == [20, 15 * 60]
 
 
 def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> None:

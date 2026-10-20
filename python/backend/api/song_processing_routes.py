@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, Header, Request
 
 from backend.api.base_dto import JobRefDto
 from backend.api.dependencies import container
@@ -32,9 +32,11 @@ def start_processing(
 
 
 @router.post("/{song_id}/processing/melody", response_model=JobRefDto, status_code=202)
+@router.post("/{song_id}/processing/lyrics", response_model=JobRefDto, status_code=202)
 def reprocess_melody(
     song_id: str,
     app: ContainerDep,
+    request: Request,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
     correlation_id: Annotated[str | None, Header(alias="X-Correlation-ID")] = None,
 ) -> JobRefDto:
@@ -42,6 +44,7 @@ def reprocess_melody(
         song_id,
         idempotency_key=idempotency_key,
         correlation_id=correlation_id,
+        realign_lyrics=request.url.path.endswith("/lyrics"),
     )
     return job_dto(job)
 

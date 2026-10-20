@@ -120,19 +120,16 @@ const consonantShareLimit = 0.4;
 
 /** Seconds each character takes: consonants are brief, the vowels share the rest, so a held "друууууг" lingers on the vowel. */
 const characterSeconds = (text: string, duration: number): number[] => {
-  const characters = [...text];
-  const letters = characters.filter(
+  const letters = [...text].filter(
     (character) => !punctuation.test(character),
   );
-  if (letters.length === 0) return characters.map(() => 0);
+  if (letters.length === 0) return [];
   const vowelCount = letters.filter((character) =>
     vowels.test(character),
   ).length;
   if (vowelCount === 0 || vowelCount === letters.length) {
     const each = duration / letters.length;
-    return characters.map((character) =>
-      punctuation.test(character) ? 0 : each,
-    );
+    return letters.map(() => each);
   }
   const consonantCount = letters.length - vowelCount;
   const consonant = Math.min(
@@ -140,16 +137,12 @@ const characterSeconds = (text: string, duration: number): number[] => {
     (duration * consonantShareLimit) / consonantCount,
   );
   const vowel = (duration - consonant * consonantCount) / vowelCount;
-  return characters.map((character) => {
-    if (punctuation.test(character)) return 0;
-    return vowels.test(character) ? vowel : consonant;
-  }
-  );
+  return letters.map((character) => vowels.test(character) ? vowel : consonant);
 };
 
 /**
- * Fraction of the word's text (0..1) that has been sung. The word's start and end are the times the voice really sounds
- * (the backend spreads words over the active vocal), and inside it the characters are timed by their kind.
+ * Fraction of the word's text (0..1) that has been sung, using the saved word and letter boundaries.
+ * Without letter timings the consonant/vowel distribution is approximate; it never changes the word's bounds.
  */
 export const letterProgress = (word: EditorWord, position: number): number => {
   if (position <= word.start) return 0;
@@ -205,31 +198,6 @@ const timedLetterProgress = (
     1,
     (position + Math.min(1, Math.max(0, (fraction - start) / span))) / count,
   );
-};
-
-/**
- * Stretches each word's earliest note back to the word's own start, display-only. A word's first sung
- * note often starts measurably after the word's own start (leading unvoiced consonants -- с, т, п...
- * genuinely carry no pitch), so the piano roll would otherwise show the note arriving visibly later than
- * the lyric that owns it. The underlying pitch timing is never touched, only where the bar is drawn.
- */
-export const notesAlignedToWords = (
-  notes: readonly EditorNote[],
-  words: readonly EditorWord[],
-): readonly EditorNote[] => {
-  const wordStart = new Map(words.map((word) => [word.id, word.start]));
-  const earliestStart = new Map<string, number>();
-  for (const note of notes) {
-    const current = earliestStart.get(note.wordId);
-    if (current === undefined || note.start < current)
-      earliestStart.set(note.wordId, note.start);
-  }
-  return notes.map((note) => {
-    const start = wordStart.get(note.wordId);
-    const isEarliestForWord =
-      start !== undefined && note.start === earliestStart.get(note.wordId);
-    return isEarliestForWord && start < note.start ? { ...note, start } : note;
-  });
 };
 
 const rangeSemitones = {

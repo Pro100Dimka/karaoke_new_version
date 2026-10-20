@@ -419,7 +419,7 @@ export const LibraryPage = () => {
         focusSongId={focusSongId}
         onClose={() => setProcessingOpen(false)}
         onCancel={(jobId) => guarded(() => library.cancelJob(jobId))}
-        onRetry={(song) => startProcessing(song)}
+        onRetry={(song, mode) => startProcessing(song, mode)}
         onOpenFolder={openFolder}
         onPlay={playSong}
       />
@@ -431,9 +431,10 @@ export const LibraryPage = () => {
           setSettingsSong(await library.removeSongCover(song))
         }
         onOpenFolder={openFolder}
-        onReprocess={(song) => {
+        onReprocess={(song, mode) => {
           setSettingsSong(null);
-          void startProcessing(song);
+          void startProcessing(song, mode);
+          if (mode === "lyrics") openProcessing(song.id);
         }}
         onDelete={(song) => void confirmDelete(song)}
       />

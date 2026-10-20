@@ -234,8 +234,10 @@ class StartProcessing:
                 report = replace(report, warnings=(*report.warnings, execution.fallback_reason))
             finished = True
             return report_payload(report)
-        except DomainError:
+        except DomainError as exc:
             status = SongStatus.CANCELLED if context.cancel.is_set() else SongStatus.FAILED
+            if exc.code == "ManualLyricsConflict":
+                status = SongStatus.READY
             self._persistence.set_status_if_present(song_id, status)
             raise
         finally:

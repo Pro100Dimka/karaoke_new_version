@@ -45,6 +45,20 @@ const job = (
   progress: state === "completed" ? 100 : 0,
 });
 
+it("retries lyric realignment with the same operation instead of full source processing", async () => {
+  const existing = song("existing", "Existing song");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+    ...job("lyrics-job", existing.id, "failed"), timingOperation: "lyrics",
+  }]);
+  const onRetry = vi.fn().mockResolvedValue(undefined);
+  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
+    onCancel={vi.fn()} onRetry={onRetry} onOpenFolder={vi.fn()} onPlay={vi.fn()} />
+  </LibraryProvider>);
+  const card = (await screen.findByText("Artist — Existing song")).closest("li")!;
+  fireEvent.click(within(card).getByRole("button", { name: "retry" }));
+  expect(onRetry).toHaveBeenCalledWith(existing, "lyrics");
+});
+
 it("connects every processing queue control to an action", async () => {
   const songs = [
     song("done", "Done song"),
@@ -94,7 +108,7 @@ it("connects every processing queue control to an action", async () => {
 
   const failedCard = screen.getByText("Artist — Failed song").closest("li")!;
   fireEvent.click(within(failedCard).getByRole("button", { name: "retry" }));
-  expect(onRetry).toHaveBeenCalledWith(songs[3]);
+  expect(onRetry).toHaveBeenCalledWith(songs[3], undefined);
 
   const queuedBCard = screen.getByText("Artist — Queued B").closest("li")!;
   fireEvent.click(

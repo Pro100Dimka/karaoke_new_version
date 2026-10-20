@@ -154,7 +154,7 @@ export interface PythonClient {
     path: string,
     decision?: ProjectImportDecision,
   ): Promise<SongDto>;
-  processSong(songId: string): Promise<ProcessingJobDto>;
+  processSong(songId: string, mode?: "lyrics"): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
   removeSongCover(songId: string): Promise<SongDto>;

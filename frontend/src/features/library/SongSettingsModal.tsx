@@ -32,7 +32,7 @@ interface Props {
   onSave(song: SongDto, patch: SongPatch): Promise<void>;
   onRemoveCover(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
-  onReprocess(song: SongDto): void;
+  onReprocess(song: SongDto, mode?: "lyrics"): void;
   onDelete(song: SongDto): void;
 }
 
@@ -208,6 +208,7 @@ const SongSettingsForm = ({
           ]}
         />
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
+        <MessageBar tone="info">{t("realignLyricsHelp")}</MessageBar>
         <div className="songSettingsActions">
           {(song.detectedBpm !== undefined || song.detectedKey) && (
             <Button
@@ -244,14 +245,15 @@ const SongSettingsForm = ({
           <Button size="sm" icon="folder" onClick={() => onOpenFolder(song)}>
             {t("openFolder")}
           </Button>
-          <Button
-            size="sm"
-            icon="wave"
-            disabled={busy}
-            onClick={() => onReprocess(song)}
-          >
-            {t("reprocess")}
-          </Button>
+          {([
+            { label: "reprocess", mode: undefined, disabled: busy },
+            { label: "realignLyrics", mode: "lyrics", disabled: song.status !== "ready" },
+          ] as const).map(({ label, mode, disabled }) => (
+            <Button key={label} size="sm" icon="wave" disabled={disabled}
+              onClick={() => onReprocess(song, mode)}>
+              {t(label)}
+            </Button>
+          ))}
           <Button
             size="sm"
             variant="danger"

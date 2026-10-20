@@ -4,6 +4,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
+from math import prod
 from types import MappingProxyType
 
 import numpy as np
@@ -12,6 +13,7 @@ import torchaudio
 import uroman
 from torchaudio.functional import forced_align, merge_tokens
 from torchaudio.pipelines import MMS_FA
+from torchaudio.pipelines._wav2vec2.utils import _extend_model
 
 from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
@@ -22,14 +24,9 @@ from backend.moment_spreading import spread_tied_moments
 _CHUNK_SECONDS = 20.0
 _CONTEXT_SECONDS = 2.0
 _MINIMUM_WORD_SECONDS = 0.05
-_LONGEST_HOLD_SECONDS = 6.0
 # A word is over once the voice has been silent this long; the model often keeps its last letter "sounding"
 # through the pause until the next word, which would keep the word lit over silence.
 _SILENCE_ENDS_WORD_SECONDS = 0.3
-# A genuinely held note rarely needs more than this per character; a word far past it is more likely a
-# guided window that swallowed audio belonging to unrecognised neighbouring words (common for melismatic
-# runs and ad-libs Whisper could not transcribe) than one real sustained pronunciation.
-_MAX_SECONDS_PER_CHARACTER = 2.0
 _PREFERENCE = 0.05
 # Whisper's word times are coarse (a few tenths of a second), but they reliably tell which sung phrase a
 # word belongs to. Two placements of a stretch that differ by more than this against them are not jitter.
@@ -76,6 +73,8 @@ def _model() -> torch.nn.Module:
         weights["aux.bias"][keep],
     )
     model.load_state_dict(weights)
+    # Match MMS_FA.get_model() preprocessing while retaining verified local checkpoint loading.
+    model = _extend_model(model, normalize_waveform=MMS_FA._normalize_waveform)  # noqa: SLF001
     return model.to(device()).eval()
 
 
@@ -89,26 +88,21 @@ def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     audio = torch.from_numpy(samples)
     chunk, context = int(_CHUNK_SECONDS * rate), int(_CONTEXT_SECONDS * rate)
     parts: list[torch.Tensor] = []
-    frame_samples = 0.0
-    # The first and last chunk are shorter than the rest (no context before the song's start, and whatever
-    # remainder is left at its end); the model's fixed-stride downsampling rounds their samples-per-frame
-    # ratio off very slightly differently. A full middle chunk gives the most reliable ratio -- using
-    # whichever chunk happened to run last instead would misconvert every frame index to a time that is
-    # off by that chunk's own tiny rounding, and the error grows with the song's length.
-    reference_frame_samples: float | None = None
+    # Valid convolutions omit their final incomplete receptive field; input length / output count is
+    # therefore not the frame stride. Using that ratio both drops frames at chunk seams and gradually
+    # stretches the concatenated time axis. All chunks use the extractor's fixed sample stride.
+    frame_samples = prod(
+        stride for _, _, stride in MMS_FA._params["extractor_conv_layer_config"]  # noqa: SLF001
+    )
     with torch.inference_mode():
         for start in range(0, len(audio), chunk):
             begin, end = max(0, start - context), min(len(audio), start + chunk + context)
             logits, _ = _model()(audio[begin:end][None].to(device()))
             scores = torch.log_softmax(logits, dim=-1)[0].cpu()
-            frame_samples = (end - begin) / scores.shape[0]
-            if end - begin == chunk + 2 * context:
-                reference_frame_samples = frame_samples
-            first = round((start - begin) / frame_samples)
-            parts.append(
-                scores[first : first + round(min(chunk, len(audio) - start) / frame_samples)]
-            )
-    return torch.cat(parts), (reference_frame_samples or frame_samples) / rate
+            first = (start - begin) // frame_samples
+            count = (min(chunk, len(audio) - start) + frame_samples - 1) // frame_samples
+            parts.append(scores[first : first + count])
+    return torch.cat(parts), frame_samples / rate
 
 
 def _character_tokens(word: str) -> list[list[int]]:
@@ -210,16 +204,13 @@ def with_sung_ends(words: list[AlignedWord], samples: np.ndarray) -> list[Aligne
     """Stretches each word to the end of the sound it starts.
 
     The model marks a letter by the instant it is recognised, so a held vowel looks short; the end of a word is where the
-    voice really stops, at most where the next word begins and never more than a few seconds.
+    voice really stops, at most where the next word begins.
     """
     voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
-        limit = min(
-            words[index + 1].start if index + 1 < len(words) else len(voiced) * step,
-            word.end + _LONGEST_HOLD_SECONDS,
-        )
+        limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
         frame = min(int(word.end / step), len(voiced) - 1)
         while frame + 1 < len(voiced) and voiced[frame] and (frame + 1) * step < limit:
             frame += 1
@@ -235,6 +226,7 @@ def with_sung_ends(words: list[AlignedWord], samples: np.ndarray) -> list[Aligne
                 word.start,
                 round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3),
                 letters,
+                word.score,
             )
         )
     return result
@@ -425,31 +417,25 @@ def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]
     return result
 
 
-def _evenly_spread_letters(text: str, start: float, end: float) -> tuple[float, ...]:
-    """One character's worth of the span each, in order -- the same even split _evenly() gives a whole
-    window, used here for a single word whose raw per-letter positions are not trustworthy."""
-    count = max(len(text), 1)
-    step = (end - start) / count
-    return tuple(round(start + step * index, 3) for index in range(count))
-
-
 def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
-    """Words never go backwards and always last a little: overlaps of neighbouring windows and moved starts are settled here."""
-    result: list[AlignedWord] = []
+    """Settle overlaps at the next word's start, without propagating one bad end through later words.
+
+    Only reversed starts need moving. Duration alone cannot tell whether a long word or an unequal
+    letter interval is wrong; audio evidence belongs to the alignment/refinement stages.
+    """
+    starts: list[float] = []
     cursor = 0.0
     for word in words:
         start = max(word.start, cursor)
-        end = max(word.end, start + _MINIMUM_WORD_SECONDS)
-        if end - start > _MAX_SECONDS_PER_CHARACTER * max(len(word.text), 1):
-            # Trusting the raw letters here would show one of them dominating almost the whole word,
-            # then snapping to complete right at the very end; spreading them evenly at least keeps the
-            # fill visibly progressing, even though the word's own total duration is still whatever the
-            # window guessed.
-            letters = _evenly_spread_letters(word.text, start, end)
-        else:
-            letters = _clamped_letters(word.letters, 0.0, start, end)
-        result.append(AlignedWord(word.text, round(start, 3), round(end, 3), letters))
-        # The next word must not start before this one ends, or the two would overlap on screen -- this is the
-        # actual overlap settlement the docstring promises; tracking only the start here would not enforce it.
-        cursor = end
+        starts.append(start)
+        # Reserve only one serialized millisecond; real fast words need no 50-ms speech minimum.
+        cursor = start + 0.001
+    result: list[AlignedWord] = []
+    for index, word in enumerate(words):
+        start = starts[index]
+        end = max(word.end, start + 0.001)
+        if index + 1 < len(starts):
+            end = min(end, starts[index + 1])
+        letters = _clamped_letters(word.letters, 0.0, start, end)
+        result.append(AlignedWord(word.text, round(start, 3), round(end, 3), letters, word.score))
     return result

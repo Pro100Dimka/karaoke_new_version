@@ -61,14 +61,23 @@ class ProjectPublisher:
         provenance: Mapping[str, object],
         lineage_id: str,
     ) -> int:
+        # Generated timings must never silently replace a user's saved edits.
+        previous = self._storage.load_manifest(song_id, expected_revision)
+        checksums = {item.logical_name: item.checksum for item in previous.artifacts}
+        for name in ("lyricsSync", "lyricsBaseline"):
+            if name in checksums and not checksums[name]:
+                checksums[name] = self._hasher.hash_file(
+                    self._storage.artifact_path(song_id, expected_revision, name)
+                )
+        if "lyricsSync" in checksums and checksums.get("lyricsBaseline") != checksums["lyricsSync"]:
+            raise ConflictError(
+                "ManualLyricsConflict",
+                "The project has manual lyric or note edits. Export a backup and explicitly "
+                "reset the editor to its AI baseline before regenerating timings.",
+                revision=expected_revision,
+            )
         manifest, working = self._stage_generated(
-            song_id,
-            expected_revision + 1,
-            instrumental,
-            reference_vocal,
-            melody,
-            lyrics,
-            provenance,
+            song_id, expected_revision + 1, instrumental, reference_vocal, melody, lyrics, provenance,
         )
         entry = self._journal.begin(
             RecoveryOperation.PROJECT_PUBLISH,

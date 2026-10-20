@@ -6,7 +6,7 @@ import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
 
 interface SongOperations {
-  processSong(song: SongDto): Promise<void>;
+  processSong(song: SongDto, mode?: "lyrics"): Promise<void>;
   deleteSong(song: SongDto): Promise<void>;
 }
 
@@ -21,9 +21,9 @@ export const useSongActions = (
   const guarded = useGuardedAction();
   const catalog = useLibraryCatalog();
 
-  const startProcessing = (song: SongDto) =>
+  const startProcessing = (song: SongDto, mode?: "lyrics") =>
     guarded(async () => {
-      await processSong(song);
+      await processSong(song, mode);
       notify(t("processingStarted"), "info");
     });
 

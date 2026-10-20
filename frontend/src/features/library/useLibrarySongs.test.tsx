@@ -15,6 +15,7 @@ vi.mock("../../services/pythonClient", () => ({
     removeSongCover: vi.fn(),
     importSong: vi.fn(),
     deleteSong: vi.fn(),
+    processSong: vi.fn(),
   },
 }));
 
@@ -33,6 +34,15 @@ const song = (title: string): SongDto => ({
 
 describe("useLibrarySongs", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("requests lyrics realignment and refreshes the existing song", async () => {
+    vi.mocked(pythonClient.listSongs).mockResolvedValue([song("Existing")]);
+    const { result } = renderHook(() => useLibrarySongs(), { wrapper: LibraryProvider });
+    await waitFor(() => expect(result.current.state.status).toBe("ready"));
+    await act(() => result.current.processSong(song("Existing"), "lyrics"));
+    expect(pythonClient.processSong).toHaveBeenCalledWith("s", "lyrics");
+    expect(pythonClient.listSongs).toHaveBeenCalledTimes(2);
+  });
 
   it("rerenders with the saved song even when a following background list is stale", async () => {
     vi.mocked(pythonClient.listSongs).mockResolvedValue([song("Old")]);

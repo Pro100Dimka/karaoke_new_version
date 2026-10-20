@@ -165,6 +165,7 @@ export const mapJob = (
   songId = "",
 ): ProcessingJobDto => {
   const full = "overallProgress" in job ? job : null;
+  const timingOperation = full?.report?.timingOperation;
   return {
     id: job.jobId,
     type: full?.type ?? "SongProcessing",
@@ -175,6 +176,8 @@ export const mapJob = (
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
     processingBackend: full ? processingBackend(full) : undefined,
+    timingOperation: timingOperation === "lyrics" || timingOperation === "melody"
+      ? timingOperation : undefined,
     error: full?.error
       ? {
           code: String(full.error.code ?? "ProcessingFailed"),

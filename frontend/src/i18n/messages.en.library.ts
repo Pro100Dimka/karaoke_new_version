@@ -1,4 +1,6 @@
 export const libraryEn = {
+  realignLyrics: "Refine words and notes",
+  realignLyricsHelp: "Re-align the existing text to the vocal and rebuild notes in a new revision. Previous revisions remain available. Manual edits are preserved: rebuilding stops if they exist. Export a project copy before explicitly resetting edits.",
   filtersApplyInstantly: "Changes apply instantly",
   sortAscending: "Ascending",
   sortDescending: "Descending",

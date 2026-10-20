@@ -21,7 +21,7 @@ from backend.runtime import IdGenerator
 from backend.songs.domain import Song
 from backend.storage.ports import WorkStorage
 
-_ALGORITHM_VERSION = "pipeline-1"
+_ALGORITHM_VERSION = "pipeline-2"
 
 
 class PipelineOrchestrator:
@@ -95,6 +95,8 @@ class PipelineOrchestrator:
         provenance = {
             "algorithmVersion": _ALGORITHM_VERSION,
             "providers": _provider_provenance(providers),
+            "lyricsSource": built.discovery.source,
+            "warnings": list(built.warnings),
         }
         return self._stages.run(
             "ProjectValidationPublication",
@@ -132,7 +134,7 @@ class PipelineOrchestrator:
                 for name, details in _provider_provenance(providers).items()
             },
             cache_used=prepared.normalized_cache_hit,
-            warnings=built.discovery.warnings,
+            warnings=built.warnings,
             algorithm_version=_ALGORITHM_VERSION,
         )
 

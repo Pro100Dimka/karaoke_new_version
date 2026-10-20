@@ -87,6 +87,32 @@ def test_alignment_words_are_read_in_order() -> None:
     assert [word.text for word in words] == ["la", "li"]
 
 
+@pytest.mark.parametrize("diagnostics", [[], ["AsrCtcBoundaryDisagreement"]])
+def test_alignment_preserves_optional_word_diagnostics(diagnostics) -> None:
+    import json
+
+    provider = _provider(json.dumps({"words": [{
+        "text": "la", "start": 1.0, "end": 1.5, "confidence": 0.8,
+        "diagnostics": diagnostics,
+    }]}).encode())
+
+    word = provider.align(
+        Path("vocal.wav"), "la", Language.AUTO, threading.Event(), execution=EXECUTION
+    )[0]
+
+    assert word.diagnostics == tuple(diagnostics)
+
+
+@pytest.mark.parametrize("activity", [True, False, None])
+def test_pitch_preserves_optional_audio_activity_independently_of_confidence(activity) -> None:
+    field = b"" if activity is None else b', "audioActive": ' + str(activity).lower().encode()
+    provider = _provider(
+        b'{"points": [{"time": 0.1, "frequency": 440.0, "confidence": 0.1' + field + b"}]}"
+    )
+    point = provider.pitch(Path("vocal.wav"), threading.Event(), execution=EXECUTION)[0]
+    assert point.audio_active is activity
+
+
 @pytest.mark.parametrize("cancel_before_start", [True, False])
 def test_actual_worker_cancellation_uses_the_job_cancelled_contract(tmp_path, cancel_before_start):
     marker = tmp_path / "started"

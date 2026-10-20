@@ -38,6 +38,7 @@ class WordTiming:
     confidence: float
     # Start time of every character of ``text`` (empty when the aligner could not time letters).
     letters: tuple[float, ...] = ()
+    diagnostics: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +46,9 @@ class PitchPoint:
     time: float
     frequency: float
     confidence: float
+    # Independent vocal-track loudness evidence; None for providers without an audio envelope.
+    # Audible backing bleed/reverb can also be active, so this does not certify sung voice.
+    audio_active: bool | None = None
 
 
 @dataclass(frozen=True, slots=True)

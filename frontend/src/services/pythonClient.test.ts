@@ -24,6 +24,31 @@ const installBridge = (
 };
 
 describe("pythonClient contract", () => {
+  it("realigns existing lyrics from the vocal stem with its own processing endpoint", async () => {
+    const calls = installBridge(() => ({
+      status: 202, ok: true, body: { jobId: "lyrics-1", state: "Queued" },
+    }));
+    expect(await pythonClient.processSong("a/b", "lyrics")).toMatchObject({
+      id: "lyrics-1", songId: "a/b", state: "queued",
+    });
+    expect(calls).toEqual([{
+      method: "POST", path: "/songs/a%2Fb/processing/lyrics",
+      body: { mode: "Auto", onlineLyrics: true },
+      headers: { "Idempotency-Key": "key-1" },
+    }]);
+  });
+
+  it("keeps the lyrics realignment operation when loading jobs for retry", async () => {
+    installBridge(() => ({ status: 200, ok: true, body: { items: [{
+      jobId: "lyrics-1", type: "SongProcessing", entityId: "s", state: "Failed",
+      stage: "ForcedAlignment", stageProgress: 0, overallProgress: 0,
+      error: null, report: { timingOperation: "lyrics" },
+    }], limit: 100, offset: 0 } }));
+    expect(await pythonClient.listJobs()).toEqual([
+      expect.objectContaining({ id: "lyrics-1", timingOperation: "lyrics" }),
+    ]);
+  });
+
   it("propagates the authoritative backend instance identity", async () => {
     installBridge((call) => ({
       status: 200,

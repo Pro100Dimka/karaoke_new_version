@@ -119,7 +119,7 @@ describe("karaoke load session", () => {
   });
 
   it("prepares document, audio and every mixer channel before releasing the scene", async () => {
-    const song = { id: "song", status: "ready" } as never;
+    const song = { id: "song", status: "ready", activeRevision: 1 } as never;
     vi.mocked(resolveKaraokeLoad).mockResolvedValue({
       load: { kind: "ready", song },
       prefs: { language: "Auto" } as never,

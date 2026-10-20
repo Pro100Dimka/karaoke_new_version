@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import json
 from pathlib import Path
 
 from tests.conftest import app_client, write_wav
@@ -72,6 +73,53 @@ def test_editor_reset_restores_ai_baseline_as_new_revision(tmp_path: Path) -> No
 
         assert current["revision"] == saved["revision"] + 1
         assert current["document"]["words"][0]["notes"][0]["note"] == original_note
+
+
+@pytest.mark.parametrize("manual,baseline", [(True, True), (False, True), (True, False)])
+def test_generated_reprocessing_preserves_legacy_edits_without_manifest_checksums(
+    tmp_path: Path, manual: bool, baseline: bool
+) -> None:
+    source = tmp_path / "legacy.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        editor_path = f"/songs/{song['songId']}/editor"
+        before = client.get(editor_path).json()
+        if manual:
+            before["document"]["words"][0]["notes"][0]["note"] = 70
+            saved = client.put(editor_path, json={
+                "expectedRevision": before["revision"], "document": before["document"],
+            })
+            assert saved.status_code == 200, saved.text
+        before = client.get(editor_path).json()
+        project = root / "songs" / song["songId"] / "revisions" / str(before["revision"])
+        manifest_path = project / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["artifacts"] = [item for item in manifest["artifacts"]
+                                 if baseline or item["logicalName"] != "lyricsBaseline"]
+        for item in manifest["artifacts"]:
+            if item["logicalName"] in {"lyricsSync", "lyricsBaseline"}:
+                item["checksum"] = None
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+        started = client.post(f"/songs/{song['songId']}/processing/lyrics")
+        # The existing Ready validation explicitly permits these optional manifest checksums.
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        if manual or not baseline:
+            assert job["state"] == "Failed", job
+            assert job["error"]["code"] == "ManualLyricsConflict"
+            assert client.get(editor_path).json() == before
+            assert not project.with_name(str(before["revision"] + 1)).exists()
+        else:
+            assert job["state"] == "Succeeded", job
+            assert client.get(editor_path).json()["revision"] == before["revision"] + 1
+        if manual and baseline:
+            reset = client.post(f"{editor_path}/reset", json={"expectedRevision": before["revision"]})
+            assert reset.status_code == 200, reset.text
+            restarted = client.post(f"/songs/{song['songId']}/processing/lyrics")
+            assert wait_for_job(client, restarted.json()["jobId"])["state"] == "Succeeded"
 
 
 def test_editor_save_shares_unchanged_files_with_the_previous_revision(tmp_path: Path) -> None:

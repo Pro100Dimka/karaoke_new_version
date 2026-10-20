@@ -73,6 +73,7 @@ export interface ProcessingJobDto {
   startedAt?: string;
   finishedAt?: string;
   processingBackend?: "Local" | "Kaggle";
+  timingOperation?: "lyrics" | "melody";
   error?: AppError;
 }
 

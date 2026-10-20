@@ -110,3 +110,5 @@ class ProcessingReport:
     cache_used: bool
     warnings: tuple[str, ...]
     algorithm_version: str
+    timing_operation: str | None = None
+    processing_backend: str | None = None

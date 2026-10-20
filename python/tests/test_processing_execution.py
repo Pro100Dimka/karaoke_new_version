@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -10,7 +10,7 @@ from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ComputeDevice
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.processing.reprocess_melody import ReprocessMelody
-from backend.settings.domain import BackendSettings
+from backend.settings.domain import BackendSettings, ProcessingBackend
 from backend.songs.domain import SongStatus
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -69,7 +69,41 @@ def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyP
     assert action.execute("song-1", idempotency_key=None, correlation_id=None) is expected_job
     settings.execute.assert_called_once_with()
     resolver.execute.assert_called_once_with(AiCapability.PITCH, "preferred")
-    resources.claim_provider.assert_called_once_with(provider, 42, ComputeMode.CPU, cpu_threads=2)
+    resources.claim_provider.assert_called_once_with(
+        provider, 42, ComputeMode.CPU, cpu_threads=2, additional_providers=()
+    )
+
+
+@pytest.mark.parametrize("realign", [False, True])
+def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initial_report(realign):
+    current = BackendSettings(
+        2, compute_mode=ComputeMode.CUDA, cpu_threads=2,
+        selected_pitch_provider="unavailable-local", selected_alignment_provider="unavailable-local",
+        processing_backend=ProcessingBackend.KAGGLE,
+    )
+    settings = Mock()
+    settings.execute.return_value = current
+    persistence = Mock()
+    persistence.repeated_job.return_value = None
+    persistence.load_song.return_value = Mock(status=SongStatus.READY, song_id="song-1")
+    pipeline = Mock()
+    pipeline.resource_size.return_value = 42
+    remote = FakeAiProvider("kaggle-p100", required_resources={"remote": True})
+    resolver = Mock()
+    resolver.execute.return_value = remote
+    resources, jobs = Mock(), Mock()
+    action = ReprocessMelody(jobs, settings, resolver, resources, pipeline, Mock(), persistence)
+
+    action.execute("song-1", idempotency_key=None, correlation_id=None, realign_lyrics=realign)
+
+    expected = [call(AiCapability.PITCH, "kaggle-p100")]
+    if realign:
+        expected.append(call(AiCapability.ALIGNMENT, "kaggle-p100"))
+    assert resolver.execute.call_args_list == expected
+    resources.claim_provider.assert_called_once_with(
+        remote, 42, ComputeMode.CPU, cpu_threads=2, additional_providers=(remote,) if realign else ()
+    )
+    assert jobs.start.call_args.kwargs["initial_report"]["processingBackend"] == "Kaggle"
 
 
 @pytest.mark.parametrize("mode,device", [("CPU", ComputeDevice.CPU), ("CUDA", ComputeDevice.CUDA)])

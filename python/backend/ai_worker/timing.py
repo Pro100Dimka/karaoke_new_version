@@ -30,11 +30,16 @@ def _levels(samples: np.ndarray, hop: int) -> tuple[np.ndarray, float]:
     return level, max(_ABSOLUTE_FLOOR_DB, float(np.percentile(level, 95)) - _ACTIVITY_DB)
 
 
+def audible_frames(samples: np.ndarray, hop: int) -> np.ndarray:
+    """Raw loudness evidence per hop, retaining quiet gaps independently of pitch confidence."""
+    level, threshold = _levels(samples, hop)
+    return level > threshold
+
+
 def voiced_frames(samples: np.ndarray, sample_rate: int, hop: int) -> np.ndarray:
     """One flag per hop: is the vocal track audibly active (relative to its own loudest parts), gaps and blips smoothed."""
-    level, threshold = _levels(samples, hop)
     step = hop / sample_rate
-    active = level > threshold
+    active = audible_frames(samples, hop)
     return _without_short_runs(
         _bridged(active, round(_BRIDGED_GAP_SECONDS / step)), round(_MINIMUM_RUN_SECONDS / step)
     )

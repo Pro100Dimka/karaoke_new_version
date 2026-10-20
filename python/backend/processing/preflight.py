@@ -24,20 +24,30 @@ class ProcessingPreflight:
         self._resolver = resolver
 
     def execute(self, settings: BackendSettings) -> ProcessingProviders:
-        remote = (
-            _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE else None
+        capabilities = {
+            "separation": AiCapability.SEPARATION, "asr": AiCapability.ASR,
+            "alignment": AiCapability.ALIGNMENT, "pitch": AiCapability.PITCH,
+        }
+        return ProcessingProviders(**{
+            name: self.resolve(settings, capability) for name, capability in capabilities.items()
+        })
+
+    def resolve(self, settings: BackendSettings, capability: AiCapability) -> AiProvider:
+        preferred = {
+            AiCapability.SEPARATION: settings.selected_separation_provider,
+            AiCapability.ASR: settings.selected_asr_provider,
+            AiCapability.ALIGNMENT: settings.selected_alignment_provider,
+            AiCapability.PITCH: settings.selected_pitch_provider,
+        }
+        provider_id = (
+            _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE
+            else preferred[capability]
         )
-        return ProcessingProviders(
-            separation=self._resolver.execute(
-                AiCapability.SEPARATION,
-                remote or settings.selected_separation_provider,
-            ),
-            asr=self._resolver.execute(AiCapability.ASR, remote or settings.selected_asr_provider),
-            alignment=self._resolver.execute(
-                AiCapability.ALIGNMENT,
-                remote or settings.selected_alignment_provider,
-            ),
-            pitch=self._resolver.execute(
-                AiCapability.PITCH, remote or settings.selected_pitch_provider
-            ),
-        )
+        return self._resolver.execute(capability, provider_id)
+
+
+def provider_backend(provider: AiProvider) -> ProcessingBackend:
+    return (
+        ProcessingBackend.KAGGLE if provider.descriptor.required_resources.get("remote")
+        else ProcessingBackend.LOCAL
+    )

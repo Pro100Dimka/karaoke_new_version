@@ -126,6 +126,15 @@ def test_a_held_vowel_stretches_its_word_to_the_end_of_the_sound() -> None:
     assert stretched[1].start == 3.5
 
 
+def test_a_genuine_long_vowel_follows_audio_without_a_duration_ceiling() -> None:
+    words = [AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)]
+
+    stretched = with_sung_ends(words, _signal([(1.0, 12.0)], 13.0))
+
+    assert stretched[0].end == pytest.approx(12.0, abs=0.05)
+    assert stretched[0].letters == words[0].letters
+
+
 def test_a_word_never_stretches_into_the_next_one() -> None:
     words = [AlignedWord("а", 1.0, 1.2, (1.0,)), AlignedWord("б", 2.0, 2.2, (2.0,))]
 
@@ -207,6 +216,24 @@ def test_without_any_recognised_run_the_whole_song_is_one_stretch() -> None:
     ]
 
 
+def test_heard_repeated_choruses_match_their_temporal_occurrence_when_one_is_missing() -> None:
+    from backend.ai_worker.speech import _alignment_windows, _heard_positions
+
+    words = "we will stay we will stay we will stay".split()
+    whole = [
+        AlignedWord(word, 1.0 + (index // 3) * 10 + index % 3, 1.5 + (index // 3) * 10 + index % 3, ())
+        for index, word in enumerate(words)
+    ]
+    # ASR missed the first chorus; text alone would attach these to the first two repeats.
+    heard = [(word.text, word.start, word.end) for word in whole[3:]]
+
+    windows = _alignment_windows(" ".join(words), [], heard, whole, np.zeros(30 * _RATE))
+
+    assert [(window.first, window.last) for window in windows] == [(0, 3), (3, 9)]
+    assert windows[1].start == pytest.approx(10.4)
+    assert _heard_positions(words, heard, whole) == {index: whole[index].start for index in range(3, 9)}
+
+
 def test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length() -> None:
     words = [
         AlignedWord("а", 5.0, 5.4, (5.0,)),
@@ -223,10 +250,8 @@ def test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length(
     assert all(word.start <= moment <= word.end for word in fixed for moment in word.letters)
 
 
-def test_ordered_spreads_letters_pushed_later_instead_of_collapsing_them() -> None:
-    # The previous word ends at 8.13, right where this word's own first two letters were recognised
-    # ("м","а" tied on the same model frame); ordered() must push the word's start to 8.13 without
-    # collapsing those two letters onto that single new start.
+def test_ordered_settles_an_overlap_without_moving_the_following_word() -> None:
+    # End settlement must not overwrite the independent start of the following word.
     words = [
         AlignedWord("город", 7.62, 8.13, (7.62, 7.7, 7.8, 7.9, 8.0)),
         AlignedWord("магистрали", 8.1, 9.1, (8.1, 8.1, 8.2, 8.3)),
@@ -234,24 +259,97 @@ def test_ordered_spreads_letters_pushed_later_instead_of_collapsing_them() -> No
 
     fixed = ordered(words)
 
-    assert fixed[1].start == pytest.approx(8.13)
-    assert fixed[1].letters[0] == pytest.approx(8.13)
+    assert fixed[0].end == pytest.approx(8.1)
+    assert fixed[1].start == pytest.approx(8.1)
+    assert fixed[1].letters[0] == pytest.approx(8.1)
     assert fixed[1].letters[1] > fixed[1].letters[0]
 
 
-def test_ordered_spreads_letters_evenly_for_an_implausibly_long_word() -> None:
-    # "без" (3 characters) spanning 11.6 s is far more than any real held pronunciation would need; the
-    # raw letters have "з" recognised 9 s after "е" -- almost certainly a guided window that swallowed
-    # audio belonging to other, unrecognised words, not one real sustained sound.
+def test_ordered_preserves_long_unequal_letters_without_audio_evidence() -> None:
+    # These are the existing suspicious "без" times, not independently verified boundaries.
+    # Duration alone cannot justify replacing the model's evidence with an even split.
     words = [AlignedWord("без", 148.54, 160.14, (148.54, 148.732, 157.8))]
 
     fixed = ordered(words)
 
-    letters = fixed[0].letters
-    assert len(letters) == 3
-    gaps = [b - a for a, b in zip(letters, letters[1:])]
-    # Spread evenly rather than one letter dominating almost the whole word.
-    assert max(gaps) == pytest.approx(min(gaps), rel=0.01)
+    assert fixed[0].end == words[0].end
+    assert fixed[0].letters == words[0].letters
+
+
+def test_an_erroneous_word_end_does_not_shift_the_rest_of_the_phrase() -> None:
+    # A window supplies a bad end for one word, but subsequent word starts have their own evidence.
+    # This scenario checks containment of that error; it does not assert true bounds for real "без".
+    words = [
+        AlignedWord("held", 1.0, 12.0, (1.0, 1.1, 1.2, 11.8)),
+        AlignedWord("next", 2.0, 2.4, (2.0, 2.1, 2.2, 2.3)),
+        AlignedWord("phrase", 2.5, 3.1, (2.5, 2.6, 2.7, 2.8, 2.9, 3.0)),
+    ]
+
+    fixed = ordered(words)
+
+    assert [word.start for word in fixed[1:]] == [2.0, 2.5]
+    assert [word.end for word in fixed[1:]] == [2.4, 3.1]
+    assert fixed[0].end == 2.0
+    assert all(letter <= fixed[0].end for letter in fixed[0].letters)
+
+
+def test_ordered_preserves_independently_timed_words_shorter_than_fifty_ms() -> None:
+    words = [
+        AlignedWord("I", 1.0, 1.03, (1.0,)),
+        AlignedWord("a", 1.03, 1.06, (1.03,)),
+        AlignedWord("go", 1.06, 1.3, (1.06, 1.1)),
+    ]
+
+    fixed = ordered(words)
+
+    assert [(word.start, word.end) for word in fixed] == [(1.0, 1.03), (1.03, 1.06), (1.06, 1.3)]
+
+
+@pytest.mark.parametrize("transform", [ordered, with_sung_ends])
+def test_boundary_refinement_retains_model_alignment_scores(transform) -> None:
+    words = [AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3), 0.73)]
+    arguments = [words] if transform is ordered else [words, _signal([(1.0, 2.0)], 3.0)]
+
+    assert transform(*arguments)[0].score == 0.73
+
+
+@pytest.mark.parametrize("score", [0.0, 0.73])
+def test_speech_alignment_reports_supported_score_instead_of_perfect_confidence(
+    monkeypatch: pytest.MonkeyPatch, score: float
+) -> None:
+    from backend.ai_worker import speech
+
+    samples = _signal([(1.0, 2.0)], 3.0)
+    words = [AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3), score)]
+    monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, []))
+    monkeypatch.setattr(speech, "align_words", lambda *_args: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_args: words)
+
+    result = speech.align(Path("vocal.wav"), "stay", "English")
+
+    assert result["words"][0]["confidence"] == score
+
+
+def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_scores(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.ai_worker import speech
+
+    samples = _signal([(1.0, 12.0)], 13.0)
+    words = [AlignedWord("stay", 1.0, 11.0, (1.0, 1.1, 1.2, 10.9), 0.8)]
+    monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
+    monkeypatch.setattr(
+        speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, [("stay", 1.0, 2.0)])
+    )
+    monkeypatch.setattr(speech, "align_words", lambda *_args: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_args: words)
+
+    word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
+
+    assert word["confidence"] == 0.8
+    assert word["diagnostics"] == ["AsrCtcBoundaryDisagreement"]
+    assert word["end"] > 11.0, "diagnostic evidence must not silently cap the word at ASR's end"
 
 
 def test_ordered_still_trusts_a_plausible_short_hold() -> None:
@@ -326,6 +424,67 @@ def test_ctc_emission_and_whisper_guidance_run_concurrently(
     )
 
     assert (scores, frame_seconds, heard) == ("scores", 0.02, [])
+
+
+@pytest.mark.parametrize("total", [60.317, 620.317])
+def test_ctc_chunks_keep_one_fixed_frame_grid_through_the_end_of_long_audio(
+    monkeypatch: pytest.MonkeyPatch, total: float
+) -> None:
+    import torch
+
+    from backend.ai_worker import ctc
+
+    # MMS's convolution stack has a 400-sample receptive field and a 320-sample stride.
+    # Each fake logit records its source sample's absolute time, independent of chunk boundaries.
+    class FixedStrideModel:
+        def __call__(self, audio):
+            count = (audio.shape[-1] - 400) // 320 + 1
+            times = audio[:, : count * 320 : 320]
+            return torch.stack((torch.zeros_like(times), times), dim=-1), None
+
+    samples = np.arange(round(total * _RATE), dtype=np.float32) / (_RATE * 1000)
+    monkeypatch.setattr(ctc, "_model", FixedStrideModel)
+    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+
+    scores, frame_seconds = ctc.emission(samples)
+
+    assert frame_seconds == 0.02
+    assert len(scores) == (len(samples) - 400) // 320 + 1
+    indices = torch.tensor([0, 999, 1000, 1999, 2000, len(scores) - 1])
+    source_seconds = (scores[indices, 1] - scores[indices, 0]) * 1000
+    assert source_seconds.tolist() == pytest.approx((indices * frame_seconds).tolist(), abs=0.001)
+
+
+def test_local_mms_model_applies_the_bundles_required_waveform_normalization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import torch
+
+    from backend.ai_worker import ctc
+
+    class CapturingModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.aux = torch.nn.Linear(2, 28)
+
+        def forward(self, audio, lengths=None):
+            return audio, lengths
+
+    monkeypatch.setattr(ctc.torchaudio.models, "wav2vec2_model", lambda **_kwargs: CapturingModel())
+    monkeypatch.setattr(ctc, "model_file", lambda _spec: Path("unused-model.bin"))
+    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+    monkeypatch.setattr(
+        ctc.torch, "load", lambda *_args, **_kwargs: {
+            "aux.weight": torch.zeros(31, 2), "aux.bias": torch.zeros(31)
+        }
+    )
+    samples = torch.tensor([[0.001, 0.002, -0.002, -0.001]])
+    ctc._model.cache_clear()
+    try:
+        received, _ = ctc._model()(samples)
+        assert received == pytest.approx(torch.nn.functional.layer_norm(samples, samples.shape))
+    finally:
+        ctc._model.cache_clear()
 
 
 def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_timestamps(

@@ -5,6 +5,36 @@ import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 
 describe("KaraokeStage", () => {
+  it("does not display a pitch target before the saved note starts", () => {
+    const editorDocument: EditorDocument = {
+      revision: 1,
+      lyrics: "Sing",
+      words: [{ id: "w", text: "Sing", start: 10, end: 12 }],
+      notes: [{ id: "n", wordId: "w", start: 10.4, end: 12, pitch: 69 }],
+    };
+    // The consonant belongs to the word, but the persisted melody starts only at the voiced vowel.
+    const stage = (position: number) => (
+      <AppProvider>
+        <KaraokeStage
+          songTitle="Song"
+          position={position}
+          playing={false}
+          rate={1}
+          document={editorDocument}
+          layers={{ showLyrics: true, showNotes: true }}
+          vocalRange="auto"
+          pitchHz={440}
+        />
+      </AppProvider>
+    );
+    const view = render(stage(10.2));
+    expect(document.querySelector(".ad-melody-note[data-now]")).toBeNull();
+    expect(document.querySelector(".ad-melody-voice[data-hit]")).toBeNull();
+    view.rerender(stage(10.6));
+    expect(document.querySelector(".ad-melody-note[data-now]")).not.toBeNull();
+    expect(document.querySelector(".ad-melody-voice[data-hit]")).not.toBeNull();
+  });
+
   it("shows live pitch on the roll without awarding a note from one sample", async () => {
     const editorDocument = {
       revision: 1,

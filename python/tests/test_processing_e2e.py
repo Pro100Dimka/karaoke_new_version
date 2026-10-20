@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import pytest
+import json
+from dataclasses import replace
 from pathlib import Path
 
-from backend.ai.domain import AiCapability, AiProviderDescriptor
+from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.domain_errors import DependencyError
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -29,7 +31,7 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
 
         assert job["state"] == "Succeeded", job
         assert job["overallProgress"] == 1.0
-        assert job["report"]["algorithmVersion"] == "pipeline-1"
+        assert job["report"]["algorithmVersion"] == "pipeline-2"
         assert job["report"]["processingBackend"] == "Local"
         updated = client.get(f"/songs/{song['songId']}").json()
         assert updated["status"] == "Ready"
@@ -137,7 +139,7 @@ def test_melody_reprocess_uses_existing_artifacts_and_only_pitch_provider(tmp_pa
         job = wait_for_job(client, started.json()["jobId"])
 
         assert job["state"] == "Succeeded", job
-        assert job["report"]["algorithmVersion"] == "melody-1"
+        assert job["report"]["algorithmVersion"] == "melody-2"
         stage_names = {item["stage"] for item in job["report"]["stages"]}
         assert "PitchAnalysis" in stage_names
         assert "StemSeparation" not in stage_names
@@ -152,6 +154,239 @@ class _CrashingProvider(FakeAiProvider):
     def pitch(self, vocal, cancel, *, execution):
         del execution
         raise RuntimeError("provider bug")
+
+
+class _ApproximateAlignmentProvider(FakeAiProvider):
+    def __init__(self, confidence=0.0, diagnostics=()):
+        super().__init__()
+        self.confidence = confidence
+        self.diagnostics = diagnostics
+
+    def align(self, *args, **kwargs):
+        return tuple(
+            replace(word, confidence=self.confidence, diagnostics=self.diagnostics)
+            for word in super().align(*args, **kwargs)
+        )
+
+
+@pytest.mark.parametrize("confidence,diagnostics,warning", [
+    (0.0, (), "AlignmentApproximate:wordIndices=0"),
+    (0.99, ("AsrCtcBoundaryDisagreement",),
+     "AlignmentDiagnostic:wordIndex=0;AsrCtcBoundaryDisagreement"),
+])
+def test_approximate_alignment_is_reported_and_persisted(
+    tmp_path: Path, confidence: float, diagnostics: tuple[str, ...], warning: str
+) -> None:
+    source = tmp_path / "approximate.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(_ApproximateAlignmentProvider(confidence, diagnostics),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert job["report"]["warnings"] == [
+            warning,
+            "PitchActivityUnavailable:frames=17;unobservedGapsNotBridged",
+        ]
+        revision = root / "songs" / song["songId"] / "revisions" / "2"
+        provenance = json.loads((revision / "manifest.json").read_text(encoding="utf-8"))[
+            "provenance"
+        ]
+        assert provenance["lyricsSource"] == "ASR"
+        assert provenance["warnings"] == job["report"]["warnings"]
+
+
+class _RealignmentProvider(FakeAiProvider):
+    def align(self, *args, **kwargs):
+        return tuple(
+            replace(word, start=0.2, end=0.8, letters=(0.2, 0.4))
+            for word in super().align(*args, **kwargs)
+        )
+
+    def separate(self, *args, **kwargs):
+        raise AssertionError("Existing stems must be reused for lyrics realignment")
+
+    def transcribe(self, *args, **kwargs):
+        raise AssertionError("The existing lyric text must be preserved")
+
+
+class _RemoteTimingProvider(_RealignmentProvider):
+    def __init__(self):
+        super().__init__("kaggle-p100", required_resources={"remote": True})
+        self._descriptor = replace(
+            self._descriptor, capabilities=frozenset({AiCapability.ALIGNMENT, AiCapability.PITCH})
+        )
+
+
+@pytest.mark.parametrize("operation", ["melody", "lyrics"])
+def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path, operation):
+    root = tmp_path / "runtime"
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+    unavailable = FakeAiProvider(
+        "unavailable-local", required_models=(RequiredModel("not-installed", "1", "0" * 64),)
+    )
+    with app_client(root, ai_providers=(unavailable, _RemoteTimingProvider())) as client:
+        changed = client.patch("/settings", json={
+            "processingBackend": "Kaggle", "computeMode": "CUDA", "kaggleToken": "test-token",
+            "selectedPitchProvider": "unavailable-local",
+            "selectedAlignmentProvider": "unavailable-local",
+        })
+        assert changed.status_code == 200, changed.text
+        started = client.post(f"/songs/{song['songId']}/processing/{operation}")
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert job["report"]["processingBackend"] == "Kaggle"
+        expected = {"pitch": "kaggle-p100"}
+        if operation == "lyrics":
+            expected["alignment"] = "kaggle-p100"
+        assert job["report"]["providers"] == expected
+        assert not {item["stage"] for item in job["report"]["stages"]} & {
+            "StemSeparation", "LyricsDiscovery"
+        }
+
+
+@pytest.mark.parametrize("operation", ["melody", "lyrics"])
+def test_existing_project_remote_reprocess_propagates_stale_worker_protocol(
+    tmp_path, monkeypatch, operation
+):
+    import httpx
+
+    import backend.infrastructure.kaggle_ai_provider as remote_module
+    from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+    from backend.settings.domain import BackendSettings, ProcessingBackend
+
+    root = tmp_path / "runtime"
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+    probes = []
+
+    class StaleWorker:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def predict(self, *, api_name):
+            probes.append(api_name)
+            return {"protocolVersion": 3}
+
+    monkeypatch.setattr(remote_module, "Client", StaleWorker)
+    remote = KaggleAiProvider(
+        lambda: BackendSettings(
+            2, processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url="https://stub.gradio.live", kaggle_token="test-token"
+        ),
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+    monkeypatch.setattr(remote, "_handle_file", str)
+    with app_client(root, ai_providers=(remote,)) as client:
+        assert client.patch("/settings", json={
+            "processingBackend": "Kaggle", "kaggleToken": "test-token"
+        }).status_code == 200
+        started = client.post(f"/songs/{song['songId']}/processing/{operation}")
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Failed", job
+        assert job["error"]["code"] == "KaggleProtocolMismatch"
+        assert job["report"]["processingBackend"] == "Kaggle"
+        assert probes == ["/health"]
+
+
+def test_existing_project_can_realign_words_without_original_and_preserve_rollback(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "realign.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        before = client.get(f"/songs/{song['songId']}/editor").json()
+        exported = client.post(f"/packages/export/{song['songId']}")
+        export_job = wait_for_job(client, exported.json()["jobId"])
+        assert export_job["state"] == "Succeeded", export_job
+    previous = root / "songs" / song["songId"] / "revisions" / str(before["revision"])
+    with app_client(root, ai_providers=(_RealignmentProvider(),)) as client:
+        imported = client.post("/packages/import", json={"path": export_job["report"]["path"]})
+        assert wait_for_job(client, imported.json()["jobId"])["state"] == "Succeeded"
+        original_bytes = (previous / "lyricsSync.json").read_bytes()
+        path = f"/songs/{song['songId']}/processing/lyrics"
+        headers = {"Idempotency-Key": "realign-once"}
+        started = client.post(path, headers=headers)
+        assert started.status_code == 202, started.text
+        assert client.post(path, headers=headers).json()["jobId"] == started.json()["jobId"]
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert job["report"]["algorithmVersion"] == "lyrics-2"
+        assert job["report"]["timingOperation"] == "lyrics"
+        stages = {item["stage"] for item in job["report"]["stages"]}
+        assert "ForcedAlignment" in stages
+        assert not stages & {"StemSeparation", "LyricsDiscovery"}
+        after = client.get(f"/songs/{song['songId']}/editor").json()
+        assert after["revision"] == before["revision"] + 1
+        word = after["document"]["words"][0]
+        assert (word["start"], word["end"], word["letters"]) == (0.2, 0.8, [0.2, 0.4])
+        assert (previous / "lyricsSync.json").read_bytes() == original_bytes
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        assert client.get(f"/songs/{song['songId']}/editor").json() == after
+        restored = client.put(
+            f"/songs/{song['songId']}/editor",
+            json={"expectedRevision": after["revision"], "document": before["document"]},
+        )
+        assert restored.status_code == 200, restored.text
+        assert (
+            client.get(f"/songs/{song['songId']}/editor").json()["document"] == before["document"]
+        )
+
+
+@pytest.mark.parametrize("operation", ["processing", "processing/melody", "processing/lyrics"])
+def test_generated_reprocessing_does_not_overwrite_manual_edits(
+    tmp_path: Path, operation: str
+) -> None:
+    source = tmp_path / "manual.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        editor_path = f"/songs/{song['songId']}/editor"
+        before = client.get(editor_path).json()
+        before["document"]["words"][0]["notes"][0]["note"] = 70
+        saved = client.put(
+            editor_path,
+            json={"expectedRevision": before["revision"], "document": before["document"]},
+        )
+        assert saved.status_code == 200, saved.text
+        edited = client.get(editor_path).json()
+        started = client.post(
+            f"/songs/{song['songId']}/{operation}", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Failed", job
+        assert job["error"]["code"] == "ManualLyricsConflict"
+        assert client.get(editor_path).json() == edited
+        assert client.get(f"/songs/{song['songId']}").json()["status"] == "Ready"
 
 
 def test_unexpected_provider_crash_does_not_leave_the_song_processing(tmp_path: Path) -> None:

@@ -6,13 +6,14 @@ from collections.abc import Callable
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult
 from backend.lyrics.domain import LyricsDocument
-from backend.processing.algorithms import construct_document, refine_words, stabilize_pitch
+from backend.processing.algorithms import construct_document, stabilize_pitch
 from backend.processing.audio_pipeline import PreparedAudio
 from backend.processing.domain import CancellationPolicy, ProcessingOptions, StageReport
 from backend.processing.job_manager import JobContext
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.policies import concurrent_stage_thread_split
 from backend.processing.ports import ConcurrentRunner
+from backend.processing.reporting import alignment_warnings, pitch_warnings
 from backend.processing.preflight import ProcessingProviders
 from backend.processing.stage_runner import StageRunner
 from backend.songs.domain import Song
@@ -22,6 +23,7 @@ from backend.songs.domain import Song
 class BuiltDocument:
     document: LyricsDocument
     discovery: LyricsDiscoveryResult
+    warnings: tuple[str, ...]
 
 
 class BuildProcessingDocument:
@@ -54,9 +56,7 @@ class BuildProcessingDocument:
             song, prepared, providers, options, context, reports, align_execution
         )
         if discovery.timing_hints:
-            return self._build_with_catalog_timing(
-                song, prepared, discovery, providers, context, reports, execution
-            )
+            align_execution = pitch_execution = execution
         pitch_reports: list[StageReport] = []
         stable: tuple[PitchPoint, ...] = ()
         words: tuple[WordTiming, ...] = ()
@@ -73,28 +73,16 @@ class BuildProcessingDocument:
                 song, prepared, discovery, providers, context, reports, align_execution
             )
 
-        self._run_stages(execution, run_align, run_pitch)
+        self._run_stages(execution, run_align, run_pitch, parallel=not discovery.timing_hints)
         reports.extend(pitch_reports)
-        document = self._notes(song, prepared, discovery, words, stable, context, reports)
-        return BuiltDocument(document, discovery)
+        document = self._construct(song, prepared, discovery, words, stable, context, reports)
+        warnings = discovery.warnings + alignment_warnings(words) + pitch_warnings(stable)
+        return BuiltDocument(document, discovery, warnings)
 
-    def _build_with_catalog_timing(
-        self,
-        song: Song,
-        prepared: PreparedAudio,
-        discovery: LyricsDiscoveryResult,
-        providers: ProcessingProviders,
-        context: JobContext,
-        reports: list[StageReport],
-        execution: ExecutionContext,
-    ) -> BuiltDocument:
-        words = self._align(song, prepared, discovery, providers, context, reports, execution)
-        stable = self._stable_pitch(prepared, providers, context, reports, execution)
-        document = self._notes(song, prepared, discovery, words, stable, context, reports)
-        return BuiltDocument(document, discovery)
-
-    def _run_stages(self, execution: ExecutionContext, *stages: Callable[[], None]) -> None:
-        if execution.cpu_threads > 1:
+    def _run_stages(
+        self, execution: ExecutionContext, *stages: Callable[[], None], parallel: bool
+    ) -> None:
+        if parallel and execution.cpu_threads > 1:
             self._concurrency.run_concurrently(*stages)
         else:
             for stage in stages:
@@ -153,19 +141,6 @@ class BuildProcessingDocument:
         )
         return tuple(words)
 
-    def _notes(
-        self,
-        song: Song,
-        prepared: PreparedAudio,
-        discovery: LyricsDiscoveryResult,
-        words: tuple[WordTiming, ...],
-        stable: tuple[PitchPoint, ...],
-        context: JobContext,
-        reports: list[StageReport],
-    ) -> LyricsDocument:
-        refined = self._refined_words(words, stable, context, reports)
-        return self._construct(song, prepared, discovery, refined, stable, context, reports)
-
     def _stable_pitch(
         self,
         prepared: PreparedAudio,
@@ -191,22 +166,6 @@ class BuildProcessingDocument:
             context,
             lambda: stabilize_pitch(pitch),
             progress=0.87,
-        )
-
-    def _refined_words(
-        self,
-        words: tuple[WordTiming, ...],
-        stable: tuple[PitchPoint, ...],
-        context: JobContext,
-        reports: list[StageReport],
-    ) -> tuple[WordTiming, ...]:
-        return self._stages.run(
-            "VoicedIntervalMapping",
-            CancellationPolicy.FINISH_BEFORE_CANCEL,
-            reports,
-            context,
-            lambda: refine_words(words, stable),
-            progress=0.90,
         )
 
     def _construct(

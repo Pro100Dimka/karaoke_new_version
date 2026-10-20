@@ -2,10 +2,15 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pytest
+import torch
 
 from backend.ai.domain import PitchPoint, WordTiming
-from backend.processing.algorithms import MusicMetadata, construct_document
+import backend.ai_worker.pitch as pitch_worker
+import backend.processing.reporting as processing_reporting
+from backend.infrastructure.command_ai_provider import _pitch as decode_pitch
+from backend.processing.algorithms import MusicMetadata, construct_document, stabilize_pitch
 
 _A4, _C5 = 440.0, 523.25
 
@@ -64,10 +69,8 @@ def test_a_note_change_sustained_long_enough_is_still_recognised() -> None:
     assert [n.note for n in notes] == [69, 72]
 
 
-def test_a_short_octave_spike_between_two_matching_notes_is_absorbed() -> None:
-    # A4, a genuine 80 ms note change (long enough to survive the wobble debounce) up a full octave to
-    # A5, then back to A4: an octave jump this brief between two otherwise-matching notes is a tracking
-    # error, not real singing, so no note should be left standing an octave away.
+def test_a_sustained_fast_octave_change_cannot_be_declared_noise_only_by_duration() -> None:
+    # Clean A4 -> A5 -> A4 estimates support a fast ornament; duration alone does not prove error.
     points = (
         _pitch([round(i * 0.02, 2) for i in range(6)], _A4)
         + _pitch([round(0.12 + i * 0.02, 2) for i in range(5)], 880.0)
@@ -76,7 +79,7 @@ def test_a_short_octave_spike_between_two_matching_notes_is_absorbed() -> None:
     words = [WordTiming("laaa", 0.0, 0.42, 0.9)]
     document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
     notes = document.words[0].notes
-    assert all(note.note == 69 for note in notes)
+    assert [note.note for note in notes] == [69, 81, 69]
 
 
 def _ornament(count: int) -> list[PitchPoint]:
@@ -94,13 +97,6 @@ def test_a_note_a_third_away_held_long_enough_to_sing_is_kept() -> None:
     words = [WordTiming("laaa", 0.0, 0.48, 0.9)]
     document = construct_document("t", "a", 1.0, "laaa", words, _ornament(16), _music())
     assert [note.note for note in document.words[0].notes] == [69, 72, 69]
-
-
-def test_a_note_too_short_to_sing_is_folded_into_its_neighbours() -> None:
-    # The same third lasting only 100 ms is gone before a singer can reach it, so it is not drawn.
-    words = [WordTiming("laaa", 0.0, 0.42, 0.9)]
-    document = construct_document("t", "a", 1.0, "laaa", words, _ornament(10), _music())
-    assert [note.note for note in document.words[0].notes] == [69]
 
 
 def test_a_long_note_far_from_its_neighbours_is_kept() -> None:
@@ -146,3 +142,162 @@ def test_a_point_on_the_last_instant_of_a_word_never_yields_an_empty_note() -> N
     words = [WordTiming("la", 0.0, 0.2, 0.9)]
     document = construct_document("t", "a", 1.0, "la", words, points, _music())
     assert all(note.end > note.start for note in document.words[0].notes)
+
+
+def test_unobserved_pitch_gap_and_word_tail_do_not_become_a_required_held_note() -> None:
+    points = _pitch([i / 100 for i in range(20)], _A4) + _pitch(
+        [i / 100 for i in range(80, 100)], _A4
+    )
+    document = construct_document(
+        "t", "a", 3.0, "la", [WordTiming("la", 0.0, 3.0, 0.9)], points, _music()
+    )
+    notes = document.words[0].notes
+    assert len(notes) == 2
+    assert notes[0].end == pytest.approx(0.2)
+    assert notes[1].start == pytest.approx(0.8)
+    assert notes[1].end == pytest.approx(1.0)
+    assert document.words[0].end == 3.0, "pitch absence cannot redefine a word's end"
+
+
+def _audio_evidenced_points(monkeypatch, *, silent: bool) -> tuple[PitchPoint, ...]:
+    # Identical 80 ms pitch loss with either continuing sound or digital silence. The waveform,
+    # independently of the pitch estimates, determines which hole can be bridged.
+    rate = 16_000
+    times = np.arange(rate) / rate
+    samples = (0.4 * np.sin(2 * np.pi * _A4 * times)).astype(np.float32)
+    if silent:
+        samples[int(0.4 * rate) : int(0.48 * rate)] = 0.0
+    frequency = torch.full((1, 101), _A4)
+    confidence = torch.full((1, 101), 0.9)
+    confidence[:, 40:48] = 0.0
+    monkeypatch.setattr(pitch_worker, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(pitch_worker, "device", lambda: "cpu")
+    monkeypatch.setattr(
+        pitch_worker.torchcrepe, "predict", lambda *_args, **_kwargs: (frequency, confidence)
+    )
+    monkeypatch.setattr(pitch_worker.torchcrepe.filter, "median", lambda value, _: value)
+    return tuple(decode_pitch(point) for point in pitch_worker.pitch(None)["points"])
+
+
+@pytest.mark.parametrize("silent", [True, False])
+def test_actual_silence_and_pitch_dropout_with_continuing_audio_are_distinct(
+    monkeypatch, silent: bool
+) -> None:
+    points = stabilize_pitch(_audio_evidenced_points(monkeypatch, silent=silent))
+    document = construct_document(
+        "t", "a", 1.0, "la", [WordTiming("la", 0.0, 1.0, 0.9)], points, _music()
+    )
+    notes = document.words[0].notes
+    assert len(notes) == (2 if silent else 1)
+    if silent:
+        assert notes[0].end < 0.44 < notes[1].start
+    else:
+        assert notes[0].start == 0.0
+        assert notes[0].end == 1.0
+
+
+def test_note_smoothing_cannot_absorb_a_brief_note_across_an_unobserved_gap() -> None:
+    points = _pitch([i / 100 for i in range(30)], _A4) + _pitch(
+        [i / 100 for i in range(80, 85)], _C5
+    )
+    document = construct_document(
+        "t", "a", 1.0, "la", [WordTiming("la", 0.0, 1.0, 0.9)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [69, 72]
+    assert document.words[0].notes[0].end <= 0.3 + 1e-9
+
+
+def test_long_melisma_preserves_every_sustained_note_without_a_word_duration_cap() -> None:
+    points = [
+        PitchPoint(i / 100, frequency, 0.9)
+        for first, last, frequency in [(0, 200, _A4), (200, 400, _C5), (400, 600, _A4)]
+        for i in range(first, last)
+    ]
+    document = construct_document(
+        "t", "a", 6.0, "la", [WordTiming("la", 0.0, 6.0, 0.9)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [69, 72, 69]
+    assert document.words[0].notes[-1].end == 6.0
+
+
+def test_a_clean_fast_ornament_is_not_erased_only_because_it_lasts_100_ms() -> None:
+    document = construct_document(
+        "t", "a", 1.0, "la", [WordTiming("la", 0.0, 0.42, 0.9)], _ornament(10), _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [69, 72, 69]
+
+
+@pytest.mark.parametrize("step", [0.01, 0.02])
+def test_pitch_frame_cadence_does_not_change_a_sustained_fast_transition(step) -> None:
+    points = [
+        PitchPoint(i * step, 880.0 if 0.12 <= i * step < 0.22 else _A4, 0.9)
+        for i in range(round(0.42 / step))
+    ]
+    document = construct_document(
+        "t", "a", 1.0, "la", [WordTiming("la", 0.0, 0.42, 0.9)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [69, 81, 69]
+
+
+def test_octave_stabilization_does_not_borrow_pitch_context_across_a_missing_time_span() -> None:
+    points = [*_pitch([0.0, 0.01], _A4), *_pitch([5.0], 880.0)]
+    assert stabilize_pitch(points)[-1].frequency == pytest.approx(880.0)
+
+
+def test_a_legacy_provider_without_activity_does_not_fill_its_low_confidence_hole() -> None:
+    points = [PitchPoint(i / 100, _A4, 0.0 if 40 <= i < 48 else 0.9) for i in range(100)]
+    document = construct_document(
+        "t",
+        "a",
+        1.0,
+        "la",
+        [WordTiming("la", 0.0, 1.0, 0.9)],
+        stabilize_pitch(points),
+        _music(),
+    )
+    notes = document.words[0].notes
+    assert len(notes) == 2
+    assert notes[0].end == pytest.approx(0.4)
+    assert notes[1].start == pytest.approx(0.48)
+
+
+@pytest.mark.parametrize(
+    "activity,expected",
+    [
+        ([], ()),
+        ([None, None], ("PitchActivityUnavailable:frames=2;unobservedGapsNotBridged",)),
+        ([True, False], ()),
+        ([None, True], ("PitchActivityUnavailable:frames=1;unobservedGapsNotBridged",)),
+    ],
+)
+def test_legacy_pitch_activity_uncertainty_is_visible_in_technical_diagnostics(activity, expected):
+    points = [PitchPoint(index / 100, _A4, 0.9, active) for index, active in enumerate(activity)]
+    assert processing_reporting.pitch_warnings(points) == expected
+
+
+@pytest.mark.parametrize("pitches", [(60, 62, 64), (64, 62, 60)])
+def test_a_clean_fast_middle_plateau_is_preserved_in_a_monotonic_melisma(pitches) -> None:
+    points = [
+        PitchPoint(i / 100, 440.0 * 2 ** ((note - 69) / 12), 0.9)
+        for first, last, note in [(0, 30, pitches[0]), (30, 40, pitches[1]), (40, 80, pitches[2])]
+        for i in range(first, last)
+    ]
+    document = construct_document(
+        "t", "a", 0.8, "la", [WordTiming("la", 0.0, 0.8, 0.9)], points, _music()
+    )
+    notes = document.words[0].notes
+    assert [note.note for note in notes] == list(pitches)
+    assert notes[1].start == pytest.approx(0.3)
+    assert notes[1].end == pytest.approx(0.4)
+
+
+def test_a_continuous_short_glide_is_not_converted_into_distinct_middle_holds() -> None:
+    # There is no stable middle plateau: the contour passes continuously from C4 to D4 over100ms.
+    pitches = [60.0] * 30 + [60 + i / 5 for i in range(10)] + [62.0] * 40
+    points = [
+        PitchPoint(i / 100, 440.0 * 2 ** ((note - 69) / 12), 0.9) for i, note in enumerate(pitches)
+    ]
+    document = construct_document(
+        "t", "a", 0.8, "la", [WordTiming("la", 0.0, 0.8, 0.9)], points, _music()
+    )
+    assert [note.note for note in document.words[0].notes] == [60, 62]

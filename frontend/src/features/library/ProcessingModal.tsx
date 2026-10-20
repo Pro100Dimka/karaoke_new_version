@@ -22,7 +22,7 @@ interface Props {
   focusSongId?: string;
   onClose(): void;
   onCancel(jobId: string): Promise<void>;
-  onRetry(song: SongDto): Promise<void>;
+  onRetry(song: SongDto, mode?: "lyrics"): Promise<void>;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
 }
@@ -179,7 +179,8 @@ export const ProcessingModal = ({
                   onMove: (direction) => queue.move(job.id, direction),
                   onOpenFolder,
                   onPlay,
-                  onRetry: (song) => void onRetry(song),
+                  onRetry: (song) => void onRetry(song,
+                    job.timingOperation === "lyrics" ? "lyrics" : undefined),
                   onStop: () => stop(job),
                   onDetails: () => details(job),
                   onRemove: () => remove(job),

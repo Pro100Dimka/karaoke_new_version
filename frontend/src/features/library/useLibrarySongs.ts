@@ -163,8 +163,8 @@ export const useLibrarySongs = () => {
     }
   };
 
-  const processSong = async (song: SongDto) => {
-    await catalog.processSong(song.id);
+  const processSong = async (song: SongDto, mode?: "lyrics") => {
+    await catalog.processSong(song.id, mode);
     await refresh();
   };
 

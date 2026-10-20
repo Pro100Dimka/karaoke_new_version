@@ -15,7 +15,6 @@ import {
   buildLines,
   currentLineIndex,
   letterProgress,
-  notesAlignedToWords,
   noteHitReached,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -85,29 +84,21 @@ const PianoRoll = ({
   const t = useText();
   const beat = useBeat();
   const [span, setSpan] = useState(windowSeconds);
-  const displayNotes = useMemo(
-    () =>
-      notesAlignedToWords(document.notes, document.words).map((note) => ({
-        ...note,
-        pitch: note.pitch + keyShift,
-      })),
-    [document.notes, document.words, keyShift],
-  );
-  const scoringNotes = useMemo(
+  const notes = useMemo(
     () =>
       document.notes.map((note) => ({ ...note, pitch: note.pitch + keyShift })),
     [document.notes, keyShift],
   );
   const range = useMemo(
-    () => pitchRange(displayNotes, vocalRange),
-    [displayNotes, vocalRange],
+    () => pitchRange(notes, vocalRange),
+    [notes, vocalRange],
   );
   // Scoped to the same current-and-next line the lyrics panel shows: the roll's own lookahead is
   // otherwise wider than a line typically lasts, so it would preview a further line's melody with no text
   // on screen to read it against -- exactly what reads as "unrelated to the vocal".
   const inLine = useMemo(
-    () => displayNotes.filter((note) => shownWordIds.has(note.wordId)),
-    [displayNotes, shownWordIds],
+    () => notes.filter((note) => shownWordIds.has(note.wordId)),
+    [notes, shownWordIds],
   );
   const frameRef = useRef<HTMLDivElement>(null);
   const panel = useDetachedPanel("pianoRoll", t("pianoRoll"), pianoPanelSize);
@@ -115,7 +106,7 @@ const PianoRoll = ({
     usePianoRollLayout(frameRef, (bounds, pointer) =>
       panel.detach(bounds, pointer),
     );
-  const activeNote = scoringNotes.find(
+  const activeNote = notes.find(
     (note) => position >= note.start && position <= note.end,
   );
   const liveMidi = pitchMidiNearTarget(pitchHz, activeNote?.pitch);
@@ -203,7 +194,7 @@ const PianoRoll = ({
         squared: stats.squared + deviation * deviation,
       });
     }
-    const seen = scoringNotes.filter((note) =>
+    const seen = notes.filter((note) =>
       seenNoteIds.current.has(note.id),
     );
     const rhythmAccuracyPercent =
@@ -248,7 +239,7 @@ const PianoRoll = ({
     pitchHz,
     position,
     onNoteScoreChange,
-    scoringNotes,
+    notes,
   ]);
   const frameStyle =
     layout && !panel.detached

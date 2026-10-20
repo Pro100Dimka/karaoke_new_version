@@ -13,17 +13,24 @@ export const useSmoothPosition = (
   rate: number,
 ): number => {
   const [smooth, setSmooth] = useState(polledSeconds);
-  const anchor = useRef({ seconds: polledSeconds, at: performance.now() });
+  const anchor = useRef({
+    seconds: polledSeconds, at: performance.now(), playing, rate,
+  });
 
   useEffect(() => {
     const now = performance.now();
+    const previous = anchor.current;
     const predicted =
-      anchor.current.seconds + ((now - anchor.current.at) / 1000) * rate;
+      previous.seconds + (previous.playing
+        ? ((now - previous.at) / 1000) * previous.rate : 0);
     if (
       !playing ||
+      playing !== previous.playing ||
       Math.abs(predicted - polledSeconds) > resyncThresholdSeconds
     )
-      anchor.current = { seconds: polledSeconds, at: now };
+      anchor.current = { seconds: polledSeconds, at: now, playing, rate };
+    else if (rate !== previous.rate)
+      anchor.current = { seconds: predicted, at: now, playing, rate };
     if (!playing) setSmooth(polledSeconds);
   }, [polledSeconds, playing, rate]);
 

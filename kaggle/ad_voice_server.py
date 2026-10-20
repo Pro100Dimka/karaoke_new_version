@@ -40,7 +40,8 @@ from backend.ai_worker.speech import (
 
 TTL_SECONDS = 6 * 60 * 60
 IDLE_SHUTDOWN_SECONDS = 5 * 60
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
+SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
 ).rstrip("/")
@@ -173,17 +174,31 @@ def _session(session_id: str) -> Path:
         raise gr.Error("Invalid session")
     directory = (SESSIONS / session_id).resolve()
     if directory.parent != SESSIONS.resolve() or not directory.is_dir():
-        raise gr.Error("Session expired; process the song again")
+        raise gr.Error(json.dumps({"code": "KaggleSessionExpired"}))
     os.utime(directory, None)
     return directory
 
 
-@_track_activity
-def separate_song(upload: str) -> tuple[str, str, str]:
+def _new_session() -> tuple[str, Path]:
     _cleanup()
     session_id = uuid.uuid4().hex
     directory = SESSIONS / session_id
     directory.mkdir(parents=True)
+    return session_id, directory
+
+
+@_track_activity
+def prepare_vocal(upload: str) -> str:
+    session_id, directory = _new_session()
+    separation = directory / "separation"
+    separation.mkdir()
+    shutil.copyfile(upload, separation / "vocals.wav")
+    return session_id
+
+
+@_track_activity
+def separate_song(upload: str) -> tuple[str, str, str]:
+    session_id, directory = _new_session()
     source = directory / Path(upload).name
     shutil.copyfile(upload, source)
     result = separate(source, directory / "separation")
@@ -233,6 +248,7 @@ def pitch_song(session_id: str) -> dict:
 def health() -> dict:
     return {
         "protocolVersion": PROTOCOL_VERSION,
+        "sessionGeneration": SESSION_GENERATION,
         "cuda": torch.cuda.is_available(),
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
     }
@@ -270,6 +286,13 @@ def main() -> None:
             None,
             json_output,
             api_name="shutdown",
+            concurrency_limit=1,
+        )
+        gr.Button(visible=False).click(
+            prepare_vocal,
+            upload,
+            session_id,
+            api_name="prepare_vocal",
             concurrency_limit=1,
         )
         gr.Button(visible=False).click(

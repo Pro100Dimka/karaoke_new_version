@@ -233,10 +233,11 @@ export const pythonClient: PythonClient = {
     );
   },
 
-  async processSong(songId) {
+  async processSong(songId, mode) {
+    const suffix = { full: "", lyrics: "/lyrics" }[mode ?? "full"];
     const job = await request<BackendJobRef>(
       "POST",
-      `/songs/${encodeURIComponent(songId)}/processing`,
+      `/songs/${encodeURIComponent(songId)}/processing${suffix}`,
       { mode: "Auto", onlineLyrics: true },
       { "Idempotency-Key": crypto.randomUUID() },
     );

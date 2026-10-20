@@ -11,14 +11,14 @@ from backend.lyrics.domain import LyricsDocument
 from backend.processing.algorithms import (
     MusicMetadata,
     construct_document,
-    refine_words,
     stabilize_pitch,
 )
 from backend.processing.domain import CancellationPolicy, ProcessingReport, StageReport
 from backend.processing.job_manager import JobContext
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.melody_reference import RenderMelodyReference
-from backend.processing.reporting import provider_provenance
+from backend.processing.preflight import provider_backend
+from backend.processing.reporting import alignment_warnings, pitch_warnings, provider_provenance
 from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import ProjectStorage
 from backend.projects.publisher import ProjectPublisher
@@ -27,7 +27,7 @@ from backend.runtime import IdGenerator
 from backend.songs.domain import Song
 from backend.storage.ports import WorkStorage
 
-_ALGORITHM_VERSION = "melody-1"
+_ALGORITHM_VERSION = "melody-2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,10 +77,13 @@ class MelodyPipeline:
         provider: AiProvider,
         context: JobContext,
         execution: ExecutionContext,
+        alignment: AiProvider | None = None,
     ) -> ProcessingReport:
         reports: list[StageReport] = []
         instrumental, reference = self._audio_paths(inputs.song)
-        document = self._melody_document(inputs, provider, reference, context, reports, execution)
+        document, warnings = self._melody_document(
+            inputs, provider, alignment, reference, context, reports, execution
+        )
         workspace = self._workspaces.allocate(f"melody-{inputs.song.song_id}")
         try:
             melody = self._stages.run(
@@ -92,18 +95,48 @@ class MelodyPipeline:
                 progress=0.96,
             )
             revision = self._publish(
-                inputs.song, provider, instrumental, reference, melody, document, context, reports
+                inputs.song,
+                provider,
+                alignment,
+                instrumental,
+                reference,
+                melody,
+                document,
+                warnings,
+                context,
+                reports,
             )
         finally:
             self._workspaces.cleanup(workspace)
+        return self._report(inputs.song, revision, reports, provider, alignment, warnings, execution)
+
+    @staticmethod
+    def _report(
+        song: Song,
+        revision: int,
+        reports: list[StageReport],
+        provider: AiProvider,
+        alignment: AiProvider | None,
+        warnings: tuple[str, ...],
+        execution: ExecutionContext,
+    ) -> ProcessingReport:
         return ProcessingReport(
-            song_id=inputs.song.song_id,
+            song_id=song.song_id,
             revision=revision,
             stages=tuple(reports),
-            providers={"pitch": provider.descriptor.provider_id},
+            providers={
+                name: item.descriptor.provider_id
+                for name, item in (("pitch", provider), ("alignment", alignment))
+                if item is not None
+            },
             cache_used=False,
-            warnings=(execution.fallback_reason,) if execution.fallback_reason else (),
-            algorithm_version=_ALGORITHM_VERSION,
+            warnings=(
+                *warnings,
+                *((execution.fallback_reason,) if execution.fallback_reason else ()),
+            ),
+            algorithm_version="lyrics-2" if alignment else _ALGORITHM_VERSION,
+            timing_operation="lyrics" if alignment else "melody",
+            processing_backend=provider_backend(provider).value,
         )
 
     def _audio_paths(self, song: Song) -> tuple[Path, Path]:
@@ -119,14 +152,41 @@ class MelodyPipeline:
         self,
         inputs: MelodyInputs,
         provider: AiProvider,
+        alignment: AiProvider | None,
         reference: Path,
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
-    ) -> LyricsDocument:
+    ) -> tuple[LyricsDocument, tuple[str, ...]]:
+        document = inputs.document
+        if alignment is not None:
+            words = tuple(
+                self._stages.run(
+                    "ForcedAlignment",
+                    CancellationPolicy.INTERRUPTIBLE,
+                    reports,
+                    context,
+                    lambda: alignment.align(
+                        reference,
+                        document.lyrics,
+                        inputs.song.language,
+                        context.cancel,
+                        execution=execution,
+                    ),
+                    progress=0.3,
+                )
+            )
+            warnings = alignment_warnings(words)
+        else:
+            words = tuple(
+                WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))
+                for word in document.words
+            )
+            warnings = (
+                f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",
+            )
         stable = self._stable_pitch(provider, reference, context, reports, execution)
-        words = self._refined_words(inputs.document, stable, context, reports)
-        return self._construct(inputs.document, words, stable, context, reports)
+        return self._construct(document, words, stable, context, reports), warnings + pitch_warnings(stable)
 
     def _stable_pitch(
         self,
@@ -151,26 +211,6 @@ class MelodyPipeline:
             context,
             lambda: stabilize_pitch(pitch),
             progress=0.65,
-        )
-
-    def _refined_words(
-        self,
-        document: LyricsDocument,
-        stable: tuple[PitchPoint, ...],
-        context: JobContext,
-        reports: list[StageReport],
-    ) -> tuple[WordTiming, ...]:
-        source = tuple(
-            WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))
-            for word in document.words
-        )
-        return self._stages.run(
-            "VoicedIntervalMapping",
-            CancellationPolicy.FINISH_BEFORE_CANCEL,
-            reports,
-            context,
-            lambda: refine_words(source, stable),
-            progress=0.78,
         )
 
     def _construct(
@@ -203,10 +243,12 @@ class MelodyPipeline:
         self,
         song: Song,
         provider: AiProvider,
+        alignment: AiProvider | None,
         instrumental: Path,
         reference: Path,
         melody: Path,
         document: LyricsDocument,
+        warnings: tuple[str, ...],
         context: JobContext,
         reports: list[StageReport],
     ) -> int:
@@ -222,15 +264,27 @@ class MelodyPipeline:
                 reference,
                 melody,
                 document,
-                self._provenance(song, provider),
+                self._provenance(song, provider, alignment, warnings),
                 self._ids.new(),
             ),
             progress=1.0,
         )
 
-    def _provenance(self, song: Song, provider: AiProvider) -> dict[str, object]:
+    def _provenance(
+        self,
+        song: Song,
+        provider: AiProvider,
+        alignment: AiProvider | None,
+        warnings: tuple[str, ...],
+    ) -> dict[str, object]:
         return {
-            "algorithmVersion": _ALGORITHM_VERSION,
-            "providers": {"pitch": provider_provenance(provider.descriptor)},
+            "algorithmVersion": "lyrics-2" if alignment else _ALGORITHM_VERSION,
+            "providers": {
+                name: provider_provenance(item.descriptor)
+                for name, item in (("pitch", provider), ("alignment", alignment))
+                if item is not None
+            },
             "sourceRevision": song.active_revision,
+            "lyricsSource": "ExistingProjectText",
+            "warnings": list(warnings),
         }

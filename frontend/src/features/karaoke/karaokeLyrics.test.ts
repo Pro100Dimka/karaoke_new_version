@@ -8,7 +8,6 @@ import {
   noteHitReached,
   pitchMatchesTarget,
   pitchHzToMidi,
-  notesAlignedToWords,
   pitchRange,
   upcomingLinePhase,
   type LyricLine,
@@ -114,19 +113,6 @@ describe("karaoke lyrics model", () => {
     ).toEqual([2, 1]);
   });
 
-  it("stretches only a word's earliest note back to the word's own start", () => {
-    const words = [word("a", 10.0, 11.0), word("b", 11.0, 12.0)];
-    const notes = [
-      { id: "n1", wordId: "a", pitch: 60, start: 10.13, end: 10.4 }, // leading consonant has no pitch
-      { id: "n2", wordId: "a", pitch: 62, start: 10.4, end: 11.0 },
-      { id: "n3", wordId: "b", pitch: 64, start: 10.9, end: 12.0 }, // already starts before its word: untouched
-    ];
-    const aligned = notesAlignedToWords(notes, words);
-    expect(aligned.find((n) => n.id === "n1")?.start).toBe(10.0);
-    expect(aligned.find((n) => n.id === "n2")?.start).toBe(10.4);
-    expect(aligned.find((n) => n.id === "n3")?.start).toBe(10.9);
-  });
-
   it("follows measured letter times: a held vowel keeps its letter lit for the whole hold", () => {
     // "друг" over 4 s: д at 0, р at 0.1, у at 0.2 (held), г at 3.9 (fractions of the word).
     const held = {
@@ -182,6 +168,16 @@ describe("karaoke lyrics model", () => {
         5,
       );
     }
+  });
+
+  it("does not slow approximate highlighting when an untimed word includes punctuation", () => {
+    const plain = { ...word("a", 0, 4), text: "друг" };
+    const punctuated = { ...plain, text: "«друг!»" };
+    for (const position of [0.1, 0.2, 1, 2, 3.95, 4])
+      expect(letterProgress(punctuated, position)).toBeCloseTo(
+        letterProgress(plain, position),
+        6,
+      );
   });
 
   describe("upcomingLinePhase", () => {

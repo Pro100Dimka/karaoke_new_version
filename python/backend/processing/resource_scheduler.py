@@ -91,8 +91,10 @@ class ProcessingResourceScheduler:
         compute_mode: ComputeMode = ComputeMode.AUTO,
         *,
         cpu_threads: int | None = None,
+        additional_providers: tuple[AiProvider, ...] = (),
     ) -> ResourceLease:
-        return self._claim((provider.descriptor,), source_bytes, compute_mode, cpu_threads)
+        descriptors = tuple(item.descriptor for item in (provider, *additional_providers))
+        return self._claim(descriptors, source_bytes, compute_mode, cpu_threads)
 
     def _claim(
         self,
