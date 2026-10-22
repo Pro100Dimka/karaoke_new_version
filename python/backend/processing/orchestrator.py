@@ -21,7 +21,7 @@ from backend.runtime import IdGenerator
 from backend.songs.domain import Song
 from backend.storage.ports import WorkStorage
 
-_ALGORITHM_VERSION = "pipeline-2"
+_ALGORITHM_VERSION = "pipeline-3"
 
 
 class PipelineOrchestrator:

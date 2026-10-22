@@ -5,6 +5,15 @@ import { createEditorApi } from "./editorApi";
 describe("editorApi music metadata", () => {
   afterEach(() => Reflect.deleteProperty(window, "desktop"));
 
+  it("resets to the saved AI baseline using the exact confirmed revision", async () => {
+    const request = vi.fn(async () => ({ revision: 8 }));
+    const api = createEditorApi(request);
+    expect(await api.reset("a/b", 7)).toBe(8);
+    expect(request).toHaveBeenCalledExactlyOnceWith({
+      method: "POST", path: "/songs/a%2Fb/editor/reset", body: { expectedRevision: 7 },
+    });
+  });
+
   it("round-trips repeated phrases, absolute note gaps and relative letters late in a song", async () => {
     const source = {
       songId: "song-1", revision: 7,

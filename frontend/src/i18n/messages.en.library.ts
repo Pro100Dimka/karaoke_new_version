@@ -1,6 +1,9 @@
 export const libraryEn = {
   realignLyrics: "Refine words and notes",
-  realignLyricsHelp: "Re-align the existing text to the vocal and rebuild notes in a new revision. Previous revisions remain available. Manual edits are preserved: rebuilding stops if they exist. Export a project copy before explicitly resetting edits.",
+  realignLyricsHelp: "Re-align the existing text to the vocal and rebuild notes in a new revision. Manual edits are preserved. If they block processing, the queue offers an explicit return to AI timing; the edited revision remains in project history.",
+  resetLyricsAndReprocess: "Return to AI timing and reprocess",
+  resetLyricsTitle: "Return to AI timing?",
+  resetLyricsBody: "Your edits in revision {revision} will remain in project history. The app will create a new revision from the AI baseline, then re-align words and notes to the vocal.",
   filtersApplyInstantly: "Changes apply instantly",
   sortAscending: "Ascending",
   sortDescending: "Descending",

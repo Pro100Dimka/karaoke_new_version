@@ -42,6 +42,7 @@ class TrackingLanguageProvider(FakeAiProvider):
         *,
         timing_hints: tuple[LyricLineTiming, ...] = (),
         execution: ExecutionContext,
+        instrumental: Path | None = None,
     ) -> tuple[WordTiming, ...]:
         self.align_languages.append(language)
         return tuple(
@@ -52,6 +53,7 @@ class TrackingLanguageProvider(FakeAiProvider):
                 cancel,
                 timing_hints=timing_hints,
                 execution=execution,
+                instrumental=instrumental,
             )
         )
 

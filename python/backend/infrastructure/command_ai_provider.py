@@ -75,6 +75,7 @@ class CommandAiProvider:
         *,
         timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
+        instrumental: Path | None = None,
     ) -> Sequence[WordTiming]:
         arguments = [
             "--input",
@@ -84,6 +85,8 @@ class CommandAiProvider:
             "--lyrics",
             lyrics,
         ]
+        if instrumental is not None:
+            arguments.extend(["--instrumental", str(instrumental)])
         if timing_hints:
             arguments.extend(
                 [

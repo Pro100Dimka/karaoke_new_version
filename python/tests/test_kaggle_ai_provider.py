@@ -247,9 +247,47 @@ def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_
     provider.pitch(vocal, cancel, execution=execution)
 
     assert [name for name, _args in client.calls] == ["/prepare_vocal", "/align", "/pitch"]
-    assert client.calls[0][1] == (str(vocal),)
+    assert client.calls[0][1] == (str(vocal), None)
     assert client.calls[1][1][0] == client.calls[2][1][0] == "b2c3"
     assert vocal.read_bytes() == b"existing project vocal"
+
+
+def test_existing_vocal_and_backing_are_uploaded_once_for_alignment_then_pitch(tmp_path: Path) -> None:
+    vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
+    client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
+    provider.align(vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing)
+    provider.pitch(vocal, cancel, execution=execution)
+    assert [name for name, _args in client.calls] == ["/prepare_vocal", "/align", "/pitch"]
+    assert client.calls[0][1] == (str(vocal), str(backing))
+    assert client.calls[1][1][0] == client.calls[2][1][0] == "b2c3"
+
+
+def test_vocal_only_cached_session_is_upgraded_when_alignment_needs_backing(tmp_path: Path) -> None:
+    vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
+    client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
+    provider.pitch(vocal, cancel, execution=execution)
+    provider.align(vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing)
+    uploads = [args for name, args in client.calls if name == "/prepare_vocal"]
+    assert uploads == [(str(vocal), None), (str(vocal), str(backing))]
+    assert provider._sessions[vocal.resolve()][1] == backing.resolve()
+
+
+def test_separated_session_reuses_its_existing_backing_for_alignment(tmp_path: Path) -> None:
+    remote_backing, remote_vocal = tmp_path / "backing.wav", tmp_path / "vocal.wav"
+    remote_backing.write_bytes(b"backing audio")
+    remote_vocal.write_bytes(b"vocal audio")
+    client = _Client(remote_backing, remote_vocal)
+    provider = _Provider(client)
+    execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
+    separated = provider.separate(tmp_path / "source.wav", tmp_path / "output", cancel, execution=execution)
+    provider.align(separated.reference_vocal, "hello", Language.ENGLISH, cancel,
+                   execution=execution, instrumental=separated.instrumental)
+    assert [name for name, _args in client.calls] == ["/separate", "/align"]
+    assert client.calls[1][1][0] == "a1b2"
 
 
 @pytest.mark.parametrize("change", ["generation", "url", "token"])
@@ -266,7 +304,7 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
         def predict(self, *, api_name):
             assert api_name == "/health"
             probes.append(tuple(state.values()))
-            return {"protocolVersion": 4, "sessionGeneration": state["generation"]}
+            return {"protocolVersion": 5, "sessionGeneration": state["generation"]}
 
         def submit(self, *args, api_name):
             calls.append((api_name, args))
@@ -297,12 +335,13 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
 
 
 @pytest.mark.parametrize("expires_twice", [False, True])
-def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twice):
+@pytest.mark.parametrize("operation", ["pitch", "align"])
+def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twice, operation):
     from gradio_client.exceptions import AppError
 
     class ExpiringClient(_Client):
         def submit(self, *args, api_name):
-            if api_name == "/pitch" and (args[0] == "expired" or expires_twice):
+            if api_name == f"/{operation}" and (args[0] == "expired" or expires_twice):
                 self.calls.append((api_name, args))
                 raise AppError('{"code":"KaggleSessionExpired"}')
             return super().submit(*args, api_name=api_name)
@@ -310,16 +349,21 @@ def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twic
     client = ExpiringClient(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     vocal = tmp_path / "vocal.wav"
-    provider._sessions[vocal.resolve()] = "expired"
+    backing = tmp_path / "instrumental.wav" if operation == "align" else None
+    provider._sessions[vocal.resolve()] = ("expired", backing)
     def invoke():
+        if operation == "align":
+            return provider.align(vocal, "hello", Language.ENGLISH, threading.Event(),
+                                  instrumental=backing, execution=ExecutionContext(ComputeDevice.CPU, 1))
         return provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
     if expires_twice:
         with pytest.raises(DependencyError) as error:
             invoke()
         assert error.value.code == "KaggleSessionExpired"
     else:
-        assert invoke()[0].frequency == 440
-    assert [name for name, _args in client.calls] == ["/pitch", "/prepare_vocal", "/pitch"]
+        assert len(invoke()) == 1
+    assert [name for name, _args in client.calls] == [f"/{operation}", "/prepare_vocal", f"/{operation}"]
+    assert client.calls[1][1] == (str(vocal), str(backing) if backing else None)
 
 
 def test_shutdown_discards_cached_vocal_sessions(tmp_path):
@@ -327,7 +371,7 @@ def test_shutdown_discards_cached_vocal_sessions(tmp_path):
         lambda: BackendSettings(2),
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
-    provider._sessions[tmp_path / "vocal.wav"] = "expired"
+    provider._sessions[tmp_path / "vocal.wav"] = ("expired", None)
     provider.shutdown()
     assert provider._sessions == {}
 
@@ -343,7 +387,7 @@ def test_unrelated_remote_errors_do_not_reupload_the_vocal(tmp_path):
     client = FailedClient(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     vocal = tmp_path / "vocal.wav"
-    provider._sessions[vocal.resolve()] = "cached"
+    provider._sessions[vocal.resolve()] = ("cached", None)
     with pytest.raises(DependencyError) as error:
         provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
     assert error.value.code == "KaggleUnavailable"
@@ -454,7 +498,7 @@ def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allow
         assert connections == []
 
 
-@pytest.mark.parametrize("protocol_version", [3, 4])
+@pytest.mark.parametrize("protocol_version", [4, 5])
 def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_workers(
     monkeypatch, protocol_version,
 ) -> None:
@@ -481,7 +525,7 @@ def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_worke
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
 
-    if protocol_version == 3:
+    if protocol_version == 4:
         with pytest.raises(DependencyError) as error:
             provider.validate_configuration()
         assert error.value.code == "KaggleProtocolMismatch"

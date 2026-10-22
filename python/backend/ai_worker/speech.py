@@ -399,6 +399,7 @@ def align(
     lyrics: str,
     language: str,
     timing_hints: Sequence[Mapping[str, object]] = (),
+    instrumental: Path | None = None,
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
     """Timing of every word and letter of ``lyrics`` against the vocal track.
 
@@ -419,7 +420,8 @@ def align(
         voiced_frames(samples, _SAMPLE_RATE, _HOP),
         whole,
     )
-    timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples))
+    backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
+    timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing))
     return {"words": [
         _aligned_word_payload(word, heard_timings.get(index)) for index, word in enumerate(timed)
     ]}

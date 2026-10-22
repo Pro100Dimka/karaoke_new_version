@@ -32,12 +32,41 @@ class ExecutionTrackingProvider(FakeAiProvider):
         return super().transcribe(*args, **kwargs)
 
     def align(self, *args, **kwargs):
+        import soundfile as sf
+
         self.executions["align"] = kwargs.get("execution")
+        self.alignment_audio = (args[0], kwargs.get("instrumental"))
+        self.alignment_audio_info = tuple(
+            (sf.info(path).frames, sf.info(path).samplerate)
+            for path in self.alignment_audio if path is not None
+        )
         return super().align(*args, **kwargs)
 
     def pitch(self, *args, **kwargs):
         self.executions["pitch"] = kwargs.get("execution")
         return super().pitch(*args, **kwargs)
+
+
+@pytest.mark.parametrize("realign", [False, True])
+def test_full_and_existing_alignment_receive_the_backing_from_the_same_timeline(tmp_path, realign):
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    provider = ExecutionTrackingProvider()
+    with app_client(tmp_path / "runtime", ai_providers=(provider,)) as client:
+        song = import_song(client, source)
+        job = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert wait_for_job(client, job.json()["jobId"])["state"] == "Succeeded"
+        if realign:
+            job = client.post(f"/songs/{song['songId']}/processing/lyrics")
+            assert wait_for_job(client, job.json()["jobId"])["state"] == "Succeeded"
+
+        vocal, backing = provider.alignment_audio
+        assert backing is not None, "A vocal stem alone cannot identify leaked accompaniment"
+        assert vocal != backing
+        assert len(provider.alignment_audio_info) == 2
+        assert provider.alignment_audio_info[0] == provider.alignment_audio_info[1]
 
 
 def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:

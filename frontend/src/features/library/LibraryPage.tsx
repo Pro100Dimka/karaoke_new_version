@@ -223,7 +223,7 @@ export const LibraryPage = () => {
     state.status === "ready",
     library.refresh,
   );
-  const { startProcessing, confirmDelete, showError } = useSongActions(
+  const { startProcessing, resetAndReprocess, confirmDelete, showError } = useSongActions(
     library,
     () => setSettingsSong(null),
   );
@@ -420,6 +420,7 @@ export const LibraryPage = () => {
         onClose={() => setProcessingOpen(false)}
         onCancel={(jobId) => guarded(() => library.cancelJob(jobId))}
         onRetry={(song, mode) => startProcessing(song, mode)}
+        onResetLyrics={resetAndReprocess}
         onOpenFolder={openFolder}
         onPlay={playSong}
       />

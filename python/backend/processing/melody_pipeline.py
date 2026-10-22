@@ -82,7 +82,7 @@ class MelodyPipeline:
         reports: list[StageReport] = []
         instrumental, reference = self._audio_paths(inputs.song)
         document, warnings = self._melody_document(
-            inputs, provider, alignment, reference, context, reports, execution
+            inputs, provider, alignment, reference, context, reports, execution, instrumental
         )
         workspace = self._workspaces.allocate(f"melody-{inputs.song.song_id}")
         try:
@@ -134,7 +134,7 @@ class MelodyPipeline:
                 *warnings,
                 *((execution.fallback_reason,) if execution.fallback_reason else ()),
             ),
-            algorithm_version="lyrics-2" if alignment else _ALGORITHM_VERSION,
+            algorithm_version="lyrics-3" if alignment else _ALGORITHM_VERSION,
             timing_operation="lyrics" if alignment else "melody",
             processing_backend=provider_backend(provider).value,
         )
@@ -157,6 +157,7 @@ class MelodyPipeline:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
+        instrumental: Path,
     ) -> tuple[LyricsDocument, tuple[str, ...]]:
         document = inputs.document
         if alignment is not None:
@@ -172,6 +173,7 @@ class MelodyPipeline:
                         inputs.song.language,
                         context.cancel,
                         execution=execution,
+                        instrumental=instrumental,
                     ),
                     progress=0.3,
                 )
@@ -182,9 +184,7 @@ class MelodyPipeline:
                 WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))
                 for word in document.words
             )
-            warnings = (
-                f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",
-            )
+            warnings = (f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",)
         stable = self._stable_pitch(provider, reference, context, reports, execution)
         return self._construct(document, words, stable, context, reports), warnings + pitch_warnings(stable)
 
@@ -278,7 +278,7 @@ class MelodyPipeline:
         warnings: tuple[str, ...],
     ) -> dict[str, object]:
         return {
-            "algorithmVersion": "lyrics-2" if alignment else _ALGORITHM_VERSION,
+            "algorithmVersion": "lyrics-3" if alignment else _ALGORITHM_VERSION,
             "providers": {
                 name: provider_provenance(item.descriptor)
                 for name, item in (("pitch", provider), ("alignment", alignment))

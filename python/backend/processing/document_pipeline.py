@@ -136,6 +136,7 @@ class BuildProcessingDocument:
                 context.cancel,
                 timing_hints=discovery.timing_hints,
                 execution=execution,
+                instrumental=prepared.instrumental,
             ),
             progress=0.72,
         )

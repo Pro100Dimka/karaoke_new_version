@@ -23,6 +23,7 @@ interface Props {
   onClose(): void;
   onCancel(jobId: string): Promise<void>;
   onRetry(song: SongDto, mode?: "lyrics"): Promise<void>;
+  onResetLyrics?(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
 }
@@ -70,6 +71,7 @@ export const ProcessingModal = ({
   onClose,
   onCancel,
   onRetry,
+  onResetLyrics,
   onOpenFolder,
   onPlay,
 }: Props) => {
@@ -181,6 +183,7 @@ export const ProcessingModal = ({
                   onPlay,
                   onRetry: (song) => void onRetry(song,
                     job.timingOperation === "lyrics" ? "lyrics" : undefined),
+                  onResetLyrics,
                   onStop: () => stop(job),
                   onDetails: () => details(job),
                   onRemove: () => remove(job),

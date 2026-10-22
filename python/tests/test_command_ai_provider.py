@@ -22,6 +22,7 @@ class _ScriptedRunner(ProcessRunner):
         self._result = ProcessResult(exit_code, stdout, b"")
 
     def run(self, command, **_):
+        self.command = command
         return self._result
 
 
@@ -85,6 +86,34 @@ def test_alignment_words_are_read_in_order() -> None:
         Path("vocal.wav"), "la li", Language.AUTO, threading.Event(), execution=EXECUTION
     )
     assert [word.text for word in words] == ["la", "li"]
+
+
+def test_alignment_supplies_synchronized_instrumental_to_the_worker() -> None:
+    provider = _provider(b'{"words": []}')
+    backing = Path("same-timeline-instrumental.wav")
+
+    provider.align(
+        Path("vocal.wav"), "la", Language.AUTO, threading.Event(),
+        execution=EXECUTION, instrumental=backing,
+    )
+
+    arguments = provider._runner.command
+    assert arguments[arguments.index("--instrumental") + 1] == str(backing)
+
+
+def test_worker_cli_passes_the_optional_instrumental_context(monkeypatch) -> None:
+    import backend.ai_worker.__main__ as worker
+
+    received = {}
+    monkeypatch.setattr(worker, "align", lambda *args, **kwargs: received.update(kwargs) or {})
+    args = worker._parser().parse_args([
+        "align", "--input", "vocal.wav", "--lyrics", "la",
+        "--instrumental", "same-timeline-instrumental.wav",
+    ])
+
+    worker._run(args)
+
+    assert received["instrumental"] == Path("same-timeline-instrumental.wav")
 
 
 @pytest.mark.parametrize("diagnostics", [[], ["AsrCtcBoundaryDisagreement"]])

@@ -106,6 +106,15 @@ export const createEditorApi = (
     );
   },
 
+  async reset(songId: string, expectedRevision: number): Promise<number> {
+    const result = await request({
+      method: "POST",
+      path: `/songs/${encodeURIComponent(songId)}/editor/reset`,
+      body: { expectedRevision },
+    });
+    return (result as { revision: number }).revision;
+  },
+
   async save(
     song: SongDto,
     document: EditorDocument,

@@ -3,16 +3,18 @@ import { useNotify } from "../../app/NotificationsProvider";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
+import { useEditorRepository } from "../../app/EditorProvider";
 import { useGuardedAction } from "./useGuardedAction";
 
 interface SongOperations {
   processSong(song: SongDto, mode?: "lyrics"): Promise<void>;
+  refresh(): Promise<void>;
   deleteSong(song: SongDto): Promise<void>;
 }
 
 /** Confirmed, notified song-level actions shared by the card menu and the Song Settings dialog. */
 export const useSongActions = (
-  { processSong, deleteSong }: SongOperations,
+  { processSong, refresh, deleteSong }: SongOperations,
   onDeleted: () => void,
 ) => {
   const ask = useAsk();
@@ -20,12 +22,31 @@ export const useSongActions = (
   const t = useText();
   const guarded = useGuardedAction();
   const catalog = useLibraryCatalog();
+  const repository = useEditorRepository();
 
   const startProcessing = (song: SongDto, mode?: "lyrics") =>
     guarded(async () => {
       await processSong(song, mode);
       notify(t("processingStarted"), "info");
     });
+
+  const resetAndReprocess = async (song: SongDto) => {
+    const choice = await ask({
+      title: t("resetLyricsTitle"),
+      body: t("resetLyricsBody", { revision: song.activeRevision }),
+      actions: [
+        { id: "cancel", label: t("cancel") },
+        { id: "reset", label: t("resetLyricsAndReprocess"), appearance: "primary" },
+      ],
+    });
+    if (choice !== "reset") return;
+    await guarded(async () => {
+      const revision = await repository.reset(song.id, song.activeRevision);
+      await refresh();
+      await processSong({ ...song, activeRevision: revision }, "lyrics");
+      notify(t("processingStarted"), "info");
+    });
+  };
 
   const confirmDelete = async (song: SongDto) => {
     let count = 0;
@@ -68,5 +89,5 @@ export const useSongActions = (
     });
   };
 
-  return { startProcessing, confirmDelete, showError };
+  return { startProcessing, resetAndReprocess, confirmDelete, showError };
 };

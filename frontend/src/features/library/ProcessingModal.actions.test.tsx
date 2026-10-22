@@ -11,6 +11,12 @@ import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
 import { LibraryProvider } from "../../app/LibraryProvider";
+import { DialogProvider } from "../../app/DialogProvider";
+import { useSongActions } from "./useSongActions";
+
+const recovery = vi.hoisted(() => ({ reset: vi.fn(), notify: vi.fn() }));
+vi.mock("../../app/EditorProvider", () => ({ useEditorRepository: () => ({ reset: recovery.reset }) }));
+vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => recovery.notify }));
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
@@ -44,6 +50,57 @@ const job = (
   stage: "ProjectValidationPublication",
   progress: state === "completed" ? 100 : 0,
 });
+
+it("offers explicit baseline recovery only for a manual-edit conflict", async () => {
+  const existing = song("existing", "Edited song");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+    ...job("manual-job", existing.id, "failed"), timingOperation: "lyrics",
+    error: { code: "ManualLyricsConflict", message: "Manual edits exist", source: "python" },
+  }]);
+  const onResetLyrics = vi.fn();
+  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
+    onCancel={vi.fn()} onRetry={vi.fn()} onResetLyrics={onResetLyrics}
+    onOpenFolder={vi.fn()} onPlay={vi.fn()} />
+  </LibraryProvider>);
+  const card = (await screen.findByText("Artist — Edited song")).closest("li")!;
+  fireEvent.click(within(card).getByRole("button", { name: "resetLyricsAndReprocess" }));
+  expect(onResetLyrics).toHaveBeenCalledExactlyOnceWith(existing);
+});
+
+it.each(["cancel", "resetLyricsAndReprocess"])(
+  "requires the rendered recovery confirmation before %s",
+  async (choice) => {
+    const existing = song("existing", "Edited song");
+    vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+      ...job("manual-job", existing.id, "failed"), timingOperation: "lyrics",
+      error: { code: "ManualLyricsConflict", message: "Manual edits exist", source: "python" },
+    }]);
+    recovery.reset.mockReset().mockResolvedValue(2);
+    const processSong = vi.fn().mockResolvedValue(undefined);
+    const operations = { processSong, refresh: vi.fn(), deleteSong: vi.fn() };
+    const Harness = () => {
+      const actions = useSongActions(operations, vi.fn());
+      return <ProcessingModal open songs={[existing]} onClose={vi.fn()}
+        onCancel={vi.fn()} onRetry={actions.startProcessing} onResetLyrics={actions.resetAndReprocess}
+        onOpenFolder={vi.fn()} onPlay={vi.fn()} />;
+    };
+    render(<LibraryProvider><DialogProvider><Harness /></DialogProvider></LibraryProvider>);
+    const card = (await screen.findByText("Artist — Edited song")).closest("li")!;
+    fireEvent.click(within(card).getByRole("button", { name: "resetLyricsAndReprocess" }));
+    const dialog = await screen.findByRole("dialog", { name: "resetLyricsTitle" });
+    expect(within(dialog).getByText("resetLyricsBody")).toBeInTheDocument();
+    expect(recovery.reset).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: choice }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "resetLyricsTitle" })).toBeNull());
+    if (choice === "cancel") {
+      expect(recovery.reset).not.toHaveBeenCalled();
+      expect(processSong).not.toHaveBeenCalled();
+    } else {
+      expect(recovery.reset).toHaveBeenCalledExactlyOnceWith(existing.id, 1);
+      expect(processSong).toHaveBeenCalledExactlyOnceWith({ ...existing, activeRevision: 2 }, "lyrics");
+    }
+  },
+);
 
 it("retries lyric realignment with the same operation instead of full source processing", async () => {
   const existing = song("existing", "Existing song");

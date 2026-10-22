@@ -41,6 +41,12 @@ def test_voiced_frames_follow_the_sound_and_ignore_a_silent_intro() -> None:
     assert not voiced[int(6.3 / _STEP) :].any()
 
 
+def test_voiced_frames_bridge_a_brief_dropout_between_continuous_sounds() -> None:
+    voiced = voiced_frames(_signal([(1.0, 2.0), (2.08, 3.0)], 4.0), _RATE, _HOP)
+
+    assert voiced[int(1.1 / _STEP) : int(2.9 / _STEP)].all()
+
+
 def test_a_character_without_a_sound_starts_with_the_next_one() -> None:
     assert _filled_letters([1.0, None, 2.0, None], end=3.0) == (1.0, 2.0, 2.0, 3.0)
 
@@ -133,6 +139,94 @@ def test_a_genuine_long_vowel_follows_audio_without_a_duration_ceiling() -> None
 
     assert stretched[0].end == pytest.approx(12.0, abs=0.05)
     assert stretched[0].letters == words[0].letters
+
+
+def test_actual_final_word_releases_untranscribed_instrumental_outro() -> None:
+    import torch
+    from backend.ai_worker.ctc import align_words
+
+    # Pinned 181–187-s excerpt: the user independently reports the final word finished by 183 s.
+    # Cached MMS scores exercise the actual late-token error without downloading/running the model.
+    with np.load(Path(__file__).with_name("fixtures") / "sadvit-outro.npz") as fixture:
+        samples = fixture["vocal"].astype(np.float32)
+        words = align_words(torch.from_numpy(fixture["scores"]), 0.02, ["навіки"])
+        backing = fixture["instrumental"].astype(np.float32)
+        timed = with_sung_ends(words, samples, instrumental=backing)
+
+    assert words[0].end < 2.0, "raw CTC must leave the unmatched outro outside the final word"
+    assert timed[0].end < 2.0, "refinement must not turn accompaniment bleed into a held vowel"
+    assert timed[0].end > 1.2, "the actual phonetic tail continues beyond the last CTC spike"
+
+
+@pytest.mark.parametrize("case_index", [0, 1])
+def test_actual_phrase_end_does_not_follow_a_different_instrumental_source(case_index: int) -> None:
+    import json
+
+    # Independent acoustic checks distinguish the articulated vowel from the following
+    # melody. Full-song MMS cores are pinned before refinement; no ASR endpoint is a cap.
+    with np.load(Path(__file__).with_name("fixtures") / "sadvit-phrase-ends.npz") as fixture:
+        case = json.loads(str(fixture["metadata"]))["cases"][case_index]
+        offset, key = case["offset"], case["key"]
+        source = case["word"]
+        word = AlignedWord(
+            source["text"], source["start"] - offset, source["end"] - offset,
+            tuple(moment - offset for moment in source["letters"]), source["score"],
+        )
+        timed = with_sung_ends(
+            [word], fixture["vocal" + key].astype(np.float32),
+            instrumental=fixture["instrumental" + key].astype(np.float32),
+        )[0]
+
+    assert timed.end + offset >= case["independentVoiceCoreEnd"]
+    assert timed.end + offset < case["beforeUnrelatedMelody"]
+    assert timed.start == word.start
+
+
+@pytest.mark.parametrize("quiet", [False, True])
+def test_sung_extension_preserves_harmonic_melisma_over_backing(
+    quiet: bool, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from backend.ai_worker import timing
+
+    # A speech detector may reject an arbitrarily long steady/ornamented vowel. Its negative
+    # decision is deliberately unhelpful: the independent source evidence must preserve singing.
+    monkeypatch.setattr(
+        timing, "get_vad_model",
+        lambda: lambda samples: np.zeros((1, len(samples) // 512), dtype=np.float32),
+    )
+    time = np.arange(13 * _RATE) / _RATE
+    active = (time >= 1.0) & (time < 12.0)
+    # Changes of fundamental and vibrato are real continuation, even if a speech detector is unsure.
+    phase = 2 * np.pi * np.cumsum(150 + 30 * np.sin(time * 2) + 3 * np.sin(time * 30)) / _RATE
+    voice = sum(weight * np.sin(harmonic * phase) for harmonic, weight in [(1, .18), (2, .08), (3, .05)])
+    backing = (0.2 * np.sin(2 * np.pi * 900 * time)).astype(np.float32)
+    samples = (voice * active * (0.05 if quiet else 1.0) + backing * 0.03).astype(np.float32)
+    words = [AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)]
+
+    stretched = with_sung_ends(words, samples, instrumental=backing)
+
+    assert stretched[0].end == pytest.approx(12.0, abs=0.15)
+
+
+def test_quiet_independent_voice_survives_backing_dominated_spectral_power(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from backend.ai_worker import timing
+
+    monkeypatch.setattr(
+        timing, "get_vad_model",
+        lambda: lambda samples: np.zeros((1, len(samples) // 512), dtype=np.float32),
+    )
+    time = np.arange(5 * _RATE) / _RATE
+    phase = 2 * np.pi * np.cumsum(150 + 3 * np.sin(time * 30)) / _RATE
+    voice = .002 * (np.sin(phase) + .4 * np.sin(phase * 2) + .2 * np.sin(phase * 3))
+    backing = (0.3 * np.random.default_rng(42).standard_normal(len(time))).astype(np.float32)
+    samples = (voice * ((time >= 1) & (time < 4)) + backing * .0001).astype(np.float32)
+    words = [AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)]
+
+    stretched = with_sung_ends(words, samples, instrumental=backing)
+
+    assert stretched[0].end == pytest.approx(4.0, abs=0.15)
 
 
 def test_a_word_never_stretches_into_the_next_one() -> None:

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import librosa
 import numpy as np
+from faster_whisper.vad import get_vad_model
+from scipy.ndimage import median_filter, uniform_filter1d
+from scipy.spatial.distance import cdist
 
 _ACTIVITY_DB = 30.0
 _ABSOLUTE_FLOOR_DB = -65.0
@@ -45,6 +49,113 @@ def voiced_frames(samples: np.ndarray, sample_rate: int, hop: int) -> np.ndarray
     )
 
 
+def singing_frames(
+    samples: np.ndarray, instrumental: np.ndarray | None, sample_rate: int, hop: int
+) -> np.ndarray:
+    """Audible singing supported by either independent speech or spectrally isolated vocal energy.
+
+    Speech detection supplies positive evidence only: a held vowel can be missed by speech models
+    while remaining dominant in its own harmonic bands. Accompaniment bleed cannot extend a word
+    merely by being audible when both sources instead identify it as instrumental.
+    """
+    audible = voiced_frames(samples, sample_rate, hop)
+    if instrumental is None:
+        return audible
+    padded = np.pad(samples, (0, -len(samples) % 512))
+    probability = get_vad_model()(padded).reshape(-1)
+    speech = np.interp(
+        np.arange(len(audible)) * hop / sample_rate,
+        np.arange(len(probability)) * 512 / sample_rate,
+        probability,
+    )
+    dominance, coherence = _source_evidence(samples, instrumental, sample_rate, hop)
+    # The existing 300-ms word-ending pause also smooths changing harmonic bins and vibrato.
+    smooth = median_filter(dominance, size=round(0.3 * sample_rate / hop) | 1)
+    supported = audible & (
+        (speech >= 0.5) | (smooth[: len(audible)] >= 0.5) | (coherence[: len(audible)] <= 0.5)
+    )
+    return _without_short_runs(
+        _bridged(supported, round(_BRIDGED_GAP_SECONDS * sample_rate / hop)),
+        round(_MINIMUM_RUN_SECONDS * sample_rate / hop),
+    )
+
+
+def _source_evidence(
+    samples: np.ndarray, instrumental: np.ndarray, sample_rate: int, hop: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Soft source dominance and the fraction of vocal power linearly explained by backing.
+
+    Low coherence supplies positive evidence for a quiet independent voice even when backing
+    dominates the same frequency bands. One second averages phase across many harmonic cycles;
+    a fixed phase-shifted or filtered copy of the accompaniment instead remains coherent.
+    """
+    backing = np.pad(instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental))))
+    vocal_stft = librosa.stft(samples, n_fft=2048, hop_length=hop)
+    backing_stft = librosa.stft(backing, n_fft=2048, hop_length=hop)
+    vocal_power, backing_power = np.abs(vocal_stft) ** 2, np.abs(backing_stft) ** 2
+    mask = vocal_power / (vocal_power + backing_power + 1e-12)
+    dominance = (vocal_power * mask).sum(axis=0) / (vocal_power.sum(axis=0) + 1e-12)
+    window = round(sample_rate / hop) | 1
+    vocal_mean = uniform_filter1d(vocal_power, window, axis=1)
+    backing_mean = uniform_filter1d(backing_power, window, axis=1)
+    cross = uniform_filter1d(vocal_stft * backing_stft.conj(), window, axis=1)
+    coherence = np.clip(np.abs(cross) ** 2 / (vocal_mean * backing_mean + 1e-12), 0, 1)
+    # Weight the current sound, so a preceding loud vowel does not count as residual power
+    # after it has stopped. The one-second neighbourhood estimates only the transfer relation.
+    explained = (coherence * vocal_power).sum(axis=0) / (vocal_power.sum(axis=0) + 1e-12)
+    return np.asarray(dominance), np.asarray(explained)
+
+
+def harmonic_evidence(samples: np.ndarray, sample_rate: int, hop: int) -> tuple[np.ndarray, np.ndarray]:
+    """Relative harmonic amplitudes across melody changes, plus reliability of that structure.
+
+    Autocorrelation locates the fundamental; amplitudes use harmonic number rather than absolute
+    frequency, so a new note or vibrato need not look like a different source. Weak periodicity is
+    unknown evidence, never an indication that the singer stopped.
+    """
+    spectrum = np.abs(librosa.stft(samples, n_fft=2048, hop_length=hop))
+    autocorrelation = np.fft.irfft(spectrum**2, axis=0)
+    first, last = round(sample_rate / 1100), round(sample_rate / 65)
+    lag = autocorrelation[first:last].argmax(axis=0) + first
+    periodicity = autocorrelation[lag, np.arange(len(lag))] / np.maximum(autocorrelation[0], 1e-12)
+    bins = np.arange(1, 17)[:, None] * (sample_rate / lag)[None, :] * 2048 / sample_rate
+    indices = np.clip(np.rint(bins).astype(int), 2, spectrum.shape[0] - 3)
+    # Neighbouring bins accommodate finite FFT resolution; the existing brief-gap scale smooths vibrato.
+    peaks = np.maximum.reduce([
+        np.take_along_axis(spectrum, indices + delta, axis=0) for delta in range(-2, 3)
+    ])
+    envelope = median_filter(np.sqrt(peaks), size=(1, 11)).T
+    envelope /= np.maximum(np.linalg.norm(envelope, axis=1, keepdims=True), 1e-12)
+    return envelope, periodicity
+
+
+def continued_frames(
+    active: np.ndarray, evidence: tuple[np.ndarray, np.ndarray] | None,
+    bounds: tuple[float, float, float], step: float,
+) -> np.ndarray:
+    """Reject a different periodic source after a word, retaining uncertain and matching frames.
+
+    The word's own recognized interval supplies its reference variation, rather than a song-specific
+    distance or duration. Consonants and noisy frames cannot broaden that harmonic reference; if the
+    core has no reliable periodic structure, the existing independent activity remains authoritative.
+    """
+    if evidence is None:
+        return active
+    envelope, periodicity = evidence
+    start, end, limit = bounds
+    first, stop = int(start / step), min(len(active), int(limit / step))
+    last = max(first + 1, min(stop, int(end / step)))
+    reference = envelope[first:last][periodicity[first:last] >= 0.5]
+    if len(reference) < 2:
+        return active
+    radius = np.percentile(cdist(reference, reference), 95)
+    distance = cdist(envelope[first:stop], reference).min(axis=1)
+    matching = (distance <= radius) | (periodicity[first:stop] < 0.5)
+    result = active.copy()
+    result[first:stop] &= matching
+    return _bridged(result, round(_BRIDGED_GAP_SECONDS / step))
+
+
 def vocal_onsets(samples: np.ndarray, sample_rate: int, hop: int) -> np.ndarray:
     """Seconds where the voice clearly enters: an audible level at least _ONSET_RISE_DB above the
     quietest moment of the preceding _ONSET_LOOKBACK_SECONDS, in order."""
@@ -70,7 +181,7 @@ def vocal_onsets(samples: np.ndarray, sample_rate: int, hop: int) -> np.ndarray:
 
 def _runs(flags: np.ndarray, value: bool) -> list[tuple[int, int]]:
     edges = np.flatnonzero(
-        np.diff(np.concatenate(([not value], flags == value, [not value])).astype(np.int8))
+        np.diff(np.concatenate(([False], flags == value, [False])).astype(np.int8))
     )
     return [(int(edges[i]), int(edges[i + 1])) for i in range(0, len(edges) - 1, 2)]
 

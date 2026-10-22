@@ -40,7 +40,7 @@ from backend.ai_worker.speech import (
 
 TTL_SECONDS = 6 * 60 * 60
 IDLE_SHUTDOWN_SECONDS = 5 * 60
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
@@ -188,11 +188,13 @@ def _new_session() -> tuple[str, Path]:
 
 
 @_track_activity
-def prepare_vocal(upload: str) -> str:
+def prepare_vocal(upload: str, instrumental_upload: str | None = None) -> str:
     session_id, directory = _new_session()
     separation = directory / "separation"
     separation.mkdir()
     shutil.copyfile(upload, separation / "vocals.wav")
+    if instrumental_upload is not None:
+        shutil.copyfile(instrumental_upload, separation / "instrumental.wav")
     return session_id
 
 
@@ -230,9 +232,11 @@ def transcribe_song(session_id: str, language: str) -> str:
 
 @_track_activity
 def align_song(session_id: str, lyrics: str, language: str, timing_hints: str) -> dict:
-    vocal = _session(session_id) / "separation" / "vocals.wav"
+    separation = _session(session_id) / "separation"
+    instrumental = separation / "instrumental.wav"
     hints = json.loads(timing_hints) if timing_hints else []
-    return align(vocal, lyrics, language, hints)
+    return align(separation / "vocals.wav", lyrics, language, hints,
+                 instrumental=instrumental if instrumental.is_file() else None)
 
 
 @_track_activity
@@ -267,6 +271,7 @@ def main() -> None:
         gr.Markdown(f"CUDA ready: **{torch.cuda.get_device_name(0)}**")
         with gr.Row(visible=False):
             upload = gr.File(type="filepath")
+            instrumental_upload = gr.File(type="filepath")
             instrumental = gr.File()
             vocal = gr.File()
             session_id = gr.Textbox()
@@ -290,7 +295,7 @@ def main() -> None:
         )
         gr.Button(visible=False).click(
             prepare_vocal,
-            upload,
+            [upload, instrumental_upload],
             session_id,
             api_name="prepare_vocal",
             concurrency_limit=1,

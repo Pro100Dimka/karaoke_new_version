@@ -31,7 +31,7 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
 
         assert job["state"] == "Succeeded", job
         assert job["overallProgress"] == 1.0
-        assert job["report"]["algorithmVersion"] == "pipeline-2"
+        assert job["report"]["algorithmVersion"] == "pipeline-3"
         assert job["report"]["processingBackend"] == "Local"
         updated = client.get(f"/songs/{song['songId']}").json()
         assert updated["status"] == "Ready"
@@ -283,7 +283,7 @@ def test_existing_project_remote_reprocess_propagates_stale_worker_protocol(
 
         def predict(self, *, api_name):
             probes.append(api_name)
-            return {"protocolVersion": 3}
+            return {"protocolVersion": 4}
 
     monkeypatch.setattr(remote_module, "Client", StaleWorker)
     remote = KaggleAiProvider(
@@ -335,7 +335,7 @@ def test_existing_project_can_realign_words_without_original_and_preserve_rollba
         assert client.post(path, headers=headers).json()["jobId"] == started.json()["jobId"]
         job = wait_for_job(client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
-        assert job["report"]["algorithmVersion"] == "lyrics-2"
+        assert job["report"]["algorithmVersion"] == "lyrics-3"
         assert job["report"]["timingOperation"] == "lyrics"
         stages = {item["stage"] for item in job["report"]["stages"]}
         assert "ForcedAlignment" in stages

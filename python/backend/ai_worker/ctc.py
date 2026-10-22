@@ -18,7 +18,7 @@ from torchaudio.pipelines._wav2vec2.utils import _extend_model
 from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import device
-from backend.ai_worker.timing import voiced_frames
+from backend.ai_worker.timing import continued_frames, harmonic_evidence, singing_frames, voiced_frames
 from backend.moment_spreading import spread_tied_moments
 
 _CHUNK_SECONDS = 20.0
@@ -115,6 +115,18 @@ def _character_tokens(word: str) -> list[list[int]]:
     return result
 
 
+def _transcript_path(scores: torch.Tensor, tokens: list[int]) -> torch.Tensor:
+    # MMS's zero-score wildcard absorbs untranscribed audio after the lyrics. Without it, a
+    # slightly better final-letter spike in an instrumental outro can win over the sung letter.
+    star = scores.shape[-1]
+    with_star = torch.cat((scores, scores.new_zeros((scores.shape[0], 1))), dim=-1)
+    aligned: torch.Tensor
+    aligned, _ = forced_align(
+        with_star[None], torch.tensor([[*tokens, star]], dtype=torch.int32), blank=0
+    )
+    return aligned.masked_fill(aligned == star, 0)
+
+
 def align_words(
     scores: torch.Tensor, frame_seconds: float, words: Sequence[str], offset_seconds: float = 0.0
 ) -> list[AlignedWord]:
@@ -125,7 +137,7 @@ def align_words(
         return _placed([None] * len(words), words)
     if scores.shape[0] < len(flat) * 2:
         raise ValueError("The vocal track is too short for the lyrics")
-    aligned, _ = forced_align(scores[None], torch.tensor([flat], dtype=torch.int32), blank=0)
+    aligned = _transcript_path(scores, flat)
     spans = merge_tokens(aligned[0], torch.exp(scores[torch.arange(scores.shape[0]), aligned[0]]))
     found: list[AlignedWord | None] = []
     position = 0
@@ -200,22 +212,26 @@ def _placed(found: list[AlignedWord | None], words: Sequence[str]) -> list[Align
     return result
 
 
-def with_sung_ends(words: list[AlignedWord], samples: np.ndarray) -> list[AlignedWord]:
+def with_sung_ends(
+    words: list[AlignedWord], samples: np.ndarray, instrumental: np.ndarray | None = None
+) -> list[AlignedWord]:
     """Stretches each word to the end of the sound it starts.
 
     The model marks a letter by the instant it is recognised, so a held vowel looks short; the end of a word is where the
     voice really stops, at most where the next word begins.
     """
-    voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
+    voiced = singing_frames(samples, instrumental, _VOICE_RATE, _VOICE_HOP)
+    harmonics = harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
     step = _VOICE_HOP / _VOICE_RATE
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
+        continued = continued_frames(voiced, harmonics, (word.start, word.end, limit), step)
         frame = min(int(word.end / step), len(voiced) - 1)
-        while frame + 1 < len(voiced) and voiced[frame] and (frame + 1) * step < limit:
+        while frame + 1 < len(continued) and continued[frame] and (frame + 1) * step < limit:
             frame += 1
         end = max(word.end, min(frame * step, limit))
-        silence = _first_long_silence(voiced, word.start, end, step)
+        silence = _first_long_silence(continued, word.start, end, step)
         letters = word.letters
         if silence is not None:
             end = max(silence, word.start + _MINIMUM_WORD_SECONDS)

@@ -27,6 +27,7 @@ def _parser() -> argparse.ArgumentParser:
     align_action.add_argument("--language", default="Auto")
     align_action.add_argument("--lyrics", required=True)
     align_action.add_argument("--timing-hints")
+    align_action.add_argument("--instrumental", type=Path)
     pitch_action = actions.add_parser("pitch")
     pitch_action.add_argument("--input", type=Path, required=True)
     return parser
@@ -41,7 +42,7 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
         return transcribe(args.input, args.language)
     if args.action == "align":
         hints = loads_list(args.timing_hints) if args.timing_hints else []
-        return align(args.input, args.lyrics, args.language, hints)
+        return align(args.input, args.lyrics, args.language, hints, instrumental=args.instrumental)
     return pitch(args.input)
 
 

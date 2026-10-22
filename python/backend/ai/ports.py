@@ -37,6 +37,7 @@ class AiProvider(Protocol):
         *,
         timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
+        instrumental: Path | None = None,
     ) -> Sequence[WordTiming]: ...
 
     def pitch(

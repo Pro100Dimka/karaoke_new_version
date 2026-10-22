@@ -80,8 +80,9 @@ class FakeAiProvider:
         *,
         timing_hints: Sequence[LyricLineTiming] = (),
         execution: ExecutionContext,
+        instrumental: Path | None = None,
     ) -> Sequence[WordTiming]:
-        del vocal, language, timing_hints, execution
+        del vocal, language, timing_hints, execution, instrumental
         if cancel.is_set():
             raise DependencyError("ProviderCancelled", "cancelled")
         text = lyrics.strip() or "la"

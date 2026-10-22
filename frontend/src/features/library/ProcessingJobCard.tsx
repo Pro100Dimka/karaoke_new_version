@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import {
+  Button,
   Card,
   IconButton,
   Menu,
@@ -29,6 +30,7 @@ export interface JobActions {
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   onRetry(song: SongDto): void;
+  onResetLyrics?(song: SongDto): void;
   onStop(): void;
   onDetails(): void;
   onRemove(): void;
@@ -211,6 +213,11 @@ export const ProcessingJobCard = ({
               label={t("retry")}
               onClick={() => actions.onRetry(song)}
             />
+          )}
+          {job.error?.code === "ManualLyricsConflict" && song && actions.onResetLyrics && (
+            <Button size="sm" icon="reset" onClick={() => actions.onResetLyrics?.(song)}>
+              {t("resetLyricsAndReprocess")}
+            </Button>
           )}
           <IconButton
             ref={menuAnchor}

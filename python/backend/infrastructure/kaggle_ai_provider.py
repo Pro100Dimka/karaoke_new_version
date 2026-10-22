@@ -34,7 +34,7 @@ from backend.settings.domain import BackendSettings, ProcessingBackend, is_secur
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
-_PROTOCOL_VERSION = 4
+_PROTOCOL_VERSION = 5
 _HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_TIMEOUT_SECONDS = 15 * 60
@@ -83,7 +83,7 @@ class KaggleAiProvider(AiProvider):
         self._lock = threading.Lock()
         self._startup_lock = threading.Lock()
         self._session_lock = threading.Lock()
-        self._sessions: dict[Path, str] = {}
+        self._sessions: dict[Path, tuple[str, Path | None]] = {}
         self._clients: dict[tuple[str, str], Client] = {}
         self._session_generation: tuple[str, str, str] | None = None
 
@@ -139,7 +139,7 @@ class KaggleAiProvider(AiProvider):
         if not session_id:
             raise self._invalid("Separation response has no remote session id")
         with self._lock:
-            self._sessions[vocal.resolve()] = session_id
+            self._sessions[vocal.resolve()] = (session_id, instrumental.resolve())
         return SeparatedAudio(instrumental, vocal)
 
     def transcribe(
@@ -164,12 +164,14 @@ class KaggleAiProvider(AiProvider):
         cancel: threading.Event,
         *,
         timing_hints: Sequence[LyricLineTiming] = (),
+        instrumental: Path | None = None,
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
         del execution
         hints = dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints])
         result = self._json_result(
-            self._invoke_vocal("/align", vocal, cancel, lyrics, language.value, hints)
+            self._invoke_vocal("/align", vocal, cancel, lyrics, language.value, hints,
+                               instrumental=instrumental)
         )
         values = result.get("words")
         if not isinstance(values, list):
@@ -230,18 +232,20 @@ class KaggleAiProvider(AiProvider):
         )
 
     def _invoke_vocal(
-        self, api_name: str, vocal: Path, cancel: threading.Event, *arguments: object
+        self, api_name: str, vocal: Path, cancel: threading.Event, *arguments: object,
+        instrumental: Path | None = None,
     ) -> object:
-        session = self._session(vocal, cancel)
+        session = self._session(vocal, cancel, instrumental)
         try:
             return self._invoke(api_name, cancel, session, *arguments)
         except DependencyError as error:
             if error.code != "KaggleSessionExpired":
                 raise
         with self._lock:
-            if self._sessions.get(vocal.resolve()) == session:
+            cached = self._sessions.get(vocal.resolve())
+            if cached is not None and cached[0] == session:
                 self._sessions.pop(vocal.resolve())
-        return self._invoke(api_name, cancel, self._session(vocal, cancel), *arguments)
+        return self._invoke(api_name, cancel, self._session(vocal, cancel, instrumental), *arguments)
 
     def _client(self, *, allow_start: bool = True, cancel: threading.Event | None = None) -> Client:
         settings = self._settings()
@@ -386,23 +390,25 @@ class KaggleAiProvider(AiProvider):
                 "KaggleClientUnavailable", "Gradio client is not installed"
             ) from exc
 
-    def _session(self, vocal: Path, cancel: threading.Event) -> str:
+    def _session(self, vocal: Path, cancel: threading.Event, instrumental: Path | None = None) -> str:
         _ensure_not_cancelled(cancel)
         while not self._session_lock.acquire(timeout=0.2):
             _ensure_not_cancelled(cancel)
         try:
             _ensure_not_cancelled(cancel)
             self._client(cancel=cancel)
+            backing = instrumental.resolve() if instrumental is not None else None
             with self._lock:
                 session = self._sessions.get(vocal.resolve())
-            if session is None:
-                uploaded = self._invoke("/prepare_vocal", cancel, self._handle_file(vocal))
+            if session is None or (backing is not None and session[1] != backing):
+                uploaded = self._invoke("/prepare_vocal", cancel, self._handle_file(vocal),
+                                        self._handle_file(instrumental) if instrumental else None)
                 if not isinstance(uploaded, str) or not uploaded.strip():
                     raise self._invalid("Vocal upload response has no remote session id")
-                session = uploaded.strip()
+                session = (uploaded.strip(), backing)
                 with self._lock:
                     self._sessions[vocal.resolve()] = session
-            return session
+            return session[0]
         finally:
             self._session_lock.release()
 
