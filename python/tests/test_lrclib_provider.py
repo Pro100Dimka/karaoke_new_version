@@ -466,3 +466,29 @@ def test_catalog_outage_uses_saved_ai_baseline_and_still_recovers_performed_repe
     )
     assert result.lyrics.splitlines() == lines + [lines[1]]
     assert "LyricsCatalogCached" in result.warnings
+
+
+@pytest.mark.parametrize("cached_other_version", [False, True])
+def test_a_longer_other_recording_cannot_replace_the_matching_catalog_version(cached_other_version):
+    from backend.lyrics.codec import encode_document
+    from backend.lyrics.domain import LyricsDocument
+
+    lines = ["Первый свет над городами", "Наши голоса над морем", "Снова поезда уходят"]
+    text = "\n".join(lines)
+    other = text + "\n" + lines[1]
+    hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
+    candidates = [LyricsCandidate(other, "T", "A feat. Guest", 193, "catalog"),
+                  LyricsCandidate(text, "T", "A", 188, "catalog", hints)]
+    baseline = encode_document(LyricsDocument("T", "A", 188, None, None, other, ()))
+    projects = SimpleNamespace(
+        load_manifest=lambda *_: SimpleNamespace(provenance={"lyricsSource": "catalog"}),
+        read_text_artifact=lambda *_: baseline,
+    ) if cached_other_version else None
+    result = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([candidates]),), LyricsMatchPolicy(), projects=projects,
+    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(text), threading.Event(),
+               online_enabled=True, execution=EXECUTION)
+
+    assert result.lyrics == text
+    assert result.timing_hints == hints
+    assert result.source == FakeLyricsProvider.provider_id

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import re
 import threading
+import math
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
@@ -29,7 +30,7 @@ class StudioMasterBalance:
 
 
 class FfmpegStudioMasterRenderer:
-    """Balances separated performance stems against the original song and renders a safe master."""
+    """Masters the recorded performance, retaining its wet voice and musical timeline."""
 
     def __init__(self, runner: ProcessRunner, ffmpeg: str = "ffmpeg") -> None:
         self._runner = runner
@@ -43,36 +44,34 @@ class FfmpegStudioMasterRenderer:
         original_instrumental: Path,
         target: Path,
         cancel: threading.Event,
+        *,
+        performance_mix: Path,
     ) -> StudioMasterBalance:
         levels = self._levels(
             user_vocal, performance_instrumental, reference_vocal, original_instrumental, cancel
         )
         user_db, performance_db, reference_db, original_db = levels
-        # Reproduce the released song's vocal-to-instrumental balance against the instrumental
-        # that is actually rendered, the original one: the singer's vocal is brought to the loudness
-        # the released vocal has there.  The performance backing is not a reference, because
-        # karaoke lowers it under quiet voices; its level is only reported.  The compressor and
-        # limiter after the gain keep a raised vocal's peaks in range.
-        vocal_gain = reference_db - user_db
+        # Compare ratios, not absolute stem levels: restoring the project's full-volume backing
+        # used to bury a voice that was already clearly audible over the recorded accompaniment.
+        vocal_gain = max(0.0, (reference_db - original_db) - (user_db - performance_db))
         target.parent.mkdir(parents=True, exist_ok=True)
-        # The separated performance backing already contains separation artefacts.  It is useful
-        # for measuring the singer's balance, but the released project instrumental is the clean
-        # source that belongs in the final master.
-        self._render_audio(user_vocal, original_instrumental, target, vocal_gain, cancel)
+        # Separation can classify echo/reverb as accompaniment. Keep the original mixed take;
+        # the separated voice only supplements it when needed, never replaces the wet voice.
+        self._render_audio(performance_mix, user_vocal, target, vocal_gain, cancel)
         return StudioMasterBalance(vocal_gain, user_db, performance_db, reference_db, original_db)
 
     def _render_audio(
         self,
+        performance: Path,
         vocal: Path,
-        instrumental: Path,
         target: Path,
         vocal_gain: float,
         cancel: threading.Event,
     ) -> None:
         # Two passes of one mix: the first measures its loudness, the second renders it normalised.
         analysis = self._mix(
+            performance,
             vocal,
-            instrumental,
             self._filter_graph(vocal_gain, loudnorm_filter()),
             ["-f", "null", "-"],
             cancel,
@@ -82,8 +81,8 @@ class FfmpegStudioMasterRenderer:
         if measured is None:
             raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
         result = self._mix(
+            performance,
             vocal,
-            instrumental,
             self._filter_graph(vocal_gain, loudnorm_filter(measured)),
             ["-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
             cancel,
@@ -94,8 +93,8 @@ class FfmpegStudioMasterRenderer:
 
     def _mix(
         self,
+        performance: Path,
         vocal: Path,
-        instrumental: Path,
         filter_graph: str,
         output: list[str],
         cancel: threading.Event,
@@ -111,9 +110,9 @@ class FfmpegStudioMasterRenderer:
                 self._ffmpeg,
                 *verbosity,
                 "-i",
-                str(vocal),
+                str(performance),
                 "-i",
-                str(instrumental),
+                str(vocal),
                 "-filter_complex",
                 filter_graph,
                 "-map",
@@ -126,15 +125,12 @@ class FfmpegStudioMasterRenderer:
 
     @staticmethod
     def _filter_graph(vocal_gain: float, loudnorm: str) -> str:
+        # The take already contains one copy of the processed voice. Add only the excess
+        # needed for the requested gain; adding another full copy would double it at 0 dB.
+        supplement = math.expm1(vocal_gain * math.log(10) / 20)
         return (
-            "[0:a]highpass=f=70,lowpass=f=17000,afftdn=nr=5:nf=-55,"
-            "deesser=i=0.14:m=0.50:f=0.5,"
-            "equalizer=f=180:t=q:w=1.2:g=-1.2,equalizer=f=3200:t=q:w=1.0:g=1.8,"
-            "acompressor=threshold=0.10:ratio=2.4:attack=12:release=140:makeup=1.25,"
-            f"volume={vocal_gain:.3f}dB,alimiter=limit=0.794:attack=5:release=80:level=false[vocal];"
-            "[1:a]highpass=f=28,aformat=channel_layouts=stereo,"
-            "stereotools=mlev=1.0:slev=1.04,volume=0dB[backing];"
-            "[backing][vocal]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
+            f"[1:a]volume={supplement:.9f}[boost];"
+            "[0:a][boost]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
             "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
             "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
             f"{loudnorm},alimiter=limit=0.891:attack=5:release=50:level=false[out]"

@@ -11,6 +11,7 @@ import numpy as np
 import torch
 import torchaudio
 import uroman
+from num2words import num2words
 from torchaudio.functional import forced_align, merge_tokens
 from torchaudio.pipelines import MMS_FA
 from torchaudio.pipelines._wav2vec2.utils import _extend_model
@@ -105,11 +106,26 @@ def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     return torch.cat(parts), frame_samples / rate
 
 
-def _character_tokens(word: str) -> list[list[int]]:
+def _character_tokens(word: str, context: str = "") -> list[list[int]]:
     """The alphabet indices each character of ``word`` is pronounced with (none for marks such as ь or punctuation)."""
     dictionary = MMS_FA.get_dict(star=None)
+    characters = list(word)
+    number = re.fullmatch(r"(\d+)(\W*)", word)
+    if number:
+        text = context.casefold()
+        locale = next((key for key, present in {
+            "uk": any(char in "іїєґ" for char in text),
+            "ru": any("а" <= char <= "я" or char == "ё" for char in text),
+        }.items() if present), "en")
+        try:
+            spoken = num2words(int(number[1]), lang=locale)
+            boundaries = np.linspace(0, len(spoken), len(number[1]) + 1, dtype=int)
+            characters = [spoken[first:last] for first, last in zip(boundaries, boundaries[1:])]
+            characters.extend(number[2])
+        except (OverflowError, ValueError):
+            pass
     result: list[list[int]] = []
-    for character in word:
+    for character in characters:
         romanized = _NON_LETTERS.sub("", _romanizer().romanize_string(character, lang=None).lower())
         result.append([dictionary[letter] for letter in romanized if letter in dictionary])
     return result
@@ -131,7 +147,10 @@ def align_words(
     scores: torch.Tensor, frame_seconds: float, words: Sequence[str], offset_seconds: float = 0.0
 ) -> list[AlignedWord]:
     """Times every word and letter of ``words`` (the text of one stretch, in order) against the emission of that stretch."""
-    per_word = [_character_tokens(word) for word in words]
+    # Preserve the displayed digits, but give CTC their spoken sounds rather than
+    # treating a sung number as punctuation with no pronunciation or timestamp.
+    text = " ".join(words)
+    per_word = [_character_tokens(word, text) for word in words]
     flat = [token for characters in per_word for tokens in characters for token in tokens]
     if not flat:
         return _placed([None] * len(words), words)
@@ -155,15 +174,10 @@ def align_words(
         end = spans[position - 1].end * frame_seconds + offset_seconds
         start = next(moment for moment in letters if moment is not None)
         confidence = float(np.mean([span.score for span in spans[first_token:position]]))
-        found.append(
-            AlignedWord(
-                word,
-                float(start),
-                float(end),
-                _filled_letters(spread_tied_moments(letters, float(end)), float(end)),
-                confidence,
-            )
-        )
+        found.append(AlignedWord(
+            word, float(start), float(end),
+            _filled_letters(spread_tied_moments(letters, float(end)), float(end)), confidence,
+        ))
     return _placed(found, words)
 
 
@@ -357,7 +371,10 @@ def align_guided(
             continue
         guided = _align_window(scores, frame_seconds, chunk, window)
         reference = list(whole[window.first : window.last])
-        result.extend(_preferred(guided, reference, window.first, heard, voiced))
+        candidates = [candidate for candidate in (guided, reference)
+                      if not result or candidate[0].start >= result[-1].start]
+        result.extend(candidates[0] if len(candidates) == 1 else
+                      _preferred(guided, reference, window.first, heard, voiced))
     return ordered(result)
 
 
@@ -368,8 +385,15 @@ def _preferred(
     heard: Mapping[int, float],
     voiced: np.ndarray | None,
 ) -> list[AlignedWord]:
-    guided_miss = _heard_distance(guided, first, heard)
-    reference_miss = _heard_distance(reference, first, heard)
+    # Unchanged words supply no evidence for either placement. Compare the disputed
+    # boundaries so one bad word is not hidden by the rest of a correctly timed phrase.
+    changed = [index for index, (left, right) in enumerate(zip(guided, reference, strict=True))
+               if max(abs(left.start - right.start), abs(left.end - right.end))
+               > _HEARD_DISAGREEMENT_SECONDS]
+    local_heard = {first + index: heard[first + index] for index in changed
+                   if first + index in heard} if changed else heard
+    guided_miss = _heard_distance(guided, first, local_heard)
+    reference_miss = _heard_distance(reference, first, local_heard)
     if (
         guided_miss is not None
         and reference_miss is not None
@@ -380,7 +404,9 @@ def _preferred(
         )
         if voiced is None or _implausible(closer, voiced) <= _implausible(other, voiced):
             return closer
-    return guided if _confidence(guided) > _confidence(reference) + _PREFERENCE else reference
+    left = [guided[index] for index in changed] if changed else guided
+    right = [reference[index] for index in changed] if changed else reference
+    return guided if _confidence(left) > _confidence(right) + _PREFERENCE else reference
 
 
 def _heard_distance(words: Sequence[AlignedWord], first: int, heard: Mapping[int, float]) -> float | None:

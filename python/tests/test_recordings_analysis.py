@@ -184,3 +184,58 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
         assert Path(master.json()["filePath"]).is_file()
         assert len(originals) == 2
         assert job["report"]["balance"]["vocalGainDb"] is not None
+
+
+@pytest.mark.parametrize("property_name", ["balance", "effects", "duration"])
+def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
+    tmp_path: Path, property_name: str,
+) -> None:
+    import numpy as np
+    import soundfile as sf
+    from backend.ai.domain import SeparatedAudio
+
+    rate = 16_000
+    time = np.arange(rate) / rate
+    dry = 0.04 * np.sin(2 * np.pi * 440 * time) * (time < 0.3)
+    echo = 0.024 * np.sin(2 * np.pi * 440 * time) * ((time >= 0.65) & (time < 0.95))
+    backing = 0.02 * np.sin(2 * np.pi * 220 * time)
+
+    class SeparationThatDropsEcho(FakeAiProvider):
+        def separate(self, audio, workdir, cancel, *, execution):
+            workdir.mkdir(parents=True, exist_ok=True)
+            vocal_path, backing_path = workdir / "voice.wav", workdir / "backing.wav"
+            if audio.name == "recording.wav":
+                voice, music = dry, backing
+            else:
+                source_time = np.arange(rate * 2) / rate
+                voice = 0.1 * np.sin(2 * np.pi * 440 * source_time)
+                music = 0.3 * np.sin(2 * np.pi * 220 * source_time)
+            sf.write(vocal_path, voice, rate)
+            sf.write(backing_path, music, rate)
+            return SeparatedAudio(backing_path, vocal_path)
+
+    source = tmp_path / "song.wav"
+    write_wav(source, seconds=2.0, frequency=220.0)
+    with app_client(tmp_path / "runtime", ai_providers=(SeparationThatDropsEcho(),)) as client:
+        song = ready_song(client, source)
+        recording = register_recording(client, song)
+        sf.write(recording["filePath"], dry + echo + backing, rate)
+        started = client.post(f"/recordings/{recording['recordingId']}/studio-master")
+        job = wait_for_job(client, started.json()["jobId"], timeout=30)
+        assert job["state"] == "Succeeded", job
+        master = client.get(f"/recordings/{job['report']['recordingId']}").json()
+        samples, output_rate = sf.read(master["filePath"], always_2d=True)
+        samples = samples.mean(axis=1)
+
+    def amplitude(frequency, start, end):
+        clip = samples[round(start * output_rate):round(end * output_rate)]
+        axis = np.arange(len(clip)) / output_rate
+        return 2 * abs(np.mean(clip * np.exp(-2j * np.pi * frequency * axis)))
+
+    voice = amplitude(440, 0.05, 0.25)
+    actual, expected, tolerance = {
+        "balance": (20 * np.log10(voice / amplitude(220, 0.05, 0.25)), 20 * np.log10(2), 0.8),
+        "effects": (amplitude(440, 0.7, 0.9) / voice, 0.6, 0.05),
+        "duration": (len(samples) / output_rate, 1.0, 1 / output_rate),
+    }[property_name]
+    assert actual == pytest.approx(expected, abs=tolerance)

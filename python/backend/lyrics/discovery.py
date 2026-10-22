@@ -63,10 +63,11 @@ class LyricsDiscovery:
     ) -> LyricsDiscoveryResult:
         local = self._local(song)
         warnings: list[str] = []
-        found = local or (self._from_online(song, cancel, warnings) if online_enabled else None)
         previous = self._previous(song, warnings) if local is None else None
+        found = local or (self._from_online(song, cancel, warnings, previous) if online_enabled else None)
         if previous and (found is None or (
-            _same_vocabulary(found.lyrics, previous.lyrics)
+            "LyricsCatalogVersionChanged" not in found.warnings
+            and _same_vocabulary(found.lyrics, previous.lyrics)
             and len(previous.lyrics.split()) > len(found.lyrics.split())
         )):
             found = previous
@@ -122,6 +123,7 @@ class LyricsDiscovery:
         song: Song,
         cancel: threading.Event,
         warnings: list[str],
+        previous: LyricsDiscoveryResult | None = None,
     ) -> LyricsDiscoveryResult | None:
         for provider in self._online:
             try:
@@ -130,27 +132,31 @@ class LyricsDiscovery:
                 warnings.append(f"{provider.provider_id}:{exc.code}")
                 continue
             matches = [item for item in candidates if self._matches(song, item)]
-            candidate = matches[0] if matches else None
-            if candidate:
-                versions = [item for item in candidates
-                            if self._matches(song, item, check_artist=False)
-                            and _same_vocabulary(candidate.lyrics, item.lyrics)]
-                candidate = max(versions, key=lambda item: len(item.lyrics.split()))
-                timed = next(
-                    (
-                        item
-                        for item in matches
-                        if item.timing_hints and _lyrics_match(candidate.lyrics, item.lyrics)
-                    ),
-                    None,
-                )
-                return LyricsDiscoveryResult(
-                    candidate.lyrics,
-                    provider.provider_id,
-                    tuple(warnings),
-                    timed.timing_hints if timed else candidate.timing_hints,
-                )
+            if matches:
+                return self._select_version(song, candidates, matches[0], previous, warnings,
+                                            provider.provider_id)
         return None
+
+    def _select_version(
+        self, song: Song, candidates: Sequence[LyricsCandidate], matched: LyricsCandidate,
+        previous: LyricsDiscoveryResult | None, warnings: list[str], source: str,
+    ) -> LyricsDiscoveryResult:
+        eligible = [item for item in candidates if self._matches(song, item, check_artist=False)]
+        versions = [item for item in eligible if _same_vocabulary(matched.lyrics, item.lyrics)]
+        distances = {item: abs(song.duration - item.duration)
+                     if song.duration is not None and item.duration is not None
+                     else (math.inf if song.duration is not None else 0.0) for item in eligible}
+        # Extra words can belong to another release or duet. First match the recording;
+        # fuller catalog copies remain preferable among equally close durations.
+        candidate = min(versions, key=lambda item: (distances[item], -len(item.lyrics.split())))
+        cached_distances = [distances[item] for item in versions
+                            if previous and _lyrics_key(previous.lyrics) == _lyrics_key(item.lyrics)]
+        if cached_distances and min(cached_distances) > distances[candidate]:
+            warnings.append("LyricsCatalogVersionChanged")
+        timed = next((item for item in eligible if distances[item] == distances[candidate]
+                      and item.timing_hints and _lyrics_match(candidate.lyrics, item.lyrics)), None)
+        return LyricsDiscoveryResult(candidate.lyrics, source, tuple(warnings),
+                                     timed.timing_hints if timed else candidate.timing_hints)
 
     def _matches(
         self, song: Song, candidate: LyricsCandidate, *, check_artist: bool = True,

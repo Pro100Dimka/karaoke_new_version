@@ -101,6 +101,7 @@ class StartStudioMaster:
                 self._projects.artifact_path(song_id, revision, "instrumental"),
                 temporary,
                 context.cancel,
+                performance_mix=recording.file_path,
             )
             context.progress("PublishingStudioMaster", 1.0, 0.92)
             master = self._publisher.execute(recording, temporary, balance.payload())

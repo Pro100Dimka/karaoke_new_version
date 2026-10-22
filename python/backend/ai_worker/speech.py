@@ -5,6 +5,7 @@ import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -229,11 +230,7 @@ def _alignment_evidence(
     language: str,
     lyrics: str,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
-    """Computes independent CTC emissions and Whisper guidance in parallel.
-
-    Whisper runs even when catalog line timings exist: those only place whole lines, while the words Whisper
-    heard settle which of two neighbouring sung phrases a word belongs to (see ctc.align_guided).
-    """
+    """Compute CTC and Whisper evidence in parallel, including word hints within catalogue lines."""
     threads = cpu_threads()
     if threads == 1:
         scores, frame_seconds = emission(samples)
@@ -344,7 +341,8 @@ def _hint_windows(
         window_end = _line_end(index, lines, opens, total)
         if first > cursor:
             windows.append(Window(cursor, first, audio_cursor, max(audio_cursor, window_start)))
-        windows.append(Window(first, last, window_start, window_end))
+        windows.append(Window(first, last, window_start, window_end,
+                              window_start + _ONSET_LEAD_SECONDS if opens[index][1] else None))
         cursor, audio_cursor, matched = last, window_end, matched + last - first
     if cursor < len(words):
         windows.append(Window(cursor, len(words), audio_cursor, total))
@@ -372,15 +370,25 @@ def _alignment_windows(
     whole: Sequence[AlignedWord],
     samples: np.ndarray,
 ) -> list[Window]:
-    words = lyrics.split()
-    total = len(samples) / _SAMPLE_RATE
+    words, total = lyrics.split(), len(samples) / _SAMPLE_RATE
+    phrases = _phrase_windows(lyrics, heard, total, whole)
     if timing_hints:
         hints = _shifted_hints(words, timing_hints, whole)
         onsets = vocal_onsets(samples, _SAMPLE_RATE, _HOP)
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
+            recognized = {(window.first, window.last): window for window in phrases
+                          if window.heard_start is not None}
+            for index, window in enumerate(windows):
+                phrase = recognized.get((window.first, window.last))
+                # Bound CTC's search; acoustic refinement still follows held vowels beyond ASR.
+                if (phrase is not None and phrase.heard_start is not None
+                        and window.start <= phrase.heard_start
+                        < min(window.end, window.start + 2 * _MARGIN_SECONDS)):
+                    windows[index] = replace(window, start=max(window.start, phrase.start),
+                                             end=min(window.end, phrase.end), heard_start=phrase.heard_start)
             return windows
-    return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
+    return phrases or _windows(words, heard, total, whole)
 
 
 def _phrase_windows(
@@ -425,8 +433,15 @@ def _unique_anchors(
     positions = {word: index for index, (word, _, _) in enumerate(heard)}
     for index, key in enumerate(keys):
         if index not in occupied and counts[key] == heard_counts[key] == 1:
-            blocks.append(difflib.Match(index, len(expanded), 1))
-            expanded.append(heard[positions[key]])
+            candidate = heard[positions[key]]
+            before = max((expanded[b.b + b.size - 1][1] for b in blocks
+                          if b.a + b.size <= index), default=0.0)
+            after = min((expanded[b.b][2] for b in blocks if b.a > index), default=float("inf"))
+            # Unique spelling is insufficient: ASR can omit the intended occurrence and
+            # recognize the same word later. An anchor must respect the surrounding phrases.
+            if before <= candidate[1] <= candidate[2] <= after:
+                blocks.append(difflib.Match(index, len(expanded), 1))
+                expanded.append(candidate)
 
 
 def _aligned_word_payload(
