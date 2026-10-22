@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -12,6 +11,7 @@ import {
   Typography,
   type MenuItemData,
 } from "@neo-ui-kit/react";
+import { useRef, useState } from "react";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import {
@@ -152,21 +152,22 @@ export const ProcessingJobCard = ({
               >{`${t("processingDuration")}: ${duration}`}</Typography>
             )}
           </Stack>
-          <div className="processingJobProgress">
-            <ProgressBar
-              label={t("processingDetailsProgress")}
-              value={job.progress}
-            />
-            <Typography variant="caption" weight="semibold">
-              {job.progress}%
-            </Typography>
-          </div>
-          {active && phase !== undefined && (
+          {active && phase !== undefined ? (
             <Steps
               className="processingPhases"
               steps={phases.map((key) => t(key))}
               current={phase}
             />
+          ) : (
+            <div className="processingJobProgress">
+              <ProgressBar
+                label={t("processingDetailsProgress")}
+                value={job.progress}
+              />
+              <Typography variant="caption" weight="semibold">
+                {job.progress}%
+              </Typography>
+            </div>
           )}
           {retryable && (
             <MessageBar tone="error">
@@ -214,11 +215,17 @@ export const ProcessingJobCard = ({
               onClick={() => actions.onRetry(song)}
             />
           )}
-          {job.error?.code === "ManualLyricsConflict" && song && actions.onResetLyrics && (
-            <Button size="sm" icon="reset" onClick={() => actions.onResetLyrics?.(song)}>
-              {t("resetLyricsAndReprocess")}
-            </Button>
-          )}
+          {job.error?.code === "ManualLyricsConflict" &&
+            song &&
+            actions.onResetLyrics && (
+              <Button
+                size="sm"
+                icon="reset"
+                onClick={() => actions.onResetLyrics?.(song)}
+              >
+                {t("resetLyricsAndReprocess")}
+              </Button>
+            )}
           <IconButton
             ref={menuAnchor}
             variant="ghost"
