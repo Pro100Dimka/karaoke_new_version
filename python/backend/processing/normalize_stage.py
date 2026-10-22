@@ -15,7 +15,7 @@ class NormalizeStage:
         cache: ProcessingCache,
         *,
         cpu_threads: int,
-        algorithm_version: str = "normalize-1",
+        algorithm_version: str = "normalize-2",
     ) -> None:
         self._normalizer = normalizer
         self._cache = cache

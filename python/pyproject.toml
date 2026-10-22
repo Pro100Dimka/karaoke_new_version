@@ -17,7 +17,8 @@ dependencies = [
   "audioop-lts==0.2.2; python_version >= '3.13'",
   "yt-dlp>=2026.3.17",
   "gradio-client>=1.13,<2",
-  "kaggle==2.2.4"
+  "kaggle==2.2.4",
+  "num2words>=0.5.14,<1"
 ]
 
 [project.optional-dependencies]

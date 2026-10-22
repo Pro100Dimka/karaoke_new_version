@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import pytest
 import threading
+import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -36,6 +38,30 @@ def test_ffmpeg_minimal_media_contract(tmp_path: Path) -> None:
 
     assert metadata.duration is not None and metadata.duration > 0
     assert normalized.is_file() and normalized.stat().st_size > 0
+
+
+def test_hot_float_source_is_normalized_before_integer_conversion(tmp_path: Path) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    time = np.arange(44100 * 4) / 44100
+    samples = 1.3 * np.sin(2 * np.pi * 440 * time)
+    source, target = tmp_path / "hot.wav", tmp_path / "normalized.wav"
+    sf.write(source, np.column_stack((samples, samples)), 44100, subtype="FLOAT")
+    runner = ProcessRunner()
+
+    FfmpegAudioNormalizer(runner).normalize(source, target, threads=1, cancel=threading.Event())
+
+    measured = runner.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(target), "-af",
+         "loudnorm=I=-14:TP=-1:print_format=json", "-f", "null", "-"],
+        timeout_seconds=30,
+    )
+    report = json.loads(re.search(rb'\{\s*"input_i".*?\}', measured.stderr, re.S)[0])
+    decoded, _ = sf.read(target)
+    assert float(report["input_i"]) == pytest.approx(-14, abs=0.25)
+    assert float(report["input_tp"]) <= -0.9
+    assert np.corrcoef(samples, decoded[:, 0])[0, 1] > 0.99999
 
 
 def test_project_manifest_serialization_round_trip() -> None:

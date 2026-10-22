@@ -308,6 +308,7 @@ class Window:
     last: int
     start: float
     end: float
+    heard_start: float | None = None
 
 
 def _align_window(

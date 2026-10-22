@@ -57,13 +57,23 @@ class LrclibLyricsProvider:
         ]
         queries.append({"track_name": title})
         queries.append({"q": f"{artists[-1] if artists else ''} {title}".strip()})
+        collected: list[LyricsCandidate] = []
+        failure: DependencyError | None = None
         for query in queries:
             if cancel.is_set():
                 return ()
-            candidates = self._candidates(query)
-            if candidates:
-                return candidates
-        return ()
+            try:
+                collected.extend(self._candidates(query))
+            except DependencyError as error:
+                failure = error
+                continue
+            # An artist's spelling can hide a fuller copy of the same lyrics. Check the
+            # title search as well; free-text search is only needed when both were empty.
+            if collected and "artist_name" not in query:
+                break
+        if not collected and failure:
+            raise failure
+        return tuple(dict.fromkeys(collected))
 
     def _candidates(self, query: Mapping[str, str]) -> Sequence[LyricsCandidate]:
         url = f"{self._base_url}/api/search?{urllib.parse.urlencode(query)}"

@@ -5,7 +5,7 @@ import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
-import { loadPreferences } from "../../shared/preferences/preferences";
+import { loadPreferences, savePreferences } from "../../shared/preferences/preferences";
 import { useKaraokeControls } from "./useKaraokeControls";
 import { clearStorage } from "../../shared/storage/localStore";
 import { unverifiedAsioMonitoring } from "../../contracts/models";
@@ -99,7 +99,8 @@ describe("useKaraokeControls", () => {
     clearStorage();
   });
 
-  it("does not persist local monitoring as an automatic choice for the next song", async () => {
+  it.each([false, true])("persists a monitoring change from %s for the next karaoke session", async (monitoring) => {
+    savePreferences({ ...loadPreferences(), karaokeMonitoring: monitoring });
     const setMonitoring = vi.fn();
     const { result } = renderHook(
       () =>
@@ -107,7 +108,7 @@ describe("useKaraokeControls", () => {
           position: { current: 0 },
           speed: { current: 1 },
           key: { current: 0 },
-          monitoring: false,
+          monitoring,
           microphoneReady: true,
           setPosition: vi.fn(),
           setSpeed: vi.fn(),
@@ -120,8 +121,8 @@ describe("useKaraokeControls", () => {
 
     await act(() => result.current.toggleMonitoring());
 
-    expect(setMonitoring).toHaveBeenCalledWith(true);
-    expect(loadPreferences().karaokeMonitoring).toBe(false);
+    expect(setMonitoring).toHaveBeenCalledWith(!monitoring);
+    expect(loadPreferences().karaokeMonitoring).toBe(!monitoring);
   });
 
   it("shows why monitoring was blocked before audio became audible", async () => {
@@ -135,6 +136,7 @@ describe("useKaraokeControls", () => {
     }), { wrapper });
     await act(() => result.current.toggleMonitoring());
     expect(notify).toHaveBeenCalledWith(expect.stringContaining("ASIO4ALL"), "error");
+    expect(loadPreferences().karaokeMonitoring).toBe(false);
   });
 
   it("allows seeking while a karaoke take is being recorded", async () => {

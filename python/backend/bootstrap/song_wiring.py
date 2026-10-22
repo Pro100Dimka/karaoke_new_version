@@ -134,7 +134,7 @@ def _build_processing(
     )
     runner = StageRunner(SystemMonotonicClock())
     publisher = _project_publisher(runtime, project)
-    pipeline = _processing_pipeline(runtime, processing, publisher, runner)
+    pipeline = _processing_pipeline(runtime, project, processing, publisher, runner)
     persistence = ProcessingPersistence(runtime.database, runtime.clock, runtime.ids)
     start = StartProcessing(
         processing.jobs,
@@ -145,7 +145,7 @@ def _build_processing(
         resources,
         project.operations,
         persistence,
-        _song_preparation(runtime, recognition),
+        _song_preparation(runtime, project, recognition),
     )
     melody = _reprocess_melody(
         runtime, project, processing, resolver, resources, publisher, runner, persistence
@@ -183,14 +183,17 @@ def _reprocess_melody(
     )
 
 
-def _song_preparation(runtime: RuntimeWiring, recognition: SongRecognitionProvider) -> PrepareSong:
+def _song_preparation(
+    runtime: RuntimeWiring, project: ProjectWiring, recognition: SongRecognitionProvider
+) -> PrepareSong:
     refresh = RefreshSongRecognition(runtime.database, recognition, runtime.clock)
     clip = PrepareSongClip(
         runtime.database,
         YoutubeClipDownloader(processes=runtime.processes),
         runtime.clock,
+        project.locks,
     )
-    return PrepareSong(refresh, clip)
+    return PrepareSong(refresh, clip, ThreadConcurrentRunner())
 
 
 def _project_publisher(runtime: RuntimeWiring, project: ProjectWiring) -> ProjectPublisher:
@@ -208,6 +211,7 @@ def _project_publisher(runtime: RuntimeWiring, project: ProjectWiring) -> Projec
 
 def _processing_pipeline(
     runtime: RuntimeWiring,
+    project: ProjectWiring,
     processing: ProcessingWiring,
     publisher: ProjectPublisher,
     runner: StageRunner,
@@ -221,6 +225,7 @@ def _processing_pipeline(
         LocalSidecarLyricsReader(),
         processing.lyrics_providers,
         LyricsMatchPolicy(),
+        projects=project.projects,
     )
     audio = PrepareProcessingAudio(
         normalize,

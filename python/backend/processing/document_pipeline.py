@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from collections.abc import Callable
 
 from backend.ai.domain import PitchPoint, WordTiming
-from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult
+from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult, lyrics_language
 from backend.lyrics.domain import LyricsDocument
 from backend.processing.algorithms import construct_document, stabilize_pitch
 from backend.processing.audio_pipeline import PreparedAudio
@@ -132,7 +132,7 @@ class BuildProcessingDocument:
             lambda: providers.alignment.align(
                 prepared.reference_vocal,
                 discovery.lyrics,
-                song.language,
+                lyrics_language(song, discovery.lyrics),
                 context.cancel,
                 timing_hints=discovery.timing_hints,
                 execution=execution,

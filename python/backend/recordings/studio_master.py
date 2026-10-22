@@ -7,7 +7,7 @@ import threading
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
-from backend.serialization import loads_object
+from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,18 +73,18 @@ class FfmpegStudioMasterRenderer:
         analysis = self._mix(
             vocal,
             instrumental,
-            self._filter_graph(vocal_gain, self._analysis_loudnorm()),
+            self._filter_graph(vocal_gain, loudnorm_filter()),
             ["-f", "null", "-"],
             cancel,
             quiet=False,
         )
-        measured = self._parse_loudness(analysis.stderr) if analysis.exit_code == 0 else None
+        measured = parse_loudness(analysis.stderr) if analysis.exit_code == 0 else None
         if measured is None:
             raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
         result = self._mix(
             vocal,
             instrumental,
-            self._filter_graph(vocal_gain, self._render_loudnorm(measured)),
+            self._filter_graph(vocal_gain, loudnorm_filter(measured)),
             ["-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
             cancel,
             quiet=True,
@@ -131,39 +131,14 @@ class FfmpegStudioMasterRenderer:
             "deesser=i=0.14:m=0.50:f=0.5,"
             "equalizer=f=180:t=q:w=1.2:g=-1.2,equalizer=f=3200:t=q:w=1.0:g=1.8,"
             "acompressor=threshold=0.10:ratio=2.4:attack=12:release=140:makeup=1.25,"
-            f"volume={vocal_gain:.3f}dB,alimiter=limit=0.794:attack=5:release=80[vocal];"
+            f"volume={vocal_gain:.3f}dB,alimiter=limit=0.794:attack=5:release=80:level=false[vocal];"
             "[1:a]highpass=f=28,aformat=channel_layouts=stereo,"
             "stereotools=mlev=1.0:slev=1.04,volume=0dB[backing];"
             "[backing][vocal]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0,"
             "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
             "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
-            f"{loudnorm},alimiter=limit=0.891:attack=5:release=50[out]"
+            f"{loudnorm},alimiter=limit=0.891:attack=5:release=50:level=false[out]"
         )
-
-    @staticmethod
-    def _analysis_loudnorm() -> str:
-        return "loudnorm=I=-14:LRA=7:TP=-1:print_format=json"
-
-    @staticmethod
-    def _render_loudnorm(measured: dict[str, float]) -> str:
-        return (
-            "loudnorm=I=-14:LRA=7:TP=-1:linear=true:"
-            f"measured_I={measured['input_i']}:measured_LRA={measured['input_lra']}:"
-            f"measured_TP={measured['input_tp']}:measured_thresh={measured['input_thresh']}:"
-            f"offset={measured['target_offset']}"
-        )
-
-    @staticmethod
-    def _parse_loudness(stderr: bytes) -> dict[str, float] | None:
-        match = re.search(rb'\{\s*"input_i".*?\}', stderr, re.DOTALL)
-        if match is None:
-            return None
-        try:
-            payload = loads_object(match.group(0).decode("utf-8"))
-            keys = ("input_i", "input_lra", "input_tp", "input_thresh", "target_offset")
-            return {key: float(payload[key]) for key in keys}
-        except (KeyError, TypeError, ValueError, UnicodeDecodeError):
-            return None
 
     def _levels(
         self,

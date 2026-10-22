@@ -6,7 +6,7 @@ import hashlib
 import threading
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
-from backend.processing.domain import Job, JobType, ProcessingMode, ProcessingOptions
+from backend.processing.domain import Job, JobType, ProcessingMode, ProcessingOptions, ProcessingReport
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.job_manager import JobContext, ProcessingJobManager
@@ -219,10 +219,9 @@ class StartProcessing:
         finished = False
         try:
             song = self._load_processable(song_id, allow_queued=True)
-            song = self._preparation.download_clip(song)
             self._persistence.set_status(song_id, SongStatus.PROCESSING)
             self._persistence.record_started(song_id)
-            report = self._pipeline.run(
+            report = self._process_with_clip(
                 song,
                 ProcessingOptions(mode=mode, online_lyrics=online_lyrics),
                 providers,
@@ -243,6 +242,24 @@ class StartProcessing:
         finally:
             if not finished:
                 self._settle_unfinished(song_id)
+
+    def _process_with_clip(
+        self,
+        song: Song,
+        options: ProcessingOptions,
+        providers: ProcessingProviders,
+        context: JobContext,
+        execution: ExecutionContext,
+    ) -> ProcessingReport:
+        report: ProcessingReport | None = None
+
+        def process() -> None:
+            nonlocal report
+            report = self._pipeline.run(song, options, providers, context, execution)
+
+        self._preparation.run_with_clip(song, process)
+        assert report is not None
+        return report
 
     def _load_processable(self, song_id: str, *, allow_queued: bool = False) -> Song:
         song = self._persistence.load_song(song_id)

@@ -1,6 +1,7 @@
 import { canControlRoom } from "../../application/room/roomModel";
 import {
   useCallback,
+  useEffect,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -26,6 +27,7 @@ interface KaraokeControlsOptions {
   speed: MutableRefObject<number>;
   key: MutableRefObject<number>;
   monitoring: boolean;
+  ready?: boolean;
   microphoneReady: boolean;
   setPosition: Dispatch<SetStateAction<number>>;
   setSpeed: Dispatch<SetStateAction<number>>;
@@ -40,6 +42,7 @@ export const useKaraokeControls = ({
   speed,
   key,
   monitoring,
+  ready = false,
   microphoneReady,
   setPosition,
   setSpeed,
@@ -51,7 +54,7 @@ export const useKaraokeControls = ({
   const recordingCoordinator = useKaraokeRecording();
   const notify = useNotify();
   const t = useText();
-  const { updatePreferences, room } = useApp();
+  const { preferences, updatePreferences, room } = useApp();
   const roomPlayback = useRoomPlayback();
 
   const publishPracticeParameters = useCallback(
@@ -138,8 +141,15 @@ export const useKaraokeControls = ({
       });
     if (snapshot) {
       setMonitoring(snapshot.monitoring);
+      updatePreferences({ karaokeMonitoring: snapshot.monitoring });
     }
-  }, [microphoneReady, monitoring, notify, setMonitoring, t]);
+  }, [microphoneReady, monitoring, notify, setMonitoring, t, updatePreferences]);
+
+  // Restore once per prepared session; subsequent changes belong to the monitoring switch.
+  useEffect(() => {
+    if (ready && microphoneReady && preferences.karaokeMonitoring && !monitoring)
+      void toggleMonitoring();
+  }, [ready]);
 
   return { seek, changeSpeed, changeKey, changeGain, toggleMonitoring };
 };

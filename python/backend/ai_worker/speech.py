@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import difflib
+import threading
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -12,6 +14,7 @@ from faster_whisper import WhisperModel
 from faster_whisper.utils import download_model
 
 from backend.ai.catalog import SPEECH_MODEL
+from backend.lyrics.discovery import performed_phrases
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.ctc import (
     AlignedWord,
@@ -69,10 +72,10 @@ def _transcribe(vocal: Path, language: str, prompt: str | None) -> Mapping[str, 
 def _accelerated_guidance(
     vocal: Path, language: str, prompt: str | None, threads: int | None = None
 ) -> Mapping[str, object]:
-    """Word timestamps from CTranslate2 for alignment hints. The exact lyric transcription still uses
-    the original Whisper model. Alignment only needs rough
-    word windows, so its independent hint can use the substantially faster int8 CPU engine while the
-    MMS model uses the admitted accelerator (or the other half of the CPU budget).
+    """Full-precision recognition for lyric coverage and independent alignment hints.
+
+    Quantized decoding omitted performed phrases on real vocals and changed markedly with the
+    thread budget. Use the same mono samples as the aligner, without quantizing the speech model.
     """
     model_path = model_file(SPEECH_MODEL).parent / "ctranslate2"
     if not (model_path / "model.bin").is_file():
@@ -80,12 +83,12 @@ def _accelerated_guidance(
     model = WhisperModel(
         str(model_path),
         device="cpu",
-        compute_type="int8",
+        compute_type="float32",
         cpu_threads=threads or cpu_threads(),
         num_workers=1,
     )
     segments, _ = model.transcribe(
-        str(vocal),
+        read_mono(vocal, _SAMPLE_RATE),
         language=WHISPER_LANGUAGES.get(language),
         word_timestamps=True,
         initial_prompt=prompt,
@@ -109,9 +112,10 @@ def _accelerated_guidance(
 
 
 def _guidance(
-    vocal: Path, language: str, prompt: str | None, threads: int | None = None
+    vocal: Path, language: str, prompt: str | None, threads: int | None = None,
+    *, prefer_accelerated: bool = False,
 ) -> Mapping[str, object]:
-    if device() == "cuda":
+    if device() == "cuda" and not prefer_accelerated:
         return _transcribe(vocal, language, prompt)
     try:
         return _accelerated_guidance(vocal, language, prompt, threads)
@@ -120,7 +124,7 @@ def _guidance(
 
 
 def transcribe(vocal: Path, language: str) -> dict[str, str]:
-    text = str(_transcribe(vocal, language, None).get("text", ""))
+    text = str(_guidance(vocal, language, None, prefer_accelerated=True).get("text", ""))
     # Recognition of singing sometimes invents symbols and numbers ("1.5%"); only words with letters are lyrics.
     return {
         "text": " ".join(
@@ -190,13 +194,15 @@ def _windows(
     heard: list[tuple[str, float, float]],
     total: float,
     whole: Sequence[AlignedWord] | None = None,
+    *, blocks: Sequence[difflib.Match] | None = None,
 ) -> list[Window]:
     """Splits the text into stretches whose place in the song is known from the words Whisper recognised.
 
     A run of at least ``_MINIMUM_BLOCK`` words heard in the same order as written pins its stretch to the time it was
     heard; the text between such runs gets the audio between them. Without any such run the whole song is one stretch.
     """
-    blocks = [block for block in _matching_blocks(words, heard, whole) if block.size >= _MINIMUM_BLOCK]
+    if blocks is None:
+        blocks = [block for block in _matching_blocks(words, heard, whole) if block.size >= _MINIMUM_BLOCK]
     if not blocks:
         return [Window(0, len(words), 0.0, total)]
     windows: list[Window] = []
@@ -208,7 +214,9 @@ def _windows(
         )
         if block.a > text_cursor:
             windows.append(Window(text_cursor, block.a, audio_cursor, max(start, audio_cursor)))
-        windows.append(Window(block.a, block.a + block.size, max(start, 0.0), end))
+        windows.append(Window(
+            block.a, block.a + block.size, max(start, 0.0), end, heard[block.b][1],
+        ))
         text_cursor, audio_cursor = block.a + block.size, end
     if text_cursor < len(words):
         windows.append(Window(text_cursor, len(words), audio_cursor, total))
@@ -372,7 +380,53 @@ def _alignment_windows(
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
             return windows
-    return _windows(words, heard, total, whole)
+    return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
+
+
+def _phrase_windows(
+    lyrics: str, heard: list[tuple[str, float, float]], total: float, whole: Sequence[AlignedWord],
+) -> list[Window]:
+    if len(lyrics.splitlines()) < 2:
+        return []
+    phrases = performed_phrases(lyrics, [word for word, _, _ in heard], threading.Event())
+    lines = [line for line in lyrics.splitlines() if line.split()]
+    firsts = [0]
+    for line in lines:
+        firsts.append(firsts[-1] + len(line.split()))
+    heard_lines = [(text, heard[first][1], heard[last - 1][2]) for text, first, last in phrases]
+    matches = _matching_blocks(
+        lines, [(_key(text), start, end) for text, start, end in heard_lines],
+        [whole[first] for first in firsts[:-1]],
+    )
+    expanded: list[tuple[str, float, float]] = []
+    blocks: list[difflib.Match] = []
+    for match in matches:
+        for offset in range(match.size):
+            text, start, end = heard_lines[match.b + offset]
+            words = text.split()
+            blocks.append(difflib.Match(firsts[match.a + offset], len(expanded), len(words)))
+            expanded.extend((
+                _key(word), start + (end - start) * i / len(words),
+                start + (end - start) * (i + 1) / len(words),
+            ) for i, word in enumerate(words))
+    if not blocks:
+        return []
+    _unique_anchors(lyrics.split(), heard, blocks, expanded)
+    return _windows(lyrics.split(), expanded, total, blocks=sorted(blocks, key=lambda b: b.a))
+
+
+def _unique_anchors(
+    words: list[str], heard: list[tuple[str, float, float]], blocks: list[difflib.Match],
+    expanded: list[tuple[str, float, float]],
+) -> None:
+    keys = [_key(word) for word in words]
+    counts, heard_counts = Counter(keys), Counter(word for word, _, _ in heard)
+    occupied = {block.a + i for block in blocks for i in range(block.size)}
+    positions = {word: index for index, (word, _, _) in enumerate(heard)}
+    for index, key in enumerate(keys):
+        if index not in occupied and counts[key] == heard_counts[key] == 1:
+            blocks.append(difflib.Match(index, len(expanded), 1))
+            expanded.append(heard[positions[key]])
 
 
 def _aligned_word_payload(
@@ -411,12 +465,16 @@ def align(
     scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics)
     whole = align_words(scores, frame_seconds, words)
     heard_timings = _heard_timings(words, heard, whole)
+    windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
+    positions = {index: times[0] for index, times in heard_timings.items()}
+    positions.update((window.first, window.heard_start) for window in windows
+                     if window.heard_start is not None and window.first not in positions)
     guided = align_guided(
         scores,
         frame_seconds,
         words,
-        _alignment_windows(lyrics, timing_hints, heard, whole, samples),
-        {index: times[0] for index, times in heard_timings.items()},
+        windows,
+        positions,
         voiced_frames(samples, _SAMPLE_RATE, _HOP),
         whole,
     )

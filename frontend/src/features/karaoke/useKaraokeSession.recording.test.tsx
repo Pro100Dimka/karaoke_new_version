@@ -11,7 +11,7 @@ import type { RoomStateDto } from "../../contracts/models";
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
-const monitoringPreference = vi.hoisted(() => ({ enabled: false }));
+const monitoringPreference = vi.hoisted(() => ({ enabled: false, microphoneReady: true }));
 const monitoringWarning = vi.hoisted(() => vi.fn());
 vi.mock("../../app/AppContext", () => ({
   useRoomPlayback: () => null,
@@ -36,7 +36,10 @@ vi.mock("../../app/CloseGuards", () => ({ useCloseGuard: vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => monitoringWarning,
 }));
-vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
+vi.mock("../../i18n/useText", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../i18n/useText")>(),
+  useText: () => (key: string) => key,
+}));
 vi.mock("../../services/pythonClient", () => ({
   pythonClient: { diagnostics: vi.fn() },
 }));
@@ -72,7 +75,6 @@ vi.mock("./usePositionPolling", () => ({
 }));
 vi.mock("./useAudioRecovery", () => ({ useAudioRecovery: vi.fn() }));
 vi.mock("./useKeyboardLighting", () => ({ useKeyboardLighting: vi.fn() }));
-vi.mock("./useKaraokeControls", () => ({ useKaraokeControls: () => ({}) }));
 vi.mock("./useSynchronizedRoomPlayback", () => ({
   useSynchronizedRoomPlayback: vi.fn(),
 }));
@@ -91,7 +93,7 @@ vi.mock("./useKaraokeLoadSession", async () => {
       }, []);
       return {
         load: { kind: "ready", song },
-        capabilities: { microphone: "ready" },
+        capabilities: { microphone: monitoringPreference.microphoneReady ? "ready" : "missing" },
       };
     },
   };
@@ -113,6 +115,7 @@ describe("karaoke recording ownership", () => {
     );
     roomState.room = null;
     monitoringPreference.enabled = false;
+    monitoringPreference.microphoneReady = true;
     vi.mocked(recordingCoordinator.start).mockResolvedValue({
       recording: true,
     });
@@ -313,17 +316,44 @@ describe("karaoke recording ownership", () => {
     ]);
   });
 
-  it("does not enable speaker monitoring automatically for the next song", async () => {
+  it("restores the saved monitoring choice after leaving and opening another song", async () => {
     monitoringPreference.enabled = true;
-    const { result } = renderHook(() => useKaraokeSession("next-song", "Normal", true));
+    const first = renderHook(() => useKaraokeSession("song", "Normal", true));
+    await waitFor(() => expect(first.result.current.monitoring).toBe(true));
+    expect(audioClient.setMonitoring).toHaveBeenLastCalledWith(true);
+    first.unmount();
+    expect(audioClient.setMonitoring).toHaveBeenLastCalledWith(false);
 
+    const { result } = renderHook(() => useKaraokeSession("next-song", "Normal", true));
+    await waitFor(() => expect(result.current.monitoring).toBe(true));
+    expect(audioClient.setMonitoring).toHaveBeenLastCalledWith(true);
+  });
+
+  it.each([false, true])("keeps monitoring off without an enabled preference and ready microphone (%s)", async (enabled) => {
+    monitoringPreference.enabled = enabled;
+    monitoringPreference.microphoneReady = !enabled;
+    const { result } = renderHook(() => useKaraokeSession("song", "Normal", true));
     await waitFor(() => expect(result.current.state.kind).toBe("ready"));
+    await waitFor(() => expect(audioClient.setMixer).toHaveBeenCalledTimes(5));
     expect(audioClient.setMonitoring).not.toHaveBeenCalledWith(true);
     expect(result.current.monitoring).toBe(false);
   });
 
+  it("does not fail karaoke or retry when restoring monitoring is rejected", async () => {
+    monitoringPreference.enabled = true;
+    vi.mocked(audioClient.setMonitoring).mockRejectedValueOnce(new Error("Monitoring unavailable"));
+    const { result, rerender } = renderHook(() => useKaraokeSession("song", "Normal", true));
+    await waitFor(() => expect(monitoringWarning).toHaveBeenCalledOnce());
+    expect(result.current.state.kind).toBe("ready");
+    expect(result.current.monitoring).toBe(false);
+    rerender();
+    expect(audioClient.setMonitoring).toHaveBeenCalledOnce();
+  });
+
   it("shows one error when native monitoring protection disconnects the speaker", async () => {
-    renderHook(() => useKaraokeSession("song", "Normal", true));
+    monitoringPreference.enabled = true;
+    const { result, rerender } = renderHook(() => useKaraokeSession("song", "Normal", true));
+    await waitFor(() => expect(result.current.monitoring).toBe(true));
     const onSnapshot = vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onSnapshot;
     expect(onSnapshot).toBeDefined();
     const snapshot = { monitoring: false, monitoringSafetyTripped: true, pitchHz: undefined } as never;
@@ -333,6 +363,9 @@ describe("karaoke recording ownership", () => {
     });
     expect(monitoringWarning).toHaveBeenCalledTimes(1);
     expect(monitoringWarning).toHaveBeenCalledWith("monitoringSafetyStopped", "error");
+    rerender();
+    expect(result.current.monitoring).toBe(false);
+    expect(audioClient.setMonitoring).toHaveBeenCalledOnce();
   });
 
   it("lets a guest save and leave without permission to stop the room", async () => {

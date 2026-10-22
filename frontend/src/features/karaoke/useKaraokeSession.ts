@@ -430,6 +430,7 @@ export const useKaraokeSession = (
     speed: speedRef,
     key: keyRef,
     monitoring,
+    ready: mixerSessionReady,
     microphoneReady: capabilities.microphone === "ready",
     setPosition,
     setSpeed,

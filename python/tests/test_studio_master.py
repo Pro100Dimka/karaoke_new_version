@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import threading
+import json
+import re
 from pathlib import Path
 
 import pytest
 
 from backend.infrastructure.process_runner import ProcessResult
+from backend.infrastructure.process_runner import ProcessRunner
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 
 
@@ -62,5 +65,31 @@ def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     assert "measured_I=-17.2" in runner.filter_graph
     assert str(paths[3]) in runner.render_command
     assert str(paths[1]) not in runner.render_command
-    assert runner.filter_graph.endswith("alimiter=limit=0.891:attack=5:release=50[out]")
+    assert runner.filter_graph.endswith("alimiter=limit=0.891:attack=5:release=50:level=false[out]")
     assert runner.mastering_passes == 2
+
+
+def test_studio_master_preserves_minus14_lufs_after_its_final_limiter(tmp_path: Path) -> None:
+    import numpy as np
+    import soundfile as sf
+
+    time = np.arange(48000 * 4) / 48000
+    vocal, backing = tmp_path / "voice.wav", tmp_path / "backing.wav"
+    for path, frequency, amplitude in ((vocal, 440, 0.1), (backing, 220, 0.3)):
+        samples = amplitude * np.sin(2 * np.pi * frequency * time)
+        sf.write(path, np.column_stack((samples, samples)), 48000)
+    target = tmp_path / "master.wav"
+    runner = ProcessRunner()
+
+    FfmpegStudioMasterRenderer(runner).render(
+        vocal, backing, vocal, backing, target, threading.Event()
+    )
+
+    result = runner.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(target), "-af",
+         "loudnorm=I=-14:TP=-1:print_format=json", "-f", "null", "-"],
+        timeout_seconds=30,
+    )
+    measured = json.loads(re.search(rb'\{\s*"input_i".*?\}', result.stderr, re.S)[0])
+    assert float(measured["input_i"]) == pytest.approx(-14, abs=0.25)
+    assert float(measured["input_tp"]) <= -0.9

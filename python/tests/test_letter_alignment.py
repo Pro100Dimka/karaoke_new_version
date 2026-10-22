@@ -607,15 +607,16 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
     monkeypatch.setattr(speech, "model_file", lambda _spec: model_root / "model.bin")
     monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
     monkeypatch.setattr(speech, "WhisperModel", FakeModel)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: "mono samples")
 
     result = speech._accelerated_guidance(Path("voice.wav"), "English", "first line")
 
     assert calls["load"] == (
         str(accelerated),
-        {"device": "cpu", "compute_type": "int8", "cpu_threads": 6, "num_workers": 1},
+        {"device": "cpu", "compute_type": "float32", "cpu_threads": 6, "num_workers": 1},
     )
     assert calls["transcribe"] == (
-        "voice.wav",
+        "mono samples",
         {
             "language": "en",
             "word_timestamps": True,
@@ -703,6 +704,92 @@ def test_alignment_guidance_keeps_the_faster_native_whisper_path_on_cuda(
     monkeypatch.setattr(speech, "_transcribe", lambda *_args: expected)
 
     assert speech._guidance(Path("voice.wav"), "English", None, 4) is expected
+
+
+def test_coverage_transcription_uses_independent_full_text_even_with_cuda_alignment(monkeypatch):
+    from backend.ai_worker import speech
+
+    monkeypatch.setattr(speech, "device", lambda: "cuda")
+    monkeypatch.setattr(speech, "_transcribe", lambda *_: {"text": "first verse"})
+    monkeypatch.setattr(speech, "_accelerated_guidance", lambda *_: {"text": "first verse final chorus"})
+    assert speech.transcribe(Path("voice.wav"), "English")["text"] == "first verse final chorus"
+
+
+@pytest.mark.parametrize("threads", [4, 15])
+def test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode(
+    monkeypatch, tmp_path, threads,
+):
+    from types import SimpleNamespace
+    from backend.ai_worker import speech
+
+    (tmp_path / "model.bin").write_bytes(b"weights")
+    (tmp_path / "ctranslate2").mkdir()
+    (tmp_path / "ctranslate2/model.bin").write_bytes(b"weights")
+    samples = np.zeros(16, dtype=np.float32)
+
+    class Model:
+        def __init__(self, _path, **options):
+            assert options["compute_type"] == "float32"
+            assert options["cpu_threads"] == threads
+
+        def transcribe(self, audio, **options):
+            assert audio is samples
+            assert options["condition_on_previous_text"] is False
+            return iter([SimpleNamespace(text=" first verse final chorus", words=[])]), None
+
+    monkeypatch.setattr(speech, "model_file", lambda _: tmp_path / "model.bin")
+    monkeypatch.setattr(speech, "cpu_threads", lambda: threads)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "WhisperModel", Model)
+    assert speech.transcribe(Path("voice.wav"), "Ukrainian")["text"] == "first verse final chorus"
+
+
+def test_phrase_guidance_separates_repeats_when_asr_merges_or_misspells_words():
+    from backend.ai_worker.speech import _alignment_windows
+
+    phrase = "Мы навстречу новым звёздам"
+    lyrics = "\n".join([phrase, phrase, phrase])
+    heard = [("мынавстречуновымзвездам", start, start + 3) for start in (10, 30, 50)]
+    whole = [AlignedWord(word, 60 + i * 0.1, 60.1 + i * 0.1, ()) for i, word in enumerate(lyrics.split())]
+    windows = _alignment_windows(lyrics, (), heard, whole, np.zeros(70 * _RATE, dtype=np.float32))
+    assert [(window.first, window.last) for window in windows] == [(0, 4), (4, 8), (8, 12)]
+    assert [window.start for window in windows] == pytest.approx([9.4, 29.4, 49.4])
+    assert [window.end for window in windows] == pytest.approx([13.6, 33.6, 53.6])
+
+
+def test_fuzzy_phrase_start_reaches_alignment_choice_as_independent_evidence(monkeypatch):
+    from backend.ai_worker import speech
+
+    lyrics = "Мы навстречу новым звёздам\nМы навстречу новым звёздам"
+    whole = [AlignedWord(word, 30+i, 30.5+i, (), 0.9) for i, word in enumerate(lyrics.split())]
+    heard = [("мынавстречуновымзвездам", start, start+3) for start in (10, 20)]
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40*_RATE))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
+    captured = {}
+
+    def align_guided(*args):
+        captured.update(args[4])
+        return whole
+
+    monkeypatch.setattr(speech, "align_guided", align_guided)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    speech.align(Path("voice.wav"), lyrics, "Russian")
+    assert captured.get(0) == pytest.approx(10)
+    assert captured.get(4) == pytest.approx(20)
+
+
+def test_phrase_matching_does_not_take_a_shared_suffix_from_a_different_line():
+    from backend.ai_worker.speech import _phrase_windows
+
+    lyrics = "quiet we will stay\nwe will stay\nagain we will stay"
+    heard = [("wewillstay", 10.0, 13.0), ("againwewillstay", 20.0, 24.0)]
+    starts = [5, 6, 7, 8, 30, 31, 32, 40, 41, 42, 43]
+    whole = [AlignedWord(word, start, start+0.4, ()) for word, start in zip(lyrics.split(), starts)]
+    windows = _phrase_windows(lyrics, heard, 45, whole)
+    assert any(w.first == 4 and w.heard_start == 10 for w in windows)
+    assert any(w.first == 7 and w.heard_start == 20 for w in windows)
 
 
 def _phrases(phrases: list[tuple[float, float]], total: float) -> np.ndarray:

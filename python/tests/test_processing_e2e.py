@@ -4,9 +4,11 @@ import pytest
 import json
 from dataclasses import replace
 from pathlib import Path
+from threading import Event, Thread
 
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.domain_errors import DependencyError
+from backend.songs.domain import SongStatus
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
@@ -39,6 +41,100 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
         editor = client.get(f"/songs/{song['songId']}/editor")
         assert editor.status_code == 200, editor.text
         assert editor.json()["document"]["words"][0]["notes"]
+
+
+def test_clip_download_overlaps_processing_and_preserves_published_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "parallel.wav"
+    write_wav(source)
+    audio_started, audio_finished, clip_started = Event(), Event(), Event()
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        container = client.app.state.container
+        start = container.songs.start_processing
+        with container.database.create() as transaction:
+            song = transaction.songs.get(imported["songId"])
+            transaction.songs.update(replace(song, video_url="https://www.youtube.com/watch?v=test"))
+            transaction.commit()
+        run = start._pipeline.run
+
+        def process(*args, **kwargs):
+            audio_started.set()
+            assert clip_started.wait(3), "Clip was not started alongside audio processing"
+            try:
+                return run(*args, **kwargs)
+            finally:
+                audio_finished.set()
+
+        def download(_url, destination, *, expected_duration):
+            clip_started.set()
+            assert audio_started.wait(3), "Clip download blocked the start of audio processing"
+            assert audio_finished.wait(15), "Clip should be allowed to finish after publication"
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(b"silent clip")
+            return True
+
+        monkeypatch.setattr(start._pipeline, "run", process)
+        monkeypatch.setattr(start._preparation._clip._downloader, "download", download)
+        started = client.post(
+            f"/songs/{song.song_id}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        updated = client.get(f"/songs/{song.song_id}").json()
+        assert updated["status"] == "Ready"
+        assert updated["activeRevision"] == 2
+        assert updated["videoUrl"].endswith(f"/songs/{song.song_id}/clip")
+        assert client.get(f"/songs/{song.song_id}/clip").content == b"silent clip"
+
+
+def test_late_clip_save_preserves_new_song_state_and_manual_metadata(tmp_path: Path) -> None:
+    source = tmp_path / "late-clip.wav"
+    write_wav(source)
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        container = client.app.state.container
+        with container.database.create() as transaction:
+            stale = transaction.songs.get(imported["songId"])
+            transaction.songs.update(replace(
+                stale, title="Edited while downloading", status=SongStatus.READY, active_revision=3
+            ))
+            transaction.commit()
+        clip = container.songs.start_processing._preparation._clip
+        saved = clip._save(stale, "local:clip")
+        assert saved.title == "Edited while downloading"
+        assert saved.status is SongStatus.READY
+        assert saved.active_revision == 3
+        assert saved.video_url == "local:clip"
+
+
+def test_clip_metadata_save_waits_for_project_publication(tmp_path: Path) -> None:
+    source = tmp_path / "publication.wav"
+    write_wav(source)
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        container = client.app.state.container
+        start = container.songs.start_processing
+        with container.database.create() as transaction:
+            song = transaction.songs.get(imported["songId"])
+        started, finished = Event(), Event()
+
+        def save_clip():
+            started.set()
+            start._preparation._clip._save(song, "local:clip")
+            finished.set()
+
+        worker = Thread(target=save_clip)
+        try:
+            with start._pipeline._publisher._locks.acquire(song.song_id):
+                worker.start()
+                assert started.wait(3)
+                assert not finished.wait(0.2), "Clip save must share the project publication lock"
+        finally:
+            worker.join(3)
+        assert finished.is_set()
 
 
 def test_processing_idempotency_returns_same_job(tmp_path: Path) -> None:
