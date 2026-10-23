@@ -11,6 +11,7 @@ from tests.conftest import app_client, write_wav
 from backend.songs.domain import CoverState
 from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
 from backend.infrastructure.artwork_cache import ArtworkCache
+from backend.infrastructure.process_runner import ProcessRunner
 import httpx
 
 
@@ -363,3 +364,41 @@ def test_processing_does_not_replace_an_identified_song_with_an_unrelated_finger
         "videoUrl",
     ):
         assert refreshed[field] == imported[field], field
+
+
+def test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "otorvald_- Фонари.wav"
+    write_wav(source)
+    metadata = replace(
+        FfmpegMediaInspector(ProcessRunner()).inspect(source), title="Ліхтарі", artist="O.Torvald"
+    )
+    monkeypatch.setattr(FfmpegMediaInspector, "inspect", lambda *_: metadata)
+    recognizer = SequenceRecognizer(
+        [None, RecognizedSong("Son Banza", "Unrelated Artist", provider="Shazam")]
+    )
+
+    class Catalog:
+        def lookup(self, artist, title):
+            assert (artist, title) == ("O.Torvald", "Ліхтарі")
+            return RecognizedSong(
+                title,
+                artist,
+                "Бісайди",
+                artwork_url="https://img.test/cover.jpg",
+                provider="Apple Music Search",
+                external_id="42",
+            )
+
+    with app_client(
+        tmp_path / "runtime", recognition_provider=recognizer, catalog_lookup=Catalog()
+    ) as client:
+        song = client.post("/songs", json={"sourcePath": str(source)}).json()
+        client.post(f"/songs/{song['songId']}/processing", json={"mode": "Auto"})
+        enriched = client.get(f"/songs/{song['songId']}").json()
+
+    assert (enriched["artist"], enriched["title"]) == ("O.Torvald", "Ліхтарі")
+    assert enriched["album"] == "Бісайди"
+    assert enriched["artworkUrl"].endswith(f"/songs/{song['songId']}/cover")
+    assert not recognizer.results

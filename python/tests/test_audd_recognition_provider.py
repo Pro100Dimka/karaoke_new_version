@@ -26,6 +26,29 @@ def test_youtube_finder_rejects_static_audio_even_when_search_says_official() ->
     assert YoutubeVideoFinder(None, get=get)("Artist", "Song") is None
 
 
+def test_catalog_lookup_uses_known_tags_instead_of_the_translated_filename() -> None:
+    def get(request, _timeout):
+        assert parse_qs(urlsplit(request.full_url).query)["term"] == ["O.Torvald Ліхтарі"]
+        return json.dumps(
+            {
+                "results": [
+                    {
+                        "artistName": "O.Torvald",
+                        "trackName": "Ліхтарі",
+                        "collectionName": "Бісайди",
+                        "artworkUrl100": "https://img.test/100x100bb.jpg",
+                    }
+                ]
+            }
+        ).encode()
+
+    found = ItunesCatalogRecognitionProvider(get=get, find_video=lambda *_: None).lookup(
+        "O.Torvald", "Ліхтарі"
+    )
+    assert found is not None
+    assert found.artwork_url == "https://img.test/1200x1200bb.jpg"
+
+
 def test_youtube_finder_never_uses_an_unverified_first_result_after_metadata_failure() -> None:
     def get(request: object, _timeout: float) -> bytes:
         if "results?" in str(getattr(request, "full_url")):

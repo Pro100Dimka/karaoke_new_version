@@ -1,25 +1,23 @@
-import { useRef, useState } from "react";
-import { IconButton, Slider, Typography, Waveform } from "@neo-ui-kit/react";
+import { useState } from "react";
+import { IconButton, RotaryKnob, Typography, Waveform } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useRecordingPreview } from "../../app/LibraryProvider";
 import { formatTime } from "../../shared/utils/format";
 import { useRecordingPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { useRecordingPlayback } from "./useRecordingPlayback";
+import { fixedKnobWidth } from "../../shared/ui/knobWidth";
 import "./recording-player.css";
 
-/** Player of one take: play/pause, seekable waveform with the elapsed and total time, and a volume control that opens on hover. */
+/** Player of one take: play/pause, seekable waveform, time and a persistent volume knob. */
 export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
   const preview = useRecordingPreview();
   const t = useText();
   const peaks = useRecordingPeaks(recording.id);
   const { playing, position, toggle, seek } = useRecordingPlayback(recording);
   const [volume, setVolume] = useState(1);
-  const [expanded, setExpanded] = useState(false);
-  const remembered = useRef(1);
 
   const changeVolume = (value: number) => {
-    if (value > 0) remembered.current = value;
     setVolume(value);
     void preview.setPreviewVolume(value).catch(() => undefined);
   };
@@ -45,30 +43,17 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
           {formatTime(position)} / {formatTime(recording.durationSeconds)}
         </Typography>
       </div>
-      <div
-        className="recordingVolume"
-        data-expanded={expanded || undefined}
-        onPointerEnter={() => setExpanded(true)}
-        onPointerLeave={() => setExpanded(false)}
-        onFocusCapture={() => setExpanded(true)}
-        onBlurCapture={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget))
-            setExpanded(false);
-        }}
-      >
-        <IconButton
-          variant="ghost"
-          icon="volume"
-          label={t(volume > 0 ? "mute" : "unmute")}
-          aria-pressed={volume === 0}
-          onClick={() => changeVolume(volume > 0 ? 0 : remembered.current)}
-        />
-        <Slider
-          className="recordingVolumeSlider"
+      <div className="recordingVolume">
+        <RotaryKnob
+          diameter={58}
+          style={fixedKnobWidth(58)}
           label={t("recordingVolume")}
+          showLabel
           min={0}
           max={1}
-          step={0.05}
+          step={0.01}
+          displayScale={100}
+          resetValue={1}
           value={volume}
           onValueChange={changeVolume}
         />

@@ -1,10 +1,12 @@
-# Specification status
+# Статус документации
 
-```text
-FRONTEND PRODUCT SPEC = LOCKED
-FRONTEND TECHNOLOGY = React + TypeScript + Electron + Vite + Theme UI kit (`src/theme/ui`) + Formik
-PYTHON BACKEND = external ready system
-AUDIOSERVICE.EXE = external ready realtime media system
-```
+Описания поведения актуализированы по рабочему дереву на 23.10.2026, включая ещё не закоммиченные изменения. Перед продолжением разработки проверяйте текущее состояние исходников.
 
-Этот комплект является greenfield product specification, а не migration plan и не описанием старого frontend.
+- Frontend: React + TypeScript + Electron + Vite + `@neo-ui-kit/react`; формы `useForm`, иконки `Icon` из того же пакета.
+- Python Backend: отдельный процесс для данных и offline processing/AI.
+- AudioService: отдельный realtime audio engine.
+- Room Server: обязательный владелец комнатной музыкальной шкалы и центрального mix-minus по [AGENTS.md](../../AGENTS.md).
+
+`Frontend-project-spec.md` объединяет описание существующего продукта и обязательные требования. Описание сценария не подтверждает его успешную live-проверку. Исторические audits, implementation plans и `TEST_RESULTS.md` относятся только к указанным в них прогонам; они не доказывают качество текущего рабочего дерева.
+
+Документальные уточнения не разрешают менять рабочую логику под старое описание, ослаблять тесты или обходить room completion gate. Полный набор проверок запускается через корневой `check.bat`; точечные проверки не заменяют полный затронутый набор.

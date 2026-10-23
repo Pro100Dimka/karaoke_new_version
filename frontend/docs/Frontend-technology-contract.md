@@ -2,16 +2,16 @@
 
 ## 1. Канонический стек
 
-Frontend A&D Voice создаётся с нуля на следующем стеке:
+Текущий frontend A&D Voice использует следующий стек (версии — в `../package.json` и lock-файле):
 
 ```text
 React
 TypeScript
 Electron
 Vite
-Theme UI kit (src/theme/ui)
-Formik
-lucide-react
+@neo-ui-kit/react (components, themes, useForm, Icon)
+react-router-dom
+@tanstack/react-virtual
 ```
 
 Для production frontend application code используются только `.ts` и `.tsx`.
@@ -76,7 +76,7 @@ unknown
 
 ## 5. Контракты Python Backend
 
-Python Backend считается готовой отдельной системой.
+Python Backend является отдельной системой со своим lifecycle и проверками.
 
 Frontend знает только его публичный API contract.
 
@@ -109,7 +109,7 @@ RoomStateDto
 
 ## 6. Контракты AudioService
 
-AudioService считается готовым realtime media engine.
+AudioService является отдельным realtime media engine со своим lifecycle и проверками.
 
 Frontend знает только его versioned public protocol.
 
@@ -336,9 +336,9 @@ Visualizer относится к presentation layer.
 
 Вход visualizer — bounded telemetry/features, предоставленные realtime/media layer по определённому контракту.
 
-## 22. Theme UI kit и формы
+## 22. Neo UI kit и формы
 
-Базовой UI-system является собственный **Theme UI kit** проекта (`src/theme/ui`): Button, IconButton, TextField, NumberField, Select, Switch, Slider, RotaryKnob, Tabs, Modal, Popover, Tooltip, Progress, Card, Grid, Stack, Typography, FolderField и другие. Цвета, отступы, радиусы, тени и z-index приходят из его tokens и palettes (`:root[data-theme]`); размеры задаются viewport-relative токенами, чтобы интерфейс масштабировался под любой экран.
+Базовая UI-system — пакет **`@neo-ui-kit/react`**: Button, IconButton, TextField, NumberField, Select, Switch, Slider, RotaryKnob, Tabs, Dialog, Popover, Tooltip, ProgressBar, Steps, SplitButton, Card, Grid, Stack, Typography и другие. Компоненты импортируются прямо из пакета. `NeoTheme` связывает четыре темы приложения с темами kit и картинками; цвета, размеры и оформление берутся из его `--ad-*` tokens. Локального `src/theme/ui` в текущем frontend нет.
 
 Сначала использовать подходящий компонент kit.
 
@@ -350,15 +350,13 @@ Custom component создаётся, когда:
 
 Не переписывать стандартный Button/Modal/Select/Input вручную без причины.
 
-**Формы.** Все формы приложения (настройки, добавление песни, настройки песни, онлайн-комната, переименование дубля) строятся через kit `GetForm` / `RenderFormikFields` поверх Formik: поля описываются массивом типизированных строк (`tag`, `type`, `label`, `options`, `onSave`, `showFor`, адаптивные `xs/sm/md/lg/xl`), значения читаются и пишутся по пути (`audio.rate`). Свои контролы подключаются через `components`. Formik используется вместо самописного form engine; схемные библиотеки не подключаются, валидация задаётся функциями `validate`.
+**Формы.** Stateful forms используют kit `useForm` (`initialValues`, `setValue`, `field`, `submit`, `submitting`) и стандартные контролы. Простые составы полей описываются локальными typed arrays там, где это убирает повторения. Formik и `GetForm`/`RenderFormikFields` не используются. Settings применяет изменения через свои hooks; Song Settings сохраняет metadata явным Submit. Единого отложенного Apply для всех форм нет.
 
-**Backdrop.** Фон всего приложения — картинка текущей темы с анимацией Quantum Fields (`three`, лицензия MIT), рисуемой изолированным runtime в iframe; движок не конкурирует с React, а данные о звуке приходят из AudioService (см. Addendum A).
+**Backdrop.** `.appTheme` показывает картинку темы. `LibraryBackdrop` использует kit `QuantumBackground` с локально поставляемым `three`, спектром AudioService и уровнем микрофона. Его lifecycle зависит от видимости Library, Reduced Motion и Settings; старый собственный iframe runtime не является текущим implementation path (подробности — Addendum A1 product spec).
 
-## 23. Lucide
+## 23. Иконки
 
-`lucide-react` используется для product iconography согласно `Frontend-content-catalog.md`.
-
-Не копировать Lucide SVG вручную в repository.
+Иконки приходят из `@neo-ui-kit/react`: `Icon` с `name` либо `icon` у готового контрола. Используются kit names (`play`, `settings`, `wave`, `trash` и т. д.), см. `Frontend-content-catalog.md`. Имена Lucide в старых разделах обозначают назначение значка, а не требование импортировать отсутствующую зависимость `lucide-react`. Стандартные значки не копируются вручную в SVG.
 
 ## 24. Styling
 
@@ -370,7 +368,7 @@ Product-specific values оформляются semantic tokens.
 
 ## 25. Accessibility
 
-Interactive controls используют semantic HTML и semantics Theme UI kit.
+Interactive controls используют semantic HTML и semantics Neo UI kit. Обычный UI-текст не выделяется при случайном drag; editable inputs, textarea и editable content сохраняют нужную возможность выделения.
 
 Обязательны:
 
@@ -431,7 +429,7 @@ Canonical implementation одна и написана на TypeScript.
 Канонический frontend stack:
 
 ```text
-React + TypeScript + Electron + Vite + Theme UI kit (`src/theme/ui`) + Formik
+React + TypeScript + Electron + Vite + @neo-ui-kit/react
 ```
 
 TypeScript выбран не ради количества типов, а для того, чтобы внешние контракты Python Backend, AudioService и Electron были проверяемыми и exhaustive ещё до runtime.

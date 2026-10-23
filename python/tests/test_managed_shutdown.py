@@ -29,7 +29,11 @@ def test_managed_backend_announces_the_bound_port_once(monkeypatch, tmp_path, ca
                 asyncio.run(callback())
 
     config = SimpleNamespace(
-        roots=SimpleNamespace(logs=tmp_path), log_level="INFO", host="127.0.0.1", port=0
+        roots=SimpleNamespace(logs=tmp_path),
+        log_level="INFO",
+        host="127.0.0.1",
+        port=0,
+        youtube_api_key=None,
     )
     monkeypatch.setattr(main.BackendConfig, "load", lambda: config)
     monkeypatch.setattr(main, "configure_logging", lambda *_: None)
@@ -63,7 +67,11 @@ def test_managed_backend_stops_on_parent_stdin_eof(
             observed.append(self.should_exit)
 
     config = SimpleNamespace(
-        roots=SimpleNamespace(logs=tmp_path), log_level="INFO", host="127.0.0.1", port=0
+        roots=SimpleNamespace(logs=tmp_path),
+        log_level="INFO",
+        host="127.0.0.1",
+        port=0,
+        youtube_api_key=None,
     )
     monkeypatch.setattr(main.BackendConfig, "load", lambda: config)
     monkeypatch.setattr(main, "configure_logging", lambda *_: None)

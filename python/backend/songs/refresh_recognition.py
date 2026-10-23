@@ -8,10 +8,10 @@ from backend.songs.domain import MetadataSource, Song
 from backend.songs.filename_metadata import conflicts_with_filename
 from backend.songs.recognition import (
     RecognizedSong,
+    SongCatalogLookup,
     SongRecognitionProvider,
     prefer_equivalent_local_spelling,
 )
-from backend.text_normalization import normalize_catalog_identity
 
 
 class RefreshSongRecognition:
@@ -22,10 +22,12 @@ class RefreshSongRecognition:
         uow: UnitOfWorkFactory,
         recognition: SongRecognitionProvider,
         clock: Clock,
+        catalog: SongCatalogLookup | None = None,
     ) -> None:
         self._uow = uow
         self._recognition = recognition
         self._clock = clock
+        self._catalog = catalog
 
     def execute(self, song: Song) -> Song:
         recognized = self._recognize(song)
@@ -62,20 +64,26 @@ class RefreshSongRecognition:
         if song.source_path is None or (fingerprinted and song.video_url):
             return None
         recognized = self._recognition.recognize(song.source_path)
-        if recognized is not None and conflicts_with_filename(
-            song.original_filename or song.source_path.name, recognized.artist, recognized.title
-        ):
-            return None
-        if (
-            recognized is not None
-            and fingerprinted
-            and any(
-                normalize_catalog_identity(before) != normalize_catalog_identity(after)
-                for before, after in (
-                    (song.title, recognized.title),
-                    (song.artist, recognized.artist),
+        if recognized is None or (
+            not recognized.matches_identity(song.title, song.artist)
+            and (
+                fingerprinted
+                or conflicts_with_filename(
+                    song.original_filename or song.source_path.name,
+                    recognized.artist,
+                    recognized.title,
                 )
             )
         ):
-            return None
+            return self._from_catalog(song)
         return recognized
+
+    def _from_catalog(self, song: Song) -> RecognizedSong | None:
+        found = self._catalog.lookup(song.artist, song.title) if self._catalog else None
+        if found is None or not found.matches_identity(song.title, song.artist):
+            return None
+        return replace(
+            found,
+            provider=song.recognition_provider or found.provider,
+            external_id=song.recognition_external_id or found.external_id,
+        )

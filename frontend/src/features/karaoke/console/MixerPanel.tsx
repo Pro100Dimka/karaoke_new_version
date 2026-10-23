@@ -67,7 +67,7 @@ export const MixerPanel = ({
     id: channel.id,
     label: channel.label,
     min: 0,
-    max: 1,
+    max: channel.needsMicrophone ? 4 : 1,
     step: 0.01,
     initial: channel.initial,
     disabled: channel.needsMicrophone && !microphoneAvailable,

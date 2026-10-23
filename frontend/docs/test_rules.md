@@ -282,11 +282,11 @@ accessible name
 
 ---
 
-## 33. Не проверять Fluent внутренние DOM classes
+## 33. Не проверять Neo UI внутренние DOM classes
 
 ---
 
-## 34. Не привязывать tests к internal Fluent markup
+## 34. Не привязывать tests к internal Neo UI markup
 
 ---
 
@@ -1603,7 +1603,7 @@ toolbars
 page layouts
 dialogs
 simple forms
-Fluent compositions
+Neo UI compositions
 ```
 
 ---

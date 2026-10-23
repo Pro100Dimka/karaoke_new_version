@@ -16,7 +16,7 @@ from backend.ai.ports import AiProvider
 from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.lyrics.ports import OnlineLyricsProvider
-from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +26,6 @@ def isolate_private_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path)
     monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(tmp_path / "frontend.env"))
     for name in ("AD_VOICE_AUDD_TOKEN", "AD_VOICE_YOUTUBE_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-
 
 
 @pytest.fixture(autouse=True)
@@ -68,6 +67,7 @@ def _query_participant(url: str) -> str | None:
 
     return (parse_qs(urlsplit(url).query).get("participantId") or [None])[0]
 
+
 def write_wav(
     path: Path,
     *,
@@ -95,12 +95,14 @@ def app_client(
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
     recognition_provider: SongRecognitionProvider | None = None,
+    catalog_lookup: SongCatalogLookup | None = None,
 ) -> Iterator[TestClient]:
     app = create_app(
         BackendConfig.load(root),
         ai_providers=ai_providers,
         lyrics_providers=lyrics_providers,
         recognition_provider=recognition_provider,
+        catalog_lookup=catalog_lookup,
     )
     with TestClient(app) as client:
         yield client

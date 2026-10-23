@@ -9,10 +9,12 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import httpx
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
 from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
+from backend.infrastructure.pisni_provider import PisniLyricsProvider
 from backend.lyrics.discovery import LyricsDiscovery, LyricsMatchPolicy
 from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.songs.domain import Language, Song, SongStatus, SourceState
@@ -25,6 +27,58 @@ _ROWS = (
     '[{"trackName": "Кофе мой друг", "artistName": "Нервы", "duration": 188,'
     ' "syncedLyrics": "[00:10.50] Кофе мой друг\\n[00:14.00] Музыка мой драйв", "plainLyrics": "x"}]'
 )
+
+
+def test_ukrainian_catalog_fallback_finds_tagged_song_without_using_asr_as_the_lyrics() -> None:
+    def respond(request):
+        assert str(request.url) == "https://pisni.ua/otorvald-likhtari"
+        return httpx.Response(
+            200,
+            text="""<meta property="og:title" content="O.Torvald - Ліхтарі">
+            <div class="desc desc-full"><p>Перший тестовий рядок<br/>Другий рядок</p>
+            <p>Третій рядок</p></div>""",
+        )
+
+    provider = PisniLyricsProvider(transport=httpx.MockTransport(respond))
+    discovery = LyricsDiscovery(_NoSidecar(), (provider,), LyricsMatchPolicy())
+    result = discovery.discover(
+        _song("Ліхтарі", "O.Torvald", 233.8),
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+    assert result.source == "PisniUA"
+    assert result.lyrics == "Перший тестовий рядок\nДругий рядок\nТретій рядок"
+
+
+def test_ukrainian_catalog_rejects_another_artist_and_respects_cancellation() -> None:
+    requests = []
+
+    def respond(request):
+        requests.append(request)
+        return httpx.Response(
+            200,
+            text="""<meta property="og:title" content="Other - Ліхтарі">
+            <div class="desc desc-full">Unrelated text</div>""",
+        )
+
+    provider = PisniLyricsProvider(transport=httpx.MockTransport(respond))
+    discovery = LyricsDiscovery(_NoSidecar(), (provider,), LyricsMatchPolicy())
+    result = discovery.discover(
+        _song("Ліхтарі", "O.Torvald"),
+        Path("vocal.wav"),
+        FakeAiProvider(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+    assert result.source == "ASR"
+    cancel = threading.Event()
+    cancel.set()
+    assert not provider.search(_song("Ліхтарі", "O.Torvald"), Language.AUTO, cancel)
+    assert len(requests) == 1
 
 
 def _song(title: str, artist: str, duration: float | None = 188.0) -> Song:
@@ -314,7 +368,8 @@ class _TranscriptAi(FakeAiProvider):
 @pytest.mark.parametrize("last_repeats", [1, 3])
 @pytest.mark.parametrize("quiet_line_missed_by_asr", [False, True])
 def test_catalog_omitted_middle_and_final_refrains_are_restored_from_performance(
-    last_repeats, quiet_line_missed_by_asr,
+    last_repeats,
+    quiet_line_missed_by_asr,
 ):
     verse = ["Первый свет над городами", "Я иду домой сегодня"]
     refrain = ["Мы навстречу новым звёздам", "Наши голоса над морем"]
@@ -325,25 +380,40 @@ def test_catalog_omitted_middle_and_final_refrains_are_restored_from_performance
     heard = [line for line in performed if not quiet_line_missed_by_asr or line != final[0]]
     ai = _TranscriptAi(" ".join(heard))
     candidate = LyricsCandidate("\n".join(catalog), "T", "A", 188, "catalog")
-    discovery = LyricsDiscovery(_NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy())
+    discovery = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()
+    )
     result = discovery.discover(
-        _song("T", "A"), Path("voice.wav"), ai, threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+        _song("T", "A"),
+        Path("voice.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert result.lyrics.splitlines() == performed
     assert "LyricsRepeatsRecovered" in result.warnings
 
 
-@pytest.mark.parametrize("text", [
-    "Її голос лунає вночі\nМи зустрінемо ранок разом",
-    "Є надія у наших серцях\nТи почуєш цю пісню знову",
-])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Її голос лунає вночі\nМи зустрінемо ранок разом",
+        "Є надія у наших серцях\nТи почуєш цю пісню знову",
+    ],
+)
 def test_catalog_text_selects_ukrainian_for_audio_coverage_check(text):
     ai = _TranscriptAi(text)
     candidate = LyricsCandidate(text, "T", "A", 188, "catalog")
-    result = LyricsDiscovery(_NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()).discover(
-        _song("T", "A"), Path("voice.wav"), ai, threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+    result = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()
+    ).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert ai.languages == [Language.UKRAINIAN]
     assert result.lyrics == text
@@ -353,9 +423,15 @@ def test_no_repeat_is_invented_when_asr_misses_lines_or_hallucinates_other_text(
     text = "Первый свет над городами\nНаши голоса над морем\nСнова поезда уходят"
     ai = _TranscriptAi("Наши голоса над морем Thank you for watching please subscribe")
     candidate = LyricsCandidate(text, "T", "A", 188, "catalog")
-    result = LyricsDiscovery(_NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()).discover(
-        _song("T", "A"), Path("voice.wav"), ai, threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+    result = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy()
+    ).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert result.lyrics == text
 
@@ -363,10 +439,15 @@ def test_no_repeat_is_invented_when_asr_misses_lines_or_hallucinates_other_text(
 def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_chorus():
     from backend.lyrics.discovery import _complete_repeats
 
-    lyrics = "\n".join([
-        "Let the sky fall", "When it crumbles", "We will stand tall",
-        "Where you go I go", "What you see I see",
-    ])
+    lyrics = "\n".join(
+        [
+            "Let the sky fall",
+            "When it crumbles",
+            "We will stand tall",
+            "Where you go I go",
+            "What you see I see",
+        ]
+    )
     heard = "Let the sky fall when you come we will stand tall where you go I go what you see I see"
     assert _complete_repeats(lyrics, heard, threading.Event()) == lyrics
 
@@ -374,7 +455,9 @@ def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_c
 def test_catalog_search_keeps_artist_match_and_also_checks_title_versions():
     fetch = _Recorder(_ROWS, _ROWS.replace('"x"', '"full text"'))
     result = LrclibLyricsProvider(fetch=fetch).search(
-        _song("Кофе мой друг", "Нервы"), Language.AUTO, threading.Event(),
+        _song("Кофе мой друг", "Нервы"),
+        Language.AUTO,
+        threading.Event(),
     )
     assert len(fetch.urls) == 2
     assert "artist_name" not in parse_qs(urlparse(fetch.urls[1]).query)
@@ -384,7 +467,9 @@ def test_catalog_search_keeps_artist_match_and_also_checks_title_versions():
 def test_title_search_survives_an_artist_lookup_outage():
     fetch = _Recorder(TimeoutError(), _ROWS)
     assert LrclibLyricsProvider(fetch=fetch).search(
-        _song("Кофе мой друг", "Нервы"), Language.AUTO, threading.Event(),
+        _song("Кофе мой друг", "Нервы"),
+        Language.AUTO,
+        threading.Event(),
     )
 
 
@@ -401,24 +486,36 @@ def test_online_abbreviation_does_not_replace_a_fuller_saved_ai_catalog():
     )
     candidate = LyricsCandidate("\n".join(lines), "T", "A", 188, "catalog")
     result = LyricsDiscovery(
-        _NoSidecar(), (FakeLyricsProvider([[candidate]]),), LyricsMatchPolicy(), projects=projects,
+        _NoSidecar(),
+        (FakeLyricsProvider([[candidate]]),),
+        LyricsMatchPolicy(),
+        projects=projects,
     ).discover(
-        _song("T", "A"), Path("voice.wav"), _TranscriptAi(" ".join(lines)), threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(" ".join(lines)),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert result.lyrics == complete
     assert "LyricsCatalogCached" in result.warnings
 
 
-@pytest.mark.parametrize(("language", "number", "expected"), [
-    ("Ukrainian", 100, "сто відсотків"),
-    ("Ukrainian", 21, "двадцять один відсоток"),
-    ("Russian", 12, "двенадцать процентов"),
-    ("Russian", 24, "двадцать четыре процента"),
-    ("English", 50, "fifty percent"),
-])
+@pytest.mark.parametrize(
+    ("language", "number", "expected"),
+    [
+        ("Ukrainian", 100, "сто відсотків"),
+        ("Ukrainian", 21, "двадцять один відсоток"),
+        ("Russian", 12, "двенадцать процентов"),
+        ("Russian", 24, "двадцать четыре процента"),
+        ("English", 50, "fifty percent"),
+    ],
+)
 def test_lyric_percentages_have_pronounceable_words_in_every_supported_language(
-    language, number, expected,
+    language,
+    number,
+    expected,
 ):
     from backend.text_normalization import spell_lyric_percentages
 
@@ -433,10 +530,16 @@ def test_fuller_matching_text_is_found_despite_artist_alias_and_missing_asr_repe
         LyricsCandidate(complete, "T", "Another spelling", 188, "catalog"),
         LyricsCandidate(complete * 2, "T", "A", 300, "catalog"),
     ]
-    discovery = LyricsDiscovery(_NoSidecar(), (FakeLyricsProvider([candidates]),), LyricsMatchPolicy())
+    discovery = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([candidates]),), LyricsMatchPolicy()
+    )
     result = discovery.discover(
-        _song("T", "A"), Path("voice.wav"), _TranscriptAi(partial), threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(partial),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert result.lyrics == complete.replace("100%", "сто відсотків")
 
@@ -450,7 +553,9 @@ def test_missed_short_adlib_does_not_duplicate_a_performed_refrain():
 
 
 @pytest.mark.parametrize("extra_final", [False, True])
-def test_recognition_order_cannot_invent_a_repeat_without_an_extra_performed_occurrence(extra_final):
+def test_recognition_order_cannot_invent_a_repeat_without_an_extra_performed_occurrence(
+    extra_final,
+):
     from backend.lyrics.discovery import _merge_lines
 
     # A recognizer missed the first short answer and attached a later one after two long lines.
@@ -472,17 +577,29 @@ def test_a_fresh_catalog_recomputes_ai_repeats_instead_of_preserving_a_longer_ba
     stale = lyrics + "\n" + lines[1]
     baseline = encode_document(LyricsDocument("T", "A", 188, None, None, stale, ()))
     projects = SimpleNamespace(
-        load_manifest=lambda *_: SimpleNamespace(provenance={
-            "lyricsSource": "catalog", "warnings": ["LyricsRepeatsRecovered"],
-        }),
+        load_manifest=lambda *_: SimpleNamespace(
+            provenance={
+                "lyricsSource": "catalog",
+                "warnings": ["LyricsRepeatsRecovered"],
+            }
+        ),
         read_text_artifact=lambda *_: baseline,
     )
     hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
     candidate = LyricsCandidate(lyrics, "T", "A", 188, "catalog", hints)
     result = LyricsDiscovery(
-        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy(), projects=projects,
-    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(lyrics), threading.Event(),
-               online_enabled=True, execution=EXECUTION)
+        _NoSidecar(),
+        (FakeLyricsProvider([(candidate,)]),),
+        LyricsMatchPolicy(),
+        projects=projects,
+    ).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(lyrics),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
 
     assert result.lyrics == lyrics
     assert result.timing_hints == hints
@@ -493,9 +610,17 @@ def test_recovering_a_true_repeat_keeps_unambiguous_catalog_timing_hints():
     hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
     candidate = LyricsCandidate("\n".join(lines), "T", "A", 188, "catalog", hints)
     result = LyricsDiscovery(
-        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy(),
-    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(" ".join(lines + [lines[1]])),
-               threading.Event(), online_enabled=True, execution=EXECUTION)
+        _NoSidecar(),
+        (FakeLyricsProvider([(candidate,)]),),
+        LyricsMatchPolicy(),
+    ).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(" ".join(lines + [lines[1]])),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
 
     assert result.lyrics.splitlines() == lines + [lines[1]]
     assert result.timing_hints == (hints[0], hints[2])
@@ -508,14 +633,22 @@ def test_cached_catalogue_preserves_independent_phrase_timing_without_a_new_look
     lyrics = "Наши голоса над морем"
     baseline = encode_document(LyricsDocument("T", "A", 188, None, None, lyrics, ()))
     projects = SimpleNamespace(
-        load_manifest=lambda *_: SimpleNamespace(provenance={
-            "lyricsSource": "catalog", "lyricsTimingHints": [{"start": 30, "text": lyrics}],
-        }), read_text_artifact=lambda *_: baseline,
+        load_manifest=lambda *_: SimpleNamespace(
+            provenance={
+                "lyricsSource": "catalog",
+                "lyricsTimingHints": [{"start": 30, "text": lyrics}],
+            }
+        ),
+        read_text_artifact=lambda *_: baseline,
     )
 
     result = LyricsDiscovery(_NoSidecar(), (), LyricsMatchPolicy(), projects=projects).discover(
-        _song("T", "A"), Path("voice.wav"), _TranscriptAi(lyrics), threading.Event(),
-        online_enabled=False, execution=EXECUTION,
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(lyrics),
+        threading.Event(),
+        online_enabled=False,
+        execution=EXECUTION,
     )
 
     assert result.timing_hints == (LyricLineTiming(30, lyrics),)
@@ -529,12 +662,18 @@ def test_catalog_outage_uses_saved_ai_baseline_and_still_recovers_performed_repe
     baseline = encode_document(LyricsDocument("T", "A", 188, None, None, "\n".join(lines), ()))
     projects = SimpleNamespace(
         load_manifest=lambda *_: SimpleNamespace(provenance={"lyricsSource": "LRCLIB"}),
-        read_text_artifact=lambda *args: baseline if args[-1] == "lyricsBaseline" else pytest.fail("Use AI baseline"),
+        read_text_artifact=lambda *args: (
+            baseline if args[-1] == "lyricsBaseline" else pytest.fail("Use AI baseline")
+        ),
     )
     ai = _TranscriptAi(" ".join(lines + [lines[1]]))
     result = LyricsDiscovery(_NoSidecar(), (), LyricsMatchPolicy(), projects=projects).discover(
-        _song("T", "A"), Path("voice.wav"), ai, threading.Event(),
-        online_enabled=True, execution=EXECUTION,
+        _song("T", "A"),
+        Path("voice.wav"),
+        ai,
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
     )
     assert result.lyrics.splitlines() == lines + [lines[1]]
     assert "LyricsCatalogCached" in result.warnings
@@ -549,17 +688,32 @@ def test_a_longer_other_recording_cannot_replace_the_matching_catalog_version(ca
     text = "\n".join(lines)
     other = text + "\n" + lines[1]
     hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
-    candidates = [LyricsCandidate(other, "T", "A feat. Guest", 193, "catalog"),
-                  LyricsCandidate(text, "T", "A", 188, "catalog", hints)]
+    candidates = [
+        LyricsCandidate(other, "T", "A feat. Guest", 193, "catalog"),
+        LyricsCandidate(text, "T", "A", 188, "catalog", hints),
+    ]
     baseline = encode_document(LyricsDocument("T", "A", 188, None, None, other, ()))
-    projects = SimpleNamespace(
-        load_manifest=lambda *_: SimpleNamespace(provenance={"lyricsSource": "catalog"}),
-        read_text_artifact=lambda *_: baseline,
-    ) if cached_other_version else None
+    projects = (
+        SimpleNamespace(
+            load_manifest=lambda *_: SimpleNamespace(provenance={"lyricsSource": "catalog"}),
+            read_text_artifact=lambda *_: baseline,
+        )
+        if cached_other_version
+        else None
+    )
     result = LyricsDiscovery(
-        _NoSidecar(), (FakeLyricsProvider([candidates]),), LyricsMatchPolicy(), projects=projects,
-    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(text), threading.Event(),
-               online_enabled=True, execution=EXECUTION)
+        _NoSidecar(),
+        (FakeLyricsProvider([candidates]),),
+        LyricsMatchPolicy(),
+        projects=projects,
+    ).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(text),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
 
     assert result.lyrics == text
     assert result.timing_hints == hints

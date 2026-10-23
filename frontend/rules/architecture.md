@@ -7,7 +7,7 @@ React
 TypeScript
 Electron
 Vite
-Fluent UI
+@neo-ui-kit/react
 ```
 
 **Status**
@@ -723,7 +723,7 @@ status → badge
 
 ---
 
-# 87. Fluent UI — основной design system
+# 87. @neo-ui-kit/react — основной design system
 
 ---
 
@@ -807,7 +807,7 @@ title controls
 
 # 104. Portal behavior должен соблюдать layer contract
 
-Fluent Dialog/Popover/Tooltip тоже.
+Neo UI Dialog/Popover/Tooltip тоже.
 
 ---
 

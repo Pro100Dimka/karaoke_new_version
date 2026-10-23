@@ -91,10 +91,11 @@ describe("parsePreferences", () => {
     expect(parsePreferences({ masterGain: 1.6 }).masterGain).toBe(1);
   });
 
-  it("restores the room microphone level across the full 0-200% knob range", () => {
+  it("restores the microphone level across the full 0-400% knob range", () => {
     expect(parsePreferences({ voiceGain: 1.37 }).voiceGain).toBe(1.37);
     expect(parsePreferences({ voiceGain: 2 }).voiceGain).toBe(2);
-    expect(parsePreferences({ voiceGain: 2.01 }).voiceGain).toBe(0.68);
+    expect(parsePreferences({ voiceGain: 4 }).voiceGain).toBe(4);
+    expect(parsePreferences({ voiceGain: 4.01 }).voiceGain).toBe(0.68);
   });
 
   it("keeps valid stored values", () => {

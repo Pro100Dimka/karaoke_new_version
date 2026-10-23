@@ -6,7 +6,7 @@
 TypeScript
 React
 Electron
-Fluent UI
+@neo-ui-kit/react
 ```
 
 **Цель**
@@ -2218,7 +2218,7 @@ error
 
 # 326. CSS/classes
 
-Использовать `mergeClasses` Fluent там, где это стандарт проекта.
+Объединять className принятым в текущем коде способом; `mergeClasses` из прежнего UI-стека не является зависимостью проекта.
 
 ---
 

@@ -72,6 +72,32 @@ it("keeps user-enabled animations running when preferences change", () => {
   view.unmount();
 });
 
+it("wakes the kit animation clock after desktop restore even without browser visibility events", () => {
+  let publish!: (shown: boolean) => void;
+  Object.assign(window, { desktop: { onAppVisibility: (listener: typeof publish) => {
+    publish = listener;
+    return vi.fn();
+  } } });
+  const wake = vi.fn();
+  document.addEventListener("visibilitychange", wake);
+  const view = render(<AppProvider>{null}</AppProvider>);
+  wake.mockClear();
+  try {
+    for (let cycle = 0; cycle < 3; cycle++) {
+      act(() => publish(false));
+      expect(document.documentElement.dataset.adMotion).toBe("off");
+      expect(wake).toHaveBeenCalledTimes(cycle);
+      act(() => publish(true));
+      expect(document.documentElement.dataset.adMotion).toBe("on");
+      expect(wake).toHaveBeenCalledTimes(cycle + 1);
+    }
+  } finally {
+    view.unmount();
+    document.removeEventListener("visibilitychange", wake);
+    Reflect.deleteProperty(window, "desktop");
+  }
+});
+
 it("keeps settings border motion enabled while opening and closing settings", () => {
   let actions!: ReturnType<typeof useApp<"actions">>;
   let dialog!: ReturnType<typeof useSettingsDialog>;

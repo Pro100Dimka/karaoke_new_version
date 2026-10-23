@@ -50,7 +50,7 @@ from backend.infrastructure.recovery_journal import FileRecoveryJournal
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.lyrics.ports import OnlineLyricsProvider
-from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 from backend.processing.job_manager import ProcessingJobManager
 from backend.projects.content_lock import KeyedLockManager
 from backend.projects.operations import SongOperationRegistry
@@ -71,10 +71,8 @@ def build_container(
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
     recognition_provider: SongRecognitionProvider | None = None,
+    catalog_lookup: SongCatalogLookup | None = None,
 ) -> ApplicationContainer:
-    clock = UtcClock()
-    ids = UuidGenerator()
-    lifecycle = BackendLifecycle()
     instance_lock = BackendInstanceLock(config.roots.app / "backend.lock")
     instance_lock.acquire()
     built = False
@@ -84,9 +82,7 @@ def build_container(
             ai_providers,
             lyrics_providers,
             recognition_provider,
-            clock,
-            ids,
-            lifecycle,
+            catalog_lookup,
             instance_lock,
         )
         declare_model_catalog(container.models.declare)
@@ -132,11 +128,10 @@ def _build_locked(
     ai_providers: Sequence[AiProvider],
     lyrics_providers: Sequence[OnlineLyricsProvider],
     recognition_provider: SongRecognitionProvider | None,
-    clock: UtcClock,
-    ids: UuidGenerator,
-    lifecycle: BackendLifecycle,
+    catalog_lookup: SongCatalogLookup | None,
     instance_lock: BackendInstanceLock,
 ) -> ApplicationContainer:
+    clock, ids, lifecycle = UtcClock(), UuidGenerator(), BackendLifecycle()
     storage = _initialized_storage(config, clock)
     with ExitStack() as startup:
         database = _open_database(config, startup)
@@ -156,6 +151,7 @@ def _build_locked(
             project,
             processing,
             recognition_provider,
+            catalog_lookup,
             recording_storage,
             register,
             lifecycle,
@@ -248,6 +244,7 @@ def _assemble_container(
     project: ProjectWiring,
     processing: ProcessingWiring,
     recognition_provider: SongRecognitionProvider | None,
+    catalog_lookup: SongCatalogLookup | None,
     recording_storage: LocalRecordingStorage,
     register: RegisterRecording,
     lifecycle: BackendLifecycle,
@@ -258,7 +255,7 @@ def _assemble_container(
     settings: GetSettings,
 ) -> ApplicationContainer:
     recognition = _recognition(runtime, recognition_provider)
-    songs = build_song_cases(runtime, project, processing, recognition)
+    songs = build_song_cases(runtime, project, processing, recognition, catalog_lookup)
     packages = build_package_cases(runtime, project, processing)
     recordings = build_recording_cases(runtime, project, processing, recording_storage, register)
     models = build_model_cases(runtime, processing, LocalModelStorage(runtime.config.roots))

@@ -62,8 +62,8 @@ export const AudioTests = ({
   );
   // The stored values are applied by the app-wide voice chain, the same ones karaoke and rooms show.
   const knobs = [
-    { key: "voiceGain", label: t("microphoneKnob"), reset: 100 },
-    { key: "noiseSuppression", label: t("noiseSuppression"), reset: 0 },
+    { key: "voiceGain", label: t("microphoneKnob"), reset: 100, max: 400 },
+    { key: "noiseSuppression", label: t("noiseSuppression"), reset: 0, max: 100 },
   ] as const;
 
   return (
@@ -208,6 +208,7 @@ export const AudioTests = ({
                   size="sm"
                   showLabel
                   label={knob.label}
+                  max={knob.max}
                   resetValue={knob.reset}
                   value={percent(form.values[knob.key])}
                   onValueChange={(value) => form.setValue(knob.key, value / 100)}

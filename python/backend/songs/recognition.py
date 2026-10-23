@@ -28,6 +28,15 @@ class RecognizedSong:
     provider: str = ""
     external_id: str | None = None
 
+    def matches_identity(self, title: str, artist: str) -> bool:
+        return tuple(map(normalize_catalog_identity, (title, artist))) == tuple(
+            map(normalize_catalog_identity, (self.title, self.artist))
+        )
+
 
 class SongRecognitionProvider(Protocol):
     def recognize(self, source: Path) -> RecognizedSong | None: ...
+
+
+class SongCatalogLookup(Protocol):
+    def lookup(self, artist: str, title: str) -> RecognizedSong | None: ...

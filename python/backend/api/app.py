@@ -26,7 +26,7 @@ from backend.bootstrap.config import BackendConfig
 from backend.domain_errors import DomainError
 from backend.infrastructure.ids import UuidGenerator
 from backend.lyrics.ports import OnlineLyricsProvider
-from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 from backend.version import BACKEND_VERSION
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ def create_app(
     ai_providers: Sequence[AiProvider] = (),
     lyrics_providers: Sequence[OnlineLyricsProvider] = (),
     recognition_provider: SongRecognitionProvider | None = None,
+    catalog_lookup: SongCatalogLookup | None = None,
 ) -> FastAPI:
     resolved = config or BackendConfig.load()
 
@@ -59,6 +60,7 @@ def create_app(
             ai_providers=ai_providers,
             lyrics_providers=lyrics_providers,
             recognition_provider=recognition_provider,
+            catalog_lookup=catalog_lookup,
         )
         app.state.container = container
         try:

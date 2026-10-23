@@ -849,8 +849,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                 power += static_cast<double>(sample) * sample;
             const auto rms = std::sqrt(power / std::max<std::size_t>(1, mic.size()));
             const auto cautious = cautiousMonitoring_.load(std::memory_order_relaxed);
-            if (cautious ? (peak > 0.12F && rms > 0.07)
-                         : (peak > 0.4F && rms > 0.25)) {
+            // Ordinary singing can exceed -6 dBFS. Only sustained input near clipping trips
+            // this guard; the sample limiter below handles loud but valid voice immediately.
+            if (peak > (cautious ? 0.9F : 0.95F) && rms > 0.65) {
                 monitorHighFrames_ = std::min(plan_.internalSampleRateHz,
                                               monitorHighFrames_ + buffer.frames);
             } else {
@@ -869,13 +870,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                 // Limit each monitor sample independently. A block-wide gain reacts to one
                 // isolated peak by ducking all neighbouring voice samples and creates crackle.
                 const auto fadeStep = 5.0F / plan_.internalSampleRateHz;
-                const auto limit = cautious ? 0.08F : 0.25F;
+                const auto limit = cautious ? 0.9F : 0.95F;
                 for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
                     monitorStartupGain_ = std::min(1.0F, monitorStartupGain_ + fadeStep);
                     for (std::uint32_t channel = 0; channel < buffer.channels; ++channel) {
                         const auto index = static_cast<std::size_t>(frame) * buffer.channels + channel;
-                        const auto value = mic[index] * gains.microphone * monitorStartupGain_ *
-                                           (cautious ? 0.5F : 1.0F);
+                        const auto value = mic[index] * gains.microphone * monitorStartupGain_;
                         const auto magnitude = std::abs(value);
                         const auto limited = magnitude <= limit * 0.5F ? magnitude
                             : magnitude >= limit * 1.5F ? limit

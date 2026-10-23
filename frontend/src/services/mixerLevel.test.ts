@@ -14,3 +14,12 @@ it("never changes how loud a voice knob sounds", () => {
   expect(mixerGain("remote", 0.5)).toBe(0.5);
   expect(mixerGain("master", 0.5)).toBe(0.5);
 });
+
+it("allows microphone makeup gain above unity while retaining exact mute and other channel ranges", () => {
+  expect(mixerGain("mic", 4)).toBe(4);
+  expect(mixerGain("mic", 2)).toBe(2);
+  expect(mixerGain("mic", 0)).toBe(0);
+  expect(mixerGain("mic", 5)).toBe(4);
+  expect(mixerGain("music", 2)).toBe(1);
+  expect(mixerGain("remote", 2)).toBe(1);
+});

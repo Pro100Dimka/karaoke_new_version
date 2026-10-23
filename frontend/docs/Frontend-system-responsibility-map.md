@@ -1,13 +1,13 @@
 # Карта ответственности систем A&D Voice
 
-> Эта карта применяется к новому проекту с первого дня. Никакие перечисленные ниже границы не являются этапами переноса или миграции: это исходная целевая модель системы.
+> Карта описывает границы существующих подсистем. Обязательная серверная архитектура комнаты и её live-проверки определены в корневом `AGENTS.md`.
 
 Этот документ является частью описания проекта и фиксирует, какая часть продукта фактически исполняет каждую функцию.
 
 ## Frontend technology
 
 ```text
-React + TypeScript + Electron + Vite + Theme UI kit (`src/theme/ui`) + Formik
+React + TypeScript + Electron + Vite + @neo-ui-kit/react
 ```
 
 Production renderer/preload/application contracts пишутся на TypeScript. JavaScript не используется как параллельная implementation path нового frontend.
@@ -85,7 +85,7 @@ runtime audio configuration
 microphone capture
 song playback
 play/pause/seek
-authoritative audio timeline
+authoritative local playback timeline; room playout follows the server timeline
 monitoring
 mixer
 live DSP
@@ -127,15 +127,19 @@ Create / Join Room / room-control metadata
 React → Python Backend
 
 Remote realtime voice media
-AudioService ↔ room media transport
+AudioService → Room Server → per-recipient server mix-minus → AudioService
 
 File Picker / Open Folder / Clipboard / Window Controls
 React → Electron Main
 ```
 
-## Запрещённые параллельные пути в целевом продукте
+## Room Server
 
-В проекте с нуля отсутствуют:
+Сервер задаёт музыкальную шкалу и срок воспроизведения, принимает timestamped microphones, выравнивает допущенные удалённые голоса и возвращает каждому участнику mix-minus. Собственный обработанный микрофон исполнитель слышит локально. Опоздавшие пакеты не проигрываются позднее; deadline не увеличивается во время песни. Эта архитектура не заменяется локальным смешиванием голосов участников.
+
+## Запрещённые параллельные пути
+
+Границы подсистем не допускают:
 
 ```text
 React AudioContext as main audio engine

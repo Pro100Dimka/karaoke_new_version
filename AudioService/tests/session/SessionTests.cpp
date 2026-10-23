@@ -619,6 +619,30 @@ void bareMonitoringReachesOutput() {
     expect(render.front() != 0.0F, "bare monitoring reaches output");
 }
 
+void singingRemainsAudibleAtFullMicrophoneGain() {
+    for (const auto cautious : {false, true}) {
+        RunningService fixture;
+        fixture.service.realtime().setMonitoring(true, cautious);
+        auto gains = fixture.service.realtime().mixerGains();
+        gains.microphone = 4.0F;
+        fixture.service.realtime().setMixerGains(gains);
+        std::vector<float> capture(128), render(256);
+        double power = 0.0;
+        for (int block = 0; block < 400; ++block) {
+            for (std::size_t frame = 0; frame < capture.size(); ++frame)
+                capture[frame] = 0.18F * std::sin(6.2831853F * 4.0F * frame / 128.0F);
+            fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
+            if (block >= 300)
+                for (const auto sample : render)
+                    power += static_cast<double>(sample) * sample;
+        }
+        expect(fixture.service.realtime().monitoring(),
+               "ordinary sustained singing must not trip the feedback protection in either mode");
+        expect(std::sqrt(power / (100 * render.size())) > 0.4,
+               "microphone makeup gain must remain audible beside a full-volume backing track");
+    }
+}
+
 void sustainedFeedbackDisablesLocalMonitoring() {
     RunningService fixture;
     fixture.service.realtime().setMonitoring(true);
@@ -676,14 +700,14 @@ void asio4allCautiousMonitoringLimitsAndStopsFeedback() {
            "ordinary voice remains audible in cautious ASIO monitoring");
     expect(*std::ranges::max_element(render) > 0.005F,
            "cautious ASIO monitoring still emits the microphone");
-    std::fill(capture.begin(), capture.end(), 0.2F);
+    std::fill(capture.begin(), capture.end(), 0.99F);
     float maximumOutput = 0.0F;
     for (int block = 100; block < 140; ++block) {
         fixture.fake->pump(capture, 1, render, 2, block * 128, block * 128);
         maximumOutput = std::max(maximumOutput, *std::ranges::max_element(render));
     }
-    expect(maximumOutput <= 0.081F,
-           "cautious ASIO monitoring caps a rising feedback tone well below full scale");
+    expect(maximumOutput <= 0.901F,
+           "cautious ASIO monitoring caps a rising feedback tone below full scale");
     expect(!fixture.service.realtime().monitoring() &&
                fixture.service.realtime().monitoringSafetyTripped(),
            "cautious ASIO monitoring disconnects a sustained feedback tone promptly");
@@ -704,7 +728,7 @@ void isolatedMicrophonePeakDoesNotDuckNeighbouringMonitorAudio() {
         capture[64] = 0.08F;
         for (std::size_t frame = 0; frame < capture.size(); ++frame) {
             const auto value = render[frame * 2];
-            sawLimitedPeak |= value > 0.15F && value <= 0.251F;
+            sawLimitedPeak |= value > 0.5F && value <= 0.951F;
             duckedNeighbour |= value > 0.001F && value < 0.06F;
         }
     }

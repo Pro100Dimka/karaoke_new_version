@@ -8,10 +8,12 @@
     ├── First Run / Empty Library
     ├── Search / Filter / Sort
     ├── Import / Add Song
-    ├── Processing Queue
+    ├── Processing Queue (Steps, details, cancel/retry, persistent clear via SplitButton)
     ├── Recordings
+    │   ├── Original / Studio Master внутри одного выступления
     │   └── Performance Analysis
     ├── Song Settings
+    │   ├── Уточнить слова и ноты / confirmed AI-baseline reset при конфликте ручных правок
     │   └── /editor/:songId
     ├── History
     │   ├── Performances
@@ -106,6 +108,8 @@ Route Content
 ```
 
 `Minus`, `Maximize2`/Restore и `X` всегда находятся поверх всех modal/overlay surfaces и остаются кликабельными, включая Karaoke fullscreen.
+
+В текущем TitleBar этим назначениям соответствуют kit icons `minus`, `fit`, `close`; средняя кнопка переключает fullscreen. Native modal получает controls через portal/top-layer popover. Settings размещается по центру viewport; содержимое прокручивается внутри dialog.
 
 Modal backdrops и focus traps не имеют права перехватывать pointer activation этих системных кнопок.
 

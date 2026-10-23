@@ -58,3 +58,14 @@ it("repeats the current state for a renderer that has just loaded", () => {
   visibility.republish();
   expect(states).toEqual([true, true]);
 });
+
+it("resynchronizes visibility on focus when restore arrived before the native window state settled", () => {
+  const main = fakeWindow();
+  const states: boolean[] = [];
+  watchAppVisibility(main.window, (shown) => states.push(shown));
+  main.set(true);
+  main.window.emit("restore");
+  main.window.minimized = false;
+  main.window.emit("focus");
+  expect(states).toEqual([false, true]);
+});

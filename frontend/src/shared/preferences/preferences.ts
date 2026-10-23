@@ -353,8 +353,7 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.karaokeMonitoring
         : base.karaokeMonitoring,
     musicGain: gain(value.musicGain, base.musicGain),
-    // The room microphone knob intentionally offers the same 0-200% boost after a restart.
-    voiceGain: gain(value.voiceGain, base.voiceGain, 2),
+    voiceGain: gain(value.voiceGain, base.voiceGain, 4),
     referenceGain: gain(value.referenceGain, base.referenceGain),
     melodyGain: gain(value.melodyGain, base.melodyGain),
     masterGain: gain(value.masterGain, base.masterGain, masterGainMax),

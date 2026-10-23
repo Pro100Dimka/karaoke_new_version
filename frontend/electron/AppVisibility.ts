@@ -4,7 +4,7 @@ export interface WatchedWindow {
   isVisible(): boolean;
   isMinimized(): boolean;
   on(
-    event: "minimize" | "restore" | "show" | "hide" | "closed",
+    event: "minimize" | "restore" | "show" | "hide" | "focus" | "closed",
     listener: () => void,
   ): unknown;
 }
@@ -29,7 +29,7 @@ export const watchAppVisibility = (
     publish(onScreen);
   };
   const watch = (window: WatchedWindow) => {
-    for (const event of ["minimize", "restore", "show", "hide"] as const)
+    for (const event of ["minimize", "restore", "show", "hide", "focus"] as const)
       window.on(event, update);
   };
   watch(main);

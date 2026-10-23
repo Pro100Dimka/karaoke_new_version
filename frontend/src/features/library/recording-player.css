@@ -1,13 +1,13 @@
-/* Take player: the waveform takes the free width; the volume slider slides out on hover. */
+/* A stable transport row: the waveform takes the free width beside a fixed-size volume knob. */
 .recordingPlayer {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-3);
   min-width: 0;
 }
 .recordingTimeline {
   display: grid;
-  flex: 1;
   gap: var(--ad-space-1);
   min-width: 0;
 }
@@ -15,20 +15,9 @@
   height: 2.75rem;
 }
 .recordingVolume {
-  display: flex;
-  align-items: center;
-}
-.recordingVolumeSlider.ad-slider {
-  width: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition:
-    width 0.3s ease,
-    opacity 0.3s ease;
-}
-.recordingVolume[data-expanded] .recordingVolumeSlider.ad-slider {
-  width: 6rem;
-  opacity: 1;
+  display: grid;
+  justify-items: center;
+  inline-size: 5.5rem;
 }
 /* A take's player before its card scrolls near the view: the same height, nothing drawn. */
 .recordingPlayerPending {

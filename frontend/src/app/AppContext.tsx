@@ -106,6 +106,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     );
     document.documentElement.dataset.adMotion =
       preferences.reducedMotion || !onScreen ? "off" : "on";
+    // Electron keeps document.hidden=false when minimized, so the kit needs its desktop wake-up.
+    if (onScreen && !preferences.reducedMotion)
+      document.dispatchEvent(new Event("visibilitychange"));
   }, [preferences.reducedMotion, onScreen]);
   useEffect(
     () => applyAppFonts(preferences.headingFont, preferences.textFont),

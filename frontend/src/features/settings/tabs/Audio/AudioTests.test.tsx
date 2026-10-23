@@ -94,6 +94,14 @@ describe("AudioTests", () => {
     clearStorage();
   });
 
+  it("offers microphone makeup gain up to 400% without extending the noise control", () => {
+    render(<AppProvider><FormMonitor /></AppProvider>);
+    const microphone = screen.getByRole("slider", { name: "Микрофон" });
+    fireEvent.keyDown(microphone, { key: "End" });
+    expect(screen.getByTestId("form-gain")).toHaveTextContent("4");
+    expect(screen.getByRole("slider", { name: "Шум" })).toHaveAttribute("aria-valuemax", "100");
+  });
+
   it("reads and writes voice controls through the root settings form", () => {
     render(
       <AppProvider>

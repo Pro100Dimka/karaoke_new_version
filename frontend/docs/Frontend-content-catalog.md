@@ -28,7 +28,7 @@ Frontend поддерживает четыре визуальные темы:
 
 ## 3. Library background
 
-Картинка выбранной темы из `assets/karaoke-backgrounds/` задаётся один раз на корневом контейнере `.appTheme` и покрывает библиотеку, шапку и экран запуска. Анимированный слой `QuantumBackground` из `@neo-ui-kit/react` временно отключён (закомментирован в `AppShell`): он не получает звук AudioService (радио, микрофон) и оставляет поля от виньетки; фоном служит только картинка темы. Опрос спектра AudioService продолжает работать для обложек песен.
+Картинка выбранной темы из `src/assets/karaoke-backgrounds/` задана на `.appTheme`. В видимой Library работает `LibraryBackdrop` с `QuantumBackground` из `@neo-ui-kit/react`, спектром AudioService и уровнем микрофона. Скрытая под Settings страница приостанавливается; Reduced Motion и невидимость окна отключают движение, idle сам по себе не меняет preference. `three` поставляется локально. На карточках песен декоративного эквалайзера нет.
 
 ## 4. Звуковой UI-контент
 
@@ -53,11 +53,23 @@ Electron runtime может предоставить отдельный scene me
 
 ## 7. Обложка песни
 
-`SongCoverArt` не требует обязательного локального image-файла. Если у песни есть artwork — показывается artwork. Если artwork отсутствует — используется fallback-композиция с Lucide `Music2`.
+`SongCard` показывает artwork справа через `object-fit: contain`, а название, исполнителя и действия слева. Без картинки тематическая поверхность и содержимое занимают всю карточку. Новый импорт не извлекает embedded artwork: автоматическая картинка получается online и кешируется backend; ручной custom cover имеет приоритет. Отсутствие картинки не блокирует обработку или Karaoke.
 
-## 8. Lucide icon set
+## 8. Иконки UI-кита
 
-Все перечисленные ниже иконки используются как **объекты из `lucide-react`**, а не как вручную скопированные SVG-файлы:
+Текущий код использует `Icon` и `icon`-props из `@neo-ui-kit/react`, без прямого импорта `lucide-react`. Ниже в каталоге и старых разделах spec сохранены семантические имена Lucide для назначения значков; это не названия импортируемых компонентов. Основные соответствия в текущем UI:
+
+| Назначение / старое имя | Kit name |
+| --- | --- |
+| Play / Pause / Square | `play` / `pause` / `stop` |
+| Settings2 / Cog | `settings` |
+| AudioWaveform / RotateCcw | `wave` / `reset` |
+| FolderOpen / Trash2 / Ellipsis | `folder` / `trash` / `more` |
+| Plus / Search / SlidersHorizontal | `plus` / `search` / `sliders` |
+| Music2 / Piano | `music` / `note` |
+| Minus / Maximize2 / X | `minus` / `fit` / `close` |
+
+Для новой кнопки выбирается существующее имя из типизированного kit API и назначения в соответствующем компоненте. Семантический словарь старых обозначений:
 
 `AlertCircle`, `AlertTriangle`, `ArrowLeft`, `ArrowLeftToLine`, `ArrowRightToLine`, `AudioLines`, `AudioWaveform`, `BarChart3`, `Check`, `CheckCircle2`, `ChevronDown`, `ChevronLeft`, `ChevronRight`, `ChevronUp`, `CircleAlert`, `CircleCheck`, `CircleDot`, `Cog`, `Copy`, `Cpu`, `Crosshair`, `Database`, `Download`, `Ellipsis`, `FolderOpen`, `Headphones`, `Info`, `Library`, `ListChecks`, `LoaderCircle`, `Lock`, `LogOut`, `Maximize2`, `Merge`, `Mic`, `Mic2`, `MicOff`, `Minus`, `MousePointer2`, `MoveHorizontal`, `MoveVertical`, `Music2`, `OctagonX`, `Palette`, `PanelLeftClose`, `PanelLeftOpen`, `Pause`, `Piano`, `Play`, `Plus`, `Radio`, `Redo2`, `RotateCcw`, `Save`, `Search`, `Settings2`, `ShieldCheck`, `SkipBack`, `SkipForward`, `SlidersHorizontal`, `Sparkles`, `Square`, `Stethoscope`, `Trash2`, `Type`, `Undo2`, `Unlock`, `UsersRound`, `Volume2`, `VolumeX`, `Wrench`, `X`.
 
@@ -138,7 +150,7 @@ Electron runtime может предоставить отдельный scene me
 - `CheckCircle2`, `CircleAlert`, `AlertTriangle` — health/model statuses.
 - `Download` — загрузка модели/ресурса.
 
-## 10. Product identity assets to create
+## 10. Product identity assets
 
 Для полноценного продукта должны существовать отдельные identity assets:
 
@@ -150,15 +162,15 @@ Electron runtime может предоставить отдельный scene me
 - empty Library visual treatment;
 - generic error/processing visual treatment.
 
-Если отдельная иллюстрация отсутствует, использовать согласованную композицию из Lucide icon + typography, а не случайные изображения из разных источников.
+Если отдельная иллюстрация отсутствует, использовать согласованную композицию из kit icon + typography, а не случайные изображения из разных источников. Изображения тем и значки окна уже находятся в `src/assets/theme-icons`; перечисление identity assets не означает, что они ещё не созданы.
 
 ## 11. Title Bar content and layering
 
-Для системных кнопок title bar использовать только Lucide objects:
+Системные кнопки title bar используют kit icons:
 
-- `Minus` — minimize;
-- `Maximize2` — maximize/restore;
-- `X` — close.
+- `minus` — minimize;
+- `fit` — войти/выйти из fullscreen (именно так работает средняя кнопка текущего TitleBar);
+- `close` — close.
 
 Эти три кнопки являются самым верхним интерактивным слоем приложения и должны оставаться поверх любых dialogs, modals, overlay и blackout surfaces.
 
@@ -170,7 +182,7 @@ Electron runtime может предоставить отдельный scene me
 
 # Дополнительные обязательные UI-объекты финальной specification
 
-Использовать Lucide React icons для следующих новых/уточнённых product states:
+Следующие семантические обозначения выбирают соответствующий kit icon, не новую SVG-библиотеку:
 
 ```text
 HardDrive          → storage / insufficient disk space
@@ -194,12 +206,12 @@ Timer              → processing/recording duration
 Music2             → deterministic song artwork fallback
 ```
 
-Title bar system controls remain exactly:
+Title bar system controls:
 
 ```text
-Minus
-Maximize2
-X
+minus
+fit
+close
 ```
 
-Эти три objects не заменяются theme-specific custom glyphs и всегда принадлежат самому верхнему интерактивному слою приложения.
+Эти три объекта не заменяются theme-specific custom glyphs и принадлежат верхнему интерактивному слою приложения. Старое имя `Maximize2` обозначает среднюю кнопку, но её текущая команда — fullscreen toggle.

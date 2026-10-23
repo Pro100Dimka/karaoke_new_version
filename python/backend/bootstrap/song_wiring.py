@@ -37,7 +37,7 @@ from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, GetSongWaveform, ListSongs
 from backend.songs.update_song import UpdateSong
-from backend.songs.recognition import SongRecognitionProvider
+from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 from backend.songs.refresh_recognition import RefreshSongRecognition
 from backend.songs.prepare_clip import PrepareSong, PrepareSongClip
 
@@ -47,8 +47,9 @@ def build_song_cases(
     project: ProjectWiring,
     processing: ProcessingWiring,
     recognition: SongRecognitionProvider,
+    catalog_lookup: SongCatalogLookup | None = None,
 ) -> SongCases:
-    start, melody = _build_processing(runtime, project, processing, recognition)
+    start, melody = _build_processing(runtime, project, processing, recognition, catalog_lookup)
     save_editor = _save_editor(runtime, project)
     importer = _import_song(runtime, project, recognition)
     get_song = GetSong(runtime.database)
@@ -126,6 +127,7 @@ def _build_processing(
     project: ProjectWiring,
     processing: ProcessingWiring,
     recognition: SongRecognitionProvider,
+    catalog_lookup: SongCatalogLookup | None,
 ) -> tuple[StartProcessing, ReprocessMelody]:
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
     resources = ProcessingResourceScheduler(
@@ -147,7 +149,7 @@ def _build_processing(
         resources,
         project.operations,
         persistence,
-        _song_preparation(runtime, project, recognition),
+        _song_preparation(runtime, project, recognition, catalog_lookup),
     )
     melody = _reprocess_melody(
         runtime, project, processing, resolver, resources, publisher, runner, persistence
@@ -186,9 +188,12 @@ def _reprocess_melody(
 
 
 def _song_preparation(
-    runtime: RuntimeWiring, project: ProjectWiring, recognition: SongRecognitionProvider
+    runtime: RuntimeWiring,
+    project: ProjectWiring,
+    recognition: SongRecognitionProvider,
+    catalog_lookup: SongCatalogLookup | None,
 ) -> PrepareSong:
-    refresh = RefreshSongRecognition(runtime.database, recognition, runtime.clock)
+    refresh = RefreshSongRecognition(runtime.database, recognition, runtime.clock, catalog_lookup)
     clip = PrepareSongClip(
         runtime.database,
         YoutubeClipDownloader(processes=runtime.processes),

@@ -1,7 +1,8 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRecordingPlayback } from "./useRecordingPlayback";
 import { LibraryProvider } from "../../app/LibraryProvider";
+import { RecordingPlayer } from "./RecordingPlayer";
 
 const audio = vi.hoisted(() => ({
   playRecording: vi.fn(),
@@ -9,8 +10,11 @@ const audio = vi.hoisted(() => ({
   stopRecordingPreview: vi.fn(),
   seekRecordingPreview: vi.fn(),
   recordingPreviewStatus: vi.fn(),
+  setPreviewVolume: vi.fn(),
 }));
 vi.mock("../../services/audioClient", () => ({ audioClient: audio }));
+vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
+vi.mock("../../shared/hooks/useWaveformPeaks", () => ({ useRecordingPeaks: () => [0.2, 0.5, 0.3] }));
 const recording = {
   id: "take",
   filePath: "take.wav",
@@ -28,7 +32,19 @@ describe("recording preview polling", () => {
     for (const method of Object.values(audio))
       method.mockReset().mockResolvedValue(undefined);
   });
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  it("exposes a permanent rotary volume control that changes the actual preview gain", () => {
+    render(<LibraryProvider><RecordingPlayer recording={recording} /></LibraryProvider>);
+    const knob = screen.getByRole("slider", { name: "recordingVolume" });
+    expect(knob.closest(".ad-rotary-knob")).not.toBeNull();
+    expect(knob).toHaveAttribute("aria-valuenow", "1");
+    fireEvent.keyDown(knob, { key: "ArrowDown" });
+    expect(audio.setPreviewVolume).toHaveBeenLastCalledWith(0.99);
+    expect(knob).toHaveAttribute("aria-valuenow", "0.99");
+    fireEvent.keyDown(knob, { key: "Home" });
+    expect(audio.setPreviewVolume).toHaveBeenLastCalledWith(0);
+  });
 
   it("keeps one slow status request in flight", async () => {
     audio.recordingPreviewStatus.mockReturnValue(new Promise(() => undefined));

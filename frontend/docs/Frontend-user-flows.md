@@ -45,6 +45,7 @@ Song Card
 → Processing Queue
 → Queued
 → Preparing
+→ Recognition/official video lookup; при наличии клип скачивается параллельно audio pipeline
 → Processing stages + progress
 → Completed
 → Refresh automatic metadata while preserving manual overrides
@@ -69,6 +70,19 @@ Processing Failed
 → Error details
 → Retry / Reprocess / Close
 ```
+
+Уточнение существующего Ready-проекта:
+
+```text
+Song Settings → Уточнить слова и ноты
+→ validated existing stems + current text + saved language/phrase hints
+→ alignment + pitch/notes → validate → publish new revision
+→ project/editor loads new active revision
+```
+
+Если имеются ручные правки: `ManualLyricsConflict` → в очереди `Вернуться к AI и пересчитать` → подтверждение с номером сохраняемой ревизии → новая ревизия из baseline → уточнение. Отмена подтверждения не заменяет ручную разметку; старые ревизии сохраняются.
+
+Очистка очереди: `Очистить` (SplitButton, основное действие — завершённые) → выбрать завершённые / с ошибкой / все → подтвердить → сохранить скрытые job ID для текущего frontend-профиля. Refresh и restart не возвращают эти карточки; backend history, song data и выполняющиеся jobs не удаляются и не отменяются.
 
 ## 4. Настроить audio
 
@@ -103,6 +117,8 @@ Ready Song Card
 → Playing
 ```
 
+Обычная кнопка запуска из Library использует AutoStart. Text/Notes следуют времени AudioService; после трёх секунд без текста оба слоя скрываются, следующая строка возвращается за три секунды до вступления. Далёкая следующая строка не показывается preview, окончание последней строки не остаётся на весь outro. Полностью заполненное слово может кратко оставаться контекстом.
+
 Without microphone:
 
 ```text
@@ -112,15 +128,15 @@ Monitoring / Live Pitch / Voice Recording are disabled
 
 ## 6. Practice controls
 
-Before recording:
+В готовой local session:
 
 ```text
-Practice Speed = 0.50 / 0.65 / 0.75 / 0.85 / 1.00
+Tempo BPM = detected base BPM × rate (0.50–1.50)
 Key Transpose = -12 ... +12 semitones
 Vocal Range Display = visual range only
 ```
 
-During active recording, Practice Speed / Key Transpose / Seek are locked.
+Локальная запись сама по себе не блокирует tempo/key/seek. Изменения tempo/key передаются recording coordinator вместе с source position, чтобы анализ знал playback adjustments. Они относятся к текущему сеансу; mixer gains и monitoring preference сохраняются отдельно. Room authority/lock продолжает ограничивать общие параметры по правилам комнаты.
 
 ## 7. Завершить karaoke
 
@@ -142,7 +158,7 @@ Karaoke
 → Check free disk space
 → Start Recording automatically
 → Recording active
-→ Seek / Speed / Key locked
+→ Local tempo/key/seek remain available while session is interactive
 → Perform
 → Stop or EOF
 → Finalization
@@ -156,6 +172,7 @@ Karaoke
 Library / Karaoke Finished / History
 → Recordings
 → Select Take
+→ при наличии Studio Master выбрать Original / Studio Master внутри карточки выступления
 → Playback
 → Rename / Open Folder / Delete / Open Analysis
 ```
@@ -236,10 +253,12 @@ All remaining participants Ready
 → Host selects Practice Speed + Key Transpose
 → Countdown
 → Parameters lock
-→ Authoritative room start time/position distributed
-→ Each AudioService starts local playback against room timeline
-→ Remote voices mixed locally
+→ Room Server distributes authoritative musical timeline and playout deadline
+→ Each AudioService renders its local project at the server position; own processed microphone monitored locally
+→ Timestamped microphone goes upstream; server aligns eligible voices and returns per-recipient mix-minus
 ```
+
+Это обязательная архитектура, а не утверждение о пройденном live E2E. Опоздавшие пакеты не играют позднее; deadline фиксируется до песни. Критерии проверки 3–4 участников и все live-gates сохраняются в корневом `AGENTS.md`.
 
 After countdown, room Seek is locked until Stop/Finish; Host retains Play/Pause/Stop authority.
 

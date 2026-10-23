@@ -1,10 +1,16 @@
-# A&D Voice Frontend — полная product specification с нуля
+# A&D Voice Frontend
 
 ## Чистая установка
 
 Установите Node.js 22.12 или новее. Из папки `frontend` запустите `npm ci`: команда установит зависимости из lock-файла, включая выпущенную версию `@neo-ui-kit/react`, и загрузит исполняемый файл Electron. Для проверки сборки запустите `npm run build`. Нужен доступ к GitHub Releases, откуда скачивается UI-кит. Python Backend и AudioService устанавливаются отдельно; `npm ci` относится только к frontend.
 
-Этот архив описывает **сам frontend-продукт**, создаваемый полностью с нуля на React + TypeScript + Electron + Vite + Fluent UI. Он не является migration/refactor plan, не предполагает существование старого frontend, не содержит архитектурных/code rules и не является implementation plan.
+Рабочий desktop-клиент на React + TypeScript + Electron + Vite и `@neo-ui-kit/react`. Формы используют `useForm` из UI-кита; иконки — его `Icon` и строковые имена. Локального `src/theme/ui`, Formik и прямой зависимости `lucide-react` в текущем приложении нет. Версии зависимостей фиксируются в `package.json` и lock-файле.
+
+## Рабочий запуск и проверки
+
+Из корня репозитория: `start.bat dev` для Vite hot reload renderer, `start.bat` для собранного приложения. Изменения Electron, Python и AudioService требуют перезапуска; уже работающее окно сначала закрывают обычным способом. Для обычных функций достаточно одного окна. Комнатные сценарии запускаются через `start-multy.bat` по обязательным правилам корневого `AGENTS.md`.
+
+`check.bat frontend` запускает полный набор frontend-проверок, `check.bat frontend <путь к тесту>` — только промежуточную целевую проверку. Для изменений нескольких подсистем используется `check.bat all`. Browser/Electron, реальные аудиоустройства и room E2E проверяются отдельно, когда затронуты соответствующие сценарии; успешные unit-тесты их не заменяют.
 
 ## Документы
 
@@ -12,11 +18,11 @@
 - `docs/Frontend-screen-map.md` — карта routes, modal/overlay surfaces и layer priority.
 - `docs/Frontend-user-flows.md` — канонические end-to-end пользовательские сценарии.
 - `docs/Frontend-content-catalog.md` — используемые icons/assets/media и их точное назначение.
-- `docs/Frontend-technology-contract.md` — канонический стек React + TypeScript + Electron + Vite + Fluent UI и строгие typed boundaries Python Backend / AudioService / Electron.
+- `docs/Frontend-technology-contract.md` — текущий стек, UI-кит и typed boundaries Python Backend / AudioService / Electron.
 
 ## Assets
 
-В `assets/` включён канонический visual/audio content pack нового проекта, на который ссылается specification: theme previews, karaoke backgrounds, room sound и лицензия QFT asset.
+В `src/assets/` находятся theme previews, karaoke backgrounds и room sounds; лицензия фоновой сцены — в `src/app/backdrop/`.
 
 ## Важный contract title bar
 
@@ -24,7 +30,7 @@
 
 ## Статус
 
-Эта версия закрывает продуктовые решения без `if supported`/`where applicable` для внутренних функций v1. Если поведение зависит от внешнего hardware/backend, specification описывает конкретные observable состояния `Supported/Unsupported` и recovery UX.
+Описания актуализированы по рабочему дереву 23.10.2026. Они не являются отчётом об успешном прохождении всех проверок. Статус и границы документов описаны в `docs/SPEC-STATUS.md`; обязательные архитектурные и live-gates из `AGENTS.md` сохраняются.
 
 - `docs/Frontend-system-responsibility-map.md` — каноническая карта владельцев функций React / Electron Main / Python Backend / AudioService.
 
@@ -38,4 +44,4 @@
 
 - Production application code: TypeScript (`.ts` / `.tsx`).
 - JavaScript не используется для нового application logic.
-- Python Backend и AudioService считаются готовыми внешними системами с typed/versioned public contracts.
+- Python Backend и AudioService работают отдельными процессами с typed/versioned public contracts; их готовность подтверждают собственные проверки.

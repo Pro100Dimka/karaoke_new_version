@@ -12,6 +12,11 @@ from backend.infrastructure.logging_config import configure_logging
 from backend.infrastructure.job_executor import watch_parent_input
 from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
 from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
+from backend.infrastructure.pisni_provider import PisniLyricsProvider
+from backend.infrastructure.audd_recognition import (
+    ItunesCatalogRecognitionProvider,
+    YoutubeVideoFinder,
+)
 from backend.infrastructure.runtime_probe import forget_torch_facts
 from backend.infrastructure.torch_runtime import prepare_gpu_build
 
@@ -33,11 +38,15 @@ def main() -> None:
             print(f"AD_VOICE_BACKEND_READY:{port}", flush=True)
             announced = True
 
+    lyrics = (LrclibLyricsProvider(), PisniLyricsProvider(), TekstPesenokLyricsProvider())
     server = uvicorn.Server(
         uvicorn.Config(
             create_app(
                 config,
-                lyrics_providers=(LrclibLyricsProvider(), TekstPesenokLyricsProvider()),
+                lyrics_providers=lyrics,
+                catalog_lookup=ItunesCatalogRecognitionProvider(
+                    find_video=YoutubeVideoFinder(config.youtube_api_key)
+                ),
             ),
             host=config.host,
             port=config.port,

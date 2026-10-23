@@ -287,7 +287,9 @@ class ItunesCatalogRecognitionProvider:
         identity = split_artist_title(source.stem)
         if identity is None:
             return None
-        wanted_artist, wanted_title = identity
+        return self.lookup(*identity)
+
+    def lookup(self, wanted_artist: str, wanted_title: str) -> RecognizedSong | None:
         request = _catalog_request(wanted_artist, wanted_title)
         try:
             payload = loads_object(self._get(request, self._timeout).decode("utf-8"))

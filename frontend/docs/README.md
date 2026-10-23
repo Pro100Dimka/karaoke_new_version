@@ -1,18 +1,19 @@
-# A&D Voice Frontend — полная product specification с нуля
+# Документация A&D Voice Frontend
 
-Этот архив описывает **сам frontend-продукт**, создаваемый полностью с нуля на React + TypeScript + Electron + Vite + Theme UI kit (`src/theme/ui`) + Formik. Он не является migration/refactor plan, не предполагает существование старого frontend, не содержит архитектурных/code rules и не является implementation plan.
+Документы описывают существующий frontend на React + TypeScript + Electron + Vite + `@neo-ui-kit/react`. Формы используют kit `useForm`, иконки — kit `Icon`. Описания поведения сверены с рабочим деревом 23.10.2026; состояние проверок не следует выводить из наличия описанного сценария (см. [SPEC-STATUS.md](SPEC-STATUS.md)).
 
 ## Документы
 
-- `docs/Frontend-project-spec.md` — нормативное полное описание продукта, экранов, состояний, lifecycle, Library, Karaoke, Melody Editor, Settings, Recording, Processing, Online Room, recovery, persistence и desktop behaviour.
-- `docs/Frontend-screen-map.md` — карта routes, modal/overlay surfaces и layer priority.
-- `docs/Frontend-user-flows.md` — канонические end-to-end пользовательские сценарии.
-- `docs/Frontend-content-catalog.md` — используемые icons/assets/media и их точное назначение.
-- `docs/Frontend-technology-contract.md` — канонический стек React + TypeScript + Electron + Vite + Theme UI kit (`src/theme/ui`) + Formik и строгие typed boundaries Python Backend / AudioService / Electron.
+- [Frontend-project-spec.md](Frontend-project-spec.md) — продукт, экраны, обработка, караоке, редактор, записи, настройки и lifecycle.
+- [Frontend-screen-map.md](Frontend-screen-map.md) — routes, modal/overlay surfaces и layer priority.
+- [Frontend-user-flows.md](Frontend-user-flows.md) — пользовательские сценарии, включая пересчёт и очистку очереди.
+- [Frontend-content-catalog.md](Frontend-content-catalog.md) — icons/assets/media и их назначение.
+- [Frontend-technology-contract.md](Frontend-technology-contract.md) — текущий стек и typed boundaries сервисов.
+- [Frontend-system-responsibility-map.md](Frontend-system-responsibility-map.md) — владельцы функций React / Electron / Python / AudioService / Room Server.
 
 ## Assets
 
-В `assets/` включён канонический visual/audio content pack нового проекта, на который ссылается specification: theme previews, karaoke backgrounds, room sound и лицензия QFT asset.
+Файлы изображений и звуков находятся в `../src/assets/`, лицензия фоновой сцены — в `../src/app/backdrop/`.
 
 ## Важный contract title bar
 
@@ -20,9 +21,7 @@
 
 ## Статус
 
-Эта версия закрывает продуктовые решения без `if supported`/`where applicable` для внутренних функций v1. Если поведение зависит от внешнего hardware/backend, specification описывает конкретные observable состояния `Supported/Unsupported` и recovery UX.
-
-- `docs/Frontend-system-responsibility-map.md` — каноническая карта владельцев функций React / Electron Main / Python Backend / AudioService.
+Запуск и команды проверок определяет [корневой AGENTS.md](../../AGENTS.md). Описания продукта не отменяют требования к архитектуре, регрессионным тестам, аппаратным и комнатным проверкам.
 
 ## Зафиксированные решения v1
 
@@ -34,4 +33,4 @@
 
 - Production application code: TypeScript (`.ts` / `.tsx`).
 - JavaScript не используется для нового application logic.
-- Python Backend и AudioService считаются готовыми внешними системами с typed/versioned public contracts.
+- Python Backend и AudioService работают отдельными процессами с typed/versioned public contracts; их готовность подтверждают собственные проверки.

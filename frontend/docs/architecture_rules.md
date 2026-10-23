@@ -7,8 +7,7 @@ React
 TypeScript
 Electron
 Vite
-Theme UI kit (src/theme/ui)
-Formik
+@neo-ui-kit/react
 ```
 
 **Status**
@@ -724,9 +723,9 @@ status → badge
 
 ---
 
-# 87. Theme UI kit (вместо Fluent UI) — основной design system
+# 87. Neo UI kit — основной design system
 
-> **Design system проекта:** вместо Fluent UI используется собственный **Theme UI kit** (`src/theme/ui`) вместе с Formik для форм (`GetForm`/`RenderFormikFields`). Каждое правило ниже, где названы Fluent или его компоненты, применяется к соответствующему компоненту kit (Button, IconButton, TextField, Select, Switch, Slider, Modal, Popover, Tooltip, Tabs, Grid и т. д.) и его tokens.
+> **Design system проекта:** `@neo-ui-kit/react`; компоненты и tokens импортируются из пакета, формы используют `useForm`, иконки — `Icon`. Локальный `src/theme/ui`, Formik и `GetForm`/`RenderFormikFields` не являются текущим implementation path. Правила о повторном использовании стандартных контролов, accessibility и typed boundaries сохраняются.
 
 ---
 
@@ -810,7 +809,7 @@ title controls
 
 # 104. Portal behavior должен соблюдать layer contract
 
-Fluent Dialog/Popover/Tooltip тоже.
+Neo UI Dialog/Popover/Tooltip тоже.
 
 ---
 

@@ -1,7 +1,6 @@
 # Frontend: сверка с docs (статус реализации)
 
-Источник требований: `docs/frontend/docs/*` (Frontend-project-spec, screen-map, user-flows, content-catalog,
-technology-contract, system-responsibility-map). Этот файл — фактический статус кода, а не копия спецификации.
+Исторический audit (основная сверка 04.10.2026), а не актуальный результат полного набора проверок. Источник требований: `docs/*` (Frontend-project-spec, screen-map, user-flows, content-catalog, technology-contract, system-responsibility-map). Описание текущего поведения актуализировано в этих документах 23.10.2026; перечисленные ниже прогоны относятся к моменту audit и не подтверждают текущее рабочее дерево или room live-gate.
 
 ## Проверено автоматически
 
@@ -39,16 +38,10 @@ push-обновления комнаты, эффекты удалённого у
 
 1. Список радиостанций (`app/radioStations.ts`) — предположение (в spec станции не перечислены).
 2. `useKaraokeSession` (~410 строк) больше рекомендуемого размера хука; его стоит разделить отдельной задачей.
-3. **Кнопки окна под модальным окном** (§5, 160, 185, 196): UI-кит открывает диалоги через нативный `showModal()`,
-   поэтому, пока открыт диалог, остальной документ, включая кнопки «Свернуть/Развернуть/Закрыть», inert. Оставлено
-   как известное ограничение (окно закрывается Alt+F4 или после закрытия диалога); e2e-тест помечен `fixme`.
+3. **Историческое ограничение кнопок окна под modal:** актуальный `app/TitleBar.tsx` переносит controls в верхний modal через portal и `showPopover()`, обходя inert/overflow остального документа. Старое описание отсутствия решения больше не соответствует коду; реальную кликабельность проверяют соответствующим UI E2E, а не выводят из этого audit.
 4. Секретные ENV-значения (Kaggle, AudD, YouTube) только на запись: backend API их не возвращает, поле показывает
    «Сохранено», значение можно заменить или удалить, но не прочитать.
 
-## Dependency: formik (forms)
+## Текущий UI dependency contract
 
-The forms of the application (settings, add song, song settings, room, take rename) are rendered from typed row
-configs by `theme/ui/GetForm` (the user's own form kit, ported from the previous project) on top of Formik.
-Formik is kept instead of a hand-written form engine: it owns values, touched/error state, dirty tracking,
-async validation and submit lifecycle, which the kit's `RenderFormikFields` binds to themed controls by path.
-No schema library is added; rows use plain `validate` functions.
+`@neo-ui-kit/react` предоставляет контролы, `useForm`, `Icon`, `Steps` и `SplitButton`. Локальный `theme/ui/GetForm`, Formik и прямой `lucide-react` отсутствуют в текущем application layer. Источник версий — `package.json` и lock-файл; детали — в `docs/Frontend-technology-contract.md`.

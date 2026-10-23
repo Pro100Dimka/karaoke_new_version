@@ -2209,7 +2209,7 @@ error
 
 # 326. CSS/classes
 
-Использовать `mergeClasses` Fluent там, где это стандарт проекта.
+Объединять className принятым в текущем коде способом; `mergeClasses` из прежнего UI-стека не является зависимостью проекта.
 
 ---
 
@@ -4576,7 +4576,7 @@ BEFORE IT BECOMES REACT STATE
 React
 TypeScript
 TSX
-Theme UI kit (src/theme/ui)
+@neo-ui-kit/react
 Electron
 ```
 
@@ -4743,7 +4743,7 @@ h1
 
 ---
 
-# 17. Для Fluent Text сохранять semantic role where required
+# 17. Для Neo UI Typography сохранять semantic role where required
 
 ---
 
@@ -5239,7 +5239,7 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-## 85. Если Fluent component уже решает label — не дублировать HTML label
+## 85. Если Neo UI component уже решает label — не дублировать HTML label
 
 ---
 
@@ -5263,7 +5263,7 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-## 91. Не создавать свой select, если Fluent Select/Dropdown подходит
+## 91. Не создавать свой select, если Neo UI Select/Dropdown подходит
 
 ---
 
@@ -5283,15 +5283,15 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-# Theme UI kit (ранее Fluent UI)
+# Neo UI kit
 
-> **Design system проекта:** вместо Fluent UI используется собственный **Theme UI kit** (`src/theme/ui`) вместе с Formik для форм (`GetForm`/`RenderFormikFields`). Каждое правило ниже, где названы Fluent или его компоненты, применяется к соответствующему компоненту kit (Button, IconButton, TextField, Select, Switch, Slider, Modal, Popover, Tooltip, Tabs, Grid и т. д.) и его tokens.
+> **Design system проекта:** `@neo-ui-kit/react`; компоненты и tokens импортируются из пакета, формы используют `useForm`, иконки — `Icon`. Локальный `src/theme/ui`, Formik и `GetForm`/`RenderFormikFields` не являются текущим implementation path. Правила о повторном использовании стандартных контролов, accessibility и typed boundaries сохраняются.
 
-## 96. Fluent component предпочтительнее самописного аналога
+## 96. Neo UI component предпочтительнее самописного аналога
 
 ---
 
-## 97. Не оборачивать Fluent Button в custom button без policy
+## 97. Не оборачивать Neo UI Button в custom button без policy
 
 ---
 
@@ -5309,11 +5309,11 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-## 100. Fluent props использовать напрямую, если это не создаёт duplication
+## 100. Neo UI props использовать напрямую, если это не создаёт duplication
 
 ---
 
-## 101. `mergeClasses` для объединения Fluent classes
+## 101. Объединять className без зависимости от внутреннего DOM kit
 
 ---
 
@@ -5321,23 +5321,23 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-## 103. Не использовать третью classnames-library без необходимости, если Fluent уже решает задачу
+## 103. Не использовать третью classnames-library без необходимости, если Neo UI уже решает задачу
 
 ---
 
-## 104. Fluent Dialog вместо собственного modal engine
+## 104. Neo UI Dialog вместо собственного modal engine
 
 ---
 
-## 105. Fluent Menu вместо собственного dropdown menu
+## 105. Neo UI Menu вместо собственного dropdown menu
 
 ---
 
-## 106. Fluent Tooltip вместо собственного tooltip
+## 106. Neo UI Tooltip вместо собственного tooltip
 
 ---
 
-## 107. Не смешивать Fluent и другой design system в одном screen
+## 107. Не смешивать Neo UI и другой design system в одном screen
 
 ---
 
@@ -5383,7 +5383,7 @@ onClick={() => handleDelete(song.id)}
 
 ---
 
-## 118. Tab UI использовать Fluent Tabs / правильную tab semantics
+## 118. Tab UI использовать Neo UI Tabs / правильную tab semantics
 
 ---
 
@@ -5509,7 +5509,7 @@ const visibleSongs = ...
 
 # Conditions / classes
 
-## 139. Simple class condition через `mergeClasses`
+## 139. Простое условие класса выражать непосредственно в className
 
 ---
 
@@ -5581,7 +5581,7 @@ const visibleSongs = ...
 
 ---
 
-## 156. Не завязываться на internal DOM Fluent component
+## 156. Не завязываться на internal DOM Neo UI component
 
 ---
 
@@ -5643,7 +5643,7 @@ const visibleSongs = ...
 
 # Tables
 
-## 170. Настоящие табличные данные — `<table>`/Fluent DataGrid
+## 170. Настоящие табличные данные — `<table>`/табличный компонент kit
 
 ---
 
@@ -6077,7 +6077,7 @@ SongCardV2
 
 ---
 
-## 254. После перехода на Fluent component удалить старый самописный аналог
+## 254. После перехода на Neo UI component удалить старый самописный аналог
 
 ---
 
@@ -6304,7 +6304,7 @@ const hasRecording = ...
 
 ---
 
-# Fluent icons
+# Иконки Neo UI kit
 
 ## 299. Иконку выбирать по смыслу, не по внешней похожести
 
@@ -7026,7 +7026,7 @@ items.map(item => (
 
 # DataGrid
 
-## 427. Для complex tabular list Fluent DataGrid лучше ручной grid, если подходит
+## 427. Для complex tabular list табличный компонент kit лучше ручной grid, если подходит
 
 ---
 
