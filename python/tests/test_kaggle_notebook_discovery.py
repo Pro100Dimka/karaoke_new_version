@@ -30,11 +30,13 @@ def test_kaggle_notebook_embeds_the_current_worker() -> None:
     )
     for relative in (
         "kaggle/ad_voice_server.py",
+        "python/backend/ai_worker/word_guidance.py",
         "python/backend/ai_worker/pitch.py",
         "python/backend/ai_worker/ctc.py",
         "python/backend/ai_worker/speech.py",
         "python/backend/ai_worker/timing.py",
         "python/backend/lyrics/discovery.py",
+        "python/backend/lyrics/codec.py",
         "python/backend/text_normalization.py",
     ):
         assert relative in assets, f"The notebook omits the current worker asset: {relative}"

@@ -36,5 +36,6 @@ endlocal & exit /b %CODE%
 :fail
 echo.
 echo Startup failed. See the messages above.
+if /i "%~1"=="dev" exit /b 1
 pause
 endlocal & exit /b 1

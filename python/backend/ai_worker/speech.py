@@ -5,7 +5,6 @@ import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping, Sequence
-from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -30,9 +29,9 @@ from backend.ai_worker.ctc import (
 from backend.ai_worker.paths import model_directory, model_file
 from backend.ai_worker.runtime import WHISPER_LANGUAGES, cpu_threads, device
 from backend.ai_worker.timing import vocal_onsets, voiced_frames
+from backend.ai_worker.word_guidance import phrase_window, recognized_phrase, with_word_guidance
 
 _SAMPLE_RATE = 16_000
-_PROMPT_CHARACTERS = 400
 _MINIMUM_BLOCK = 3
 _MARGIN_SECONDS = 0.6
 _HOP = 160
@@ -66,6 +65,7 @@ def _transcribe(vocal: Path, language: str, prompt: str | None) -> Mapping[str, 
         initial_prompt=prompt,
         fp16=target == "cuda",
         condition_on_previous_text=False,
+        temperature=0.0,
     )
     return result
 
@@ -94,7 +94,7 @@ def _accelerated_guidance(
         word_timestamps=True,
         initial_prompt=prompt,
         condition_on_previous_text=False,
-        beam_size=5,
+        beam_size=5, temperature=0.0,
     )
     serialized: list[dict[str, object]] = []
     text = ""
@@ -237,7 +237,7 @@ def _alignment_evidence(
         return (
             scores,
             frame_seconds,
-            _heard_words(_guidance(vocal, language, lyrics[:_PROMPT_CHARACTERS], 1)),
+            _heard_words(_guidance(vocal, language, lyrics, 1, prefer_accelerated=True)),
         )
     ctc_threads = max(1, threads // 2)
     guidance_threads = max(1, threads - ctc_threads)
@@ -245,7 +245,7 @@ def _alignment_evidence(
     with ThreadPoolExecutor(max_workers=2, thread_name_prefix="alignment-evidence") as pool:
         ctc = pool.submit(emission, samples)
         guidance = pool.submit(
-            _guidance, vocal, language, lyrics[:_PROMPT_CHARACTERS], guidance_threads
+            _guidance, vocal, language, lyrics, guidance_threads, prefer_accelerated=True
         )
         scores, frame_seconds = ctc.result()
         return scores, frame_seconds, _heard_words(guidance.result())
@@ -264,10 +264,12 @@ def _heard_timings(
     words: list[str],
     heard: list[tuple[str, float, float]],
     whole: Sequence[AlignedWord] | None = None,
+    *, minimum_block: int = 1,
 ) -> dict[int, tuple[float, float]]:
     return {
         block.a + offset: (heard[block.b + offset][1], heard[block.b + offset][2])
         for block in _matching_blocks(words, heard, whole)
+        if block.size >= minimum_block
         for offset in range(block.size)
     }
 
@@ -371,24 +373,19 @@ def _alignment_windows(
     samples: np.ndarray,
 ) -> list[Window]:
     words, total = lyrics.split(), len(samples) / _SAMPLE_RATE
-    phrases = _phrase_windows(lyrics, heard, total, whole)
     if timing_hints:
         hints = _shifted_hints(words, timing_hints, whole)
         onsets = vocal_onsets(samples, _SAMPLE_RATE, _HOP)
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
-            recognized = {(window.first, window.last): window for window in phrases
-                          if window.heard_start is not None}
-            for index, window in enumerate(windows):
-                phrase = recognized.get((window.first, window.last))
-                # Bound CTC's search; acoustic refinement still follows held vowels beyond ASR.
-                if (phrase is not None and phrase.heard_start is not None
-                        and window.heard_start is not None
-                        and phrase.start <= window.heard_start < phrase.end):
-                    windows[index] = replace(window, start=max(window.start, phrase.start),
-                                             end=min(window.end, phrase.end), heard_start=phrase.heard_start)
-            return windows
-    return phrases or _windows(words, heard, total, whole)
+            supported = _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK)
+            return [phrase_window(window, recognized_phrase(
+                                      window, words[window.first:window.last], heard, _MARGIN_SECONDS,
+                                      allow_utterance=window.first - 1 in supported and window.last in supported,
+                                  )[0],
+                                  whole[window.first].start, supported.get(window.last - 1),
+                                  _MARGIN_SECONDS) for window in windows]
+    return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
 
 
 def _phrase_windows(
@@ -470,11 +467,7 @@ def align(
     timing_hints: Sequence[Mapping[str, object]] = (),
     instrumental: Path | None = None,
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-    """Timing of every word and letter of ``lyrics`` against the vocal track.
-
-    Whisper first says roughly where each stretch of the text is sung; a character-level CTC model (forced alignment) then
-    times the words and letters of every stretch inside that part of the audio only.
-    """
+    """Align phrases, then phonetic word cores, and refine the actual sung tails."""
     samples = read_mono(vocal, _SAMPLE_RATE)
     words = lyrics.split()
     scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics)
@@ -483,15 +476,13 @@ def align(
     windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
     positions = {index: times[0] for index, times in heard_timings.items()}
     positions.update((window.first, window.heard_start) for window in windows
-                     if window.heard_start is not None and window.first not in positions)
-    guided = align_guided(
-        scores,
-        frame_seconds,
-        words,
-        windows,
-        positions,
-        voiced_frames(samples, _SAMPLE_RATE, _HOP),
-        whole,
+                     if window.heard_start is not None)
+    voiced = voiced_frames(samples, _SAMPLE_RATE, _HOP)
+    guided = align_guided(scores, frame_seconds, words, windows, positions, voiced, whole)
+    guided = with_word_guidance(
+        guided, scores, frame_seconds, windows,
+        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK), voiced, _MARGIN_SECONDS,
+        recognized=heard,
     )
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
     timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing))

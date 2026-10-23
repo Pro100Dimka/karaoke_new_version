@@ -1,3 +1,21 @@
+# Working launch and verification
+
+- Use `start.bat dev` for non-room renderer work: Vite hot-reloads React/CSS without rebuilding `dist`. Electron, Python and AudioService changes need a restart. An already running application must be closed normally before changing launch modes; do not kill a user's recording or processing job. Use `start.bat` to verify the bundled renderer when the change requires it.
+- Run checks from the repository root with `check.bat`. It preserves the existing test commands and returns a nonzero exit code on failure. Checks do not run npm/pip installation; use the existing installer if required tools are missing.
+
+| Area | Intermediate regression check | Full affected verification |
+| --- | --- | --- |
+| Renderer | `check.bat frontend src/app/serviceStatus.startup.test.ts` (replace with the affected test) | `check.bat frontend` (types, architecture, Vitest, Electron/Node tests) |
+| Electron / scripts | `check.bat frontend scripts/startup-lock.test.mjs` (or the affected `electron/...` test) | `check.bat frontend` |
+| Python backend | `check.bat backend tests/test_installer_contract.py` (or the affected test, optional `::test_name`) | `check.bat backend` (compile, architecture, bootstrap, required Ruff/mypy, full pytest) |
+| AudioService | `check.bat audio wavDecoderReportsFormat` (or the affected native test names) | `check.bat audio` (incremental build of all configured targets, full registered CTest suite) |
+| Cross-layer change | Run the regression tests for each changed area | `check.bat all` (the three full suites, sequentially to avoid competing with audio tests) |
+
+- Add the reproducing test first and confirm it fails before implementation. Focused checks are intermediate feedback, not completion evidence. Run the full affected suite after the final edit; rerun it if relevant source, tests, configuration or dependencies change. Do not omit tests, lower thresholds, ignore failures, or use an old successful run to validate changed code.
+- No-argument `check.bat` runs all full suites. These commands do not replace scenario-specific browser, real-device, room, synchronization or release gates below. Keep every gate applicable to the change.
+- `check.bat` puts per-process temporary files and supported caches under `E:\CodexTemp\ADVoice-checks` when E: exists. For assistant-launched application runs, set TEMP/TMP and any isolated test data under the task's directory on E:; share existing model files instead of copying them. Do not relocate the normal user's profile.
+- Save full check output under the task's E: directory and inspect the summary or failure details. Preserve the command's exit code before reading the log. Keep output focused instead of returning entire successful logs to the model.
+
 # Room work completion gate
 
 ## Non-negotiable room-audio architecture

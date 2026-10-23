@@ -43,6 +43,34 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
         assert editor.json()["document"]["words"][0]["notes"]
 
 
+def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(tmp_path: Path) -> None:
+    source = tmp_path / "history.wav"
+    write_wav(source)
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        song_id = imported["songId"]
+        path = f"/songs/{song_id}/processing"
+        for _ in range(2):
+            started = client.post(path, json={"mode": "Fast", "onlineLyrics": False})
+            assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        container = client.app.state.container
+        storage = container.songs.start_processing._pipeline._publisher._storage
+        previous = {revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
+                    for revision in (2, 3)}
+        with container.database.create() as transaction:
+            song = transaction.songs.get(song_id)
+            transaction.songs.update(replace(song, active_revision=2))
+            transaction.commit()
+
+        started = client.post(path, json={"mode": "Fast", "onlineLyrics": False})
+        job = wait_for_job(client, started.json()["jobId"])
+
+        assert job["state"] == "Succeeded", job
+        assert client.get(f"/songs/{song_id}").json()["activeRevision"] == 4
+        assert {revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
+                for revision in previous} == previous
+
+
 def test_clip_download_overlaps_processing_and_preserves_published_revision(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -307,6 +335,47 @@ class _RealignmentProvider(FakeAiProvider):
 
     def transcribe(self, *args, **kwargs):
         raise AssertionError("The existing lyric text must be preserved")
+
+
+@pytest.mark.parametrize("saved", ["catalog", "legacy", "invalid"])
+def test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_language(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, saved: str,
+) -> None:
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.lyrics.ports import LyricLineTiming
+    from backend.songs.domain import Language
+
+    source = tmp_path / "phase.wav"
+    write_wav(source)
+    root = tmp_path / "runtime"
+    provider, calls = FakeAiProvider(), []
+    original = provider.align
+
+    def align(*args, **kwargs):
+        calls.append((args[2], tuple(kwargs.get("timing_hints", ()))))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(provider, "align", align)
+    with app_client(root, ai_providers=(provider,)) as client:
+        song = import_song(client, source)
+        discovery = client.app.state.container.songs.start_processing._pipeline._document._discovery
+        monkeypatch.setattr(discovery, "discover", lambda *args, **kwargs:
+                            LyricsDiscoveryResult("ла", "catalog", (), (LyricLineTiming(.2, "ла"),)))
+        started = client.post(f"/songs/{song['songId']}/processing", json={"mode": "Fast"})
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        manifest_path = root / "songs" / song["songId"] / "revisions" / "2" / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if saved != "catalog":
+            manifest["provenance"]["lyricsTimingHints"] = None if saved == "legacy" else [
+                {"start": "bad", "text": "ла"}, {"start": -1, "text": "ла"}, {"start": True}]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        else:
+            assert manifest["provenance"].get("lyricsTimingHints") == [{"start": .2, "text": "ла"}]
+        for _ in range(2):
+            started = client.post(f"/songs/{song['songId']}/processing/lyrics")
+            assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        expected = LyricLineTiming(.2 if saved == "catalog" else .05, "ла")
+        assert calls[1:] == [(Language.RUSSIAN, (expected,))] * 2
 
 
 class _RemoteTimingProvider(_RealignmentProvider):

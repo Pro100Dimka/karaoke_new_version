@@ -1,7 +1,28 @@
 from __future__ import annotations
 
+from math import isfinite
+
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.lyrics.domain import LyricsDocument, Note, Word
+from backend.lyrics.ports import LyricLineTiming
+
+
+def decode_timing_hints(value: object, duration: float) -> tuple[LyricLineTiming, ...]:
+    """Optional coarse phrase evidence; invalid legacy metadata supplies no hint."""
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(
+        LyricLineTiming(float(start), text)
+        for item in value
+        if isinstance(item, dict)
+        for start, text in [(item.get("start"), item.get("text"))]
+        if isinstance(start, (int, float))
+        and not isinstance(start, bool)
+        and isfinite(start)
+        and 0 <= start < duration
+        and isinstance(text, str)
+        and text.strip()
+    )
 
 
 def encode_document(document: LyricsDocument) -> str:

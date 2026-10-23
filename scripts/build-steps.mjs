@@ -2,7 +2,7 @@
 // release.bat at the same time: the Python environment, AudioService and the frontend never wait
 // for each other. Output lines carry the lane name; the first failing lane stops the run.
 //
-// Usage: node scripts/build-steps.mjs <dev|start|multi|install|release>
+// Usage: node scripts/build-steps.mjs <dev|start|multi|install|release|check>
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
@@ -13,7 +13,7 @@ import { runningAppPid } from "./running-app.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv[2];
-const modes = ["dev", "start", "multi", "install", "release"];
+const modes = ["dev", "start", "multi", "install", "release", "check"];
 if (!modes.includes(mode)) {
   console.error(`Usage: node scripts/build-steps.mjs <${modes.join("|")}>`);
   process.exit(2);
@@ -25,9 +25,13 @@ const audio = path.join(root, "AudioService");
 const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
 const running = new Set();
 
-if (mode === "start") {
+if (mode === "start" || mode === "dev") {
   const activePid = runningAppPid(root);
   if (activePid) {
+    if (mode === "dev") {
+      console.error(`[app] A&D Voice is already running (PID ${activePid}). Close it before start.bat dev; its files were not changed.`);
+      process.exit(1);
+    }
     console.log(`[app] A&D Voice is already running (PID ${activePid}); focusing its window.`);
     process.exit(0);
   }
@@ -158,16 +162,21 @@ const audioLane = async () => {
   const build = mode === "release" ? path.join(audio, "build-release") : path.join(audio, "build");
   const options = {
     install: "-DAUDIOSERVICE_BUILD_TESTS=ON",
+    check: "-DAUDIOSERVICE_BUILD_TESTS=ON",
     release: "-DAUDIOSERVICE_BUILD_TESTS=OFF -DAUDIOSERVICE_BUILD_RELEASE_GATES=OFF",
   }[mode] ?? "";
   // A configured tree regenerates itself when CMakeLists changes; configuring again costs a second.
   if (!existsSync(path.join(build, "_deps", "opus-src")))
     await requireOnline("audio", "github.com", "the Opus codec sources");
-  if (mode === "install" || mode === "release" || !existsSync(path.join(build, "CMakeCache.txt")))
+  const cache = path.join(build, "CMakeCache.txt");
+  const testsDisabled = mode === "check" && existsSync(cache) &&
+    !/^AUDIOSERVICE_BUILD_TESTS:BOOL=ON$/m.test(readFileSync(cache, "utf8"));
+  if (mode === "install" || mode === "release" || !existsSync(cache) || testsDisabled)
     await exec("audio", `cmake -S ${quote(audio)} -B ${quote(build)} -A x64 ${options}`);
   // Starting the app needs only the client service; a release also installs the native relay.
   const target = {
     install: "",
+    check: targets.length ? "--target audioservice_tests" : "",
     release: "--target AudioService NativeVoiceRelay",
   }[mode] ?? "--target AudioService";
   await exec("audio", `cmake --build ${quote(build)} --config Release ${target} --parallel`);
@@ -185,6 +194,12 @@ const frontendLane = async () => {
   }
   else console.log("[frontend] node_modules match package-lock.json; nothing to install");
   writeFileSync(stamp, lock);
+  if (mode === "dev") {
+    // Vite serves the renderer; dev-electron.mjs compiles the shell once before opening it.
+    if (!existsSync(path.join(modules, "electron", "dist", "electron.exe")))
+      await npm("electron:install");
+    return;
+  }
   if (mode !== "start") await npm("electron:install");
   // Type checking emits nothing, so it runs beside the bundler instead of before it.
   await all([
@@ -194,24 +209,73 @@ const frontendLane = async () => {
   ]);
 };
 
+const scope = process.argv[3] ?? "all";
+const targets = process.argv.slice(4).map((value) => value.replaceAll("\\", "/"));
+const targetRules = {
+  frontend: { directory: frontend, pattern: /^(?:src|electron|scripts)\/[\w./-]+\.test\.(?:tsx?|mjs)$/ },
+  backend: { directory: path.join(root, "python"), pattern: /^tests\/[\w./-]+\.py(?:::[\w.-]+)*$/ },
+  audio: { pattern: /^[A-Za-z_][\w.-]*$/ },
+};
+if (mode === "check") {
+  const rule = targetRules[scope];
+  const invalidTarget = targets.some((target) => {
+    if (!rule?.pattern.test(target)) return true;
+    if (!rule.directory) return false;
+    const file = path.resolve(rule.directory, target.split("::")[0]);
+    return path.relative(rule.directory, file).startsWith("..") || !existsSync(file);
+  });
+  if ((scope !== "all" && !rule) || (scope === "all" && targets.length) || invalidTarget) {
+    console.error("Usage: check.bat [frontend|backend|audio|all] [test files or native test names]. Targets must stay inside the selected project area.");
+    process.exit(2);
+  }
+  console.log(targets.length
+    ? "[check] Focused checks only, not a full verification. Run the full affected suite before completion."
+    : `[check] Full ${scope} checks; existing test suites are preserved.`);
+}
+const checks = {
+  frontend: async () => {
+    const run = (command) => exec("frontend", command, { cwd: frontend });
+    if (!targets.length) return all([() => run("npm run typecheck"), () => run("npm test")]);
+    const runners = {
+      "node node_modules/vitest/vitest.mjs run": targets.filter((target) => !target.endsWith(".mjs")),
+      "node --test": targets.filter((target) => target.endsWith(".mjs")),
+    };
+    await all(Object.entries(runners)
+      .filter(([, files]) => files.length)
+      .map(([command, files]) => () => run(`${command} ${files.map(quote).join(" ")}`)));
+  },
+  backend: () => exec("backend", targets.length
+    ? `${quote(python)} -m pytest -q ${targets.map(quote).join(" ")}`
+    : `${quote(python)} scripts/run_checks.py --require-dev-tools`,
+  { cwd: path.join(root, "python") }),
+  audio: async () => {
+    await audioLane();
+    const commands = targets.length
+      ? targets.map((target) => `${quote(path.join(audio, "build", "Release", "audioservice_tests.exe"))} ${target}`)
+      : [`ctest --test-dir ${quote(path.join(audio, "build"))} -C Release --output-on-failure`];
+    for (const command of commands) await exec("audio", command);
+  },
+};
 const lanes = {
-  dev: { python: pythonLane, audio: audioLane },
+  dev: { python: pythonLane, audio: audioLane, frontend: frontendLane },
   start: { python: pythonLane, audio: audioLane, frontend: frontendLane },
   multi: { python: pythonLane, audio: audioLane, frontend: frontendLane },
   install: { python: pythonLane, audio: audioLane, frontend: frontendLane },
   release: { audio: audioLane, frontend: frontendLane },
+  check: scope === "all" ? checks : { [scope]: checks[scope] },
 }[mode];
 
 const started = Date.now();
 const seconds = (since) => ((Date.now() - since) / 1000).toFixed(1);
 try {
-  await Promise.all(
-    Object.entries(lanes).map(async ([name, lane]) => {
-      const laneStarted = Date.now();
-      await lane();
-      console.log(`[${name}] done in ${seconds(laneStarted)} s`);
-    }),
-  );
+  const tasks = Object.entries(lanes).map(([name, lane]) => async () => {
+    const laneStarted = Date.now();
+    await lane();
+    console.log(`[${name}] done in ${seconds(laneStarted)} s`);
+  });
+  // Keep native/audio tests free of load from the Python and frontend suites.
+  if (mode === "check") for (const task of tasks) await task();
+  else await all(tasks);
   console.log(`[build] all steps done in ${seconds(started)} s`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);

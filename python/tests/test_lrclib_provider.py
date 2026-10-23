@@ -501,6 +501,26 @@ def test_recovering_a_true_repeat_keeps_unambiguous_catalog_timing_hints():
     assert result.timing_hints == (hints[0], hints[2])
 
 
+def test_cached_catalogue_preserves_independent_phrase_timing_without_a_new_lookup():
+    from backend.lyrics.codec import encode_document
+    from backend.lyrics.domain import LyricsDocument
+
+    lyrics = "Наши голоса над морем"
+    baseline = encode_document(LyricsDocument("T", "A", 188, None, None, lyrics, ()))
+    projects = SimpleNamespace(
+        load_manifest=lambda *_: SimpleNamespace(provenance={
+            "lyricsSource": "catalog", "lyricsTimingHints": [{"start": 30, "text": lyrics}],
+        }), read_text_artifact=lambda *_: baseline,
+    )
+
+    result = LyricsDiscovery(_NoSidecar(), (), LyricsMatchPolicy(), projects=projects).discover(
+        _song("T", "A"), Path("voice.wav"), _TranscriptAi(lyrics), threading.Event(),
+        online_enabled=False, execution=EXECUTION,
+    )
+
+    assert result.timing_hints == (LyricLineTiming(30, lyrics),)
+
+
 def test_catalog_outage_uses_saved_ai_baseline_and_still_recovers_performed_repeats():
     from backend.lyrics.codec import encode_document
     from backend.lyrics.domain import LyricsDocument

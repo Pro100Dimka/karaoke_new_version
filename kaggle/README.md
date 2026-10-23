@@ -8,4 +8,4 @@ Use **Развернуть и запустить** to start a fresh notebook ver
 
 ## For maintainers
 
-The notebook clones the repository and then overwrites a few files with copies embedded in `ad_voice_p100.ipynb` (`kaggle/ad_voice_server.py`, `python/backend/ai_worker/speech.py`, `ctc.py`, `timing.py`), so a run works even before the matching code is pushed. Whenever one of these files changes, re-embed it in the notebook; `python/tests/test_kaggle_notebook_discovery.py` fails while the embedded server differs from `kaggle/ad_voice_server.py`.
+The notebook clones the repository and then overwrites the worker and lyric modules with copies embedded in `ad_voice_p100.ipynb`, including `python/backend/ai_worker/word_guidance.py`, so a run works even before the matching code is pushed. Whenever an embedded module changes, re-embed it in the notebook; `python/tests/test_kaggle_notebook_discovery.py` verifies every required embedded file against the working source.

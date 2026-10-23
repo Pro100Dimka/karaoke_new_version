@@ -76,8 +76,11 @@ class ProjectPublisher:
                 "reset the editor to its AI baseline before regenerating timings.",
                 revision=expected_revision,
             )
+        revision = expected_revision + 1
+        while self._storage.revision_exists(song_id, revision):
+            revision += 1
         manifest, working = self._stage_generated(
-            song_id, expected_revision + 1, instrumental, reference_vocal, melody, lyrics, provenance,
+            song_id, revision, instrumental, reference_vocal, melody, lyrics, provenance,
         )
         entry = self._journal.begin(
             RecoveryOperation.PROJECT_PUBLISH,

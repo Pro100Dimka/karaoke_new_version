@@ -10,7 +10,7 @@ from typing import Sequence
 
 from backend.ai.ports import AiProvider
 from backend.domain_errors import ConflictError, DependencyError, DomainError
-from backend.lyrics.codec import decode_document
+from backend.lyrics.codec import decode_document, decode_timing_hints
 from backend.projects.ports import ProjectStorage
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import normalize_catalog_identity, spell_lyric_percentages, strip_annotations
@@ -100,7 +100,8 @@ class LyricsDiscovery:
             if not isinstance(source, str) or source == "ASR":
                 return None
             raw = self._projects.read_text_artifact(song.song_id, song.active_revision, "lyricsBaseline")
-            lyrics = decode_document(raw).lyrics
+            document = decode_document(raw)
+            lyrics = document.lyrics
             saved_warnings = manifest.provenance.get("warnings", ())
             recovered = isinstance(saved_warnings, (tuple, list)) and "LyricsRepeatsRecovered" in saved_warnings
         except (DomainError, ValueError, OSError):
@@ -109,7 +110,7 @@ class LyricsDiscovery:
             LyricsDiscoveryResult(lyrics, source, (
                 *warnings, "LyricsCatalogCached",
                 *(("LyricsRepeatsRecovered",) if recovered else ()),
-            ))
+            ), decode_timing_hints(manifest.provenance.get("lyricsTimingHints"), document.duration))
             if lyrics.strip() else None
         )
 

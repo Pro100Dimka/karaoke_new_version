@@ -623,12 +623,28 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
             "initial_prompt": "first line",
             "condition_on_previous_text": False,
             "beam_size": 5,
+            "temperature": 0.0,
         },
     )
     assert result == {
         "text": " hello",
         "segments": [{"text": " hello", "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}],
     }
+
+
+def test_native_alignment_recognition_disables_sampling_fallback(monkeypatch):
+    from backend.ai_worker import speech
+    from types import SimpleNamespace
+
+    calls = {}
+    model = SimpleNamespace(transcribe=lambda path, **options: calls.update(options) or {})
+    monkeypatch.setattr(speech, "device", lambda: "cuda")
+    monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
+    monkeypatch.setattr(speech.whisper, "load_model", lambda *args, **kwargs: model)
+
+    speech._transcribe(Path("voice.wav"), "Russian", "lyrics")
+
+    assert calls.get("temperature") == 0.0
 
 
 def test_catalog_line_timings_still_ask_whisper_which_phrase_a_word_belongs_to(
@@ -641,7 +657,7 @@ def test_catalog_line_timings_still_ask_whisper_which_phrase_a_word_belongs_to(
     monkeypatch.setattr(speech.torch, "set_num_threads", lambda _threads: None)
     monkeypatch.setattr(speech, "emission", lambda _samples: ("scores", 0.02))
 
-    def guidance(_vocal, _language, prompt, _threads=None):
+    def guidance(_vocal, _language, prompt, _threads=None, **_options):
         asked.append(prompt)
         return {"segments": [{"words": [{"word": "первая", "start": 10.6, "end": 11.0}]}]}
 
@@ -773,6 +789,7 @@ def test_fuzzy_phrase_start_reaches_alignment_choice_as_independent_evidence(mon
         return whole
 
     monkeypatch.setattr(speech, "align_guided", align_guided)
+    monkeypatch.setattr(speech, "with_word_guidance", lambda words, *args, **kwargs: words)
     monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
     monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
     speech.align(Path("voice.wav"), lyrics, "Russian")
@@ -893,7 +910,8 @@ def test_a_catalog_entry_remains_a_soft_anchor_when_no_nearby_onset_is_detected(
     assert windows[0].heard_start == 10.0
 
 
-def test_actual_verse_entry_survives_missing_first_words_in_independent_recognition(monkeypatch):
+@pytest.mark.parametrize("early_recognized_prefix", [False, True])
+def test_actual_verse_entry_survives_missing_first_words_in_independent_recognition(monkeypatch, early_recognized_prefix):
     import json
     import torch
     from backend.ai_worker import speech
@@ -901,8 +919,11 @@ def test_actual_verse_entry_survives_missing_first_words_in_independent_recognit
     with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
         scores = torch.from_numpy(fixture["prefix_scores"])
         case = json.loads(str(fixture["prefix_metadata"]))
+    heard = case["heard"]
+    if early_recognized_prefix:
+        heard = sorted([*heard, [speech._key(case["lyrics"].split()[7]), 9.4, 28.7]], key=lambda w: w[1])
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40 * _RATE, dtype=np.float32))
-    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, heard))
     monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.array([28.18]))
     monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
     monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
@@ -947,6 +968,38 @@ def test_an_early_coarse_asr_entry_still_bounds_phonemes_when_it_spans_the_catal
     assert windows[0].end == pytest.approx(2.9)
 
 
+def test_a_long_asr_prefix_padding_cannot_move_a_catalog_entry_into_an_instrumental_break():
+    from backend.ai_worker.speech import _alignment_windows
+
+    lyrics = "carry our voices\nreturn to shore"
+    heard = [("carry", 0.0, 9.3), ("our", 9.3, 9.6), ("voices", 9.6, 10.0),
+             ("return", 20.0, 20.3), ("to", 20.3, 20.6), ("shore", 20.6, 21.0)]
+    hints = [{"start": 9.0, "text": "carry our voices"},
+             {"start": 20.0, "text": "return to shore"}]
+    whole = [AlignedWord(word, start, start + 0.3, (), 0.8) for word, start in
+             zip(lyrics.split(), (0.0, 9.3, 9.6, 20.0, 20.3, 20.6))]
+
+    windows = _alignment_windows(lyrics, hints, heard, whole, np.zeros(24 * _RATE))
+
+    assert windows[0].heard_start == 9.0
+
+
+def test_a_catalog_entry_and_a_supported_last_word_can_bound_a_partly_recognized_phrase():
+    from backend.ai_worker.speech import _alignment_windows
+
+    lyrics = "carry our voices\nreturn to shore"
+    heard = [(word, start, start + 0.3) for word, start in
+             zip(("voices", "return", "to", "shore"), (2.7, 20.0, 20.3, 20.7))]
+    hints = [{"start": 2.0, "text": "carry our voices"},
+             {"start": 20.0, "text": "return to shore"}]
+    whole = [AlignedWord(word, start, start + 0.3, (), 0.01) for word, start in
+             zip(lyrics.split(), (5.0, 6.0, 7.0, 20.0, 20.3, 20.7))]
+
+    windows = _alignment_windows(lyrics, hints, heard, whole, np.zeros(24 * _RATE))
+
+    assert windows[0].end == pytest.approx(3.6)
+
+
 def test_actual_short_reply_does_not_pull_the_previous_vowel_into_a_long_pause(monkeypatch):
     import json
     import torch
@@ -968,6 +1021,301 @@ def test_actual_short_reply_does_not_pull_the_previous_vowel_into_a_long_pause(m
     assert words[15]["end"] < 16.2
     assert words[12]["end"] <= words[13]["start"]
     assert words[11]["start"] < words[12]["start"] < words[12]["end"]
+
+
+@pytest.mark.parametrize("fixture_prefix", ["fast", "native_fast"])
+def test_actual_internal_word_run_does_not_flash_a_word_before_its_sung_syllable(monkeypatch, fixture_prefix):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
+        case = json.loads(str(fixture[fixture_prefix + "_metadata"]))
+        vocal, backing = fixture[fixture_prefix + "_vocal"], fixture[fixture_prefix + "_instrumental"]
+        scores = torch.from_numpy(fixture[fixture_prefix + "_scores"])
+    monkeypatch.setattr(speech, "read_mono", lambda path, *_: backing if path.name == "backing.wav" else vocal)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
+
+    words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"], Path("backing.wav"))["words"]
+
+    # Independent recognition of both original mix and vocal puts these syllables at
+    # ~59.6–60.4 and ~60.4–61.1 s. Preserve their order, not a 40-ms artificial flash.
+    assert words[2]["start"] > 2.5
+    assert words[2]["end"] - words[2]["start"] > 0.3
+    assert 3.0 < words[3]["start"] < 4.2
+    assert 4.0 < words[4]["start"] < 5.2
+    assert words[2]["end"] <= words[3]["start"] < words[4]["start"]
+
+
+def test_recognized_word_intervals_preserve_a_genuine_fast_cluster(monkeypatch):
+    from backend.ai_worker import speech
+
+    words = [AlignedWord(text, start, end, (start,), 0.03) for text, start, end in
+             (("I", 1, 1.03), ("a", 1.03, 1.06), ("go", 1.06, 1.3))]
+    heard = [(word.text.casefold(), word.start, word.end) for word in words]
+    monkeypatch.setattr(speech, "read_mono", lambda *_: _signal([(1, 1.3)], 2))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
+
+    result = speech.align(Path("voice.wav"), "I a go", "English")["words"]
+
+    assert [(word["start"], word["end"]) for word in result] == [(1, 1.03), (1.03, 1.06), (1.06, 1.3)]
+
+
+def test_a_supported_word_run_does_not_cap_a_quiet_long_vowel_at_its_asr_endpoint(monkeypatch):
+    from backend.ai_worker import speech
+
+    words = [AlignedWord(text, start, end, (start,), 0.02) for text, start, end in
+             (("we", 1, 1.2), ("stay", 2, 2.3), ("here", 12.5, 12.8))]
+    heard = [(word.text, word.start, word.end) for word in words]
+    samples = 0.03 * _signal([(1, 1.2), (2, 12), (12.5, 12.8)], 14)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+
+    result = speech.align(Path("voice.wav"), "we stay here", "English")["words"]
+
+    assert result[1]["end"] == pytest.approx(12.0, abs=0.1)
+
+
+def test_a_recognition_run_cannot_replace_strong_acoustic_cores_with_weak_late_tokens(monkeypatch):
+    import torch
+    from backend.ai_worker import ctc, speech
+
+    words = [AlignedWord(text, i + 1, i + 1.2, (float(i + 1),), 0.9)
+             for i, text in enumerate(("we", "sing", "here"))]
+    heard = [(word.text, word.start + 1, word.end + 1) for word in words]
+    monkeypatch.setattr(speech, "read_mono", lambda *_: _signal([(1, 6)], 7))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (torch.zeros(350, 28), 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(ctc, "_align_window", lambda _s, _step, chunk, w:
+                        [AlignedWord(chunk[0], w.start, w.start + 0.2, (w.start,), 0.1)])
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
+
+    result = speech.align(Path("voice.wav"), "we sing here", "English")["words"]
+
+    assert [word["start"] for word in result] == [1, 2, 3]
+
+
+def test_a_supported_phonetic_core_inside_a_coarse_word_interval_beats_an_approximation():
+    from backend.ai_worker.word_guidance import _select_sequence
+
+    original = AlignedWord("stay", 1, 1.4, (1,), .01)
+    phonetic = AlignedWord("stay", 2.6, 3, (2.6,), .02)
+    approximate = AlignedWord("stay", 2, 3, (2,), 0)
+
+    result = _select_sequence([original], [[original, phonetic, approximate]],
+                              {0: (2, 3)}, 0, np.ones(400, dtype=bool))
+
+    assert result == [phonetic]
+
+
+def test_one_inconsistent_recognition_run_does_not_cancel_an_unrelated_valid_correction(monkeypatch):
+    import torch
+    from backend.ai_worker import ctc
+    from backend.ai_worker.word_guidance import with_word_guidance
+
+    words = [AlignedWord(str(i), start, start + 0.2, (float(start),), 0.01)
+             for i, start in enumerate((1, 2, 3, 10, 11, 12))]
+    monkeypatch.setattr(ctc, "_align_window", lambda _s, _step, chunk, w:
+                        [AlignedWord(chunk[0], w.start + 0.1, w.start + 0.3, (w.start + 0.1,), 0.01)])
+
+    result = with_word_guidance(words, torch.zeros(1000, 28), 0.02,
+                               [ctc.Window(0, 3, 0, 6), ctc.Window(3, 6, 9, 14)],
+                               {0: (2.4, 2.8), 3: (10.5, 10.9)}, np.ones(2000, dtype=bool), 0.6)
+
+    assert result[:3] == words[:3], "reject only the run whose corrected order is inconsistent"
+    assert result[3].start == pytest.approx(10.6)
+
+
+@pytest.mark.parametrize("fixture_prefix", ["alternative", "native_reply", "native_reply7"])
+def test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_break(monkeypatch, fixture_prefix):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
+        case = json.loads(str(fixture[fixture_prefix + "_metadata"]))
+        scores = torch.from_numpy(fixture[fixture_prefix + "_scores"])
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40 * _RATE, dtype=np.float32))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
+    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+
+    words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"])["words"]
+
+    assert 13.0 < words[13]["start"] < 15.0
+    assert words[15]["end"] < 16.2
+    assert words[14]["end"] - words[14]["start"] > 0.2
+    assert words[14]["start"] < 14.8
+
+
+def test_a_misrecognized_prefix_keeps_its_word_order_before_a_supported_last_word(monkeypatch):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
+        case = json.loads(str(fixture["stable_reply_metadata"]))
+        scores = torch.from_numpy(fixture["stable_reply_scores"])
+        vocal = np.pad(fixture["stable_reply_vocal"], (13 * _RATE, 24 * _RATE))
+        backing = np.pad(fixture["stable_reply_instrumental"], (13 * _RATE, 24 * _RATE))
+    monkeypatch.setattr(speech, "read_mono", lambda path, *_: backing if path.name == "backing.wav" else vocal)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, .02, case["heard"]))
+    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+
+    words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"], Path("backing.wav"))["words"]
+
+    # Original performance: the short reply precedes the instrumental break. Recognition
+    # hears only its last word correctly; the prefix still needs its own phonetic search.
+    assert 13 < words[13]["start"] < words[14]["start"] < 14.8
+    assert words[14]["end"] - words[14]["start"] > .2
+    assert words[14]["end"] <= words[15]["start"]
+    assert words[15]["end"] < 16.2
+
+
+def test_locally_recognized_utterance_can_bound_misspelled_words_without_replacing_the_text():
+    from backend.ai_worker.speech import _alignment_windows
+
+    lyrics = "carry our voices\nreturn to shore"
+    heard = [("carried", 2, 2.5), ("voces", 2.5, 3),
+             ("return", 20, 20.3), ("to", 20.3, 20.6), ("shore", 20.6, 21)]
+    hints = [{"start": 2, "text": "carry our voices"}, {"start": 20, "text": "return to shore"}]
+    whole = [AlignedWord(word, start, start + .2, (), .01)
+             for word, start in zip(lyrics.split(), (5, 6, 7, 20, 20.3, 20.6))]
+
+    windows = _alignment_windows(lyrics, hints, heard, whole, np.zeros(24 * _RATE))
+
+    assert windows[0].end == pytest.approx(3.6)
+    assert windows[0].heard_start == 2
+
+
+def test_unrelated_recognition_without_surrounding_phrase_support_cannot_shorten_a_long_phrase():
+    from backend.ai_worker.speech import _alignment_windows
+
+    lyrics = "carry our voices\nreturn to shore"
+    heard = [("unrelated", 10, 10.5), ("utterance", 10.5, 11)]
+    hints = [{"start": 10, "text": "carry our voices"}, {"start": 20, "text": "return to shore"}]
+    whole = [AlignedWord(word, start, start + .2, (), .8)
+             for word, start in zip(lyrics.split(), (10, 12, 18, 20, 20.3, 20.6))]
+
+    windows = _alignment_windows(lyrics, hints, heard, whole, np.zeros(24 * _RATE))
+
+    assert windows[0].end == pytest.approx(20.6)
+
+
+@pytest.mark.parametrize("candidate_start", [1.8, 1.81])
+def test_a_word_correction_cannot_collapse_its_neighbour_to_a_tied_start(monkeypatch, candidate_start):
+    import torch
+    from backend.ai_worker import ctc
+    from backend.ai_worker.word_guidance import with_word_guidance
+
+    words = [AlignedWord(text, start, start + .3, (start,), .01)
+             for text, start in (("we", 1), ("sing", 1.8), ("here", 2.6))]
+    monkeypatch.setattr(ctc, "_align_window", lambda _s, _step, chunk, w:
+                        [AlignedWord(chunk[0], candidate_start, 2.1, (candidate_start,), .02)])
+
+    result = with_word_guidance(words, torch.zeros(200, 28), .02,
+                               [ctc.Window(0, 3, 0, 4)], {2: (1.8, 2.1)}, np.ones(400, bool), .6)
+
+    assert result == words
+
+
+@pytest.mark.parametrize("prefix", ["overlap", "uncertain"])
+def test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_own_phrase(monkeypatch, prefix):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
+        case = json.loads(str(fixture[prefix + "_metadata"]))
+        scores = torch.from_numpy(fixture[prefix + "_scores"])
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(16 * _RATE, np.float32))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, .02, case["heard"]))
+    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.array(case["onsets"]))
+    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(1600, bool))
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+
+    words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"])["words"]
+
+    assert words[9]["start"] < 9.5
+    assert words[8]["end"] <= words[9]["start"]
+
+
+def test_a_mostly_unrecognized_word_uses_its_speech_span_instead_of_false_character_precision():
+    from backend.ai_worker.word_guidance import _character_intervals
+
+    hints = _character_intervals("we carry starlight home".split(),
+                                [("we", 1, 1.2), ("carry", 1.2, 2), ("night", 2, 3), ("home", 3, 4)], 0)
+
+    assert hints[2] == (2, 3)
+
+
+@pytest.mark.parametrize("threads", [1, 2])
+def test_alignment_guidance_retains_lyric_vocabulary_after_the_opening_lines(monkeypatch, threads):
+    import torch
+    from backend.ai_worker import speech
+
+    lyrics = "opening line\n" * 50 + "later vocabulary"
+    prompts = []
+    monkeypatch.setattr(speech, "cpu_threads", lambda: threads)
+    monkeypatch.setattr(torch, "set_num_threads", lambda *_: None)
+    monkeypatch.setattr(speech, "emission", lambda *_: (torch.zeros(1, 28), .02))
+    monkeypatch.setattr(speech, "_guidance", lambda _p, _l, prompt, _t, **_options:
+                        prompts.append(prompt) or {"segments": []})
+
+    speech._alignment_evidence(Path("voice.wav"), np.zeros(_RATE), "English", lyrics)
+
+    assert prompts == [lyrics]
+
+
+@pytest.mark.parametrize("threads", [1, 4])
+def test_alignment_uses_the_same_recognition_backend_independently_of_the_ctc_device(monkeypatch, threads):
+    import torch
+    from backend.ai_worker import speech
+
+    choices = []
+    monkeypatch.setattr(speech, "cpu_threads", lambda: threads)
+    monkeypatch.setattr(speech, "device", lambda: "cuda")
+    monkeypatch.setattr(torch, "set_num_threads", lambda *_: None)
+    monkeypatch.setattr(speech, "emission", lambda *_: (torch.zeros(1, 28), .02))
+    monkeypatch.setattr(speech, "_guidance", lambda *_args, **options:
+                        choices.append(options.get("prefer_accelerated", False)) or {"segments": []})
+
+    speech._alignment_evidence(Path("voice.wav"), np.zeros(_RATE), "English", "we sing here")
+
+    assert choices == [True]
+
+
+@pytest.mark.parametrize("start,score,expected", [(1, .01, 1.6), (1, .9, 1), (1.2, .01, 1.2)])
+def test_a_missing_prefix_does_not_treat_a_weak_crop_edge_as_a_sung_entry(monkeypatch, start, score, expected):
+    import torch
+    from backend.ai_worker import ctc
+    from backend.ai_worker.word_guidance import _unrecognized_runs
+
+    first = AlignedWord("we", start, start + .02, (start,), score)
+    candidates = [first, AlignedWord("carry", 2.5, 3, (2.5,), .1)]
+    words = [AlignedWord("we", 4, 4.02, (4,), .01),
+             AlignedWord("carry", 4.2, 4.4, (4.2,), .01),
+             AlignedWord("here", 4.4, 4.6, (4.4,), .01)]
+    monkeypatch.setattr(ctc, "_align_window", lambda *_: candidates)
+
+    result = _unrecognized_runs(words, torch.zeros(300, 28), .02,
+                                ctc.Window(0, 3, 1, 5, 1.6), {2: (3.5, 4)}, np.ones(600, bool))
+
+    assert result[0][1].start == expected
+    assert result[1][1] == candidates[1]
 
 
 def test_a_partly_recognized_phrase_cannot_move_a_catalogued_entry_to_its_later_words():

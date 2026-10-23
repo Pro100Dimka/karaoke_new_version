@@ -96,6 +96,9 @@ class PipelineOrchestrator:
             "algorithmVersion": _ALGORITHM_VERSION,
             "providers": _provider_provenance(providers),
             "lyricsSource": built.discovery.source,
+            "lyricsTimingHints": [
+                {"start": hint.start, "text": hint.text} for hint in built.discovery.timing_hints
+            ],
             "warnings": list(built.warnings),
         }
         return self._stages.run(

@@ -6,8 +6,10 @@ from pathlib import Path
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.ai.ports import AiProvider
 from backend.domain_errors import DomainError
-from backend.lyrics.codec import decode_document
+from backend.lyrics.codec import decode_document, decode_timing_hints
+from backend.lyrics.discovery import lyrics_language
 from backend.lyrics.domain import LyricsDocument
+from backend.lyrics.ports import LyricLineTiming
 from backend.processing.algorithms import (
     MusicMetadata,
     construct_document,
@@ -34,6 +36,7 @@ _ALGORITHM_VERSION = "melody-2"
 class MelodyInputs:
     song: Song
     document: LyricsDocument
+    timing_hints: tuple[LyricLineTiming, ...] = ()
 
 
 class MelodyPipeline:
@@ -64,7 +67,26 @@ class MelodyPipeline:
             document = decode_document(raw)
         except ValueError as exc:
             raise DomainError("ProjectInvalid", "lyricsSync.json is invalid", 400) from exc
-        return MelodyInputs(song, document)
+        return MelodyInputs(song, document, self._timing_hints(song, document))
+
+    def _timing_hints(self, song: Song, document: LyricsDocument) -> tuple[LyricLineTiming, ...]:
+        manifest = self._projects.load_manifest(song.song_id, song.active_revision)
+        hints = decode_timing_hints(manifest.provenance.get("lyricsTimingHints"), document.duration)
+        if hints:
+            return hints
+        # Legacy projects retain their established phrase entries as soft search priors,
+        # never as verified word ends. New projects retain the independent catalogue cues.
+        result: list[LyricLineTiming] = []
+        cursor = 0
+        for line in document.lyrics.splitlines():
+            words = line.split()
+            if not words:
+                continue
+            if [word.text for word in document.words[cursor:cursor + len(words)]] != words:
+                return ()
+            result.append(LyricLineTiming(document.words[cursor].start, line))
+            cursor += len(words)
+        return tuple(result) if cursor == len(document.words) else ()
 
     def resource_size(self, inputs: MelodyInputs) -> int:
         return self._projects.portable_revision_size(
@@ -95,7 +117,7 @@ class MelodyPipeline:
                 progress=0.96,
             )
             revision = self._publish(
-                inputs.song,
+                inputs,
                 provider,
                 alignment,
                 instrumental,
@@ -170,8 +192,9 @@ class MelodyPipeline:
                     lambda: alignment.align(
                         reference,
                         document.lyrics,
-                        inputs.song.language,
+                        lyrics_language(inputs.song, document.lyrics),
                         context.cancel,
+                        timing_hints=inputs.timing_hints,
                         execution=execution,
                         instrumental=instrumental,
                     ),
@@ -241,7 +264,7 @@ class MelodyPipeline:
 
     def _publish(
         self,
-        song: Song,
+        inputs: MelodyInputs,
         provider: AiProvider,
         alignment: AiProvider | None,
         instrumental: Path,
@@ -258,13 +281,13 @@ class MelodyPipeline:
             reports,
             context,
             lambda: self._publisher.publish_generated(
-                song.song_id,
-                song.active_revision,
+                inputs.song.song_id,
+                inputs.song.active_revision,
                 instrumental,
                 reference,
                 melody,
                 document,
-                self._provenance(song, provider, alignment, warnings),
+                self._provenance(inputs, provider, alignment, warnings),
                 self._ids.new(),
             ),
             progress=1.0,
@@ -272,7 +295,7 @@ class MelodyPipeline:
 
     def _provenance(
         self,
-        song: Song,
+        inputs: MelodyInputs,
         provider: AiProvider,
         alignment: AiProvider | None,
         warnings: tuple[str, ...],
@@ -284,7 +307,9 @@ class MelodyPipeline:
                 for name, item in (("pitch", provider), ("alignment", alignment))
                 if item is not None
             },
-            "sourceRevision": song.active_revision,
+            "sourceRevision": inputs.song.active_revision,
             "lyricsSource": "ExistingProjectText",
+            "lyricsTimingHints": [{"start": hint.start, "text": hint.text}
+                                  for hint in inputs.timing_hints],
             "warnings": list(warnings),
         }
