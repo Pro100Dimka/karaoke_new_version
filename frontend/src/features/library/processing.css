@@ -9,6 +9,9 @@
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  max-height: none;
+  padding: var(--ad-space-3) 0 0;
+  overflow: hidden;
 }
 .processingWaves.ad-neon-waves {
   position: absolute;
@@ -16,7 +19,7 @@
   right: 0;
   width: min(32rem, 70%);
   height: 8rem;
-  opacity: 0.55;
+  opacity: 0.25;
   mask-image: linear-gradient(to right, transparent, #000 40%);
 }
 .processingBody {
@@ -40,7 +43,7 @@
 }
 .processingJob.ad-card {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) 9rem;
   align-items: start;
   gap: var(--ad-space-4);
 }
@@ -71,6 +74,13 @@
   gap: var(--ad-space-2);
   min-width: 0;
 }
+.processingJobActions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--ad-space-2);
+  flex-wrap: wrap;
+}
 .processingJobProgress {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -78,25 +88,44 @@
   gap: var(--ad-space-3);
 }
 .processingFooter {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--ad-space-3);
 }
 .processingDisk {
   display: grid;
-  flex: 1;
   gap: var(--ad-space-1);
-  min-width: min(100%, 12rem);
+  min-width: 0;
 }
 .processingNotice .ad-dialog-body p {
   white-space: pre-line;
 }
 @media (max-width: 40rem) {
   .processingJob.ad-card {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--ad-space-3);
+  }
+  .processingJobActions {
+    grid-column: 2;
+    max-width: none;
+  }
+}
+@media (max-width: 28rem) {
+  .processingJob.ad-card {
     grid-template-columns: minmax(0, 1fr);
   }
   .processingCover {
     display: none;
+  }
+  .processingJobActions {
+    grid-column: 1;
+  }
+  .processingFooter {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .processingFooter > .ad-button {
+    grid-column: 2;
+    justify-self: end;
   }
 }

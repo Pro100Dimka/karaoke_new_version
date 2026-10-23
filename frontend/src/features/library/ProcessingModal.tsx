@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Dialog,
   IconButton,
+  Menu,
   NeonWaves,
   ProgressBar,
   Typography,
@@ -36,6 +37,20 @@ interface Notice {
   onConfirm?(): void;
 }
 type Disk = { free: number; total: number } | null;
+const clearGroups = {
+  completed: {
+    label: "processingClearCompleted", title: "processingClearCompletedTitle", text: "processingClearCompletedText",
+    matches: (job: ProcessingJobDto) => job.state === "completed",
+  },
+  failed: {
+    label: "processingClearFailed", title: "processingClearFailedTitle", text: "processingClearFailedText",
+    matches: (job: ProcessingJobDto) => job.state === "failed" || job.state === "interrupted",
+  },
+  all: {
+    label: "processingClearAll", title: "processingClearAllTitle", text: "processingClearAllText",
+    matches: () => true,
+  },
+} as const;
 
 /** Real free space of the data disk, read once when the queue opens. */
 const useDisk = (open: boolean): Disk => {
@@ -80,7 +95,8 @@ export const ProcessingModal = ({
   const disk = useDisk(open);
   const [notice, setNotice] = useState<Notice>();
   const [motionPaused, setMotionPaused] = useState(false);
-  const completed = queue.visible.filter((job) => job.state === "completed");
+  const clearAnchor = useRef<HTMLButtonElement>(null);
+  const [clearMenuOpen, setClearMenuOpen] = useState(false);
   const diskText = disk
     ? t("processingDiskUsage", {
         free: formatBytes(disk.free),
@@ -123,14 +139,16 @@ export const ProcessingModal = ({
       cancel: t("cancel"),
       onConfirm: () => queue.hide([job.id]),
     });
-  const clearCompleted = () =>
+  const clear = (group: (typeof clearGroups)[keyof typeof clearGroups]) => {
+    const selected = queue.visible.filter(group.matches);
     setNotice({
-      title: t("processingClearCompletedTitle"),
-      text: t("processingClearCompletedText", { count: completed.length }),
+      title: t(group.title),
+      text: t(group.text, { count: selected.length }),
       confirm: t("processingClear"),
       cancel: t("cancel"),
-      onConfirm: () => queue.hide(completed.map((job) => job.id)),
+      onConfirm: () => queue.hide(selected.map((job) => job.id)),
     });
+  };
 
   return (
     <Dialog
@@ -146,13 +164,9 @@ export const ProcessingModal = ({
       cancelLabel={false}
       confirmLabel={false}
       description={t("processingSummary", {
-        // Every state has a part, so the parts always add up to the total.
         total: queue.visible.length,
         active: queue.count(["processing", "cancelling"]),
-        done: queue.count(["completed"]),
         queued: queue.count(["queued"]),
-        failed: queue.count(["failed", "interrupted"]),
-        cancelled: queue.count(["cancelled"]),
       })}
       art={<NeonWaves className="processingWaves" strands={26} />}
     >
@@ -220,13 +234,26 @@ export const ProcessingModal = ({
             )}
           </div>
           <Button
+            ref={clearAnchor}
             size="sm"
             icon="trash"
-            disabled={completed.length === 0}
-            onClick={clearCompleted}
+            aria-haspopup="menu"
+            aria-expanded={clearMenuOpen}
+            disabled={queue.visible.length === 0}
+            onClick={() => setClearMenuOpen((value) => !value)}
           >
-            {t("processingClearCompleted")}
+            {t("processingClear")}
           </Button>
+          <Menu
+            open={clearMenuOpen}
+            onOpenChange={setClearMenuOpen}
+            anchorRef={clearAnchor}
+            align="end"
+            items={Object.entries(clearGroups).map(([id, group]) => ({
+              id, label: t(group.label), disabled: !queue.visible.some(group.matches),
+              onSelect: () => clear(group),
+            }))}
+          />
         </footer>
       </div>
       <Dialog

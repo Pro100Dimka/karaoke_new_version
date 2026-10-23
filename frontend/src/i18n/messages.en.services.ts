@@ -49,7 +49,7 @@ export const servicesEn = {
   processingBackendLocal: "this PC",
   processingStarted: "Processing started",
   processingSummary:
-    "{total} jobs • {active} running • {done} done • {queued} queued • {failed} failed • {cancelled} cancelled",
+    "Total jobs: {total} · Running: {active} · Waiting: {queued}",
   processingMoveUp: "Move up",
   processingMoveDown: "Move down",
   processingJobActions: "Job actions",
@@ -63,11 +63,19 @@ export const servicesEn = {
   processingDiskFree: "Free disk space",
   processingDiskUsage: "{free} of {total}",
   processingDiskUnavailable: "Disk data is unavailable right now.",
-  processingClearCompleted: "Clear completed",
+  processingClearCompleted: "Completed",
   processingClearCompletedTitle: "Clear completed jobs?",
   processingClearCompletedText:
     "Completed cards ({count}) will be removed from the list. Recordings and files stay.",
   processingClear: "Clear",
+  processingClearFailed: "Failed",
+  processingClearFailedTitle: "Clear failed jobs?",
+  processingClearFailedText:
+    "Failed and interrupted jobs ({count}) will be removed from the list. Songs and files stay.",
+  processingClearAll: "All",
+  processingClearAllTitle: "Clear the entire queue?",
+  processingClearAllText:
+    "All jobs ({count}) will be removed from the list. Running processing will continue. Songs and files stay.",
   processingStopTitle: "Stop processing?",
   processingStopText:
     "The current processing stops. Files already created stay on the computer.",

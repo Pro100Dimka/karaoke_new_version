@@ -187,7 +187,7 @@ export const SongCard = memo(
         }
       >
         {song.status === "processing" && (
-          <ProcessingSignal progress={song.progress ?? 0} stage={song.stage} />
+          <ProcessingSignal progress={song.progress ?? 0} />
         )}
       </RadioMediaCard>
     );

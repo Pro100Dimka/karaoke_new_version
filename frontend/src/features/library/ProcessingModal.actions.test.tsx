@@ -13,6 +13,7 @@ import { ProcessingModal } from "./ProcessingModal";
 import { LibraryProvider } from "../../app/LibraryProvider";
 import { DialogProvider } from "../../app/DialogProvider";
 import { useSongActions } from "./useSongActions";
+import { clearStorage } from "../../shared/storage/localStore";
 
 const recovery = vi.hoisted(() => ({ reset: vi.fn(), notify: vi.fn() }));
 vi.mock("../../app/EditorProvider", () => ({ useEditorRepository: () => ({ reset: recovery.reset }) }));
@@ -22,6 +23,7 @@ vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
 afterEach(() => {
   cleanup();
+  clearStorage();
   vi.restoreAllMocks();
 });
 
@@ -153,7 +155,8 @@ it("connects every processing queue control to an action", async () => {
   const doneCard = (await screen.findByText("Artist — Done song")).closest(
     "li",
   )!;
-  fireEvent.click(within(doneCard).getByRole("button", { name: "openFolder" }));
+  fireEvent.click(within(doneCard).getByRole("button", { name: "processingJobActions" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "openFolder" }));
   fireEvent.click(within(doneCard).getByRole("button", { name: "play" }));
   expect(onOpenFolder).toHaveBeenCalledWith(songs[0]);
   expect(onPlay).toHaveBeenCalledWith(songs[0]);
@@ -193,13 +196,55 @@ it("connects every processing queue control to an action", async () => {
   fireEvent.click(screen.getByRole("button", { name: "done" }));
 
   fireEvent.click(
-    screen.getByRole("button", { name: "processingClearCompleted" }),
+    screen.getByRole("button", { name: "processingClear" }),
   );
-  expect(
-    screen.getByRole("dialog", { name: "processingClearCompletedTitle" }),
-  ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "processingClear" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "processingClearCompleted" }));
+  const clearDialog = screen.getByRole("dialog", { name: "processingClearCompletedTitle" });
+  fireEvent.click(within(clearDialog).getByRole("button", { name: "processingClear" }));
   await waitFor(() =>
     expect(screen.queryByText("Artist — Done song")).not.toBeInTheDocument(),
   );
+});
+
+it.each([
+  ["processingClearCompleted", ["completed"]],
+  ["processingClearFailed", ["failed", "interrupted"]],
+  ["processingClearAll", ["completed", "failed", "interrupted", "cancelled", "queued", "processing", "cancelling"]],
+] as const)("clears only the selected group through %s without cancelling processing", async (choice, removed) => {
+  const states = ["completed", "failed", "interrupted", "cancelled", "queued", "processing", "cancelling"] as const;
+  const songs = states.map((state) => song(state, state));
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue(states.map((state) => job(`job-${state}`, state, state)));
+  const onCancel = vi.fn();
+  render(<LibraryProvider><ProcessingModal open songs={songs} onClose={vi.fn()}
+    onCancel={onCancel} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  await screen.findByText("Artist — completed");
+  fireEvent.click(screen.getByRole("button", { name: "processingClear" }));
+  for (const label of ["processingClearCompleted", "processingClearFailed", "processingClearAll"])
+    expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("menuitem", { name: choice }));
+  const confirmation = screen.getAllByRole("dialog").find((dialog) => dialog.classList.contains("processingNotice"))!;
+  if (choice === "processingClearAll")
+    expect(within(confirmation).getByText("processingClearAllText")).toBeInTheDocument();
+  fireEvent.click(within(confirmation).getByRole("button", { name: "processingClear" }));
+  await waitFor(() => {
+    for (const state of states) {
+      const title = screen.queryByText(`Artist — ${state}`);
+      expect(Boolean(title)).toBe(!removed.some((value) => value === state));
+    }
+  });
+  expect(onCancel).not.toHaveBeenCalled();
+});
+
+it("shows readable overall progress and the current phase for a running job", async () => {
+  const existing = song("active", "Active song");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+    ...job("job-active", existing.id, "processing"), stage: "MusicAnalysis", progress: 42,
+  }]);
+  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
+    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  const card = (await screen.findByText("Artist — Active song")).closest("li")!;
+  expect(within(card).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
+  expect(within(card).getByText("42%")).toBeInTheDocument();
+  expect(within(card).getByText("processingPhasePrepare")).toBeInTheDocument();
+  expect(within(card).queryByText("MusicAnalysis")).not.toBeInTheDocument();
 });

@@ -30,7 +30,7 @@ const installBusyLibrary = (): void => {
               state === "Succeeded" ? 1 : state === "Running" ? 0.56 : 0,
             error:
               state === "Failed"
-                ? { message: "Operation requires more free disk space" }
+                ? { code: "ManualLyricsConflict", message: "Manual lyrics must be preserved before processing can continue" }
                 : null,
             report: { processingBackend: index === 3 ? "Kaggle" : "Local" },
             startedAt: "2026-09-30T12:00:00Z",
@@ -105,4 +105,80 @@ test("processing queue and performances list the backend's jobs and takes", asyn
     performances.getByText(/(Записей|Recordings|Записів): 6/),
   ).toBeVisible();
   await page.screenshot({ path: "test-results/performances-modal.png" });
+});
+
+test("processing cleanup survives reloads and controls fit wide and narrow queues", async ({ page }, testInfo) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.addInitScript(installBusyLibrary);
+  await page.addInitScript(() => localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ language: "en", reducedMotion: true })));
+  await page.goto("/");
+  const openQueue = () => page.getByRole("button", { name: "Processing queue", exact: true }).click();
+  await openQueue();
+  const queue = page.getByRole("dialog", { name: "Processing queue", exact: true });
+  await expect(queue.getByRole("listitem")).toHaveCount(7);
+
+  for (const width of [1280, 720, 400]) {
+    await page.setViewportSize({ width, height: 800 });
+    const overflow = await queue.evaluate((dialog) => {
+      const bounds = dialog.getBoundingClientRect();
+      const errors: string[] = [];
+      const textEdges: number[] = [];
+      for (const card of dialog.querySelectorAll(".processingJob")) {
+        const main = card.querySelector(".processingJobMain")!.getBoundingClientRect();
+        textEdges.push(main.right);
+        const actions = card.querySelector(".processingJobActions")!.getBoundingClientRect();
+        if (main.right > actions.left + 1 && main.bottom > actions.top + 1)
+          errors.push("text and actions overlap");
+        for (const button of card.querySelectorAll("button")) {
+          const box = button.getBoundingClientRect();
+          if (box.left < bounds.left || box.right > bounds.right)
+            errors.push("action outside dialog");
+        }
+      }
+      if (Math.max(...textEdges) - Math.min(...textEdges) > 1)
+        errors.push("job progress columns do not line up");
+      const footer = dialog.querySelector(".processingFooter")!.getBoundingClientRect();
+      if (bounds.bottom - footer.bottom - parseFloat(getComputedStyle(dialog).paddingBottom) > 16)
+        errors.push(`unused space below footer; children: ${[...dialog.children].map((child) => child.className).join(", ")}`);
+      if (dialog.scrollWidth > dialog.clientWidth + 1) errors.push("horizontal dialog overflow");
+      return errors;
+    });
+    expect(overflow, `queue at ${width}px`).toEqual([]);
+    await page.screenshot({ path: testInfo.outputPath(`queue-${width}.png`) });
+  }
+
+  const clear = async (choice: string, title: string) => {
+    await queue.getByRole("button", { name: "Clear", exact: true }).click();
+    await page.getByRole("menuitem", { name: choice, exact: true }).click();
+    await page.getByRole("dialog", { name: title, exact: true })
+      .getByRole("button", { name: "Clear", exact: true }).click();
+  };
+  await clear("Completed", "Clear completed jobs?");
+  await expect(queue.getByRole("listitem")).toHaveCount(4);
+  await page.reload();
+  await openQueue();
+  await expect(queue.getByRole("listitem")).toHaveCount(4);
+  await clear("Failed", "Clear failed jobs?");
+  await expect(queue.getByRole("listitem")).toHaveCount(3);
+  await clear("All", "Clear the entire queue?");
+  await expect(queue.getByRole("listitem")).toHaveCount(0);
+  await page.reload();
+  await openQueue();
+  await expect(queue.getByRole("listitem")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    const original = window.desktop.pythonRequest;
+    window.desktop.pythonRequest = async (request) => {
+      const response = await original(request);
+      if (request.path.startsWith("/jobs?")) {
+        const body = response.body as { items: Record<string, unknown>[] };
+        body.items.push({ ...body.items[0], jobId: "new-job", state: "Running", overallProgress: 0.22 });
+      }
+      return response;
+    };
+  });
+  await page.keyboard.press("Escape");
+  await openQueue();
+  await expect(queue.getByRole("listitem")).toHaveCount(1);
+  await expect(queue.getByText("22%", { exact: true })).toBeVisible();
 });

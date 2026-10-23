@@ -7,7 +7,6 @@ import {
   ProgressBar,
   Stack,
   StatusIndicator,
-  Steps,
   Typography,
   type MenuItemData,
 } from "@neo-ui-kit/react";
@@ -61,7 +60,7 @@ export const ProcessingJobCard = ({
   const active = isActive(job);
   const retryable = isRetryable(job);
   const duration = processingDuration(job);
-  const phase = phaseOf(job);
+  const phase = phases[phaseOf(job) ?? -1];
   const menu: MenuItemData[] = [
     {
       id: "details",
@@ -69,23 +68,13 @@ export const ProcessingJobCard = ({
       icon: "info",
       onSelect: actions.onDetails,
     },
-    ...(retryable && song
+    ...(song
       ? [
           {
-            id: "retry",
-            label: t("retry"),
-            icon: "reset",
-            onSelect: () => actions.onRetry(song),
-          },
-        ]
-      : []),
-    ...(active
-      ? [
-          {
-            id: "stop",
-            label: t("processingStop"),
-            icon: "stop",
-            onSelect: actions.onStop,
+            id: "folder",
+            label: t("openFolder"),
+            icon: "folder",
+            onSelect: () => actions.onOpenFolder(song),
           },
         ]
       : []),
@@ -140,55 +129,49 @@ export const ProcessingJobCard = ({
               status={stateTone[job.state]}
               label={t(stateLabel[job.state])}
             />
-            <Typography variant="caption" tone="muted">
-              {job.processingBackend
-                ? `${t("processingVia")}: ${t(job.processingBackend === "Kaggle" ? "processingBackendKaggle" : "processingBackendLocal")}`
-                : job.stage}
-            </Typography>
+            {job.processingBackend && (
+              <Typography variant="caption" tone="muted" title={t("processingVia")}>
+                {t(job.processingBackend === "Kaggle" ? "processingBackendKaggle" : "processingBackendLocal")}
+              </Typography>
+            )}
             {duration && (
               <Typography
                 variant="caption"
                 tone="muted"
-              >{`${t("processingDuration")}: ${duration}`}</Typography>
+                title={t("processingDuration")}
+              >{duration}</Typography>
             )}
           </Stack>
-          {active && phase !== undefined ? (
-            <Steps
-              className="processingPhases"
-              steps={phases.map((key) => t(key))}
-              current={phase}
-            />
-          ) : (
-            <div className="processingJobProgress">
-              <ProgressBar
-                label={t("processingDetailsProgress")}
-                value={job.progress}
-              />
-              <Typography variant="caption" weight="semibold">
-                {job.progress}%
-              </Typography>
-            </div>
+          {active && phase && (
+            <Typography variant="caption" tone="muted">{t(phase)}</Typography>
           )}
+          <div className="processingJobProgress">
+            <ProgressBar
+              label={t("processingDetailsProgress")}
+              value={job.progress}
+            />
+            <Typography variant="caption" weight="semibold">
+              {job.progress}%
+            </Typography>
+          </div>
           {retryable && (
             <MessageBar tone="error">
               {job.error?.message ?? t(stateLabel[job.state])}
             </MessageBar>
           )}
+          {job.error?.code === "ManualLyricsConflict" && song && actions.onResetLyrics && (
+            <Button size="sm" icon="reset" onClick={() => actions.onResetLyrics?.(song)}>
+              {t("resetLyricsAndReprocess")}
+            </Button>
+          )}
         </div>
-        <Stack direction="row" gap={2} justify="end" wrap>
+        <div className="processingJobActions">
           {job.state === "completed" && song && (
-            <>
-              <IconButton
-                icon="folder"
-                label={t("openFolder")}
-                onClick={() => actions.onOpenFolder(song)}
-              />
-              <IconButton
-                icon="play"
-                label={t("play")}
-                onClick={() => actions.onPlay(song)}
-              />
-            </>
+            <IconButton
+              icon="play"
+              label={t("play")}
+              onClick={() => actions.onPlay(song)}
+            />
           )}
           {active && (
             <IconButton
@@ -215,17 +198,6 @@ export const ProcessingJobCard = ({
               onClick={() => actions.onRetry(song)}
             />
           )}
-          {job.error?.code === "ManualLyricsConflict" &&
-            song &&
-            actions.onResetLyrics && (
-              <Button
-                size="sm"
-                icon="reset"
-                onClick={() => actions.onResetLyrics?.(song)}
-              >
-                {t("resetLyricsAndReprocess")}
-              </Button>
-            )}
           <IconButton
             ref={menuAnchor}
             variant="ghost"
@@ -242,7 +214,7 @@ export const ProcessingJobCard = ({
             align="end"
             items={menu}
           />
-        </Stack>
+        </div>
       </Card>
     </li>
   );

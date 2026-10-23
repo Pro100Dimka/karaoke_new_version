@@ -1,18 +1,45 @@
-import { act, cleanup, render, renderHook } from "@testing-library/react";
+import { act, cleanup, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
 import { LibraryProvider } from "../../app/LibraryProvider";
 import type { ProcessingJobDto } from "../../contracts/models";
 import { useProcessingQueue } from "./useProcessingQueue";
+import { ProcessingSignal } from "./ProcessingSignal";
+import { clearStorage } from "../../shared/storage/localStore";
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
 afterEach(() => {
   cleanup();
+  clearStorage();
   vi.useRealTimers();
   vi.restoreAllMocks();
   Reflect.deleteProperty(window, "desktop");
+});
+
+it("keeps cleared jobs hidden after reopening and fresh backend results, while showing new jobs", async () => {
+  const jobs: ProcessingJobDto[] = ["completed", "failed", "interrupted", "processing"].map((state, index) => ({
+    id: `old-${index}`, songId: "song", type: "SongProcessing",
+    state: state as ProcessingJobDto["state"], stage: "MusicAnalysis", progress: 22,
+  }));
+  const list = vi.spyOn(pythonClient, "listJobs").mockResolvedValue(jobs);
+  const first = renderHook(() => useProcessingQueue(true), { wrapper: LibraryProvider });
+  await waitFor(() => expect(first.result.current.visible).toHaveLength(4));
+  act(() => first.result.current.hide(jobs.map((job) => job.id)));
+  await waitFor(() => expect(first.result.current.visible).toHaveLength(0));
+  first.unmount();
+
+  const fresh = { ...jobs[0]!, id: "new-processing", state: "processing" as const };
+  list.mockResolvedValue([...jobs.map((job) => ({ ...job, state: "completed" as const })), fresh]);
+  const reopened = renderHook(() => useProcessingQueue(true), { wrapper: LibraryProvider });
+  await waitFor(() => expect(reopened.result.current.ordered).toEqual([fresh]));
+});
+
+it("keeps the library waveform accessible without the stage and percentage caption", () => {
+  render(<ProcessingSignal progress={22} />);
+  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "22");
+  expect(screen.queryByText("22%")).not.toBeInTheDocument();
 });
 
 it.each(["reply", "failure"])("keeps a pushed completed job when the older request finishes with %s", async (outcome) => {

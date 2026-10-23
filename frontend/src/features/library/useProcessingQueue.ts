@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import type { ProcessingJobDto } from "../../contracts/models";
 import { useLibraryCatalog, useLibraryJobEvents } from "../../app/LibraryProvider";
+import { readJson, storageKey, writeJson } from "../../shared/storage/localStore";
 
 const refreshMilliseconds = 1000;
 type JobState = ProcessingJobDto["state"];
+const hiddenJobsKey = storageKey("processingQueue.hidden");
 
 /**
  * The processing queue while the window is open, re-read when the backend reports a job change; the queued jobs
@@ -15,7 +17,11 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
   const [jobs, setJobs] = useState<readonly ProcessingJobDto[]>([]);
   const [failed, setFailed] = useState(false);
   const [queueOrder, setQueueOrder] = useState<readonly string[]>([]);
-  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
+    const stored = readJson(hiddenJobsKey);
+    return new Set(Array.isArray(stored) ? stored.filter((id): id is string => typeof id === "string") : []);
+  });
+  useEffect(() => writeJson(hiddenJobsKey, [...hidden]), [hidden]);
 
   useEffect(() => {
     if (!open) return;

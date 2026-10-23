@@ -335,14 +335,14 @@ def _hint_windows(
     opens = [_line_start(start, onsets) for _, start, _ in lines]
     windows: list[Window] = []
     cursor, audio_cursor, matched = 0, 0.0, 0
-    for index, (first, _, text) in enumerate(lines):
+    for index, (first, hint, text) in enumerate(lines):
         last = first + sum(1 for word in text.split() if _key(word))
         window_start = max(0.0, opens[index][0])
         window_end = _line_end(index, lines, opens, total)
         if first > cursor:
             windows.append(Window(cursor, first, audio_cursor, max(audio_cursor, window_start)))
         windows.append(Window(first, last, window_start, window_end,
-                              window_start + _ONSET_LEAD_SECONDS if opens[index][1] else None))
+                              window_start + _ONSET_LEAD_SECONDS if opens[index][1] else hint))
         cursor, audio_cursor, matched = last, window_end, matched + last - first
     if cursor < len(words):
         windows.append(Window(cursor, len(words), audio_cursor, total))
@@ -383,8 +383,8 @@ def _alignment_windows(
                 phrase = recognized.get((window.first, window.last))
                 # Bound CTC's search; acoustic refinement still follows held vowels beyond ASR.
                 if (phrase is not None and phrase.heard_start is not None
-                        and window.start <= phrase.heard_start
-                        < min(window.end, window.start + 2 * _MARGIN_SECONDS)):
+                        and window.heard_start is not None
+                        and phrase.start <= window.heard_start < phrase.end):
                     windows[index] = replace(window, start=max(window.start, phrase.start),
                                              end=min(window.end, phrase.end), heard_start=phrase.heard_start)
             return windows

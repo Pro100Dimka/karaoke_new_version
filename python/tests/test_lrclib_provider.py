@@ -449,6 +449,58 @@ def test_missed_short_adlib_does_not_duplicate_a_performed_refrain():
     assert _complete_repeats(lyrics, heard, threading.Event()) == lyrics
 
 
+@pytest.mark.parametrize("extra_final", [False, True])
+def test_recognition_order_cannot_invent_a_repeat_without_an_extra_performed_occurrence(extra_final):
+    from backend.lyrics.discovery import _merge_lines
+
+    # A recognizer missed the first short answer and attached a later one after two long lines.
+    # Its two recognized long lines cannot justify adding a fifth to the four catalogued ones.
+    keys = ["heldphrase", "quietanswer", "quietanswerquietanswer", "finalverse"]
+    original = [0, 1, 0, 2, 3, 0, 0]
+    heard = (0, 0, 1, 3, 3) if extra_final else (0, 0, 1, 3)
+    expected = [0, 1, 0, 2, 3, 3, 0, 0] if extra_final else original
+
+    assert _merge_lines(original, heard, keys) == expected
+
+
+def test_a_fresh_catalog_recomputes_ai_repeats_instead_of_preserving_a_longer_bad_baseline():
+    from backend.lyrics.codec import encode_document
+    from backend.lyrics.domain import LyricsDocument
+
+    lines = ["Первый свет над городами", "Наши голоса над морем", "Снова поезда уходят"]
+    lyrics = "\n".join(lines)
+    stale = lyrics + "\n" + lines[1]
+    baseline = encode_document(LyricsDocument("T", "A", 188, None, None, stale, ()))
+    projects = SimpleNamespace(
+        load_manifest=lambda *_: SimpleNamespace(provenance={
+            "lyricsSource": "catalog", "warnings": ["LyricsRepeatsRecovered"],
+        }),
+        read_text_artifact=lambda *_: baseline,
+    )
+    hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
+    candidate = LyricsCandidate(lyrics, "T", "A", 188, "catalog", hints)
+    result = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy(), projects=projects,
+    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(lyrics), threading.Event(),
+               online_enabled=True, execution=EXECUTION)
+
+    assert result.lyrics == lyrics
+    assert result.timing_hints == hints
+
+
+def test_recovering_a_true_repeat_keeps_unambiguous_catalog_timing_hints():
+    lines = ["Первый свет над городами", "Наши голоса над морем", "Снова поезда уходят"]
+    hints = tuple(LyricLineTiming(start, line) for start, line in zip((10, 30, 50), lines))
+    candidate = LyricsCandidate("\n".join(lines), "T", "A", 188, "catalog", hints)
+    result = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),), LyricsMatchPolicy(),
+    ).discover(_song("T", "A"), Path("voice.wav"), _TranscriptAi(" ".join(lines + [lines[1]])),
+               threading.Event(), online_enabled=True, execution=EXECUTION)
+
+    assert result.lyrics.splitlines() == lines + [lines[1]]
+    assert result.timing_hints == (hints[0], hints[2])
+
+
 def test_catalog_outage_uses_saved_ai_baseline_and_still_recovers_performed_repeats():
     from backend.lyrics.codec import encode_document
     from backend.lyrics.domain import LyricsDocument

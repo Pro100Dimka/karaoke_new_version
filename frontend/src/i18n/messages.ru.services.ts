@@ -50,7 +50,7 @@ export const servicesRu = {
   processingBackendLocal: "этот ПК",
   processingStarted: "Обработка запущена",
   processingSummary:
-    "{total} задач • {active} в работе • {done} завершено • {queued} в очереди • {failed} с ошибкой • {cancelled} отменено",
+    "Всего задач: {total} · В работе: {active} · Ожидают: {queued}",
   processingMoveUp: "Выше в очереди",
   processingMoveDown: "Ниже в очереди",
   processingJobActions: "Действия с задачей",
@@ -64,11 +64,19 @@ export const servicesRu = {
   processingDiskFree: "Свободно на диске",
   processingDiskUsage: "{free} из {total}",
   processingDiskUnavailable: "Данные о диске сейчас недоступны.",
-  processingClearCompleted: "Очистить завершённые",
+  processingClearCompleted: "Завершённые",
   processingClearCompletedTitle: "Очистить завершённые задачи?",
   processingClearCompletedText:
     "Из списка будут убраны завершённые карточки ({count}). Записи и файлы не удаляются.",
   processingClear: "Очистить",
+  processingClearFailed: "С ошибкой",
+  processingClearFailedTitle: "Очистить задачи с ошибкой?",
+  processingClearFailedText:
+    "Из списка будут убраны задачи с ошибкой и прерванные задачи ({count}). Песни и файлы сохранятся.",
+  processingClearAll: "Все",
+  processingClearAllTitle: "Очистить всю очередь?",
+  processingClearAllText:
+    "Из списка будут убраны все задачи ({count}). Запущенная обработка продолжится. Песни и файлы сохранятся.",
   processingStopTitle: "Остановить обработку?",
   processingStopText:
     "Текущая обработка будет остановлена. Уже созданные файлы останутся на компьютере.",

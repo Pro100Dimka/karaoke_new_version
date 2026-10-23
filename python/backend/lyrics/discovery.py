@@ -64,13 +64,7 @@ class LyricsDiscovery:
         local = self._local(song)
         warnings: list[str] = []
         previous = self._previous(song, warnings) if local is None else None
-        found = local or (self._from_online(song, cancel, warnings, previous) if online_enabled else None)
-        if previous and (found is None or (
-            "LyricsCatalogVersionChanged" not in found.warnings
-            and _same_vocabulary(found.lyrics, previous.lyrics)
-            and len(previous.lyrics.split()) > len(found.lyrics.split())
-        )):
-            found = previous
+        found = local or (self._from_online(song, cancel, warnings, previous) if online_enabled else None) or previous
         if found:
             language = lyrics_language(song, found.lyrics).value
             found = replace(
@@ -84,8 +78,13 @@ class LyricsDiscovery:
         ).strip()
         if found:
             completed = _complete_repeats(found.lyrics, lyrics, cancel)
+            before = Counter(_lyrics_key(line) for line in found.lyrics.splitlines())
+            after = Counter(_lyrics_key(line) for line in completed.splitlines())
             return found if completed == found.lyrics else replace(
-                found, lyrics=completed, timing_hints=(),
+                found, lyrics=completed, timing_hints=tuple(
+                    hint for hint in found.timing_hints
+                    if before[_lyrics_key(hint.text)] == after[_lyrics_key(hint.text)]
+                ),
                 warnings=(*found.warnings, "LyricsRepeatsRecovered"),
             )
         if not lyrics:
@@ -102,10 +101,15 @@ class LyricsDiscovery:
                 return None
             raw = self._projects.read_text_artifact(song.song_id, song.active_revision, "lyricsBaseline")
             lyrics = decode_document(raw).lyrics
+            saved_warnings = manifest.provenance.get("warnings", ())
+            recovered = isinstance(saved_warnings, (tuple, list)) and "LyricsRepeatsRecovered" in saved_warnings
         except (DomainError, ValueError, OSError):
             return None
         return (
-            LyricsDiscoveryResult(lyrics, source, (*warnings, "LyricsCatalogCached"))
+            LyricsDiscoveryResult(lyrics, source, (
+                *warnings, "LyricsCatalogCached",
+                *(("LyricsRepeatsRecovered",) if recovered else ()),
+            ))
             if lyrics.strip() else None
         )
 
@@ -153,6 +157,13 @@ class LyricsDiscovery:
                             if previous and _lyrics_key(previous.lyrics) == _lyrics_key(item.lyrics)]
         if cached_distances and min(cached_distances) > distances[candidate]:
             warnings.append("LyricsCatalogVersionChanged")
+        if previous and (
+            "LyricsCatalogVersionChanged" not in warnings
+            and "LyricsRepeatsRecovered" not in previous.warnings
+            and _same_vocabulary(candidate.lyrics, previous.lyrics)
+            and len(previous.lyrics.split()) > len(candidate.lyrics.split())
+        ):
+            return previous
         timed = next((item for item in eligible if distances[item] == distances[candidate]
                       and item.timing_hints and _lyrics_match(candidate.lyrics, item.lyrics)), None)
         return LyricsDiscoveryResult(candidate.lyrics, source, tuple(warnings),
@@ -218,7 +229,8 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
 
     Phrase selection scores matching characters against recognition errors. A nonsequential
     phrase costs log2(catalogue size), so repeats need evidence instead of a duration rule.
-    A shortest common supersequence retains every original line when ASR misses quiet singing.
+    Keep every original line when ASR misses quiet singing. Only surplus recognized occurrences
+    can add repeats; conflicting order alone cannot invent another catalogue line.
     """
     lines = [line for line in lyrics.splitlines() if _lyrics_key(line)]
     keys = list(dict.fromkeys(_lyrics_key(line) for line in lines))
@@ -310,6 +322,27 @@ def _line_matches(key: str, heard: list[str], start: int) -> list[tuple[int, int
 
 
 def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str]) -> list[int]:
+    extra = Counter(performed) - Counter(original)
+    merged: list[int] = []
+    first = heard_first = 0
+    for i, j in (*_line_anchors(original, performed, keys), (len(original), len(performed))):
+        added = []
+        for index in performed[heard_first:j]:
+            if extra[index] > 0:
+                added.append(index)
+                extra[index] -= 1
+        skipped = original[first:i]
+        # Consecutive recognized repeats belong together at their matched occurrence;
+        # missed catalogue lines before that occurrence must not split the repeats.
+        adjacent = i < len(original) and added and added[-1] == original[i]
+        merged.extend((*skipped, *added) if adjacent else (*added, *skipped))
+        if i < len(original):
+            merged.append(original[i])
+        first, heard_first = i + 1, j + 1
+    return merged
+
+
+def _line_anchors(original: list[int], performed: tuple[int, ...], keys: list[str]) -> list[tuple[int, int]]:
     counts = Counter(original)
     equivalent = {
         (left, right): left == right or (
@@ -326,16 +359,14 @@ def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str
                 lengths[i + 1][j + 1] + 1 / counts[original[i]] if equivalent[original[i], performed[j]]
                 else max(lengths[i + 1][j], lengths[i][j + 1])
             )
-    merged: list[int] = []
+    anchors: list[tuple[int, int]] = []
     i = j = 0
     while i < len(original) and j < len(performed):
         if equivalent[original[i], performed[j]]:
-            merged.append(original[i])
+            anchors.append((i, j))
             i, j = i + 1, j + 1
         elif lengths[i + 1][j] > lengths[i][j + 1]:
-            merged.append(original[i])
             i += 1
         else:
-            merged.append(performed[j])
             j += 1
-    return merged + original[i:] + list(performed[j:])
+    return anchors
