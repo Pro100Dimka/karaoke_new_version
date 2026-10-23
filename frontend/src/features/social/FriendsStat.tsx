@@ -20,6 +20,7 @@ export const FriendsStat = () => {
     <>
       <StatTile
         icon="users"
+        tilt={false}
         value={friends.length}
         label={t("friendsStat", { online })}
         aria-haspopup="dialog"

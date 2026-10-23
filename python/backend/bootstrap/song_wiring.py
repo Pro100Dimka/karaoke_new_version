@@ -35,7 +35,7 @@ from backend.settings.queries import GetSettings
 from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
-from backend.songs.queries import GetSong, ListSongs
+from backend.songs.queries import GetSong, GetSongWaveform, ListSongs
 from backend.songs.update_song import UpdateSong
 from backend.songs.recognition import SongRecognitionProvider
 from backend.songs.refresh_recognition import RefreshSongRecognition
@@ -51,10 +51,12 @@ def build_song_cases(
     start, melody = _build_processing(runtime, project, processing, recognition)
     save_editor = _save_editor(runtime, project)
     importer = _import_song(runtime, project, recognition)
+    get_song = GetSong(runtime.database)
     return SongCases(
         importer,
         StartSongImport(processing.jobs, importer),
-        GetSong(runtime.database),
+        get_song,
+        GetSongWaveform(get_song, FfmpegMediaInspector(runtime.processes)),
         ListSongs(runtime.database, runtime.config.api.max_page_limit),
         UpdateSong(runtime.database, project.songs, runtime.clock),
         DeleteSong(

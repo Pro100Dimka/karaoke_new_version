@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from array import array
+import math
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.process_runner import ProcessRunner
@@ -15,6 +17,37 @@ class FfmpegMediaInspector:
         self._runner = runner
         self._ffprobe = ffprobe
         self._ffmpeg = ffmpeg
+
+    def waveform_peaks(self, source: Path, bins: int) -> list[float]:
+        result = self._runner.run(
+            [
+                self._ffmpeg,
+                "-v",
+                "error",
+                "-i",
+                str(source),
+                "-vn",
+                "-ac",
+                "1",
+                "-ar",
+                "2000",
+                "-f",
+                "f32le",
+                "pipe:1",
+            ],
+            timeout_seconds=60,
+        )
+        if result.exit_code != 0:
+            raise DomainError("InvalidMedia", "Song waveform could not be read", 400)
+        samples = array("f")
+        samples.frombytes(result.stdout)
+        peaks = [0.0] * bins
+        for index, sample in enumerate(samples):
+            if math.isfinite(sample):
+                slot = min(bins - 1, index * bins // len(samples))
+                peaks[slot] = max(peaks[slot], abs(sample))
+        maximum = max(peaks, default=0) or 1
+        return [round(value / maximum, 3) for value in peaks]
 
     def inspect(self, source: Path) -> MediaMetadata:
         result = self._runner.run(

@@ -182,8 +182,8 @@ describe("karaoke lyrics model", () => {
 
   describe("upcomingLinePhase", () => {
     it("is always just text across an ordinary short gap between lines", () => {
-      const lines = [line(0, 2), line(9, 12)]; // 7 s gap, well under the long-gap threshold
-      for (const position of [2.5, 5, 8, 8.9]) {
+      const lines = [line(0, 2), line(5, 8)];
+      for (const position of [2.5, 3, 4, 4.9]) {
         expect(upcomingLinePhase(lines, 1, position)).toEqual({ kind: "text" });
       }
     });
@@ -191,12 +191,11 @@ describe("karaoke lyrics model", () => {
     it("clears a long instrumental gap, brings the line back early, then counts 4-3-2-1 over it", () => {
       const lines = [line(0, 2), line(20, 23)]; // 18 s gap: well past the long-gap threshold
       expect(upcomingLinePhase(lines, 1, 3)).toEqual({ kind: "empty" });
-      expect(upcomingLinePhase(lines, 1, 13.9)).toEqual({ kind: "empty" }); // 6.1 s left
-      expect(upcomingLinePhase(lines, 1, 14.5)).toEqual({ kind: "text" }); // 5.5 s left: read it first
-      const counts = [16.1, 17.1, 18.1, 19.1, 19.9].map(
+      expect(upcomingLinePhase(lines, 1, 16.9)).toEqual({ kind: "empty" });
+      const counts = [17.1, 18.1, 19.1, 19.9].map(
         (position) => upcomingLinePhase(lines, 1, position).countdown,
       );
-      expect(counts).toEqual([4, 3, 2, 1, 1]);
+      expect(counts).toEqual([3, 2, 1, 1]);
       expect(upcomingLinePhase(lines, 1, 17.5).kind).toBe("text"); // the words stay up while counting
       expect(upcomingLinePhase(lines, 1, 20)).toEqual({ kind: "text" }); // singing now: no count
     });

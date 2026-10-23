@@ -78,8 +78,8 @@ class YoutubeVideoFinder:
         query = urllib.parse.urlencode(
             {
                 "part": "snippet",
-                "maxResults": "1",
-                "q": f"{artist} {title} official music video",
+                "maxResults": "8",
+                "q": f"{artist} {title} official video",
                 "type": "video",
                 "videoEmbeddable": "true",
                 "key": self._api_key or "",
@@ -96,13 +96,23 @@ class YoutubeVideoFinder:
         if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
             return None
         items = payload["items"]
-        first = items[0] if items else None
-        identity = first.get("id") if isinstance(first, dict) else None
-        video_id = identity.get("videoId") if isinstance(identity, dict) else None
-        return f"https://www.youtube.com/watch?v={video_id}" if isinstance(video_id, str) else None
+        candidates = []
+        for item in items:
+            row = _mapping(item)
+            snippet = _mapping(row.get("snippet"))
+            video_id = _text(_mapping(row.get("id")).get("videoId"))
+            score = _video_candidate_score(
+                {"title": snippet.get("title"), "author_name": snippet.get("channelTitle")},
+                artist,
+                title,
+            )
+            if score is not None and video_id and re.fullmatch(r"[A-Za-z0-9_-]{11}", video_id):
+                candidates.append((score, video_id))
+        best = max(candidates, default=None)
+        return f"https://www.youtube.com/watch?v={best[1]}" if best else None
 
     def _public_search(self, artist: str, title: str) -> str | None:
-        query = urllib.parse.urlencode({"search_query": f"{artist} {title} official music video"})
+        query = urllib.parse.urlencode({"search_query": f"{artist} {title} official video"})
         request = urllib.request.Request(
             f"https://www.youtube.com/results?{query}",
             headers={"User-Agent": "Mozilla/5.0 (A&D Voice song lookup)"},
@@ -130,8 +140,6 @@ class YoutubeVideoFinder:
         best = max(((score, item) for score, item, _ in results if score is not None), default=None)
         if best is not None:
             return f"https://www.youtube.com/watch?v={best[1]}"
-        if not any(responded for _, _, responded in results):
-            return f"https://www.youtube.com/watch?v={video_ids[0]}"
         return None
 
     def _public_candidate(
@@ -353,7 +361,17 @@ def _video_candidate_score(row: JsonObject, artist: str, title: str) -> int | No
     wanted_title = normalize_catalog_identity(title)
     wanted_artist = normalize_catalog_identity(artist)
     lowered = f"{candidate_title} {author}".casefold()
-    rejected = (" - topic", "lyrics", "lyric video", "karaoke", "fan clip", "fan-made")
+    rejected = (
+        " - topic",
+        "lyrics",
+        "lyric video",
+        "karaoke",
+        "fan clip",
+        "fan-made",
+        "official audio",
+        "visualizer",
+        "visualiser",
+    )
     if any(hint in lowered for hint in rejected) or wanted_title not in searchable:
         return None
     candidate_artist = normalize_catalog_identity(author)
@@ -365,8 +383,11 @@ def _video_candidate_score(row: JsonObject, artist: str, title: str) -> int | No
     artist_present = wanted_artist in searchable or artist_ratio >= 0.72
     if not artist_present:
         return None
-    bonus = 40 if "official video" in lowered or "official music video" in lowered else 0
-    return 100 + bonus - len(searchable)
+    official_clip = re.search(
+        r"\bofficial\s+(?:music\s+)?video\b|\bofficial\s+m/v\b|официальн\w*\s+(?:видео|клип)|офіційн\w*\s+(?:відео|кліп)",
+        lowered,
+    )
+    return 140 - len(searchable) if official_clip else None
 
 
 def _catalog_request(artist: str, title: str) -> urllib.request.Request:

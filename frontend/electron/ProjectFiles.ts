@@ -92,13 +92,24 @@ export const registerProjectFileHandlers = (
   });
 
   // Peaks of the instrumental for the karaoke waveform; computed here because the renderer never decodes audio.
-  ipc.handle(ipcChannels.waveformPeaks, (_event, raw: unknown) => {
+  ipc.handle(ipcChannels.waveformPeaks, async (_event, raw: unknown) => {
     const record = requireObject(raw, "Waveform request");
-    const { instrumental } = projectArtifacts(
-      requireString(record.songId, "songId"),
-      requireNumber(record.revision, "revision"),
-    );
-    return waveformPeaks(instrumental, requireNumber(record.bins, "bins"));
+    const songId = requireString(record.songId, "songId");
+    const revision = requireNumber(record.revision, "revision");
+    const bins = requireNumber(record.bins, "bins");
+    projectRevisionRoot(songId, revision);
+    try {
+      const { instrumental } = projectArtifacts(songId, revision);
+      return await waveformPeaks(instrumental, bins);
+    } catch {
+      // An imported or processing song has no published instrumental yet. Decode its managed
+      // source in the backend, which already supports MP3/FLAC as well as WAV.
+      const response = await backend.request(`/songs/${encodeURIComponent(songId)}/waveform?bins=${bins}`);
+      if (!response.ok || !Array.isArray(response.body) ||
+          !response.body.every((value: unknown) => typeof value === "number" && Number.isFinite(value)))
+        throw new Error("Song waveform is unavailable");
+      return response.body as number[];
+    }
   });
 
   // Peaks of a saved take: the backend names the file, so the renderer never passes a path.

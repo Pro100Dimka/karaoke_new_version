@@ -4,9 +4,8 @@
   --settings-inset: clamp(1rem, 4dvh, 2.5rem);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  top: var(--settings-inset);
-  bottom: auto;
-  margin-block: 0;
+  inset-block: 0;
+  margin-block: auto;
   max-height: calc(100dvh - 2 * var(--settings-inset));
   padding: var(--ad-space-6);
   overflow: hidden;

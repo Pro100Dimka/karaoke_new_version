@@ -121,7 +121,6 @@ class ImportSong:
         recognized: RecognizedSong | None,
     ) -> Song:
         managed = self._storage.copy_source(song_id, source, identity)
-        cover_state, cover_path = self._cover(song_id, managed)
         self._projects.create_imported(song_id, 1, managed)
         now = self._clock.now()
         title = request.title or prefer_equivalent_local_spelling(
@@ -140,8 +139,8 @@ class ImportSong:
             request,
             metadata,
             recognized,
-            cover_state,
-            cover_path,
+            CoverState.FALLBACK,
+            None,
             title,
             artist,
             provenance,
@@ -199,12 +198,6 @@ class ImportSong:
                 "Song with the same content already exists",
                 existingSongId=existing.song_id,
             )
-
-    def _cover(self, song_id: str, source: Path) -> tuple[CoverState, Path | None]:
-        target = source.parent.parent / "cover" / "embedded.jpg"
-        if self._media.extract_artwork(source, target):
-            return CoverState.EMBEDDED, target
-        return CoverState.FALLBACK, None
 
     def _cleanup_failed_import(self, song_id: str) -> None:
         quarantine = self._storage.quarantine(song_id)

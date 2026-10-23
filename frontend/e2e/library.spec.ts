@@ -5,6 +5,80 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(installDesktopBridge);
 });
 
+test("library cards stay sharp and wide, stats have no glare, and only editable text selects", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  const card = page.locator(".songCard").first();
+  await expect(card).toBeVisible();
+  expect((await card.boundingBox())!.width).toBeGreaterThanOrEqual(382);
+  await expect(card.locator(".ad-equalizer, .ad-tilt")).toHaveCount(0);
+  await card.hover();
+  await expect(card).toHaveCSS("transform", "none");
+  await expect(card.locator("img")).toHaveCSS("transform", "none");
+  await expect(card.locator("img")).toHaveCSS("filter", "none");
+  await expect(page.locator(".libraryHero .ad-tilt")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "A&D Voice" })).toHaveCSS("user-select", "none");
+  await expect(page.locator(".searchInput input")).toHaveCSS("user-select", "text");
+  await page.screenshot({ path: testInfo.outputPath("library-wide.png") });
+  await page.setViewportSize({ width: 640, height: 900 });
+  const hero = page.locator(".libraryHero");
+  const stats = hero.locator(".ad-stat-tile");
+  await expect.poll(async () => {
+    const boxes = await Promise.all((await stats.all()).map((stat) => stat.boundingBox()));
+    return Math.max(...boxes.map((box) => box!.y)) - Math.min(...boxes.map((box) => box!.y));
+  }).toBeLessThan(2);
+  expect(await page.locator(".libraryPage").evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("library-narrow.png") });
+});
+
+test("artist headings use the user's selected heading font", async ({ page }) => {
+  await page.goto("/");
+  const card = page.locator(".songCard").first();
+  await expect(card).toBeVisible();
+  await card.evaluate((element) => {
+    (element as HTMLElement).style.setProperty("--ad-font-family-heading", '"Selected Heading", serif');
+  });
+  const artist = card.getByRole("heading", { name: "Бумбокс", level: 4 });
+  await expect(artist).toHaveCSS("font-family", '"Selected Heading", serif');
+});
+
+test("complete artwork and processing waveform fit inside equal height song cards", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const request = window.desktop.pythonRequest;
+    window.desktop.pythonRequest = async (...args) => {
+      const response = await request(...args);
+      if (args[0].path.split("?")[0] === "/songs") {
+        const body = response.body as { items: Record<string, unknown>[] };
+        response.body = { ...body, items: [...body.items,
+          { ...body.items[0], songId: "song-2", title: "Ліхтарі", status: "Processing" }] };
+      }
+      return response;
+    };
+  });
+  for (const width of [1440, 960, 640]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/");
+    const cards = page.locator(".songCard");
+    await expect(cards).toHaveCount(2);
+    const processing = cards.filter({ hasText: "Ліхтарі" });
+    const waveform = processing.locator(".processingSignal .ad-waveform");
+    await expect(waveform).toBeVisible();
+    await expect.soft(cards.first().locator(".songCardCover")).toHaveCSS("object-fit", "contain");
+    const readyBox = (await cards.first().boundingBox())!;
+    const cardBox = (await processing.boundingBox())!;
+    const waveBox = (await waveform.boundingBox())!;
+    const actionsBox = (await processing.locator(".songCardActions").boundingBox())!;
+    expect(Math.abs(cardBox.height - readyBox.height)).toBeLessThan(2);
+    expect(waveBox.height).toBeLessThanOrEqual(36);
+    expect(waveBox.y + waveBox.height).toBeLessThanOrEqual(cardBox.y + cardBox.height - 8);
+    expect(waveBox.y).toBeGreaterThanOrEqual(actionsBox.y);
+    expect(waveBox.y + waveBox.height).toBeLessThanOrEqual(actionsBox.y + actionsBox.height);
+    const buttonBox = (await processing.locator(".songCardActions button").first().boundingBox())!;
+    expect(waveBox.x).toBeGreaterThanOrEqual(buttonBox.x + buttonBox.width);
+    await page.screenshot({ path: testInfo.outputPath(`cards-${width}.png`) });
+  }
+});
+
 test("theme backdrop covers the title bar as well as the library", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "A&D Voice" })).toBeVisible();

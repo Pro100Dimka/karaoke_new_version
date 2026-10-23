@@ -3,7 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
 import { LibraryProvider } from "../../app/LibraryProvider";
-import type { ProcessingJobDto } from "../../contracts/models";
+import type { ProcessingJobDto, SongDto } from "../../contracts/models";
+import { desktopClient } from "../../services/desktopClient";
 import { useProcessingQueue } from "./useProcessingQueue";
 import { ProcessingSignal } from "./ProcessingSignal";
 import { clearStorage } from "../../shared/storage/localStore";
@@ -40,6 +41,14 @@ it("keeps the library waveform accessible without the stage and percentage capti
   render(<ProcessingSignal progress={22} />);
   expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "22");
   expect(screen.queryByText("22%")).not.toBeInTheDocument();
+});
+
+it("loads the song waveform for processing instead of drawing the progress component's sample wave", async () => {
+  const peaks = vi.spyOn(desktopClient, "waveformPeaks").mockResolvedValue([0, 0.8, 0.2, 1]);
+  const { container } = render(<ProcessingSignal progress={22} song={{ id: "song", activeRevision: 7 } as SongDto} />);
+  await waitFor(() => expect(peaks).toHaveBeenCalledWith("song", 7, 480));
+  expect(container.querySelector(".ad-waveform")).not.toBeNull();
+  expect(container.querySelector(".ad-progress-wave-idle")).toBeNull();
 });
 
 it.each(["reply", "failure"])("keeps a pushed completed job when the older request finishes with %s", async (outcome) => {

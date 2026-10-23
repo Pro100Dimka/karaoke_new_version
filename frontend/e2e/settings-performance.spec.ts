@@ -1,6 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./desktopBridge";
 
+test("settings remains centered at wide and narrow window sizes", async ({ page }) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.goto("/");
+  await page.getByRole("button", { name: /Настройки|Settings/i }).first().click();
+  const dialog = page.locator("dialog.settingsDialog");
+  await expect(dialog).toBeVisible();
+  await dialog.evaluate((element) => Promise.all(element.getAnimations().map((animation) => animation.finished)));
+  for (const viewport of [{ width: 1920, height: 1080 }, { width: 700, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => {
+      const box = await dialog.boundingBox();
+      return box ? Math.abs(box.y + box.height / 2 - viewport.height / 2) : Infinity;
+    }).toBeLessThan(2);
+  }
+});
+
 test("settings avoids full-screen backdrop blur while remaining a modal", async ({ page }) => {
   await page.addInitScript(installDesktopBridge);
   await page.goto("/");

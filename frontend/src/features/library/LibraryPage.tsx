@@ -62,7 +62,7 @@ const searchDebounceMilliseconds = 150;
 /** The curtain closes over the library before the karaoke scene opens. */
 const curtainMilliseconds = 400;
 const cardHeight = 187;
-const cardAspectRatio = 1.62;
+const cardAspectRatio = 2.43;
 
 const LibraryLoading = ({
   pageRef,
@@ -380,7 +380,7 @@ export const LibraryPage = () => {
             itemKey={(song) => song.id}
             itemHeight={cardHeight}
             itemAspectRatio={cardAspectRatio}
-            minColumnWidth={255}
+            minColumnWidth={382.5}
             gap={16}
             scrollParent={pageRef}
             label={t("library")}

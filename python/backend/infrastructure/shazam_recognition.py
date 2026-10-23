@@ -3,14 +3,12 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
-from difflib import SequenceMatcher
 
 from aiohttp import ClientError
 from shazamio import Shazam
 
 from backend.songs.recognition import RecognizedSong, SongRecognitionProvider
-from backend.songs.filename_metadata import split_artist_title
-from backend.text_normalization import normalize_catalog_identity
+from backend.songs.filename_metadata import conflicts_with_filename
 
 Recognize = Callable[[Path], Awaitable[object]]
 FindVideo = Callable[[str, str], str | None]
@@ -48,7 +46,7 @@ class ShazamRecognitionProvider(SongRecognitionProvider):
             return None
         track = _mapping(_mapping(payload).get("track"))
         title, artist = _text(track.get("title")), _text(track.get("subtitle"))
-        if not title or not artist or _conflicts_with_filename(source, artist, title):
+        if not title or not artist or conflicts_with_filename(source.name, artist, title):
             return None
         return RecognizedSong(
             title=title,
@@ -71,22 +69,6 @@ def _album(track: Mapping[str, object]) -> str | None:
             if _text(row.get("title")) == "Album":
                 return _text(row.get("text"))
     return None
-
-
-def _conflicts_with_filename(source: Path, artist: str, title: str) -> bool:
-    identity = split_artist_title(source.stem)
-    if identity is None:
-        return False
-    expected_artist, expected_title = identity
-    artist_match = _similarity(expected_artist, artist)
-    title_match = _similarity(expected_title, title)
-    return artist_match < 0.55 or title_match < 0.45
-
-
-def _similarity(left: str, right: str) -> float:
-    return SequenceMatcher(
-        None, normalize_catalog_identity(left), normalize_catalog_identity(right)
-    ).ratio()
 
 
 def _artwork(track: Mapping[str, object]) -> str | None:

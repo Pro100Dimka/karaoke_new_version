@@ -1,4 +1,6 @@
-import { ProgressBar } from "@neo-ui-kit/react";
+import { Waveform } from "@neo-ui-kit/react";
+import type { SongDto } from "../../contracts/models";
+import { useWaveformPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { useText } from "../../i18n/useText";
 
 const clamp = (value: number): number =>
@@ -7,14 +9,19 @@ const clamp = (value: number): number =>
 /** Compact library waveform; detailed progress belongs to the processing queue. */
 export const ProcessingSignal = ({
   progress,
+  song,
 }: {
   progress: number;
+  song?: SongDto;
 }) => {
   const t = useText();
   const value = Math.round(clamp(progress));
+  const peaks = useWaveformPeaks(song?.id ?? "", song?.activeRevision ?? 1, Boolean(song));
   return (
     <figure className="processingSignal">
-      <ProgressBar variant="wave" label={t("processing")} value={value} />
+      <div role="progressbar" aria-label={t("processing")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={value}>
+        <Waveform points={peaks ?? []} duration={100} position={value} disabled label={t("processing")} />
+      </div>
     </figure>
   );
 };

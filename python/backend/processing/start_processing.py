@@ -203,7 +203,7 @@ class StartProcessing:
             status = self._persistence.load_song(song_id).status
         except NotFoundError:
             return
-        if status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
+        if cancelled or status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
             final_status = SongStatus.CANCELLED if cancelled else SongStatus.FAILED
             self._persistence.set_status_if_present(song_id, final_status)
 
@@ -257,7 +257,7 @@ class StartProcessing:
             nonlocal report
             report = self._pipeline.run(song, options, providers, context, execution)
 
-        self._preparation.run_with_clip(song, process)
+        self._preparation.run_with_clip(song, process, context.cancel)
         assert report is not None
         return report
 

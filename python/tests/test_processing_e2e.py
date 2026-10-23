@@ -7,8 +7,9 @@ from pathlib import Path
 from threading import Event, Thread
 
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
-from backend.domain_errors import DependencyError
+from backend.domain_errors import ConflictError, DependencyError
 from backend.songs.domain import SongStatus
+from backend.processing.domain import JobState
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
@@ -43,7 +44,9 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
         assert editor.json()["document"]["words"][0]["notes"]
 
 
-def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(tmp_path: Path) -> None:
+def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "history.wav"
     write_wav(source)
     with next_client(tmp_path) as client:
@@ -55,8 +58,10 @@ def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(tmp
             assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
         container = client.app.state.container
         storage = container.songs.start_processing._pipeline._publisher._storage
-        previous = {revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
-                    for revision in (2, 3)}
+        previous = {
+            revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
+            for revision in (2, 3)
+        }
         with container.database.create() as transaction:
             song = transaction.songs.get(song_id)
             transaction.songs.update(replace(song, active_revision=2))
@@ -67,8 +72,10 @@ def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(tmp
 
         assert job["state"] == "Succeeded", job
         assert client.get(f"/songs/{song_id}").json()["activeRevision"] == 4
-        assert {revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
-                for revision in previous} == previous
+        assert {
+            revision: storage.read_text_artifact(song_id, revision, "lyricsSync")
+            for revision in previous
+        } == previous
 
 
 def test_clip_download_overlaps_processing_and_preserves_published_revision(
@@ -83,7 +90,9 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
         start = container.songs.start_processing
         with container.database.create() as transaction:
             song = transaction.songs.get(imported["songId"])
-            transaction.songs.update(replace(song, video_url="https://www.youtube.com/watch?v=test"))
+            transaction.songs.update(
+                replace(song, video_url="https://www.youtube.com/watch?v=test")
+            )
             transaction.commit()
         run = start._pipeline.run
 
@@ -95,7 +104,7 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
             finally:
                 audio_finished.set()
 
-        def download(_url, destination, *, expected_duration):
+        def download(_url, destination, *, expected_duration, cancel=None):
             clip_started.set()
             assert audio_started.wait(3), "Clip download blocked the start of audio processing"
             assert audio_finished.wait(15), "Clip should be allowed to finish after publication"
@@ -118,6 +127,78 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
         assert client.get(f"/songs/{song.song_id}/clip").content == b"silent clip"
 
 
+@pytest.mark.parametrize("after_publication", [False, True])
+def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, after_publication: bool
+) -> None:
+    source = tmp_path / "cancel-clip.wav"
+    write_wav(source)
+    clip_started, clip_stopped, finished, release, published = (Event() for _ in range(5))
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        container = client.app.state.container
+        start = container.songs.start_processing
+        video_url = "https://www.youtube.com/watch?v=HVfb25Jq-_A"
+        with container.database.create() as transaction:
+            song = transaction.songs.get(imported["songId"])
+            transaction.songs.update(replace(song, video_url=video_url))
+            transaction.commit()
+        cancellation = []
+        run = start._pipeline.run
+
+        def process(_song, _options, _providers, context, _execution):
+            cancellation.append(context.cancel)
+            if after_publication:
+                report = run(_song, _options, _providers, context, _execution)
+                published.set()
+                return report
+            assert context.cancel.wait(5)
+            raise ConflictError("JobCancelled", "Processing was cancelled")
+
+        def download(_url, _destination, *, expected_duration, cancel=None):
+            clip_started.set()
+            assert (cancel or release).wait(5)
+            if cancel is not None:
+                assert cancellation == [cancel]
+            clip_stopped.set()
+            return False
+
+        finish = start._finish
+
+        def finish_job(*args):
+            try:
+                finish(*args)
+            finally:
+                finished.set()
+
+        monkeypatch.setattr(start._pipeline, "run", process)
+        monkeypatch.setattr(start._preparation._clip._downloader, "download", download)
+        monkeypatch.setattr(start, "_finish", finish_job)
+        started = client.post(
+            f"/songs/{song.song_id}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        try:
+            assert started.status_code == 202, started.text
+            assert clip_started.wait(3)
+            if after_publication:
+                assert published.wait(15)
+            job_id = started.json()["jobId"]
+            assert client.post(f"/songs/processing/{job_id}/cancel").status_code == 200
+            assert finished.wait(2), "Cancellation still waits for the unrelated clip download"
+            assert clip_stopped.is_set(), "Job released its resources before the clip stopped"
+            assert client.get(f"/jobs/{job_id}").json()["state"] == "Cancelled"
+            saved = client.get(f"/songs/{song.song_id}").json()
+            assert saved["status"] == "Cancelled"
+            assert saved["videoUrl"] == video_url
+            if after_publication:
+                assert saved["activeRevision"] == 2
+                assert client.get(f"/songs/{song.song_id}/editor").status_code == 200
+            container.songs.cancel_processing._update_song(song.song_id, JobState.CANCELLING)
+            assert client.get(f"/songs/{song.song_id}").json()["status"] == "Cancelled"
+        finally:
+            release.set()
+
+
 def test_late_clip_save_preserves_new_song_state_and_manual_metadata(tmp_path: Path) -> None:
     source = tmp_path / "late-clip.wav"
     write_wav(source)
@@ -126,9 +207,14 @@ def test_late_clip_save_preserves_new_song_state_and_manual_metadata(tmp_path: P
         container = client.app.state.container
         with container.database.create() as transaction:
             stale = transaction.songs.get(imported["songId"])
-            transaction.songs.update(replace(
-                stale, title="Edited while downloading", status=SongStatus.READY, active_revision=3
-            ))
+            transaction.songs.update(
+                replace(
+                    stale,
+                    title="Edited while downloading",
+                    status=SongStatus.READY,
+                    active_revision=3,
+                )
+            )
             transaction.commit()
         clip = container.songs.start_processing._preparation._clip
         saved = clip._save(stale, "local:clip")
@@ -293,18 +379,26 @@ class _ApproximateAlignmentProvider(FakeAiProvider):
         )
 
 
-@pytest.mark.parametrize("confidence,diagnostics,warning", [
-    (0.0, (), "AlignmentApproximate:wordIndices=0"),
-    (0.99, ("AsrCtcBoundaryDisagreement",),
-     "AlignmentDiagnostic:wordIndex=0;AsrCtcBoundaryDisagreement"),
-])
+@pytest.mark.parametrize(
+    "confidence,diagnostics,warning",
+    [
+        (0.0, (), "AlignmentApproximate:wordIndices=0"),
+        (
+            0.99,
+            ("AsrCtcBoundaryDisagreement",),
+            "AlignmentDiagnostic:wordIndex=0;AsrCtcBoundaryDisagreement",
+        ),
+    ],
+)
 def test_approximate_alignment_is_reported_and_persisted(
     tmp_path: Path, confidence: float, diagnostics: tuple[str, ...], warning: str
 ) -> None:
     source = tmp_path / "approximate.wav"
     write_wav(source)
     root = tmp_path / "runtime"
-    with app_client(root, ai_providers=(_ApproximateAlignmentProvider(confidence, diagnostics),)) as client:
+    with app_client(
+        root, ai_providers=(_ApproximateAlignmentProvider(confidence, diagnostics),)
+    ) as client:
         song = import_song(client, source)
         started = client.post(
             f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
@@ -339,7 +433,9 @@ class _RealignmentProvider(FakeAiProvider):
 
 @pytest.mark.parametrize("saved", ["catalog", "legacy", "invalid"])
 def test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_language(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, saved: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    saved: str,
 ) -> None:
     from backend.lyrics.discovery import LyricsDiscoveryResult
     from backend.lyrics.ports import LyricLineTiming
@@ -359,22 +455,30 @@ def test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_langu
     with app_client(root, ai_providers=(provider,)) as client:
         song = import_song(client, source)
         discovery = client.app.state.container.songs.start_processing._pipeline._document._discovery
-        monkeypatch.setattr(discovery, "discover", lambda *args, **kwargs:
-                            LyricsDiscoveryResult("ла", "catalog", (), (LyricLineTiming(.2, "ла"),)))
+        monkeypatch.setattr(
+            discovery,
+            "discover",
+            lambda *args, **kwargs: LyricsDiscoveryResult(
+                "ла", "catalog", (), (LyricLineTiming(0.2, "ла"),)
+            ),
+        )
         started = client.post(f"/songs/{song['songId']}/processing", json={"mode": "Fast"})
         assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
         manifest_path = root / "songs" / song["songId"] / "revisions" / "2" / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         if saved != "catalog":
-            manifest["provenance"]["lyricsTimingHints"] = None if saved == "legacy" else [
-                {"start": "bad", "text": "ла"}, {"start": -1, "text": "ла"}, {"start": True}]
+            manifest["provenance"]["lyricsTimingHints"] = (
+                None
+                if saved == "legacy"
+                else [{"start": "bad", "text": "ла"}, {"start": -1, "text": "ла"}, {"start": True}]
+            )
             manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
         else:
-            assert manifest["provenance"].get("lyricsTimingHints") == [{"start": .2, "text": "ла"}]
+            assert manifest["provenance"].get("lyricsTimingHints") == [{"start": 0.2, "text": "ла"}]
         for _ in range(2):
             started = client.post(f"/songs/{song['songId']}/processing/lyrics")
             assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
-        expected = LyricLineTiming(.2 if saved == "catalog" else .05, "ла")
+        expected = LyricLineTiming(0.2 if saved == "catalog" else 0.05, "ла")
         assert calls[1:] == [(Language.RUSSIAN, (expected,))] * 2
 
 
@@ -401,11 +505,16 @@ def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path,
         "unavailable-local", required_models=(RequiredModel("not-installed", "1", "0" * 64),)
     )
     with app_client(root, ai_providers=(unavailable, _RemoteTimingProvider())) as client:
-        changed = client.patch("/settings", json={
-            "processingBackend": "Kaggle", "computeMode": "CUDA", "kaggleToken": "test-token",
-            "selectedPitchProvider": "unavailable-local",
-            "selectedAlignmentProvider": "unavailable-local",
-        })
+        changed = client.patch(
+            "/settings",
+            json={
+                "processingBackend": "Kaggle",
+                "computeMode": "CUDA",
+                "kaggleToken": "test-token",
+                "selectedPitchProvider": "unavailable-local",
+                "selectedAlignmentProvider": "unavailable-local",
+            },
+        )
         assert changed.status_code == 200, changed.text
         started = client.post(f"/songs/{song['songId']}/processing/{operation}")
         assert started.status_code == 202, started.text
@@ -417,7 +526,8 @@ def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path,
             expected["alignment"] = "kaggle-p100"
         assert job["report"]["providers"] == expected
         assert not {item["stage"] for item in job["report"]["stages"]} & {
-            "StemSeparation", "LyricsDiscovery"
+            "StemSeparation",
+            "LyricsDiscovery",
         }
 
 
@@ -453,16 +563,21 @@ def test_existing_project_remote_reprocess_propagates_stale_worker_protocol(
     monkeypatch.setattr(remote_module, "Client", StaleWorker)
     remote = KaggleAiProvider(
         lambda: BackendSettings(
-            2, processing_backend=ProcessingBackend.KAGGLE,
-            kaggle_url="https://stub.gradio.live", kaggle_token="test-token"
+            2,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url="https://stub.gradio.live",
+            kaggle_token="test-token",
         ),
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
     monkeypatch.setattr(remote, "_handle_file", str)
     with app_client(root, ai_providers=(remote,)) as client:
-        assert client.patch("/settings", json={
-            "processingBackend": "Kaggle", "kaggleToken": "test-token"
-        }).status_code == 200
+        assert (
+            client.patch(
+                "/settings", json={"processingBackend": "Kaggle", "kaggleToken": "test-token"}
+            ).status_code
+            == 200
+        )
         started = client.post(f"/songs/{song['songId']}/processing/{operation}")
         assert started.status_code == 202, started.text
         job = wait_for_job(client, started.json()["jobId"])

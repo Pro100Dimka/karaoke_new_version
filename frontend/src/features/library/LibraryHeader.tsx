@@ -44,8 +44,8 @@ export const LibraryHeader = ({
           <Typography tone="muted">{t("libraryTagline")}</Typography>
         </Stack>
       </div>
-      <StatTile icon="music" value={songCount} label={t("totalSongs")} />
-      <StatTile icon="mic" value={readyCount} label={t("readyForKaraoke")} />
+      <StatTile tilt={false} icon="music" value={songCount} label={t("totalSongs")} />
+      <StatTile tilt={false} icon="mic" value={readyCount} label={t("readyForKaraoke")} />
       <FriendsStat />
       <NeonWaves
         className="libraryHeroWaves"

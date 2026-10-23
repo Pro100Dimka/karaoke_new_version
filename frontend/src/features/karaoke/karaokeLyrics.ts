@@ -9,6 +9,7 @@ export interface LyricLine {
 
 const maxWordsPerLine = 8;
 const lineBreakGapSeconds = 1.2;
+export const lyricSilenceSeconds = 3;
 
 /** Number of words on each written line, or null when the lyrics do not split into exactly these words. */
 const writtenLineSizes = (
@@ -62,7 +63,7 @@ export const buildLines = (
     end: group.at(-1)?.end ?? 0,
   }));
 
-/** Index of the line being sung, or the next upcoming one; -1 when there are no lyrics. */
+/** Holds the finished line briefly, then points at the upcoming one; -1 without lyrics. */
 export const currentLineIndex = (
   lines: readonly LyricLine[],
   position: number,
@@ -73,28 +74,25 @@ export const currentLineIndex = (
   );
   if (active >= 0) return active;
   const upcoming = lines.findIndex((line) => line.start > position);
+  const previous = lines[upcoming - 1];
+  const next = lines[upcoming];
+  if (
+    previous && next &&
+    position - previous.end < lyricSilenceSeconds &&
+    next.start - position > lyricSilenceSeconds
+  ) return upcoming - 1;
   return upcoming >= 0 ? upcoming : lines.length - 1;
 };
 
-// A gap this long is a real instrumental break, not just the ordinary pause between two sung lines --
-// worth clearing the screen for instead of leaving a not-yet-sung line sitting there the whole time. The
-// line comes back early enough to be read first, and the last seconds count down 4-3-2-1 above it (as in
-// any karaoke), so the singer knows exactly when to come in.
-const longGapSeconds = 10;
-const textLeadSeconds = 6;
-const countdownFrom = 4;
-
 export interface LineDisplayPhase {
   kind: "text" | "empty";
-  /** The count shown above the waiting line: 4, 3, 2, then 1 in the last second before it starts. */
+  /** Three seconds of lead-in, counting down to the next vocal entry. */
   countdown?: number;
 }
 
 /**
- * How the upcoming line should read at `position`, for a long-enough instrumental gap before it: empty
- * while there is still plenty of break left, then the line's own text in time to read it, with a 4-3-2-1
- * count over its last seconds. Once the line is actually singing (or the gap before it is short, the
- * ordinary case), this is always just "text" -- the existing display, unchanged.
+ * Clears both panels after three silent seconds, including the outro. Upcoming words return three
+ * seconds before entry; ordinary short gaps retain their text without a countdown.
  */
 export const upcomingLinePhase = (
   lines: readonly LyricLine[],
@@ -102,13 +100,14 @@ export const upcomingLinePhase = (
   position: number,
 ): LineDisplayPhase => {
   const line = lines[lineIndex];
-  if (!line || position >= line.start) return { kind: "text" };
+  if (!line) return { kind: "text" };
   const previousEnd = lines[lineIndex - 1]?.end ?? 0;
-  if (line.start - previousEnd <= longGapSeconds) return { kind: "text" };
+  const longGap = line.start - previousEnd > lyricSilenceSeconds;
   const secondsUntilStart = line.start - position;
-  if (secondsUntilStart > textLeadSeconds) return { kind: "empty" };
-  if (secondsUntilStart > countdownFrom) return { kind: "text" };
-  return { kind: "text", countdown: Math.ceil(secondsUntilStart) };
+  const kind = position >= line.end + lyricSilenceSeconds ||
+    (longGap && secondsUntilStart > lyricSilenceSeconds) ? "empty" : "text";
+  const counting = kind === "text" && longGap && secondsUntilStart > 0;
+  return { kind, ...(counting ? { countdown: Math.ceil(secondsUntilStart) } : {}) };
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;

@@ -7,6 +7,8 @@ export const recordingsRu = {
   analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
   analysisRecommendation: "Рекомендация",
   studioMasterTitle: "A&D Studio Master",
+  recordingOriginal: "Оригинал",
+  recordingVersion: "Версия выступления",
   studioMasterDescription:
     "AI разделит голос и минус, выровняет их громкость и создаст отдельную студийную версию.",
   studioMasterSourceTitle: "Исходная запись",

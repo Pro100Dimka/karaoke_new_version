@@ -1,6 +1,8 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
   studioMasterTitle: "A&D Studio Master",
+  recordingOriginal: "Оригінал",
+  recordingVersion: "Версія виступу",
   studioMasterDescription:
     "AI розділить голос і мінус, вирівняє їхню гучність і створить окрему студійну версію.",
   studioMasterSourceTitle: "Початковий запис",

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import threading
+import json
+import urllib.error
+from urllib.parse import parse_qs, urlsplit
 from pathlib import Path
 
 from backend.infrastructure.audd_recognition import (
@@ -11,6 +14,57 @@ from backend.infrastructure.audd_recognition import (
     YoutubeVideoFinder,
 )
 from backend.songs.recognition import RecognizedSong
+
+
+def test_youtube_finder_rejects_static_audio_even_when_search_says_official() -> None:
+    def get(request: object, _timeout: float) -> bytes:
+        url = str(getattr(request, "full_url"))
+        if "results?" in url:
+            return b'{"videoId":"abcDEF12345"}'
+        return b'{"title":"Artist - Song (Official Audio)","author_name":"Artist"}'
+
+    assert YoutubeVideoFinder(None, get=get)("Artist", "Song") is None
+
+
+def test_youtube_finder_never_uses_an_unverified_first_result_after_metadata_failure() -> None:
+    def get(request: object, _timeout: float) -> bytes:
+        if "results?" in str(getattr(request, "full_url")):
+            return b'{"videoId":"abcDEF12345"}'
+        raise urllib.error.URLError("offline")
+
+    assert YoutubeVideoFinder(None, get=get)("Artist", "Song") is None
+
+
+def test_youtube_api_filters_candidates_with_the_same_official_clip_policy() -> None:
+    def get(request: object, _timeout: float) -> bytes:
+        assert parse_qs(urlsplit(str(getattr(request, "full_url"))).query)["q"] == [
+            "Artist Song official video"
+        ]
+        return json.dumps(
+            {
+                "items": [
+                    {
+                        "id": {"videoId": "abcDEF12345"},
+                        "snippet": {
+                            "title": "Artist - Song (Official Audio)",
+                            "channelTitle": "Artist",
+                        },
+                    },
+                    {
+                        "id": {"videoId": "abcDEF12346"},
+                        "snippet": {
+                            "title": "Artist - Song (Official Music Video)",
+                            "channelTitle": "Artist",
+                        },
+                    },
+                ]
+            }
+        ).encode()
+
+    assert (
+        YoutubeVideoFinder("key", get=get)("Artist", "Song")
+        == "https://www.youtube.com/watch?v=abcDEF12346"
+    )
 
 
 def test_audd_metadata_maps_cover_genre_and_optional_youtube_clip(tmp_path: Path) -> None:
@@ -91,6 +145,9 @@ def test_youtube_finder_uses_public_search_when_no_api_key_is_configured() -> No
 
     assert result == "https://www.youtube.com/watch?v=cEQ6-8J-P3I"
     assert "youtube.com/results?" in requested[0]
+    assert parse_qs(urlsplit(requested[0]).query)["search_query"] == [
+        "5sta Family Зачем official video"
+    ]
 
 
 def test_youtube_finder_skips_topic_audio_and_selects_matching_clip() -> None:

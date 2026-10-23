@@ -15,6 +15,7 @@ import {
   buildLines,
   currentLineIndex,
   letterProgress,
+  lyricSilenceSeconds,
   noteHitReached,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -71,6 +72,7 @@ const PianoRoll = ({
   pitchHz,
   onNoteScoreChange,
   show,
+  hidden,
 }: {
   document: EditorDocument;
   position: number;
@@ -80,6 +82,7 @@ const PianoRoll = ({
   pitchHz?: number;
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
   show: ShowEngine;
+  hidden: boolean;
 }) => {
   const t = useText();
   const beat = useBeat();
@@ -257,6 +260,7 @@ const PianoRoll = ({
       <div
         ref={frameRef}
         className="pianoRoll"
+        hidden={hidden}
         data-active={(active && !panel.detached) || undefined}
         style={frameStyle}
         // In its own window the roll is placed and sized by that window, not dragged inside the app.
@@ -394,7 +398,10 @@ export const KaraokeStage = ({
     [document],
   );
   const lineIndex = currentLineIndex(lines, position);
-  const shown = [lines[lineIndex], lines[lineIndex + 1]];
+  const current = lines[lineIndex];
+  const next = lines[lineIndex + 1];
+  const preview = current && next && next.start - current.end <= lyricSilenceSeconds ? next : undefined;
+  const shown = [current, preview];
   const phase = upcomingLinePhase(lines, lineIndex, position);
   const showNotes = useMemo(
     () =>
@@ -426,11 +433,11 @@ export const KaraokeStage = ({
   const shownWordIds = useMemo(
     () =>
       new Set(
-        [lines[lineIndex - 1], lines[lineIndex], lines[lineIndex + 1]].flatMap(
+        [lines[lineIndex - 1], current, preview].flatMap(
           (line) => line?.words.map((word) => word.id) ?? [],
         ),
       ),
-    [lines, lineIndex],
+    [lines, lineIndex, current, preview],
   );
 
   return (
@@ -449,6 +456,7 @@ export const KaraokeStage = ({
           pitchHz={pitchHz}
           onNoteScoreChange={onNoteScoreChange}
           show={show}
+          hidden={lines.length > 0 && phase.kind === "empty"}
         />
       )}
       {/* After the roll: stage light passes in front of its glass (softened over it) but stays under the lyrics and console. */}

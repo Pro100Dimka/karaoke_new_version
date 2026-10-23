@@ -73,47 +73,114 @@
   box-sizing: border-box;
 }
 
-/* An endlessly moving Tilt wrapper makes Chromium postpone real pointer clicks forever. Keep the
-   card's pointer tilt and hover depth, but anchor its outer box so every action remains hittable. */
-.songCard > .ad-tilt {
-  animation: none;
-}
-
-/* White or busy covers (and lettering printed on them) washed out the title and the artist: a
-   deeper shade under the head keeps both readable on any cover, and the artist is not muted there. */
-.songCard .ad-media-card-card[data-image]::before {
-  background:
-    linear-gradient(180deg, rgb(from var(--ad-neutral-950) r g b / 0.86), rgb(from var(--ad-neutral-950) r g b / 0.5) 34%, transparent 58%),
-    linear-gradient(0deg, rgb(from var(--ad-neutral-950) r g b / 0.76), rgb(from var(--ad-neutral-950) r g b / 0.28) 48%, transparent 74%);
-}
-.songCard .ad-media-card-card[data-image] .ad-media-card-title > :nth-child(2) {
-  color: rgb(from var(--ad-text) r g b / 0.86);
-  text-shadow: 0 0.0625rem 0.125rem #000, 0 0 0.5rem #000;
-}
-
-/* The song and its artist are the card's headings: both in the heading face, the title large and tight,
-   the artist a smaller line under it, so a card reads at a glance even with a plain text face chosen. */
-.songCard .ad-media-card-title > :first-child {
-  font-family: var(--ad-font-family-heading);
-  font-size: clamp(1.15rem, 0.95rem + 0.45vw, 1.4rem);
-  font-weight: var(--ad-font-weight-bold);
-  line-height: 1.12;
-  letter-spacing: 0.01em;
-}
-.songCard .ad-media-card-title > :nth-child(2) {
-  font-family: var(--ad-font-family-heading);
-  font-size: clamp(0.85rem, 0.75rem + 0.2vw, 0.95rem);
-  font-weight: var(--ad-font-weight-semibold);
-  line-height: 1.2;
-  letter-spacing: 0.02em;
-}
-
-.processingSignal {
+/* Stable surfaces keep the cover and lettering sharp while the edge provides the light. */
+.songCard.ad-card {
   display: grid;
-  flex: 1 1 8rem;
+  grid-template-columns: minmax(0, 1fr) 42%;
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 1.25rem;
+  background: linear-gradient(125deg, var(--ad-neutral-950), var(--ad-primary-900));
+  box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.22);
+}
+.songCardCover {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.songCardContent {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--ad-space-3);
+  padding: clamp(1rem, 1.5vw, 1.5rem);
+}
+.songCard:not(:has(.songCardCover)) .songCardContent {
+  grid-column: 1 / -1;
+}
+.songCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ad-space-3);
+  flex-wrap: wrap;
+}
+.songCardTitle {
+  display: grid;
+  min-width: 0;
   gap: var(--ad-space-1);
+  text-shadow: 0 0.125rem 0.4rem rgb(0 0 0 / 0.8);
+}
+.songCardTitle h3 {
+  font-size: clamp(1.2rem, 1rem + 0.5vw, 1.6rem);
+  line-height: 1.12;
+}
+.songCardTitle h4 {
+  color: rgb(255 255 255 / 0.84);
+  font-family: var(--ad-font-family-heading);
+  font-weight: var(--ad-font-weight-medium);
+}
+.songCardTitle h3,
+.songCardTitle h4 {
   margin: 0;
-  padding-inline: var(--ad-space-2);
+}
+.songCardActions {
+  display: flex;
+  align-items: center;
+  gap: var(--ad-space-2);
+  margin-top: auto;
+}
+.libraryHero > .ad-stat-tile {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+@media (max-width: 58rem) {
+  .libraryHero .identity {
+    flex-basis: 100%;
+  }
+}
+@media (max-width: 40rem) {
+  .libraryHero {
+    gap: var(--ad-space-3);
+  }
+  .libraryHero > .ad-stat-tile {
+    flex-basis: 0;
+  }
+  .libraryHero .ad-stat-tile-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ad-space-2);
+  }
+  .libraryHero .ad-stat-tile-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.1rem;
+  }
+  .libraryHero .ad-stat-tile-text > strong {
+    font-size: 1.6rem;
+  }
+  .libraryHero .ad-stat-tile-text > :last-child {
+    font-size: 0.7rem;
+  }
+}
+.processingSignal {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+}
+.processingSignal .ad-waveform {
+  height: 2rem;
 }
 
 .libraryEmpty.ad-empty-state {

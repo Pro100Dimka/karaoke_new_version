@@ -81,11 +81,13 @@
   gap: var(--ad-space-2);
   flex-wrap: wrap;
 }
-.processingJobProgress {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--ad-space-3);
+.processingSteps.ad-steps {
+  --ad-step-node: 1.5rem;
+  font-size: 0.7rem;
+  gap: var(--ad-space-1);
+}
+.processingSteps .ad-step-label {
+  overflow-wrap: anywhere;
 }
 .processingFooter {
   display: grid;
@@ -124,7 +126,7 @@
   .processingFooter {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .processingFooter > .ad-button {
+  .processingFooter > .ad-split-button {
     grid-column: 2;
     justify-self: end;
   }

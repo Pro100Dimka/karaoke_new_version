@@ -1,43 +1,15 @@
-import { act, render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { useState, type ReactNode } from "react";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 import type { SongDto } from "../../contracts/models";
 
 const state = vi.hoisted(() => ({
   translate: vi.fn((key: string) => key),
-  publish: undefined as undefined | ((bands: readonly number[]) => void),
 }));
 vi.mock("../../i18n/useText", () => ({ useText: () => state.translate }));
-vi.mock("./useRadioSpectrum", () => ({
-  useRadioSpectrum: () => {
-    const [bands, setBands] = useState<readonly number[]>([]);
-    state.publish = setBands;
-    return bands;
-  },
-}));
 vi.mock("./SongStatusBadge", () => ({ SongStatusBadge: () => null }));
-vi.mock("@neo-ui-kit/react", () => ({
-  MediaCard: ({
-    levels,
-    actions,
-    children,
-  }: {
-    levels: readonly number[];
-    actions: ReactNode;
-    children: ReactNode;
-  }) => (
-    <div>
-      <span data-testid="spectrum">{levels.join(",")}</span>
-      {actions}
-      {children}
-    </div>
-  ),
-  IconButton: ({ label }: { label: string }) => <button>{label}</button>,
-  Menu: () => null,
-}));
 
-it("updates the radio surface without rebuilding song actions on every spectrum frame", () => {
+it("shows a still cover without an equalizer or pointer tilt", () => {
   const noop = () => {};
   const handlers: SongCardHandlers = {
     onPlay: noop,
@@ -50,7 +22,7 @@ it("updates the radio surface without rebuilding song actions on every spectrum 
     onDelete: noop,
     onViewError: noop,
   };
-  render(
+  const view = render(
     <SongCard
       song={
         {
@@ -58,15 +30,15 @@ it("updates the radio surface without rebuilding song actions on every spectrum 
           title: "Song",
           artist: "Artist",
           status: "ready",
+          artworkUrl: "https://example.com/cover.jpg",
         } as SongDto
       }
       handlers={handlers}
     />,
   );
-  const calls = state.translate.mock.calls.length;
-  act(() => state.publish?.([0.1, 0.8]));
-  expect(screen.getByTestId("spectrum")).toHaveTextContent("0.1,0.8");
-  expect(state.translate).toHaveBeenCalledTimes(calls);
+  expect(view.container.querySelector("img")).toHaveAttribute("src", "https://example.com/cover.jpg");
+  expect(view.container.querySelector(".ad-equalizer")).toBeNull();
+  expect(view.container.querySelector(".ad-tilt")).toBeNull();
 });
 
 it("skips parent updates when the song and room selection stay unchanged", () => {

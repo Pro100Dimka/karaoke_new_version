@@ -11,6 +11,15 @@ html {
   background: var(--ad-neutral-950);
   color: var(--ad-text);
   font-family: var(--app-font-text, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable="true"],
+pre,
+code {
+  user-select: text;
 }
 
 html,

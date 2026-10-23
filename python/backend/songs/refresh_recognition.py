@@ -5,7 +5,13 @@ from dataclasses import replace
 from backend.persistence import UnitOfWorkFactory
 from backend.runtime import Clock
 from backend.songs.domain import MetadataSource, Song
-from backend.songs.recognition import SongRecognitionProvider, prefer_equivalent_local_spelling
+from backend.songs.filename_metadata import conflicts_with_filename
+from backend.songs.recognition import (
+    RecognizedSong,
+    SongRecognitionProvider,
+    prefer_equivalent_local_spelling,
+)
+from backend.text_normalization import normalize_catalog_identity
 
 
 class RefreshSongRecognition:
@@ -22,11 +28,7 @@ class RefreshSongRecognition:
         self._clock = clock
 
     def execute(self, song: Song) -> Song:
-        if song.source_path is None or (
-            song.recognition_provider in {"Shazam", "AudD"} and song.video_url
-        ):
-            return song
-        recognized = self._recognition.recognize(song.source_path)
+        recognized = self._recognize(song)
         if recognized is None:
             return song
         provenance = dict(song.metadata_provenance)
@@ -54,3 +56,26 @@ class RefreshSongRecognition:
             transaction.songs.update(updated)
             transaction.commit()
         return updated
+
+    def _recognize(self, song: Song) -> RecognizedSong | None:
+        fingerprinted = song.recognition_provider in {"Shazam", "AudD"}
+        if song.source_path is None or (fingerprinted and song.video_url):
+            return None
+        recognized = self._recognition.recognize(song.source_path)
+        if recognized is not None and conflicts_with_filename(
+            song.original_filename or song.source_path.name, recognized.artist, recognized.title
+        ):
+            return None
+        if (
+            recognized is not None
+            and fingerprinted
+            and any(
+                normalize_catalog_identity(before) != normalize_catalog_identity(after)
+                for before, after in (
+                    (song.title, recognized.title),
+                    (song.artist, recognized.artist),
+                )
+            )
+        ):
+            return None
+        return recognized

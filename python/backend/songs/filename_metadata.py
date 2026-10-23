@@ -3,8 +3,10 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 from pathlib import Path
+from difflib import SequenceMatcher
 
 from backend.songs.ports import MediaMetadata
+from backend.text_normalization import normalize_catalog_identity
 
 UNKNOWN_ARTIST = "Unknown Artist"
 _SEPARATORS = (" - ", " – ", " — ")
@@ -64,3 +66,19 @@ def with_filename_fallback(metadata: MediaMetadata, source: Path) -> MediaMetada
         artist=clean_site_tags(metadata.artist),
         album=clean_site_tags(metadata.album) if metadata.album else metadata.album,
     )
+
+
+def conflicts_with_filename(filename: str, artist: str, title: str) -> bool:
+    identity = split_artist_title(Path(filename).stem)
+    if identity is None:
+        return False
+    expected_artist, expected_title = identity
+    artist_match = _similarity(expected_artist, artist)
+    title_match = _similarity(expected_title, title)
+    return artist_match < 0.55 or title_match < 0.45
+
+
+def _similarity(left: str, right: str) -> float:
+    return SequenceMatcher(
+        None, normalize_catalog_identity(left), normalize_catalog_identity(right)
+    ).ratio()

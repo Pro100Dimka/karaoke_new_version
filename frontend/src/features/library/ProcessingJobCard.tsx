@@ -4,8 +4,8 @@ import {
   IconButton,
   Menu,
   MessageBar,
-  ProgressBar,
   Stack,
+  Steps,
   StatusIndicator,
   Typography,
   type MenuItemData,
@@ -60,7 +60,7 @@ export const ProcessingJobCard = ({
   const active = isActive(job);
   const retryable = isRetryable(job);
   const duration = processingDuration(job);
-  const phase = phases[phaseOf(job) ?? -1];
+  const phase = job.state === "completed" ? phases.length : phaseOf(job);
   const menu: MenuItemData[] = [
     {
       id: "details",
@@ -142,18 +142,8 @@ export const ProcessingJobCard = ({
               >{duration}</Typography>
             )}
           </Stack>
-          {active && phase && (
-            <Typography variant="caption" tone="muted">{t(phase)}</Typography>
-          )}
-          <div className="processingJobProgress">
-            <ProgressBar
-              label={t("processingDetailsProgress")}
-              value={job.progress}
-            />
-            <Typography variant="caption" weight="semibold">
-              {job.progress}%
-            </Typography>
-          </div>
+          <Steps className="processingSteps" steps={phases.map((step) => t(step))}
+            current={phase ?? -1} aria-label={t("processingDetailsStage")} />
           {retryable && (
             <MessageBar tone="error">
               {job.error?.message ?? t(stateLabel[job.state])}

@@ -51,6 +51,10 @@
   inline-size: min(20rem, 70vw);
 }
 /* The Karaoke route's place: KaraokeHost draws Karaoke into it (or into the TV). */
+.pianoRoll[hidden] {
+  display: none;
+}
+
 .karaokeSlot {
   display: contents;
 }

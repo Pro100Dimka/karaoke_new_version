@@ -59,24 +59,19 @@ export const RecordingsModal = ({
   const t = useText();
   const [view, setView] = useState<View>("list");
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
+  const performances = useMemo(() => {
+    const ids = new Set(recordings.map((recording) => recording.id));
+    return recordings.filter((recording) => !recording.sourceRecordingId || !ids.has(recording.sourceRecordingId));
+  }, [recordings]);
   const totalSize = recordings.reduce(
     (sum, recording) => sum + recording.sizeBytes,
     0,
   );
   if (!song) return null;
-  const takeName = (recording: RecordingDto) =>
+  const nameOf = (recording: RecordingDto) =>
     recording.displayName ||
-    defaultTakeName(t, numbers.get(recording.id) ?? 1, recording.createdAt);
-  const nameOf = (recording: RecordingDto): string => {
-    if (recording.displayName || !recording.sourceRecordingId)
-      return takeName(recording);
-    const source = recordings.find(
-      (item) => item.id === recording.sourceRecordingId,
-    );
-    return source
-      ? `${t("studioMasterTitle")} · ${takeName(source)}`
-      : t("studioMasterTitle");
-  };
+    (recording.sourceRecordingId ? t("studioMasterTitle") :
+      defaultTakeName(t, numbers.get(recording.id) ?? 1, recording.createdAt));
 
   return (
     <Dialog
@@ -118,10 +113,11 @@ export const RecordingsModal = ({
             data-view={view}
             aria-label={t("recordings")}
           >
-            {recordings.map((recording, index) => (
+            {performances.map((recording, index) => (
               <RecordingCard
                 key={recording.id}
                 recording={recording}
+                versions={recordings.filter((item) => item.sourceRecordingId === recording.id)}
                 index={index}
                 name={nameOf(recording)}
                 onRename={(value) => onRename(recording, value)}
@@ -147,7 +143,7 @@ export const RecordingsModal = ({
             ]}
           />
           <Typography variant="caption" tone="muted">
-            {t("recordingsCount", { count: recordings.length })}
+            {t("recordingsCount", { count: performances.length })}
           </Typography>
           <Typography variant="caption" className="recordingsSize">
             <Icon name="database" />

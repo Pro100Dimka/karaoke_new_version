@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from collections.abc import Callable
 from pathlib import Path
+from threading import Event
 from typing import Protocol
 
 from backend.domain_errors import NotFoundError
@@ -18,7 +19,12 @@ LOCAL_CLIP = "local:clip"
 
 class ClipDownloader(Protocol):
     def download(
-        self, source_url: str, destination: Path, *, expected_duration: float | None
+        self,
+        source_url: str,
+        destination: Path,
+        *,
+        expected_duration: float | None,
+        cancel: Event | None = None,
     ) -> bool: ...
 
 
@@ -30,7 +36,10 @@ def clip_path(song: Song) -> Path | None:
 
 class PrepareSongClip:
     def __init__(
-        self, uow: UnitOfWorkFactory, downloader: ClipDownloader, clock: Clock,
+        self,
+        uow: UnitOfWorkFactory,
+        downloader: ClipDownloader,
+        clock: Clock,
         locks: KeyedLockManager,
     ) -> None:
         self._uow = uow
@@ -38,7 +47,7 @@ class PrepareSongClip:
         self._clock = clock
         self._locks = locks
 
-    def execute(self, song: Song) -> Song:
+    def execute(self, song: Song, cancel: Event | None = None) -> Song:
         destination = clip_path(song)
         if destination is None:
             return song
@@ -47,7 +56,11 @@ class PrepareSongClip:
         source_url = song.video_url or ""
         if not source_url:
             return song
-        ready = self._downloader.download(source_url, destination, expected_duration=song.duration)
+        ready = self._downloader.download(
+            source_url, destination, expected_duration=song.duration, cancel=cancel
+        )
+        if cancel is not None and cancel.is_set():
+            return song
         return self._save(song, LOCAL_CLIP if ready else None)
 
     def _save(self, song: Song, video_url: str | None) -> Song:
@@ -63,7 +76,9 @@ class PrepareSongClip:
 
 class PrepareSong:
     def __init__(
-        self, recognition: RefreshSongRecognition, clip: PrepareSongClip,
+        self,
+        recognition: RefreshSongRecognition,
+        clip: PrepareSongClip,
         concurrency: ConcurrentRunner,
     ) -> None:
         self._recognition = recognition
@@ -73,8 +88,8 @@ class PrepareSong:
     def execute(self, song: Song) -> Song:
         return self._recognition.execute(song)
 
-    def run_with_clip(self, song: Song, process: Callable[[], None]) -> None:
+    def run_with_clip(self, song: Song, process: Callable[[], None], cancel: Event) -> None:
         def download_clip() -> None:
-            self._clip.execute(song)
+            self._clip.execute(song, cancel)
 
         self._concurrency.run_concurrently(process, download_clip)

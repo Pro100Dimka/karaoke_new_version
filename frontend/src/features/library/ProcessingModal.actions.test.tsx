@@ -196,7 +196,7 @@ it("connects every processing queue control to an action", async () => {
   fireEvent.click(screen.getByRole("button", { name: "done" }));
 
   fireEvent.click(
-    screen.getByRole("button", { name: "processingClear" }),
+    screen.getByRole("button", { name: "processingClear" }).parentElement!.querySelector(".ad-split-button-trigger")!,
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "processingClearCompleted" }));
   const clearDialog = screen.getByRole("dialog", { name: "processingClearCompletedTitle" });
@@ -218,7 +218,7 @@ it.each([
   render(<LibraryProvider><ProcessingModal open songs={songs} onClose={vi.fn()}
     onCancel={onCancel} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
   await screen.findByText("Artist — completed");
-  fireEvent.click(screen.getByRole("button", { name: "processingClear" }));
+  fireEvent.click(screen.getByRole("button", { name: "processingClear" }).parentElement!.querySelector(".ad-split-button-trigger")!);
   for (const label of ["processingClearCompleted", "processingClearFailed", "processingClearAll"])
     expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("menuitem", { name: choice }));
@@ -235,7 +235,7 @@ it.each([
   expect(onCancel).not.toHaveBeenCalled();
 });
 
-it("shows readable overall progress and the current phase for a running job", async () => {
+it("shows pipeline steps without the redundant overall progress bar or percentage", async () => {
   const existing = song("active", "Active song");
   vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
     ...job("job-active", existing.id, "processing"), stage: "MusicAnalysis", progress: 42,
@@ -243,8 +243,32 @@ it("shows readable overall progress and the current phase for a running job", as
   render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
     onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
   const card = (await screen.findByText("Artist — Active song")).closest("li")!;
-  expect(within(card).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "42");
-  expect(within(card).getByText("42%")).toBeInTheDocument();
+  expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(within(card).queryByText("42%")).not.toBeInTheDocument();
   expect(within(card).getByText("processingPhasePrepare")).toBeInTheDocument();
   expect(within(card).queryByText("MusicAnalysis")).not.toBeInTheDocument();
+});
+
+it("shows all pipeline steps and marks the actual current step", async () => {
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
+    ...job("steps", "active", "processing"), stage: "ForcedAlignment", progress: 60,
+  }]);
+  render(<LibraryProvider><ProcessingModal open songs={[song("active", "Steps")]} onClose={vi.fn()}
+    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  const card = (await screen.findByText("Artist — Steps")).closest("li")!;
+  const steps = within(card).getByRole("list", { name: "processingDetailsStage" });
+  expect(within(steps).getAllByRole("listitem")).toHaveLength(5);
+  expect(within(steps).getByText("processingPhaseLyrics").closest("li")).toHaveAttribute("aria-current", "step");
+  expect(within(steps).getByText("processingPhasePrepare").closest("li")).toHaveAttribute("data-state", "done");
+});
+
+it("uses the kit split button for clearing completed jobs and choosing another group", async () => {
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([job("done", "done", "completed")]);
+  render(<LibraryProvider><ProcessingModal open songs={[song("done", "Done")]} onClose={vi.fn()}
+    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  await screen.findByText("Artist — Done");
+  const clear = screen.getByRole("button", { name: "processingClear" });
+  expect(clear.closest(".ad-split-button")).not.toBeNull();
+  fireEvent.click(clear);
+  expect(screen.getByRole("dialog", { name: "processingClearCompletedTitle" })).toBeInTheDocument();
 });

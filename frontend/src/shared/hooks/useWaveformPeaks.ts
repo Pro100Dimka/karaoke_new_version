@@ -11,6 +11,7 @@ const usePeaks = (
   useEffect(() => {
     let active = true;
     setPeaks(null);
+    if (!key) return;
     load()
       .then((values) => active && setPeaks(values.length > 0 ? values : null))
       .catch(() => active && setPeaks(null));
@@ -27,10 +28,11 @@ const usePeaks = (
 export const useWaveformPeaks = (
   songId: string,
   revision: number,
+  enabled = true,
 ): readonly number[] | null =>
   usePeaks(
     () => desktopClient.waveformPeaks(songId, revision, 480),
-    `${songId}:${revision}`,
+    enabled ? `${songId}:${revision}` : "",
   );
 
 /** A saved take, for its player's waveform. */

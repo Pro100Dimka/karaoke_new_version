@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Button,
   Dialog,
   IconButton,
-  Menu,
   NeonWaves,
   ProgressBar,
+  SplitButton,
   Typography,
 } from "@neo-ui-kit/react";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
@@ -95,8 +94,6 @@ export const ProcessingModal = ({
   const disk = useDisk(open);
   const [notice, setNotice] = useState<Notice>();
   const [motionPaused, setMotionPaused] = useState(false);
-  const clearAnchor = useRef<HTMLButtonElement>(null);
-  const [clearMenuOpen, setClearMenuOpen] = useState(false);
   const diskText = disk
     ? t("processingDiskUsage", {
         free: formatBytes(disk.free),
@@ -233,27 +230,19 @@ export const ProcessingModal = ({
               />
             )}
           </div>
-          <Button
-            ref={clearAnchor}
+          <SplitButton
             size="sm"
             icon="trash"
-            aria-haspopup="menu"
-            aria-expanded={clearMenuOpen}
-            disabled={queue.visible.length === 0}
-            onClick={() => setClearMenuOpen((value) => !value)}
-          >
-            {t("processingClear")}
-          </Button>
-          <Menu
-            open={clearMenuOpen}
-            onOpenChange={setClearMenuOpen}
-            anchorRef={clearAnchor}
-            align="end"
+            aria-disabled={queue.visible.length === 0}
+            label={t("processingClear")}
+            onClick={() => queue.visible.length > 0 && clear(clearGroups.completed)}
             items={Object.entries(clearGroups).map(([id, group]) => ({
               id, label: t(group.label), disabled: !queue.visible.some(group.matches),
               onSelect: () => clear(group),
             }))}
-          />
+          >
+            {t("processingClear")}
+          </SplitButton>
         </footer>
       </div>
       <Dialog

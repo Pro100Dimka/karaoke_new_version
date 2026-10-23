@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import Song, SongStatus
-from backend.songs.ports import SongPage
+from backend.songs.ports import MediaInspector, SongPage
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +29,18 @@ class GetSong:
         if song is None:
             raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
         return song
+
+
+class GetSongWaveform:
+    def __init__(self, songs: GetSong, media: MediaInspector) -> None:
+        self._songs = songs
+        self._media = media
+
+    def execute(self, song_id: str, bins: int) -> list[float]:
+        song = self._songs.execute(song_id)
+        if song.source_path is None or not song.source_path.is_file():
+            raise NotFoundError("SourceMissing", "Song source is unavailable")
+        return self._media.waveform_peaks(song.source_path, bins)
 
 
 class ListSongs:

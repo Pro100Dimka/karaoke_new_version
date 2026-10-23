@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
-from typing import Callable, Protocol, cast
-
-from yt_dlp import YoutubeDL
-from yt_dlp.utils import DownloadError
+from threading import Event
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.process_runner import ProcessRunner
@@ -18,39 +16,23 @@ _YOUTUBE_ID = re.compile(
 )
 
 
-class _YoutubeDl(Protocol):
-    def __enter__(self) -> "_YoutubeDl": ...
-    def __exit__(self, *args: object) -> None: ...
-    def download(self, urls: list[str]) -> int: ...
-
-
-YoutubeDlFactory = Callable[[dict[str, object]], _YoutubeDl]
-Transcode = Callable[[Path, Path, float | None], bool]
-Validate = Callable[[Path], bool]
-
-
-def _default_factory(options: dict[str, object]) -> _YoutubeDl:
-    return cast(_YoutubeDl, YoutubeDL(options))
-
-
 class YoutubeClipDownloader:
     """Downloads the recognized clip and publishes a browser-compatible silent MP4."""
 
     def __init__(
         self,
-        factory: YoutubeDlFactory = _default_factory,
         *,
         processes: ProcessRunner | None = None,
-        transcode: Transcode | None = None,
-        validate: Validate | None = None,
     ) -> None:
-        self._factory = factory
         self._processes = processes or ProcessRunner()
-        self._transcode = transcode or self._transcode_mp4
-        self._validate = validate or self._has_motion
 
     def download(
-        self, source_url: str, destination: Path, *, expected_duration: float | None
+        self,
+        source_url: str,
+        destination: Path,
+        *,
+        expected_duration: float | None,
+        cancel: Event | None = None,
     ) -> bool:
         match = _YOUTUBE_ID.search(source_url)
         if match is None:
@@ -58,61 +40,78 @@ class YoutubeClipDownloader:
         video_id = match.group(1)
         destination.parent.mkdir(parents=True, exist_ok=True)
         self._cleanup(destination.parent)
-        options = self._options(destination.parent / ".clip-download.%(ext)s")
         temporary = destination.with_name(f".{destination.stem}.tmp{destination.suffix}")
         temporary.unlink(missing_ok=True)
         try:
-            source = self._download_source(video_id, destination.parent, options)
-            if source is None or not self._transcode(source, temporary, expected_duration):
+            source = self._download_source(video_id, destination.parent, cancel)
+            if source is None or not self._transcode_mp4(
+                source, temporary, expected_duration, cancel
+            ):
                 return False
-            if not self._validate(temporary):
+            if not self._has_motion(temporary, cancel) or (cancel is not None and cancel.is_set()):
                 return False
             os.replace(temporary, destination)
             return destination.is_file() and destination.stat().st_size > 0
-        except (OSError, RuntimeError, ValueError, DownloadError, DomainError):
+        except (OSError, RuntimeError, ValueError, DomainError):
             return False
         finally:
             temporary.unlink(missing_ok=True)
             self._cleanup(destination.parent)
 
-    def _download_source(
-        self, video_id: str, directory: Path, options: dict[str, object]
-    ) -> Path | None:
-        with self._factory(options) as downloader:
-            result = downloader.download([f"https://www.youtube.com/watch?v={video_id}"])
+    def _download_source(self, video_id: str, directory: Path, cancel: Event | None) -> Path | None:
+        result = self._processes.run(
+            [
+                sys.executable,
+                "-m",
+                "yt_dlp",
+                *self._options(directory / ".clip-download.%(ext)s"),
+                f"https://www.youtube.com/watch?v={video_id}",
+            ],
+            timeout_seconds=1800,
+            cancel=cancel,
+        )
         candidates = [
             path
             for path in directory.glob(".clip-download.*")
             if path.is_file() and path.suffix not in {".part", ".ytdl"}
         ]
-        if result != 0 or not candidates:
+        if result.exit_code != 0 or not candidates:
             return None
         return max(candidates, key=lambda path: path.stat().st_size)
 
     @staticmethod
-    def _options(template: Path) -> dict[str, object]:
-        return {
-            "format": (
+    def _options(template: Path) -> list[str]:
+        return [
+            "--ignore-config",
+            "--no-cache-dir",
+            "--no-playlist",
+            "--quiet",
+            "--no-warnings",
+            "--no-progress",
+            "--js-runtimes",
+            "node",
+            "--force-overwrites",
+            "--continue",
+            "--socket-timeout",
+            "20",
+            "--retries",
+            "2",
+            "--fragment-retries",
+            "2",
+            "--max-filesize",
+            str(400 * 1024 * 1024),
+            "--output",
+            str(template),
+            "--format",
+            (
                 "bestvideo[vcodec^=avc1][ext=mp4][height>=720][height<=1080]/"
                 "bestvideo[ext=mp4][height>=720][height<=1080]/"
                 "bestvideo[height>=720][height<=1080]/bestvideo/best"
             ),
-            "outtmpl": str(template),
-            "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
-            "noprogress": True,
-            "js_runtimes": {"node": {}},
-            "overwrites": True,
-            "continuedl": True,
-            "socket_timeout": 20,
-            "retries": 2,
-            "fragment_retries": 2,
-            "max_filesize": 400 * 1024 * 1024,
-        }
+        ]
 
     def _transcode_mp4(
-        self, source: Path, destination: Path, expected_duration: float | None
+        self, source: Path, destination: Path, expected_duration: float | None, cancel: Event | None
     ) -> bool:
         timeout = max(180.0, min(1800.0, (expected_duration or 300.0) * 4.0))
         result = self._processes.run(
@@ -143,10 +142,11 @@ class YoutubeClipDownloader:
                 str(destination),
             ],
             timeout_seconds=timeout,
+            cancel=cancel,
         )
         return result.exit_code == 0 and destination.is_file() and destination.stat().st_size > 0
 
-    def _has_motion(self, source: Path) -> bool:
+    def _has_motion(self, source: Path, cancel: Event | None) -> bool:
         frame_size = 32 * 18
         result = self._processes.run(
             [
@@ -166,6 +166,7 @@ class YoutubeClipDownloader:
                 "pipe:1",
             ],
             timeout_seconds=60,
+            cancel=cancel,
         )
         frames = [
             result.stdout[offset : offset + frame_size]

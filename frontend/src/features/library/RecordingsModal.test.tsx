@@ -1,0 +1,31 @@
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import type { RecordingDto, SongDto } from "../../contracts/models";
+import { RecordingsModal } from "./RecordingsModal";
+
+vi.mock("../../i18n/useText", () => ({ useText: () => (key: string, values?: { count?: number }) => values?.count === undefined ? key : `${key}:${values.count}` }));
+vi.mock("../../app/LibraryProvider", () => ({ useLibraryFiles: () => ({ revealInExplorer: vi.fn() }) }));
+vi.mock("./RecordingPlayer", () => ({ RecordingPlayer: ({ recording }: { recording: RecordingDto }) => <div data-testid="playing-version">{recording.id}</div> }));
+afterEach(cleanup);
+
+const original = { id: "take", songId: "song", displayName: "My performance", createdAt: "2026-10-23T12:00:00Z", sizeBytes: 10 } as RecordingDto;
+const master = { ...original, id: "master", sourceRecordingId: original.id, displayName: "", sizeBytes: 20 };
+const props = { song: { title: "Song" } as SongDto, onClose: vi.fn(), onRename: vi.fn(), onAnalyze: vi.fn(), onDelete: vi.fn() };
+
+it("counts one performance and switches its original and Studio Master inside the same card", () => {
+  render(<RecordingsModal {...props} recordings={[master, original]} />);
+  const list = screen.getByRole("list", { name: "recordings" });
+  expect(within(list).getAllByRole("listitem")).toHaveLength(1);
+  expect(screen.getByText("recordingsCount:1")).toBeInTheDocument();
+  expect(screen.getByTestId("playing-version")).toHaveTextContent("take");
+  fireEvent.click(screen.getByRole("tab", { name: "studioMasterTitle" }));
+  expect(screen.getByTestId("playing-version")).toHaveTextContent("master");
+  fireEvent.click(within(list).getByRole("button", { name: "recordingDelete" }));
+  expect(props.onDelete).toHaveBeenLastCalledWith(master);
+});
+
+it("keeps a Studio Master accessible when its source has been removed", () => {
+  render(<RecordingsModal {...props} recordings={[master]} />);
+  expect(screen.getByRole("list", { name: "recordings" }).children).toHaveLength(1);
+  expect(screen.getByTestId("playing-version")).toHaveTextContent("master");
+});

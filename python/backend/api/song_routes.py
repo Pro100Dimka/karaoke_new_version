@@ -10,7 +10,7 @@ from backend.api.dependencies import container
 from backend.api.song_dto import ImportSongDto, SongDto, SongPageDto, UpdateSongDto, song_dto
 from backend.bootstrap.container import ApplicationContainer
 from backend.domain_errors import NotFoundError
-from backend.songs.domain import Song
+from backend.songs.domain import CoverState, Song
 from backend.songs.domain import SongStatus
 from backend.songs.import_song import ImportSongRequest
 from backend.songs.queries import ListSongsQuery
@@ -84,12 +84,23 @@ def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
 def get_song_cover(song_id: str, app: ContainerDep) -> FileResponse:
     """The user's own cover, otherwise the recognised one from the local cache (fetched once)."""
     song = app.songs.get_song.execute(song_id)
-    if song.cover_path is not None and song.cover_path.is_file():
+    if (
+        song.cover_state == CoverState.CUSTOM
+        and song.cover_path is not None
+        and song.cover_path.is_file()
+    ):
         return FileResponse(song.cover_path)
     cached = app.artwork.path_for(song.artwork_url or "")
     if cached is None:
         raise NotFoundError("CoverMissing", "Song cover is unavailable")
     return FileResponse(cached, headers={"Cache-Control": "max-age=86400"})
+
+
+@router.get("/{song_id}/waveform")
+def get_song_waveform(
+    song_id: str, app: ContainerDep, bins: int = Query(120, ge=16, le=480)
+) -> list[float]:
+    return app.songs.get_waveform.execute(song_id, bins)
 
 
 @router.delete("/{song_id}/cover", response_model=SongDto)

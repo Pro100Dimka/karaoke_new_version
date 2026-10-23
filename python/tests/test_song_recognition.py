@@ -2,14 +2,82 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import replace
 
 import pytest
 
 from backend.songs.recognition import RecognizedSong
 from tests.conftest import app_client, write_wav
+from backend.songs.domain import CoverState
+from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
+from backend.infrastructure.artwork_cache import ArtworkCache
+import httpx
 
 
 pytestmark = pytest.mark.integration
+
+
+def test_import_ignores_embedded_artwork_and_existing_embedded_covers_use_the_catalog(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    extracted = []
+    monkeypatch.setattr(
+        FfmpegMediaInspector, "extract_artwork", lambda *args: extracted.append(args) or False
+    )
+    with app_client(tmp_path / "runtime") as client:
+        song = client.post("/songs", json={"sourcePath": str(source)}).json()
+        assert not extracted
+        container = client.app.state.container
+        embedded = tmp_path / "embedded.jpg"
+        embedded.write_bytes(b"embedded")
+        container.artwork = ArtworkCache(
+            tmp_path / "artwork",
+            httpx.MockTransport(
+                lambda request: httpx.Response(
+                    200, headers={"content-type": "image/jpeg"}, content=b"catalog"
+                )
+            ),
+        )
+        with container.database.create() as transaction:
+            stored = transaction.songs.get(song["songId"])
+            transaction.songs.update(
+                replace(
+                    stored,
+                    cover_path=embedded,
+                    cover_state=CoverState.EMBEDDED,
+                    artwork_url="https://images.example/cover.jpg",
+                )
+            )
+            transaction.commit()
+        assert client.get(f"/songs/{song['songId']}/cover").content == b"catalog"
+        with container.database.create() as transaction:
+            stored = transaction.songs.get(song["songId"])
+            transaction.songs.update(replace(stored, cover_state=CoverState.CUSTOM))
+            transaction.commit()
+        assert client.get(f"/songs/{song['songId']}/cover").content == b"embedded"
+
+
+def test_song_waveform_uses_the_imported_audio_before_processing(tmp_path: Path) -> None:
+    import wave
+
+    source = tmp_path / "waveform.wav"
+    write_wav(source)
+    with wave.open(str(source), "rb") as original:
+        parameters, audio = original.getparams(), original.readframes(original.getnframes())
+    with wave.open(str(source), "wb") as output:
+        output.setparams(parameters)
+        output.writeframes(bytes(len(audio) // 2) + audio[len(audio) // 2 :])
+    with app_client(tmp_path / "runtime") as client:
+        song = client.post("/songs", json={"sourcePath": str(source)}).json()
+        response = client.get(f"/songs/{song['songId']}/waveform?bins=32")
+        assert response.status_code == 200, response.text
+        peaks = response.json()
+        assert len(peaks) == 32
+        assert max(peaks[:14]) == 0
+        assert min(peaks[18:]) > 0.8
+        assert client.get(f"/songs/{song['songId']}/waveform?bins=0").status_code == 422
 
 
 @dataclass
@@ -250,3 +318,48 @@ def test_recognition_refresh_preserves_manual_title_and_artist(tmp_path: Path) -
 
     assert (refreshed["title"], refreshed["artist"]) == ("My title", "My artist")
     assert (refreshed["album"], refreshed["genre"]) == ("Album", "Pop")
+
+
+@pytest.mark.parametrize("provider", [None, "Apple Music Search", "Shazam", "AudD"])
+def test_processing_does_not_replace_an_identified_song_with_an_unrelated_fingerprint(
+    tmp_path: Path, provider: str | None
+) -> None:
+    source = tmp_path / "otorvald_- Фонари.wav"
+    write_wav(source)
+    original = RecognizedSong(
+        "Ліхтарі",
+        "Оторвальд",
+        "Original album",
+        artwork_url="https://images.test/ot.jpg",
+        provider=provider or "",
+        external_id="original-id",
+    )
+    unrelated = RecognizedSong(
+        "Son Banza",
+        "Ismail Tsito & Zainab Sambisa & Yamu Bab",
+        "Wrong album",
+        artwork_url="https://images.test/wrong.jpg",
+        video_url="https://youtu.be/HVfb25Jq-_A",
+        provider="Shazam",
+        external_id="wrong-id",
+    )
+    with app_client(
+        tmp_path / "runtime",
+        recognition_provider=SequenceRecognizer([original if provider else None, unrelated]),
+    ) as client:
+        imported = client.post("/songs", json={"sourcePath": str(source)}).json()
+        client.post(
+            f"/songs/{imported['songId']}/processing",
+            json={"mode": "Auto", "onlineLyrics": True},
+        )
+        refreshed = client.get(f"/songs/{imported['songId']}").json()
+
+    for field in (
+        "title",
+        "artist",
+        "album",
+        "artworkUrl",
+        "recognitionProvider",
+        "videoUrl",
+    ):
+        assert refreshed[field] == imported[field], field

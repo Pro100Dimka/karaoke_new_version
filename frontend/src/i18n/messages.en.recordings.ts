@@ -8,6 +8,8 @@ export const recordingsEn = {
   analysisStabilityHint: "Steady pitch through every note",
   analysisRecommendation: "Recommendation",
   studioMasterTitle: "A&D Studio Master",
+  recordingOriginal: "Original",
+  recordingVersion: "Performance version",
   studioMasterDescription:
     "AI separates the vocal and backing track, balances their loudness, and creates a separate studio version.",
   studioMasterSourceTitle: "Original recording",

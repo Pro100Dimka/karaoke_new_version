@@ -46,20 +46,22 @@ const installBusyLibrary = (): void => {
         status: 200,
         ok: true,
         body: {
-          items: Array.from({ length: 6 }, (_, index) => ({
+          items: Array.from({ length: 7 }, (_, index) => ({
             recordingId: `rec-${index}`,
             filePath: `D:/recording-${index}.wav`,
-            duration: [67, 47, 220, 195, 220, 150][index],
+            duration: [67, 47, 220, 195, 220, 150][index % 6],
+            sizeBytes: 12_000_000,
             sampleRate: 48000,
             channels: 2,
             createdAt: `2026-09-${30 - index}T23:19:36Z`,
             songId: "song-1",
             songRevision: 1,
-            displayName: `Recording ${index + 1}`,
+            displayName: index === 6 ? "" : `Recording ${index + 1}`,
+            sourceRecordingId: index === 6 ? "rec-0" : undefined,
             fileStatus: "Ready",
             analysisStatus: index % 2 ? "Succeeded" : "NotAnalyzed",
           })),
-          total: 6,
+          total: 7,
           limit: 200,
           offset: 0,
         },
@@ -70,7 +72,7 @@ const installBusyLibrary = (): void => {
 
 test("processing queue and performances list the backend's jobs and takes", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.addInitScript(installDesktopBridge);
   await page.addInitScript(installBusyLibrary);
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -90,9 +92,10 @@ test("processing queue and performances list the backend's jobs and takes", asyn
       .getByRole("list", {
         name: /Очередь обработки|Processing queue|Черга обробки/i,
       })
-      .getByRole("listitem"),
+      .locator(":scope > li"),
   ).toHaveCount(7);
-  await page.screenshot({ path: "test-results/processing-modal.png" });
+  await expect(queue.locator(".processingSteps > li")).toHaveCount(35);
+  await page.screenshot({ path: testInfo.outputPath("processing-modal.png") });
   await page.keyboard.press("Escape");
   await expect(queue).toBeHidden();
 
@@ -104,7 +107,10 @@ test("processing queue and performances list the backend's jobs and takes", asyn
   await expect(
     performances.getByText(/(Записей|Recordings|Записів): 6/),
   ).toBeVisible();
-  await page.screenshot({ path: "test-results/performances-modal.png" });
+  await expect(performances.locator(".recordingsList > li")).toHaveCount(6);
+  await performances.getByRole("tab", { name: "A&D Studio Master", exact: true }).click();
+  await expect(performances.getByRole("tab", { name: "A&D Studio Master", exact: true })).toHaveAttribute("aria-selected", "true");
+  await page.screenshot({ path: testInfo.outputPath("performances-modal.png") });
 });
 
 test("processing cleanup survives reloads and controls fit wide and narrow queues", async ({ page }, testInfo) => {
@@ -115,7 +121,8 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
   const openQueue = () => page.getByRole("button", { name: "Processing queue", exact: true }).click();
   await openQueue();
   const queue = page.getByRole("dialog", { name: "Processing queue", exact: true });
-  await expect(queue.getByRole("listitem")).toHaveCount(7);
+  const jobs = queue.locator(".processingList > li");
+  await expect(jobs).toHaveCount(7);
 
   for (const width of [1280, 720, 400]) {
     await page.setViewportSize({ width, height: 800 });
@@ -148,23 +155,23 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
   }
 
   const clear = async (choice: string, title: string) => {
-    await queue.getByRole("button", { name: "Clear", exact: true }).click();
+    await queue.locator(".processingFooter .ad-split-button-trigger").click();
     await page.getByRole("menuitem", { name: choice, exact: true }).click();
     await page.getByRole("dialog", { name: title, exact: true })
       .getByRole("button", { name: "Clear", exact: true }).click();
   };
   await clear("Completed", "Clear completed jobs?");
-  await expect(queue.getByRole("listitem")).toHaveCount(4);
+  await expect(jobs).toHaveCount(4);
   await page.reload();
   await openQueue();
-  await expect(queue.getByRole("listitem")).toHaveCount(4);
+  await expect(jobs).toHaveCount(4);
   await clear("Failed", "Clear failed jobs?");
-  await expect(queue.getByRole("listitem")).toHaveCount(3);
+  await expect(jobs).toHaveCount(3);
   await clear("All", "Clear the entire queue?");
-  await expect(queue.getByRole("listitem")).toHaveCount(0);
+  await expect(jobs).toHaveCount(0);
   await page.reload();
   await openQueue();
-  await expect(queue.getByRole("listitem")).toHaveCount(0);
+  await expect(jobs).toHaveCount(0);
 
   await page.evaluate(() => {
     const original = window.desktop.pythonRequest;
@@ -179,6 +186,7 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
   });
   await page.keyboard.press("Escape");
   await openQueue();
-  await expect(queue.getByRole("listitem")).toHaveCount(1);
-  await expect(queue.getByText("22%", { exact: true })).toBeVisible();
+  await expect(jobs).toHaveCount(1);
+  await expect(queue.getByText("22%", { exact: true })).toHaveCount(0);
+  await expect(queue.locator(".processingJobProgress")).toHaveCount(0);
 });

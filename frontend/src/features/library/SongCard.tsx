@@ -1,10 +1,9 @@
-import { memo, useRef, useState, type ComponentProps } from "react";
-import { IconButton, MediaCard, Menu } from "@neo-ui-kit/react";
+import { memo, useRef, useState } from "react";
+import { Card, IconButton, Menu, Typography } from "@neo-ui-kit/react";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { ProcessingSignal } from "./ProcessingSignal";
-import { useRadioSpectrum } from "./useRadioSpectrum";
 import { SongStatusBadge } from "./SongStatusBadge";
 import { songStatusPresentation, type SongActionId } from "./songPresentation";
 
@@ -55,13 +54,6 @@ const primaryActions = {
   SongActionId
 >;
 
-/** Stable per-song phase so neighbouring covers do not animate in lockstep. */
-const coverPhase = (songId: string): number =>
-  [...songId].reduce(
-    (sum, character) => (sum * 31 + character.charCodeAt(0)) % 97,
-    7,
-  );
-
 /** The primary button's icon: in a room a guest picks songs, otherwise it is the song's main action. */
 const primaryIcon = (
   primary: SongActionId | null,
@@ -70,12 +62,6 @@ const primaryIcon = (
   if (roomSelection && roomSelection.role !== "host")
     return roomSelection.selected ? "check" : "users";
   return primary ? actionMeta[primary].icon : "processing";
-};
-
-/** Spectrum updates affect the visual surface; action menus retain their React elements. */
-const RadioMediaCard = (props: ComponentProps<typeof MediaCard>) => {
-  const levels = useRadioSpectrum();
-  return <MediaCard {...props} levels={levels} />;
 };
 
 export const SongCard = memo(
@@ -117,27 +103,30 @@ export const SongCard = memo(
     const menuActions = menuOrder.filter((id) => allowed.has(id));
 
     return (
-      <RadioMediaCard
+      <Card
+        border
+        padding="none"
         className="songCard"
-        tilt={12}
         aria-label={`${song.artist} — ${song.title}`}
-        title={
-          <span className="songCardHeading" role="heading" aria-level={3}>
-            {song.title}
-          </span>
-        }
-        subtitle={
-          song.artist && (
-            <span className="songCardHeading" role="heading" aria-level={4}>
-              {song.artist}
-            </span>
-          )
-        }
-        image={song.artworkUrl}
-        phase={coverPhase(song.id)}
-        badge={<SongStatusBadge status={song.status} />}
-        actions={
-          <>
+      >
+        {song.artworkUrl && (
+          <img className="songCardCover" src={song.artworkUrl} alt="" loading="lazy" />
+        )}
+        <div className="songCardContent">
+          <header className="songCardHead">
+            <div className="songCardTitle">
+              <Typography as="h3" variant="h3" truncate>
+                {song.title}
+              </Typography>
+              {song.artist && (
+                <Typography as="h4" variant="body-sm" truncate>
+                  {song.artist}
+                </Typography>
+              )}
+            </div>
+            <SongStatusBadge status={song.status} />
+          </header>
+          <div className="songCardActions">
             <IconButton
               round
               size="sm"
@@ -183,13 +172,12 @@ export const SongCard = memo(
                 />
               </>
             )}
-          </>
-        }
-      >
-        {song.status === "processing" && (
-          <ProcessingSignal progress={song.progress ?? 0} />
-        )}
-      </RadioMediaCard>
+            {song.status === "processing" && (
+              <ProcessingSignal progress={song.progress ?? 0} song={song} />
+            )}
+          </div>
+        </div>
+      </Card>
     );
   },
   (previous, next) =>

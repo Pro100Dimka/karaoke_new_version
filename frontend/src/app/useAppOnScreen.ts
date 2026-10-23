@@ -14,7 +14,8 @@ const subscribe = (listener: () => void): (() => void) => {
   };
 };
 
-const snapshot = (): boolean => shownByDesktop && !document.hidden;
+const snapshot = (): boolean =>
+  window.desktop?.onAppVisibility ? shownByDesktop : !document.hidden;
 
 /**
  * Whether anything of the app can be seen: the desktop reports its main window and detached panels

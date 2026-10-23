@@ -1,10 +1,35 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 
 describe("KaraokeStage", () => {
+  it("hides distant previews and clears both lyrics and melody after three silent seconds, including the outro", () => {
+    const editorDocument: EditorDocument = {
+      revision: 1, lyrics: "First\nDistant",
+      words: [{ id: "first", text: "First", start: 0, end: 2 }, { id: "next", text: "Distant", start: 20, end: 22 }],
+      notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
+    };
+    const stage = (position: number) => <AppProvider><KaraokeStage songTitle="Song" position={position}
+      playing={false} rate={1} document={editorDocument} layers={{ showLyrics: true, showNotes: true }} vocalRange="auto" /></AppProvider>;
+    const view = render(stage(1));
+    expect(screen.getAllByText("First").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Distant")).not.toBeInTheDocument();
+    view.rerender(stage(4.9));
+    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    view.rerender(stage(5));
+    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+    view.rerender(stage(17));
+    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    expect(screen.getAllByText("Distant").length).toBeGreaterThan(0);
+    view.rerender(stage(25));
+    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    expect(screen.queryByText("Distant")).not.toBeInTheDocument();
+    view.rerender(stage(1));
+    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+  });
   it("does not display a pitch target before the saved note starts", () => {
     const editorDocument: EditorDocument = {
       revision: 1,

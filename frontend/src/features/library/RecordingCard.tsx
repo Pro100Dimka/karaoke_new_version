@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Card, IconButton, TextField, Typography } from "@neo-ui-kit/react";
+import { Card, IconButton, SegmentedControl, TextField, Typography } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryFiles } from "../../app/LibraryProvider";
@@ -68,6 +68,7 @@ const TakeName = ({
 /** One take: its picture, name, file and analysis state, player and actions. */
 export const RecordingCard = ({
   recording,
+  versions = [],
   name,
   index,
   onRename,
@@ -75,6 +76,7 @@ export const RecordingCard = ({
   onDelete,
 }: {
   recording: RecordingDto;
+  versions?: readonly RecordingDto[];
   name: string;
   index: number;
   onRename(name: string): void;
@@ -83,13 +85,15 @@ export const RecordingCard = ({
 }) => {
   const t = useText();
   const files = useLibraryFiles();
+  const [versionId, setVersionId] = useState(recording.id);
+  const selected = versions.find((item) => item.id === versionId) ?? recording;
   // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
   const nearView = useNearView(card);
   const statuses = recordingStatusLabels(
-    recording.fileStatus ?? "Ready",
-    recording.analysisStatus ?? "NotAnalyzed",
+    selected.fileStatus ?? "Ready",
+    selected.analysisStatus ?? "NotAnalyzed",
   );
 
   return (
@@ -100,11 +104,23 @@ export const RecordingCard = ({
         </svg>
         <div className="recordingMain">
           <TakeName name={name} onRename={onRename} />
+          {versions.length > 0 && (
+            <SegmentedControl
+              size="sm"
+              label={t("recordingVersion")}
+              value={selected.id}
+              onValueChange={setVersionId}
+              items={[recording, ...versions].map((item) => ({
+                value: item.id,
+                label: t(item.sourceRecordingId ? "studioMasterTitle" : "recordingOriginal"),
+              }))}
+            />
+          )}
           <Typography variant="caption" tone="muted">
             {statuses.map((key) => t(key)).join("  •  ")}
           </Typography>
           {nearView ? (
-            <RecordingPlayer recording={recording} />
+            <RecordingPlayer key={selected.id} recording={selected} />
           ) : (
             <div className="recordingPlayer recordingPlayerPending" aria-hidden="true" />
           )}
@@ -113,18 +129,18 @@ export const RecordingCard = ({
           <IconButton
             icon="levels"
             label={t("recordingAnalyze")}
-            onClick={() => onAnalyze(recording)}
+            onClick={() => onAnalyze(selected)}
           />
           <IconButton
             icon="folder"
             label={t("openFolder")}
-            onClick={() => void files.revealInExplorer(recording.filePath)}
+            onClick={() => void files.revealInExplorer(selected.filePath)}
           />
           <IconButton
             icon="trash"
             variant="danger"
             label={t("recordingDelete")}
-            onClick={() => onDelete(recording)}
+            onClick={() => onDelete(selected)}
           />
         </div>
       </Card>
