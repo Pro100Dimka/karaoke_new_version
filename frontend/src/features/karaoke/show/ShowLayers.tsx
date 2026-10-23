@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useReducer } from "react";
 import { subscribeSpectrum } from "../../../app/backdrop/spectrumEvents";
 import type { LyricLine } from "../karaokeLyrics";
 import type { ShowNote, ShowPhrase } from "./performanceTracker";
@@ -6,6 +6,7 @@ import { RollFxRenderer, type RollView } from "./rollFxRenderer";
 import { ShowEngine, type NoteWord, type ShowSettings } from "./showEngine";
 import { StageFxRenderer } from "./stageFxRenderer";
 import "./show.css";
+import type { PitchFrame } from "../../../contracts/models";
 
 /** Each lyric line is one phrase of the show: the notes sung on its words. */
 export const phrasesOf = (
@@ -87,6 +88,7 @@ interface ShowInput {
   lines: readonly LyricLine[];
   position: number;
   pitchHz: number | undefined;
+  pitchFrames?: readonly PitchFrame[];
   playing: boolean;
   settings: ShowSettings;
 }
@@ -97,10 +99,13 @@ export const useShowEngine = ({
   lines,
   position,
   pitchHz,
+  pitchFrames,
   playing,
   settings,
 }: ShowInput): ShowEngine => {
   const engine = useMemo(() => new ShowEngine(), []);
+  const [, refreshScore] = useReducer((version: number) => version + 1, 0);
+  const lastPitch = useRef({ epoch: -1, sequence: 0 });
   useEffect(
     () =>
       engine.load(notes, phrasesOf(lines, notes), wordsOfNotes(lines, notes)),
@@ -114,16 +119,28 @@ export const useShowEngine = ({
       ),
     [engine],
   );
-  useEffect(
-    () =>
+  useEffect(() => {
       engine.advance(
         performance.now(),
         position,
         devAutopilotPitch(notes, position) ?? pitchHz,
         playing,
-      ),
-    [engine, notes, position, pitchHz, playing],
-  );
+        undefined,
+        pitchFrames === undefined,
+      );
+      if (playing && pitchFrames === undefined) refreshScore();
+  }, [engine, notes, position, pitchHz, playing, pitchFrames]);
+  useEffect(() => {
+    if (!playing || !pitchFrames) return;
+    let changed = false;
+    for (const frame of pitchFrames) {
+      if (frame.epoch === lastPitch.current.epoch && frame.sequence <= lastPitch.current.sequence) continue;
+      engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds);
+      lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
+      changed = true;
+    }
+    if (changed) refreshScore();
+  }, [engine, pitchFrames, playing]);
   useEffect(() => exposeForDiagnostics(engine), [engine]);
   return engine;
 };

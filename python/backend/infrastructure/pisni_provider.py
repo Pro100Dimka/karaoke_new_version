@@ -82,6 +82,12 @@ def _candidate(page: str) -> LyricsCandidate | None:
         return None
     text = re.sub(r"<br\s*/?>|</p\s*>", "\n", match[1], flags=re.IGNORECASE)
     text = html.unescape(re.sub(r"<[^>]+>", "", text))
-    lyrics = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+    lyrics = "\n".join(
+        line.strip() for line in text.splitlines()
+        if line.strip() and not re.fullmatch(
+            r"\s*(?:Взято с сайта|Взято із сайту)\s*:?(?:\s+https?://\S+)?\s*",
+            line, re.IGNORECASE,
+        )
+    )
     artist, title = identity
     return LyricsCandidate(lyrics, title, artist, None, "PisniUA") if lyrics else None

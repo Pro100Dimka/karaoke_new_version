@@ -4,7 +4,24 @@ import { AppProvider } from "../../app/AppContext";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 
+vi.mock("./useSmoothPosition", () => ({ useSmoothPosition: (position: number) => position }));
+
 describe("KaraokeStage", () => {
+  it("uses delayed capture frames once, rather than scoring the newest scalar at the drawn cursor", async () => {
+    const editorDocument: EditorDocument = { revision: 1, lyrics: "Sing", words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
+      notes: [{ id: "n", wordId: "w", start: 0, end: 0.1, pitch: 69 }] };
+    const onNoteScoreChange = vi.fn();
+    const frames = [0.025, 0.075].map((positionSeconds, sequence) => ({ sequence: sequence + 1, epoch: 1,
+      positionSeconds, durationSeconds: 0.05, pitchHz: 440 }));
+    const stage = (position: number) => <AppProvider><KaraokeStage songTitle="Song" position={position} playing rate={1}
+      document={editorDocument} layers={{ showLyrics: true, showNotes: true }} vocalRange="auto"
+      pitchHz={220 * 2 ** (3 / 12)} pitchFrames={frames} onNoteScoreChange={onNoteScoreChange} /></AppProvider>;
+    const view = render(stage(0.4));
+    await waitFor(() => expect(onNoteScoreChange).toHaveBeenLastCalledWith(expect.objectContaining({ hitNotes: 1, totalNotes: 1 })));
+    const before = onNoteScoreChange.mock.lastCall?.[0];
+    view.rerender(stage(0.5));
+    expect(onNoteScoreChange.mock.lastCall?.[0]).toEqual(before);
+  });
   it("fades lyrics and melody together before clearing them, then fades the next entry in", () => {
     const editorDocument: EditorDocument = {
       revision: 1, lyrics: "First\nNext",
@@ -128,7 +145,7 @@ describe("KaraokeStage", () => {
         <KaraokeStage
           songTitle="Song"
           position={1}
-          playing={false}
+          playing={true}
           rate={1}
           document={editorDocument}
           layers={{ showLyrics: true, showNotes: true }}
@@ -153,7 +170,7 @@ describe("KaraokeStage", () => {
         <KaraokeStage
           songTitle="Song"
           position={position}
-          playing={false}
+          playing={true}
           rate={1}
           document={editorDocument}
           layers={{ showLyrics: true, showNotes: true }}

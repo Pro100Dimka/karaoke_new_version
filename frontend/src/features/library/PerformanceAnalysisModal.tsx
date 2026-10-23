@@ -5,18 +5,21 @@ import {
   Dialog,
   IconButton,
   Landscape,
+  MessageBar,
   NeonWaves,
   Planet,
   ProgressBar,
   Stack,
   Typography,
 } from "@neo-ui-kit/react";
-import type { StudioMasterProgress } from "../../contracts/clients";
-import type { AnalysisDto, RecordingDto } from "../../contracts/models";
+import type { RecordingAnalysisProgress, StudioMasterProgress } from "../../contracts/clients";
+import type { AnalysisDto, RecordingDto, SongDto } from "../../contracts/models";
+import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import performanceArtUrl from "./assets/performance-art.svg";
 import {
   analysisMetrics,
+  analysisStageLabel,
   gradeLabel,
   weakestMetric,
   type AnalysisMetricKey,
@@ -31,6 +34,11 @@ interface PerformanceAnalysisModalProps {
   onCreateStudioMaster(recording: RecordingDto): void;
   studioMaster: StudioMasterProgress | null;
   onClose(): void;
+  song?: SongDto | null;
+  pending?: RecordingAnalysisProgress;
+  failure?: MessageKey;
+  recordingId?: string;
+  onCancelAnalysis?(jobId: string): void;
 }
 
 /** The song's own takes (masters are shown beside their source), plus the analysed one if it is not among them. */
@@ -78,28 +86,33 @@ export const PerformanceAnalysisModal = ({
   onCreateStudioMaster,
   studioMaster,
   onClose,
+  song,
+  pending,
+  failure,
+  recordingId,
+  onCancelAnalysis,
 }: PerformanceAnalysisModalProps) => {
   const t = useText();
   const [viewedId, setViewedId] = useState(analysis?.recordingId);
   useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
-  const list = analysis ? takeList(recordings, analysis) : [];
-  if (!analysis) return null;
+  const list = analysis ? takeList(recordings, analysis) : recordings;
+  if (!analysis && !pending && !failure) return null;
   const index = Math.max(
     0,
-    list.findIndex((recording) => recording.id === viewedId),
+    list.findIndex((recording) => recording.id === (viewedId ?? pending?.recordingId ?? recordingId)),
   );
   const viewed = list[index];
-  if (!viewed) return null;
+  if (!viewed && analysis) return null;
   const previous = list[index - 1];
   const next = list[index + 1];
-  const active = viewed.id === analysis.recordingId;
-  const practice = weakestMetric(analysis);
+  const active = viewed?.id === analysis?.recordingId;
+  const practice = analysis ? weakestMetric(analysis) : null;
   const mastering =
-    studioMaster?.recordingId === viewed.id ? studioMaster : null;
+    studioMaster?.recordingId === viewed?.id ? studioMaster : null;
   const master = recordings.find(
-    (recording) => recording.sourceRecordingId === viewed.id,
+    (recording) => recording.sourceRecordingId === viewed?.id,
   );
-  const date = viewed.createdAt
+  const date = viewed?.createdAt
     ? dateFormat.format(new Date(viewed.createdAt)).replace(",", "")
     : t("recordingTake");
 
@@ -125,13 +138,22 @@ export const PerformanceAnalysisModal = ({
           {t("performanceAnalysis")}
         </>
       }
-      description={t("analysisDescription")}
+      description={song ? `${song.artist} — ${song.title}` : t("analysisDescription")}
       closeLabel={t("closeDialog")}
       cancelLabel={false}
-      confirmLabel={t("done")}
+      confirmLabel={pending ? false : t("done")}
       art={<Planet className="analysisPlanet" />}
     >
       <Stack gap={3}>
+        {!analysis ? <>
+          {pending && <>
+            <Typography role="status">{t(analysisStageLabel(pending.stage))}</Typography>
+            <ProgressBar label={t(analysisStageLabel(pending.stage))} value={pending.progress} indeterminate={pending.state === "Queued"} />
+          </>}
+          {failure && <MessageBar tone="error">{t(failure)}</MessageBar>}
+          {pending && <Button icon="stop" variant="secondary" disabled={!pending.jobId}
+            onClick={() => pending.jobId && onCancelAnalysis?.(pending.jobId)}>{t("analysisCancel")}</Button>}
+        </> : viewed && practice && <>
         <Card border padding="sm" className="analysisNavigator">
           <IconButton
             round
@@ -141,6 +163,7 @@ export const PerformanceAnalysisModal = ({
             onClick={() => previous && setViewedId(previous.id)}
           />
           <div className="analysisTake">
+            {viewed.displayName && <Typography variant="title">{viewed.displayName}</Typography>}
             <Typography as="time" variant="title">
               {date}
             </Typography>
@@ -299,6 +322,7 @@ export const PerformanceAnalysisModal = ({
             </Card>
           </>
         )}
+        </>}
       </Stack>
     </Dialog>
   );

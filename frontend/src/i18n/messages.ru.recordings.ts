@@ -1,5 +1,15 @@
 // Russian texts for recordings, their analysis and the studio master.
 export const recordingsRu = {
+  recordingOpenAnalysis: "Открыть анализ",
+  recordingReanalyze: "Пересчитать анализ",
+  analysisCancel: "Отменить анализ",
+  analysisLoading: "Открываем результат…",
+  analysisWaitingResources: "Ожидает свободных ресурсов",
+  analysisTiming: "Проверяем временную привязку",
+  analysisSeparating: "Выделяем записанный вокал",
+  analysisPitchTracking: "Распознаём исполнение",
+  analysisReferenceTracking: "Проверяем эталон песни",
+  analysisScoring: "Рассчитываем результат",
   analysisPerfectAdvice: "Все показатели на максимуме. Сохраните этот дубль как ориентир для следующих выступлений.",
   analysisPitchUncertain: "Недостаточно надёжных данных о высоте голоса. Проверьте качество записи и уровень микрофона.",
   analysisEyebrow: "Результат исполнения",

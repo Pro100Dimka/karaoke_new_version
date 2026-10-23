@@ -57,6 +57,8 @@ class AudioService {
     }
 
   private:
+    MonotonicTicks pitchFence_{0};
+    std::uint64_t pitchEpoch_{0};
     RequestedConfiguration requestFromControl(const ControlRequest& request) const;
     MediaContext contextFromControl(const ControlRequest& request) const;
     void processPendingBackendEvent();

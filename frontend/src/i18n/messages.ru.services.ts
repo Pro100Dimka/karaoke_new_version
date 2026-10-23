@@ -62,7 +62,7 @@ export const servicesRu = {
   processingDiskInfo: "Информация о диске",
   processingDiskTitle: "Место на диске",
   processingDiskFree: "Свободно на диске",
-  processingDiskUsage: "{free} из {total}",
+  processingDiskUsage: "Свободно на диске: {free} · Файлы приложения: {used}",
   processingDiskUnavailable: "Данные о диске сейчас недоступны.",
   processingClearCompleted: "Завершённые",
   processingClearCompletedTitle: "Очистить завершённые задачи?",

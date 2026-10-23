@@ -297,15 +297,21 @@ export const pythonClient: PythonClient = {
     return page.items.map(mapRecording);
   },
 
-  async analyzeRecording(recordingId) {
+  async analyzeRecording(recordingId, onProgress) {
     const job = await request<BackendJobRef>(
       "POST",
       `/recordings/${encodeURIComponent(recordingId)}/analysis`,
     );
+    onProgress?.({ recordingId, jobId: job.jobId, state: "Queued", stage: "Queued", progress: 0 });
     const done = await waitForJob(job.jobId, {
       label: "Analysis", pollMilliseconds: 500,
       // Separation and two pitch passes each have a 30-minute provider budget on slower CPUs.
       timeoutMilliseconds: 90 * 60_000,
+      onPoll: (current) => onProgress?.({
+        recordingId, jobId: job.jobId, state: current.state,
+        stage: current.state === "Queued" ? "Queued" : current.stage ?? "AnalyzingTiming",
+        progress: jobProgress(current),
+      }),
       failure: (current) => ({
         code: optionalString(current.error?.code) ?? `Analysis${current.state}`,
         message: optionalString(current.error?.message) ?? "Performance analysis failed",

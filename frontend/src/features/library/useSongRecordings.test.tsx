@@ -27,6 +27,35 @@ const analysis = (song: SongDto): AnalysisDto => ({
 });
 
 describe("recording dialog ownership", () => {
+  it("opens a stored result immediately without starting another analysis", async () => {
+    ports.latestAnalysis.mockResolvedValue(analysis(first));
+    const { result } = renderHook(() => useSongRecordings([first], true, vi.fn()));
+    await act(() => result.current.analyze(take(first)));
+    expect(result.current.analysis).toEqual(analysis(first));
+    expect(ports.analyzeRecording).not.toHaveBeenCalled();
+  });
+
+  it("shows analysis progress, then refreshes the finished recording status", async () => {
+    const updated = { ...take(first), analysisStatus: "Succeeded" as const };
+    ports.listRecordings.mockResolvedValueOnce([take(first)]).mockResolvedValue([updated]);
+    let finish!: (value: AnalysisDto) => void;
+    let progress!: (value: { recordingId: string; jobId: string; state: string; stage: string; progress: number }) => void;
+    ports.analyzeRecording.mockImplementation((_id, callback) => {
+      progress = callback;
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    const { result } = renderHook(() => useSongRecordings([first], true, vi.fn()));
+    await act(() => result.current.open(first));
+    let pending!: Promise<void>;
+    act(() => { pending = result.current.analyze(take(first), true); });
+    await waitFor(() => expect(ports.analyzeRecording).toHaveBeenCalled());
+    act(() => progress({ recordingId: take(first).id, jobId: "job", state: "Running", stage: "PitchAnalysis", progress: 40 }));
+    expect(result.current.analysisProgress[take(first).id]?.progress).toBe(40);
+    await act(async () => { finish(analysis(first)); await pending; });
+    expect(result.current.recordings).toEqual([updated]);
+    expect(result.current.analysisProgress[take(first).id]).toBeUndefined();
+  });
+
   it("explains insufficient pitch evidence after automatic post-performance analysis", async () => {
     ports.locationState = { analysisSongId: first.id, analysisFor: take(first).id };
     ports.latestAnalysis.mockResolvedValue(null);
@@ -61,6 +90,7 @@ describe("recording dialog ownership", () => {
     const { result } = renderHook(() => useSongRecordings([first, second], true, vi.fn()));
     let pending!: Promise<void>;
     act(() => { pending = result.current.analyze(take(first)); });
+    await waitFor(() => expect(ports.analyzeRecording).toHaveBeenCalledOnce());
     await act(() => result.current.analyze(take(second)));
     if (close) act(() => result.current.closeAnalysis());
     await act(async () => { finish(analysis(first)); await pending; });
@@ -86,7 +116,7 @@ describe("recording dialog ownership", () => {
   it("ignores automatic post-performance analysis after the user selects another analysis", async () => {
     ports.locationState = { analysisSongId: first.id, analysisFor: take(first).id };
     let finish!: (value: AnalysisDto | null) => void;
-    ports.latestAnalysis.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    ports.latestAnalysis.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; })).mockResolvedValue(null);
     ports.analyzeRecording.mockResolvedValue(analysis(second));
     const { result } = renderHook(() => useSongRecordings([first, second], true, vi.fn()));
     await waitFor(() => expect(ports.latestAnalysis).toHaveBeenCalledOnce());

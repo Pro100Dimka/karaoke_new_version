@@ -12,6 +12,24 @@ const original = { id: "take", songId: "song", displayName: "My performance", cr
 const master = { ...original, id: "master", sourceRecordingId: original.id, displayName: "", sizeBytes: 20 };
 const props = { song: { title: "Song" } as SongDto, onClose: vi.fn(), onRename: vi.fn(), onAnalyze: vi.fn(), onDelete: vi.fn() };
 
+it("offers opening an existing analysis and explicitly recalculating it", () => {
+  render(<RecordingsModal {...props} recordings={[{ ...original, analyzed: true, analysisStatus: "Succeeded" }]} />);
+  fireEvent.click(screen.getByRole("button", { name: "recordingOpenAnalysis" }));
+  expect(props.onAnalyze).toHaveBeenLastCalledWith(expect.objectContaining({ id: "take" }));
+  fireEvent.click(screen.getByRole("button", { name: "Другие действия" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "recordingReanalyze" }));
+  expect(props.onAnalyze).toHaveBeenLastCalledWith(expect.objectContaining({ id: "take" }), true);
+});
+
+it("shows a queued analysis and lets its owner cancel it", () => {
+  const cancel = vi.fn();
+  render(<RecordingsModal {...props} recordings={[original]} onCancelAnalysis={cancel}
+    progress={{ take: { recordingId: "take", jobId: "job", state: "Queued", stage: "Queued", progress: 0 } }} />);
+  expect(screen.getByText(/analysisQueued/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "analysisCancel" }));
+  expect(cancel).toHaveBeenCalledWith("job");
+});
+
 it("counts one performance and switches its original and Studio Master inside the same card", () => {
   render(<RecordingsModal {...props} recordings={[master, original]} />);
   const list = screen.getByRole("list", { name: "recordings" });

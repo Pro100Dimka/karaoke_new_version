@@ -21,7 +21,7 @@ describe("editorApi music metadata", () => {
         title: "Song", artist: "Artist", duration: 1810, bpm: null, key: null, lyrics: "la\nla",
         words: [
           { text: "la", start: 12, end: 14, letters: [12, 12.2],
-            notes: [{ note: 60, start: 12.2, end: 13.8 }] },
+            notes: [{ note: 60, start: 12.2, end: 13.8, contour: [[0, -0.25], [0.5, 0.3], [1, 0]] }] },
           { text: "la", start: 1800, end: 1806, letters: [1800, 1800.4],
             notes: [{ note: 62, start: 1800.4, end: 1802 }, { note: 64, start: 1803, end: 1805.8 }] },
         ],

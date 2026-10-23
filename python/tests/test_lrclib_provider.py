@@ -29,6 +29,16 @@ _ROWS = (
 )
 
 
+@pytest.mark.parametrize("credit", ["Взято с сайта", "Взято с сайта https://example.org/song"])
+def test_ukrainian_catalog_removes_source_credit_before_alignment(credit: str) -> None:
+    provider = PisniLyricsProvider(transport=httpx.MockTransport(lambda request: httpx.Response(
+        200, text=f'<meta property="og:title" content="O.Torvald - Ліхтарі">'
+        f'<div class="desc-full">Перший рядок<br>{credit}<br>Другий рядок</div>',
+    )))
+    result = provider.search(_song("Ліхтарі", "O.Torvald"), Language.AUTO, threading.Event())
+    assert result[0].lyrics == "Перший рядок\nДругий рядок"
+
+
 def test_ukrainian_catalog_fallback_finds_tagged_song_without_using_asr_as_the_lyrics() -> None:
     def respond(request):
         assert str(request.url) == "https://pisni.ua/otorvald-likhtari"

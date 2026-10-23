@@ -255,9 +255,27 @@ export class RollFxRenderer {
   ): void {
     this.drawHalo(context, view);
     this.drawUpcoming(context, view, geometry);
+    this.drawTarget(context, view, geometry);
     this.drawTraces(context, view, geometry);
     this.drawMoments(context, view, geometry, now);
     this.drawVoice(context, view, geometry, now);
+  }
+
+  /** The fine reference contour is visible over the held-note capsules used for phrasing. */
+  private drawTarget(context: CanvasRenderingContext2D, view: RollView, geometry: Geometry): void {
+    context.strokeStyle = rgba("white", 0.75);
+    context.lineWidth = 1.5;
+    for (const note of view.notes) {
+      if (!note.contour?.length) continue;
+      context.beginPath();
+      for (const [index, point] of note.contour.entries()) {
+        const x = geometry.x(note.start + point[0] * (note.end - note.start));
+        const y = geometry.y(note.pitch + point[1]);
+        if (index === 0) context.moveTo(x, y);
+        else context.lineTo(x, y);
+      }
+      context.stroke();
+    }
   }
 
   private expire(now: number): void {
@@ -282,8 +300,8 @@ export class RollFxRenderer {
     }
     if (!live || live.deviation === undefined || live.accuracy < 0.2) return;
     const trace = this.traces.get(live.note.id) ?? [];
-    if ((trace.at(-1)?.t ?? -Infinity) < view.position)
-      trace.push({ t: view.position, q: live.accuracy });
+    if ((trace.at(-1)?.t ?? -Infinity) < live.position)
+      trace.push({ t: live.position, q: live.accuracy });
     this.traces.set(live.note.id, trace);
   }
 
@@ -477,7 +495,7 @@ export class RollFxRenderer {
     const x = margin + this.lane.width * view.lead;
     const live = state.live;
     const y = live
-      ? geometry.y(live.note.pitch) -
+      ? geometry.y(live.target) -
         Math.max(-1, Math.min(1, live.deviation ?? 0)) * geometry.row
       : margin + this.lane.height / 2;
     this.engine.voicePoint = { x: this.page.left + x, y: this.page.top + y };

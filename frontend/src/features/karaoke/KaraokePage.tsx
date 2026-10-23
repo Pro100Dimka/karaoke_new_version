@@ -320,6 +320,7 @@ export const KaraokeScreen = ({
       layers={layers}
       vocalRange={session.songPrefs?.vocalRange ?? "auto"}
       pitchHz={session.pitchHz}
+      pitchFrames={session.pitchFrames}
       onNoteScoreChange={session.updateKaraokeNoteScore}
     />
   );

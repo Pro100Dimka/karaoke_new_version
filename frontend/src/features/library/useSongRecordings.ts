@@ -7,8 +7,9 @@ import type {
   RecordingDto,
   SongDto,
 } from "../../contracts/models";
-import type { StudioMasterProgress } from "../../contracts/clients";
+import type { RecordingAnalysisProgress, StudioMasterProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
+import type { MessageKey } from "../../i18n/messages";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
 import { errorMessageKey, toAppError } from "../../shared/errors";
@@ -28,12 +29,41 @@ export const useSongRecordings = (
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
+  const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
+  const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
+  const [analysisProgress, setAnalysisProgress] = useState<Readonly<Record<string, RecordingAnalysisProgress>>>({});
+  const [analysisFailures, setAnalysisFailures] = useState<Readonly<Record<string, MessageKey>>>({});
   const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(
     null,
   );
   // The take whose analysis was opened: songs finished on the TV open theirs one after another.
   const handled = useRef<string | null>(null);
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
+
+  const loadAnalysis = async (recordingId: string, songId: string, recalculate: boolean, request: number) => {
+    const listRequest = requests.current.recordings;
+    let started = false;
+    setAnalysisProgress((items) => ({ ...items, [recordingId]: { recordingId, jobId: "", state: "Queued", stage: "Loading", progress: 0 } }));
+    setAnalysisFailures((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+    try {
+      const stored = recalculate ? null : await catalog.latestAnalysis(recordingId);
+      if (request !== requests.current.analysis) return null;
+      if (stored) return stored;
+      started = true;
+      return await catalog.analyzeRecording(recordingId, (progress) => {
+        setAnalysisProgress((items) => ({ ...items, [recordingId]: progress }));
+      });
+    } catch (failure) {
+      setAnalysisFailures((items) => ({ ...items, [recordingId]: errorMessageKey(toAppError(failure)) ?? "actionFailed" }));
+      throw failure;
+    } finally {
+      setAnalysisProgress((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+      if (started) {
+        const items = await catalog.listRecordings(songId).catch(() => null);
+        if (items && listRequest === requests.current.recordings) setRecordings(items);
+      }
+    }
+  };
 
   const open = (target: SongDto) =>
     guarded(async () => {
@@ -80,9 +110,9 @@ export const useSongRecordings = (
         if (!current()) return;
         setRecordings(items);
         // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
-        const stored = await catalog.latestAnalysis(takeId);
-        if (!current()) return;
-        const result = stored ?? await catalog.analyzeRecording(takeId);
+        setAnalysisSong(target);
+        setAnalysisRecordId(takeId);
+        const result = await loadAnalysis(takeId, target.id, false, request);
         if (current()) setAnalysis(result);
       } catch (failure) {
         if (current()) notify(t(errorMessageKey(toAppError(failure)) ?? "actionFailed"), "error");
@@ -90,10 +120,13 @@ export const useSongRecordings = (
     })();
   }, [ready, songs, location.state, notify, t, catalog]);
 
-  const analyze = (recording: RecordingDto) =>
+  const analyze = (recording: RecordingDto, recalculate = false) =>
     guarded(async () => {
       const request = ++requests.current.analysis;
-      const result = await catalog.analyzeRecording(recording.id);
+      setAnalysis(null);
+      setAnalysisSong(songs.find((item) => item.id === recording.songId) ?? null);
+      setAnalysisRecordId(recording.id);
+      const result = await loadAnalysis(recording.id, recording.songId, recalculate, request);
       if (request === requests.current.analysis) setAnalysis(result);
     });
 
@@ -157,6 +190,11 @@ export const useSongRecordings = (
     song,
     recordings,
     analysis,
+    analysisSong,
+    analysisRecordId,
+    analysisProgress,
+    analysisFailures,
+    cancelAnalysis: (jobId: string) => guarded(() => catalog.cancelJob(jobId)),
     studioMaster,
     open,
     analyze,
@@ -170,6 +208,7 @@ export const useSongRecordings = (
     closeAnalysis: () => {
       requests.current.analysis += 1;
       setAnalysis(null);
+      setAnalysisRecordId(null);
     },
   };
 };

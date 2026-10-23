@@ -15,6 +15,20 @@ from backend.processing.algorithms import MusicMetadata, construct_document, sta
 _A4, _C5 = 440.0, 523.25
 
 
+def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> None:
+    from dataclasses import replace
+    from backend.lyrics.codec import decode_document, encode_document
+
+    points = tuple(PitchPoint(i / 100, 440 * 2 ** (0.4 * math.sin(i) / 12), 0.99)
+                   for i in range(100))
+    document = construct_document("t", "a", 1, "la", (WordTiming("la", 0, 1, 1),), points, _music())
+    note = document.words[0].notes[0]
+    assert len(note.contour) == len(points)
+    assert note.contour[20][1] == pytest.approx(0.4 * math.sin(20))
+    edited = replace(document, words=(replace(document.words[0], notes=(replace(note, note=72),)),))
+    assert decode_document(encode_document(edited)) == edited
+
+
 def _music() -> MusicMetadata:
     return MusicMetadata(bpm=None, key=None)
 

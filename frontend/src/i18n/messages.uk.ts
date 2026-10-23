@@ -201,7 +201,7 @@ export const uk: MessageTable = {
   storageRecordings: "Записи",
   storageTemp: "Тимчасові файли",
   storageFree: "Вільно на диску: {value}",
-  storageUsed: "Використовується: {used} із {total}",
+  storageUsed: "Зайнято застосунком: {used}",
   storageBreakdown: "За категоріями",
   clearCache: "Очистити кеш",
   removeTemporaryFiles: "Видалити тимчасові файли",

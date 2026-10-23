@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from contextlib import ExitStack
 import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
@@ -59,23 +60,28 @@ class StartRecordingAnalysis:
         result = self._create_result(
             recording_id, song_id, revision, self._hasher.hash_file(recording.file_path)
         )
+        admission = ExitStack()
         try:
             return self._jobs.start(
                 JobType.RECORDING_ANALYSIS,
                 lambda context: self._run(result.analysis_id, context),
                 entity_id=result.analysis_id,
-                on_finally=lambda: self._settle(recording_id, result.analysis_id),
+                on_finally=lambda: self._settle(recording_id, result.analysis_id, admission),
+                admit=lambda cancel: admission.enter_context(self._pitch.admit(recording.file_path, cancel)),
             )
         except DomainError as exc:
             self._fail(result, exc.code, exc.message)
             raise
 
-    def _settle(self, recording_id: str, analysis_id: str) -> None:
-        with self._submission_lock:
-            current = self._active.get(recording_id)
-            if current and current.entity_id == analysis_id:
-                self._active.pop(recording_id)
-            self._cancel_queued(analysis_id)
+    def _settle(self, recording_id: str, analysis_id: str, admission: ExitStack) -> None:
+        try:
+            with self._submission_lock:
+                current = self._active.get(recording_id)
+                if current and current.entity_id == analysis_id:
+                    self._active.pop(recording_id)
+                self._cancel_queued(analysis_id)
+        finally:
+            admission.close()
 
     def _run(self, analysis_id: str, context: JobContext) -> dict[str, object]:
         result = self._get(analysis_id)

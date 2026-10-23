@@ -42,7 +42,8 @@ def encode_document(document: LyricsDocument) -> str:
                     "end": word.end,
                     "letters": list(word.letters),
                     "notes": [
-                        {"note": note.note, "start": note.start, "end": note.end}
+                        {"note": note.note, "start": note.start, "end": note.end,
+                         **({"contour": [list(point) for point in note.contour]} if note.contour else {})}
                         for note in word.notes
                     ],
                 }
@@ -101,7 +102,15 @@ def _note(value: JsonValue) -> Note:
     note_value = value.get("note")
     if not isinstance(note_value, int):
         raise ValueError("note must be an integer")
-    return Note(note_value, _number(value, "start"), _number(value, "end"))
+    contour = value.get("contour", [])
+    if not isinstance(contour, list) or any(
+        not isinstance(point, list) or len(point) != 2 or any(
+            isinstance(item, bool) or not isinstance(item, int | float) for item in point
+        ) for point in contour
+    ):
+        raise ValueError("note contour must be an array of numeric pairs")
+    return Note(note_value, _number(value, "start"), _number(value, "end"),
+                tuple((float(point[0]), float(point[1])) for point in contour))
 
 
 def _text(data: dict[str, JsonValue], key: str, *, allow_empty: bool = False) -> str:

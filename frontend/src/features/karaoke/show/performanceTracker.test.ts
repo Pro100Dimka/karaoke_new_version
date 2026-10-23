@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   energyLevel,
+  goodNoteScore,
   PerformanceTracker,
   sampleQuality,
   type PerformanceEvent,
@@ -43,6 +44,20 @@ const sing = (
 };
 
 describe("performance tracker", () => {
+  it("scores a short note covered by capture windows even when neither centre lands inside it", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "short", start: 0.04, end: 0.06, pitch: 60 }], []);
+    tracker.update(0.025, hz(60), 0.05);
+    tracker.update(0.075, hz(60), 0.05);
+    expect(tracker.hitNoteIds.has("short")).toBe(true);
+  });
+  it("rewards a note accepted by the green-note tolerance", () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(1);
+    tracker.load(notes, phrases);
+    const event = sing(tracker, 0, 0.6, () => hz(60.8)).find((item) => item.kind === "noteCompleted");
+    expect(event?.kind === "noteCompleted" && event.score.finalScore).toBeGreaterThanOrEqual(goodNoteScore);
+  });
   it("treats vibrato-sized deviations as exact and nothing beyond a semitone", () => {
     expect(sampleQuality(0.15)).toBe(1);
     expect(sampleQuality(-0.6)).toBeCloseTo(0.5, 5);

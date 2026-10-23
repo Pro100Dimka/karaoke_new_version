@@ -32,6 +32,26 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
+  it("identifies the song and the user's named take", () => {
+    render(<AppProvider><PerformanceAnalysisModal analysis={analysis}
+      recordings={[{ ...recording, displayName: "Концертный дубль" }]}
+      song={{ title: "Километры", artist: "Wildways" } as import("../../contracts/models").SongDto}
+      onDelete={vi.fn()} onClose={vi.fn()} onCreateStudioMaster={vi.fn()} studioMaster={null} /></AppProvider>);
+    expect(screen.getByText("Wildways — Километры")).toBeInTheDocument();
+    expect(screen.getByText("Концертный дубль")).toBeInTheDocument();
+  });
+
+  it("shows automatic analysis progress immediately and offers cancellation", () => {
+    const cancel = vi.fn();
+    render(<AppProvider><PerformanceAnalysisModal analysis={null} recordings={[recording]}
+      pending={{ recordingId: recording.id, jobId: "job", state: "Queued", stage: "Queued", progress: 0 }}
+      onCancelAnalysis={cancel} onDelete={vi.fn()} onClose={vi.fn()} onCreateStudioMaster={vi.fn()} studioMaster={null} /></AppProvider>);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Ожидает свободных ресурсов")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Отменить анализ" }));
+    expect(cancel).toHaveBeenCalledWith("job");
+  });
+
   it("does not recommend correcting pitch when all measured metrics are perfect", () => {
     render(<AppProvider><PerformanceAnalysisModal
       analysis={{ ...analysis, score: 100, pitch: 100, rhythm: 100, stability: 100 }}

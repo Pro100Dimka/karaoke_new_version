@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite
+from bisect import bisect_left
 from typing import Sequence
 
 
@@ -10,10 +11,26 @@ class Note:
     note: int
     start: float
     end: float
+    # Relative time (0..1), semitone offset: edits move/resize this measured target with its note.
+    contour: Sequence[tuple[float, float]] = ()
 
     def validate_within(self, word_start: float, word_end: float) -> None:
         if not word_start <= self.start < self.end <= word_end:
             raise ValueError("Note timing must be inside its word and have positive duration")
+        if any(not 0 <= moment <= 1 or not isfinite(offset) for moment, offset in self.contour):
+            raise ValueError("Note contour must contain finite offsets at relative times 0..1")
+        if any(right[0] <= left[0] for left, right in zip(self.contour, self.contour[1:], strict=False)):
+            raise ValueError("Note contour times must increase")
+
+    def pitch_at(self, time: float) -> float:
+        if not self.contour:
+            return float(self.note)
+        fraction = (time - self.start) / (self.end - self.start)
+        index = bisect_left(self.contour, fraction, key=lambda point: point[0])
+        right = self.contour[min(index, len(self.contour) - 1)]
+        left = self.contour[max(0, index - 1)]
+        weight = min(1.0, max(0.0, (fraction - left[0]) / (right[0] - left[0]))) if right[0] > left[0] else 0.0
+        return self.note + left[1] + (right[1] - left[1]) * weight
 
 
 @dataclass(frozen=True, slots=True)

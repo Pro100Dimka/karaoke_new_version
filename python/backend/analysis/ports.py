@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import AbstractContextManager
 from typing import Callable, Protocol, Sequence
 import threading
 
@@ -19,6 +20,8 @@ class AnalysisRepository(Protocol):
 
 
 class RecordingPitchExtractor(Protocol):
+    def admit(self, recording: Path, cancel: threading.Event) -> AbstractContextManager[None]: ...
+
     def extract_vocals(
         self,
         recording: Path,

@@ -7,6 +7,8 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import type { RecordingDto, SongDto } from "../../contracts/models";
+import type { RecordingAnalysisProgress } from "../../contracts/clients";
+import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
 import { formatBytes } from "../../shared/utils/format";
 import { RecordingCard } from "./RecordingCard";
@@ -17,7 +19,10 @@ interface Props {
   song: SongDto | null;
   recordings: readonly RecordingDto[];
   onClose(): void;
-  onAnalyze(recording: RecordingDto): void;
+  onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
+  progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
+  failures?: Readonly<Record<string, MessageKey>>;
+  onCancelAnalysis?(jobId: string): void;
   onDelete(recording: RecordingDto): void;
   onRename(recording: RecordingDto, name: string): void;
 }
@@ -55,6 +60,9 @@ export const RecordingsModal = ({
   onAnalyze,
   onDelete,
   onRename,
+  progress,
+  failures,
+  onCancelAnalysis,
 }: Props) => {
   const t = useText();
   const [view, setView] = useState<View>("list");
@@ -122,6 +130,9 @@ export const RecordingsModal = ({
                 name={nameOf(recording)}
                 onRename={(value) => onRename(recording, value)}
                 onAnalyze={onAnalyze}
+                progress={progress}
+                failures={failures}
+                onCancelAnalysis={onCancelAnalysis}
                 onDelete={onDelete}
               />
             ))}

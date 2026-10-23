@@ -22,7 +22,11 @@ void AnalysisEngine::wakeWorker() noexcept {
 void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
                              std::uint32_t queueFrames, GenerationId generation) {
     stopWorker();
-    queue_.prepare(queueFrames, channels);
+    queue_.prepare(queueFrames, channels, false, true);
+    {
+        std::lock_guard lock(pitchMutex_);
+        pitchHistory_.clear();
+    }
     channels_.store(channels, std::memory_order_release);
     sampleRateHz_.store(sampleRateHz, std::memory_order_release);
     processedFrames_.store(0, std::memory_order_relaxed);
@@ -39,21 +43,36 @@ void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
 void AnalysisEngine::setGeneration(GenerationId generation) noexcept {
     generation_.store(generation, std::memory_order_release);
     queue_.clear();
+    std::lock_guard lock(pitchMutex_);
+    pitchHistory_.clear();
+    pitchHz_.store(0.0F, std::memory_order_relaxed);
 }
 
 void AnalysisEngine::push(GenerationId generation, std::span<const float> samples,
-                          std::uint32_t frames) noexcept {
+                          std::uint32_t frames, MonotonicTicks capturedAt) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleFrames_.fetch_add(frames, std::memory_order_relaxed);
         return;
     }
     if (channels_.load(std::memory_order_acquire) == 0)
         return;
-    if (!queue_.push(samples, frames)) {
+    const auto rate = sampleRateHz_.load(std::memory_order_relaxed);
+    if (frames > captureTimes_.size() || rate == 0) {
+        droppedFrames_.fetch_add(frames, std::memory_order_relaxed);
+        return;
+    }
+    for (std::uint32_t frame = 0; frame < frames; ++frame)
+        captureTimes_[frame] = capturedAt == 0 ? 0 : capturedAt + static_cast<MonotonicTicks>(frame) * 1'000'000'000 / rate;
+    if (!queue_.push(samples, frames, 1, nullptr, {captureTimes_.data(), frames})) {
         droppedFrames_.fetch_add(frames, std::memory_order_relaxed);
         return;
     }
     wakeWorker();
+}
+
+std::vector<PitchObservation> AnalysisEngine::pitchHistory() const {
+    std::lock_guard lock(pitchMutex_);
+    return {pitchHistory_.begin(), pitchHistory_.end()};
 }
 
 AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
@@ -144,6 +163,7 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std
 void AnalysisEngine::workerMain() noexcept {
     const auto channels = channels_.load(std::memory_order_acquire);
     std::vector<float> scratch(static_cast<std::size_t>(AnalysisWindowFrames) * channels);
+    std::array<MonotonicTicks, AnalysisWindowFrames> captureTimes{};
 
     for (;;) {
         const auto sequence = wakeSequence_.load(std::memory_order_acquire);
@@ -159,7 +179,7 @@ void AnalysisEngine::workerMain() noexcept {
         }
 
         const auto workGeneration = generation_.load(std::memory_order_acquire);
-        const auto frames = queue_.pop(scratch, AnalysisWindowFrames);
+        const auto frames = queue_.pop(scratch, AnalysisWindowFrames, {}, nullptr, captureTimes);
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleFrames_.fetch_add(frames, std::memory_order_relaxed);
             continue;
@@ -177,9 +197,16 @@ void AnalysisEngine::workerMain() noexcept {
         const auto zeroCrossingRate =
             frames > 1 ? static_cast<float>(crossings) / static_cast<float>(frames - 1U) : 0.0F;
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
-        pitchHz_.store(
-            estimatePitch(scratch, frames, channels, sampleRateHz_.load(std::memory_order_relaxed)),
-            std::memory_order_relaxed);
+        const auto pitch = estimatePitch(scratch, frames, channels, sampleRateHz_.load(std::memory_order_relaxed));
+        {
+            std::lock_guard lock(pitchMutex_);
+            if (workGeneration != generation_.load(std::memory_order_acquire)) continue;
+            pitchHz_.store(pitch, std::memory_order_relaxed);
+            if (frames != 0 && captureTimes[frames / 2] > 0) {
+                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch});
+                while (pitchHistory_.size() > 64) pitchHistory_.pop_front();
+            }
+        }
         processedFrames_.fetch_add(frames, std::memory_order_relaxed);
     }
 }

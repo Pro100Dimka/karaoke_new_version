@@ -797,8 +797,19 @@ ControlResponse AudioService::handle(const ControlRequest& request) {
 
     try {
         for (const auto handler : handlers) {
-            if (auto response = (this->*handler)(request))
+            if (auto response = (this->*handler)(request)) {
+                constexpr std::array discontinuities{
+                    ControlCommand::LoadSong, ControlCommand::UnloadSong, ControlCommand::Play,
+                    ControlCommand::Pause, ControlCommand::Resume, ControlCommand::Stop,
+                    ControlCommand::Seek, ControlCommand::SetPlaybackRate, ControlCommand::SetTranspose,
+                };
+                if (response->status == ControlStatus::Ok &&
+                    std::ranges::find(discontinuities, request.command) != discontinuities.end()) {
+                    pitchFence_ = monotonicTicksNow();
+                    ++pitchEpoch_;
+                }
                 return *response;
+            }
         }
     } catch (const std::invalid_argument& error) {
         captureFailure(

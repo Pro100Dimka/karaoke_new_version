@@ -24,6 +24,17 @@ const installBridge = (
 };
 
 describe("pythonClient contract", () => {
+  it("reports the job identity and analysis stage while waiting", async () => {
+    const progress = vi.fn();
+    installBridge((call) => ({ status: 200, ok: true, body:
+      call.path.endsWith("/analysis") ? { jobId: "job" } :
+      call.path === "/jobs/job" ? { jobId: "job", state: "Succeeded", stage: "Scoring", overallProgress: 1 } :
+      [{ analysisId: "result", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 100 }],
+    }));
+    await pythonClient.analyzeRecording("take", progress);
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ recordingId: "take", jobId: "job", stage: "Scoring", progress: 100 }));
+  });
+
   it("opens the newest successful analysis in the backend's newest-first history", async () => {
     installBridge(() => ({ status: 200, ok: true, body: [
       { analysisId: "running", recordingId: "take", state: "Running" },

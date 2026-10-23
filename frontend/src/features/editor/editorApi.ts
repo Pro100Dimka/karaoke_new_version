@@ -5,6 +5,7 @@ interface BackendNote {
   note: number;
   start: number;
   end: number;
+  contour?: readonly (readonly [number, number])[];
 }
 interface BackendWord {
   text: string;
@@ -53,6 +54,7 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
       pitch: note.note,
       start: note.start,
       end: note.end,
+      contour: note.contour,
     })),
   );
   return {
@@ -90,7 +92,9 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
     notes: document.notes
       .filter((note) => note.wordId === word.id)
       .sort((a, b) => a.start - b.start)
-      .map((note) => ({ note: note.pitch, start: note.start, end: note.end })),
+      .map((note) => ({ note: note.pitch, start: note.start, end: note.end,
+        ...(note.contour?.length ? { contour: note.contour } : {}),
+      })),
   })),
 });
 

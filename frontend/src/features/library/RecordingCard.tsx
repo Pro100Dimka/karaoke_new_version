@@ -1,5 +1,8 @@
 import { useRef, useState } from "react";
-import { Card, IconButton, SegmentedControl, TextField, Typography } from "@neo-ui-kit/react";
+import { Card, IconButton, MessageBar, ProgressBar, SegmentedControl, SplitButton, TextField, Typography } from "@neo-ui-kit/react";
+import type { RecordingAnalysisProgress } from "../../contracts/clients";
+import type { MessageKey } from "../../i18n/messages";
+import { analysisStageLabel } from "./analysisPresentation";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { useLibraryFiles } from "../../app/LibraryProvider";
@@ -74,26 +77,35 @@ export const RecordingCard = ({
   onRename,
   onAnalyze,
   onDelete,
+  progress = {},
+  failures = {},
+  onCancelAnalysis,
 }: {
   recording: RecordingDto;
   versions?: readonly RecordingDto[];
   name: string;
   index: number;
   onRename(name: string): void;
-  onAnalyze(recording: RecordingDto): void;
+  onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
   onDelete(recording: RecordingDto): void;
+  progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
+  failures?: Readonly<Record<string, MessageKey>>;
+  onCancelAnalysis?(jobId: string): void;
 }) => {
   const t = useText();
   const files = useLibraryFiles();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
+  const task = progress[selected.id];
+  const failure = failures[selected.id];
+  const hasAnalysis = selected.analysisStatus === "Succeeded" || (selected.analyzed && !selected.analysisStatus);
   // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
   const nearView = useNearView(card);
   const statuses = recordingStatusLabels(
     selected.fileStatus ?? "Ready",
-    selected.analysisStatus ?? "NotAnalyzed",
+    task ? (task.state === "Queued" ? "Queued" : "Running") : selected.analysisStatus ?? "NotAnalyzed",
   );
 
   return (
@@ -119,6 +131,11 @@ export const RecordingCard = ({
           <Typography variant="caption" tone="muted">
             {statuses.map((key) => t(key)).join("  •  ")}
           </Typography>
+          {task && <>
+            <Typography variant="caption" role="status">{t(analysisStageLabel(task.stage))} · {task.progress}%</Typography>
+            <ProgressBar label={t(analysisStageLabel(task.stage))} value={task.progress} indeterminate={task.state === "Queued"} />
+          </>}
+          {failure && <MessageBar tone="error">{t(failure)}</MessageBar>}
           {nearView ? (
             <RecordingPlayer key={selected.id} recording={selected} />
           ) : (
@@ -126,11 +143,15 @@ export const RecordingCard = ({
           )}
         </div>
         <div className="recordingActions">
-          <IconButton
+          {task ? <IconButton icon="stop" label={t("analysisCancel")} disabled={!task.jobId}
+            onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)} /> : hasAnalysis ? <SplitButton
+            size="sm" variant="secondary" icon="levels" label={t("recordingOpenAnalysis")}
+            onClick={() => onAnalyze(selected)} items={[{ id: "recalculate", label: t("recordingReanalyze"),
+              onSelect: () => onAnalyze(selected, true) }]} /> : <IconButton
             icon="levels"
             label={t("recordingAnalyze")}
             onClick={() => onAnalyze(selected)}
-          />
+          />}
           <IconButton
             icon="folder"
             label={t("openFolder")}

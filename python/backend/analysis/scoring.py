@@ -60,6 +60,9 @@ def score_pitch(
 ) -> ScoreSummary:
     adjustments = _valid_adjustments(playback_adjustments)
     if reference_pitch is not None:
+        notes = sorted((note for word in reference.words for note in word.notes), key=lambda note: note.start)
+        if notes:
+            reference_pitch = _document_pitch(reference.duration, notes)
         return _score_contours(
             reference,
             actual,
@@ -68,6 +71,19 @@ def score_pitch(
             performance_duration if performance_duration is not None else reference.duration,
         )
     return _score_notes(reference, actual, adjustments, performance_duration, note_score)
+
+
+def _document_pitch(duration: float, notes: Sequence[Note]) -> tuple[PitchPoint, ...]:
+    """The saved revision is the target, including its contour and manual note edits."""
+    starts = [note.start for note in notes]
+    points = []
+    for index in range(math.ceil(duration * 100)):
+        time = index / 100
+        position = bisect_left(starts, time + 1e-9) - 1
+        note = notes[position] if position >= 0 and time < notes[position].end else None
+        frequency = 440 * 2 ** ((note.pitch_at(time) - 69) / 12) if note else 0.0
+        points.append(PitchPoint(time, frequency, 1.0 if note else 0.0, note is not None))
+    return tuple(points)
 
 
 def _score_notes(

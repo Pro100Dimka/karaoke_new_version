@@ -443,7 +443,10 @@ export const LibraryPage = () => {
         song={songRecordings.song}
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
-        onAnalyze={(recording) => void songRecordings.analyze(recording)}
+        onAnalyze={(recording, recalculate) => void songRecordings.analyze(recording, recalculate)}
+        progress={songRecordings.analysisProgress}
+        failures={songRecordings.analysisFailures}
+        onCancelAnalysis={(jobId) => void songRecordings.cancelAnalysis(jobId)}
         onRename={(recording, name) =>
           void songRecordings.rename(recording, name)
         }
@@ -451,6 +454,11 @@ export const LibraryPage = () => {
       />
       <PerformanceAnalysisModal
         analysis={songRecordings.analysis}
+        song={songRecordings.analysisSong}
+        recordingId={songRecordings.analysisRecordId ?? undefined}
+        pending={songRecordings.analysisRecordId ? songRecordings.analysisProgress[songRecordings.analysisRecordId] : undefined}
+        failure={songRecordings.analysisRecordId ? songRecordings.analysisFailures[songRecordings.analysisRecordId] : undefined}
+        onCancelAnalysis={(jobId) => void songRecordings.cancelAnalysis(jobId)}
         recordings={songRecordings.recordings}
         onDelete={(recording) => void songRecordings.remove(recording)}
         onCreateStudioMaster={(recording) =>

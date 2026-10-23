@@ -16,16 +16,16 @@ import {
   currentLineIndex,
   letterProgress,
   lyricSilenceSeconds,
-  noteHitReached,
   pitchAccuracy,
   pitchMatchesTarget,
   pitchMidiNearTarget,
   pitchRange,
+  targetPitchAt,
   upcomingLinePhase,
   type LineDisplayPhase,
   type LyricLine,
 } from "./karaokeLyrics";
-import type { KaraokeNoteScore } from "../../contracts/models";
+import type { KaraokeNoteScore, PitchFrame } from "../../contracts/models";
 import { RollFx, StageFx, useShowEngine } from "./show/ShowLayers";
 import type { ShowEngine } from "./show/showEngine";
 
@@ -39,6 +39,7 @@ interface KaraokeStageProps {
   layers: StageLayers;
   vocalRange: VocalRange;
   pitchHz?: number;
+  pitchFrames?: readonly PitchFrame[];
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
 }
 
@@ -70,7 +71,7 @@ const PianoRoll = ({
   shownWordIds,
   keyShift,
   pitchHz,
-  onNoteScoreChange,
+  pitchFrame,
   show,
   hidden,
   opacity,
@@ -81,7 +82,7 @@ const PianoRoll = ({
   shownWordIds: ReadonlySet<string>;
   keyShift: number;
   pitchHz?: number;
-  onNoteScoreChange?: (score: KaraokeNoteScore) => void;
+  pitchFrame?: PitchFrame;
   show: ShowEngine;
   hidden: boolean;
   opacity: number;
@@ -111,141 +112,18 @@ const PianoRoll = ({
     usePianoRollLayout(frameRef, (bounds, pointer) =>
       panel.detach(bounds, pointer),
     );
+  const voicePosition = pitchFrame?.positionSeconds ?? position;
+  const observedPitch = pitchFrame ? pitchFrame.pitchHz : pitchHz;
   const activeNote = notes.find(
-    (note) => position >= note.start && position <= note.end,
+    (note) => voicePosition >= note.start && voicePosition <= note.end,
   );
-  const liveMidi = pitchMidiNearTarget(pitchHz, activeNote?.pitch);
-  const accuracy = pitchAccuracy(pitchHz, activeNote?.pitch);
+  const targetPitch = activeNote ? targetPitchAt(activeNote, voicePosition) : undefined;
+  const liveMidi = pitchMidiNearTarget(observedPitch, targetPitch);
+  const accuracy = pitchAccuracy(observedPitch, targetPitch);
   const onTarget = Boolean(
-    activeNote && pitchMatchesTarget(pitchHz, activeNote.pitch),
+    targetPitch !== undefined && pitchMatchesTarget(observedPitch, targetPitch),
   );
-  const [hitNoteIds, setHitNoteIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const hitNoteIdsRef = useRef<ReadonlySet<string>>(new Set());
-  const seenNoteIds = useRef<ReadonlySet<string>>(new Set());
-  const matchedSeconds = useRef(new Map<string, number>());
-  const voicedSeconds = useRef(new Map<string, number>());
-  const pitchStatistics = useRef(
-    new Map<string, { count: number; sum: number; squared: number }>(),
-  );
-  const previousFrame = useRef({ position, noteId: activeNote?.id });
-  const resetScoring = () => {
-    matchedSeconds.current.clear();
-    voicedSeconds.current.clear();
-    pitchStatistics.current.clear();
-    hitNoteIdsRef.current = new Set();
-    seenNoteIds.current = new Set();
-    setHitNoteIds(new Set());
-  };
-  useEffect(() => {
-    resetScoring();
-    previousFrame.current = { position, noteId: activeNote?.id };
-    onNoteScoreChange?.({
-      hitNotes: 0,
-      totalNotes: 0,
-      rhythmAccuracyPercent: 0,
-      noteStabilityPercent: 0,
-    });
-  }, [document.revision, keyShift, onNoteScoreChange]);
-  useEffect(() => {
-    const previous = previousFrame.current;
-    const elapsed = position - previous.position;
-    if (elapsed < -0.05) {
-      resetScoring();
-    } else if (activeNote) {
-      seenNoteIds.current = new Set(seenNoteIds.current).add(activeNote.id);
-    }
-    if (
-      activeNote &&
-      previous.noteId === activeNote.id &&
-      elapsed > 0 &&
-      elapsed <= 0.2 &&
-      pitchMatchesTarget(pitchHz, activeNote.pitch)
-    ) {
-      const matched =
-        (matchedSeconds.current.get(activeNote.id) ?? 0) + elapsed;
-      matchedSeconds.current.set(activeNote.id, matched);
-      if (
-        noteHitReached(matched, activeNote.end - activeNote.start) &&
-        !hitNoteIdsRef.current.has(activeNote.id)
-      ) {
-        hitNoteIdsRef.current = new Set(hitNoteIdsRef.current).add(
-          activeNote.id,
-        );
-        setHitNoteIds(hitNoteIdsRef.current);
-      }
-    }
-    if (
-      activeNote &&
-      previous.noteId === activeNote.id &&
-      elapsed > 0 &&
-      elapsed <= 0.2 &&
-      liveMidi !== undefined
-    ) {
-      voicedSeconds.current.set(
-        activeNote.id,
-        (voicedSeconds.current.get(activeNote.id) ?? 0) + elapsed,
-      );
-      const deviation = liveMidi - activeNote.pitch;
-      const stats = pitchStatistics.current.get(activeNote.id) ?? {
-        count: 0,
-        sum: 0,
-        squared: 0,
-      };
-      pitchStatistics.current.set(activeNote.id, {
-        count: stats.count + 1,
-        sum: stats.sum + deviation,
-        squared: stats.squared + deviation * deviation,
-      });
-    }
-    const seen = notes.filter((note) =>
-      seenNoteIds.current.has(note.id),
-    );
-    const rhythmAccuracyPercent =
-      seen.length === 0
-        ? 0
-        : (100 *
-            seen.reduce(
-              (sum, note) =>
-                sum +
-                Math.min(
-                  1,
-                  (voicedSeconds.current.get(note.id) ?? 0) /
-                    Math.max(0.001, note.end - note.start),
-                ),
-              0,
-            )) /
-          seen.length;
-    const noteStabilityPercent =
-      seen.length === 0
-        ? 0
-        : (100 *
-            seen.reduce((sum, note) => {
-              const stats = pitchStatistics.current.get(note.id);
-              if (!stats) return sum;
-              const mean = stats.sum / stats.count;
-              const spread = Math.sqrt(
-                Math.max(0, stats.squared / stats.count - mean * mean),
-              );
-              return sum + Math.max(0, 1 - spread);
-            }, 0)) /
-          seen.length;
-    onNoteScoreChange?.({
-      hitNotes: hitNoteIdsRef.current.size,
-      totalNotes: seenNoteIds.current.size,
-      rhythmAccuracyPercent,
-      noteStabilityPercent,
-    });
-    previousFrame.current = { position, noteId: activeNote?.id };
-  }, [
-    activeNote,
-    liveMidi,
-    pitchHz,
-    position,
-    onNoteScoreChange,
-    notes,
-  ]);
+  const hitNoteIds = show.hitNoteIds;
   const frameStyle =
     layout && !panel.detached
       ? {
@@ -385,6 +263,7 @@ export const KaraokeStage = ({
   layers,
   vocalRange,
   pitchHz,
+  pitchFrames,
   onNoteScoreChange,
 }: KaraokeStageProps) => {
   const t = useText();
@@ -426,9 +305,11 @@ export const KaraokeStage = ({
     lines,
     position,
     pitchHz,
+    pitchFrames,
     playing,
     settings: showSettings,
   });
+  useEffect(() => { onNoteScoreChange?.(show.noteScore); }, [show, pitchFrames, position, onNoteScoreChange]);
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
@@ -457,7 +338,7 @@ export const KaraokeStage = ({
           shownWordIds={shownWordIds}
           keyShift={keyShift}
           pitchHz={pitchHz}
-          onNoteScoreChange={onNoteScoreChange}
+          pitchFrame={pitchFrames?.at(-1)}
           show={show}
           hidden={lines.length > 0 && phase.kind === "empty"}
           opacity={phase.opacity ?? 1}

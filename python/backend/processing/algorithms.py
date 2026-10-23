@@ -74,7 +74,12 @@ def construct_document(
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint]) -> Word:
     points = [point for point in pitch if word.start <= point.time <= word.end]
     notes = _notes_from_points(points, word.start, word.end)
-    return Word(word.text, word.start, word.end, notes, word.letters)
+    measured = tuple(replace(note, contour=tuple({
+        (point.time - note.start) / (note.end - note.start):
+         _frequency_to_midi(point.frequency) - note.note
+        for point in points if note.start <= point.time < note.end and _has_pitch(point)
+    }.items())) for note in notes)
+    return Word(word.text, word.start, word.end, measured, word.letters)
 
 
 def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -> tuple[Note, ...]:

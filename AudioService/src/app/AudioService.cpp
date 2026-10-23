@@ -433,6 +433,16 @@ std::string AudioService::diagnostics() {
     const auto observedAt = monotonicTicksNow();
     const auto presentationPosition = roomPlaybackFrame(observedAt);
     const auto rate = session_.runtime().outputSampleRateHz;
+    std::ostringstream pitchFrames;
+    if (rate != 0 && music.state == PlaybackState::Playing) {
+        for (const auto& point : analysis_.pitchHistory()) {
+            const auto halfWindow = static_cast<MonotonicTicks>(point.frames) * 500'000'000 / rate;
+            if (point.capturedAt - halfWindow < pitchFence_) continue;
+            if (pitchFrames.tellp() > 0) pitchFrames << '|';
+            pitchFrames << point.sequence << ',' << roomPlaybackFrame(point.capturedAt) << ','
+                        << static_cast<double>(point.frames) * music.rate << ',' << point.pitchHz;
+        }
+    }
     const auto stageFrames = [this](LatencyRegistry::Stage id) {
         const auto stage = latency_.get(id);
         return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
@@ -735,6 +745,8 @@ std::string AudioService::diagnostics() {
         << "InputPeak: " << sig.peak << '\n'
         << "InputRMS: " << sig.rms << '\n'
         << "InputPitchHz: " << analysis.pitchHz << '\n'
+        << "InputPitchEpoch: " << pitchEpoch_ << '\n'
+        << "InputPitchHistory: " << pitchFrames.str() << '\n'
         << "InputClipping: " << sig.clipping << '\n'
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'

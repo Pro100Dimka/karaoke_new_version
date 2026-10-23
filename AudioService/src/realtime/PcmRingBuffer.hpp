@@ -25,15 +25,18 @@ class PcmRingBuffer {
     PcmRingBuffer(std::uint32_t capacityFrames, std::uint32_t channels);
 
     // prepare requires stopped producers/consumers; clear drains them on a non-realtime thread.
-    void prepare(std::uint32_t capacityFrames, std::uint32_t channels, bool trackFrameTags = false);
+    void prepare(std::uint32_t capacityFrames, std::uint32_t channels, bool trackFrameTags = false,
+                 bool trackFrameTimes = false);
     void clear() noexcept;
     // Optional diagnostic spans use the same publication lease as their PCM; empty reads keep
     // a valid cursor, while rejected calls invalidate the span. No queue position is changed.
     [[nodiscard]] bool push(std::span<const float> interleaved, std::uint32_t frames,
-                            std::uint8_t frameTag = 1, Transfer* transfer = nullptr) noexcept;
+                            std::uint8_t frameTag = 1, Transfer* transfer = nullptr,
+                            std::span<const MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t pop(std::span<float> output, std::uint32_t frames,
                                     std::span<std::uint8_t> frameTags = {},
-                                    Transfer* transfer = nullptr) noexcept;
+                                    Transfer* transfer = nullptr,
+                                    std::span<MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t peek(std::span<float> output, std::uint32_t frames) const noexcept;
     std::uint32_t discard(std::uint32_t frames) noexcept;
     [[nodiscard]] std::uint32_t availableFrames() const noexcept;
@@ -54,16 +57,19 @@ class PcmRingBuffer {
     void leave() const noexcept;
     [[nodiscard]] bool pushAvailable(std::span<const float> samples, std::uint32_t frames,
                                      std::uint8_t frameTag = 1,
-                                     Transfer* transfer = nullptr) noexcept;
+                                     Transfer* transfer = nullptr,
+                                     std::span<const MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t peekAvailable(std::span<float> output,
                                               std::uint32_t frames,
                                               std::span<std::uint8_t> frameTags = {},
-                                              Transfer* transfer = nullptr) const noexcept;
+                                              Transfer* transfer = nullptr,
+                                              std::span<MonotonicTicks> frameTimes = {}) const noexcept;
     std::uint32_t discardAvailable(std::uint32_t frames) noexcept;
     mutable std::atomic<std::uint32_t> users_{0};
     mutable std::atomic_flag clearing_ = ATOMIC_FLAG_INIT;
     std::vector<float> data_;
     std::vector<std::uint8_t> frameTags_; // opt-in metadata shares the same read/write publication
+    std::vector<MonotonicTicks> frameTimes_;
     std::uint32_t capacityFrames_{0};
     std::uint32_t channels_{0};
     alignas(64) std::atomic<std::uint64_t> writeFrame_{0};

@@ -19,6 +19,17 @@ afterEach(() => {
   Reflect.deleteProperty(window, "desktop");
 });
 
+it("shows free disk space and application size without inventing disk capacity", async () => {
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([]);
+  vi.spyOn(pythonClient, "diagnostics").mockResolvedValue({ storage: {
+    free: 1000, songs: 100, models: 200, cache: 0, recordings: 0, temp: 0,
+  } } as Awaited<ReturnType<typeof pythonClient.diagnostics>>);
+  render(<LibraryProvider><ProcessingModal open songs={[]} onClose={vi.fn()} onCancel={vi.fn()}
+    onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  await waitFor(() => expect(screen.getByText(/processingDiskUsage/)).toBeInTheDocument());
+  expect(screen.queryByRole("progressbar", { name: "processingDiskFree" })).not.toBeInTheDocument();
+});
+
 it("keeps cleared jobs hidden after reopening and fresh backend results, while showing new jobs", async () => {
   const jobs: ProcessingJobDto[] = ["completed", "failed", "interrupted", "processing"].map((state, index) => ({
     id: `old-${index}`, songId: "song", type: "SongProcessing",

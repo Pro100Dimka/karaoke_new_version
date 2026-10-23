@@ -164,7 +164,7 @@ export interface PythonClient {
   ): Promise<ProjectCompatibility>;
   deleteSong(songId: string): Promise<void>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
-  analyzeRecording(recordingId: string): Promise<AnalysisDto>;
+  analyzeRecording(recordingId: string, onProgress?: (progress: RecordingAnalysisProgress) => void): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
   renameRecording(
     recordingId: string,
@@ -206,6 +206,11 @@ export interface StudioMasterProgress {
   recordingId: string;
   stage: string;
   progress: number;
+}
+
+export interface RecordingAnalysisProgress extends StudioMasterProgress {
+  jobId: string;
+  state: string;
 }
 
 /** Talks to the shared room/voice server (a fixed public deployment), not the user's local Python backend. */

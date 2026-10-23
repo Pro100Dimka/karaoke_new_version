@@ -12,7 +12,7 @@ export const processingUk = {
   processingDiskInfo: "Інформація про диск",
   processingDiskTitle: "Місце на диску",
   processingDiskFree: "Вільно на диску",
-  processingDiskUsage: "{free} з {total}",
+  processingDiskUsage: "Вільно на диску: {free} · Файли застосунку: {used}",
   processingDiskUnavailable: "Дані про диск зараз недоступні.",
   processingClearCompleted: "Завершені",
   processingClearCompletedTitle: "Очистити завершені завдання?",

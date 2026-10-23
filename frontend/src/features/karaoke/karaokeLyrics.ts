@@ -241,6 +241,27 @@ export const pitchRange = (
 export const pitchHzToMidi = (pitchHz: number): number =>
   69 + 12 * Math.log2(pitchHz / 440);
 
+/** The revision's measured target; note edits carry the contour with them. */
+export const targetPitchAt = (
+  note: Pick<EditorNote, "start" | "end" | "pitch" | "contour">,
+  position: number,
+): number => {
+  const points = note.contour;
+  if (!points?.length) return note.pitch;
+  const fraction = (position - note.start) / (note.end - note.start);
+  let low = 0;
+  let high = points.length;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (points[middle]![0] < fraction) low = middle + 1;
+    else high = middle;
+  }
+  const left = points[Math.max(0, low - 1)]!;
+  const right = points[Math.min(low, points.length - 1)]!;
+  const weight = right[0] > left[0] ? Math.max(0, Math.min(1, (fraction - left[0]) / (right[0] - left[0]))) : 0;
+  return note.pitch + left[1] + (right[1] - left[1]) * weight;
+};
+
 /** A full semitone is forgiving enough for ordinary karaoke singing while still rejecting the adjacent note. */
 export const karaokePitchToleranceSemitones = 1;
 

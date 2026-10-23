@@ -3,7 +3,7 @@ import type { AudioServiceClient, DesktopClient, PythonClient } from "../../cont
 /** Capabilities used by the library; the composition root supplies their implementations. */
 export type LibraryCatalogPort = Pick<PythonClient,
   "listSongs" | "importSong" | "processSong" | "cancelProcessing" |
-  "updateSong" | "removeSongCover" | "deleteSong" | "listJobs" |
+  "updateSong" | "removeSongCover" | "deleteSong" | "listJobs" | "cancelJob" |
   "listRecordings" | "latestAnalysis" | "analyzeRecording" |
   "renameRecording" | "deleteRecording" | "createStudioMaster" | "diagnostics">;
 

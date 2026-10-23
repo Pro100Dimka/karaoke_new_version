@@ -1,5 +1,15 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
+  recordingOpenAnalysis: "Відкрити аналіз",
+  recordingReanalyze: "Перерахувати аналіз",
+  analysisCancel: "Скасувати аналіз",
+  analysisLoading: "Відкриваємо результат…",
+  analysisWaitingResources: "Очікує вільних ресурсів",
+  analysisTiming: "Перевіряємо часову прив’язку",
+  analysisSeparating: "Виділяємо записаний вокал",
+  analysisPitchTracking: "Розпізнаємо виконання",
+  analysisReferenceTracking: "Перевіряємо еталон пісні",
+  analysisScoring: "Розраховуємо результат",
   analysisPerfectAdvice: "Усі показники на максимумі. Збережіть цей дубль як орієнтир для наступних виступів.",
   analysisPitchUncertain: "Недостатньо надійних даних про висоту голосу. Перевірте якість запису та рівень мікрофона.",
   studioMasterTitle: "A&D Studio Master",

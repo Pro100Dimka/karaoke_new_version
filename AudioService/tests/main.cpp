@@ -505,6 +505,8 @@ constexpr std::array tests{
     Test{"analysisRejectsStaleGeneration", Tests::analysisRejectsStaleGeneration},
     Test{"analysisPrepareResetsSignalMetrics", Tests::analysisPrepareResetsSignalMetrics},
     Test{"analysisDetectsLivePitch", Tests::analysisDetectsLivePitch},
+    Test{"analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration",
+         Tests::analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration},
     Test{"analysisAccumulatesDeviceSizedBlocksForPitch",
          Tests::analysisAccumulatesDeviceSizedBlocksForPitch},
     Test{"analysisPrefersFundamentalOverStrongerHarmonic",

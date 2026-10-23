@@ -5,6 +5,9 @@ import threading
 import logging
 import math
 from dataclasses import replace
+from contextlib import contextmanager
+from contextvars import ContextVar
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Callable
 
@@ -47,6 +50,28 @@ class VocalPitchExtractor:
         self._settings = settings
         self._resources = resources
         self._workspaces = workspaces
+        self._admitted: ContextVar[tuple[AiProvider, AiProvider, ResourceLease] | None] = ContextVar(
+            "vocal_analysis_resources", default=None
+        )
+
+    @contextmanager
+    def admit(self, recording: Path, cancel: threading.Event) -> Iterator[None]:
+        while True:
+            if cancel.is_set():
+                raise ConflictError("JobCancelled", "Recording analysis was cancelled")
+            try:
+                providers = self._claim(recording)
+                break
+            except DomainError as exc:
+                if exc.code != "ResourceBudgetExceeded":
+                    raise
+                cancel.wait(0.1)
+        token = self._admitted.set(providers)
+        try:
+            yield
+        finally:
+            self._admitted.reset(token)
+            providers[2].release()
 
     def extract_vocals(
         self,
@@ -57,7 +82,8 @@ class VocalPitchExtractor:
         *,
         reference_start: float | None = 0.0,
     ) -> tuple[tuple[PitchPoint, ...], tuple[PitchPoint, ...]]:
-        separation, pitch, lease = self._claim(recording)
+        admitted = self._admitted.get()
+        separation, pitch, lease = admitted or self._claim(recording)
         workspace = None
         try:
             progress("AnalyzingTiming", 0.0, 0.02)
@@ -83,7 +109,8 @@ class VocalPitchExtractor:
                 expected
             )
         finally:
-            lease.release()
+            if admitted is None:
+                lease.release()
             if workspace is not None:
                 self._workspaces.cleanup(workspace)
 

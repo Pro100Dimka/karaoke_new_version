@@ -18,6 +18,16 @@ const installBridge = (
 };
 
 describe("audioClient contract", () => {
+  it("keeps capture-aligned pitch batches separate from the current playback cursor", async () => {
+    installBridge(() => ({ status: 0, text: ["RuntimeOutputSampleRate: 48000", "PlaybackState: Playing",
+      "PlaybackPresentationPositionFrames: 480000", "InputPitchEpoch: 7",
+      "InputPitchHistory: 51,470400,2048,440|52,472448,2048,0|broken"].join("\n") }));
+    const value = await getAudioSnapshot();
+    expect(value).toMatchObject({ positionSeconds: 10, pitchFrames: [
+      { sequence: 51, epoch: 7, positionSeconds: 9.8, durationSeconds: 2048 / 48000, pitchHz: 440 },
+      { sequence: 52, epoch: 7, positionSeconds: 472448 / 48000, durationSeconds: 2048 / 48000 },
+    ] });
+  });
   it.each<[string, number | null]>([
     ["0", 0],
     ["100000", 10],

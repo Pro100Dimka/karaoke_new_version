@@ -31,6 +31,7 @@ def register_recording(
     *,
     frequency: float = 440.0,
     session_metadata: dict[str, object] | None = None,
+    idempotency_key: str = "recording-register",
 ) -> dict[str, object]:
     target = client.post("/recordings/target")
     assert target.status_code == 200, target.text
@@ -51,7 +52,7 @@ def register_recording(
             "gaps": [],
             "sessionMetadata": session_metadata or {"session": "test"},
         },
-        headers={"Idempotency-Key": "recording-register"},
+        headers={"Idempotency-Key": idempotency_key},
     )
     assert response.status_code == 201, response.text
     return response.json()
@@ -217,6 +218,36 @@ def test_repeated_analysis_requests_share_the_running_job(tmp_path: Path, monkey
         later = client.post(f"/recordings/{recording['recordingId']}/analysis").json()
         assert later["jobId"] != first["jobId"]
         assert wait_for_job(client, later["jobId"])["state"] == "Succeeded"
+
+
+def test_different_recordings_wait_for_analysis_resources_and_can_cancel_queue(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    entered, release = threading.Event(), threading.Event()
+    original_pitch = FakeAiProvider.pitch
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        takes = [register_recording(client, song, idempotency_key=f"take-{index}") for index in range(3)]
+
+        def blocked_pitch(self, path, cancel, *, execution):
+            entered.set()
+            assert release.wait(5)
+            return original_pitch(self, path, cancel, execution=execution)
+
+        monkeypatch.setattr(FakeAiProvider, "pitch", blocked_pitch)
+        first = client.post(f"/recordings/{takes[0]['recordingId']}/analysis").json()
+        try:
+            assert entered.wait(3)
+            second = client.post(f"/recordings/{takes[1]['recordingId']}/analysis").json()
+            cancelled = client.post(f"/recordings/{takes[2]['recordingId']}/analysis").json()
+            threading.Event().wait(.15)
+            assert client.get(f"/jobs/{second['jobId']}").json()["state"] == "Queued"
+            assert client.post(f"/jobs/{cancelled['jobId']}/cancel").status_code == 200
+        finally:
+            release.set()
+        assert wait_for_job(client, first["jobId"])["state"] == "Succeeded"
+        assert wait_for_job(client, second["jobId"])["state"] == "Succeeded"
+        assert wait_for_job(client, cancelled["jobId"])["state"] == "Cancelled"
 
 
 @pytest.mark.parametrize(

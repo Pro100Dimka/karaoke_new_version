@@ -289,7 +289,7 @@ export const ru: MessageTable = {
   storageRecordings: "Записи",
   storageTemp: "Временные файлы",
   storageFree: "Свободно на диске: {value}",
-  storageUsed: "Используется: {used} из {total}",
+  storageUsed: "Занято приложением: {used}",
   storageBreakdown: "По категориям",
   clearCache: "Очистить кэш",
   removeTemporaryFiles: "Удалить временные файлы",

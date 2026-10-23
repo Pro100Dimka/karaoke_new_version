@@ -4,6 +4,8 @@ export interface EditorNote {
   pitch: number;
   start: number;
   end: number;
+  /** Relative time (0..1), semitone offset; follows this note when it is edited. */
+  contour?: readonly (readonly [number, number])[];
 }
 
 export interface EditorWord {

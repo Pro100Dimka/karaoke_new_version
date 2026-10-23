@@ -61,7 +61,7 @@ export const servicesEn = {
   processingDiskInfo: "Disk information",
   processingDiskTitle: "Disk space",
   processingDiskFree: "Free disk space",
-  processingDiskUsage: "{free} of {total}",
+  processingDiskUsage: "Free disk space: {free} · Application files: {used}",
   processingDiskUnavailable: "Disk data is unavailable right now.",
   processingClearCompleted: "Completed",
   processingClearCompletedTitle: "Clear completed jobs?",

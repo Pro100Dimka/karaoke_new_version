@@ -9,6 +9,7 @@ import {
   pitchMatchesTarget,
   pitchHzToMidi,
   pitchRange,
+  targetPitchAt,
   upcomingLinePhase,
   type LyricLine,
 } from "./karaokeLyrics";
@@ -26,6 +27,11 @@ const line = (start: number, end: number): LyricLine => ({
 });
 
 describe("karaoke lyrics model", () => {
+  it("follows the saved contour and carries it with transposed and resized notes", () => {
+    const note = { pitch: 60, start: 2, end: 4, contour: [[0, -0.3], [1, 0.3]] as const };
+    expect(targetPitchAt(note, 3)).toBeCloseTo(60);
+    expect(targetPitchAt({ ...note, pitch: 63, end: 6 }, 3)).toBeCloseTo(62.85);
+  });
   it("measures live pitch proximity on the musical semitone scale", () => {
     expect(pitchHzToMidi(440)).toBeCloseTo(69, 5);
     expect(pitchAccuracy(440, 69)).toBe(1);

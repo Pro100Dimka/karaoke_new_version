@@ -4,7 +4,6 @@ import {
   CollapsibleSection,
   DatabaseArt,
   KeyValueList,
-  ProgressBar,
   Stack,
   Typography,
 } from "@neo-ui-kit/react";
@@ -70,7 +69,6 @@ export const StoragePanel = ({
   const used = usage
     ? parts.reduce((total, [key]) => total + usage[key], 0)
     : 0;
-  const total = usage ? usage.free + used : 0;
 
   return (
     <Card
@@ -91,14 +89,8 @@ export const StoragePanel = ({
             <Typography variant="caption" tone="muted">
               {t("storageUsed", {
                 used: formatBytes(used),
-                total: formatBytes(total),
               })}
             </Typography>
-            <ProgressBar
-              label={t("storage")}
-              value={used}
-              max={Math.max(1, total)}
-            />
           </Stack>
           <CollapsibleSection title={t("storageBreakdown")}>
             <KeyValueList

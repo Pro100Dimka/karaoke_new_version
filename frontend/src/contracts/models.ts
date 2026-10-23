@@ -182,6 +182,14 @@ export interface AudioCapabilities {
   keyboardLighting: boolean;
 }
 
+export interface PitchFrame {
+  sequence: number;
+  epoch: number;
+  positionSeconds: number;
+  durationSeconds: number;
+  pitchHz?: number;
+}
+
 export interface PlaybackSnapshot {
   sessionId: string;
   state: "ready" | "playing" | "paused" | "recovering" | "finished";
@@ -192,6 +200,7 @@ export interface PlaybackSnapshot {
   monitoringSafetyTripped?: boolean;
   inputLevel: number;
   pitchHz?: number;
+  pitchFrames?: readonly PitchFrame[];
 }
 
 export interface MixerChannelGains {

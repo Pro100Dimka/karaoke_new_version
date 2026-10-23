@@ -81,6 +81,9 @@ export class ShowEngine {
     this.state = { ...this.state, settings };
   }
 
+  get hitNoteIds() { return this.tracker.hitNoteIds; }
+  get noteScore() { return this.tracker.noteScore; }
+
   /** A backing-track spectrum frame from AudioService. */
   hear(backingBands: readonly number[], now: number): void {
     if (!this.state.playing) return;
@@ -93,8 +96,10 @@ export class ShowEngine {
     position: number,
     pitchHz: number | undefined,
     playing: boolean,
+    sampleDuration?: number,
+    scoreVoice = true,
   ): void {
-    const events = playing ? this.tracker.update(position, pitchHz) : [];
+    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration) : [];
     const music = this.pulse.state;
     const commands = this.director.plan(now, events, playing ? this.cues : [], {
       energy: this.tracker.energy,

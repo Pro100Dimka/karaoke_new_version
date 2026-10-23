@@ -825,7 +825,9 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     const auto micCaptured = micCapturedAt(bridgeFillBeforePullFrames);
     // Every downstream tap uses the negotiated internal clock after boundary conversion.
     recording_.push(generation, RecordingTap::RawInput, sessionFrame(), rawMic, buffer.frames);
-    analysis_.push(generation, rawMic, buffer.frames);
+    // Raw input has no DSP delay. Driver/bridge residence is already in micCaptured.
+    analysis_.push(generation, rawMic, buffer.frames,
+                   micCaptured - acousticLatencyNs_.load(std::memory_order_relaxed));
     const auto gains = mixer_.gains();
     const auto microphoneEnabled = microphoneEnabled_.load(std::memory_order_relaxed);
     auto monitoring = monitoring_.load(std::memory_order_relaxed);

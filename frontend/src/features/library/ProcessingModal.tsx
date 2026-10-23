@@ -3,7 +3,6 @@ import {
   Dialog,
   IconButton,
   NeonWaves,
-  ProgressBar,
   SplitButton,
   Typography,
 } from "@neo-ui-kit/react";
@@ -35,7 +34,7 @@ interface Notice {
   cancel?: string;
   onConfirm?(): void;
 }
-type Disk = { free: number; total: number } | null;
+type Disk = { free: number; used: number } | null;
 const clearGroups = {
   completed: {
     label: "processingClearCompleted", title: "processingClearCompletedTitle", text: "processingClearCompletedText",
@@ -67,7 +66,7 @@ const useDisk = (open: boolean): Disk => {
           storage.cache +
           storage.recordings +
           storage.temp;
-        if (active) setDisk({ free: storage.free, total: storage.free + used });
+        if (active) setDisk({ free: storage.free, used });
       })
       .catch(() => undefined);
     return () => {
@@ -97,7 +96,7 @@ export const ProcessingModal = ({
   const diskText = disk
     ? t("processingDiskUsage", {
         free: formatBytes(disk.free),
-        total: formatBytes(disk.total),
+        used: formatBytes(disk.used),
       })
     : t("processingDiskUnavailable");
 
@@ -220,15 +219,8 @@ export const ProcessingModal = ({
           />
           <div className="processingDisk">
             <Typography variant="caption" tone="muted">
-              {t("processingDiskFree")}: {diskText}
+              {diskText}
             </Typography>
-            {disk && (
-              <ProgressBar
-                label={t("processingDiskFree")}
-                value={disk.total - disk.free}
-                max={Math.max(1, disk.total)}
-              />
-            )}
           </div>
           <SplitButton
             size="sm"

@@ -65,6 +65,7 @@ export const useKaraokeSession = (
   } as KaraokeState);
   const [position, setPosition] = useState(0);
   const [pitchHz, setPitchHz] = useState<number | undefined>();
+  const [pitchFrames, setPitchFrames] = useState<PlaybackSnapshot["pitchFrames"]>();
   const [speed, setSpeed] = useState(1);
   const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
@@ -233,6 +234,7 @@ export const useKaraokeSession = (
   const monitoringWarningShown = useRef(false);
   const onAudioSnapshot = useCallback((snapshot: PlaybackSnapshot) => {
     setPitchHz(snapshot.pitchHz);
+    setPitchFrames(snapshot.pitchFrames);
     setMonitoring(snapshot.monitoring);
     if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
       monitoringWarningShown.current = true;
@@ -490,6 +492,7 @@ export const useKaraokeSession = (
     state,
     position,
     pitchHz,
+    pitchFrames,
     document,
     songPrefs,
     capabilities,

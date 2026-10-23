@@ -286,7 +286,7 @@ export const en = {
   storageRecordings: "Recordings",
   storageTemp: "Temporary files",
   storageFree: "Free disk space: {value}",
-  storageUsed: "Used: {used} of {total}",
+  storageUsed: "Application files: {used}",
   storageBreakdown: "By category",
   clearCache: "Clear cache",
   removeTemporaryFiles: "Remove temporary files",

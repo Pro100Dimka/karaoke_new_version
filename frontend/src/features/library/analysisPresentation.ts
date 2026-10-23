@@ -47,3 +47,12 @@ export const weakestMetric = (analysis: AnalysisDto): AnalysisMetric =>
   analysisMetrics.reduce((weakest, metric) =>
     analysis[metric.key] < analysis[weakest.key] ? metric : weakest,
   );
+const analysisStages = {
+  Loading: "analysisLoading", Queued: "analysisWaitingResources", AnalyzingTiming: "analysisTiming",
+  SeparatingPerformance: "analysisSeparating", PitchAnalysis: "analysisPitchTracking",
+  ReferencePitchAnalysis: "analysisReferenceTracking", Scoring: "analysisScoring",
+} as const;
+
+export const analysisStageLabel = (stage: string) =>
+  analysisStages[stage as keyof typeof analysisStages] ?? "analysisRunning";
+

@@ -1,5 +1,15 @@
 // English texts for recordings, their analysis and the studio master.
 export const recordingsEn = {
+  recordingOpenAnalysis: "Open analysis",
+  recordingReanalyze: "Recalculate analysis",
+  analysisCancel: "Cancel analysis",
+  analysisLoading: "Opening result…",
+  analysisWaitingResources: "Waiting for available resources",
+  analysisTiming: "Checking audio timing",
+  analysisSeparating: "Isolating recorded vocals",
+  analysisPitchTracking: "Tracking the performance",
+  analysisReferenceTracking: "Checking the song reference",
+  analysisScoring: "Calculating results",
   analysisPerfectAdvice: "All metrics are at their maximum. Keep this take as a reference for future performances.",
   analysisPitchUncertain: "Too little reliable pitch evidence. Check recording quality and microphone level.",
   analysisEyebrow: "Performance result",

@@ -309,6 +309,7 @@ void signalCountsClipping();
 void analysisRejectsStaleGeneration();
 void analysisPrepareResetsSignalMetrics();
 void analysisDetectsLivePitch();
+void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration();
 void analysisAccumulatesDeviceSizedBlocksForPitch();
 void analysisPrefersFundamentalOverStrongerHarmonic();
 void analysisRejectsUnpitchedNoise();
