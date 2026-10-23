@@ -24,6 +24,64 @@ const installBridge = (
 };
 
 describe("pythonClient contract", () => {
+  it("opens the newest successful analysis in the backend's newest-first history", async () => {
+    installBridge(() => ({ status: 200, ok: true, body: [
+      { analysisId: "running", recordingId: "take", state: "Running" },
+      { analysisId: "new", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 95, rhythmAccuracyPercent: 94, noteStabilityPercent: 93 },
+      { analysisId: "old", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 2, rhythmAccuracyPercent: 3, noteStabilityPercent: 4 },
+    ] }));
+    await expect(pythonClient.latestAnalysis("take")).resolves.toMatchObject({ pitch: 95, rhythm: 94, stability: 93 });
+  });
+
+  it("opens the analysis returned by its completed job rather than another result in history", async () => {
+    installBridge((call) => ({ status: 200, ok: true, body:
+      call.path === "/recordings/take/analysis" ? { jobId: "job" } :
+      call.path === "/jobs/job" ? { jobId: "job", state: "Succeeded", report: { analysisId: "wanted" } } : [
+        { analysisId: "other", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 95 },
+        { analysisId: "wanted", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 88 },
+        { analysisId: "old", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 2 },
+      ] }));
+    await expect(pythonClient.analyzeRecording("take")).resolves.toMatchObject({ pitch: 88 });
+  });
+  it("preserves the reason an offline performance cannot be scored reliably", async () => {
+    installBridge((call) => ({ status: 200, ok: true, body: call.path.startsWith("/jobs/")
+      ? { jobId: "analysis-job", state: "Failed", error: { code: "AnalysisPitchUncertain", message: "Too little reliable pitch" } }
+      : { jobId: "analysis-job" } }));
+    await expect(pythonClient.analyzeRecording("take")).rejects.toMatchObject({
+      code: "AnalysisPitchUncertain", source: "python",
+    });
+  });
+  it("keeps waiting for CPU vocal analysis beyond five minutes", async () => {
+    vi.useFakeTimers();
+    let now = 0;
+    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    let polls = 0;
+    installBridge((call) => {
+      let body: unknown = { jobId: "analysis-job" };
+      if (call.path === "/jobs/analysis-job") {
+        polls += 1;
+        now = 301_000;
+        body = { jobId: "analysis-job", state: polls === 1 ? "Running" : "Succeeded" };
+      }
+      if (call.path.endsWith("/analyses")) body = [{
+        analysisId: "result", recordingId: "take", state: "Succeeded",
+        pitchAccuracyPercent: 100, rhythmAccuracyPercent: 100, noteStabilityPercent: 100,
+        sectionResults: [], problemRegions: [],
+      }];
+      return { status: 200, ok: true, body };
+    });
+    try {
+      const result = pythonClient.analyzeRecording("take").then(
+        (value) => ({ value }), (error: unknown) => ({ error }),
+      );
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await result).toMatchObject({ value: { recordingId: "take" } });
+      expect(polls).toBe(2);
+    } finally {
+      clock.mockRestore();
+      vi.useRealTimers();
+    }
+  });
   it("realigns existing lyrics from the vocal stem with its own processing endpoint", async () => {
     const calls = installBridge(() => ({
       status: 202, ok: true, body: { jobId: "lyrics-1", state: "Queued" },

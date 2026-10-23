@@ -479,6 +479,7 @@ void returningDefaultMicrophoneRecoversAnOutputOnlySession();
 void unrelatedDevicePropertyDoesNotRestartAudioSession();
 void renderTimelineAdvancesInFrames();
 void bareMonitoringReachesOutput();
+void diagnosticsIdentifyTheAudioServiceInstanceAcrossSessionRestarts();
 void singingRemainsAudibleAtFullMicrophoneGain();
 void sustainedFeedbackDisablesLocalMonitoring();
 void monitoringStartsQuietlyBeforeLoudInputCanReachSpeakers();

@@ -81,10 +81,10 @@ def test_an_analysis_that_crashes_is_marked_failed_not_left_running(
         song = ready_song(client, source)
         recording = register_recording(client, song)
 
-        def out_of_memory(self, path):
+        def out_of_memory(self, path, cancel, *, execution):
             raise MemoryError
 
-        monkeypatch.setattr(WavePitchExtractor, "extract", out_of_memory)
+        monkeypatch.setattr(FakeAiProvider, "pitch", out_of_memory)
         started = client.post(f"/recordings/{recording['recordingId']}/analysis")
         job = wait_for_job(client, started.json()["jobId"])
         analyses = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
@@ -119,12 +119,12 @@ def test_cancelled_analysis_does_not_publish_a_successful_score(tmp_path, monkey
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         recording = register_recording(client, ready_song(client, source))
 
-        def blocked_extract(self, path):
+        def blocked_extract(self, path, cancel, *, execution):
             entered.set()
             assert release.wait(3)
             return ()
 
-        monkeypatch.setattr(WavePitchExtractor, "extract", blocked_extract)
+        monkeypatch.setattr(FakeAiProvider, "pitch", blocked_extract)
         started = client.post(f"/recordings/{recording['recordingId']}/analysis")
         job_id = started.json()["jobId"]
         try:

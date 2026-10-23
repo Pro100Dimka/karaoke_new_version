@@ -106,7 +106,8 @@ std::string_view AudioService::serviceStateName(ServiceState state) noexcept {
 }
 
 AudioService::AudioService(std::unique_ptr<IAudioBackend> backend)
-    : realtime_(media_, recording_, analysis_, network_, signal_, latency_, graphInfo_, trace_),
+    : instanceId_(monotonicTicksNow()),
+      realtime_(media_, recording_, analysis_, network_, signal_, latency_, graphInfo_, trace_),
       session_(std::move(backend), realtime_, trace_) {
     session_.setPreparedHook([this] { applyRememberedCalibration(); });
 }
@@ -539,6 +540,7 @@ std::string AudioService::diagnostics() {
     out << "MonotonicTicks: " << observedAt << '\n'
         << realtime_.diagnosticRoomInputReport()
         << "ServiceState: " << serviceStateName(state_) << '\n'
+        << "ServiceInstanceId: " << instanceId_ << '\n'
         << "SessionState: " << sessionStateName(session_.state()) << '\n'
         << "generationId: " << session_.generationId() << '\n'
         << "Backend: " << session_.backendName() << '\n'

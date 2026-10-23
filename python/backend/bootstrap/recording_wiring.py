@@ -7,9 +7,10 @@ from backend.bootstrap.container import RecordingCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
 from backend.infrastructure.recording_files import LocalRecordingStorage
 from backend.infrastructure.wave_recording import WaveRecordingInspector
-from backend.infrastructure.wave_pitch import WavePitchExtractor
+from backend.infrastructure.wave_pitch import VocalPitchExtractor
 from backend.models.commands import EnsureRequiredModels
 from backend.processing.resource_scheduler import ProcessingResourceScheduler
+from backend.processing.preflight import ProcessingPreflight
 from backend.recordings.allocate_target import AllocateRecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
@@ -27,16 +28,9 @@ def build_recording_cases(
     storage: LocalRecordingStorage,
     register: RegisterRecording,
 ) -> RecordingCases:
-    analysis = StartRecordingAnalysis(
-        runtime.database,
-        processing.jobs,
-        project.projects,
-        WavePitchExtractor(),
-        runtime.hasher,
-        runtime.clock,
-        runtime.ids,
+    analysis, studio_master = _analysis_and_mastering(
+        runtime, project, processing, storage, register
     )
-    studio_master = _studio_master(runtime, project, processing, storage, register)
     return RecordingCases(
         AllocateRecordingTarget(storage, runtime.ids),
         register,
@@ -50,25 +44,37 @@ def build_recording_cases(
     )
 
 
-def _studio_master(
+def _analysis_and_mastering(
     runtime: RuntimeWiring,
     project: ProjectWiring,
     processing: ProcessingWiring,
     storage: LocalRecordingStorage,
     register: RegisterRecording,
-) -> StartStudioMaster:
+) -> tuple[StartRecordingAnalysis, StartStudioMaster]:
     inspector = WaveRecordingInspector()
     publisher = PublishStudioMaster(storage, inspector, register, runtime.clock, runtime.ids)
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
     resources = ProcessingResourceScheduler(
         processing.runtime, processing.storage, runtime.config.roots.temp, runtime.config.resources
     )
-    return StartStudioMaster(
+    settings = GetSettings(runtime.database)
+    analysis = StartRecordingAnalysis(
+        runtime.database,
+        processing.jobs,
+        project.projects,
+        VocalPitchExtractor(
+            ProcessingPreflight(resolver), settings, resources, processing.workspaces
+        ),
+        runtime.hasher,
+        runtime.clock,
+        runtime.ids,
+    )
+    return analysis, StartStudioMaster(
         runtime.database,
         processing.jobs,
         project.projects,
         resolver,
-        GetSettings(runtime.database),
+        settings,
         resources,
         processing.workspaces,
         FfmpegStudioMasterRenderer(runtime.processes),

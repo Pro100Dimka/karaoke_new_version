@@ -113,6 +113,36 @@ test("processing queue and performances list the backend's jobs and takes", asyn
   await page.screenshot({ path: testInfo.outputPath("performances-modal.png") });
 });
 
+test("performance rotary controls and waveform fit list and grid at every window width", async ({ page }, testInfo) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.addInitScript(installBusyLibrary);
+  await page.addInitScript(() => localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ language: "en", reducedMotion: true })));
+  await page.goto("/");
+  await page.getByRole("button", { name: "Recordings", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  for (const width of [1440, 768, 400]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const view of ["List", "Grid"]) {
+      await dialog.getByRole("tab", { name: view, exact: true }).click();
+      const errors = await dialog.locator(".recordingCard").evaluateAll((cards) => cards.flatMap((card) => {
+        const bounds = card.getBoundingClientRect();
+        return [...card.querySelectorAll(".recordingVolume, .recordingActions, .recordingTimeline")].flatMap((element) => {
+          const box = element.getBoundingClientRect();
+          return box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.width < 40
+            ? [`${element.className}: ${Math.round(box.width)}px`] : [];
+        });
+      }));
+      expect(errors, `${view} at ${width}px`).toEqual([]);
+      await page.screenshot({ path: testInfo.outputPath(`rotary-${view}-${width}.png`) });
+    }
+  }
+  const volume = dialog.getByRole("slider", { name: "Recording volume", exact: true }).first();
+  await expect(volume).toHaveAttribute("aria-valuenow", "1");
+  await volume.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(volume).toHaveAttribute("aria-valuenow", "0.99");
+});
+
 test("processing cleanup survives reloads and controls fit wide and narrow queues", async ({ page }, testInfo) => {
   await page.addInitScript(installDesktopBridge);
   await page.addInitScript(installBusyLibrary);

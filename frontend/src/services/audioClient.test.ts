@@ -159,6 +159,49 @@ describe("audioClient contract", () => {
     expect(await audioClient.health()).toMatchObject({ status: "ready" });
   });
 
+  it.each(["Idle", "Failed"])("restores an idle or failed session before reporting audio ready (%s)", async (initial) => {
+    let session = initial;
+    const commands = installBridge((command) => {
+      if (command === "GetServiceState") return { status: 0, text: "Running" };
+      if (command === "StartSession") session = "Running";
+      return { status: 0, text: command === "GetDiagnostics"
+        ? `ServiceState: Running\nSessionState: ${session}\nServiceInstanceId: native-second\nBackend: WASAPI Shared`
+        : "Ok" };
+    });
+    await expect(audioClient.health()).resolves.toMatchObject({ status: "ready", instanceId: "native-second" });
+    expect(commands).toContain("PrepareSession");
+    expect(commands).toContain("StartSession");
+  });
+
+  it("does not report a live process as ready when its failed device cannot reopen", async () => {
+    installBridge((command) => {
+      if (command === "GetServiceState") return { status: 0, text: "Running" };
+      if (command === "PrepareSession") return { status: -1, text: "Device unavailable" };
+      return { status: 0, text: "ServiceState: Running\nSessionState: Failed\nBackend: WASAPI Shared" };
+    });
+    await expect(audioClient.health()).resolves.toMatchObject({ status: "unavailable" });
+  });
+
+  it("invalidates loaded media when the native device session recovers inside the same process", async () => {
+    let generation = 1;
+    installBridge((command) => ({ status: 0, text: command === "GetServiceState" ? "Running" :
+      `SessionState: Running\nServiceInstanceId: same-process\ngenerationId: ${generation}` }));
+    const first = await audioClient.health();
+    generation = 2;
+    const recovered = await audioClient.health();
+    expect(recovered.status).toBe("ready");
+    expect(recovered.instanceId).not.toBe(first.instanceId);
+    expect((await audioClient.health()).instanceId).toBe(recovered.instanceId);
+  });
+
+  it("keeps an intentionally suspended ASIO session suspended during health probes", async () => {
+    const commands = installBridge((command) => ({ status: 0, text: command === "GetServiceState"
+      ? "Running" : "ServiceState: Running\nSessionState: Suspended\nServiceInstanceId: suspended" }));
+    await expect(audioClient.health()).resolves.toMatchObject({ status: "ready", instanceId: "suspended" });
+    expect(commands).not.toContain("PrepareSession");
+    expect(commands).not.toContain("StartSession");
+  });
+
   it("reports unavailable when the transport returns a failure status", async () => {
     installBridge(() => ({
       status: -1,

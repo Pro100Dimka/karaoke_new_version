@@ -27,6 +27,13 @@ const analysis = (song: SongDto): AnalysisDto => ({
 });
 
 describe("recording dialog ownership", () => {
+  it("explains insufficient pitch evidence after automatic post-performance analysis", async () => {
+    ports.locationState = { analysisSongId: first.id, analysisFor: take(first).id };
+    ports.latestAnalysis.mockResolvedValue(null);
+    ports.analyzeRecording.mockRejectedValue({ code: "AnalysisPitchUncertain", message: "Not enough pitch", source: "python" });
+    renderHook(() => useSongRecordings([first], true, vi.fn()));
+    await waitFor(() => expect(ports.notify).toHaveBeenCalledWith("analysisPitchUncertain", "error"));
+  });
   beforeEach(() => {
     vi.resetAllMocks();
     ports.locationState = null;

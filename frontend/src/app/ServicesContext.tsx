@@ -57,7 +57,7 @@ export const ServicesProvider = ({ children }: { children: ReactNode }) => {
           .health()
           .then((result): ServiceStatus =>
             result.status === "ready"
-              ? { kind: "ready", version: result.version }
+              ? { kind: "ready", version: result.version, instanceId: result.instanceId }
               : { kind: "unavailable" },
           )
           .catch((): ServiceStatus => ({ kind: "unavailable" })),

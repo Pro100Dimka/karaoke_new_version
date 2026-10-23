@@ -619,6 +619,26 @@ void bareMonitoringReachesOutput() {
     expect(render.front() != 0.0F, "bare monitoring reaches output");
 }
 
+void diagnosticsIdentifyTheAudioServiceInstanceAcrossSessionRestarts() {
+    RunningService first;
+    const auto instance = [](AudioService& service) {
+        const auto diagnostics = service.handleLine("1|GetDiagnostics").text;
+        const auto key = std::string{"ServiceInstanceId: "};
+        const auto start = diagnostics.find(key);
+        return start == std::string::npos ? std::string{} :
+            diagnostics.substr(start + key.size(), diagnostics.find('\n', start) - start - key.size());
+    };
+    const auto original = instance(first.service);
+    expect(!original.empty(), "health diagnostics identify a service even while its session is idle");
+    expect(first.service.handleLine("1|StopSession").status == ControlStatus::Ok,
+           "the original session stops without replacing its service process");
+    expect(instance(first.service) == original, "stopping a device session does not change the process identity");
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    RunningService second;
+    expect(!instance(second.service).empty() && instance(second.service) != original,
+           "a replacement service must invalidate renderer state even between health probes");
+}
+
 void singingRemainsAudibleAtFullMicrophoneGain() {
     for (const auto cautious : {false, true}) {
         RunningService fixture;

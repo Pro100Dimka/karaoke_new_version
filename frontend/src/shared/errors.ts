@@ -27,6 +27,7 @@ const knownCodes = {
   StorageUnavailable: "errorStorageUnavailable",
   MissingRequiredModels: "errorMissingModels",
   ProcessingAlreadyRunning: "errorProcessingRunning",
+  AnalysisPitchUncertain: "analysisPitchUncertain",
   RevisionConflict: "errorRevisionConflict",
   ProjectInvalid: "errorProjectInvalid",
   ProjectUpgradeRequired: "errorProjectUpgrade",

@@ -101,7 +101,16 @@ export const audioClient: AudioServiceClient = {
   async health() {
     try {
       const state = await command("GetServiceState");
-      return { status: state === "Running" ? "ready" : "unavailable", version: "1" };
+      if (state !== "Running") return { status: "unavailable", version: "1" };
+      let values = await diagnostics();
+      // A replacement process is Running with an Idle session. A failed device also leaves the
+      // control pipe alive. Reopen either before advertising usable audio; Suspended is deliberate.
+      if (values.SessionState === "Idle" || values.SessionState === "Failed") {
+        await ensureSession();
+        values = await diagnostics();
+      }
+      return { status: "ready", version: "1", instanceId: values.ServiceInstanceId &&
+        [values.ServiceInstanceId, values.generationId].filter(Boolean).join(":") };
     } catch {
       return { status: "unavailable", version: "1" };
     }

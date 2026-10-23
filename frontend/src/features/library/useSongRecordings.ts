@@ -11,6 +11,7 @@ import type { StudioMasterProgress } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
+import { errorMessageKey, toAppError } from "../../shared/errors";
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
@@ -83,8 +84,8 @@ export const useSongRecordings = (
         if (!current()) return;
         const result = stored ?? await catalog.analyzeRecording(takeId);
         if (current()) setAnalysis(result);
-      } catch {
-        if (current()) notify(t("actionFailed"), "error");
+      } catch (failure) {
+        if (current()) notify(t(errorMessageKey(toAppError(failure)) ?? "actionFailed"), "error");
       }
     })();
   }, [ready, songs, location.state, notify, t, catalog]);

@@ -5,6 +5,32 @@ import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 
 describe("KaraokeStage", () => {
+  it("fades lyrics and melody together before clearing them, then fades the next entry in", () => {
+    const editorDocument: EditorDocument = {
+      revision: 1, lyrics: "First\nNext",
+      words: [{ id: "first", text: "First", start: 0, end: 2 }, { id: "next", text: "Next", start: 20, end: 22 }],
+      notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
+    };
+    const stage = (position: number) => <AppProvider><KaraokeStage songTitle="Song" position={position}
+      playing={false} rate={1} document={editorDocument} layers={{ showLyrics: true, showNotes: true }} vocalRange="auto" /></AppProvider>;
+    const view = render(stage(4));
+    const opacity = (selector: string) => Number((view.container.querySelector(selector) as HTMLElement).style.opacity || 1);
+    expect(opacity(".lyrics")).toBe(1);
+    view.rerender(stage(4.65));
+    expect(opacity(".lyrics")).toBeCloseTo(0.5);
+    expect(opacity(".pianoRoll")).toBeCloseTo(0.5);
+    expect(screen.getAllByText("First").length).toBeGreaterThan(0);
+    view.rerender(stage(5));
+    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    view.rerender(stage(17.225));
+    expect(opacity(".lyrics")).toBeCloseTo(0.5);
+    expect(opacity(".pianoRoll")).toBeCloseTo(0.5);
+    view.rerender(stage(18));
+    expect(opacity(".lyrics")).toBe(1);
+    // Backward seek restores visibility immediately from the musical position.
+    view.rerender(stage(1));
+    expect(opacity(".pianoRoll")).toBe(1);
+  });
   it("hides distant previews and clears both lyrics and melody after three silent seconds, including the outro", () => {
     const editorDocument: EditorDocument = {
       revision: 1, lyrics: "First\nDistant",
@@ -22,6 +48,8 @@ describe("KaraokeStage", () => {
     expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
     expect(screen.queryByText("First")).not.toBeInTheDocument();
     view.rerender(stage(17));
+    expect(view.container.querySelector(".pianoRoll")).toHaveStyle({ opacity: "0" });
+    view.rerender(stage(17.5));
     expect(view.container.querySelector(".pianoRoll")).toBeVisible();
     expect(screen.getAllByText("Distant").length).toBeGreaterThan(0);
     view.rerender(stage(25));

@@ -86,6 +86,7 @@ export const currentLineIndex = (
 
 export interface LineDisplayPhase {
   kind: "text" | "empty";
+  opacity?: number;
   /** Three seconds of lead-in, counting down to the next vocal entry. */
   countdown?: number;
 }
@@ -107,7 +108,15 @@ export const upcomingLinePhase = (
   const kind = position >= line.end + lyricSilenceSeconds ||
     (longGap && secondsUntilStart > lyricSilenceSeconds) ? "empty" : "text";
   const counting = kind === "text" && longGap && secondsUntilStart > 0;
-  return { kind, ...(counting ? { countdown: Math.ceil(secondsUntilStart) } : {}) };
+  const followedBySilence = (lines[lineIndex + 1]?.start ?? Infinity) - line.end > lyricSilenceSeconds;
+  const fadeOut = followedBySilence ? (line.end + lyricSilenceSeconds - position) / 0.7 : 1;
+  const fadeIn = counting ? (lyricSilenceSeconds - secondsUntilStart) / 0.45 : 1;
+  const opacity = Math.max(0, Math.min(1, fadeOut, fadeIn));
+  return {
+    kind,
+    ...(kind === "text" && opacity < 1 ? { opacity } : {}),
+    ...(counting ? { countdown: Math.ceil(secondsUntilStart) } : {}),
+  };
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;

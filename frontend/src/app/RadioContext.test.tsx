@@ -8,7 +8,9 @@ const appState = vi.hoisted(() => ({
   setRoom: vi.fn(),
   publishSharedState: vi.fn(async () => undefined),
   updatePreferences: vi.fn(),
+  audioEpoch: 0,
 }));
+vi.mock("./ServicesContext", () => ({ useServices: () => ({ audioEpoch: appState.audioEpoch }) }));
 
 vi.mock("../services/audioClient", () => ({
   audioClient: {
@@ -49,6 +51,21 @@ describe("RadioProvider", () => {
     vi.mocked(audioClient.playRadio).mockResolvedValue(undefined);
     vi.mocked(audioClient.loadRadio).mockResolvedValue(undefined);
     appState.room = null;
+    appState.audioEpoch = 0;
+  });
+
+  it.each([false, true])("reloads a forgotten radio station after an AudioService restart (enabled=%s)", async (enabled) => {
+    const view = render(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledTimes(1));
+    if (enabled) {
+      fireEvent.click(screen.getByRole("button", { name: "off" }));
+      await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(1));
+    }
+    appState.audioEpoch = 1;
+    view.rerender(<RadioProvider libraryActive><Controls /></RadioProvider>);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledTimes(2));
+    if (!enabled) fireEvent.click(screen.getByRole("button", { name: "off" }));
+    await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(enabled ? 2 : 1));
   });
 
   it("keeps the radio context stable when only room participants change", async () => {

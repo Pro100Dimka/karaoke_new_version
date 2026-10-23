@@ -279,7 +279,7 @@ export interface PlaybackSchedule {
 }
 
 export interface AudioServiceClient {
-  health(): Promise<{ status: "ready" | "unavailable"; version: string }>;
+  health(): Promise<{ status: "ready" | "unavailable"; version: string; instanceId?: string }>;
   listDevices(): Promise<readonly DeviceDto[]>;
   capabilities(): Promise<AudioCapabilities>;
   configurationCapabilities(

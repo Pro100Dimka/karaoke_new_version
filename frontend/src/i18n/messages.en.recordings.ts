@@ -1,11 +1,13 @@
 // English texts for recordings, their analysis and the studio master.
 export const recordingsEn = {
+  analysisPerfectAdvice: "All metrics are at their maximum. Keep this take as a reference for future performances.",
+  analysisPitchUncertain: "Too little reliable pitch evidence. Check recording quality and microphone level.",
   analysisEyebrow: "Performance result",
   analysisDescription:
     "Accuracy of notes, rhythm and sustain, with a recommendation",
-  analysisPitchHint: "Green notes among those played before stopping",
-  analysisRhythmHint: "How closely each note starts on the backing track",
-  analysisStabilityHint: "Steady pitch through every note",
+  analysisPitchHint: "Recorded vocal pitch matching the original in measurable passages",
+  analysisRhythmHint: "Vocal entries, durations and rests matching the original",
+  analysisStabilityHint: "Share of measurements with steady deviation from the original melody",
   analysisRecommendation: "Recommendation",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Original",

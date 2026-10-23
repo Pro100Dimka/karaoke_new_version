@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import pytest
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+import threading
 
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -24,7 +26,11 @@ def ready_song(client, source: Path) -> dict[str, object]:
 
 
 def register_recording(
-    client, song: dict[str, object], *, frequency: float = 440.0
+    client,
+    song: dict[str, object],
+    *,
+    frequency: float = 440.0,
+    session_metadata: dict[str, object] | None = None,
 ) -> dict[str, object]:
     target = client.post("/recordings/target")
     assert target.status_code == 200, target.text
@@ -43,7 +49,7 @@ def register_recording(
             "songId": song["songId"],
             "songRevision": song["activeRevision"],
             "gaps": [],
-            "sessionMetadata": {"session": "test"},
+            "sessionMetadata": session_metadata or {"session": "test"},
         },
         headers={"Idempotency-Key": "recording-register"},
     )
@@ -123,6 +129,133 @@ def test_offline_analysis_succeeds_and_becomes_stale_after_project_revision(tmp_
         assert next(item for item in stale if item["analysisId"] == analysis_id)["state"] == "Stale"
 
 
+def test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores(
+    tmp_path: Path,
+) -> None:
+    class ObservedProvider(FakeAiProvider):
+        def __init__(self):
+            super().__init__()
+            self.separated_inputs = []
+            self.pitched_inputs = []
+
+        def separate(self, audio, workdir, cancel, *, execution):
+            self.separated_inputs.append(audio)
+            return super().separate(audio, workdir, cancel, execution=execution)
+
+        def pitch(self, vocal, cancel, *, execution):
+            self.pitched_inputs.append(vocal)
+            return super().pitch(vocal, cancel, execution=execution)
+
+    provider = ObservedProvider()
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(provider,)) as client:
+        song = ready_song(client, source)
+        recording = register_recording(
+            client,
+            song,
+            session_metadata={
+                "karaokeNoteScore": {
+                    "hitNotes": 0,
+                    "totalNotes": 100,
+                    "rhythmAccuracyPercent": 3,
+                    "noteStabilityPercent": 2,
+                }
+            },
+        )
+        started = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        result = client.get(f"/recordings/{recording['recordingId']}/analyses").json()[0]
+        assert Path(recording["filePath"]) in provider.separated_inputs
+        assert len(provider.pitched_inputs) == 3  # Processing, recorded vocal, original vocal.
+        for key in ("pitchAccuracyPercent", "rhythmAccuracyPercent", "noteStabilityPercent"):
+            assert result[key] == pytest.approx(100)
+
+
+def test_old_analysis_algorithm_is_stale_without_deleting_its_history(tmp_path: Path) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+        started = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
+        database = client.app.state.container.database
+        with database.create() as transaction:
+            result = transaction.analyses.list_for_recording(recording["recordingId"])[0]
+            transaction.analyses.update(replace(result, algorithm_version="obsolete"))
+            transaction.commit()
+        results = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
+        assert len(results) == 1
+        assert results[0]["analysisId"] == result.analysis_id
+        assert results[0]["state"] == "Stale"
+
+
+def test_repeated_analysis_requests_share_the_running_job(tmp_path: Path, monkeypatch) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    entered, release = threading.Event(), threading.Event()
+    original_pitch = FakeAiProvider.pitch
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(client, ready_song(client, source))
+
+        def blocked_pitch(self, path, cancel, *, execution):
+            entered.set()
+            assert release.wait(3)
+            return original_pitch(self, path, cancel, execution=execution)
+
+        monkeypatch.setattr(FakeAiProvider, "pitch", blocked_pitch)
+        first = client.post(f"/recordings/{recording['recordingId']}/analysis").json()
+        try:
+            assert entered.wait(3)
+            second = client.post(f"/recordings/{recording['recordingId']}/analysis").json()
+            assert second["jobId"] == first["jobId"]
+            assert len(client.get(f"/recordings/{recording['recordingId']}/analyses").json()) == 1
+        finally:
+            release.set()
+        assert wait_for_job(client, first["jobId"])["state"] == "Succeeded"
+        later = client.post(f"/recordings/{recording['recordingId']}/analysis").json()
+        assert later["jobId"] != first["jobId"]
+        assert wait_for_job(client, later["jobId"])["state"] == "Succeeded"
+
+
+@pytest.mark.parametrize(
+    "capture_kind, delay",
+    [("copy", 0.12), ("early", -0.08), ("other_voice", 0), ("ambiguous_tone", 0)],
+)
+def test_analysis_compensates_only_repeated_unambiguous_audio_delay(
+    tmp_path: Path,
+    capture_kind: str,
+    delay: float,
+) -> None:
+    import numpy as np
+    import soundfile as sf
+    from scipy import signal
+
+    rate, seconds = 16_000, 20
+    rng = np.random.default_rng(7)
+    original = signal.sosfiltfilt(
+        signal.butter(3, [100, 1800], fs=rate, btype="bandpass", output="sos"),
+        rng.normal(0, 0.1, rate * seconds),
+    )
+    if capture_kind == "ambiguous_tone":
+        original = 0.1 * np.sin(2 * np.pi * 440 * np.arange(rate * seconds) / rate)
+    captured = (
+        rng.normal(0, 0.02, len(original))
+        if capture_kind == "other_voice"
+        else np.roll(original, round(delay * rate)) * -0.3
+    )
+    reference, recording = tmp_path / "reference.wav", tmp_path / "capture.wav"
+    sf.write(reference, original, rate, subtype="PCM_24")
+    sf.write(recording, signal.resample_poly(captured, 3, 1), rate * 3, subtype="PCM_16")
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        extractor = client.app.state.container.recordings.start_analysis._pitch
+        actual, expected = extractor.extract_vocals(
+            recording, reference, threading.Event(), lambda *args: None
+        )
+    assert actual[0].time == pytest.approx(expected[0].time - delay, abs=0.001)
+
+
 def test_delete_recording_removes_owned_file_and_metadata(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
@@ -188,7 +321,8 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
 
 @pytest.mark.parametrize("property_name", ["balance", "effects", "duration"])
 def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
-    tmp_path: Path, property_name: str,
+    tmp_path: Path,
+    property_name: str,
 ) -> None:
     import numpy as np
     import soundfile as sf
@@ -228,7 +362,7 @@ def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
         samples = samples.mean(axis=1)
 
     def amplitude(frequency, start, end):
-        clip = samples[round(start * output_rate):round(end * output_rate)]
+        clip = samples[round(start * output_rate) : round(end * output_rate)]
         axis = np.arange(len(clip)) / output_rate
         return 2 * abs(np.mean(clip * np.exp(-2j * np.pi * frequency * axis)))
 

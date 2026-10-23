@@ -32,6 +32,15 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
+  it("does not recommend correcting pitch when all measured metrics are perfect", () => {
+    render(<AppProvider><PerformanceAnalysisModal
+      analysis={{ ...analysis, score: 100, pitch: 100, rhythm: 100, stability: 100 }}
+      recordings={[recording]} onDelete={vi.fn()} onClose={vi.fn()}
+      onCreateStudioMaster={vi.fn()} studioMaster={null}
+    /></AppProvider>);
+    expect(screen.queryByText(/Потренируйте попадание/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Все показатели на максимуме/)).toBeInTheDocument();
+  });
   it("labels the selected finished analysis as ready even when the recording list has an older status", () => {
     render(
       <AppProvider>

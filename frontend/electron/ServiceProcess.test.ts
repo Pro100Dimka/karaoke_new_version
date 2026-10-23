@@ -23,6 +23,16 @@ const childProcess = (pid: number) =>
   });
 
 describe("service process lifecycle", () => {
+  it("reports the exit code and signal of an unexpected child exit before restarting", async () => {
+    const child = childProcess(509);
+    processMocks.spawn.mockReturnValue(child);
+    const observer = { exited: vi.fn() };
+    const service = new ServiceProcess("AudioService.exe", [], "D:/app", {}, observer);
+    service.start();
+    child.emit("exit", 3221225477, null);
+    expect(observer.exited).toHaveBeenCalledWith(3221225477, null);
+    await service.stop();
+  });
   it("forwards stderr only from the current child to its observer", async () => {
     const old = childProcess(510);
     const current = childProcess(511);

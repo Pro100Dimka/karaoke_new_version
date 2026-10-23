@@ -286,7 +286,7 @@ export const PerformanceAnalysisModal = ({
                     {t("analysisRecommendation")}
                   </Typography>
                   <Typography variant="body-sm" tone="muted">
-                    {t(practice.advice)}
+                  {t(analysis[practice.key] >= 100 ? "analysisPerfectAdvice" : practice.advice)}
                   </Typography>
                 </div>
               </Landscape>

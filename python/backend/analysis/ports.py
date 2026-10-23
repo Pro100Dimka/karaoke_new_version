@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol, Sequence
+from typing import Callable, Protocol, Sequence
+import threading
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.domain import AnalysisResult
@@ -18,4 +19,12 @@ class AnalysisRepository(Protocol):
 
 
 class RecordingPitchExtractor(Protocol):
-    def extract(self, path: Path) -> Sequence[PitchPoint]: ...
+    def extract_vocals(
+        self,
+        recording: Path,
+        reference: Path,
+        cancel: threading.Event,
+        progress: Callable[[str, float, float], None],
+        *,
+        reference_start: float | None = 0.0,
+    ) -> tuple[Sequence[PitchPoint], Sequence[PitchPoint]]: ...

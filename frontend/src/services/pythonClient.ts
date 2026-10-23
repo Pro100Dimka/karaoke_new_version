@@ -302,12 +302,23 @@ export const pythonClient: PythonClient = {
       "POST",
       `/recordings/${encodeURIComponent(recordingId)}/analysis`,
     );
-    await waitForJob(job.jobId, { label: "Analysis", pollMilliseconds: 500 });
+    const done = await waitForJob(job.jobId, {
+      label: "Analysis", pollMilliseconds: 500,
+      // Separation and two pitch passes each have a 30-minute provider budget on slower CPUs.
+      timeoutMilliseconds: 90 * 60_000,
+      failure: (current) => ({
+        code: optionalString(current.error?.code) ?? `Analysis${current.state}`,
+        message: optionalString(current.error?.message) ?? "Performance analysis failed",
+        source: "python",
+      } satisfies AppError),
+    });
     const analyses = await request<BackendAnalysis[]>(
       "GET",
       `/recordings/${encodeURIComponent(recordingId)}/analyses`,
     );
-    const latest = analyses.at(-1);
+    const analysisId = optionalString(done.report?.analysisId) ?? optionalString(done.entityId);
+    const latest = analyses.find((item) => item.state === "Succeeded" &&
+      (!analysisId || item.analysisId === analysisId));
     if (!latest) throw new Error("Analysis completed without a result");
     return mapAnalysis(latest);
   },
@@ -317,7 +328,7 @@ export const pythonClient: PythonClient = {
       "GET",
       `/recordings/${encodeURIComponent(recordingId)}/analyses`,
     );
-    const latest = analyses.filter((item) => item.state === "Succeeded").at(-1);
+    const latest = analyses.find((item) => item.state === "Succeeded");
     return latest ? mapAnalysis(latest) : null;
   },
 

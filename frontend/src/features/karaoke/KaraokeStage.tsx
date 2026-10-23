@@ -73,6 +73,7 @@ const PianoRoll = ({
   onNoteScoreChange,
   show,
   hidden,
+  opacity,
 }: {
   document: EditorDocument;
   position: number;
@@ -83,6 +84,7 @@ const PianoRoll = ({
   onNoteScoreChange?: (score: KaraokeNoteScore) => void;
   show: ShowEngine;
   hidden: boolean;
+  opacity: number;
 }) => {
   const t = useText();
   const beat = useBeat();
@@ -262,7 +264,7 @@ const PianoRoll = ({
         className="pianoRoll"
         hidden={hidden}
         data-active={(active && !panel.detached) || undefined}
-        style={frameStyle}
+        style={{ ...frameStyle, opacity }}
         // In its own window the roll is placed and sized by that window, not dragged inside the app.
         onPointerDown={panel.detached ? undefined : beginMove}
         onPointerMove={panel.detached ? undefined : handleMove}
@@ -360,6 +362,7 @@ const Lyrics = ({
       )}
       <KaraokeLyrics
         className="lyrics"
+        style={{ opacity: phase.opacity ?? 1 }}
         current={phase.kind === "text" ? words(current, true) : []}
         next={phase.kind === "text" ? words(next, false) : []}
         currentKey={current?.start}
@@ -457,6 +460,7 @@ export const KaraokeStage = ({
           onNoteScoreChange={onNoteScoreChange}
           show={show}
           hidden={lines.length > 0 && phase.kind === "empty"}
+          opacity={phase.opacity ?? 1}
         />
       )}
       {/* After the roll: stage light passes in front of its glass (softened over it) but stays under the lyrics and console. */}

@@ -119,6 +119,9 @@ export class ManagedServices {
       return;
     }
     this.audio = new ServiceProcess(executable, [], path.dirname(executable), process.env, {
+      exited: (code, signal) => this.log("audio-service", "error", Buffer.from(
+        `AudioService exited unexpectedly: code=${code}, signal=${signal}; automatic restart scheduled\n`,
+      )),
       stdout: (data) => this.log("audio-service", "info", data),
       stderr: (data) => this.log("audio-service", "error", data),
     });

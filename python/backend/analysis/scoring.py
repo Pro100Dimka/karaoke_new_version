@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import math
 import statistics
+from bisect import bisect_left
 from dataclasses import dataclass
 from itertools import pairwise
 from typing import Mapping, Sequence
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.domain import SectionResult
+from backend.domain_errors import DomainError
 from backend.lyrics.domain import LyricsDocument, Note
 
 
@@ -33,14 +35,48 @@ class PlaybackAdjustment:
     key_shift: float
 
 
+def reference_audio_start(raw: Sequence[Mapping[str, object]]) -> float | None:
+    """PCM correlation is meaningful only while tempo, key and source position stay continuous."""
+    adjustments = _valid_adjustments(raw)
+    if len(adjustments) != len(raw) or len(adjustments) > 1:
+        return None
+    if not adjustments:
+        return 0.0
+    initial = adjustments[0]
+    unmodified = (
+        initial.elapsed_seconds == 0 and initial.playback_rate == 1 and initial.key_shift == 0
+    )
+    return initial.source_seconds if unmodified else None
+
+
 def score_pitch(
     reference: LyricsDocument,
     actual: Sequence[PitchPoint],
     playback_adjustments: Sequence[Mapping[str, object]] = (),
     performance_duration: float | None = None,
     note_score: Mapping[str, object] | None = None,
+    *,
+    reference_pitch: Sequence[PitchPoint] | None = None,
 ) -> ScoreSummary:
     adjustments = _valid_adjustments(playback_adjustments)
+    if reference_pitch is not None:
+        return _score_contours(
+            reference,
+            actual,
+            reference_pitch,
+            adjustments,
+            performance_duration if performance_duration is not None else reference.duration,
+        )
+    return _score_notes(reference, actual, adjustments, performance_duration, note_score)
+
+
+def _score_notes(
+    reference: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    performance_duration: float | None,
+    note_score: Mapping[str, object] | None,
+) -> ScoreSummary:
     samples = [
         _compare_transformed(reference, point, adjustments)
         for point in actual
@@ -67,6 +103,92 @@ def score_pitch(
         if value > 1.0
     )
     return ScoreSummary(accuracy, mean, rhythm, stability, sections, problems)
+
+
+def _score_contours(
+    document: LyricsDocument,
+    actual: Sequence[PitchPoint],
+    reference: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    duration: float,
+) -> ScoreSummary:
+    """Compare voiced audio frames, retaining the original singer's vibrato and rests."""
+    frames = _contour_frames(actual, reference, adjustments, duration)
+    assessed = [
+        time
+        for time, _, sung, error, required in frames
+        if error is not None or (required and not sung)
+    ]
+    if len(assessed) < sum(required for _, _, _, _, required in frames) * 0.25:
+        raise DomainError(
+            "AnalysisPitchUncertain", "Recording has too little reliable pitch evidence", 422
+        )
+    union = sum(target or sung for _, target, sung, _, _ in frames)
+    intersection = sum(target and sung for _, target, sung, _, _ in frames)
+    signed = [error for _, _, _, error, _ in frames if error is not None]
+    compared = [(time, abs(error)) for time, _, _, error, _ in frames if error is not None]
+    hits = sum(abs(error) <= KARAOKE_PITCH_TOLERANCE_SEMITONES for error in signed)
+    center = statistics.mean(signed) if signed else 0.0
+    steady = sum(abs(error - center) <= KARAOKE_PITCH_TOLERANCE_SEMITONES / 2 for error in signed)
+    step = _pitch_sample_seconds(actual)
+    problems = tuple(
+        {"start": time, "end": time + step, "deviation": deviation}
+        for time, deviation in compared
+        if deviation > KARAOKE_PITCH_TOLERANCE_SEMITONES
+    )
+    return ScoreSummary(
+        100.0 * hits / len(assessed) if assessed else 0.0,
+        statistics.mean(value for _, value in compared) if compared else 0.0,
+        100.0 * intersection / union if union else 0.0,
+        100.0 * steady / len(signed) if signed else 0.0,
+        _sections(compared, document.duration, assessed),
+        problems,
+    )
+
+
+def _contour_frames(
+    actual: Sequence[PitchPoint],
+    reference: Sequence[PitchPoint],
+    adjustments: Sequence[PlaybackAdjustment],
+    duration: float,
+) -> list[tuple[float, bool, bool, float | None, bool]]:
+    actual = sorted(actual, key=lambda point: point.time)
+    reference = sorted(reference, key=lambda point: point.time)
+    actual_times, reference_times = [p.time for p in actual], [p.time for p in reference]
+    actual_step, reference_step = _pitch_sample_seconds(actual), _pitch_sample_seconds(reference)
+    step = min(actual_step, reference_step)
+    frames = []
+    for index in range(math.ceil(max(0.0, duration) / step)):
+        elapsed = index * step
+        adjustment = _adjustment_at(adjustments, elapsed)
+        source = _source_time(elapsed, adjustment)
+        target, target_active = _pitch_at(reference, reference_times, source, reference_step)
+        sung, sung_active = _pitch_at(actual, actual_times, elapsed, actual_step)
+        error = None
+        if target is not None and sung is not None:
+            error = 12 * math.log2(sung / target) - (adjustment.key_shift if adjustment else 0)
+            # Live karaoke accepts the singer's register while comparing the same note names.
+            error -= 12 * round(error / 12)
+        frames.append((source, target_active, sung_active, error, target is not None))
+    return frames
+
+
+def _pitch_at(
+    points: Sequence[PitchPoint],
+    times: Sequence[float],
+    time: float,
+    step: float,
+) -> tuple[float | None, bool]:
+    index = bisect_left(times, time)
+    candidates = [candidate for candidate in (index - 1, index) if 0 <= candidate < len(points)]
+    if not candidates:
+        return None, False
+    point = points[min(candidates, key=lambda candidate: abs(times[candidate] - time))]
+    if abs(point.time - time) > step * 0.51:
+        return None, False
+    pitched = point.confidence >= 0.3 and point.frequency > 0
+    active = point.audio_active if point.audio_active is not None else pitched
+    return (point.frequency if pitched and active else None), active
 
 
 def _performance_metrics(
@@ -346,22 +468,31 @@ def _compare(
     return source_time, deviation
 
 
-def _sections(samples: Sequence[tuple[float, float]], duration: float) -> tuple[SectionResult, ...]:
+def _sections(
+    samples: Sequence[tuple[float, float]],
+    duration: float,
+    expected_times: Sequence[float] | None = None,
+) -> tuple[SectionResult, ...]:
     result: list[SectionResult] = []
     step = 10.0
     start = 0.0
     while start < duration:
         end = min(duration, start + step)
         values = [value for time, value in samples if start <= time < end]
-        if values:
+        total = (
+            sum(start <= time < end for time in expected_times)
+            if expected_times is not None
+            else len(values)
+        )
+        if total:
             result.append(
                 SectionResult(
                     start,
                     end,
                     100.0
                     * sum(1 for value in values if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES)
-                    / len(values),
-                    sum(values) / len(values),
+                    / total,
+                    sum(values) / len(values) if values else 0.0,
                 )
             )
         start = end

@@ -1,10 +1,12 @@
 // Russian texts for recordings, their analysis and the studio master.
 export const recordingsRu = {
+  analysisPerfectAdvice: "Все показатели на максимуме. Сохраните этот дубль как ориентир для следующих выступлений.",
+  analysisPitchUncertain: "Недостаточно надёжных данных о высоте голоса. Проверьте качество записи и уровень микрофона.",
   analysisEyebrow: "Результат исполнения",
   analysisDescription: "Точность нот, ритма и удержания с рекомендацией",
-  analysisPitchHint: "Доля зелёных нот из прозвучавших до остановки",
-  analysisRhythmHint: "Насколько точно ноты начинаются относительно минуса",
-  analysisStabilityHint: "Ровная высота на протяжении каждой ноты",
+  analysisPitchHint: "Совпадение высоты записанного вокала с оригиналом на измеримых участках",
+  analysisRhythmHint: "Совпадение вступлений, длительности вокала и пауз с оригиналом",
+  analysisStabilityHint: "Доля измерений с устойчивым отклонением от мелодии оригинала",
   analysisRecommendation: "Рекомендация",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Оригинал",

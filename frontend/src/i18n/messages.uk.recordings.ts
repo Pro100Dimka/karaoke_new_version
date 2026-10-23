@@ -1,5 +1,7 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
+  analysisPerfectAdvice: "Усі показники на максимумі. Збережіть цей дубль як орієнтир для наступних виступів.",
+  analysisPitchUncertain: "Недостатньо надійних даних про висоту голосу. Перевірте якість запису та рівень мікрофона.",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Оригінал",
   recordingVersion: "Версія виступу",
@@ -27,9 +29,9 @@ export const recordingsUk = {
   analysisStale: "Аналіз застарів",
   analysisEyebrow: "Результат виступу",
   analysisDescription: "Точність нот, ритму та утримання з рекомендацією",
-  analysisPitchHint: "Частка зелених нот серед тих, що прозвучали до зупинки",
-  analysisRhythmHint: "Наскільки точно ноти починаються відносно мінусовки",
-  analysisStabilityHint: "Рівна висота протягом кожної ноти",
+  analysisPitchHint: "Збіг висоти записаного вокалу з оригіналом на вимірюваних ділянках",
+  analysisRhythmHint: "Збіг вступів, тривалості вокалу та пауз з оригіналом",
+  analysisStabilityHint: "Частка вимірювань зі стійким відхиленням від мелодії оригіналу",
   analysisRecommendation: "Рекомендація",
   analysisPitchAdvice:
     "Потренуйте влучання у висоту нот, починаючи з повільного темпу.",

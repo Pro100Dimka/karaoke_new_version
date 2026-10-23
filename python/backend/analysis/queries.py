@@ -5,11 +5,16 @@ from typing import Sequence
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.persistence import UnitOfWorkFactory
+from backend.version import ANALYSIS_ALGORITHM_VERSION
 
 
 def _current(result: AnalysisResult, active_revision: int | None) -> AnalysisResult:
-    """An analysis of an older revision of the song is never shown as current (it is marked Stale)."""
-    if active_revision != result.song_revision and result.state is AnalysisState.SUCCEEDED:
+    """Retain historical results without presenting an obsolete score as current."""
+    outdated = (
+        active_revision != result.song_revision
+        or result.algorithm_version != ANALYSIS_ALGORITHM_VERSION
+    )
+    if outdated and result.state is AnalysisState.SUCCEEDED:
         return replace(result, state=AnalysisState.STALE)
     return result
 

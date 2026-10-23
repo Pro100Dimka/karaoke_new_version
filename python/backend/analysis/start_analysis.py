@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.analysis.ports import RecordingPitchExtractor
-from backend.analysis.scoring import ScoreSummary, score_pitch
+from backend.analysis.scoring import ScoreSummary, reference_audio_start, score_pitch
 from backend.recordings.domain import Recording
 from backend.domain_errors import DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.lyrics.codec import decode_document
 from backend.persistence import UnitOfWorkFactory
-from backend.processing.domain import Job, JobType
+from backend.processing.domain import Job, JobState, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
 from backend.projects.ports import ProjectStorage
 from backend.runtime import Clock, IdGenerator
@@ -36,8 +37,24 @@ class StartRecordingAnalysis:
         self._hasher = hasher
         self._clock = clock
         self._ids = ids
+        self._submission_lock = threading.RLock()
+        self._active: dict[str, Job] = {}
 
     def execute(self, recording_id: str) -> Job:
+        with self._submission_lock:
+            previous = self._active.get(recording_id)
+            current = self._jobs.get(previous.job_id) if previous else None
+            if current and current.state in {
+                JobState.QUEUED,
+                JobState.RUNNING,
+                JobState.CANCELLING,
+            }:
+                return current
+            job = self._start(recording_id)
+            self._active[recording_id] = job
+            return job
+
+    def _start(self, recording_id: str) -> Job:
         recording, song_id, revision = self._inputs(recording_id)
         result = self._create_result(
             recording_id, song_id, revision, self._hasher.hash_file(recording.file_path)
@@ -47,11 +64,18 @@ class StartRecordingAnalysis:
                 JobType.RECORDING_ANALYSIS,
                 lambda context: self._run(result.analysis_id, context),
                 entity_id=result.analysis_id,
-                on_finally=lambda: self._cancel_queued(result.analysis_id),
+                on_finally=lambda: self._settle(recording_id, result.analysis_id),
             )
         except DomainError as exc:
             self._fail(result, exc.code, exc.message)
             raise
+
+    def _settle(self, recording_id: str, analysis_id: str) -> None:
+        with self._submission_lock:
+            current = self._active.get(recording_id)
+            if current and current.entity_id == analysis_id:
+                self._active.pop(recording_id)
+            self._cancel_queued(analysis_id)
 
     def _run(self, analysis_id: str, context: JobContext) -> dict[str, object]:
         result = self._get(analysis_id)
@@ -93,20 +117,28 @@ class StartRecordingAnalysis:
         )
 
     def _score(self, running: AnalysisResult, context: JobContext) -> ScoreSummary:
-        """Scores the recording against its song, with the tempo and note score saved while singing."""
+        """Measure both vocals with the same detector; UI polling is not analysis evidence."""
         recording = self._recording(running.recording_id)
         reference = decode_document(
             self._projects.read_text_artifact(running.song_id, running.song_revision, "lyricsSync")
         )
-        context.progress("PitchAnalysis", 0.0, 0.2)
-        actual = self._pitch.extract(recording.file_path)
-        context.progress("Scoring", 0.5, 0.7)
+        reference_vocal = self._projects.artifact_path(
+            running.song_id, running.song_revision, "referenceVocal"
+        )
         metadata = recording.session_metadata or {}
         raw_adjustments = metadata.get("playbackAdjustments", ())
         adjustments = raw_adjustments if isinstance(raw_adjustments, (list, tuple)) else ()
-        raw_note_score = metadata.get("karaokeNoteScore")
-        note_score = raw_note_score if isinstance(raw_note_score, dict) else None
-        return score_pitch(reference, actual, adjustments, recording.duration, note_score)
+        actual, expected = self._pitch.extract_vocals(
+            recording.file_path,
+            reference_vocal,
+            context.cancel,
+            context.progress,
+            reference_start=reference_audio_start(adjustments),
+        )
+        context.progress("Scoring", 0.0, 0.95)
+        return score_pitch(
+            reference, actual, adjustments, recording.duration, reference_pitch=expected
+        )
 
     def _succeeded(self, running: AnalysisResult, score: ScoreSummary) -> AnalysisResult:
         return replace(

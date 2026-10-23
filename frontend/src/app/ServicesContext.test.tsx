@@ -67,6 +67,20 @@ it("invalidates cached assets when a backend restarts between health probes", as
   unmount();
 });
 
+it("invalidates audio state when AudioService restarts entirely between health probes", async () => {
+  audio.mockResolvedValue({ status: "ready", version: "1", instanceId: "audio-first" });
+  python.mockResolvedValue({ status: "ready", version: "1", apiVersion: 1 });
+  const { result, unmount } = renderHook(useServices, { wrapper: ServicesProvider });
+  await act(async () => {});
+  expect(result.current.audioEpoch).toBe(0);
+  audio.mockResolvedValue({ status: "ready", version: "1", instanceId: "audio-second" });
+  await act(async () => { await result.current.probe(); });
+  expect(result.current.audioEpoch).toBe(1);
+  await act(async () => { await result.current.probe(); });
+  expect(result.current.audioEpoch).toBe(1);
+  unmount();
+});
+
 it("does not accumulate health requests while services are slow", async () => {
   let reply: () => void = () => {};
   audio.mockImplementation(

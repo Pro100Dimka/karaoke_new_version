@@ -13,6 +13,7 @@ import { sharedStateOf } from "../application/room/roomModel";
 import { useApp, useRoomLibraryCommands } from "./AppContext";
 import { useNotify } from "./NotificationsProvider";
 import { radioStations } from "./radioStations";
+import { useServices } from "./ServicesContext";
 
 export interface RadioContextValue {
   enabled: boolean;
@@ -37,14 +38,16 @@ export const RadioProvider = ({
   const { preferences, updatePreferences, room } = useApp();
   const roomLibrary = useRoomLibraryCommands();
   const notify = useNotify();
+  const { audioEpoch } = useServices();
   const [enabled, setEnabled] = useState(Boolean(room?.radioEnabled));
-  const [preparedStationId, setPreparedStationId] = useState("");
+  const [preparedStationKey, setPreparedStationKey] = useState("");
   const [prepareRequest, setPrepareRequest] = useState(0);
   const requestedStation = room?.radioStationId ?? preferences.radioStation;
   const stationId = radioStations.some((item) => item.id === requestedStation)
     ? requestedStation
     : (radioStations[0]?.id ?? "");
   const volume = preferences.radioVolume;
+  const stationKey = `${audioEpoch}:${stationId}`;
   const canControl =
     !room || room.role === "host" || Boolean(room.collaborativeControl);
   const enabledRef = useRef(enabled);
@@ -93,18 +96,19 @@ export const RadioProvider = ({
   useEffect(() => {
     const station = radioStations.find((item) => item.id === stationId);
     if (!libraryActive || !station) {
-      setPreparedStationId("");
+      setPreparedStationKey("");
       playingRef.current = false;
       void audioClient.stopRadio().catch(() => undefined);
       return;
     }
     let cancelled = false;
-    setPreparedStationId((current) => (current === station.id ? current : ""));
+    setPreparedStationKey("");
+    playingRef.current = false;
     void (async () => {
       try {
         await audioClient.setRadioGain(volumeRef.current / 100);
         await audioClient.loadRadio(station.url);
-        if (!cancelled) setPreparedStationId(station.id);
+        if (!cancelled) setPreparedStationKey(stationKey);
       } catch {
         if (!cancelled && enabledRef.current) {
           if (!roomRef.current) setEnabled(false);
@@ -115,7 +119,7 @@ export const RadioProvider = ({
     return () => {
       cancelled = true;
     };
-  }, [libraryActive, stationId, prepareRequest, notify]);
+  }, [libraryActive, stationId, stationKey, prepareRequest, notify]);
 
   useEffect(() => {
     if (!libraryActive) return;
@@ -126,10 +130,7 @@ export const RadioProvider = ({
       }
       return;
     }
-    if (preparedStationId !== stationId) {
-      setPrepareRequest((request) => request + 1);
-      return;
-    }
+    if (preparedStationKey !== stationKey) return;
     let cancelled = false;
     // Native commands are serialized: off must enqueue Pause even before Play acknowledges.
     playingRef.current = true;
@@ -142,7 +143,7 @@ export const RadioProvider = ({
         notify("Radio unavailable", "error");
       });
     return () => { cancelled = true; };
-  }, [enabled, libraryActive, preparedStationId, stationId, notify]);
+  }, [enabled, libraryActive, preparedStationKey, stationKey, notify]);
 
   useEffect(() => {
     if (libraryActive)
@@ -165,9 +166,11 @@ export const RadioProvider = ({
   const toggle = useCallback(() => {
     if (!canControl) return;
     const next = !enabled;
+    if (next && preparedStationKey !== stationKey)
+      setPrepareRequest((request) => request + 1);
     if (roomRef.current) void publishRoomRadio(next, stationId);
     else setEnabled(next);
-  }, [canControl, enabled, publishRoomRadio, stationId]);
+  }, [canControl, enabled, publishRoomRadio, stationId, preparedStationKey, stationKey]);
   const value = useMemo<RadioContextValue>(
     () => ({
       enabled,

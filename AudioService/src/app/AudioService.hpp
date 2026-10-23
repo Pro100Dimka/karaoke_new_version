@@ -114,6 +114,7 @@ class AudioService {
     handleNetworkControl(const ControlRequest& request);
 
     ServiceState state_{ServiceState::Starting};
+    const MonotonicTicks instanceId_;
     DeviceManager devices_{};
     TraceBuffer trace_{};
     LatencyRegistry latency_{};
