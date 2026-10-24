@@ -88,6 +88,7 @@ export class StageFxRenderer {
   private sizedQuality = -1;
   private grade = 0;
   private kick = 0;
+  private motionBeat = 0;
   private flash = 0;
   private expansion = 0;
   private lyricGlow = 0;
@@ -188,7 +189,7 @@ export class StageFxRenderer {
         this.kick = Math.max(this.kick, s);
         return;
       case "noteGlow":
-        if (s >= 0.92 && command.noteId) this.glintWord(command.noteId);
+        this.lyricGlow = Math.max(this.lyricGlow, 0.35 * s);
         return;
       case "chargeRelease":
         this.rings.push({
@@ -290,23 +291,6 @@ export class StageFxRenderer {
         // Drawn on the note itself by the melody roll's own layer.
         return;
     }
-  }
-
-  /** The word the perfect note was sung on catches the light for a moment. */
-  private glintWord(noteId: string): void {
-    const word = this.engine.wordOf(noteId);
-    const line = this.host.querySelector(".ad-lyrics-current");
-    if (
-      !word ||
-      !line ||
-      line.textContent?.replace(/\s+/g, "") !== word.line.replace(/\s+/g, "")
-    )
-      return;
-    const element = line.querySelectorAll(".ad-lyric-word")[word.index];
-    if (!(element instanceof HTMLElement)) return;
-    element.classList.remove("showGlint");
-    void element.offsetWidth;
-    element.classList.add("showGlint");
   }
 
   private burst(
@@ -485,6 +469,9 @@ export class StageFxRenderer {
       state.ambient.grade > this.grade ? 1.6 : 3.5,
     );
     this.kick *= Math.exp(-elapsed / 0.2);
+    const targetBeat = state.playing ? this.kick : 0;
+    this.motionBeat = approach(this.motionBeat, targetBeat, elapsed,
+      targetBeat > this.motionBeat ? 0.06 : 0.22);
     this.flash *= Math.exp(-elapsed / 0.5);
     this.expansion *= Math.exp(-elapsed / 2.4);
     this.lyricGlow *= Math.exp(-elapsed / 1.1);
@@ -661,8 +648,9 @@ export class StageFxRenderer {
   private applyStyles(): void {
     this.setStyle(
       "--show-video-scale",
-      (1 + (this.motion ? this.depth * 0.006 : 0)).toFixed(4),
+      (1 + (this.motion ? this.motionBeat * 0.009 : 0)).toFixed(5),
     );
+    this.setStyle("--show-music-beat", this.motionBeat.toFixed(5));
     this.setStyle("--show-lyric-glow", this.lyricGlow.toFixed(3));
     this.setStyle(
       "--show-console-glow",

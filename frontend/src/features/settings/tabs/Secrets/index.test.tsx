@@ -1,13 +1,25 @@
-import { act, fireEvent, render as baseRender, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  render as baseRender,
+  fireEvent,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NotificationsProvider } from "../../../../app/NotificationsProvider";
-import { AppProvider } from "../../../../app/AppContext";
-import { SettingsProvider } from "../../../../app/SettingsProvider";
-import { pythonClient } from "../../../../services/pythonClient";
 import { SecretsSettings } from ".";
+import { AppProvider } from "../../../../app/AppContext";
+import { NotificationsProvider } from "../../../../app/NotificationsProvider";
+import { pythonClient } from "../../../../services/pythonClient";
+import { SettingsProvider } from "../../SettingsProvider";
 
 const render = (ui: Parameters<typeof baseRender>[0]) =>
-  baseRender(<SettingsProvider><AppProvider><NotificationsProvider>{ui}</NotificationsProvider></AppProvider></SettingsProvider>);
+  baseRender(
+    <SettingsProvider>
+      <AppProvider>
+        <NotificationsProvider>{ui}</NotificationsProvider>
+      </AppProvider>
+    </SettingsProvider>,
+  );
 
 vi.mock("../../../../services/pythonClient", () => ({
   pythonClient: {
@@ -178,34 +190,50 @@ describe("environment settings", () => {
   it("does not overwrite an explicit JSON save with an older pending field edit", async () => {
     vi.useFakeTimers();
     vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay]);
-    vi.mocked(pythonClient.updateEnvironmentSetting).mockImplementation(async (_key, value) => ({
-      ...relay, value,
-    }));
+    vi.mocked(pythonClient.updateEnvironmentSetting).mockImplementation(
+      async (_key, value) => ({
+        ...relay,
+        value,
+      }),
+    );
     await act(async () => {
       render(<SecretsSettings />);
     });
 
-    fireEvent.change(screen.getByLabelText("Порт передачи голоса"), { target: { value: "41000" } });
+    fireEvent.change(screen.getByLabelText("Порт передачи голоса"), {
+      target: { value: "41000" },
+    });
     fireEvent.click(screen.getByText("Технический JSON"));
     const editor = screen.getByRole("textbox", { name: "Технический JSON" });
-    fireEvent.change(editor, { target: { value: JSON.stringify({ [relay.key]: "42000" }) } });
-    await act(async () => { fireEvent.blur(editor); });
+    fireEvent.change(editor, {
+      target: { value: JSON.stringify({ [relay.key]: "42000" }) },
+    });
+    await act(async () => {
+      fireEvent.blur(editor);
+    });
     await act(() => vi.advanceTimersByTimeAsync(1000));
 
     expect(pythonClient.updateEnvironmentSetting).toHaveBeenCalledTimes(1);
-    expect(pythonClient.updateEnvironmentSetting).toHaveBeenLastCalledWith(relay.key, "42000");
+    expect(pythonClient.updateEnvironmentSetting).toHaveBeenLastCalledWith(
+      relay.key,
+      "42000",
+    );
     expect(screen.getByLabelText("Порт передачи голоса")).toHaveValue("42000");
   });
 
   it("replaces a failed initial load with an error and lets the user retry", async () => {
-    vi.mocked(pythonClient.listEnvironmentSettings).mockRejectedValueOnce(new Error("Backend unavailable"));
+    vi.mocked(pythonClient.listEnvironmentSettings).mockRejectedValueOnce(
+      new Error("Backend unavailable"),
+    );
     render(<SecretsSettings />);
 
     const retry = await screen.findByRole("button", { name: "Повторить" });
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     fireEvent.click(retry);
 
-    expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue("40000");
+    expect(await screen.findByLabelText("Порт передачи голоса")).toHaveValue(
+      "40000",
+    );
     expect(pythonClient.listEnvironmentSettings).toHaveBeenCalledTimes(2);
   });
 
@@ -516,14 +544,20 @@ describe("environment settings", () => {
       state: "valid",
       message: "Value is valid",
     } as const;
-    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([relay, sshKey]);
+    vi.mocked(pythonClient.listEnvironmentSettings).mockResolvedValue([
+      relay,
+      sshKey,
+    ]);
     vi.stubEnv("DEV", false);
     vi.resetModules();
     try {
       const released = await import(".");
-      const { AppProvider: Provider } = await import("../../../../app/AppContext");
-      const { NotificationsProvider: Notifications } = await import("../../../../app/NotificationsProvider");
-      const { SettingsProvider: Settings } = await import("../../../../app/SettingsProvider");
+      const { AppProvider: Provider } =
+        await import("../../../../app/AppContext");
+      const { NotificationsProvider: Notifications } =
+        await import("../../../../app/NotificationsProvider");
+      const { SettingsProvider: Settings } =
+        await import("../../SettingsProvider");
       baseRender(
         <Settings>
           <Provider>
@@ -534,7 +568,9 @@ describe("environment settings", () => {
         </Settings>,
       );
       expect(await screen.findByDisplayValue("40000")).toBeInTheDocument();
-      expect(screen.queryByDisplayValue("D:/secrets/key")).not.toBeInTheDocument();
+      expect(
+        screen.queryByDisplayValue("D:/secrets/key"),
+      ).not.toBeInTheDocument();
       expect(screen.queryByText("Технический JSON")).not.toBeInTheDocument();
     } finally {
       vi.unstubAllEnvs();

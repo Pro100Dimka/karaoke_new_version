@@ -1,11 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@neo-ui-kit/react";
+import { useCallback, useEffect, useState } from "react";
 import type { DeviceDto } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import {
-  useSettingsAudio,
-  useSettingsDesktop,
-} from "../../../../app/SettingsProvider";
+import { useSettingsAudio, useSettingsDesktop } from "../../SettingsProvider";
 
 type SetupState = "idle" | "downloading" | "launched" | "ready" | "failed";
 

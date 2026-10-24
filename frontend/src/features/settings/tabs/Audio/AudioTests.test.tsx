@@ -1,20 +1,20 @@
+import { Form, useForm } from "@neo-ui-kit/react";
 import {
-  fireEvent,
   render as baseRender,
+  fireEvent,
   screen,
   waitFor,
   within,
 } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider, useApp } from "../../../../app/AppContext";
-import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { audioClient } from "../../../../services/audioClient";
-import { useVoiceChain } from "../../../karaoke/console/voiceChain";
-import { AudioTests as AudioMonitor } from "./AudioTests";
-import { AcousticCalibration } from "./AcousticCalibration";
-import { Form, useForm } from "@neo-ui-kit/react";
-import type { ComponentProps } from "react";
 import { clearStorage } from "../../../../shared/storage/localStore";
+import { useVoiceChain } from "../../../karaoke/console/voiceChain";
+import { SettingsProvider } from "../../SettingsProvider";
+import { AcousticCalibration } from "./AcousticCalibration";
+import { AudioTests as AudioMonitor } from "./AudioTests";
 
 const render = (ui: Parameters<typeof baseRender>[0]) =>
   baseRender(ui, { wrapper: SettingsProvider });
@@ -75,7 +75,10 @@ vi.mock("../../../../services/audioClient", () => ({
     setMixer: vi.fn(async () => undefined),
     setDspParameter: vi.fn(async () => undefined),
     setDspEnabled: vi.fn(async () => undefined),
-    measureAcousticLatency: vi.fn(async () => ({ milliseconds: 28.2, fingerprint: "path" })),
+    measureAcousticLatency: vi.fn(async () => ({
+      milliseconds: 28.2,
+      fingerprint: "path",
+    })),
   },
 }));
 vi.mock("../../../../app/KaraokeProvider", () => ({
@@ -95,11 +98,18 @@ describe("AudioTests", () => {
   });
 
   it("offers microphone makeup gain up to 400% without extending the noise control", () => {
-    render(<AppProvider><FormMonitor /></AppProvider>);
+    render(
+      <AppProvider>
+        <FormMonitor />
+      </AppProvider>,
+    );
     const microphone = screen.getByRole("slider", { name: "Микрофон" });
     fireEvent.keyDown(microphone, { key: "End" });
     expect(screen.getByTestId("form-gain")).toHaveTextContent("4");
-    expect(screen.getByRole("slider", { name: "Шум" })).toHaveAttribute("aria-valuemax", "100");
+    expect(screen.getByRole("slider", { name: "Шум" })).toHaveAttribute(
+      "aria-valuemax",
+      "100",
+    );
   });
 
   it("reads and writes voice controls through the root settings form", () => {
@@ -126,11 +136,15 @@ describe("AudioTests", () => {
     );
 
     for (const label of ["Микрофон", "Шум"]) {
-      const knob = screen.getByRole("slider", { name: label }).closest(".ad-rotary-knob");
+      const knob = screen
+        .getByRole("slider", { name: label })
+        .closest(".ad-rotary-knob");
       expect(knob).toHaveAttribute("data-ad-size", "sm");
       expect(knob).toHaveStyle({ "--size": "7.75rem" });
       expect(knob).toHaveAttribute("data-labelled", "true");
-      expect(within(knob as HTMLElement).getByText(label)).toHaveClass("knob__label");
+      expect(within(knob as HTMLElement).getByText(label)).toHaveClass(
+        "knob__label",
+      );
     }
   });
 
@@ -156,17 +170,25 @@ describe("AudioTests", () => {
         />
       </AppProvider>,
     );
-    expect(screen.queryByText(/Динамик и микрофон: неизвестно/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Динамик и микрофон: неизвестно/),
+    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "Полная задержка: не измерена" }),
     );
-    expect(screen.getByText(/Динамик и микрофон: неизвестно/)).toBeInTheDocument();
-    expect(screen.getByText("Работает в наушниках без акустической калибровки.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Динамик и микрофон: неизвестно/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Работает в наушниках без акустической калибровки."),
+    ).toBeInTheDocument();
     expect(audioClient.measureAcousticLatency).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
     await waitFor(() =>
       expect(
-        screen.getByText("Сохранённая акустическая поправка: 28 мс — измерено тестовыми сигналами"),
+        screen.getByText(
+          "Сохранённая акустическая поправка: 28 мс — измерено тестовыми сигналами",
+        ),
       ).toBeInTheDocument(),
     );
     expect(screen.queryByText(/беспроводные наушники/)).not.toBeInTheDocument();
@@ -240,11 +262,19 @@ describe("AudioTests", () => {
     );
     const { rerender } = render(view("session-a"));
     fireEvent.click(screen.getByRole("button", { name: "Измерить" }));
-    await waitFor(() => expect(screen.getByText(/Сохранённая акустическая поправка: 28 мс/)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Сохранённая акустическая поправка: 28 мс/),
+      ).toBeInTheDocument(),
+    );
     rerender(view("session-b"));
-    expect(screen.getByText(/Динамик и микрофон: неизвестно/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Динамик и микрофон: неизвестно/),
+    ).toBeInTheDocument();
     rerender(view("session-b", 0));
-    expect(screen.getByText(/Сохранённая акустическая поправка: 0 мс/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Сохранённая акустическая поправка: 0 мс/),
+    ).toBeInTheDocument();
   });
 
   it("does not show a stale numeric estimate when AudioService is unavailable", () => {

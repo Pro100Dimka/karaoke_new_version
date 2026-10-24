@@ -1,14 +1,19 @@
+import { Form, useForm } from "@neo-ui-kit/react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
-import { Form, useForm } from "@neo-ui-kit/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
-import { SettingsProvider } from "../../app/SettingsProvider";
 import type { RoomStateDto } from "../../contracts/models";
+import { audioClient } from "../../services/audioClient";
+import { clearStorage } from "../../shared/storage/localStore";
+import {
+  roomMicrophoneGain,
+  useVoiceChain,
+} from "../karaoke/console/voiceChain";
+import { SettingsProvider } from "../settings/SettingsProvider";
 import { AudioTests } from "../settings/tabs/Audio/AudioTests";
 import { RoomDock } from "./RoomDock";
-import { audioClient } from "../../services/audioClient";
 vi.mock("../../app/SocialProvider", () => {
   const offline = { type: "offline" };
   const directory = { people: vi.fn(async () => []) };
@@ -18,11 +23,6 @@ vi.mock("../../app/SocialProvider", () => {
     useSocialDirectory: () => directory,
   };
 });
-import {
-  roomMicrophoneGain,
-  useVoiceChain,
-} from "../karaoke/console/voiceChain";
-import { clearStorage } from "../../shared/storage/localStore";
 
 vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
 vi.mock("../../app/NotificationsProvider", () => ({

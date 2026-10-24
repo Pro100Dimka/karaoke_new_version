@@ -1,6 +1,5 @@
 import type { FormApi } from "@neo-ui-kit/react";
 import { Button, MessageBar, Stack } from "@neo-ui-kit/react";
-import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
@@ -9,6 +8,7 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
+import { useSettingsDesktop } from "../../SettingsProvider";
 import { AsioSetupCard } from "./AsioSetupCard";
 import "./audio.css";
 import { AudioFields } from "./AudioFields";
@@ -75,10 +75,13 @@ export const AudioSettings = <T extends AudioValues>({
   const microphoneIssue = capabilities.microphone !== "ready";
   const asioDrivers = devices.filter((device) => device.backend === "ASIO");
   const hasAsioDriver = asioDrivers.length > 0;
-  const hasAsio4All = asioDrivers.some((device) => /asio4all/i.test(device.name));
-  const selectedDriver = [form.values.outputDeviceId, form.values.inputDeviceId]
-    .map((id) => asioDrivers.find((device) => device.id === id))
-    .find((device) => device !== undefined) ?? asioDrivers[0];
+  const hasAsio4All = asioDrivers.some((device) =>
+    /asio4all/i.test(device.name),
+  );
+  const selectedDriver =
+    [form.values.outputDeviceId, form.values.inputDeviceId]
+      .map((id) => asioDrivers.find((device) => device.id === id))
+      .find((device) => device !== undefined) ?? asioDrivers[0];
   const usesAsio4All = /asio4all/i.test(selectedDriver?.name ?? "");
   const showAsioSetup =
     form.values.backend === "ASIO" &&
@@ -113,7 +116,8 @@ export const AudioSettings = <T extends AudioValues>({
     ),
   };
   const technical = fields.filter(
-    (field) => !groups.latency.includes(field) && !groups.devices.includes(field),
+    (field) =>
+      !groups.latency.includes(field) && !groups.devices.includes(field),
   );
 
   return (
@@ -135,16 +139,18 @@ export const AudioSettings = <T extends AudioValues>({
               columns={2}
               showDescriptions={false}
             />
-            {form.values.backend === "ASIO" && hasAsioDriver && !usesAsio4All && (
-              <Button
-                className="audioDriverPanelAction"
-                size="sm"
-                icon="sliders"
-                onClick={onOpenAsioControlPanel}
-              >
-                {t("asioSetupConfigure")}
-              </Button>
-            )}
+            {form.values.backend === "ASIO" &&
+              hasAsioDriver &&
+              !usesAsio4All && (
+                <Button
+                  className="audioDriverPanelAction"
+                  size="sm"
+                  icon="sliders"
+                  onClick={onOpenAsioControlPanel}
+                >
+                  {t("asioSetupConfigure")}
+                </Button>
+              )}
           </Stack>
         }
         deviceControls={

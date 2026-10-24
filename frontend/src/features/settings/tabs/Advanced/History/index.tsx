@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
   Card,
@@ -7,9 +6,10 @@ import {
   NeonWaves,
   Tabs,
 } from "@neo-ui-kit/react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsBackend } from "../../../../../app/SettingsProvider";
+import { useSettingsBackend } from "../../../SettingsProvider";
 import {
   historyKindLabel,
   historyKinds,
@@ -105,11 +105,13 @@ export const HistoryPanel = () => {
         {failed && (
           <MessageBar
             tone="error"
-            action={events.length === 0 && (
-              <Button size="sm" icon="refresh" onClick={() => void load(0)}>
-                {t("retry")}
-              </Button>
-            )}
+            action={
+              events.length === 0 && (
+                <Button size="sm" icon="refresh" onClick={() => void load(0)}>
+                  {t("retry")}
+                </Button>
+              )
+            }
           >
             {t("historyLoadFailed")}
           </MessageBar>

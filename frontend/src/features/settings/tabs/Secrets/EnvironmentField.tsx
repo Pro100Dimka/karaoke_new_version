@@ -1,7 +1,7 @@
-import { useRef } from "react";
 import { Button, Icon, IconButton, TextField } from "@neo-ui-kit/react";
+import { useRef } from "react";
 import { useText } from "../../../../i18n/useText";
-import { useSettingsDesktop } from "../../../../app/SettingsProvider";
+import { useSettingsDesktop } from "../../SettingsProvider";
 import {
   effectiveState,
   fieldUi,

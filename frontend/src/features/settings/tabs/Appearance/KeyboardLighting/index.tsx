@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Card,
   Grid,
@@ -9,8 +8,9 @@ import {
   Typography,
   type FormApi,
 } from "@neo-ui-kit/react";
+import { useEffect, useState } from "react";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsLighting } from "../../../../../app/SettingsProvider";
+import { useSettingsLighting } from "../../../SettingsProvider";
 import type { SettingsFormValues } from "../../../settingsForm";
 
 const levels = [

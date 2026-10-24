@@ -1,18 +1,18 @@
+import { useForm } from "@neo-ui-kit/react";
 import {
-  fireEvent,
   render as baseRender,
+  fireEvent,
   screen,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useState, type ReactNode } from "react";
-import { useForm } from "@neo-ui-kit/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AudioSettings } from ".";
 import { AppProvider } from "../../../../app/AppContext";
-import { SettingsProvider } from "../../../../app/SettingsProvider";
 import type {
   DeviceDto,
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
-import { AudioSettings } from ".";
+import { SettingsProvider } from "../../SettingsProvider";
 import type { AudioValues } from "./settingsModel";
 
 const render = (ui: Parameters<typeof baseRender>[0]) =>
@@ -129,9 +129,21 @@ describe("ASIO setup guidance", () => {
     setup.listDevices.mockResolvedValue([]);
   });
   it("keeps ASIO buffer and release controls visible without opening diagnostics", () => {
-    render(<AppProvider><View devices={[{
-      id: "audient", name: "Audient USB Audio ASIO Driver", kind: "output", channels: 2, backend: "ASIO",
-    }]} /></AppProvider>);
+    render(
+      <AppProvider>
+        <View
+          devices={[
+            {
+              id: "audient",
+              name: "Audient USB Audio ASIO Driver",
+              kind: "output",
+              channels: 2,
+              backend: "ASIO",
+            },
+          ]}
+        />
+      </AppProvider>,
+    );
     expect(screen.getByTestId("primary-audio-controls")).toContainElement(
       screen.getByRole("button", { name: /^Буфер / }),
     );
@@ -141,33 +153,96 @@ describe("ASIO setup guidance", () => {
   });
 
   it("shows configuration for the selected native driver instead of unrelated ASIO4ALL guidance", () => {
-    render(<AppProvider><View selectedDevice="audient" devices={[
-      { id: "audient", name: "Audient USB Audio ASIO Driver", kind: "output", channels: 2, backend: "ASIO" },
-      { id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" },
-    ]} /></AppProvider>);
-    expect(screen.queryByRole("region", { name: "ASIO4ALL" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Настроить устройства" }));
+    render(
+      <AppProvider>
+        <View
+          selectedDevice="audient"
+          devices={[
+            {
+              id: "audient",
+              name: "Audient USB Audio ASIO Driver",
+              kind: "output",
+              channels: 2,
+              backend: "ASIO",
+            },
+            {
+              id: "asio4all",
+              name: "ASIO4ALL v2",
+              kind: "output",
+              channels: 2,
+              backend: "ASIO",
+            },
+          ]}
+        />
+      </AppProvider>,
+    );
+    expect(
+      screen.queryByRole("region", { name: "ASIO4ALL" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Настроить устройства" }),
+    );
     expect(setup.configure).toHaveBeenCalledOnce();
   });
   it.each([
     { first: "audient", selection: {}, asio4all: false },
     { first: "asio4all", selection: {}, asio4all: true },
-    { first: "asio4all", selection: { inputDeviceId: "asio4all", outputDeviceId: "audient" }, asio4all: false },
-    { first: "audient", selection: { inputDeviceId: "audient", outputDeviceId: "asio4all" }, asio4all: true },
-  ])("follows the effective ASIO driver with default or mixed device IDs ($first, $asio4all)", ({ first, selection, asio4all }) => {
-    const drivers: DeviceDto[] = [
-      { id: "audient", name: "Audient USB Audio ASIO Driver", kind: "output", channels: 2, backend: "ASIO" },
-      { id: "asio4all", name: "ASIO4ALL v2", kind: "output", channels: 2, backend: "ASIO" },
-    ];
-    if (first === "asio4all") drivers.reverse();
-    render(<AppProvider><View selection={selection} devices={[
-      { id: "windows", name: "Windows Speakers", kind: "output", channels: 2, backend: "WASAPI Shared" },
-      ...drivers,
-    ]} /></AppProvider>);
-    expect(screen.queryAllByRole("region", { name: "ASIO4ALL" })).toHaveLength(Number(asio4all));
-    fireEvent.click(screen.getByRole("button", { name: "Настроить устройства" }));
-    expect(setup.configure).toHaveBeenCalledOnce();
-  });
+    {
+      first: "asio4all",
+      selection: { inputDeviceId: "asio4all", outputDeviceId: "audient" },
+      asio4all: false,
+    },
+    {
+      first: "audient",
+      selection: { inputDeviceId: "audient", outputDeviceId: "asio4all" },
+      asio4all: true,
+    },
+  ])(
+    "follows the effective ASIO driver with default or mixed device IDs ($first, $asio4all)",
+    ({ first, selection, asio4all }) => {
+      const drivers: DeviceDto[] = [
+        {
+          id: "audient",
+          name: "Audient USB Audio ASIO Driver",
+          kind: "output",
+          channels: 2,
+          backend: "ASIO",
+        },
+        {
+          id: "asio4all",
+          name: "ASIO4ALL v2",
+          kind: "output",
+          channels: 2,
+          backend: "ASIO",
+        },
+      ];
+      if (first === "asio4all") drivers.reverse();
+      render(
+        <AppProvider>
+          <View
+            selection={selection}
+            devices={[
+              {
+                id: "windows",
+                name: "Windows Speakers",
+                kind: "output",
+                channels: 2,
+                backend: "WASAPI Shared",
+              },
+              ...drivers,
+            ]}
+          />
+        </AppProvider>,
+      );
+      expect(
+        screen.queryAllByRole("region", { name: "ASIO4ALL" }),
+      ).toHaveLength(Number(asio4all));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Настроить устройства" }),
+      );
+      expect(setup.configure).toHaveBeenCalledOnce();
+    },
+  );
   it("does not suggest ASIO4ALL when the selected Audient driver is installed but failed to open", () => {
     render(
       <AppProvider>

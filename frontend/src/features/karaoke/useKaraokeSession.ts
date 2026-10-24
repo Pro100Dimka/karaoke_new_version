@@ -71,7 +71,6 @@ export const useKaraokeSession = (
   const [monitoring, setMonitoring] = useState(false);
   const [recording, setRecording] = useState<RecordingUiState>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const initialGains = useRef<MixerChannelGains>({
     music: preferences.musicGain,
@@ -236,7 +235,6 @@ export const useKaraokeSession = (
   const onAudioSnapshot = useCallback((snapshot: PlaybackSnapshot) => {
     setPitchHz(snapshot.pitchHz);
     setPitchFrames(snapshot.pitchFrames);
-    setRecordingSeconds(recordingCoordinator.elapsedSeconds());
     setMonitoring(snapshot.monitoring);
     if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
       monitoringWarningShown.current = true;
@@ -503,7 +501,6 @@ export const useKaraokeSession = (
     monitoring,
     recording,
     recordingId,
-    recordingSeconds,
     recoveredNotice,
     gains,
     interactive,

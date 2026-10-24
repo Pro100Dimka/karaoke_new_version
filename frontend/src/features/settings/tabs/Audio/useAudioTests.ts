@@ -3,8 +3,8 @@ import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { monitoringErrorText, useText } from "../../../../i18n/useText";
-import { useSettingsAudio } from "../../../../app/SettingsProvider";
 import { applyVoiceChain } from "../../../karaoke/console/voiceChain";
+import { useSettingsAudio } from "../../SettingsProvider";
 
 const meterIntervalMilliseconds = 100;
 const safetyCheckSampleInterval = 5;
@@ -57,17 +57,20 @@ export const useAudioTests = (
         let samples = 0;
         while (!stopped) {
           setInputLevel(await audio.testInputLevel());
-          if (samples++ % safetyCheckSampleInterval === 0 &&
-            (await audio.snapshot()).monitoringSafetyTripped) {
-            latest.current.notify(latest.current.t("monitoringSafetyStopped"), "error");
+          if (
+            samples++ % safetyCheckSampleInterval === 0 &&
+            (await audio.snapshot()).monitoringSafetyTripped
+          ) {
+            latest.current.notify(
+              latest.current.t("monitoringSafetyStopped"),
+              "error",
+            );
             setTestingInput(false);
             break;
           }
           if (!reportedRuntime) {
             reportedRuntime = true;
-            latest.current.onRuntimeChange(
-              await audio.runtimeConfiguration(),
-            );
+            latest.current.onRuntimeChange(await audio.runtimeConfiguration());
           }
           await wait(meterIntervalMilliseconds);
         }

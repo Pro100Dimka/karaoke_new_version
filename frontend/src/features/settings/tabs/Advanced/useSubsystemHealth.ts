@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { BackendDiagnosticsDto } from "../../../../contracts/models";
-import { useSettingsAudio, useSettingsBackend } from "../../../../app/SettingsProvider";
+import { useSettingsAudio, useSettingsBackend } from "../../SettingsProvider";
 
 export interface SubsystemHealth {
   loading: boolean;

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -8,15 +7,16 @@ import {
   Stack,
   StatusIndicator,
 } from "@neo-ui-kit/react";
+import { useEffect, useState } from "react";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
 import {
   useSettingsBackend,
   useSettingsDesktop,
-} from "../../../../../app/SettingsProvider";
-import type { SubsystemHealth } from "../useSubsystemHealth";
+} from "../../../SettingsProvider";
 import { frontendVersion } from "../About";
+import type { SubsystemHealth } from "../useSubsystemHealth";
 import { buildDiagnosticsReport } from "./diagnosticsReport";
 
 type Level = "success" | "warning" | "error";
@@ -89,7 +89,12 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       notify(t("reportExported"), "success");
   };
 
-  const rows: { label: string; level: Level; value: string; primary?: boolean }[] = [
+  const rows: {
+    label: string;
+    level: Level;
+    value: string;
+    primary?: boolean;
+  }[] = [
     {
       label: t("pythonBackend"),
       level: backendLevel(backend),
@@ -144,10 +149,16 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const [primary, secondary] = [true, false].map((primary) => (
     <KeyValueList
       key={String(primary)}
-      items={rows.filter((row) => Boolean(row.primary) === primary).map((row) => [
-        row.label,
-        <StatusIndicator key={row.label} status={row.level} label={row.value} />,
-      ])}
+      items={rows
+        .filter((row) => Boolean(row.primary) === primary)
+        .map((row) => [
+          row.label,
+          <StatusIndicator
+            key={row.label}
+            status={row.level}
+            label={row.value}
+          />,
+        ])}
     />
   ));
 

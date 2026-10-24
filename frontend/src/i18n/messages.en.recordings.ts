@@ -13,14 +13,19 @@ export const recordingsEn = {
   analysisPitchTracking: "Tracking the performance",
   analysisReferenceTracking: "Checking the song reference",
   analysisScoring: "Calculating results",
-  analysisPerfectAdvice: "All metrics are at their maximum. Keep this take as a reference for future performances.",
-  analysisPitchUncertain: "Too little reliable pitch evidence. Check recording quality and microphone level.",
+  analysisPerfectAdvice:
+    "All metrics are at their maximum. Keep this take as a reference for future performances.",
+  analysisPitchUncertain:
+    "Too little reliable pitch evidence. Check recording quality and microphone level.",
   analysisEyebrow: "Performance result",
   analysisDescription:
     "Accuracy of notes, rhythm and sustain, with a recommendation",
-  analysisPitchHint: "Recorded vocal pitch matching the original in measurable passages",
-  analysisRhythmHint: "Vocal entries, durations and rests matching the original",
-  analysisStabilityHint: "Share of measurements with steady deviation from the original melody",
+  analysisPitchHint:
+    "Recorded vocal pitch matching the original in measurable passages",
+  analysisRhythmHint:
+    "Vocal entries, durations and rests matching the original",
+  analysisStabilityHint:
+    "Share of measurements with steady deviation from the original melody",
   analysisRecommendation: "Recommendation",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Original",
@@ -41,7 +46,7 @@ export const recordingsEn = {
   analysisStabilityAdvice:
     "Hold each note steadily to its end and pace your breath.",
   recordingPosition: "Recording position",
-  recordingVolume: "Recording volume",
+  recordingVolume: "Volume",
   recordingsHint:
     "Listen to your performances, run the analysis and manage recordings",
   recordingTake: "Performance recording",

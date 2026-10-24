@@ -32,13 +32,15 @@ const analysis: AnalysisDto = {
 };
 
 describe("PerformanceAnalysisModal studio master", () => {
-  it("identifies the song and the user's named take", () => {
+  it("identifies the song in the new title and plays the selected take without a navigator", () => {
     render(<AppProvider><PerformanceAnalysisModal analysis={analysis}
       recordings={[{ ...recording, displayName: "Концертный дубль" }]}
       song={{ title: "Километры", artist: "Wildways" } as import("../../contracts/models").SongDto}
       onDelete={vi.fn()} onClose={vi.fn()} onCreateStudioMaster={vi.fn()} studioMaster={null} /></AppProvider>);
-    expect(screen.getByText("Wildways — Километры")).toBeInTheDocument();
-    expect(screen.getByText("Концертный дубль")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Анализ исполнения.*Wildways — Километры/ })).toBeInTheDocument();
+    expect(screen.getByText("player:take-1")).toBeInTheDocument();
+    expect(screen.queryByText("Концертный дубль")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Следующая запись" })).not.toBeInTheDocument();
   });
 
   it("shows automatic analysis progress immediately and offers cancellation", () => {
@@ -61,11 +63,11 @@ describe("PerformanceAnalysisModal studio master", () => {
     expect(screen.queryByText(/Потренируйте попадание/)).not.toBeInTheDocument();
     expect(screen.getByText(/Все показатели на максимуме/)).toBeInTheDocument();
   });
-  it("labels the selected finished analysis as ready even when the recording list has an older status", () => {
-    render(
+  it("keeps the selected finished analysis even when the recording list has an older status", () => {
+    const modal = (result: AnalysisDto) => (
       <AppProvider>
         <PerformanceAnalysisModal
-          analysis={analysis}
+          analysis={result}
           recordings={[
             { ...recording, analyzed: false, analysisStatus: "Running" },
             { ...recording, id: "take-2", analyzed: false, analysisStatus: "NotAnalyzed" },
@@ -75,15 +77,17 @@ describe("PerformanceAnalysisModal studio master", () => {
           onCreateStudioMaster={vi.fn()}
           studioMaster={null}
         />
-      </AppProvider>,
+      </AppProvider>
     );
+    const view = render(modal(analysis));
 
     expect(screen.getByText("88")).toBeInTheDocument();
-    expect(screen.getByText("Запись 1 из 2 · Анализ готов")).toBeInTheDocument();
+    expect(screen.getByText("player:take-1")).toBeInTheDocument();
     expect(screen.queryByText(/анализируется/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Следующая запись" }));
-    expect(screen.getByText("Запись 2 из 2")).toBeInTheDocument();
-    expect(screen.queryByText(/Анализ готов/)).not.toBeInTheDocument();
+    view.rerender(modal({ ...analysis, recordingId: "take-2", score: 77 }));
+    expect(screen.getByText("77")).toBeInTheDocument();
+    expect(screen.getByText("player:take-2")).toBeInTheDocument();
+    expect(screen.queryByText("player:take-1")).not.toBeInTheDocument();
   });
 
   it("starts premium mastering for the analysed take and shows its progress", () => {

@@ -79,4 +79,23 @@ describe("useSmoothPosition", () => {
     frameAt(1_800_056);
     expect(result.current).toBeCloseTo(3.016, 6);
   });
+
+  it("does not jump backwards when an ordinary delayed poll crosses the resync threshold", () => {
+    const { result, rerender } = renderHook(
+      ({ seconds }) => useSmoothPosition(seconds, true, 1),
+      { initialProps: { seconds: 0 } },
+    );
+    frameAt(100);
+    const beforePoll = result.current;
+    now = 120;
+    rerender({ seconds: 0.02 });
+    frameAt(136);
+    expect(result.current).toBeGreaterThan(beforePoll);
+    expect(result.current).toBeLessThanOrEqual(0.136);
+    now = 220;
+    rerender({ seconds: 0.2 });
+    frameAt(236);
+    expect(result.current).toBeGreaterThan(beforePoll);
+    expect(Math.abs(result.current - 0.216)).toBeLessThan(0.08);
+  });
 });

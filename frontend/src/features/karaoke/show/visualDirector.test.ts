@@ -42,6 +42,10 @@ const phrase = (
 });
 
 describe("visual director", () => {
+  it.each([0, 20, 80])("keeps the musical beat expressive at performance energy %s", (energy) => {
+    const commands = new VisualDirector().plan(1000, [], [{ kind: "beat", at: 1000, strength: 1 }], context(energy));
+    expect(commands).toContainEqual(expect.objectContaining({ kind: "beatPulse", strength: 1 }));
+  });
   it("keeps visible stage lights for an early earned reward", () => {
     expect(ambientFor(20, music(), "full").beams).toBeGreaterThanOrEqual(1.5);
     const commands = new VisualDirector().plan(0, [{ kind: "levelReached", level: "awakening" }], [], context(20));

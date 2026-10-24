@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../../../app/AppContext";
 import { NotificationsProvider } from "../../../../app/NotificationsProvider";
-import { SettingsProvider } from "../../../../app/SettingsProvider";
 import { audioClient } from "../../../../services/audioClient";
+import { SettingsProvider } from "../../SettingsProvider";
 import { useAudioTests } from "./useAudioTests";
 
 vi.mock("../../../../services/audioClient", () => ({
@@ -12,7 +12,10 @@ vi.mock("../../../../services/audioClient", () => ({
     setMonitoring: vi.fn(async () => ({})),
     setDspEnabled: vi.fn(async () => undefined),
     testInputLevel: vi.fn(async () => 0.1),
-    snapshot: vi.fn(async () => ({ monitoring: true, monitoringSafetyTripped: false })),
+    snapshot: vi.fn(async () => ({
+      monitoring: true,
+      monitoringSafetyTripped: false,
+    })),
     runtimeConfiguration: vi.fn(async () => ({})),
     playTestSound: vi.fn(async () => undefined),
   },
@@ -20,7 +23,9 @@ vi.mock("../../../../services/audioClient", () => ({
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AppProvider>
-    <SettingsProvider><NotificationsProvider>{children}</NotificationsProvider></SettingsProvider>
+    <SettingsProvider>
+      <NotificationsProvider>{children}</NotificationsProvider>
+    </SettingsProvider>
   </AppProvider>
 );
 
@@ -56,13 +61,20 @@ describe("useAudioTests", () => {
 
   it("does not start monitoring after leaving Audio while DSP setup is pending", async () => {
     let finishDsp!: () => void;
-    vi.mocked(audioClient.setDspEnabled).mockImplementationOnce(() =>
-      new Promise<void>((resolve) => { finishDsp = resolve; }),
+    vi.mocked(audioClient.setDspEnabled).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishDsp = resolve;
+        }),
     );
-    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), {
+      wrapper,
+    });
 
     act(() => result.current.setTestingInput(true));
-    await vi.waitFor(() => expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false));
+    await vi.waitFor(() =>
+      expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false),
+    );
     unmount();
     await act(async () => finishDsp());
 
@@ -71,15 +83,24 @@ describe("useAudioTests", () => {
 
   it("stops monitoring after leaving Audio while its start request is pending", async () => {
     let finishStart!: () => void;
-    vi.mocked(audioClient.setMonitoring).mockImplementationOnce(() =>
-      new Promise((resolve) => {
-        finishStart = () => resolve({
-          sessionId: "", state: "ready", positionSeconds: 0, durationSeconds: 0,
-          recording: false, monitoring: true, inputLevel: 0,
-        });
-      }),
+    vi.mocked(audioClient.setMonitoring).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishStart = () =>
+            resolve({
+              sessionId: "",
+              state: "ready",
+              positionSeconds: 0,
+              durationSeconds: 0,
+              recording: false,
+              monitoring: true,
+              inputLevel: 0,
+            });
+        }),
     );
-    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), {
+      wrapper,
+    });
 
     act(() => result.current.setTestingInput(true));
     await vi.waitFor(() => expect(monitoringCalls()).toEqual([true]));
@@ -99,7 +120,9 @@ describe("useAudioTests", () => {
       monitoring: false,
       monitoringSafetyTripped: true,
     } as never);
-    const { result } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    const { result } = renderHook(() => useAudioTests(true, vi.fn()), {
+      wrapper,
+    });
     act(() => result.current.setTestingInput(true));
     await vi.waitFor(() => expect(result.current.testingInput).toBe(false));
   });
@@ -110,7 +133,9 @@ describe("useAudioTests", () => {
       monitoring: true,
       monitoringSafetyTripped: false,
     } as never);
-    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), { wrapper });
+    const { result, unmount } = renderHook(() => useAudioTests(true, vi.fn()), {
+      wrapper,
+    });
 
     await act(async () => result.current.setTestingInput(true));
     expect(audioClient.setMonitoring).toHaveBeenCalledWith(true);

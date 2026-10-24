@@ -6,9 +6,9 @@ import {
   type SetStateAction,
 } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import { useSettingsBackend } from "../../../../app/SettingsProvider";
 import { kaggleDeployment } from "../../../../application/settings/KaggleDeployment";
 import { useText } from "../../../../i18n/useText";
+import { useSettingsBackend } from "../../SettingsProvider";
 import type { DisplayEntry } from "./secretsModel";
 
 /**
@@ -72,7 +72,11 @@ export const useKaggleActions = (
       } catch (error) {
         const message =
           error instanceof Error ? error.message : t("settingsApplyFailed");
-        updateKaggleEntries((entry) => ({ ...entry, state: "invalid", message }));
+        updateKaggleEntries((entry) => ({
+          ...entry,
+          state: "invalid",
+          message,
+        }));
         notify(message, "error");
       } finally {
         setKaggleAction(null);

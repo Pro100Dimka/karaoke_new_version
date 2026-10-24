@@ -1,3 +1,4 @@
+import type { FormApi } from "@neo-ui-kit/react";
 import {
   useCallback,
   useEffect,
@@ -5,7 +6,7 @@ import {
   useReducer,
   useRef,
 } from "react";
-import type { FormApi } from "@neo-ui-kit/react";
+import type { AudioSettingsProps } from ".";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
 import type {
@@ -17,16 +18,15 @@ import type {
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { useSettingsAudio } from "../../../../app/SettingsProvider";
+import { safeAudioConfiguration } from "../../../../shared/preferences/preferences";
+import { useSettingsAudio } from "../../SettingsProvider";
 import type { SettingsFormValues } from "../../settingsForm";
-import type { AudioSettingsProps } from ".";
 import {
   toAudioRequest,
   toAudioValues,
   type AudioValues,
 } from "./settingsModel";
 import { useAudioTests } from "./useAudioTests";
-import { safeAudioConfiguration } from "../../../../shared/preferences/preferences";
 
 const timing = {
   sampleRate: 0,
@@ -235,7 +235,8 @@ export const useAudioSettings = (
         const recovered = !state.available;
         if (recovered) {
           const [devices, capabilities] = await Promise.all([
-            audio.listDevices(), audio.capabilities(),
+            audio.listDevices(),
+            audio.capabilities(),
           ]);
           if (!stable()) return;
           state.available = true;
@@ -258,7 +259,8 @@ export const useAudioSettings = (
           patchUi({
             configurationCapabilities: nextCapabilities,
             configurationCapabilitiesBackend: capabilityRequest.backend,
-            asioUnavailable: state.accepted.backend === "ASIO" && next.backend !== "ASIO",
+            asioUnavailable:
+              state.accepted.backend === "ASIO" && next.backend !== "ASIO",
           });
         }
       } catch {

@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   Button,
   Card,
@@ -12,11 +11,19 @@ import {
   Stack,
   Typography,
 } from "@neo-ui-kit/react";
-import type { RecordingAnalysisProgress, StudioMasterProgress } from "../../contracts/clients";
-import type { AnalysisDto, RecordingDto, SongDto } from "../../contracts/models";
+import { useEffect, useState } from "react";
+import type {
+  RecordingAnalysisProgress,
+  StudioMasterProgress,
+} from "../../contracts/clients";
+import type {
+  AnalysisDto,
+  RecordingDto,
+  SongDto,
+} from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import performanceArtUrl from "./assets/performance-art.svg";
+import "./analysis.css";
 import {
   analysisMetrics,
   analysisStageLabel,
@@ -24,8 +31,8 @@ import {
   weakestMetric,
   type AnalysisMetricKey,
 } from "./analysisPresentation";
+import performanceArtUrl from "./assets/performance-art.svg";
 import { RecordingPlayer } from "./RecordingPlayer";
-import "./analysis.css";
 
 interface PerformanceAnalysisModalProps {
   analysis: AnalysisDto | null;
@@ -69,14 +76,6 @@ const metricIcons = {
   rhythm: "rhythm",
   stability: "timer",
 } as const satisfies Record<AnalysisMetricKey, string>;
-const dateFormat = new Intl.DateTimeFormat("ru-RU", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-});
 
 /** How a take went: browse the takes, listen, master the analysed one, and see its scores with a practice tip. */
 export const PerformanceAnalysisModal = ({
@@ -99,12 +98,13 @@ export const PerformanceAnalysisModal = ({
   if (!analysis && !pending && !failure) return null;
   const index = Math.max(
     0,
-    list.findIndex((recording) => recording.id === (viewedId ?? pending?.recordingId ?? recordingId)),
+    list.findIndex(
+      (recording) =>
+        recording.id === (viewedId ?? pending?.recordingId ?? recordingId),
+    ),
   );
   const viewed = list[index];
   if (!viewed && analysis) return null;
-  const previous = list[index - 1];
-  const next = list[index + 1];
   const active = viewed?.id === analysis?.recordingId;
   const practice = analysis ? weakestMetric(analysis) : null;
   const mastering =
@@ -112,9 +112,6 @@ export const PerformanceAnalysisModal = ({
   const master = recordings.find(
     (recording) => recording.sourceRecordingId === viewed?.id,
   );
-  const date = viewed?.createdAt
-    ? dateFormat.format(new Date(viewed.createdAt)).replace(",", "")
-    : t("recordingTake");
 
   return (
     <Dialog
@@ -127,202 +124,197 @@ export const PerformanceAnalysisModal = ({
       icon="wave"
       title={
         <>
-          <Typography
-            as="span"
-            variant="eyebrow"
-            tone="accent"
-            className="analysisEyebrow"
-          >
-            {t("analysisEyebrow")}
-          </Typography>
-          {t("performanceAnalysis")}
+          {t("performanceAnalysis")} :{" "}
+          {song ? `${song.artist} — ${song.title}` : ""}
         </>
       }
-      description={song ? `${song.artist} — ${song.title}` : t("analysisDescription")}
       closeLabel={t("closeDialog")}
       cancelLabel={false}
-      confirmLabel={pending ? false : t("done")}
       art={<Planet className="analysisPlanet" />}
     >
       <Stack gap={3}>
-        {!analysis ? <>
-          {pending && <>
-            <Typography role="status">{t(analysisStageLabel(pending.stage))}</Typography>
-            <ProgressBar label={t(analysisStageLabel(pending.stage))} value={pending.progress} indeterminate={pending.state === "Queued"} />
-          </>}
-          {failure && <MessageBar tone="error">{t(failure)}</MessageBar>}
-          {pending && <Button icon="stop" variant="secondary" disabled={!pending.jobId}
-            onClick={() => pending.jobId && onCancelAnalysis?.(pending.jobId)}>{t("analysisCancel")}</Button>}
-        </> : viewed && practice && <>
-        <Card border padding="sm" className="analysisNavigator">
-          <IconButton
-            round
-            icon="back"
-            label={t("previousRecording")}
-            disabled={!previous}
-            onClick={() => previous && setViewedId(previous.id)}
-          />
-          <div className="analysisTake">
-            {viewed.displayName && <Typography variant="title">{viewed.displayName}</Typography>}
-            <Typography as="time" variant="title">
-              {date}
-            </Typography>
-            <Typography variant="caption" tone="muted">
-              {t("recordingOf", { current: index + 1, total: list.length })}
-              {active ? ` · ${t("analysisReady")}` : ""}
-            </Typography>
-          </div>
-          <IconButton
-            round
-            icon="back"
-            className="analysisNext"
-            label={t("nextRecording")}
-            disabled={!next}
-            onClick={() => next && setViewedId(next.id)}
-          />
-        </Card>
-
-        <div className="analysisTakes">
-          <Card
-            border
-            padding="sm"
-            level={4}
-            icon="mic"
-            title={t("studioMasterSourceTitle")}
-            className="analysisOriginal"
-            actions={
-              <IconButton
-                size="sm"
-                variant="danger"
-                icon="trash"
-                label={t("recordingDelete")}
-                onClick={() => onDelete(viewed)}
-              />
-            }
-          >
-            <RecordingPlayer key={viewed.id} recording={viewed} />
-          </Card>
-          {master && (
-            <Card
-              border
-              padding="sm"
-              level={4}
-              icon="sparkle"
-              title={t("studioMasterTitle")}
-              description={t("studioMasterReadyDescription")}
-              className="analysisMaster"
-              actions={
-                <svg
-                  className="analysisMasterArt"
-                  viewBox="0 0 240 204"
-                  aria-hidden="true"
-                >
-                  <use href={`${performanceArtUrl}#pf-art-4`} />
-                </svg>
-              }
-            >
-              <RecordingPlayer key={master.id} recording={master} />
-            </Card>
-          )}
-          {active && !master && (
-            <Card
-              border
-              padding="sm"
-              level={4}
-              icon="sparkle"
-              title={t("studioMasterTitle")}
-              description={t("studioMasterDescription")}
-              className="analysisStudio"
-            >
-              {mastering ? (
-                <Stack gap={1}>
-                  <ProgressBar
-                    label={t("studioMasterTitle")}
-                    value={mastering.progress}
-                  />
-                  <Typography variant="caption" tone="muted">
-                    {t("studioMasterProgressValue", {
-                      progress: mastering.progress,
-                    })}
-                  </Typography>
-                </Stack>
-              ) : (
-                <Button
-                  variant="primary"
-                  icon="sparkle"
-                  onClick={() => onCreateStudioMaster(viewed)}
-                >
-                  {t("studioMasterCreate")}
-                </Button>
-              )}
-            </Card>
-          )}
-        </div>
-
-        {active && (
+        {!analysis ? (
           <>
-            <div className="analysisMetrics">
-              {analysisMetrics.map((metric) => (
+            {pending && (
+              <>
+                <Typography role="status">
+                  {t(analysisStageLabel(pending.stage))}
+                </Typography>
+                <ProgressBar
+                  label={t(analysisStageLabel(pending.stage))}
+                  value={pending.progress}
+                  indeterminate={pending.state === "Queued"}
+                />
+              </>
+            )}
+            {failure && <MessageBar tone="error">{t(failure)}</MessageBar>}
+            {pending && (
+              <Button
+                icon="stop"
+                variant="secondary"
+                disabled={!pending.jobId}
+                onClick={() =>
+                  pending.jobId && onCancelAnalysis?.(pending.jobId)
+                }
+              >
+                {t("analysisCancel")}
+              </Button>
+            )}
+          </>
+        ) : (
+          viewed &&
+          practice && (
+            <>
+              {active && (
+                <>
+                  <Card
+                    border
+                    padding="none"
+                    className="analysisRecommendation"
+                  >
+                    <Landscape className="analysisLandscape">
+                      <div className="analysisVerdict">
+                        <Typography variant="eyebrow" tone="accent">
+                          {t(gradeLabel(analysis.score))}
+                        </Typography>
+                        <Stack direction="row" gap={2} align="baseline">
+                          <Typography
+                            as="strong"
+                            variant="display"
+                            data-role="analysis-score"
+                          >
+                            {analysis.score}
+                          </Typography>
+                          <Typography variant="caption" tone="muted">
+                            {t("analysisOverall")}
+                          </Typography>
+                        </Stack>
+                        <Typography variant="label">
+                          {t("analysisRecommendation")}
+                        </Typography>
+                        <Typography variant="body-sm" tone="muted">
+                          {t(
+                            analysis[practice.key] >= 100
+                              ? "analysisPerfectAdvice"
+                              : practice.advice,
+                          )}
+                        </Typography>
+                      </div>
+                    </Landscape>
+                    <NeonWaves
+                      className="analysisFlow"
+                      shape="ridge"
+                      comets={3}
+                      strands={26}
+                    />
+                  </Card>
+                  <div className="analysisMetrics">
+                    {analysisMetrics.map((metric) => (
+                      <Card
+                        key={metric.key}
+                        material="glass"
+                        padding="sm"
+                        level={4}
+                        icon={metricIcons[metric.key]}
+                        title={t(metric.label)}
+                        className="analysisMetric"
+                        actions={
+                          <Typography as="strong" variant="h3">
+                            {analysis[metric.key]}%
+                          </Typography>
+                        }
+                      >
+                        <ProgressBar
+                          label={t(metric.label)}
+                          value={analysis[metric.key]}
+                        />
+                        <Typography variant="caption" tone="muted">
+                          {t(metric.description)}
+                        </Typography>
+                      </Card>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="analysisTakes">
                 <Card
-                  key={metric.key}
-                  material="glass"
+                  border
                   padding="sm"
                   level={4}
-                  icon={metricIcons[metric.key]}
-                  title={t(metric.label)}
-                  className="analysisMetric"
+                  icon="mic"
+                  title={t("studioMasterSourceTitle")}
+                  className="analysisOriginal"
                   actions={
-                    <Typography as="strong" variant="h3">
-                      {analysis[metric.key]}%
-                    </Typography>
+                    <IconButton
+                      size="sm"
+                      variant="danger"
+                      icon="trash"
+                      label={t("recordingDelete")}
+                      onClick={() => onDelete(viewed)}
+                    />
                   }
                 >
-                  <ProgressBar
-                    label={t(metric.label)}
-                    value={analysis[metric.key]}
-                  />
-                  <Typography variant="caption" tone="muted">
-                    {t(metric.description)}
-                  </Typography>
+                  <RecordingPlayer key={viewed.id} recording={viewed} />
                 </Card>
-              ))}
-            </div>
-            <Card border padding="none" className="analysisRecommendation">
-              <Landscape className="analysisLandscape">
-                <div className="analysisVerdict">
-                  <Typography variant="eyebrow" tone="accent">
-                    {t(gradeLabel(analysis.score))}
-                  </Typography>
-                  <Stack direction="row" gap={2} align="baseline">
-                    <Typography
-                      as="strong"
-                      variant="display"
-                      data-role="analysis-score"
-                    >
-                      {analysis.score}
-                    </Typography>
-                    <Typography variant="caption" tone="muted">
-                      {t("analysisOverall")}
-                    </Typography>
-                  </Stack>
-                  <Typography variant="label">
-                    {t("analysisRecommendation")}
-                  </Typography>
-                  <Typography variant="body-sm" tone="muted">
-                  {t(analysis[practice.key] >= 100 ? "analysisPerfectAdvice" : practice.advice)}
-                  </Typography>
-                </div>
-              </Landscape>
-              <NeonWaves
-                className="analysisFlow"
-                shape="ridge"
-                comets={3}
-                strands={26}
-              />
-            </Card>
-          </>
+                {master && (
+                  <Card
+                    border
+                    padding="sm"
+                    level={4}
+                    icon="sparkle"
+                    title={t("studioMasterTitle")}
+                    description={t("studioMasterReadyDescription")}
+                    className="analysisMaster"
+                    actions={
+                      <svg
+                        className="analysisMasterArt"
+                        viewBox="0 0 240 204"
+                        aria-hidden="true"
+                      >
+                        <use href={`${performanceArtUrl}#pf-art-4`} />
+                      </svg>
+                    }
+                  >
+                    <RecordingPlayer key={master.id} recording={master} />
+                  </Card>
+                )}
+                {active && !master && (
+                  <Card
+                    border
+                    padding="sm"
+                    level={4}
+                    icon="sparkle"
+                    title={t("studioMasterTitle")}
+                    description={t("studioMasterDescription")}
+                    className="analysisStudio"
+                  >
+                    {mastering ? (
+                      <Stack gap={1}>
+                        <ProgressBar
+                          label={t("studioMasterTitle")}
+                          value={mastering.progress}
+                        />
+                        <Typography variant="caption" tone="muted">
+                          {t("studioMasterProgressValue", {
+                            progress: mastering.progress,
+                          })}
+                        </Typography>
+                      </Stack>
+                    ) : (
+                      <Button
+                        variant="primary"
+                        icon="sparkle"
+                        onClick={() => onCreateStudioMaster(viewed)}
+                      >
+                        {t("studioMasterCreate")}
+                      </Button>
+                    )}
+                  </Card>
+                )}
+              </div>
+            </>
+          )
         )}
-        </>}
       </Stack>
     </Dialog>
   );

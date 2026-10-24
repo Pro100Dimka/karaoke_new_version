@@ -1,10 +1,10 @@
-import { useState } from "react";
 import { Button, Tooltip, Typography } from "@neo-ui-kit/react";
-import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
+import { useState } from "react";
 import { useApp } from "../../../../app/AppContext";
 import { useNotify } from "../../../../app/NotificationsProvider";
+import type { RuntimeAudioConfiguration } from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
-import { useSettingsAudio } from "../../../../app/SettingsProvider";
+import { useSettingsAudio } from "../../SettingsProvider";
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -25,18 +25,20 @@ export const AcousticCalibration = ({
   const { preferences, updatePreferences } = useApp("preferences");
   const [measuring, setMeasuring] = useState(false);
   const activeContext = runtime.calibrationContext ?? "";
-  const [latest, setLatest] = useState<{ context: string; milliseconds: number }>();
+  const [latest, setLatest] = useState<{
+    context: string;
+    milliseconds: number;
+  }>();
   // Persisted history never proves that the currently opened default device has been calibrated.
   const measured = audioAvailable
     ? (runtime.calibratedLatencyMs ??
-      (latest?.context === activeContext
-        ? latest.milliseconds
-        : undefined))
+      (latest?.context === activeContext ? latest.milliseconds : undefined))
     : undefined;
 
   // A measurement made right here is from test signals even before the runtime reports it.
   const sourceKey =
-    runtime.calibratedLatencyMs === undefined || latest?.context === activeContext
+    runtime.calibratedLatencyMs === undefined ||
+    latest?.context === activeContext
       ? "latencySourceTestSignal"
       : runtime.calibrationOrigin === "SONG"
         ? "latencySourceSong"
@@ -60,7 +62,10 @@ export const AcousticCalibration = ({
       notify(t("acousticLatencyMeasured", { value: milliseconds }), "success");
     } catch (error) {
       // Playing a song ends the optional measurement on purpose; that is not a failure.
-      if (error instanceof Error && error.name === "AcousticMeasurementCancelled")
+      if (
+        error instanceof Error &&
+        error.name === "AcousticMeasurementCancelled"
+      )
         notify(t("acousticLatencyCancelled"), "info");
       else notify(`${t("acousticLatencyFailed")}: ${reasonOf(error)}`, "error");
     } finally {

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import type { AiProcessingSettingsDto, ModelDto, ProcessingJobDto } from "../../../../contracts/models";
+import type {
+  AiProcessingSettingsDto,
+  ModelDto,
+  ProcessingJobDto,
+} from "../../../../contracts/models";
 import { useText } from "../../../../i18n/useText";
 import {
-  useSettingsBackend, useSettingsDesktop, useSettingsJobEvents,
-} from "../../../../app/SettingsProvider";
+  useSettingsBackend,
+  useSettingsDesktop,
+  useSettingsJobEvents,
+} from "../../SettingsProvider";
 
 const pollMilliseconds = 700;
 const activeJobStates = new Set<ProcessingJobDto["state"]>([

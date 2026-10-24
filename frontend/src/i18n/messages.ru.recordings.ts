@@ -13,13 +13,18 @@ export const recordingsRu = {
   analysisPitchTracking: "Распознаём исполнение",
   analysisReferenceTracking: "Проверяем эталон песни",
   analysisScoring: "Рассчитываем результат",
-  analysisPerfectAdvice: "Все показатели на максимуме. Сохраните этот дубль как ориентир для следующих выступлений.",
-  analysisPitchUncertain: "Недостаточно надёжных данных о высоте голоса. Проверьте качество записи и уровень микрофона.",
+  analysisPerfectAdvice:
+    "Все показатели на максимуме. Сохраните этот дубль как ориентир для следующих выступлений.",
+  analysisPitchUncertain:
+    "Недостаточно надёжных данных о высоте голоса. Проверьте качество записи и уровень микрофона.",
   analysisEyebrow: "Результат исполнения",
   analysisDescription: "Точность нот, ритма и удержания с рекомендацией",
-  analysisPitchHint: "Совпадение высоты записанного вокала с оригиналом на измеримых участках",
-  analysisRhythmHint: "Совпадение вступлений, длительности вокала и пауз с оригиналом",
-  analysisStabilityHint: "Доля измерений с устойчивым отклонением от мелодии оригинала",
+  analysisPitchHint:
+    "Совпадение высоты записанного вокала с оригиналом на измеримых участках",
+  analysisRhythmHint:
+    "Совпадение вступлений, длительности вокала и пауз с оригиналом",
+  analysisStabilityHint:
+    "Доля измерений с устойчивым отклонением от мелодии оригинала",
   analysisRecommendation: "Рекомендация",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Оригинал",
@@ -40,7 +45,7 @@ export const recordingsRu = {
   analysisStabilityAdvice:
     "Держите каждую ноту ровно до конца и следите за дыханием.",
   recordingPosition: "Позиция записи",
-  recordingVolume: "Громкость записи",
+  recordingVolume: "Громкость",
   recordingsHint:
     "Слушайте выступления, запускайте анализ и управляйте записями",
   recordingTake: "Запись выступления",

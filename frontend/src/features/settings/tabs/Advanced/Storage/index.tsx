@@ -12,8 +12,8 @@ import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { StorageUsageDto } from "../../../../../contracts/models";
 import type { MessageKey } from "../../../../../i18n/messages";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsBackend } from "../../../../../app/SettingsProvider";
 import { formatBytes } from "../../../../../shared/utils/format";
+import { useSettingsBackend } from "../../../SettingsProvider";
 
 const parts = [
   ["songs", "storageSongs"],

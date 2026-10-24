@@ -13,8 +13,10 @@ export const recordingsUk = {
   analysisPitchTracking: "Розпізнаємо виконання",
   analysisReferenceTracking: "Перевіряємо еталон пісні",
   analysisScoring: "Розраховуємо результат",
-  analysisPerfectAdvice: "Усі показники на максимумі. Збережіть цей дубль як орієнтир для наступних виступів.",
-  analysisPitchUncertain: "Недостатньо надійних даних про висоту голосу. Перевірте якість запису та рівень мікрофона.",
+  analysisPerfectAdvice:
+    "Усі показники на максимумі. Збережіть цей дубль як орієнтир для наступних виступів.",
+  analysisPitchUncertain:
+    "Недостатньо надійних даних про висоту голосу. Перевірте якість запису та рівень мікрофона.",
   studioMasterTitle: "A&D Studio Master",
   recordingOriginal: "Оригінал",
   recordingVersion: "Версія виступу",
@@ -42,9 +44,11 @@ export const recordingsUk = {
   analysisStale: "Аналіз застарів",
   analysisEyebrow: "Результат виступу",
   analysisDescription: "Точність нот, ритму та утримання з рекомендацією",
-  analysisPitchHint: "Збіг висоти записаного вокалу з оригіналом на вимірюваних ділянках",
+  analysisPitchHint:
+    "Збіг висоти записаного вокалу з оригіналом на вимірюваних ділянках",
   analysisRhythmHint: "Збіг вступів, тривалості вокалу та пауз з оригіналом",
-  analysisStabilityHint: "Частка вимірювань зі стійким відхиленням від мелодії оригіналу",
+  analysisStabilityHint:
+    "Частка вимірювань зі стійким відхиленням від мелодії оригіналу",
   analysisRecommendation: "Рекомендація",
   analysisPitchAdvice:
     "Потренуйте влучання у висоту нот, починаючи з повільного темпу.",
@@ -53,7 +57,7 @@ export const recordingsUk = {
   analysisStabilityAdvice:
     "Тримайте кожну ноту рівно до кінця й стежте за диханням.",
   recordingPosition: "Позиція запису",
-  recordingVolume: "Гучність запису",
+  recordingVolume: "Гучність",
   recordingsHint: "Слухайте виступи, запускайте аналіз і керуйте записами",
   recordingTake: "Запис виступу",
   recordingOf: "Запис {current} з {total}",

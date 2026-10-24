@@ -207,7 +207,3 @@ html[data-tv-screen] body {
   height: 100%;
   cursor: default;
 }
-
-.karaokeRecordingStatus { display: inline-flex; align-items: center; gap: var(--ad-space-2); padding: var(--ad-space-2) var(--ad-space-3); border-radius: var(--ad-radius-pill); background: var(--ad-surface); color: var(--ad-text-muted); pointer-events: none; }
-.karaokeRecordingStatus[data-recording] { color: var(--ad-primary); }
-.karaokePage > .karaokeRecordingStatus { position: fixed; inset: var(--ad-space-3) auto auto 50%; transform: translateX(-50%); z-index: 10; }

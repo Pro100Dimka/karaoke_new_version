@@ -17,11 +17,12 @@ describe("KaraokeStage", () => {
     expect(container.querySelector(".ad-melody-voice")).toBeNull();
     expect(container.querySelector(".ad-melody-trail path")).toBeNull();
   });
-  it("keeps recording status visible independently of the auto-hidden navigation", () => {
+  it("does not add a recording timer or badge above the karaoke stage", () => {
+    const previousHeaderProps = { recordingStatus: { label: "Запись · 0:42", active: true } };
     render(<AppProvider><KaraokeHeader visible={false} consoleToggle={null} onBack={vi.fn()}
-      recordingStatus={{ label: "Запись · 0:42", active: true }} /></AppProvider>);
-    expect(screen.getByRole("status")).toHaveTextContent("Запись · 0:42");
-    expect(screen.getByRole("status").closest("[data-hidden]")).toBeNull();
+      {...previousHeaderProps} /></AppProvider>);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Запись · 0:42")).toBeNull();
   });
   it("uses delayed capture frames once, rather than scoring the newest scalar at the drawn cursor", async () => {
     const editorDocument: EditorDocument = { revision: 1, lyrics: "Sing", words: [{ id: "w", text: "Sing", start: 0, end: 1 }],

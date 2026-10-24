@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotify } from "../../../../app/NotificationsProvider";
-import { useSettingsBackend } from "../../../../app/SettingsProvider";
 import { kaggleDeploymentRunning } from "../../../../application/settings/KaggleDeployment";
 import { useText } from "../../../../i18n/useText";
+import { useSettingsBackend } from "../../SettingsProvider";
 import {
   isSecret,
   saveDelayMilliseconds,
@@ -198,5 +198,14 @@ export const useEnvironmentSettings = () => {
     [json, save, update],
   );
 
-  return { entries, loadError, retry: () => setLoadAttempt((attempt) => attempt + 1), json, change, save, applyJson, kaggle };
+  return {
+    entries,
+    loadError,
+    retry: () => setLoadAttempt((attempt) => attempt + 1),
+    json,
+    change,
+    save,
+    applyJson,
+    kaggle,
+  };
 };

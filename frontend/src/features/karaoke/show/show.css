@@ -25,17 +25,17 @@
 }
 
 /* Keep video on its own composited transform layer; a fullscreen colour filter stalls weaker GPUs. */
-.karaokePage .sceneVideo {
+.karaokePage .sceneBackdrop {
   transform: scale(var(--show-video-scale, 1));
   will-change: transform;
 }
 
-/* A well sung phrase leaves a short halo around the line; the text itself never moves. */
-.karaokePage .lyrics.ad-karaoke-lyrics {
-  filter: drop-shadow(
-    0 0 calc(var(--show-lyric-glow, 0) * 1.4rem)
-      rgb(255 70 160 / calc(var(--show-lyric-glow, 0) * 0.5))
-  );
+/* Keep the reward halo on the painted glyphs, never on the fullscreen overlay. */
+.karaokePage .lyricsFill .ad-lyrics-current {
+  filter:
+    brightness(calc(1.08 + var(--show-music-beat, 0) * 0.35))
+    drop-shadow(0 0 calc(0.2rem + var(--show-music-beat, 0) * 0.3rem + var(--show-lyric-glow, 0) * 0.55rem)
+      rgb(255 100 180 / calc(0.35 + var(--show-music-beat, 0) * 0.3 + var(--show-lyric-glow, 0) * 0.25)));
 }
 
 /* The console stays still: only its frame glows softly on a long streak, and a perfect phrase sends one light
@@ -96,16 +96,32 @@
     0 0 calc(var(--show-roll-glow, 0) * 2.6rem)
       rgb(255 46 138 / calc(var(--show-roll-glow, 0) * 0.28));
 }
-
-/* A perfectly sung word catches the light once: a quick brightening and a soft halo, the text never moves. */
-.karaokePage .ad-lyrics-current .ad-lyric-word.showGlint {
-  animation: show-word-glint 0.75s cubic-bezier(0.2, 0.7, 0.2, 1);
+.karaokePage .pianoRollLane.ad-melody-roll::before {
+  backdrop-filter: none;
 }
-@keyframes show-word-glint {
-  18% {
-    filter: brightness(1.55) drop-shadow(0 0 0.45rem rgb(255 190 225 / 0.9));
-  }
-  to {
-    filter: none;
-  }
+
+/* The white remainder stays still; the whole already painted layer breathes together. Both layers
+   reuse KaraokeLyrics' own gradients, typography, spacing and word progress. */
+.karaokePage .lyrics:not(.lyricsFill) .ad-lyrics-current {
+  filter: none;
+}
+.karaokePage .lyrics:not(.lyricsFill) .ad-lyrics-current .ad-lyric-word {
+  background-size: 0 0, calc(100% - var(--ad-lyric-fill, 0%)) 100%;
+  background-position: left, right;
+}
+.karaokePage .lyricsFill .ad-lyrics-current .ad-lyric-word {
+  background-size: var(--ad-lyric-fill, 0%) 100%, 0 0;
+}
+.karaokePage .lyricsFill .ad-lyrics-current {
+  transform: scale(calc(1 + var(--show-music-beat, 0) * 0.022));
+  transform-origin: 50% 70%;
+  transition: none;
+  will-change: transform;
+}
+.karaokePage .lyricsFill .ad-lyrics-next {
+  visibility: hidden;
+}
+.karaokePage .lyricsFill[data-reduced-motion] .ad-lyrics-current {
+  transform: none;
+  transition: none;
 }

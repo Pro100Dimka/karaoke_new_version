@@ -3,6 +3,7 @@ import { StageFxRenderer } from "./stageFxRenderer";
 import type { ShowEngine } from "./showEngine";
 import { LightRenderer } from "./gl/lightRenderer";
 import { CanvasLightRenderer } from "./gl/canvasLightRenderer";
+import type { FxCommand } from "./visualDirector";
 
 vi.mock("./gl/lightRenderer", () => ({ LightRenderer: { create: vi.fn(() => undefined) } }));
 vi.mock("./gl/canvasLightRenderer", () => ({ CanvasLightRenderer: { create: vi.fn(() => undefined) } }));
@@ -11,6 +12,24 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.mocked(LightRenderer.create).mockClear();
   vi.mocked(CanvasLightRenderer.create).mockClear();
+});
+
+it("lets a musical beat move the backdrop while reduced motion keeps it still", () => {
+  let command: (value: FxCommand) => void = () => {};
+  const host = document.createElement("main");
+  const engine = {
+    onCommand: (listener: typeof command) => { command = listener; return () => {}; },
+    state: { settings: { reducedMotion: false }, ambient: { consoleGlow: 0, rollGlow: 0 } },
+  } as unknown as ShowEngine;
+  const renderer = new StageFxRenderer(document.createElement("canvas"), engine, host);
+  command({ kind: "beatPulse", at: 0, strength: 1 });
+  const stage = renderer as unknown as { applyStyles(): void };
+  stage.applyStyles();
+  expect(Number(host.style.getPropertyValue("--show-video-scale"))).toBeGreaterThan(1.015);
+  engine.state.settings.reducedMotion = true;
+  stage.applyStyles();
+  expect(Number(host.style.getPropertyValue("--show-video-scale"))).toBe(1);
+  renderer.stop();
 });
 
 it("initializes stage light away from the main thread when OffscreenCanvas is available", () => {

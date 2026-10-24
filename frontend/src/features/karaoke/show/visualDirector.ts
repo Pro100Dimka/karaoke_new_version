@@ -275,12 +275,7 @@ export class VisualDirector {
 
   private onMusic(now: number, cue: MusicCue, context: DirectorContext): void {
     if (cue.kind === "beat") {
-      if (context.energy >= 15)
-        this.pending.push({
-          kind: "beatPulse",
-          at: now,
-          strength: (cue.strength * context.energy) / 100,
-        });
+      this.pending.push({ kind: "beatPulse", at: now, strength: cue.strength });
       // A long strong streak in a big section earns a rare distant firework on the beat.
       if (
         context.streakSeconds >= 30 &&

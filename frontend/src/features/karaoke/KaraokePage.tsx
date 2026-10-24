@@ -33,7 +33,6 @@ import { HostWindowContext } from "../../shared/ui/hostWindow";
 import { createPortal } from "react-dom";
 import { useKaraokeTv } from "./tv/karaokeTv";
 import type { AudioCapabilities } from "../../contracts/models";
-import { formatTime } from "../../shared/utils/format";
 
 export const microphoneAvailableForKaraoke = (
   capability: AudioCapabilities["microphone"],
@@ -330,10 +329,6 @@ export const KaraokeScreen = ({
       {introduction}
       {scene}
       <KaraokeHeader
-        recordingStatus={mode === "Rehearsal" ? { label: t("recordingRehearsal"), active: false } :
-          session.recording === "recording" ? { label: t(state.kind === "paused" ? "recordingLivePaused" : "recordingLive", {
-            time: formatTime(Math.floor(session.recordingSeconds)),
-          }), active: state.kind === "playing" } : undefined}
         inline={onTv}
         visible={autoHide.headerVisible && introFinished}
         consoleToggle={

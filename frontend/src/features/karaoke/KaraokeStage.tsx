@@ -203,21 +203,14 @@ const Lyrics = ({
   position,
   shown,
   phase,
+  reducedMotion,
 }: {
   position: number;
   shown: readonly (LyricLine | undefined)[];
   phase: LineDisplayPhase;
+  reducedMotion: boolean;
 }) => {
   const t = useText();
-  const [drums, setDrums] = useState({ kick: 0, snare: 0, pulse: 0 });
-  const percussion = useMemo(createPercussionReaction, []);
-  useEffect(
-    () =>
-      subscribeSpectrum((frame) =>
-        setDrums(percussion.next(frame.backingBands)),
-      ),
-    [percussion],
-  );
   const [current, next] = shown;
   // During a long instrumental gap the screen clears, then the line comes back to be read while 4-3-2-1
   // counts down above it (see upcomingLinePhase).
@@ -228,6 +221,13 @@ const Lyrics = ({
       text: word.text,
       progress: sung ? letterProgress(word, position) : 0,
     })) ?? [];
+  const lyricLines = {
+    style: { opacity: phase.opacity ?? 1 },
+    current: phase.kind === "text" ? words(current, true) : [],
+    next: phase.kind === "text" ? words(next, false) : [],
+    currentKey: current?.start,
+    nextKey: next?.start,
+  };
 
   return (
     <>
@@ -242,14 +242,13 @@ const Lyrics = ({
       )}
       <KaraokeLyrics
         className="lyrics"
-        style={{ opacity: phase.opacity ?? 1 }}
-        current={phase.kind === "text" ? words(current, true) : []}
-        next={phase.kind === "text" ? words(next, false) : []}
-        currentKey={current?.start}
-        nextKey={next?.start}
-        kick={drums.kick}
-        snare={drums.snare}
-        pulse={drums.pulse}
+        {...lyricLines}
+      />
+      <KaraokeLyrics
+        className="lyrics lyricsFill"
+        aria-hidden="true"
+        data-reduced-motion={reducedMotion || undefined}
+        {...lyricLines}
       />
     </>
   );
@@ -352,7 +351,7 @@ export const KaraokeStage = ({
       <StageFx engine={show} />
       <section className="stage" aria-label={songTitle}>
         {showLyrics && (
-          <Lyrics position={position} shown={shown} phase={phase} />
+          <Lyrics position={position} shown={shown} phase={phase} reducedMotion={preferences.reducedMotion} />
         )}
         {(instrumental || minimal) && (
           <p className="instrumentalMode">
