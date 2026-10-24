@@ -7,17 +7,10 @@ import {
   Stack,
   StatusIndicator,
 } from "@neo-ui-kit/react";
-import { useEffect, useState } from "react";
-import { useNotify } from "../../../../../app/NotificationsProvider";
-import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import {
-  useSettingsBackend,
-  useSettingsDesktop,
-} from "../../../SettingsProvider";
-import { frontendVersion } from "../About";
-import type { SubsystemHealth } from "../useSubsystemHealth";
-import { buildDiagnosticsReport } from "./diagnosticsReport";
+import type { SubsystemHealth } from "../hooks/useSubsystemHealth";
+
+import { useDiagnosticsActions } from "./hooks/useDiagnosticsActions";
 
 type Level = "success" | "warning" | "error";
 
@@ -33,12 +26,14 @@ const isBackendState = (
 ): state is (typeof backendStates)[number] =>
   (backendStates as readonly string[]).includes(state);
 
-const backendLevel = (backend: BackendDiagnosticsDto | null): Level => {
-  if (!backend) return "error";
+const backendLevel = (backend: SubsystemHealth["backend"]): Level => {
+  if (!backend || backend.state === "Failed") return "error";
   return backend.state === "Ready" ? "success" : "warning";
 };
-const audioLevel = (audio: Readonly<Record<string, string>> | null): Level => {
-  if (!audio) return "error";
+const audioLevel = (audio: SubsystemHealth["audio"]): Level => {
+  if (!audio || audio.ServiceState === "Failed") return "error";
+  if (audio.ServiceState !== "Running" && audio.ServiceState !== "Ready")
+    return "warning";
   return audio.LastFailureCode && audio.LastFailureCode !== "None"
     ? "warning"
     : "success";
@@ -46,48 +41,11 @@ const audioLevel = (audio: Readonly<Record<string, string>> | null): Level => {
 
 /** Health of every subsystem at a glance, with the report to copy or save for support. */
 export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
-  const desktop = useSettingsDesktop();
-  const backendClient = useSettingsBackend();
   const t = useText();
-  const notify = useNotify();
   const { backend, audio } = health;
+  const { lighting, deliverReport } = useDiagnosticsActions(health);
   const backendStateText = (state: string) =>
     isBackendState(state) ? t(`backendState${state}`) : state;
-  const [lighting, setLighting] = useState<KeyboardLightingCapabilities>({
-    available: false,
-    deviceCount: 0,
-  });
-  useEffect(() => {
-    let active = true;
-    const refresh = () =>
-      void desktop
-        .keyboardLightingCapabilities()
-        .then((value) => active && setLighting(value));
-    refresh();
-    const timer = window.setInterval(refresh, 5000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-  // The latest failed processing jobs are read when the report is made: their errors explain them.
-  const report = async () =>
-    buildDiagnosticsReport({
-      frontendVersion,
-      generatedAt: new Date().toISOString(),
-      backend,
-      audio,
-      keyboardLighting: lighting.available,
-      jobs: await backendClient.listJobs().catch(() => null),
-    });
-  const copy = async () => {
-    await desktop.copyText(await report());
-    notify(t("copied"), "success");
-  };
-  const exportReport = async () => {
-    if (await desktop.saveTextFile("ad-voice-diagnostics.json", await report()))
-      notify(t("reportExported"), "success");
-  };
 
   const rows: {
     label: string;
@@ -97,8 +55,10 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   }[] = [
     {
       label: t("pythonBackend"),
-      level: backendLevel(backend),
-      value: backend ? backendStateText(backend.state) : t("unavailable"),
+      level: health.loading && !backend ? "warning" : backendLevel(backend),
+      value: backend
+        ? backendStateText(backend.state)
+        : t(health.loading ? "loadingSettings" : "unavailable"),
       primary: true,
     },
     ...(backend
@@ -122,15 +82,21 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       : []),
     {
       label: t("audioServiceLabel"),
-      level: audioLevel(audio),
-      value: audio ? (audio.ServiceState ?? "") : t("unavailable"),
+      level: health.loading && !audio ? "warning" : audioLevel(audio),
+      value: audio
+        ? (audio.ServiceState ?? "")
+        : t(health.loading ? "loadingSettings" : "unavailable"),
       primary: true,
     },
     ...(audio
       ? ([
           {
             label: t("audioXruns"),
-            level: "success",
+            level:
+              Number(audio.XRuns ?? "0") === 0 &&
+              Number(audio.DeadlineMisses ?? "0") === 0
+                ? "success"
+                : "warning",
             value: `${audio.XRuns ?? "0"} / ${audio.DeadlineMisses ?? "0"}`,
           },
         ] satisfies typeof rows)
@@ -176,20 +142,25 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           {secondary}
         </CollapsibleSection>
         <Stack direction="row" gap={2} wrap>
-          <Button size="sm" icon="copy" onClick={() => void copy()}>
+          <Button
+            size="sm"
+            icon="copy"
+            onClick={() => void deliverReport("clipboard")}
+          >
             {t("copyDiagnostics")}
           </Button>
           <IconButton
             size="sm"
             icon="download"
             label={t("exportDiagnostics")}
-            onClick={() => void exportReport()}
+            onClick={() => void deliverReport("file")}
           />
           <IconButton
             size="sm"
             variant="ghost"
             icon="refresh"
             label={t("refresh")}
+            disabled={health.loading}
             onClick={health.refresh}
           />
         </Stack>

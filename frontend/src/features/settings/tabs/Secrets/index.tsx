@@ -1,10 +1,11 @@
 import { Button, MessageBar, ProgressBar } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
-import { EnvironmentGroupCard } from "./EnvironmentGroupCard";
-import { EnvironmentJson } from "./EnvironmentJson";
-import { groupEntries, type EnvironmentGroup } from "./secretsModel";
-import "./secrets.css";
-import { useEnvironmentSettings } from "./useEnvironmentSettings";
+import { EnvironmentGroupCard } from "./ui/EnvironmentGroupCard";
+import { EnvironmentJson } from "./ui/EnvironmentJson";
+import type { EnvironmentGroup } from "./model/environmentModel";
+import { groupEntries } from "./ui/environmentPresentation";
+import "./ui/secrets.css";
+import { useEnvironmentSettings } from "./hooks/useEnvironmentSettings";
 
 /** Kaggle and the room server share the first row; the wider groups follow full width. */
 const userRows: readonly (readonly EnvironmentGroup[])[] = [
@@ -26,7 +27,11 @@ export const SecretsSettings = () => {
     return (
       <MessageBar
         tone="error"
-        action={<Button size="sm" onClick={environment.retry}>{t("retry")}</Button>}
+        action={
+          <Button size="sm" onClick={environment.retry}>
+            {t("retry")}
+          </Button>
+        }
       >
         {environment.loadError}
       </MessageBar>

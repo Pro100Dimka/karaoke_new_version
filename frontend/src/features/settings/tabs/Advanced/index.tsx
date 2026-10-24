@@ -3,8 +3,8 @@ import { AboutPanel } from "./About";
 import { DiagnosticsPanel } from "./Diagnostics";
 import { HistoryPanel } from "./History";
 import { StoragePanel } from "./Storage";
-import { useSubsystemHealth } from "./useSubsystemHealth";
-import "./advanced.css";
+import { useSubsystemHealth } from "./hooks/useSubsystemHealth";
+import "./ui/advanced.css";
 
 export const AdvancedSettings = () => {
   const t = useText();

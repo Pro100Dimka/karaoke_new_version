@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type {
   SettingsAudioPort,
   SettingsBackendPort,
@@ -12,7 +12,7 @@ import { desktopClient } from "../../services/desktopClient";
 import { keyboardLightingClient } from "../../services/keyboardLightingClient";
 import { pythonClient } from "../../services/pythonClient";
 
-type SettingsPorts = {
+export type SettingsPorts = {
   audio: SettingsAudioPort;
   backend: SettingsBackendPort;
   desktop: SettingsDesktopPort;
@@ -28,25 +28,32 @@ const implementations: SettingsPorts = {
 };
 const SettingsContext = createContext<SettingsPorts | null>(null);
 
-export const SettingsProvider = ({ children }: { children: ReactNode }) => (
-  <SettingsContext.Provider value={implementations}>
-    {children}
-  </SettingsContext.Provider>
-);
+export const SettingsProvider = ({
+  children,
+  value,
+}: {
+  children: ReactNode;
+  value?: Partial<SettingsPorts>;
+}) => {
+  const ports = useMemo(
+    () => (value ? { ...implementations, ...value } : implementations),
+    [value],
+  );
+  return (
+    <SettingsContext.Provider value={ports}>
+      {children}
+    </SettingsContext.Provider>
+  );
+};
 
-const useSettingsPorts = (): SettingsPorts => {
+const useSettingsPorts = () => {
   const ports = useContext(SettingsContext);
   if (!ports) throw new Error("SettingsProvider is missing");
   return ports;
 };
 
-export const useSettingsAudio = (): SettingsAudioPort =>
-  useSettingsPorts().audio;
-export const useSettingsBackend = (): SettingsBackendPort =>
-  useSettingsPorts().backend;
-export const useSettingsDesktop = (): SettingsDesktopPort =>
-  useSettingsPorts().desktop;
-export const useSettingsLighting = (): SettingsLightingPort =>
-  useSettingsPorts().lighting;
-export const useSettingsJobEvents = (): SettingsJobEventsPort =>
-  useSettingsPorts().jobs;
+export const useSettingsAudio = () => useSettingsPorts().audio;
+export const useSettingsBackend = () => useSettingsPorts().backend;
+export const useSettingsDesktop = () => useSettingsPorts().desktop;
+export const useSettingsLighting = () => useSettingsPorts().lighting;
+export const useSettingsJobEvents = () => useSettingsPorts().jobs;

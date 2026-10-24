@@ -11,9 +11,9 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
-import "./ai.css";
-import { ModelCard } from "./ModelCard";
-import { useAiSettings, type ProcessingBackend } from "./useAiSettings";
+import "./ui/ai.css";
+import { ModelCard } from "./ui/ModelCard";
+import { useAiSettings, type ProcessingBackend } from "./hooks/useAiSettings";
 
 export const AiSettings = () => {
   const t = useText();
@@ -55,6 +55,7 @@ export const AiSettings = () => {
               <Button
                 size="xs"
                 variant="ghost"
+                disabled={ai.savingRoot}
                 aria-label={t("selectDataFolder")}
                 onClick={() => void ai.chooseDataRoot()}
               >
@@ -72,10 +73,10 @@ export const AiSettings = () => {
               </Button>
             }
           >
-            {t("modelsLoadFailed")}
+            {ai.error ?? t("modelsLoadFailed")}
           </MessageBar>
         )}
-        {!ai.models && !ai.failed && (
+        {ai.loadingModels && (
           <ProgressBar indeterminate label={t("loadingSettings")} />
         )}
         {local && ai.models?.length === 0 && (
@@ -90,9 +91,10 @@ export const AiSettings = () => {
                 key={`${model.id}-${model.version}`}
                 model={model}
                 job={ai.jobs[model.id]}
+                pending={ai.pendingDownloads.has(model.id)}
                 free={ai.free}
                 onDownload={(model) => void ai.download(model)}
-                onCancel={ai.cancel}
+                onCancel={(jobId) => void ai.cancel(jobId)}
               />
             ))}
           </div>

@@ -8,7 +8,7 @@ import {
 } from "@neo-ui-kit/react";
 import { version } from "../../../../../../package.json";
 import { useText } from "../../../../../i18n/useText";
-import type { SubsystemHealth } from "../useSubsystemHealth";
+import type { SubsystemHealth } from "../hooks/useSubsystemHealth";
 
 export const frontendVersion: string = version;
 

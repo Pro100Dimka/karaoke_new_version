@@ -6,78 +6,31 @@ import {
   NeonWaves,
   Tabs,
 } from "@neo-ui-kit/react";
-import { useCallback, useEffect, useRef, useState } from "react";
 import type { HistoryEventDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsBackend } from "../../../SettingsProvider";
-import {
-  historyKindLabel,
-  historyKinds,
-  type HistoryTab,
-} from "./historyModel";
+import { historyKindLabel, type HistoryTab } from "./model/historyModel";
 
-const pageSize = 50;
+import { useHistory } from "./hooks/useHistory";
 
 /** Product events page by page, split into performances and processing. */
 export const HistoryPanel = () => {
-  const backend = useSettingsBackend();
   const t = useText();
-  const [tab, setTab] = useState<HistoryTab>("performances");
-  const [events, setEvents] = useState<readonly HistoryEventDto[]>([]);
-  const [titles, setTitles] = useState<ReadonlyMap<string, string>>(new Map());
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
-
-  const shownTab = useRef(tab);
-  const requestId = useRef(0);
-  shownTab.current = tab;
-
-  const load = useCallback(
-    async (offset: number) => {
-      const id = ++requestId.current;
-      const isCurrent = () =>
-        shownTab.current === tab && requestId.current === id;
-      setLoading(true);
-      setFailed(false);
-      try {
-        // The server filters by the tab's kinds, so every page and the total belong to this tab.
-        const page = await backend.history(pageSize, offset, historyKinds[tab]);
-        if (!isCurrent()) return;
-        setEvents((current) =>
-          offset === 0 ? page.items : [...current, ...page.items],
-        );
-        setTotal(page.total);
-        setFailed(false);
-      } catch {
-        if (isCurrent()) setFailed(true);
-      } finally {
-        if (isCurrent()) setLoading(false);
-      }
-    },
-    [tab],
-  );
-
-  useEffect(() => {
-    setEvents([]);
-    void load(0);
-  }, [load]);
-
-  useEffect(() => {
-    void backend
-      .listSongs()
-      .then((songs) =>
-        setTitles(
-          new Map(
-            songs.map((song) => [song.id, `${song.artist} — ${song.title}`]),
-          ),
-        ),
-      )
-      .catch(() => undefined);
-  }, []);
-
-  const songOf = (event: HistoryEventDto) =>
-    !event.songId ? "—" : (titles.get(event.songId) ?? t("historySongRemoved"));
+  const {
+    tab,
+    events,
+    total,
+    loading,
+    failed,
+    catalog,
+    loadMore,
+    setTab,
+    retry,
+  } = useHistory();
+  const songOf = (event: HistoryEventDto) => {
+    if (!event.songId) return "—";
+    if (!catalog.titles) return catalog.failed ? t("unavailable") : "—";
+    return catalog.titles.get(event.songId) ?? t("historySongRemoved");
+  };
   const kindOf = (event: HistoryEventDto) => {
     const label = historyKindLabel(event.kind);
     return label ? t(label) : event.kind;
@@ -102,15 +55,13 @@ export const HistoryPanel = () => {
             { value: "processing", label: t("historyProcessing") },
           ]}
         />
-        {failed && (
+        {(failed || catalog.failed) && (
           <MessageBar
             tone="error"
             action={
-              events.length === 0 && (
-                <Button size="sm" icon="refresh" onClick={() => void load(0)}>
-                  {t("retry")}
-                </Button>
-              )
+              <Button size="sm" icon="refresh" onClick={retry}>
+                {t("retry")}
+              </Button>
             }
           >
             {t("historyLoadFailed")}
@@ -151,12 +102,7 @@ export const HistoryPanel = () => {
           />
         )}
         {events.length < total && (
-          <Button
-            size="sm"
-            icon="down"
-            loading={loading}
-            onClick={() => void load(events.length)}
-          >
+          <Button size="sm" icon="down" loading={loading} onClick={loadMore}>
             {t("loadMore")}
           </Button>
         )}

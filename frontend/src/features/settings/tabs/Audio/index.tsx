@@ -1,20 +1,34 @@
-import type { FormApi } from "@neo-ui-kit/react";
-import { Button, MessageBar, Stack } from "@neo-ui-kit/react";
+import {
+  Button,
+  Grid,
+  IconButton,
+  MessageBar,
+  Select,
+  Stack,
+  Switch,
+  Tooltip,
+  Typography,
+} from "@neo-ui-kit/react";
+import type { ReactNode } from "react";
 import type {
   AudioCapabilities,
   AudioConfigurationCapabilities,
+  AudioBackendName,
   DeviceDto,
   RuntimeAudioConfiguration,
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
 import { useSettingsDesktop } from "../../SettingsProvider";
-import { AsioSetupCard } from "./AsioSetupCard";
-import "./audio.css";
-import { AudioFields } from "./AudioFields";
-import { audioRows, type AudioField } from "./audioRows";
-import { AudioTests } from "./AudioTests";
-import type { AudioValues } from "./settingsModel";
+import { AsioSetupCard } from "./ui/AsioSetupCard";
+import { AudioMonitoring } from "./ui/AudioMonitoring";
+import {
+  audioOptions,
+  backendLabel,
+  deviceOptions,
+} from "./model/audioOptions";
+import type { AudioCommit, AudioValues } from "./model/audioConfiguration";
+import "./ui/audio.css";
 
 const microphoneMessage = {
   ready: "microphoneReady",
@@ -23,22 +37,20 @@ const microphoneMessage = {
   missing: "microphoneMissing",
   busy: "microphoneBusy",
 } as const satisfies Record<AudioCapabilities["microphone"], MessageKey>;
-const privacyIssues = new Set<AudioCapabilities["microphone"]>([
-  "permission-denied",
-  "privacy-disabled",
-]);
 
-export interface AudioSettingsProps<T extends AudioValues = AudioValues> {
-  form: FormApi<T>;
+const deviceFields = [
+  ["inputDeviceId", "audioInputDevice", "input"],
+  ["outputDeviceId", "audioOutputDevice", "output"],
+] as const;
+
+export interface AudioSettingsProps {
+  values: AudioValues;
   runtime: RuntimeAudioConfiguration;
   devices: readonly DeviceDto[];
   capabilities: AudioCapabilities;
   configurationCapabilities: AudioConfigurationCapabilities;
-  configurationCapabilitiesBackend?: AudioValues["backend"];
+  configurationCapabilitiesBackend?: AudioBackendName;
   audioAvailable: boolean;
-  inputLevel: number;
-  testingInput: boolean;
-  onToggleInputTest(enabled: boolean): void;
   onPlayTestSound(): void;
   asioUnavailable?: boolean;
   asioReadyToRestart?: boolean;
@@ -46,138 +58,205 @@ export interface AudioSettingsProps<T extends AudioValues = AudioValues> {
   onOpenAsioControlPanel(): void;
   releaseAsioInBackground: boolean;
   onReleaseAsioInBackgroundChange(value: boolean): void;
-  /** Called with every committed field so the new configuration is applied at once. */
-  onAudioCommit(name: string, value: unknown): void;
+  onAudioCommit: AudioCommit;
 }
 
-export const AudioSettings = <T extends AudioValues>({
-  form,
-  runtime,
-  devices,
-  capabilities,
-  configurationCapabilities,
-  configurationCapabilitiesBackend,
-  audioAvailable,
-  inputLevel,
-  testingInput,
-  onToggleInputTest,
-  onPlayTestSound,
-  onAudioCommit,
-  asioUnavailable = false,
-  asioReadyToRestart = false,
-  onAsioDriverDetected,
-  onOpenAsioControlPanel,
-  releaseAsioInBackground,
-  onReleaseAsioInBackgroundChange,
-}: AudioSettingsProps<T>) => {
+const FieldRow = ({
+  children,
+  actions,
+  columns,
+  align = "start",
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  columns: number;
+  align?: "start" | "end";
+}) => (
+  <div
+    className={`audioFieldsTopRow${actions ? " audioFieldsWithActions" : ""}`}
+  >
+    <Grid columns={columns} gap={4} align={align}>
+      {children}
+    </Grid>
+    {actions}
+  </div>
+);
+
+export const AudioSettings = (props: AudioSettingsProps) => {
+  const { values, runtime, devices } = props;
   const t = useText();
   const desktop = useSettingsDesktop();
-  const microphoneIssue = capabilities.microphone !== "ready";
+  const asio = values.backend === "ASIO";
+  const shared = values.backend === "WASAPI Shared";
+  const microphoneIssue = props.capabilities.microphone !== "ready";
+  const privacyIssue =
+    props.capabilities.microphone === "permission-denied" ||
+    props.capabilities.microphone === "privacy-disabled";
   const asioDrivers = devices.filter((device) => device.backend === "ASIO");
-  const hasAsioDriver = asioDrivers.length > 0;
-  const hasAsio4All = asioDrivers.some((device) =>
-    /asio4all/i.test(device.name),
-  );
   const selectedDriver =
-    [form.values.outputDeviceId, form.values.inputDeviceId]
-      .map((id) => asioDrivers.find((device) => device.id === id))
-      .find((device) => device !== undefined) ?? asioDrivers[0];
+    asioDrivers.find((device) => device.id === values.outputDeviceId) ??
+    asioDrivers.find((device) => device.id === values.inputDeviceId) ??
+    asioDrivers[0];
   const usesAsio4All = /asio4all/i.test(selectedDriver?.name ?? "");
-  const showAsioSetup =
-    form.values.backend === "ASIO" &&
-    (!hasAsioDriver || usesAsio4All || asioReadyToRestart);
-  const fields = audioRows(
+  const options = audioOptions({
     t,
-    form.values,
+    values,
     runtime,
-    devices,
-    audioAvailable,
-    onPlayTestSound,
-    configurationCapabilities,
-    releaseAsioInBackground,
-    onReleaseAsioInBackgroundChange,
-    configurationCapabilitiesBackend,
-    (value) => onAudioCommit("lowLatencyInput", value),
+    configurationCapabilities: props.configurationCapabilities,
+    capabilitiesBackend: props.configurationCapabilitiesBackend,
+  });
+  const availableDevices = devices.filter((device) =>
+    asio ? device.backend === "ASIO" : device.backend !== "ASIO",
   );
-  const fieldKey = (field: AudioField) =>
-    field.kind === "select" ? field.tag : field.key;
-  const groups = {
-    latency: fields.filter((field) =>
-      ["backend", "sampleRate", "bufferFrames"].includes(fieldKey(field)),
-    ),
-    devices: fields.filter((field) =>
-      [
-        "inputDeviceId",
-        "outputDeviceId",
-        "lowLatencyInput",
-        "playTestSound",
-        "releaseAsioInBackground",
-      ].includes(fieldKey(field)),
-    ),
-  };
-  const technical = fields.filter(
-    (field) =>
-      !groups.latency.includes(field) && !groups.devices.includes(field),
+  const playTest = (
+    <Stack gap="0.25rem" align="center">
+      <Tooltip content={t("playTestSound")}>
+        <IconButton
+          round
+          size="lg"
+          icon="play"
+          label={t("playTestSound")}
+          disabled={!props.audioAvailable}
+          onClick={props.onPlayTestSound}
+        />
+      </Tooltip>
+      <Typography variant="caption" tone="muted">
+        {t("playTestSound")}
+      </Typography>
+    </Stack>
   );
-
   return (
     <div className="settingsStack audioSettings">
-      <AudioTests
+      <AudioMonitoring
         runtime={runtime}
-        audioAvailable={audioAvailable}
+        audioAvailable={props.audioAvailable}
         microphoneIssue={microphoneIssue}
-        inputLevel={inputLevel}
-        testingInput={testingInput}
-        onToggleInputTest={onToggleInputTest}
-        onPlayTestSound={onPlayTestSound}
         latencyControls={
           <Stack gap={3}>
-            <AudioFields
-              form={form}
-              onCommit={onAudioCommit}
-              fields={groups.latency}
-              columns={2}
-              showDescriptions={false}
-            />
-            {form.values.backend === "ASIO" &&
-              hasAsioDriver &&
-              !usesAsio4All && (
-                <Button
-                  className="audioDriverPanelAction"
-                  size="sm"
-                  icon="sliders"
-                  onClick={onOpenAsioControlPanel}
-                >
-                  {t("asioSetupConfigure")}
-                </Button>
+            <FieldRow columns={2} align="end">
+              <Select<AudioBackendName>
+                label={t("audioBackend")}
+                value={asio ? "ASIO" : "WASAPI Shared"}
+                options={(["WASAPI Shared", "ASIO"] as const).map(
+                  (backend) => ({
+                    value: backend,
+                    label: backendLabel(t, backend),
+                  }),
+                )}
+                onValueChange={(value) => props.onAudioCommit("backend", value)}
+              />
+              <Select<number>
+                label={t("sampleRate")}
+                value={values.sampleRate}
+                options={options.sampleRates}
+                onValueChange={(value) =>
+                  props.onAudioCommit("sampleRate", value)
+                }
+              />
+              {!shared && (
+                <Select<number>
+                  label={t("audioBuffer")}
+                  value={values.bufferFrames}
+                  options={options.periods}
+                  onValueChange={(value) =>
+                    props.onAudioCommit("bufferFrames", value)
+                  }
+                />
               )}
+            </FieldRow>
+            {asio && asioDrivers.length > 0 && !usesAsio4All && (
+              <Button
+                className="audioDriverPanelAction"
+                size="sm"
+                icon="sliders"
+                onClick={props.onOpenAsioControlPanel}
+              >
+                {t("asioSetupConfigure")}
+              </Button>
+            )}
           </Stack>
         }
         deviceControls={
           <div className="settingsStack">
-            {!audioAvailable && (
+            {!props.audioAvailable && (
               <MessageBar tone="error">
                 {t("audioServiceUnavailable")}
               </MessageBar>
             )}
-            {form.values.backend === "ASIO" &&
-              asioUnavailable &&
-              hasAsioDriver && (
-                <MessageBar tone="error">
-                  {t("asioDriverOpenFailed")}
-                </MessageBar>
+            {asio && props.asioUnavailable && asioDrivers.length > 0 && (
+              <MessageBar tone="error">{t("asioDriverOpenFailed")}</MessageBar>
+            )}
+            <div className="settingsStack">
+              <FieldRow columns={1} actions={playTest}>
+                {deviceFields.map(([name, label, kind]) => (
+                  <Select<string>
+                    key={name}
+                    label={t(label)}
+                    value={values[name]}
+                    {...deviceOptions(
+                      t,
+                      availableDevices.filter((device) => device.kind === kind),
+                      values[name],
+                    )}
+                    onValueChange={(value) => props.onAudioCommit(name, value)}
+                  />
+                ))}
+              </FieldRow>
+              {(shared || asio) && (
+                <Stack
+                  direction="row"
+                  gap="var(--ad-space-3) var(--ad-space-6)"
+                  align="center"
+                  wrap
+                >
+                  {shared ? (
+                    <Stack gap="0.25rem">
+                      <Stack direction="row" gap={2} align="center">
+                        <Switch
+                          label={t("lowLatencyMicrophone")}
+                          checked={
+                            props.audioAvailable &&
+                            runtime.backend === "WASAPI Shared" &&
+                            runtime.lowLatencyInputActive === true
+                          }
+                          onValueChange={(value) =>
+                            props.onAudioCommit("lowLatencyInput", value)
+                          }
+                        />
+                        <Tooltip content={t("lowLatencyMicrophoneHint")}>
+                          <IconButton
+                            size="sm"
+                            variant="ghost"
+                            icon="info"
+                            label={t("lowLatencyMicrophoneHint")}
+                          />
+                        </Tooltip>
+                      </Stack>
+                      <Typography
+                        className="audioFieldDescription"
+                        variant="caption"
+                        tone="muted"
+                      >
+                        {t("lowLatencyMicrophoneHint")}
+                      </Typography>
+                    </Stack>
+                  ) : (
+                    <Tooltip content={t("releaseAsioInBackgroundHint")}>
+                      <Switch
+                        label={t("releaseAsioInBackground")}
+                        checked={props.releaseAsioInBackground}
+                        onValueChange={props.onReleaseAsioInBackgroundChange}
+                      />
+                    </Tooltip>
+                  )}
+                </Stack>
               )}
-            <AudioFields
-              form={form}
-              onCommit={onAudioCommit}
-              fields={groups.devices}
-              columns={1}
-            />
+            </div>
             {microphoneIssue && (
               <MessageBar
                 tone="warning"
                 action={
-                  privacyIssues.has(capabilities.microphone) && (
+                  privacyIssue && (
                     <Button
                       size="sm"
                       onClick={() => void desktop.openMicrophonePrivacy()}
@@ -187,30 +266,47 @@ export const AudioSettings = <T extends AudioValues>({
                   )
                 }
               >
-                {t(microphoneMessage[capabilities.microphone])}
+                {t(microphoneMessage[props.capabilities.microphone])}
               </MessageBar>
             )}
           </div>
         }
         technicalControls={
-          technical.length > 0 ? (
-            <AudioFields
-              form={form}
-              onCommit={onAudioCommit}
-              fields={technical}
-              columns={2}
-            />
+          shared ? (
+            <FieldRow columns={2}>
+              <Select<number>
+                label={t("audioPeriod")}
+                value={values.periodFrames}
+                options={options.periods}
+                onValueChange={(value) =>
+                  props.onAudioCommit("periodFrames", value)
+                }
+              />
+              {options.inputPeriods.length > 0 && (
+                <Select<number>
+                  label={t("audioInputPeriod")}
+                  value={values.inputPeriodFrames ?? 0}
+                  options={options.inputPeriods}
+                  onValueChange={(value) =>
+                    props.onAudioCommit("inputPeriodFrames", value)
+                  }
+                />
+              )}
+            </FieldRow>
           ) : undefined
         }
       />
-      {showAsioSetup && (
-        <AsioSetupCard
-          hasAsio4All={hasAsio4All}
-          readyToRestart={asioReadyToRestart}
-          onAsioDriverDetected={onAsioDriverDetected}
-          onOpenAsioControlPanel={onOpenAsioControlPanel}
-        />
-      )}
+      {asio &&
+        (!asioDrivers.length || usesAsio4All || props.asioReadyToRestart) && (
+          <AsioSetupCard
+            hasAsio4All={asioDrivers.some((device) =>
+              /asio4all/i.test(device.name),
+            )}
+            readyToRestart={props.asioReadyToRestart ?? false}
+            onAsioDriverDetected={props.onAsioDriverDetected}
+            onOpenAsioControlPanel={props.onOpenAsioControlPanel}
+          />
+        )}
     </div>
   );
 };

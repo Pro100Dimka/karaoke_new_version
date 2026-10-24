@@ -6,49 +6,21 @@ import {
   Stack,
   Switch,
   Typography,
-  type FormApi,
 } from "@neo-ui-kit/react";
-import { useEffect, useState } from "react";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsLighting } from "../../../SettingsProvider";
-import type { SettingsFormValues } from "../../../settingsForm";
+
+import { useKeyboardLighting } from "./hooks/useKeyboardLighting";
 
 const levels = [
   { key: "brightness", label: "lightingBrightness" },
   { key: "sensitivity", label: "lightingSensitivity" },
 ] as const;
 
-export const KeyboardLightingSettings = ({
-  form,
-}: {
-  form: FormApi<SettingsFormValues>;
-}) => {
+export const KeyboardLightingSettings = () => {
   const t = useText();
-  const lightingService = useSettingsLighting();
-  const [capabilities, setCapabilities] =
-    useState<KeyboardLightingCapabilities>();
-  const lighting = form.values.keyboardLighting;
-
-  useEffect(() => {
-    let active = true;
-    const refresh = () =>
-      void lightingService
-        .capabilities()
-        .then((value) => active && setCapabilities(value));
-    refresh();
-    const timer = window.setInterval(refresh, 5000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, []);
-
+  const { lighting, capabilities, update } = useKeyboardLighting();
   if (!capabilities?.available) return null;
-  const update = (patch: Partial<typeof lighting>) => {
-    const next = { ...lighting, ...patch };
-    form.setValue("keyboardLighting", next);
-    void lightingService.apply(next, form.values.theme).catch(() => undefined);
-  };
+
   return (
     <Card
       border

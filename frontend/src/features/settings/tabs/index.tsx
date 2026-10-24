@@ -1,17 +1,18 @@
-import { ProgressBar, useFormContext } from "@neo-ui-kit/react";
+import { ProgressBar } from "@neo-ui-kit/react";
+import type { ComponentType } from "react";
+import type { SettingsTab } from "../../../contracts/models";
+import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
-import type { SettingsFormValues } from "../settingsForm";
 import { AdvancedSettings } from "./Advanced";
 import { AiSettings } from "./Ai";
 import { AppearanceSettings } from "./Appearance";
 import { AudioSettings } from "./Audio";
-import { useAudioSettings } from "./Audio/useAudioSettings";
+import { useAudioSettings } from "./Audio/hooks/useAudioSettings";
 import { SecretsSettings } from "./Secrets";
 
 const AudioTabContent = () => {
-  const form = useFormContext<SettingsFormValues>();
   const t = useText();
-  const { ready, audio } = useAudioSettings(form);
+  const { ready, audio } = useAudioSettings();
   return ready ? (
     <AudioSettings {...audio} />
   ) : (
@@ -37,4 +38,7 @@ export default {
     component: SecretsSettings,
   },
   advanced: { label: "advanced", icon: "wrench", component: AdvancedSettings },
-} as const;
+} as const satisfies Record<
+  SettingsTab,
+  { label: MessageKey; icon: string; component: ComponentType }
+>;
