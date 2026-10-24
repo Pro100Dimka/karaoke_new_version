@@ -49,7 +49,7 @@ export const audioEn = {
   latencyMeasuring: "Measuring…",
   lowLatencyMicrophone: "Minimum microphone latency",
   lowLatencyMicrophoneHint:
-    "Reduces microphone latency. Other apps may temporarily lose access to this microphone.",
+    "Reduces latency and bypasses system microphone processing. Turn this mode off if your voice becomes quiet or noisy. Other apps may temporarily lose microphone access.",
   lowLatencyMicrophoneFallback:
     "Could not turn on minimum microphone latency. The microphone keeps working in the usual Windows mode.",
   microphoneHeldByAnotherApp:

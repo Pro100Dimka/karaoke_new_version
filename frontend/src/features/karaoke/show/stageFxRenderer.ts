@@ -531,7 +531,7 @@ export class StageFxRenderer {
   /** Backing-track motion belongs only to the painted lyrics. */
   private applyStyles(): void {
     const beat = this.engine.state.musicBeat ?? 0;
-    this.setStyle("--show-music-beat", beat.toFixed(5));
+    this.setStyle("--show-music-beat", (beat * 0.4).toFixed(5));
     this.setStyle(
       "--show-console-glow",
       (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),

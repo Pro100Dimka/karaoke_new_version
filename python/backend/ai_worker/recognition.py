@@ -7,6 +7,7 @@ import threading
 
 import numpy as np
 from faster_whisper.transcribe import Segment
+from whisper.audio import CHUNK_LENGTH
 
 from backend.ai_worker.ctc import AlignedWord, Window, _PREFERENCE
 from backend.ai_worker.timing import _runs
@@ -97,6 +98,7 @@ def contextual_guidance(
     activity: np.ndarray,
     recognize: Callable[[Sequence[tuple[float, float, str]]], Mapping[str, object]],
 ) -> tuple[list[Window], dict[int, tuple[float, float]]]:
+    windows, timings = _ending_guidance(words, windows, timings, activity, recognize)
     missing = [
         i
         for i, w in enumerate(windows)
@@ -115,8 +117,7 @@ def contextual_guidance(
         return list(windows), timings
     revised, supported = list(windows), dict(timings)
     for index, result in zip(missing, results if isinstance(results, list) else []):
-        # Initial ASR can cut the suffix off and put the next line on that suffix.
-        # Validate the new spelling inside its actual recognition context instead.
+        # Validate suffixes in context when the first ASR put the next line on a cut-off suffix.
         window = replace(windows[index], end=max(windows[index].end, contexts[index][1]))
         phrase, local = recognized_phrase(
             window, words[window.first : window.last], heard_words(result), _MARGIN
@@ -128,6 +129,69 @@ def contextual_guidance(
                 window, phrase, whole[window.first].start, local.get(window.last - 1), _MARGIN
             )
             supported.update(local)
+    return revised, supported
+
+
+def _ending_window(
+    words: Sequence[str],
+    windows: Sequence[Window],
+    timings: Mapping[int, tuple[float, float]],
+    activity: np.ndarray,
+) -> tuple[int, Window] | None:
+    if not windows:
+        return None
+    first, last = len(windows) - 1, windows[-1]
+    text = words[last.first : last.last]
+    while first > 0 and words[windows[first - 1].first : windows[first - 1].last] == text:
+        first -= 1
+    if (
+        first == len(windows) - 1
+        or all(k in timings for k in range(windows[first].first, last.last))
+        or not activity.any()
+    ):
+        return None
+    previous = windows[max(0, first - 1)]
+    start = previous.heard_start if previous.heard_start is not None else previous.start
+    # Include a complete decoder window and its trailing silence, rather than cutting at reverb.
+    end = min(len(activity) * _STEP, max(last.end, start + CHUNK_LENGTH))
+    return first, replace(windows[first], last=last.last, end=end)
+
+
+def _ending_guidance(
+    words: Sequence[str],
+    windows: Sequence[Window],
+    timings: dict[int, tuple[float, float]],
+    activity: np.ndarray,
+    recognize: Callable[[Sequence[tuple[float, float, str]]], Mapping[str, object]],
+) -> tuple[list[Window], dict[int, tuple[float, float]]]:
+    """Decode repeated outro replies together so compressed ASR times cannot steal an occurrence."""
+    revised, supported = list(windows), dict(timings)
+    ending = _ending_window(words, windows, timings, activity)
+    if ending is None:
+        return revised, supported
+    first, group = ending
+    previous = windows[max(0, first - 1)]
+    start = previous.heard_start if previous.heard_start is not None else previous.start
+    prompt = " ".join(dict.fromkeys(words[previous.first : group.last]))
+    try:
+        results = recognize([(start, group.end, prompt)]).get("contexts", [])
+    except (FileNotFoundError, OSError, RuntimeError, ValueError):
+        return revised, supported
+    result = results[0] if isinstance(results, list) and results else {}
+    excerpt = words[group.first : group.last]
+    margin = _MARGIN * (len(windows) - first)
+    _, local = recognized_phrase(group, excerpt, heard_words(result), margin)
+    if len(local) < len(excerpt) or len(local) <= sum(
+        k in timings for k in range(group.first, group.last)
+    ):
+        return revised, supported
+    supported.update(local)
+    for index in range(first, len(windows)):
+        window = windows[index]
+        start, end = local[window.first][0], local[window.last - 1][1]
+        revised[index] = replace(
+            window, start=max(0, start - _MARGIN), end=end + _MARGIN, heard_start=start
+        )
     return revised, supported
 
 

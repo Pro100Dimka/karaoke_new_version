@@ -73,19 +73,22 @@ def _rhythm(sources: torch.Tensor, names: Sequence[str], rate: int) -> list[Json
     """Reuse Demucs stems; melody/vocals and cymbal-only highs cannot drive lyrics."""
     hop = max(1, round(rate * 0.01))
     channels = []
-    for name, band in [("bass", (35, 180)), ("drums", (35, 180)), ("drums", (180, 2500))]:
+    for name, band in [("bass", (35, 180)), ("drums", (35, 180)), ("drums", (180, 1500))]:
         samples = sources[names.index(name)].detach().cpu().numpy().mean(axis=0)
         filtered = sosfilt(butter(4, band, btype="bandpass", fs=rate, output="sos"), samples)
         energy = np.sqrt(
             np.mean(np.square(filtered[: len(filtered) // hop * hop].reshape(-1, hop)), axis=1)
         )
+        full = np.sqrt(np.mean(np.square(samples[: len(energy) * hop].reshape(-1, hop)), axis=1))
         previous = np.maximum.reduce(
             [np.pad(energy, (lag, 0))[: len(energy)] for lag in range(1, 5)]
         )
         attacks = np.maximum(0, energy - previous * 1.12)
         # Do not amplify quiet separator bleed or filter startup into full-strength beats.
         scale = max(0.025, float(np.percentile(attacks, 99)))
-        channels.append(np.where(energy > 0.012, np.clip(attacks / scale, 0, 1), 0))
+        # A cymbal leaks into the body band, but its energy remains overwhelmingly above it.
+        audible = (energy > 0.012) & ((energy >= full * 0.3) if name == "drums" else True)
+        channels.append(np.where(audible, np.clip(attacks / scale, 0, 1), 0))
     envelope = np.max(channels, axis=0)
     peaks, _ = find_peaks(np.pad(envelope, (1, 1)), height=0.2, prominence=0.15, distance=12)
     return [

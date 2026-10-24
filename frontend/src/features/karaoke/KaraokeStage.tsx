@@ -195,8 +195,7 @@ const Lyrics = ({
 }) => {
   const t = useText();
   const [current, next] = shown;
-  // During a long instrumental gap the screen clears, then the line comes back to be read while 4-3-2-1
-  // counts down above it (see upcomingLinePhase).
+  // Give the countdown and the upcoming words separate turns before the vocal entry.
   const { countdown } = phase;
   const words = (line: LyricLine | undefined, sung: boolean) =>
     line?.words.map((word) => ({

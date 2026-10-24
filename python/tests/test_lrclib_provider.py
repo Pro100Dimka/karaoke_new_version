@@ -23,6 +23,43 @@ from tests.fakes import FakeAiProvider, FakeLyricsProvider
 
 EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
+
+def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus_prefix() -> None:
+    from backend.lyrics.phrases import _complete_repeats
+
+    chorus = [
+        "Хочеш я твоїм кольором буду",
+        "Восьмим кольором восьмим чудом",
+        "Білим я буду білим як сніг",
+        "Якщо ти ним бути дозволиш мені",
+    ]
+    # Native Whisper on the actual separated vocal, 228.6–238.2 s. The prefix is not sung.
+    heard_tail = "До сволочі мені " * 4
+    result = _complete_repeats(
+        "\n".join(chorus * 2), " ".join(chorus * 2) + " " + heard_tail, threading.Event()
+    )
+    assert result.splitlines() == chorus * 2 + ["дозволиш мені"] * 4
+
+
+@pytest.mark.parametrize("catalog", [False, True])
+def test_discovered_lyrics_are_clean_before_alignment_and_repeat_recovery(catalog: bool) -> None:
+    text = "Привіт,світе! Я твій на 100%...\nП'яний — але: живий? (так); «я» 🎵"
+    expected = "Привіт світе Я твій на сто відсотків\nПяний але живий так я"
+    candidate = LyricsCandidate(text, "T", "A", 188, "catalog")
+    discovery = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([(candidate,)]),) if catalog else (), LyricsMatchPolicy()
+    )
+    result = discovery.discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(text),
+        threading.Event(),
+        online_enabled=catalog,
+        execution=EXECUTION,
+    )
+    assert result.lyrics == expected
+
+
 _ROWS = (
     '[{"trackName": "Кофе мой друг", "artistName": "Нервы", "duration": 188,'
     ' "syncedLyrics": "[00:10.50] Кофе мой друг\\n[00:14.00] Музыка мой драйв", "plainLyrics": "x"}]'
@@ -331,7 +368,7 @@ def test_fallback_catalog_finds_balabama_lyrics_and_matches_transliterated_artis
     )
     assert candidates[0].provider_id == "TekstPesenok"
     assert (result.lyrics, result.source) == (
-        "Под запретом шлю приветы,\nБез ответа — меня нету.",
+        "Под запретом шлю приветы\nБез ответа меня нету",
         "TekstPesenok",
     )
 
@@ -486,7 +523,9 @@ def test_original_mix_recovers_sung_repeats_missed_in_the_vocal_stem(
         execution=EXECUTION,
     )
 
-    assert result.lyrics.splitlines() == case["expected"]
+    assert result.lyrics.splitlines() == [
+        line.translate(str.maketrans("", "", ",.!?")) for line in case["expected"]
+    ]
     assert calls == [vocal, original]
 
 
@@ -625,7 +664,7 @@ def test_fuller_matching_text_is_found_despite_artist_alias_and_missing_asr_repe
         online_enabled=True,
         execution=EXECUTION,
     )
-    assert result.lyrics == complete.replace("100%", "сто відсотків")
+    assert result.lyrics == complete.replace("100%", "сто відсотків").replace("?", "")
 
 
 def test_missed_short_adlib_does_not_duplicate_a_performed_refrain():

@@ -95,3 +95,13 @@ def spell_lyric_percentages(text: str, language: str) -> str:
             return match[0]
 
     return re.sub(r"(?<![\w.,])(\d+)\s*%", replace, text)
+
+
+def clean_lyrics(text: str, language: str) -> str:
+    """Normalize found lyrics before recognition matching or alignment, retaining written lines."""
+    text = spell_lyric_percentages(text, language)
+    text = "".join(
+        "" if char in "'’ʼ`" else " " if unicodedata.category(char)[0] in "PS" else char
+        for char in text
+    )
+    return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())

@@ -27,20 +27,37 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
         return lyrics
     original = [keys.index(_lyrics_key(line)) for line in lines]
     heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
-    performed = tuple(
-        index
-        for index, _, _ in _performed_lines(
-            keys,
-            heard,
-            set(zip(original, original[1:])),
-            cancel,
-        )
-    )
+    matches = _performed_lines(keys, heard, set(zip(original, original[1:])), cancel)
+    performed = tuple(index for index, _, _ in matches)
     merged = _merge_lines(original, performed, keys)
-    if len(merged) == len(original):
-        return lyrics
     written = {_lyrics_key(line): line for line in reversed(lines)}
-    return "\n".join(written[keys[index]] for index in merged)
+    completed = (
+        lyrics
+        if len(merged) == len(original)
+        else "\n".join(written[keys[index]] for index in merged)
+    )
+    return _repeat_ending(completed, heard[matches[-1][2] :] if matches else [], cancel)
+
+
+def _repeat_ending(lyrics: str, heard: list[str], cancel: threading.Event) -> str:
+    """Recover repeated outro tails without making the singer repeat their unsung prefixes."""
+    if not heard:
+        return lyrics
+    written = {
+        _lyrics_key(tail): tail
+        for line in lyrics.splitlines()
+        for words in [line.split()]
+        for size in range(2, len(words) // 2 + 1)
+        for tail in [" ".join(words[-size:])]
+        if len(_lyrics_key(tail)) >= 8
+    }
+    keys = list(written)
+    if not keys:
+        return lyrics
+    matches = _performed_lines(keys, heard, {(i, i) for i in range(len(keys))}, cancel)
+    counts = Counter(index for index, _, _ in matches)
+    tails = [written[keys[index]] for index, _, _ in matches if counts[index] >= 2]
+    return "\n".join([lyrics, *tails]) if tails else lyrics
 
 
 _LinePath = tuple[float, tuple[tuple[int, int, int], ...]]

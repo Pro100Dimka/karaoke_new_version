@@ -214,10 +214,37 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
       { id: "c", text: "Now", start: 1, end: 2 },
       { id: "d", text: "Future", start: 2.3, end: 4 },
     ];
-    createRoot(document.getElementById("stage-test")!).render(createElement(AppProvider, null,
-      createElement(KaraokeStage, { songTitle: "Test", position: 1.2, playing: true, rate: 1,
-        document: { revision: 1, words, notes: [], lyrics: "First Second Now Future", rhythm: [[2, 1]] },
-        layers: { showLyrics: true, showNotes: false }, vocalRange: "auto" })));
+    const root = createRoot(document.getElementById("stage-test")!);
+    const render = (position: number, offset = 0) =>
+      root.render(
+        createElement(
+          AppProvider,
+          null,
+          createElement(KaraokeStage, {
+            songTitle: "Test",
+            position,
+            playing: true,
+            rate: 1,
+            document: {
+              revision: 1,
+              words: words.map((word) => ({
+                ...word,
+                start: word.start + offset,
+                end: word.end + offset,
+              })),
+              notes: [],
+              lyrics: "First Second Now Future",
+              rhythm: [[2 + offset, 1]],
+            },
+            layers: { showLyrics: true, showNotes: false },
+            vocalRange: "auto",
+          }),
+        ),
+      );
+    render(1.2);
+    window.addEventListener("test-stage-position", (event) =>
+      render((event as CustomEvent<number>).detail, 20),
+    );
   });
   const filled = page.locator(".lyrics .ad-lyrics-current");
   await expect(filled).toHaveCount(1);
@@ -253,6 +280,26 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
       (await words.nth(3).boundingBox())!.width,
     );
   }
-  expect(peakScale).toBeGreaterThan(1.015);
-  expect(peakWhiteWidth).toBeGreaterThan(whiteWidth * 1.01);
+  expect(peakScale).toBeGreaterThan(1.003);
+  expect(peakScale).toBeLessThan(1.01);
+  expect(peakWhiteWidth).toBeGreaterThan(whiteWidth * 1.003);
+  for (const [position, count] of [
+    [17.1, 3],
+    [18.1, 2],
+    [19.1, 1],
+  ]) {
+    await page.evaluate(
+      (position) =>
+        window.dispatchEvent(
+          new CustomEvent("test-stage-position", { detail: position }),
+        ),
+      position,
+    );
+    await page.clock.runFor(16);
+    await expect(page.getByRole("timer")).toHaveText(String(count));
+    await expect(page.locator(".lyrics .ad-lyric-word")).toHaveCount(0);
+  }
+  await page.clock.runFor(300);
+  await expect(page.getByRole("timer")).toHaveCount(0);
+  await expect(page.locator(".lyrics .ad-lyric-word")).toHaveCount(4);
 });

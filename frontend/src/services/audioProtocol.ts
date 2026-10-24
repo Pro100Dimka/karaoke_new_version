@@ -101,6 +101,14 @@ export const runtimeConfigurationFromDiagnostics = (
   };
   return {
     backend: backendName(values.Backend ?? "WASAPI Shared"),
+    ...Object.fromEntries(
+      Object.entries({
+        inputDeviceId: values.ActiveInputDeviceId,
+        outputDeviceId: values.ActiveOutputDeviceId,
+      }).flatMap(([key, id]) =>
+        id === undefined ? [] : [[key, id === "system-default" ? "" : id]],
+      ),
+    ),
     lowLatencyInputActive: values.LowLatencyMicrophoneActive === "1",
     lowLatencyInputFallback: values.LowLatencyMicrophoneFallback ?? "NONE",
     sampleRate,

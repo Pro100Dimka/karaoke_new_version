@@ -22,7 +22,7 @@ from backend.projects.ports import ProjectStorage
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
 from backend.text_normalization import (
     normalize_catalog_identity,
-    spell_lyric_percentages,
+    clean_lyrics,
     strip_annotations,
     strip_catalog_credits,
 )
@@ -86,9 +86,9 @@ class LyricsDiscovery:
             language = lyrics_language(song, found.lyrics).value
             found = replace(
                 found,
-                lyrics=spell_lyric_percentages(found.lyrics, language),
+                lyrics=clean_lyrics(found.lyrics, language),
                 timing_hints=tuple(
-                    replace(hint, text=spell_lyric_percentages(hint.text, language))
+                    replace(hint, text=clean_lyrics(hint.text, language))
                     for hint in found.timing_hints
                 ),
             )
@@ -115,7 +115,10 @@ class LyricsDiscovery:
                 lyrics_language(song, found.lyrics if found else ""),
                 cancel,
                 execution=execution,
-            ).strip()
+            )
+            lyrics = clean_lyrics(
+                lyrics, lyrics_language(song, found.lyrics if found else lyrics).value
+            )
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
             elif lyrics:

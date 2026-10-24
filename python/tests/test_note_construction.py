@@ -15,6 +15,21 @@ from backend.processing.algorithms import MusicMetadata, construct_document, sta
 _A4, _C5 = 440.0, 523.25
 
 
+def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line_breaks() -> None:
+    from backend.lyrics.codec import decode_document, encode_document
+
+    text = "one two three four\nfive six"
+    timings = [(0, 0.3), (0.35, 0.6), (1.1, 1.4), (1.45, 1.8), (1.85, 2.1), (2.15, 2.4)]
+    words = tuple(
+        WordTiming(word, start, end, 1)
+        for word, (start, end) in zip(text.split(), timings, strict=True)
+    )
+    document = construct_document("t", "a", 3, text, words, (), _music())
+    assert document.lyrics == "one two\nthree four\nfive six"
+    assert decode_document(encode_document(document)).lyrics == document.lyrics
+    assert [word.text for word in document.words] == text.split()
+
+
 def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> (
     None
 ):

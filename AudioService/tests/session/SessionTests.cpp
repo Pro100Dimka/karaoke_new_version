@@ -860,6 +860,100 @@ void asioMicrophoneDoesNotJumpBetweenNearlyEqualChannels() {
     }
 }
 
+void localMonitoringPreservesQuietAndNoisyHeadsetSignals() {
+    // These are signal-path simulations, not an emulation of a vendor's microphone or APO.
+    constexpr std::size_t Frames = 128;
+    constexpr float Tau = 6.283185307F;
+    const std::array layouts{std::array{1.0F, 0.0F}, std::array{0.0F, 1.0F},
+                             std::array{1.0F, -0.98F}};
+    for (const auto& layout : layouts) {
+        for (const auto level : {0.005F, 0.12F}) {
+            for (const auto gain : {1.0F, 4.0F}) {
+                RunningService fixture;
+                auto& engine = fixture.service.realtime();
+                engine.setMonitoring(true);
+                engine.setDspEnabled(true);
+                const auto noiseAmount = level > 0.02F ? 1.0F : 0.0F;
+                expect(engine.setDspParameter("noise.amount", noiseAmount),
+                       "the selected noise treatment reaches the local monitor");
+                auto gains = engine.mixerGains();
+                gains.microphone = gain;
+                engine.setMixerGains(gains);
+                std::vector<float> capture(Frames * 2), render(Frames * 2);
+                double sourcePower = 0, monitorPower = 0, correlation = 0;
+                double pausePower = 0;
+                std::uint32_t random = 12345;
+                for (int block = 0; block < 600; ++block) {
+                    std::array<float, Frames> source{};
+                    for (std::size_t frame = 0; frame < Frames; ++frame) {
+                        const auto at = static_cast<float>(block * Frames + frame);
+                        source[frame] = block < 400 ? level *
+                            (std::sin(Tau * 220.0F * at / 48000.0F) +
+                             0.25F * std::sin(Tau * 440.0F * at / 48000.0F)) : 0.0F;
+                        random = random * 1664525U + 1013904223U;
+                        const auto noise = (static_cast<float>(random >> 8U) /
+                                            8388607.5F - 1.0F) * 0.0004F;
+                        for (std::size_t channel = 0; channel < layout.size(); ++channel)
+                            capture[frame * 2 + channel] = (source[frame] + noise) *
+                                layout[channel] * (channel == 1 && block % 2 ? 1.03F : 1.0F);
+                    }
+                    fixture.fake->pump(capture, 2, render, 2, block * Frames, block * Frames);
+                    for (std::size_t frame = 0; frame < Frames; ++frame) {
+                        const auto sample = render[frame * 2];
+                        expect(std::isfinite(sample) && std::abs(sample) < 0.951F &&
+                                   sample == render[frame * 2 + 1],
+                               "simulated headset monitoring stays finite, centred and bounded");
+                        if (block >= 200 && block < 400) {
+                            sourcePower += source[frame] * source[frame];
+                            monitorPower += sample * sample;
+                            correlation += source[frame] * sample;
+                        } else if (block >= 550) {
+                            pausePower += sample * sample;
+                        }
+                    }
+                }
+                const auto levelRatio = std::sqrt(monitorPower / sourcePower) / gain;
+                expect(levelRatio > 0.85 && levelRatio < 1.1 &&
+                           correlation / std::sqrt(sourcePower * monitorPower) > 0.9,
+                       "quiet singing and a voiced noisy input retain level and waveform without channel splices");
+                if (noiseAmount > 0)
+                    expect(std::sqrt(pausePower / (50 * Frames)) < gain * 0.0001F,
+                           "selected suppression attenuates the noisy pause without a network round trip");
+                expect(engine.monitoring() && engine.mixerGains().microphone == gain,
+                       "local monitoring preserves the user's microphone gain and remains active");
+            }
+        }
+    }
+}
+
+void localMicrophoneDoesNotBecomeSurroundOrLfeAudio() {
+    for (const auto channels : {1U, 2U, 6U, 8U}) {
+        FakeBackendSettings settings;
+        settings.runtime.outputChannels = channels;
+        settings.capabilities.outputChannels = channels;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        auto* fake = backend.get();
+        AudioService service(std::move(backend));
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        service.session().start();
+        service.realtime().setMonitoring(true);
+        std::vector<float> capture(128, 0.1F), render(128 * channels);
+        for (int block = 0; block < 100; ++block)
+            fake->pump(capture, 1, render, channels, block * 128, block * 128);
+        for (std::uint32_t channel = 0; channel < channels; ++channel) {
+            expect(std::abs(render[64 * channels + channel] - (channel < 2 ? 0.1F : 0.0F)) < 1.0e-5F,
+                   "mono, stereo and surround devices hear the local voice only at the front");
+        }
+        service.realtime().setMonitoring(false);
+        fake->pump(capture, 1, render, channels, 12800, 12800);
+        expect(std::ranges::all_of(render, [](float sample) { return sample == 0.0F; }),
+               "disabling monitoring silences every output channel");
+        expect(service.realtime().snapshot().inputChannelRms[0] > 0.09F,
+               "monitor routing does not attenuate or replace the captured analysis input");
+    }
+}
+
 // Energy of the monitored voice after the input has gone silent: only an effect tail can still be
 // heard.
 float monitoredTailEnergy(bool effectOn, bool effectsFirst = false) {

@@ -17,6 +17,21 @@ const request: RequestedAudioConfiguration = {
 };
 
 describe("audio configuration transformations", () => {
+  it("shows active fallback endpoints without overwriting the saved device choice", () => {
+    const runtime = {
+      backend: "WASAPI Shared" as const, sampleRate: 48000, periodFrames: 480,
+      endpointBufferFrames: 960, estimatedLatencyMs: 20,
+      inputDeviceId: "", outputDeviceId: "actual-speakers",
+    };
+    expect(displayedAudioValues(request, runtime, true)).toMatchObject({
+      inputDeviceId: "", outputDeviceId: "actual-speakers",
+    });
+    expect(displayedAudioValues(request, runtime, false)).toMatchObject({
+      inputDeviceId: "mic-1", outputDeviceId: "out-1",
+    });
+    expect(request.inputDeviceId).toBe("mic-1");
+    expect(request.outputDeviceId).toBe("out-1");
+  });
   it("round-trips a request with explicit devices", () => {
     expect(toAudioRequest(toAudioValues(request))).toEqual(request);
   });

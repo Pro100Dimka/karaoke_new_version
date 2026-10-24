@@ -56,14 +56,15 @@ export const changeAudioValue = <K extends keyof AudioValues>(
 
 export const toAudioValues = (
   request: RequestedAudioConfiguration,
+  active?: RuntimeAudioConfiguration,
 ): AudioValues => ({
   backend: request.backend,
   sampleRate: request.sampleRate,
   periodFrames: request.periodFrames,
   inputPeriodFrames: request.inputPeriodFrames ?? 0,
   bufferFrames: request.bufferFrames ?? request.periodFrames,
-  inputDeviceId: request.inputDeviceId ?? "",
-  outputDeviceId: request.outputDeviceId ?? "",
+  inputDeviceId: active?.inputDeviceId ?? request.inputDeviceId ?? "",
+  outputDeviceId: active?.outputDeviceId ?? request.outputDeviceId ?? "",
   lowLatencyInput: request.lowLatencyInput === true,
 });
 
@@ -83,15 +84,16 @@ export const toAudioRequest = (
     values.lowLatencyInput && { lowLatencyInput: true }),
 });
 
-/** Show the negotiated timing without modifying the persisted request. */
+/** Show active endpoints and negotiated timing without modifying the persisted request. */
 export const displayedAudioValues = (
   request: RequestedAudioConfiguration,
   runtime: RuntimeAudioConfiguration,
   useRuntime: boolean,
 ): AudioValues => {
-  const values = toAudioValues(request);
-  if (!useRuntime || (request.backend === "ASIO" && runtime.backend !== "ASIO"))
-    return values;
+  const actual =
+    useRuntime && (request.backend !== "ASIO" || runtime.backend === "ASIO");
+  const values = toAudioValues(request, actual ? runtime : undefined);
+  if (!actual) return values;
   values.backend = runtime.backend;
   if (runtime.sampleRate > 0) values.sampleRate = runtime.sampleRate;
   if (runtime.backend === "WASAPI Shared")

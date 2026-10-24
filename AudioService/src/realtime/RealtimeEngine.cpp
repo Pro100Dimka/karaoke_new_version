@@ -874,7 +874,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                 const auto limit = cautious ? 0.9F : 0.95F;
                 for (std::uint32_t frame = 0; frame < buffer.frames; ++frame) {
                     monitorStartupGain_ = std::min(1.0F, monitorStartupGain_ + fadeStep);
-                    for (std::uint32_t channel = 0; channel < buffer.channels; ++channel) {
+                    // A centred local voice belongs to the front pair, not rear speakers or LFE.
+                    // Keep the captured/analysis PCM unchanged; route only this monitor tap.
+                    for (std::uint32_t channel = 0; channel < std::min(buffer.channels, 2U);
+                         ++channel) {
                         const auto index = static_cast<std::size_t>(frame) * buffer.channels + channel;
                         const auto value = mic[index] * gains.microphone * monitorStartupGain_;
                         const auto magnitude = std::abs(value);

@@ -14,6 +14,28 @@ afterEach(() => {
   vi.mocked(CanvasLightRenderer.create).mockClear();
 });
 
+it("limits lyric enlargement to less than one percent even on the strongest beat", () => {
+  const host = document.createElement("main");
+  const engine = {
+    onCommand: () => () => {},
+    state: {
+      musicBeat: 1,
+      settings: { reducedMotion: false },
+      ambient: { rollGlow: 0, consoleGlow: 0 },
+    },
+  } as unknown as ShowEngine;
+  const renderer = new StageFxRenderer(
+    document.createElement("canvas"),
+    engine,
+    host,
+  );
+  (renderer as unknown as { applyStyles(): void }).applyStyles();
+  const pulse = Number(host.style.getPropertyValue("--show-music-beat"));
+  expect(pulse).toBeGreaterThan(0.3);
+  expect(1 + pulse * 0.022).toBeLessThan(1.01);
+  renderer.stop();
+});
+
 it("reacts to isolated rhythm with zero performance energy and no microphone pitch", () => {
   const engine = new ShowEngine();
   engine.load([], [], new Map(), true, undefined, [[0.032, 1]]);
@@ -59,13 +81,13 @@ it("publishes the musical pulse for lyrics without moving the video", () => {
   command({ kind: "beatPulse", at: 0, strength: 1 });
   const stage = renderer as unknown as { applyStyles(): void };
   stage.applyStyles();
-  expect(Number(host.style.getPropertyValue("--show-music-beat"))).toBe(0.8);
+  expect(Number(host.style.getPropertyValue("--show-music-beat"))).toBe(0.32);
   expect(host.style.getPropertyValue("--show-video-scale")).toBe("");
   command({ kind: "noteGlow", at: 0, strength: 1 });
   command({ kind: "phraseSweep", at: 0, strength: 1 });
   stage.applyStyles();
   expect(host.style.getPropertyValue("--show-lyric-glow")).toBe("");
-  expect(Number(host.style.getPropertyValue("--show-music-beat"))).toBe(0.8);
+  expect(Number(host.style.getPropertyValue("--show-music-beat"))).toBe(0.32);
   renderer.stop();
 });
 

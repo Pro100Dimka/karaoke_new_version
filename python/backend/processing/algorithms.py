@@ -75,12 +75,31 @@ def construct_document(
         duration,
         music.bpm,
         music.key,
-        lyrics,
+        _phrase_lines(lyrics, words),
         mapped_words,
         _vocal_activity(pitch, duration),
     )
     document.validate()
     return document
+
+
+def _phrase_lines(lyrics: str, words: Sequence[WordTiming]) -> str:
+    """Persist readable phrases at written boundaries, breaths, and the eight-word limit."""
+    boundaries: set[int] = set()
+    count = 0
+    for line in lyrics.splitlines():
+        count += len(line.split())
+        boundaries.add(count)
+    if count != len(words):
+        return lyrics
+    lines: list[list[str]] = []
+    for index, word in enumerate(words):
+        if not lines or (
+            index in boundaries or len(lines[-1]) >= 8 or word.start - words[index - 1].end >= 0.35
+        ):
+            lines.append([])
+        lines[-1].append(word.text)
+    return "\n".join(" ".join(line) for line in lines)
 
 
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequence[Note]) -> Word:

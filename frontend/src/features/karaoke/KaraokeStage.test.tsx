@@ -87,6 +87,10 @@ describe("KaraokeStage", () => {
     expect(view.container.querySelector(".pianoRoll")).toHaveStyle({ opacity: "0" });
     view.rerender(stage(17.5));
     expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    expect(screen.getByRole("timer")).toHaveTextContent("3");
+    expect(view.container.querySelector(".lyrics .ad-lyric-word")).toBeNull();
+    view.rerender(stage(19.4));
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
     expect(screen.getAllByText("Distant").length).toBeGreaterThan(0);
     view.rerender(stage(25));
     expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();

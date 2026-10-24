@@ -189,6 +189,7 @@ struct Client : ComStub<IAudioClient3> {
     bool output;
     bool failPeriodQuery{false}, failStart{false}, silentEvents{false}, failMix{false};
     bool mediaCategory{false}, mediaPeriodRequired{false};
+    AUDCLNT_STREAMOPTIONS streamOptions{AUDCLNT_STREAMOPTIONS_NONE};
     WAVEFORMATEX* lastMix{nullptr};
     UINT32 selectedPeriod{0}, pad{0}, fundamental{64}, minimum{64}, maximum{512},
         unsupportedRate{0}, lockedPeriod{0}, minimumCpuPeriod{0};
@@ -310,9 +311,9 @@ struct Client : ComStub<IAudioClient3> {
     }
     HRESULT STDMETHODCALLTYPE
     SetClientProperties(const AudioClientProperties* properties) override {
+        streamOptions = properties ? properties->Options : AUDCLNT_STREAMOPTIONS_NONE;
         mediaCategory = properties && properties->eCategory == AudioCategory_Media &&
-                        !properties->bIsOffload &&
-                        properties->Options == AUDCLNT_STREAMOPTIONS_NONE;
+                        !properties->bIsOffload;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetBufferSizeLimits(const WAVEFORMATEX*, BOOL, REFERENCE_TIME*,
@@ -357,15 +358,38 @@ struct Client : ComStub<IAudioClient3> {
         return S_OK;
     }
 };
+struct Properties : ComStub<IPropertyStore> {
+    bool rawSupported{false};
+    HRESULT STDMETHODCALLTYPE GetCount(DWORD* count) override {
+        *count = 1;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE GetAt(DWORD, PROPERTYKEY*) override {
+        return E_NOTIMPL;
+    }
+    HRESULT STDMETHODCALLTYPE GetValue(REFPROPERTYKEY, PROPVARIANT* value) override {
+        PropVariantInit(value);
+        value->vt = VT_BOOL;
+        value->boolVal = rawSupported ? VARIANT_TRUE : VARIANT_FALSE;
+        return S_OK;
+    }
+    HRESULT STDMETHODCALLTYPE SetValue(REFPROPERTYKEY, REFPROPVARIANT) override {
+        return E_NOTIMPL;
+    }
+    HRESULT STDMETHODCALLTYPE Commit() override {
+        return E_NOTIMPL;
+    }
+};
 struct Device : ComStub<IMMDevice> {
     Client client;
+    Properties properties;
     explicit Device(bool output) : client(output) {}
     HRESULT STDMETHODCALLTYPE Activate(REFIID id, DWORD, PROPVARIANT*, void** value) override {
         return client.QueryInterface(id, value);
     }
     HRESULT STDMETHODCALLTYPE OpenPropertyStore(DWORD, IPropertyStore** value) override {
-        *value = nullptr;
-        return E_NOTIMPL;
+        *value = &properties;
+        return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetId(LPWSTR*) override {
         return E_NOTIMPL;
@@ -832,9 +856,53 @@ void Tests::wasapiReportsWhyRawCouldNotBeEnabled() {
     Fixture fixture;
     (void)fixture.backend.open(fixture.request());
     const auto state = fixture.backend.snapshot();
-    expect(state.inputRawReason == "RAW_PROPERTY_UNAVAILABLE" &&
+    expect(state.inputRawReason == "WINDOWS_PROCESSING" &&
                state.outputRawReason == "RAW_PROPERTY_UNAVAILABLE",
-           "a non-RAW endpoint explains why Windows processing was not bypassed");
+           "capture retains Windows processing while render reports unavailable RAW support");
+}
+
+void Tests::wasapiSharedMicrophoneKeepsWindowsProcessingWithoutBrandRules() {
+    for (const auto rawSupported : {false, true}) {
+        Fixture fixture;
+        fixture.input.properties.rawSupported = rawSupported;
+        fixture.output.properties.rawSupported = rawSupported;
+        const auto request = fixture.request();
+        (void)fixture.backend.queryCapabilities(request);
+        expect(fixture.input.client.streamOptions == AUDCLNT_STREAMOPTIONS_NONE,
+               "ordinary microphone capabilities must retain Windows processing even with RAW support");
+        (void)fixture.backend.open(request);
+        const auto snapshot = fixture.backend.snapshot();
+        expect(fixture.input.client.streamOptions == AUDCLNT_STREAMOPTIONS_NONE &&
+                   !snapshot.inputRaw,
+               "ordinary capture must not silently remove the microphone's Windows processing");
+        expect(fixture.output.client.streamOptions == (rawSupported ? AUDCLNT_STREAMOPTIONS_RAW
+                                                                   : AUDCLNT_STREAMOPTIONS_NONE),
+               "microphone compatibility must not change the render processing policy");
+    }
+}
+
+void Tests::wasapiBusyLowLatencyMicrophoneRestoresWindowsProcessing() {
+    Fixture fixture;
+    fixture.input.properties.rawSupported = true;
+    fixture.input.client.exclusiveResult = AUDCLNT_E_DEVICE_IN_USE;
+    auto request = fixture.request();
+    request.exclusiveInput = true;
+    (void)fixture.backend.open(request);
+    const auto snapshot = fixture.backend.snapshot();
+    expect(!snapshot.inputExclusive && !snapshot.inputRaw &&
+               fixture.input.client.streamOptions == AUDCLNT_STREAMOPTIONS_NONE,
+           "a busy low-latency input must fall back to ordinary Windows-processed capture");
+}
+
+void Tests::wasapiExclusiveMicrophoneReportsTheProcessingBypass() {
+    Fixture fixture;
+    auto request = fixture.request();
+    request.exclusiveInput = true;
+    (void)fixture.backend.open(request);
+    const auto snapshot = fixture.backend.snapshot();
+    expect(snapshot.inputExclusive && snapshot.inputRaw &&
+               snapshot.inputRawReason == "EXCLUSIVE_CAPTURE",
+           "exclusive capture must report its processing bypass even without a shared RAW flag");
 }
 
 void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {
@@ -1208,6 +1276,9 @@ void Tests::wasapiBusyMicrophoneFallsBackToSharedInput() {
     fixture.backend.close();
 }
 #else
+void Tests::wasapiSharedMicrophoneKeepsWindowsProcessingWithoutBrandRules() {}
+void Tests::wasapiBusyLowLatencyMicrophoneRestoresWindowsProcessing() {}
+void Tests::wasapiExclusiveMicrophoneReportsTheProcessingBypass() {}
 void Tests::wasapiLowLatencyMicrophoneUsesTheDriversMinimumPeriod() {}
 void Tests::wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning() {}
 void Tests::wasapiLowLatencyMicrophoneOpensOnlyTheInputExclusively() {}

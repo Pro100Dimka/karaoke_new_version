@@ -47,7 +47,7 @@ export const voiceEffects: readonly VoiceEffect[] = [
     label: "effectDelay",
     parameter: "delay.ms",
     parameterScale: 500,
-    min: 0.02,
+    min: 0,
     max: 1,
     step: 0.01,
     initial: 0,

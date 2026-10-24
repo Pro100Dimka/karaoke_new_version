@@ -162,7 +162,7 @@ export class ShowEngine {
     }
     const beat = this.rhythm[low - 1];
     const age = beat ? position - beat[0] : Infinity;
-    return beat && age < 0.16 ? beat[1] * Math.exp(-age / 0.055) : 0;
+    return beat && age < 0.1 ? beat[1] * Math.exp(-age / 0.03) : 0;
   }
 
   onCommand(listener: CommandListener): () => void {

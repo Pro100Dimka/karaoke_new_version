@@ -18,12 +18,25 @@ const music = (intensity = 1): MusicState => ({
 });
 
 describe("lyrics rhythm", () => {
+  it("keeps the hit crisp instead of swelling through the next tenth of a second", () => {
+    const engine = new ShowEngine();
+    engine.load([], [], new Map(), true, undefined, [[1, 1]]);
+    engine.advance(0, 1, undefined, true);
+    expect(engine.state.musicBeat).toBe(1);
+    engine.advance(16, 1.016, undefined, true);
+    expect(engine.state.musicBeat).toBeGreaterThan(0.45);
+    engine.advance(64, 1.064, undefined, true);
+    expect(engine.state.musicBeat).toBeLessThan(0.15);
+    engine.advance(100, 1.1, undefined, true);
+    expect(engine.state.musicBeat).toBe(0);
+  });
+
   it("keeps a strong short hit at a normal animation-frame interval", () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [[1, 1]]);
     engine.advance(0, 0.99, undefined, true);
     engine.advance(16, 1.016, undefined, true);
-    expect(engine.state.musicBeat).toBeGreaterThan(0.7);
+    expect(engine.state.musicBeat).toBeGreaterThan(0.45);
   });
 
   it("does not bounce to arbitrary backing sounds without isolated rhythm evidence", () => {

@@ -15,7 +15,7 @@ import {
   type AudioCommit,
 } from "../model/audioConfiguration";
 
-/** The view subscribes to the session; displayed runtime values never become a request draft. */
+/** The view subscribes to the session; negotiated timing remains display-only. */
 export const useAudioSettings = (enabled = true) => {
   const audio = useSettingsAudio();
   const { preferences, updatePreferences } = useApp("preferences");
@@ -43,7 +43,14 @@ export const useAudioSettings = (enabled = true) => {
   const commit: AudioCommit = (name, value) => {
     const current = session.getSnapshot();
     const request = toAudioRequest(
-      changeAudioValue(toAudioValues(current.requested), name, value),
+      changeAudioValue(
+        toAudioValues(
+          current.requested,
+          current.audioAvailable && !current.asioUnavailable ? current.runtime : undefined,
+        ),
+        name,
+        value,
+      ),
     );
     if (request.backend === "ASIO") request.userSelectedAsio = true;
     if (

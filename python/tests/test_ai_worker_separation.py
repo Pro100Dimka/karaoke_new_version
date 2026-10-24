@@ -3,6 +3,25 @@ from __future__ import annotations
 from backend.ai_worker.separation import _parallelism
 
 
+def test_bright_cymbal_transients_do_not_masquerade_as_snare_hits() -> None:
+    import numpy as np
+    import torch
+    from scipy.signal import butter, sosfilt
+    from backend.ai_worker.separation import _rhythm
+
+    rate = 16000
+    time = np.arange(rate * 3) / rate
+    sources = torch.zeros((4, 2, len(time)))
+    bright = sosfilt(
+        butter(4, 2500, btype="highpass", fs=rate, output="sos"),
+        np.random.default_rng(42).normal(size=len(time)),
+    )
+    for at in [0.2, 0.7, 1.2, 1.7, 2.2]:
+        envelope = np.where(time >= at, np.exp(-np.maximum(0, time - at) / 0.05), 0)
+        sources[0] += torch.tensor(bright * envelope * 0.6)
+    assert _rhythm(sources, ["drums", "bass", "other", "vocals"], rate) == []
+
+
 def test_rhythm_uses_only_bass_kick_and_snare_not_melody_or_cymbals() -> None:
     import numpy as np
     import torch

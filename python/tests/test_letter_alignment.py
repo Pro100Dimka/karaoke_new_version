@@ -24,6 +24,57 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_replies() -> None:
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.recognition import contextual_guidance
+
+    words = ["дозволиш", "мені"] * 4
+    windows = [
+        Window(i * 2, i * 2 + 2, start, end, start + 0.6)
+        for i, (start, end) in enumerate(
+            [(228, 231.68), (232.14, 235.24), (234.04, 237), (235.8, 238.8)]
+        )
+    ]
+    whole = [
+        AlignedWord(word, 243 + i * 0.3, 243.2 + i * 0.3, (), 0.02) for i, word in enumerate(words)
+    ]
+    timings = {1: (230.52, 231.08), 3: (234.08, 234.64), 5: (235.86, 236.4), 7: (237.66, 238.2)}
+    # Native Whisper on the actual Motor'rolla outro, independently decoded with neighbouring lyrics.
+    spans = [
+        (229.98, 231.38),
+        (231.38, 232.78),
+        (232.78, 233.98),
+        (233.98, 235),
+        (236.4, 237.54),
+        (237.54, 238.22),
+        (239.78, 241.18),
+        (241.18, 241.94),
+    ]
+    result = {
+        "segments": [
+            {
+                "words": [
+                    {"word": word, "start": a, "end": b}
+                    for word, (a, b) in zip(words, spans, strict=True)
+                ]
+            }
+        ]
+    }
+    activity = np.zeros(25000, dtype=bool)
+    activity[22900:24260] = True
+    revised, supported = contextual_guidance(
+        words,
+        windows,
+        whole,
+        timings,
+        activity,
+        lambda contexts: {"contexts": [result for _ in contexts]},
+    )
+    assert supported[6] == pytest.approx(spans[6])
+    assert supported[7] == pytest.approx(spans[7])
+    assert revised[-1].heard_start == pytest.approx(239.78)
+
+
 def test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_phrase():
     from backend.ai_worker.speech import _alignment_windows
 

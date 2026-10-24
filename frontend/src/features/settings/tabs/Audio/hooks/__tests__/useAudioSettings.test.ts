@@ -110,6 +110,26 @@ it("reports an output test failure without changing the requested configuration"
   expect(state.updatePreferences).not.toHaveBeenCalled();
 });
 
+it("lets the user replace a fallback input without reopening the missing saved output", async () => {
+  state.audio = {
+    ...state.audio, backend: "WASAPI Shared",
+    inputDeviceId: "missing-mic", outputDeviceId: "missing-speakers",
+  };
+  state.runtime = {
+    ...state.runtime, backend: "WASAPI Shared", inputDeviceId: "", outputDeviceId: "",
+  };
+  state.devices = [{ id: "new-mic", name: "Microphone", backend: "WASAPI Shared", kind: "input", channels: 1 }];
+  state.apply.mockResolvedValue(state.runtime);
+  const { result } = await loadSettings();
+  expect(result.current.audio.values.outputDeviceId).toBe("");
+  act(() => result.current.audio.onAudioCommit("inputDeviceId", "new-mic"));
+  await waitFor(() => expect(state.apply).toHaveBeenCalled());
+  expect(state.apply).toHaveBeenCalledWith(expect.objectContaining({
+    inputDeviceId: "new-mic", outputDeviceId: undefined,
+  }));
+  expect(state.audio.outputDeviceId).toBe("missing-speakers");
+});
+
 it("releases the current driver before probing a newly selected ASIO driver", async () => {
   state.audio = {
     ...state.audio,

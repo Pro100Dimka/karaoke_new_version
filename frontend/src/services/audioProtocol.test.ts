@@ -6,6 +6,11 @@ import {
 } from "./audioProtocol";
 
 describe("device format capabilities", () => {
+  it("reports the active endpoints after startup falls back to Windows defaults", () => {
+    expect(runtimeConfigurationFromDiagnostics({
+      ActiveInputDeviceId: "system-default", ActiveOutputDeviceId: "actual-speakers",
+    })).toMatchObject({ inputDeviceId: "", outputDeviceId: "actual-speakers" });
+  });
   it("lists the sample rates and buffers the selected device offers", () => {
     expect(
       audioCapabilitiesFromValues(

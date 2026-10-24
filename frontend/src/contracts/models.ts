@@ -120,6 +120,9 @@ export interface RequestedAudioConfiguration {
 
 /** What AudioService actually runs with. */
 export interface RuntimeAudioConfiguration {
+  /** Active endpoint route; "" means system default, undefined means not reported. */
+  inputDeviceId?: string;
+  outputDeviceId?: string;
   /** Changes whenever the actual audio streams are reopened, including device recovery. */
   calibrationContext?: string;
   calibratedLatencyMs?: number;

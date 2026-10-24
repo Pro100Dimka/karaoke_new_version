@@ -61,13 +61,9 @@ OwnedWaveFormat mixFormat(IAudioClient* client) {
         throw std::runtime_error("endpoint returned no mix format");
     return owned;
 }
-// RAWMode feature flag: shared streams skip the Windows signal processing where the endpoint
-// supports it. On the microphone, echo cancellation, noise suppression and beamforming buffer the
-// voice (tens of ms on laptop microphones) and remove the speaker sound the acoustic latency meter
-// listens for. On the output, the vendor's enhancement effects buffer the song and voices the same
-// way, and while they are in the path Windows offers no shared period below its default (10 ms).
-// Speaker protection is an endpoint effect and stays active in RAW mode.
-constexpr bool RawProcessingMode = true;
+// Ordinary capture retains the microphone processing configured in Windows. Forcing RAW removes
+// headset gain/noise processing before the app receives the voice. The explicit exclusive-input
+// option still bypasses that processing for minimum latency. Render keeps its existing RAW policy.
 
 // System.Devices.AudioDevice.RawProcessingSupported (propkey.h), spelled out so no extra SDK
 // header or GUID library is needed.
@@ -89,7 +85,7 @@ bool rawProcessingSupported(IMMDevice* device) {
 // Processing mode affects the periods reported by the engine, so capabilities are queried with
 // the same properties the stream is opened with.
 // Returns whether the stream bypasses the Windows signal processing (RAW).
-bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device,
+bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device, Direction direction,
                                 std::string_view* reason = nullptr) {
     ComPtr<IAudioClient2> client2;
     if (FAILED(client->QueryInterface(IID_PPV_ARGS(&client2)))) {
@@ -97,7 +93,7 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device,
             *reason = "IAUDIOCLIENT2_UNAVAILABLE";
         return false;
     }
-    const auto raw = RawProcessingMode && rawProcessingSupported(device);
+    const auto raw = direction == Direction::Output && rawProcessingSupported(device);
     AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
                                      raw ? AUDCLNT_STREAMOPTIONS_RAW : AUDCLNT_STREAMOPTIONS_NONE};
     if (raw && SUCCEEDED(client2->SetClientProperties(&properties))) {
@@ -105,8 +101,14 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device,
             *reason = "ENABLED";
         return true;
     }
-    if (reason)
-        *reason = raw ? "RAW_REQUEST_REJECTED" : "RAW_PROPERTY_UNAVAILABLE";
+    if (reason) {
+        const std::array reasons{
+            std::pair{direction == Direction::Input, "WINDOWS_PROCESSING"},
+            std::pair{raw, "RAW_REQUEST_REJECTED"},
+            std::pair{true, "RAW_PROPERTY_UNAVAILABLE"},
+        };
+        *reason = std::ranges::find_if(reasons, [](const auto& item) { return item.first; })->second;
+    }
     properties.Options = AUDCLNT_STREAMOPTIONS_NONE;
     check(client2->SetClientProperties(&properties), "shared media properties failed");
     return false;
@@ -705,6 +707,7 @@ struct WasapiBackend::Impl {
               "render client activation failed");
         if (mode == WasapiMode::Shared)
             outputRaw.store(configureSharedMediaClient(outputClient.Get(), outputDevice.Get(),
+                                                       Direction::Output,
                                                        &outputRawReason),
                             std::memory_order_relaxed);
         check(outputClient->GetMixFormat(&outputFormat), "render format failed");
@@ -712,6 +715,7 @@ struct WasapiBackend::Impl {
             check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
                   "capture client activation failed");
             inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
+                                                      Direction::Input,
                                                       &inputRawReason),
                            std::memory_order_relaxed);
             check(inputClient->GetMixFormat(&inputFormat), "capture format failed");
@@ -787,6 +791,7 @@ struct WasapiBackend::Impl {
         check(inputDevice->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inputClient),
               "capture client activation failed");
         inputRaw.store(configureSharedMediaClient(inputClient.Get(), inputDevice.Get(),
+                                                  Direction::Input,
                                                   &inputRawReason),
                        std::memory_order_relaxed);
     }
@@ -824,6 +829,8 @@ struct WasapiBackend::Impl {
             CoTaskMemFree(inputFormat);
             inputFormat = inputNative;
             exclusiveCapture = true;
+            inputRaw.store(true, std::memory_order_relaxed);
+            inputRawReason = "EXCLUSIVE_CAPTURE";
             exclusiveInputFallback = "NONE";
             exclusiveInputPeriodChoice = periods[index] == 0 ? "DEVICE_MINIMUM" : "DEVICE_DEFAULT";
             UINT32 bufferFrames = 0;
@@ -1487,9 +1494,9 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         check(in->Activate(__uuidof(IAudioClient), CLSCTX_ALL, nullptr, &inClient),
               "capture client activation failed");
     if (impl_->mode == WasapiMode::Shared)
-        configureSharedMediaClient(outClient.Get(), out.Get());
+        configureSharedMediaClient(outClient.Get(), out.Get(), Direction::Output);
     if (inClient)
-        configureSharedMediaClient(inClient.Get(), in.Get());
+        configureSharedMediaClient(inClient.Get(), in.Get(), Direction::Input);
     const auto inputFormat =
         inClient ? mixFormat(inClient.Get()) : OwnedWaveFormat(nullptr, &CoTaskMemFree);
     const auto outputFormat = mixFormat(outClient.Get());

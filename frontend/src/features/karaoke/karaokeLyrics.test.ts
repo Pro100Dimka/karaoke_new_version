@@ -226,6 +226,18 @@ describe("karaoke lyrics model", () => {
   });
 
   describe("upcomingLinePhase", () => {
+    it("shows countdown alone, then readable lyrics before the vocal entry", () => {
+      const lines = [line(20, 23)];
+      for (const position of [17.1, 18.1, 19.1]) {
+        expect(upcomingLinePhase(lines, 0, position)).toMatchObject({
+          kind: "countdown",
+          countdown: Math.ceil(20 - position),
+        });
+      }
+      expect(upcomingLinePhase(lines, 0, 19.4)).toEqual({ kind: "text" });
+      expect(upcomingLinePhase(lines, 0, 20)).toEqual({ kind: "text" });
+    });
+
     it("is always just text across an ordinary short gap between lines", () => {
       const lines = [line(0, 2), line(5, 8)];
       for (const position of [2.5, 3, 4, 4.9]) {
@@ -233,15 +245,15 @@ describe("karaoke lyrics model", () => {
       }
     });
 
-    it("clears a long instrumental gap, brings the line back early, then counts 4-3-2-1 over it", () => {
+    it("clears a long instrumental gap, counts 3-2-1, then previews the next line", () => {
       const lines = [line(0, 2), line(20, 23)]; // 18 s gap: well past the long-gap threshold
       expect(upcomingLinePhase(lines, 1, 3)).toEqual({ kind: "empty" });
       expect(upcomingLinePhase(lines, 1, 16.9)).toEqual({ kind: "empty" });
-      const counts = [17.1, 18.1, 19.1, 19.9].map(
+      const counts = [17.1, 18.1, 19.1].map(
         (position) => upcomingLinePhase(lines, 1, position).countdown,
       );
-      expect(counts).toEqual([3, 2, 1, 1]);
-      expect(upcomingLinePhase(lines, 1, 17.5).kind).toBe("text"); // the words stay up while counting
+      expect(counts).toEqual([3, 2, 1]);
+      expect(upcomingLinePhase(lines, 1, 17.5).kind).toBe("countdown");
       expect(upcomingLinePhase(lines, 1, 20)).toEqual({ kind: "text" }); // singing now: no count
     });
 
@@ -249,7 +261,7 @@ describe("karaoke lyrics model", () => {
       const lines = [line(20, 23)];
       expect(upcomingLinePhase(lines, 0, 3)).toEqual({ kind: "empty" });
       expect(upcomingLinePhase(lines, 0, 18.5)).toEqual({
-        kind: "text",
+        kind: "countdown",
         countdown: 2,
       });
     });

@@ -1,9 +1,27 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useVoiceEffects } from "./useVoiceEffects";
-import { type VoiceEffectValues } from "./voiceEffects";
+import { voiceEffects, type VoiceEffectValues } from "./voiceEffects";
 
 describe("useVoiceEffects", () => {
+  it("lets the delay knob reach zero and stores zero without a minimum offset", () => {
+    expect(voiceEffects.find((effect) => effect.id === "delay")?.min).toBe(0);
+    const store = vi.fn();
+    const { result } = renderHook(() =>
+      useVoiceEffects(
+        { echo: 0.2, reverb: 0, delay: 0.02, autoTune: 0 },
+        store,
+      ),
+    );
+    act(() => result.current.change("delay", 0));
+    expect(store).toHaveBeenLastCalledWith({
+      echo: 0.2,
+      reverb: 0,
+      delay: 0,
+      autoTune: 0,
+    });
+  });
+
   it("shows the stored knob values and reports every change for storing", () => {
     const saved: VoiceEffectValues = {
       echo: 0.21,

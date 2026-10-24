@@ -93,15 +93,15 @@ export const currentLineIndex = (
 };
 
 export interface LineDisplayPhase {
-  kind: "text" | "empty";
+  kind: "text" | "countdown" | "empty";
   opacity?: number;
   /** Three seconds of lead-in, counting down to the next vocal entry. */
   countdown?: number;
 }
 
 /**
- * Clears both panels after three silent seconds, including the outro. Upcoming words return three
- * seconds before entry; ordinary short gaps retain their text without a countdown.
+ * Counts down alone after a long gap, then gives the singer time to read before entry.
+ * Ordinary short gaps retain their text without a countdown.
  */
 export const upcomingLinePhase = (
   lines: readonly LyricLine[],
@@ -113,17 +113,23 @@ export const upcomingLinePhase = (
   const previousEnd = lines[lineIndex - 1]?.end ?? 0;
   const longGap = line.start - previousEnd > lyricSilenceSeconds;
   const secondsUntilStart = line.start - position;
-  const kind = position >= line.end + lyricSilenceSeconds ||
-    (longGap && secondsUntilStart > lyricSilenceSeconds) ? "empty" : "text";
-  const counting = kind === "text" && longGap && secondsUntilStart > 0;
+  const kind = (
+    [
+      ["empty", position >= line.end + lyricSilenceSeconds || (longGap && secondsUntilStart > lyricSilenceSeconds)],
+      ["countdown", longGap && secondsUntilStart > 0.65],
+    ] as const
+  ).find(([, active]) => active)?.[0] ?? "text";
   const followedBySilence = (lines[lineIndex + 1]?.start ?? Infinity) - line.end > lyricSilenceSeconds;
   const fadeOut = followedBySilence ? (line.end + lyricSilenceSeconds - position) / 0.7 : 1;
-  const fadeIn = counting ? (lyricSilenceSeconds - secondsUntilStart) / 0.45 : 1;
+  const fadeIn =
+    kind === "countdown" ? (lyricSilenceSeconds - secondsUntilStart) / 0.45 : 1;
   const opacity = Math.max(0, Math.min(1, fadeOut, fadeIn));
   return {
     kind,
-    ...(kind === "text" && opacity < 1 ? { opacity } : {}),
-    ...(counting ? { countdown: Math.ceil(secondsUntilStart) } : {}),
+    ...(kind !== "empty" && opacity < 1 ? { opacity } : {}),
+    ...(kind === "countdown"
+      ? { countdown: Math.ceil(secondsUntilStart) }
+      : {}),
   };
 };
 
