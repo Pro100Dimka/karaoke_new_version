@@ -24,6 +24,73 @@ const installBridge = (
 };
 
 describe("pythonClient contract", () => {
+  it.each(["export", "import"] as const)(
+    "follows library %s progress until the completed report",
+    async (action) => {
+      let reads = 0;
+      const progress = vi.fn();
+      const report: Record<string, unknown> = {
+        export: { path: "E:/exports/library.zip" },
+        import: { imported: 2, skipped: 1 },
+      }[action];
+      const calls = installBridge((call) => {
+        if (call.path === `/packages/library/${action}`)
+          return {
+            ok: true,
+            status: 202,
+            body: { jobId: "library-job", state: "Queued" },
+          };
+        return {
+          ok: true,
+          status: 200,
+          body: {
+            jobId: "library-job",
+            state: ++reads >= 2 ? "Succeeded" : "Running",
+            overallProgress: reads >= 2 ? 1 : 0.25,
+            report,
+          },
+        };
+      });
+      const result =
+        action === "export"
+          ? await pythonClient.exportLibrary(progress)
+          : await pythonClient.importLibrary(
+              "E:/downloads/library.zip",
+              progress,
+            );
+      expect(result).toEqual(action === "export" ? report.path : report);
+      expect(progress.mock.calls.map(([job]) => job.progress)).toEqual([
+        25, 100,
+      ]);
+      expect(calls[0]).toMatchObject({
+        method: "POST",
+        path: `/packages/library/${action}`,
+        ...(action === "import"
+          ? { body: { path: "E:/downloads/library.zip" } }
+          : {}),
+      });
+    },
+  );
+
+  it("rejects a failed library export instead of returning an archive path", async () => {
+    installBridge((call) => ({
+      ok: true,
+      status: 200,
+      body:
+        call.method === "POST"
+          ? { jobId: "library-job", state: "Queued" }
+          : {
+              jobId: "library-job",
+              state: "Failed",
+              error: { code: "StorageUnavailable", message: "Disk full" },
+            },
+    }));
+    await expect(pythonClient.exportLibrary()).rejects.toMatchObject({
+      code: "StorageUnavailable",
+      message: "Disk full",
+    });
+  });
+
   const model = {
     id: "test-model",
     purpose: "ASR",

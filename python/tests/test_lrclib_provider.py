@@ -451,6 +451,45 @@ def test_no_repeat_is_invented_when_asr_misses_lines_or_hallucinates_other_text(
     assert result.lyrics == text
 
 
+@pytest.mark.parametrize("vocal_result", ["partial", "strong"])
+def test_original_mix_recovers_sung_repeats_missed_in_the_vocal_stem(
+    tmp_path,
+    vocal_result,
+):
+    import json
+    from dataclasses import replace
+    import numpy as np
+
+    with np.load(Path(__file__).with_name("fixtures") / "chorus-entry.npz") as fixture:
+        case = json.loads(str(fixture["recognition_metadata"]))
+    original = tmp_path / "source.mp3"
+    original.write_bytes(b"source audio read by the provider")
+    vocal = tmp_path / "vocal.wav"
+    calls = []
+
+    class ComplementaryRecognition(_TranscriptAi):
+        def transcribe(self, audio, *args, **kwargs):
+            calls.append(audio)
+            return case["mixed" if audio == original else vocal_result]["text"]
+
+    candidate = LyricsCandidate(case["catalog"], "T", "A", 188, "catalog")
+    result = LyricsDiscovery(
+        _NoSidecar(),
+        (FakeLyricsProvider([(candidate,)]),),
+        LyricsMatchPolicy(),
+    ).discover(
+        replace(_song("T", "A"), source_path=original),
+        vocal,
+        ComplementaryRecognition(""),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+
+    assert result.lyrics.splitlines() == case["expected"]
+    assert calls == [vocal, original]
+
+
 def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_chorus():
     from backend.lyrics.discovery import _complete_repeats
 

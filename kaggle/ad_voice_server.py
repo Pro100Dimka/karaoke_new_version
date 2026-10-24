@@ -40,7 +40,7 @@ from backend.ai_worker.speech import (
 
 TTL_SECONDS = 6 * 60 * 60
 IDLE_SHUTDOWN_SECONDS = 5 * 60
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 7
 SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
@@ -199,20 +199,21 @@ def prepare_vocal(upload: str, instrumental_upload: str | None = None) -> str:
 
 
 @_track_activity
-def separate_song(upload: str) -> tuple[str, str, str]:
+def separate_song(upload: str) -> tuple[str, str, str, object]:
     session_id, directory = _new_session()
     source = directory / Path(upload).name
     shutil.copyfile(upload, source)
     result = separate(source, directory / "separation")
-    vocal = Path(result["referenceVocal"])
+    vocal = Path(str(result["referenceVocal"]))
     with _lock:
         # Pitch extraction only reads the vocal. Start it while lossless stems are
         # compressed and transferred so this GPU stage is off the critical path.
         _pitch_jobs[session_id] = _pitch_workers.submit(pitch, vocal)
     return (
-        _compress_stem(Path(result["instrumental"])),
+        _compress_stem(Path(str(result["instrumental"]))),
         _compress_stem(vocal),
         session_id,
+        result.get("rhythm", []),
     )
 
 
@@ -303,7 +304,7 @@ def main() -> None:
         gr.Button(visible=False).click(
             separate_song,
             upload,
-            [instrumental, vocal, session_id],
+            [instrumental, vocal, session_id, json_output],
             api_name="separate",
             concurrency_limit=1,
         )

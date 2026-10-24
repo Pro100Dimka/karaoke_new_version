@@ -9,6 +9,7 @@ from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import LyricLineTiming
+from backend.lyrics.codec import decode_rhythm
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
@@ -45,7 +46,7 @@ class CommandAiProvider:
         vocal = ensure_within(Path(_text(payload, "referenceVocal")), workdir)
         if not instrumental.is_file() or not vocal.is_file():
             raise DependencyError("AiProviderInvalidOutput", "Separation output files are missing")
-        return SeparatedAudio(instrumental, vocal)
+        return SeparatedAudio(instrumental, vocal, decode_rhythm(payload.get("rhythm", [])))
 
     def transcribe(
         self,

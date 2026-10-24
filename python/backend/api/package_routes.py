@@ -31,6 +31,18 @@ class PackageInspectionDto(ApiModel):
     revision: int
 
 
+@router.post("/library/export", response_model=JobRefDto, status_code=202)
+def export_library(app: ContainerDep) -> JobRefDto:
+    job = app.packages.library.start("export")
+    return JobRefDto(job_id=job.job_id, state=job.state.value)
+
+
+@router.post("/library/import", response_model=JobRefDto, status_code=202)
+def import_library(body: PackagePathDto, app: ContainerDep) -> JobRefDto:
+    job = app.packages.library.start("import", Path(body.path))
+    return JobRefDto(job_id=job.job_id, state=job.state.value)
+
+
 @router.post("/inspect", response_model=PackageInspectionDto)
 def inspect_package(body: PackagePathDto, app: ContainerDep) -> PackageInspectionDto:
     result = app.packages.inspect.execute(Path(body.path))

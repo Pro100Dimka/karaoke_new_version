@@ -26,6 +26,7 @@ export interface EditorDocument {
   /** The lyrics as written, one line per row; the words come from splitting it, so it tells where lines break. */
   lyrics?: string;
   vocalActivity?: readonly (readonly [number, number])[];
+  rhythm?: readonly (readonly [number, number])[];
 }
 
 const minNoteSeconds = 0.03;

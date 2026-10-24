@@ -14,9 +14,9 @@ afterEach(() => {
   vi.mocked(CanvasLightRenderer.create).mockClear();
 });
 
-it("reacts to the backing track with zero performance energy and no microphone pitch", () => {
+it("reacts to isolated rhythm with zero performance energy and no microphone pitch", () => {
   const engine = new ShowEngine();
-  engine.load([], []);
+  engine.load([], [], new Map(), true, undefined, [[0.032, 1]]);
   engine.advance(0, 0, undefined, true);
   engine.hear(Array(18).fill(0), 0);
   engine.hear([0.8, 0.8, 0.8, 0.8, 0.8, ...Array(13).fill(0)], 16);

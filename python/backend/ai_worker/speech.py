@@ -3,15 +3,12 @@ from __future__ import annotations
 import difflib
 import threading
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
 import torch
 import whisper
-from faster_whisper import WhisperModel
-from faster_whisper.utils import download_model
 
 from backend.ai.catalog import SPEECH_MODEL
 from backend.lyrics.discovery import performed_phrases
@@ -22,6 +19,7 @@ from backend.ai_worker.ctc import (
     align_guided,
     align_words,
     emission,
+    _model as alignment_model,
     ordered,
     with_sung_ends,
     with_voice_onsets,
@@ -34,8 +32,8 @@ from backend.ai_worker.recognition import (
     guidance_positions,
     contextual_guidance,
     unhinted_windows,
+    phrase_coverage,
     heard_words as _heard_words,
-    serialize,
 )
 from backend.ai_worker.word_guidance import (
     _key,
@@ -59,17 +57,32 @@ _CATALOG_SHIFT_MINIMUM_LINES = 5
 
 
 def prepare_accelerator() -> dict[str, str]:
-    target = model_directory(SPEECH_MODEL) / "ctranslate2"
+    target = model_directory(SPEECH_MODEL)
+    target.mkdir(parents=True, exist_ok=True)
     if not (target / "model.bin").is_file():
-        download_model("base", output_dir=str(target))
+        # Whisper verifies the checksum encoded in the official URL before returning.
+        checkpoint = Path(
+            whisper._download(SPEECH_MODEL.download_url, str(target), in_memory=False)
+        )
+        checkpoint.replace(target / "model.bin")
     return {"acceleratedWhisper": str(target)}
 
 
-def _transcribe(vocal: Path, language: str, prompt: str | None) -> Mapping[str, object]:
-    target = device()
+def _speech_model(target: str) -> whisper.Whisper:
     model = whisper.load_model(str(model_file(SPEECH_MODEL)), device=target)
+    # Local checkpoints omit the named model's non-persistent timing-head preset.
+    name = SPEECH_MODEL.model_id.removeprefix("whisper-")
+    model.set_alignment_heads(whisper._ALIGNMENT_HEADS[name])
+    return model
+
+
+def _transcribe(
+    vocal: Path | np.ndarray, language: str, prompt: str | None
+) -> Mapping[str, object]:
+    target = device()
+    model = _speech_model(target)
     result: Mapping[str, object] = model.transcribe(
-        str(vocal),
+        vocal if isinstance(vocal, np.ndarray) else str(vocal),
         language=WHISPER_LANGUAGES.get(language),
         word_timestamps=True,
         initial_prompt=prompt,
@@ -81,43 +94,40 @@ def _transcribe(vocal: Path, language: str, prompt: str | None) -> Mapping[str, 
 
 
 def _accelerated_guidance(
-    vocal: Path,
+    vocal: Path | np.ndarray,
     language: str,
     prompt: str | None,
     threads: int | None = None,
     *,
     contexts: Sequence[tuple[float, float, str]] = (),
 ) -> Mapping[str, object]:
-    """Use full precision: quantized decoding omitted sung phrases and varied with thread budget."""
-    model_path = model_file(SPEECH_MODEL).parent / "ctranslate2"
-    if not (model_path / "model.bin").is_file():
-        raise FileNotFoundError("The accelerated Whisper model is not installed")
-    model = WhisperModel(
-        str(model_path),
-        device="cpu",
-        compute_type="float32",
-        cpu_threads=threads or cpu_threads(),
-        num_workers=1,
-    )
-    samples = read_mono(vocal, _SAMPLE_RATE)
+    """Use the native decoder: converted decoding omitted whole sung repeats in real recordings."""
+    target = device()
+    torch.set_num_threads(threads or cpu_threads())
+    model = _speech_model(target)
+    samples = vocal if isinstance(vocal, np.ndarray) else read_mono(vocal, _SAMPLE_RATE)
     results = []
     requests: Sequence[tuple[float, float, str | None]] = contexts or [(0.0, 0.0, prompt)]
     for start, end, vocabulary in requests:
-        segments, _ = model.transcribe(
+        result = model.transcribe(
             samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)] if contexts else samples,
             language=WHISPER_LANGUAGES.get(language),
             word_timestamps=True,
             initial_prompt=vocabulary,
             condition_on_previous_text=False,
-            beam_size=5,
+            fp16=target == "cuda",
             temperature=0.0,
         )
-        results.append(serialize(segments, start))
+        for segment in result.get("segments", []):
+            for item in [segment, *segment.get("words", [])]:
+                for key in ("start", "end"):
+                    item[key] += start
+        results.append(result)
     return {"contexts": results} if contexts else results[0]
 
 
 def _guidance(
-    vocal: Path,
+    vocal: Path | np.ndarray,
     language: str,
     prompt: str | None,
     threads: int | None = None,
@@ -186,26 +196,31 @@ def _alignment_evidence(
     samples: np.ndarray,
     language: str,
     lyrics: str,
+    instrumental: np.ndarray | None = None,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
-    """Compute CTC and Whisper evidence in parallel, including word hints within catalogue lines."""
+    """Independent recognition precedes CTC; the native models do not compete for memory."""
     threads = cpu_threads()
-    if threads == 1:
-        scores, frame_seconds = emission(samples)
-        return (
-            scores,
-            frame_seconds,
-            _heard_words(_guidance(vocal, language, lyrics, 1, prefer_accelerated=True)),
+    sources: list[Path | np.ndarray] = [vocal]
+    if instrumental is not None:
+        backing = np.pad(
+            instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))
         )
-    ctc_threads = max(1, threads // 2)
-    guidance_threads = max(1, threads - ctc_threads)
-    torch.set_num_threads(ctc_threads)
-    with ThreadPoolExecutor(max_workers=2, thread_name_prefix="alignment-evidence") as pool:
-        ctc = pool.submit(emission, samples)
-        guidance = pool.submit(
-            _guidance, vocal, language, lyrics, guidance_threads, prefer_accelerated=True
-        )
-        scores, frame_seconds = ctc.result()
-        return scores, frame_seconds, _heard_words(guidance.result())
+        sources.append(samples + backing)
+    candidates = [
+        _heard_words(_guidance(source, language, None, threads, prefer_accelerated=True))
+        for source in sources
+    ]
+    heard = max(
+        candidates,
+        key=lambda view: (
+            phrase_coverage(lyrics, view),
+            len(_heard_timings(lyrics.split(), view, minimum_block=_MINIMUM_BLOCK)),
+        ),
+    )
+    torch.set_num_threads(threads)
+    scores, frame_seconds = emission(samples)
+    alignment_model.cache_clear()
+    return scores, frame_seconds, heard
 
 
 def _heard_positions(
@@ -449,11 +464,11 @@ def align(
     """Align phrases, then phonetic word cores, and refine the actual sung tails."""
     samples = read_mono(vocal, _SAMPLE_RATE)
     words = lyrics.split()
-    scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics)
+    backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
+    scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics, backing)
     whole = align_words(scores, frame_seconds, words)
     heard_timings = _heard_timings(words, heard, whole)
     windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
-    backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
     windows, supported = contextual_guidance(
         words,
         windows,

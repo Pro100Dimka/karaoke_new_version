@@ -35,6 +35,7 @@ def encode_document(document: LyricsDocument) -> str:
             "bpm": document.bpm,
             "key": document.key,
             "lyrics": document.lyrics,
+            **({"rhythm": [list(point) for point in document.rhythm]} if document.rhythm else {}),
             **(
                 {"vocalActivity": [list(interval) for interval in document.vocal_activity]}
                 if document.vocal_activity
@@ -83,9 +84,19 @@ def decode_document(raw: str) -> LyricsDocument:
             (point[0], point[1])
             for point in _numeric_points(data.get("vocalActivity", []), dimensions=2)
         ),
+        rhythm=decode_rhythm(data.get("rhythm", [])),
     )
     document.validate()
     return document
+
+
+def decode_rhythm(value: object) -> tuple[tuple[float, float], ...]:
+    points = tuple((point[0], point[1]) for point in _numeric_points(value, dimensions=2))
+    if any(not isfinite(at) or at < 0 or not 0 < strength <= 1 for at, strength in points):
+        raise ValueError("Rhythm points must have finite times and strengths 0..1")
+    if any(right[0] <= left[0] for left, right in zip(points, points[1:], strict=False)):
+        raise ValueError("Rhythm points must be ordered")
+    return points
 
 
 def _word(value: JsonValue) -> Word:
@@ -128,7 +139,7 @@ def _note(value: JsonValue) -> Note:
     )
 
 
-def _numeric_points(value: JsonValue, *, dimensions: int) -> tuple[tuple[float, ...], ...]:
+def _numeric_points(value: object, *, dimensions: int) -> tuple[tuple[float, ...], ...]:
     if not isinstance(value, list):
         raise ValueError("expected an array of numeric points")
     result = []

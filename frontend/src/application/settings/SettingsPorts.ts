@@ -16,12 +16,12 @@ export type SettingsBackendPort = Pick<PythonClient,
   "clearCache" | "clearTemporaryFiles" | "history" | "listSongs" |
   "listEnvironmentSettings" | "updateEnvironmentSetting" |
   "verifyEnvironmentSetting" | "verifyKaggleSettings" | "loginKaggle" |
-  "deployKaggle" | "listJobs">;
+  "deployKaggle" | "listJobs" | "exportLibrary" | "importLibrary">;
 
 export type SettingsDesktopPort = Pick<DesktopClient,
   "getStorageRoot" | "pickStorageFolder" | "setStorageRoot" | "pathForFile" |
   "copyText" | "saveTextFile" | "installAsio4All" | "relaunchApp" |
-  "openMicrophonePrivacy" | "keyboardLightingCapabilities">;
+  "openMicrophonePrivacy" | "keyboardLightingCapabilities" | "revealInExplorer">;
 
 export type SettingsLightingPort = {
   capabilities(): Promise<KeyboardLightingCapabilities>;

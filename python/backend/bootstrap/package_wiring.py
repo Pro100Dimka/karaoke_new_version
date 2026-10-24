@@ -4,6 +4,7 @@ from backend.bootstrap.container import PackageCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
 from backend.infrastructure.local_storage import LocalPackageOutputStorage
 from backend.infrastructure.zip_archive import ZipPackageArchive
+from backend.infrastructure.library_storage import SqlLibraryStorage
 from backend.packages.background import StartPackageExport, StartPackageImport
 from backend.packages.export_package import ExportPackage
 from backend.packages.import_package import ImportPackage
@@ -11,6 +12,8 @@ from backend.packages.inspect_package import InspectPackage
 from backend.packages.preflight import PackageExportPreflight, PackageImportPreflight
 from backend.packages.project_publication import PackageProjectPublication
 from backend.packages.security import PackageSecurityValidator
+from backend.packages.library_archive import LibraryArchive
+from backend.packages.policy import PackagePolicy
 
 
 def build_package_cases(
@@ -45,6 +48,29 @@ def build_package_cases(
         inspect,
         _start_export(runtime, project, processing, export),
         _start_import(runtime, processing, inspect, importer),
+        _library_archive(runtime, project, processing),
+    )
+
+
+def _library_archive(
+    runtime: RuntimeWiring, project: ProjectWiring, processing: ProcessingWiring
+) -> LibraryArchive:
+    policy = PackagePolicy(
+        max_files=1_000_000, max_uncompressed_bytes=1024**4, max_single_file_bytes=64 * 1024**3
+    )
+    return LibraryArchive(
+        processing.jobs,
+        SqlLibraryStorage(
+            runtime.database,
+            runtime.config.roots,
+            processing.storage,
+            runtime.config.resources.min_free_disk_bytes,
+        ),
+        ZipPackageArchive(policy),
+        PackageSecurityValidator(policy),
+        processing.workspaces,
+        project.operations,
+        runtime.hasher,
     )
 
 

@@ -55,3 +55,4 @@ class PitchPoint:
 class SeparatedAudio:
     instrumental: Path
     reference_vocal: Path
+    rhythm: tuple[tuple[float, float], ...] = ()

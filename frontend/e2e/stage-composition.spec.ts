@@ -185,6 +185,9 @@ test("animated light colours keep a bounded texture cache", async ({ page }) => 
 });
 
 test("coloured and white words share one reacting lyric line", async ({ page }) => {
+  const clock = new Date("2026-10-24T12:00:00Z");
+  await page.clock.install({ time: clock });
+  await page.clock.pauseAt(clock);
   await page.route("**/stage-composition-test", (route) =>
     route.fulfill({ contentType: "text/html", body: '<html><body><main class="karaokePage" id="stage-test"></main></body></html>' }));
   await page.goto("/stage-composition-test");
@@ -209,11 +212,11 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
       { id: "a", text: "First", start: 0, end: 0.4 },
       { id: "b", text: "Second", start: 0.4, end: 0.8 },
       { id: "c", text: "Now", start: 1, end: 2 },
-      { id: "d", text: "Future", start: 3, end: 4 },
+      { id: "d", text: "Future", start: 2.3, end: 4 },
     ];
     createRoot(document.getElementById("stage-test")!).render(createElement(AppProvider, null,
       createElement(KaraokeStage, { songTitle: "Test", position: 1.2, playing: true, rate: 1,
-        document: { revision: 1, words, notes: [], lyrics: "First Second Now Future" },
+        document: { revision: 1, words, notes: [], lyrics: "First Second Now Future", rhythm: [[2, 1]] },
         layers: { showLyrics: true, showNotes: false }, vocalRange: "auto" })));
   });
   const filled = page.locator(".lyrics .ad-lyrics-current");
@@ -221,6 +224,7 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
   await expect(page.locator(".lyrics")).toHaveCount(1);
   const words = filled.locator(".ad-lyric-word");
   await expect(words).toHaveCount(4);
+  await page.clock.runFor(50);
   expect(await words.nth(0).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("100%");
   expect(await words.nth(1).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("100%");
   expect(await words.nth(3).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("0%");
@@ -228,8 +232,27 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
   await page.evaluate(async () => {
     const { publishSpectrum } = await import("/src/app/backdrop/spectrumEvents.ts");
     publishSpectrum({ bands: [], backingBands: Array(18).fill(0), bass: 0, active: false });
-    publishSpectrum({ bands: [], backingBands: [1, 1, 1, 1, ...Array(14).fill(0)], bass: 1, active: true });
+    publishSpectrum({ bands: [], backingBands: Array(18).fill(1), bass: 1, active: true });
   });
-  await expect.poll(() => filled.evaluate((line) => new DOMMatrix(getComputedStyle(line).transform).a)).toBeGreaterThan(1.015);
-  await expect.poll(async () => (await words.nth(3).boundingBox())!.width).toBeGreaterThan(whiteWidth * 1.01);
+  await page.clock.runFor(100);
+  expect(
+    await filled.evaluate((line) => new DOMMatrix(getComputedStyle(line).transform).a),
+  ).toBeCloseTo(1, 3);
+  expect((await words.nth(3).boundingBox())!.width).toBeCloseTo(whiteWidth, 1);
+  await page.clock.runFor(600);
+  let peakScale = 1;
+  let peakWhiteWidth = whiteWidth;
+  for (let frame = 0; frame < 12; frame++) {
+    await page.clock.runFor(16);
+    peakScale = Math.max(
+      peakScale,
+      await filled.evaluate((line) => new DOMMatrix(getComputedStyle(line).transform).a),
+    );
+    peakWhiteWidth = Math.max(
+      peakWhiteWidth,
+      (await words.nth(3).boundingBox())!.width,
+    );
+  }
+  expect(peakScale).toBeGreaterThan(1.015);
+  expect(peakWhiteWidth).toBeGreaterThan(whiteWidth * 1.01);
 });

@@ -50,6 +50,165 @@ def test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_p
         ), "lyrics between catalogue entries must not be forced into an empty audio window"
 
 
+def test_default_recognizer_recovers_all_performed_choruses_from_a_fresh_import(
+    monkeypatch,
+    tmp_path,
+):
+    import json
+    import threading
+    from copy import deepcopy
+    from types import SimpleNamespace
+    from backend.ai_worker import speech
+    from backend.lyrics.discovery import _complete_repeats
+
+    with np.load(Path(__file__).with_name("fixtures") / "chorus-entry.npz") as fixture:
+        case = json.loads(str(fixture["recognition_metadata"]))
+    for name in ("whisper-base", "whisper-large-v3-turbo"):
+        target = tmp_path / name / "ctranslate2"
+        target.mkdir(parents=True)
+        (target / "model.bin").write_bytes(b"test model")
+
+    class RecordedModel:
+        def __init__(self, path, **_options):
+            self.result = case["strong" if "large-v3-turbo" in path else "weak"]
+
+        def transcribe(self, *_args, **_options):
+            segments = [
+                SimpleNamespace(
+                    text=s["text"],
+                    words=[SimpleNamespace(**w) for w in s["words"]],
+                )
+                for s in self.result["segments"]
+            ]
+            return iter(segments), SimpleNamespace()
+
+    monkeypatch.setattr(speech, "model_file", lambda spec: tmp_path / spec.model_id / "model.bin")
+    monkeypatch.setattr(speech, "WhisperModel", RecordedModel, raising=False)
+    monkeypatch.setattr(
+        speech.whisper,
+        "load_model",
+        lambda path, **_: SimpleNamespace(
+            set_alignment_heads=lambda *_: None,
+            transcribe=lambda *_a, **_kw: deepcopy(
+                case["strong" if "large-v3-turbo" in str(path) else "weak"]
+            ),
+        ),
+    )
+    monkeypatch.setattr(speech, "read_mono", lambda *_: "recorded audio")
+
+    transcript = speech.transcribe(Path("vocal.wav"), "Ukrainian")["text"]
+    recovered = _complete_repeats(case["catalog"], transcript, threading.Event())
+
+    assert recovered.splitlines() == case["expected"]
+
+
+def test_real_chorus_entry_can_move_past_an_unrecognized_misplaced_neighbour():
+    import json
+    import torch
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.word_guidance import with_word_guidance
+
+    with np.load(Path(__file__).with_name("fixtures") / "chorus-entry.npz") as fixture:
+        case = json.loads(str(fixture["entry_metadata"]))
+        scores = torch.from_numpy(fixture["entry_scores"])
+        vocal = fixture["entry_vocal"].astype(np.float32)
+    words = [AlignedWord(**w) for w in case["words"]]
+    voiced = voiced_frames(vocal, _RATE, _HOP)
+
+    placed = with_word_guidance(
+        words,
+        scores,
+        0.02,
+        [Window(**case["window"])],
+        {int(i): tuple(times) for i, times in case["timings"].items()},
+        voiced,
+        0.6,
+        recognized=case["heard"],
+    )
+
+    # Original mix and independent vocal recognition put the entry at ~42 s and
+    # the following phrase at ~46 s. The fixture's audio begins at 37 s.
+    assert 4.5 < placed[0].start < 6.0
+    assert 8.8 < placed[5].start < 10.0
+
+
+def test_accelerator_preparation_bootstraps_the_verified_native_checkpoint(monkeypatch, tmp_path):
+    from backend.ai_worker import speech
+
+    root = tmp_path / "speech"
+    downloaded = []
+
+    def download_native(url, target, in_memory):
+        path = Path(target) / "checkpoint.pt"
+        path.write_bytes(b"verified by Whisper downloader")
+        return str(path)
+
+    monkeypatch.setattr(speech, "model_directory", lambda _: root)
+    monkeypatch.setattr(speech.whisper, "_download", download_native)
+    monkeypatch.setattr(
+        speech, "download_model", lambda name, **_: downloaded.append(name), raising=False
+    )
+
+    speech.prepare_accelerator()
+
+    assert (root / "model.bin").read_bytes() == b"verified by Whisper downloader"
+    assert downloaded == []
+
+
+def test_alignment_uses_the_more_complete_independent_audio_view(monkeypatch):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "chorus-entry.npz") as fixture:
+        case = json.loads(str(fixture["recognition_metadata"]))
+    calls = []
+
+    def recognize(audio, *_args, **_kwargs):
+        calls.append(audio)
+        return case["mixed" if isinstance(audio, np.ndarray) else "partial"]
+
+    monkeypatch.setattr(speech, "_guidance", recognize)
+    monkeypatch.setattr(speech, "emission", lambda *_: (torch.zeros(1, 28), 0.02))
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda _: None)
+
+    _, _, heard = speech._alignment_evidence(
+        Path("vocals.wav"),
+        np.ones(160),
+        "Ukrainian",
+        "\n".join(case["expected"]),
+        np.ones(160),
+    )
+
+    assert heard == speech._heard_words(case["mixed"])
+    assert len(calls) == 2
+    np.testing.assert_array_equal(calls[1], np.full(160, 2.0))
+
+
+@pytest.mark.parametrize("target", ["cpu", "cuda"])
+def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkeypatch, target):
+    from backend.ai_worker import speech
+
+    selected = []
+    expected = speech.whisper._ALIGNMENT_HEADS[
+        speech.SPEECH_MODEL.model_id.removeprefix("whisper-")
+    ]
+
+    class NativeModel:
+        def set_alignment_heads(self, heads):
+            selected.append(heads)
+
+        def transcribe(self, *_args, **_kwargs):
+            assert selected == [expected], "local weights need the named model's timing metadata"
+            return {"text": "recognized", "segments": []}
+
+    monkeypatch.setattr(speech, "device", lambda: target)
+    monkeypatch.setattr(speech, "model_file", lambda _: Path("verified-model.bin"))
+    monkeypatch.setattr(speech.whisper, "load_model", lambda *_a, **_kw: NativeModel())
+
+    assert speech._transcribe(Path("voice.wav"), "Ukrainian", None)["text"] == "recognized"
+
+
 def _signal(bursts: list[tuple[float, float]], total: float) -> np.ndarray:
     samples = np.zeros(int(total * _RATE), dtype=np.float32)
     rng = np.random.default_rng(1)
@@ -521,41 +680,33 @@ def test_moving_a_start_back_never_puts_a_word_before_the_previous_one() -> None
     assert all(word.end > word.start for word in moved)
 
 
-def test_ctc_emission_and_whisper_guidance_run_concurrently(
+def test_native_recognition_finishes_before_ctc_to_bound_model_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import threading
-
     from backend.ai_worker import speech
 
-    started: set[str] = set()
-    lock = threading.Lock()
-    both_started = threading.Event()
-
-    def arrive(name: str) -> None:
-        with lock:
-            started.add(name)
-            if len(started) == 2:
-                both_started.set()
-        assert both_started.wait(1), "alignment evidence still runs sequentially"
+    completed = []
 
     def fake_emission(_samples):
-        arrive("ctc")
+        assert completed == ["whisper"]
+        completed.append("ctc")
         return "scores", 0.02
 
     def fake_transcribe(_vocal, _language, _prompt):
-        arrive("whisper")
+        completed.append("whisper")
         return {"segments": []}
 
     monkeypatch.setenv("OMP_NUM_THREADS", "4")
     monkeypatch.setattr(speech, "emission", fake_emission)
     monkeypatch.setattr(speech, "_transcribe", fake_transcribe)
+    monkeypatch.setattr(speech, "_guidance", lambda *_a, **_kw: fake_transcribe(None, None, None))
 
     scores, frame_seconds, heard = speech._alignment_evidence(
         Path("vocal.wav"), np.zeros(16, dtype=np.float32), "English", "lyrics"
     )
 
     assert (scores, frame_seconds, heard) == ("scores", 0.02, [])
+    assert completed == ["whisper", "ctc"]
 
 
 @pytest.mark.parametrize("total", [60.317, 620.317])
@@ -619,11 +770,9 @@ def test_local_mms_model_applies_the_bundles_required_waveform_normalization(
         ctc._model.cache_clear()
 
 
-def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_timestamps(
+def test_alignment_guidance_uses_native_cpu_precision_and_preserves_word_timestamps(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    from types import SimpleNamespace
-
     from backend.ai_worker import speech
 
     model_root = tmp_path / "whisper-base"
@@ -637,21 +786,34 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
         def __init__(self, path: str, **options: object) -> None:
             calls["load"] = (path, options)
 
+        def set_alignment_heads(self, heads):
+            calls["heads"] = heads
+
         def transcribe(self, path: str, **options: object):
             calls["transcribe"] = (path, options)
-            words = [SimpleNamespace(word=" hello", start=1.25, end=1.75)]
-            return iter([SimpleNamespace(text=" hello", words=words)]), SimpleNamespace()
+            return {
+                "text": " hello",
+                "segments": [
+                    {
+                        "start": 1.25,
+                        "end": 1.75,
+                        "words": [{"word": " hello", "start": 1.25, "end": 1.75}],
+                    }
+                ],
+            }
 
     monkeypatch.setattr(speech, "model_file", lambda _spec: model_root / "model.bin")
     monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
-    monkeypatch.setattr(speech, "WhisperModel", FakeModel)
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda _: None)
+    monkeypatch.setattr(speech.whisper, "load_model", FakeModel)
     monkeypatch.setattr(speech, "read_mono", lambda *_: "mono samples")
 
     result = speech._accelerated_guidance(Path("voice.wav"), "English", "first line")
 
     assert calls["load"] == (
-        str(accelerated),
-        {"device": "cpu", "compute_type": "float32", "cpu_threads": 6, "num_workers": 1},
+        str(model_root / "model.bin"),
+        {"device": "cpu"},
     )
     assert calls["transcribe"] == (
         "mono samples",
@@ -660,13 +822,15 @@ def test_alignment_guidance_uses_the_accelerated_cpu_backend_and_preserves_word_
             "word_timestamps": True,
             "initial_prompt": "first line",
             "condition_on_previous_text": False,
-            "beam_size": 5,
+            "fp16": False,
             "temperature": 0.0,
         },
     )
     assert result == {
         "text": " hello",
-        "segments": [{"text": " hello", "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}],
+        "segments": [
+            {"start": 1.25, "end": 1.75, "words": [{"word": " hello", "start": 1.25, "end": 1.75}]}
+        ],
     }
 
 
@@ -675,7 +839,10 @@ def test_native_alignment_recognition_disables_sampling_fallback(monkeypatch):
     from types import SimpleNamespace
 
     calls = {}
-    model = SimpleNamespace(transcribe=lambda path, **options: calls.update(options) or {})
+    model = SimpleNamespace(
+        transcribe=lambda path, **options: calls.update(options) or {},
+        set_alignment_heads=lambda *_: None,
+    )
     monkeypatch.setattr(speech, "device", lambda: "cuda")
     monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
     monkeypatch.setattr(speech.whisper, "load_model", lambda *args, **kwargs: model)
@@ -706,7 +873,7 @@ def test_catalog_line_timings_still_ask_whisper_which_phrase_a_word_belongs_to(
     )
 
     assert result == ("scores", 0.02, [("первая", 10.6, 11.0)])
-    assert asked == ["первая строка"]
+    assert asked == [None], "the complete catalogue must not be decoded as an audio prompt"
 
 
 def test_catalog_line_timings_become_alignment_windows() -> None:
@@ -777,29 +944,35 @@ def test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode(
     tmp_path,
     threads,
 ):
-    from types import SimpleNamespace
     from backend.ai_worker import speech
 
     (tmp_path / "model.bin").write_bytes(b"weights")
     (tmp_path / "ctranslate2").mkdir()
     (tmp_path / "ctranslate2/model.bin").write_bytes(b"weights")
     samples = np.zeros(16, dtype=np.float32)
+    selected_threads = []
 
     class Model:
         def __init__(self, _path, **options):
-            assert options["compute_type"] == "float32"
-            assert options["cpu_threads"] == threads
+            assert options["device"] == "cpu"
+
+        def set_alignment_heads(self, _heads):
+            pass
 
         def transcribe(self, audio, **options):
             assert audio is samples
             assert options["condition_on_previous_text"] is False
-            return iter([SimpleNamespace(text=" first verse final chorus", words=[])]), None
+            assert options["fp16"] is False
+            return {"text": " first verse final chorus", "segments": []}
 
     monkeypatch.setattr(speech, "model_file", lambda _: tmp_path / "model.bin")
     monkeypatch.setattr(speech, "cpu_threads", lambda: threads)
     monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
-    monkeypatch.setattr(speech, "WhisperModel", Model)
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech.torch, "set_num_threads", selected_threads.append)
+    monkeypatch.setattr(speech.whisper, "load_model", Model)
     assert speech.transcribe(Path("voice.wav"), "Ukrainian")["text"] == "first verse final chorus"
+    assert selected_threads == [threads]
 
 
 def test_phrase_guidance_separates_repeats_when_asr_merges_or_misspells_words():
@@ -1433,7 +1606,9 @@ def test_a_mostly_unrecognized_word_uses_its_speech_span_instead_of_false_charac
 
 
 @pytest.mark.parametrize("threads", [1, 2])
-def test_alignment_guidance_retains_lyric_vocabulary_after_the_opening_lines(monkeypatch, threads):
+def test_whole_song_recognition_does_not_copy_catalogue_text_into_unheard_audio(
+    monkeypatch, threads
+):
     import torch
     from backend.ai_worker import speech
 
@@ -1450,7 +1625,7 @@ def test_alignment_guidance_retains_lyric_vocabulary_after_the_opening_lines(mon
 
     speech._alignment_evidence(Path("voice.wav"), np.zeros(_RATE), "English", lyrics)
 
-    assert prompts == [lyrics]
+    assert prompts == [None]
 
 
 @pytest.mark.parametrize("threads", [1, 4])

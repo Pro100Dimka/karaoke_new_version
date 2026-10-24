@@ -50,7 +50,7 @@ describe("useInputMonitoring", () => {
     });
     act(() => result.current.setTestingInput(true));
     await waitFor(() => expect(monitoringCalls()).toEqual([true]));
-    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
+    expect(applyVoiceChain).toHaveBeenCalledWith(expect.anything(), audioClient);
     act(() => result.current.setTestingInput(false));
     await waitFor(() => expect(monitoringCalls()).toEqual([true, false]));
   });
@@ -67,9 +67,26 @@ describe("useInputMonitoring", () => {
     expect(reopened.result.current.testingInput).toBe(false);
   });
 
+  it("previews the selected gain and noise suppression instead of bypassing the voice chain", async () => {
+    const { result } = renderHook(() => ({
+      ...useInputMonitoring(true),
+      updatePreferences: useApp("preferences").updatePreferences,
+    }), { wrapper });
+    act(() => result.current.updatePreferences({ voiceGain: 4, noiseSuppression: 0.35 }));
+    act(() => result.current.setTestingInput(true));
+    await waitFor(() => expect(monitoringCalls()).toEqual([true]));
+    expect(applyVoiceChain).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceGain: 4, noiseSuppression: 0.35 }), audioClient,
+    );
+    expect(vi.mocked(applyVoiceChain).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(audioClient.setMonitoring).mock.invocationCallOrder[0]!,
+    );
+    expect(audioClient.setDspEnabled).not.toHaveBeenCalledWith(false);
+  });
+
   it("does not start monitoring after leaving Audio while DSP setup is pending", async () => {
     let finishDsp!: () => void;
-    vi.mocked(audioClient.setDspEnabled).mockImplementationOnce(
+    vi.mocked(applyVoiceChain).mockImplementationOnce(
       () =>
         new Promise<void>((resolve) => {
           finishDsp = resolve;
@@ -81,7 +98,7 @@ describe("useInputMonitoring", () => {
 
     act(() => result.current.setTestingInput(true));
     await waitFor(() =>
-      expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false),
+      expect(applyVoiceChain).toHaveBeenCalledWith(expect.anything(), audioClient),
     );
     unmount();
     await act(async () => finishDsp());

@@ -16,6 +16,44 @@ from backend.infrastructure.audd_recognition import (
 from backend.songs.recognition import RecognizedSong
 
 
+def test_sadsvit_official_clip_is_found_when_youtube_api_quota_is_exhausted() -> None:
+    def get(request, _timeout):
+        url = request.full_url
+        if "googleapis.com" in url:
+            raise urllib.error.HTTPError(url, 403, "quotaExceeded", {}, None)
+        if "results?" in url:
+            return b'{"videoId":"cPzhNzqt9LA"}'
+        return json.dumps(
+            {"title": "SadSvit - Небо (Official video)", "author_name": "SadSvit"}
+        ).encode()
+
+    assert YoutubeVideoFinder("exhausted-key", get=get)("SadSvit", "Небо") == (
+        "https://www.youtube.com/watch?v=cPzhNzqt9LA"
+    )
+
+
+def test_sadsvit_clip_lookup_recovers_from_a_transient_search_or_metadata_failure() -> None:
+    for failing in ["results?", "oembed?"]:
+        attempts = 0
+
+        def get(request, _timeout):
+            nonlocal attempts
+            if failing in request.full_url:
+                attempts += 1
+                if attempts == 1:
+                    raise urllib.error.URLError("temporary connection reset")
+            if "results?" in request.full_url:
+                return b'{"videoId":"cPzhNzqt9LA"}'
+            return json.dumps(
+                {"title": "SadSvit - Небо (Official video)", "author_name": "SadSvit"}
+            ).encode()
+
+        assert YoutubeVideoFinder(None, get=get)("SadSvit", "Небо") == (
+            "https://www.youtube.com/watch?v=cPzhNzqt9LA"
+        )
+        assert attempts == 2
+
+
 def test_youtube_finder_rejects_static_audio_even_when_search_says_official() -> None:
     def get(request: object, _timeout: float) -> bytes:
         url = str(getattr(request, "full_url"))

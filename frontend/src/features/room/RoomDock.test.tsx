@@ -558,7 +558,7 @@ describe("RoomDock", () => {
       </MemoryRouter>,
     );
 
-    // In a room your microphone goes out at full level: there is nothing to turn on your own card.
+    // Your own microphone level stays in settings; the card controls other singers' levels.
     expect(
       screen.queryByRole("slider", { name: "mixerMicrophone" }),
     ).not.toBeInTheDocument();

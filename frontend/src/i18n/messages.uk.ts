@@ -11,6 +11,13 @@ import { roomUk } from "./messages.uk.room";
 
 /** A complete table: every key is translated here, so no Russian text can leak into the Ukrainian UI. */
 export const uk: MessageTable = {
+  libraryArchive: "Архів бібліотеки",
+  libraryArchiveHint:
+    "Усі пісні, оригінали, версії проєктів, записи й аналізи. Під час імпорту наявні пісні зберігаються.",
+  libraryExport: "Експорт усієї бібліотеки",
+  libraryImport: "Імпорт бібліотеки",
+  libraryImported: "Додано пісень: {imported}. Уже в бібліотеці: {skipped}.",
+  libraryTransferFailed: "Не вдалося перенести бібліотеку",
   addSong: "Додати пісню",
   panelAttach: "Повернути в програму",
   roomProjectConflict: "У вас інша версія цієї пісні. Вашу копію збережено.",

@@ -28,13 +28,14 @@ from backend.ai.domain import (
 from backend.ai.ports import AiProvider
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.lyrics.ports import LyricLineTiming
+from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
 from backend.settings.domain import BackendSettings, ProcessingBackend, is_secure_kaggle_url
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
-_PROTOCOL_VERSION = 5
+_PROTOCOL_VERSION = 7
 _HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_TIMEOUT_SECONDS = 15 * 60
@@ -122,13 +123,11 @@ class KaggleAiProvider(AiProvider):
     def separate(
         self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> SeparatedAudio:
-        del execution
         result = self._invoke("/separate", cancel, self._handle_file(audio))
-        if not isinstance(result, (tuple, list)) or len(result) != 3:
+        if not isinstance(result, (tuple, list)) or len(result) not in {3, 4}:
             raise self._invalid("Separation response is malformed")
         workdir.mkdir(parents=True, exist_ok=True)
-        instrumental = workdir / "instrumental.wav"
-        vocal = workdir / "vocals.wav"
+        instrumental, vocal = workdir / "instrumental.wav", workdir / "vocals.wav"
         self._restore_stem(result[0], instrumental)
         self._restore_stem(result[1], vocal)
         session_id = str(result[2]).strip()
@@ -136,7 +135,8 @@ class KaggleAiProvider(AiProvider):
             raise self._invalid("Separation response has no remote session id")
         with self._lock:
             self._sessions[vocal.resolve()] = (session_id, instrumental.resolve())
-        return SeparatedAudio(instrumental, vocal)
+        rhythm = decode_rhythm(result[3]) if len(result) == 4 else ()
+        return SeparatedAudio(instrumental, vocal, rhythm)
 
     def transcribe(
         self,

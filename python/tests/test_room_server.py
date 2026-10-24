@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 import subprocess
 import sys
 from pathlib import Path
@@ -381,7 +383,10 @@ def test_voice_join_requires_an_actual_room_member() -> None:
         assert len(member.json()["voiceToken"]) == 16
 
 
-def test_direct_duet_discovery_requires_opt_in_and_exactly_two_room_members(monkeypatch) -> None:
+@pytest.mark.parametrize("legacy_direct", [False, True])
+def test_voice_discovery_keeps_even_legacy_direct_clients_on_the_server(
+    monkeypatch, legacy_direct: bool
+) -> None:
     relay = VoiceRelay(participant_endpoint=lambda _room, _participant: ("203.0.113.5", 41002))
     monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
     with TestClient(create_room_server_app(relay_port=0)) as client:
@@ -397,27 +402,19 @@ def test_direct_duet_discovery_requires_opt_in_and_exactly_two_room_members(monk
                 json={
                     "roomId": room_id,
                     "participantId": participant,
-                    "direct": True,
+                    "direct": legacy_direct,
                 },
             ).json()
             for participant in ("host", "guest")
         }
-        assert all(voice.get("direct") is True for voice in voices.values())
+        assert client.get("/voice/capabilities").json() == {"direct": False}
+        assert all(voice.get("direct") is False for voice in voices.values())
         query = {
             "roomId": room_id,
             "participantId": "host",
             "voiceToken": voices["host"]["voiceToken"],
         }
-        assert client.post("/voice/peers", json=query).json() == {
-            "peers": [
-                {
-                    "participantId": "guest",
-                    "host": "203.0.113.5",
-                    "port": 41002,
-                    "voiceToken": voices["guest"]["voiceToken"],
-                }
-            ]
-        }
+        assert client.post("/voice/peers", json=query).json() == {"peers": []}
         assert (
             client.post(
                 "/voice/peers", json={**query, "voiceToken": "0000000000000001"}
@@ -436,7 +433,7 @@ def test_direct_duet_discovery_requires_opt_in_and_exactly_two_room_members(monk
                 "receivedPeerToken": voices["host"]["voiceToken"],
             },
         ).json()
-        assert received.get("directReady") is True
+        assert received.get("directReady", False) is False
         client.post(
             f"/rooms/{room_id}/join", json={"participantId": "third", "displayName": "Third"}
         )

@@ -92,6 +92,7 @@ interface ShowInput {
   playing: boolean;
   settings: ShowSettings;
   vocalActivity?: readonly (readonly [number, number])[];
+  rhythm?: readonly (readonly [number, number])[];
 }
 
 /** The karaoke screen's show: fed with the drawn position, the voice and the backing track; renders nothing itself. */
@@ -104,6 +105,7 @@ export const useShowEngine = ({
   playing,
   settings,
   vocalActivity,
+  rhythm,
 }: ShowInput): ShowEngine => {
   const engine = useMemo(() => new ShowEngine(), []);
   const [, refreshScore] = useReducer((version: number) => version + 1, 0);
@@ -111,10 +113,17 @@ export const useShowEngine = ({
   const loadedLines = useRef<readonly LyricLine[] | undefined>(undefined);
   useEffect(() => {
     const resetPerformance = loadedLines.current !== lines;
-    engine.load(notes, phrasesOf(lines, notes), wordsOfNotes(lines, notes), resetPerformance, vocalActivity);
+    engine.load(
+      notes,
+      phrasesOf(lines, notes),
+      wordsOfNotes(lines, notes),
+      resetPerformance,
+      vocalActivity,
+      rhythm,
+    );
     loadedLines.current = lines;
     if (resetPerformance) lastPitch.current = { epoch: -1, sequence: 0 };
-  }, [engine, notes, lines, vocalActivity]);
+  }, [engine, notes, lines, vocalActivity, rhythm]);
   useEffect(() => engine.configure(settings), [engine, settings]);
   useEffect(
     () =>

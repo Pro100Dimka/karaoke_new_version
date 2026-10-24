@@ -48,6 +48,26 @@ def test_transcript_may_be_empty_for_a_vocal_without_speech() -> None:
     )
 
 
+def test_separation_preserves_isolated_rhythm(tmp_path):
+    from backend.serialization import dumps
+
+    for name in ["instrumental.wav", "vocals.wav"]:
+        (tmp_path / name).write_bytes(b"stem")
+    provider = _provider(
+        dumps(
+            {
+                "instrumental": str(tmp_path / "instrumental.wav"),
+                "referenceVocal": str(tmp_path / "vocals.wav"),
+                "rhythm": [[0.5, 1], [1, 0.6]],
+            }
+        ).encode()
+    )
+    result = provider.separate(
+        tmp_path / "source.wav", tmp_path, threading.Event(), execution=EXECUTION
+    )
+    assert result.rhythm == ((0.5, 1), (1, 0.6))
+
+
 def test_transcript_must_be_a_string() -> None:
     provider = _provider(b'{"text": 5}')
     with pytest.raises(DependencyError) as error:

@@ -8,6 +8,13 @@ import { roomEn } from "./messages.en.room";
 import { libraryEn } from "./messages.en.library";
 import { audioEn } from "./messages.en.audio";
 export const en = {
+  libraryArchive: "Library archive",
+  libraryArchiveHint:
+    "Share all songs, sources, project revisions, recordings and analyses. Import adds songs and keeps existing copies.",
+  libraryExport: "Export entire library",
+  libraryImport: "Import library",
+  libraryImported: "Songs added: {imported}. Already in the library: {skipped}.",
+  libraryTransferFailed: "Could not transfer the library",
   addSong: "Add song",
   advanced: "Advanced",
   selectFile: "Select file",

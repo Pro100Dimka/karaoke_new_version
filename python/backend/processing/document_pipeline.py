@@ -77,7 +77,7 @@ class BuildProcessingDocument:
         reports.extend(pitch_reports)
         document = self._construct(song, prepared, discovery, words, stable, context, reports)
         warnings = discovery.warnings + alignment_warnings(words) + pitch_warnings(stable)
-        return BuiltDocument(document, discovery, warnings)
+        return BuiltDocument(replace(document, rhythm=prepared.rhythm), discovery, warnings)
 
     def _run_stages(
         self, execution: ExecutionContext, *stages: Callable[[], None], parallel: bool

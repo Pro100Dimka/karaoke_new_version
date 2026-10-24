@@ -70,9 +70,8 @@ class YoutubeVideoFinder:
         self._get = get
 
     def __call__(self, artist: str, title: str) -> str | None:
-        return (
-            self._official(artist, title) if self._api_key else self._public_search(artist, title)
-        )
+        official = self._official(artist, title) if self._api_key else None
+        return official or self._public_search(artist, title)
 
     def _official(self, artist: str, title: str) -> str | None:
         query = urllib.parse.urlencode(
@@ -117,10 +116,7 @@ class YoutubeVideoFinder:
             f"https://www.youtube.com/results?{query}",
             headers={"User-Agent": "Mozilla/5.0 (A&D Voice song lookup)"},
         )
-        try:
-            payload = self._get(request, self._timeout)
-        except (OSError, TimeoutError, urllib.error.URLError):
-            return None
+        payload = self._read_public(request)
         matches = list(
             dict.fromkeys(
                 item.decode("ascii")
@@ -128,6 +124,14 @@ class YoutubeVideoFinder:
             )
         )[:8]
         return self._best_public_candidate(matches, artist, title)
+
+    def _read_public(self, request: urllib.request.Request) -> bytes:
+        for _ in range(2):
+            try:
+                return self._get(request, self._timeout)
+            except (OSError, TimeoutError, urllib.error.URLError):
+                pass
+        return b""
 
     def _best_public_candidate(self, video_ids: list[str], artist: str, title: str) -> str | None:
         worker_count = min(4, len(video_ids))
@@ -153,8 +157,8 @@ class YoutubeVideoFinder:
             headers={"User-Agent": "A&D-Voice/1"},
         )
         try:
-            metadata = _mapping(loads_object(self._get(request, self._timeout).decode()))
-        except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+            metadata = _mapping(loads_object(self._read_public(request).decode()))
+        except ValueError:
             return None, video_id, False
         return _video_candidate_score(metadata, artist, title), video_id, True
 

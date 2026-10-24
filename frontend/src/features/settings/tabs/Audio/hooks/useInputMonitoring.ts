@@ -63,7 +63,7 @@ export const useInputMonitoring = (canStart: boolean) => {
       .enqueue(async () => {
         if (stopped) return false;
         ownsAudio = true;
-        await audio.setDspEnabled(false);
+        await applyVoiceChain(latest.current.preferences, audio);
         if (stopped) return false;
         await audio.setMonitoring(true);
         return !stopped;

@@ -10,6 +10,13 @@ import { socialRu } from "./messages.ru.social";
 import type { MessageTable } from "./messageTable";
 
 export const ru: MessageTable = {
+  libraryArchive: "Архив библиотеки",
+  libraryArchiveHint:
+    "Все песни, исходники, версии проектов, записи и анализы. При импорте существующие песни сохраняются.",
+  libraryExport: "Экспорт всей библиотеки",
+  libraryImport: "Импорт библиотеки",
+  libraryImported: "Добавлено песен: {imported}. Уже в библиотеке: {skipped}.",
+  libraryTransferFailed: "Не удалось перенести библиотеку",
   addSong: "Добавить песню",
   advanced: "Дополнительно",
   selectFile: "Выбрать файл",

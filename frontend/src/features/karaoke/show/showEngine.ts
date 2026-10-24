@@ -1,5 +1,4 @@
 import { MusicPulse, type MusicState } from "./musicPulse";
-import { approach } from "./fxPalette";
 import { reliablePitchHz } from "../karaokeLyrics";
 import {
   PerformanceTracker,
@@ -54,9 +53,9 @@ export class ShowEngine {
   private tracker = new PerformanceTracker();
   private pulse = new MusicPulse();
   private director = new VisualDirector();
-  private motionAt: number | undefined;
   private listeners = new Set<CommandListener>();
   private words: ReadonlyMap<string, NoteWord> = new Map();
+  private rhythm: readonly (readonly [number, number])[] = [];
   readonly voiceHistory: VoiceObservation[] = [];
   /** Where the singer's voice is drawn now (page pixels), set by the melody roll's light layer when it is shown. */
   voicePoint: { x: number; y: number } | undefined;
@@ -78,12 +77,13 @@ export class ShowEngine {
     words: ReadonlyMap<string, NoteWord> = new Map(),
     resetPerformance = true,
     vocalActivity?: readonly (readonly [number, number])[],
+    rhythm: readonly (readonly [number, number])[] = [],
   ): void {
     this.words = words;
+    this.rhythm = rhythm;
     this.tracker.load(notes, phrases, resetPerformance, vocalActivity);
     if (!resetPerformance) return;
     this.voiceHistory.length = 0;
-    this.motionAt = undefined;
     this.state = { ...this.state, musicBeat: 0 };
     this.director.reset();
     this.pulse.reset();
@@ -122,15 +122,7 @@ export class ShowEngine {
     }
     const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration, audioActive, confidence) : [];
     const music = this.pulse.state;
-    const elapsed = this.motionAt === undefined ? 0 : Math.max(0, Math.min(0.05, (now - this.motionAt) / 1000));
-    this.motionAt = now;
-    const targetBeat = playing ? Math.max(music.kick, music.snare) : 0;
-    const musicBeat = approach(
-      this.state.musicBeat,
-      targetBeat,
-      elapsed,
-      targetBeat > this.state.musicBeat ? 0.01 : 0.08,
-    );
+    const musicBeat = playing ? this.rhythmAt(position) : 0;
     const commands = this.director.plan(now, events, [], {
       energy: this.tracker.energy,
       streakSeconds: this.tracker.streakSeconds,
@@ -158,6 +150,19 @@ export class ShowEngine {
 
   wordOf(noteId: string): NoteWord | undefined {
     return this.words.get(noteId);
+  }
+
+  private rhythmAt(position: number): number {
+    let low = 0;
+    let high = this.rhythm.length;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (this.rhythm[middle]![0] <= position) low = middle + 1;
+      else high = middle;
+    }
+    const beat = this.rhythm[low - 1];
+    const age = beat ? position - beat[0] : Infinity;
+    return beat && age < 0.16 ? beat[1] * Math.exp(-age / 0.055) : 0;
   }
 
   onCommand(listener: CommandListener): () => void {

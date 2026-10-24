@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections import Counter
 from dataclasses import replace
+import threading
 
 import numpy as np
 from faster_whisper.transcribe import Segment
@@ -9,9 +11,23 @@ from faster_whisper.transcribe import Segment
 from backend.ai_worker.ctc import AlignedWord, Window, _PREFERENCE
 from backend.ai_worker.timing import _runs
 from backend.ai_worker.word_guidance import _key, phrase_window, recognized_phrase
+from backend.lyrics.phrases import _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
+
+
+def phrase_coverage(lyrics: str, heard: Sequence[tuple[str, float, float]]) -> int:
+    lines = [line for line in lyrics.splitlines() if _lyrics_key(line)]
+    expected = Counter(_lyrics_key(line) for line in lines)
+    lengths = {_lyrics_key(line): len(line.split()) for line in lines}
+    recognized = Counter(
+        _lyrics_key(text)
+        for text, _, _ in performed_phrases(
+            lyrics, [word for word, _, _ in heard], threading.Event()
+        )
+    )
+    return sum(lengths[key] * min(count, recognized[key]) for key, count in expected.items())
 
 
 def serialize(segments: Iterable[Segment], offset: float = 0.0) -> dict[str, object]:

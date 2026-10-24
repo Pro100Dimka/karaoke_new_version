@@ -31,16 +31,16 @@ SEPARATION_MODEL = ModelSpec(
     download_url="https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th",
 )
 
-# Whisper "base" (multilingual): speech recognition and word timestamps for uk/ru/en.
+# Whisper large-v3-turbo (multilingual): coverage of sung phrases and word timestamps.
 SPEECH_MODEL = ModelSpec(
-    model_id="whisper-base",
+    model_id="whisper-large-v3-turbo",
     purpose=AiCapability.ASR,
-    version="ed3a0b6b",
-    size=145_262_807,
-    checksum="ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e",
+    version="aff26ae4",
+    size=1_617_941_637,
+    checksum="aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a",
     download_url=(
         "https://openaipublic.azureedge.net/main/whisper/models/"
-        "ed3a0b6b1c0edf879ad9b11b1af5a0e6ab5db9205f891f668f8b0e6c6326e34e/base.pt"
+        "aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt"
     ),
 )
 

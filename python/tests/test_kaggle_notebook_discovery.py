@@ -30,13 +30,16 @@ def test_kaggle_notebook_embeds_the_current_worker() -> None:
     )
     for relative in (
         "kaggle/ad_voice_server.py",
+        "python/backend/ai/catalog.py",
         "python/backend/ai_worker/word_guidance.py",
+        "python/backend/ai_worker/separation.py",
         "python/backend/ai_worker/pitch.py",
         "python/backend/ai_worker/ctc.py",
         "python/backend/ai_worker/speech.py",
         "python/backend/ai_worker/recognition.py",
         "python/backend/ai_worker/timing.py",
         "python/backend/lyrics/discovery.py",
+        "python/backend/lyrics/phrases.py",
         "python/backend/lyrics/codec.py",
         "python/backend/lyrics/domain.py",
         "python/backend/text_normalization.py",
@@ -174,5 +177,5 @@ def test_server_health_identifies_its_process_generation():
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server-health", "exec"), namespace)
     first = namespace["health"]()["sessionGeneration"]
     assert len(first) == 32
-    assert namespace["health"]()["protocolVersion"] == 5
+    assert namespace["health"]()["protocolVersion"] == 7
     assert namespace["health"]()["sessionGeneration"] == first

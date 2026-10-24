@@ -83,10 +83,20 @@ class LyricsDocument:
     words: Sequence[Word]
     # The vocal's activity includes consonants that have no reliable fundamental pitch.
     vocal_activity: Sequence[tuple[float, float]] = ()
+    # Bass, kick and snare onsets measured from isolated stems, on the source timeline.
+    rhythm: Sequence[tuple[float, float]] = ()
 
     def validate(self) -> None:
         if not isfinite(self.duration) or self.duration <= 0:
             raise ValueError("Duration must be finite and positive")
+        if any(
+            not 0 <= at < self.duration or not 0 < strength <= 1 for at, strength in self.rhythm
+        ):
+            raise ValueError("Rhythm points must be inside the song with strength 0..1")
+        if any(
+            right[0] <= left[0] for left, right in zip(self.rhythm, self.rhythm[1:], strict=False)
+        ):
+            raise ValueError("Rhythm points must be ordered")
         if any(not 0 <= start < end <= self.duration for start, end in self.vocal_activity):
             raise ValueError("Vocal activity must be inside the song")
         if any(

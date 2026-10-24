@@ -240,6 +240,25 @@ def test_remote_session_reuses_uploaded_vocal_for_later_stages(tmp_path: Path) -
     assert client.calls[3][1][0] == "a1b2"
 
 
+def test_remote_separation_returns_the_isolated_rhythm_on_the_same_timeline(tmp_path):
+    instrumental, vocal = tmp_path / "instrumental.wav", tmp_path / "vocal.wav"
+    instrumental.write_bytes(b"instrumental")
+    vocal.write_bytes(b"vocal")
+
+    class RhythmClient(_Client):
+        def submit(self, *args, api_name):
+            assert api_name == "/separate"
+            return _Job((str(instrumental), str(vocal), "session", [[0.5, 1], [1.2, 0.6]]))
+
+    result = _Provider(RhythmClient(instrumental, vocal)).separate(
+        tmp_path / "source.wav",
+        tmp_path / "output",
+        threading.Event(),
+        execution=ExecutionContext(ComputeDevice.CPU, 1),
+    )
+    assert result.rhythm == ((0.5, 1), (1.2, 0.6))
+
+
 def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_path: Path) -> None:
     vocal = tmp_path / "existing-vocal.wav"
     vocal.write_bytes(b"existing project vocal")
@@ -323,7 +342,7 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
         def predict(self, *, api_name):
             assert api_name == "/health"
             probes.append(tuple(state.values()))
-            return {"protocolVersion": 5, "sessionGeneration": state["generation"]}
+            return {"protocolVersion": 7, "sessionGeneration": state["generation"]}
 
         def submit(self, *args, api_name):
             calls.append((api_name, args))
@@ -545,7 +564,7 @@ def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allow
         assert connections == []
 
 
-@pytest.mark.parametrize("protocol_version", [4, 5])
+@pytest.mark.parametrize("protocol_version", [4, 5, 6, 7])
 def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_workers(
     monkeypatch,
     protocol_version,
@@ -573,7 +592,7 @@ def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_worke
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
 
-    if protocol_version == 4:
+    if protocol_version != 7:
         with pytest.raises(DependencyError) as error:
             provider.validate_configuration()
         assert error.value.code == "KaggleProtocolMismatch"

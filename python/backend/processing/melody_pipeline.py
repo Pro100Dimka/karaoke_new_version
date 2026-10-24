@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from backend.processing.audio_pipeline import attenuate_playback_stems
 
@@ -272,14 +272,17 @@ class MelodyPipeline:
             CancellationPolicy.FINISH_BEFORE_CANCEL,
             reports,
             context,
-            lambda: construct_document(
-                document.title,
-                document.artist,
-                document.duration,
-                document.lyrics,
-                words,
-                stable,
-                music,
+            lambda: replace(
+                construct_document(
+                    document.title,
+                    document.artist,
+                    document.duration,
+                    document.lyrics,
+                    words,
+                    stable,
+                    music,
+                ),
+                rhythm=document.rhythm,
             ),
             progress=0.88,
         )

@@ -81,6 +81,7 @@ class LyricsDocumentDto(ApiModel):
     lyrics: str
     words: list[WordDto]
     vocal_activity: list[tuple[float, float]] = []
+    rhythm: list[tuple[float, float]] = []
 
 
 class EditorDto(ApiModel):
@@ -165,6 +166,7 @@ def lyrics_document_dto(document: LyricsDocument) -> LyricsDocumentDto:
         lyrics=document.lyrics,
         words=words,
         vocal_activity=list(document.vocal_activity),
+        rhythm=list(document.rhythm),
     )
 
 
@@ -199,4 +201,5 @@ def lyrics_document(dto: LyricsDocumentDto) -> LyricsDocument:
         dto.lyrics,
         words,
         tuple(dto.vocal_activity),
+        tuple(dto.rhythm),
     )

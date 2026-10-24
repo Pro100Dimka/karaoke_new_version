@@ -6,7 +6,7 @@ import tempfile
 import stat
 import zipfile
 from pathlib import Path, PurePosixPath
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.packages.policy import PackagePolicy
@@ -41,10 +41,14 @@ class ZipPackageArchive:
         except (OSError, zipfile.BadZipFile) as exc:
             raise DomainError("PackageInvalid", "Package archive cannot be read", 400) from exc
 
-    def extract(self, archive: Path, destination: Path) -> None:
+    def extract(
+        self, archive: Path, destination: Path, progress: Callable[[float], None] | None = None
+    ) -> None:
         destination.mkdir(parents=True, exist_ok=True)
         try:
             with zipfile.ZipFile(archive, "r") as bundle:
+                total = sum(info.file_size for info in bundle.infolist()) or 1
+                completed = 0
                 for info in bundle.infolist():
                     if info.is_dir():
                         continue
@@ -53,7 +57,13 @@ class ZipPackageArchive:
                     target = ensure_within(destination.joinpath(*relative.parts), destination)
                     target.parent.mkdir(parents=True, exist_ok=True)
                     with bundle.open(info, "r") as source, target.open("wb") as output:
-                        shutil.copyfileobj(source, output, length=1024 * 1024)
+                        if progress is None:
+                            shutil.copyfileobj(source, output, length=1024 * 1024)
+                        else:
+                            while chunk := source.read(1024 * 1024):
+                                output.write(chunk)
+                                completed += len(chunk)
+                                progress(completed / total)
         except (OSError, zipfile.BadZipFile) as exc:
             raise DependencyError("PackageInvalid", "Package extraction failed") from exc
 
@@ -62,11 +72,12 @@ class ZipPackageArchive:
         destination: Path,
         files: Mapping[PurePosixPath, Path],
         texts: Mapping[PurePosixPath, str],
+        progress: Callable[[float], None] | None = None,
     ) -> None:
         destination.parent.mkdir(parents=True, exist_ok=True)
         temporary = _temporary_archive(destination)
         try:
-            _write_archive(temporary, files, texts)
+            _write_archive(temporary, files, texts, progress=progress)
             with zipfile.ZipFile(temporary) as bundle:
                 stored = {
                     PurePosixPath(info.filename): zipfile.ZIP_STORED
@@ -76,7 +87,7 @@ class ZipPackageArchive:
             if stored:
                 # Repetitive audio (including silence) must remain importable without
                 # weakening the archive-bomb limit or buffering whole media files.
-                _write_archive(temporary, files, texts, stored)
+                _write_archive(temporary, files, texts, stored, progress)
             _validate_built_archive(temporary)
             os.replace(temporary, destination)
         except (OSError, zipfile.BadZipFile) as exc:
@@ -84,6 +95,8 @@ class ZipPackageArchive:
             raise DependencyError(
                 "PackageExportFailed", "Package archive could not be built"
             ) from exc
+        finally:
+            temporary.unlink(missing_ok=True)
 
 
 def _entry(info: zipfile.ZipInfo) -> ArchiveEntry:
@@ -123,11 +136,26 @@ def _write_archive(
     files: Mapping[PurePosixPath, Path],
     texts: Mapping[PurePosixPath, str],
     compression: Mapping[PurePosixPath, int] | None = None,
+    progress: Callable[[float], None] | None = None,
 ) -> None:
     compression = compression or {}
+    total = sum(source.stat().st_size for source in files.values()) or 1
+    completed = 0
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for path, source in files.items():
-            bundle.write(source, path.as_posix(), compress_type=compression.get(path))
+            if progress is None:
+                bundle.write(source, path.as_posix(), compress_type=compression.get(path))
+            else:
+                info = zipfile.ZipInfo.from_file(source, path.as_posix())
+                info.compress_type = compression.get(path, zipfile.ZIP_DEFLATED)
+                with (
+                    source.open("rb") as stream,
+                    bundle.open(info, "w", force_zip64=True) as output,
+                ):
+                    while chunk := stream.read(1024 * 1024):
+                        output.write(chunk)
+                        completed += len(chunk)
+                        progress(completed / total)
         for path, text in texts.items():
             bundle.writestr(
                 path.as_posix(), text.encode("utf-8"), compress_type=compression.get(path)

@@ -9,7 +9,9 @@ import {
   Select,
   TextField,
   Typography,
+  Stack,
 } from "@neo-ui-kit/react";
+import { useRef } from "react";
 import { useText } from "../../../../i18n/useText";
 import { useAiSettings, type ProcessingBackend } from "./hooks/useAiSettings";
 import "./ui/ai.css";
@@ -19,6 +21,8 @@ export const AiSettings = () => {
   const t = useText();
   const ai = useAiSettings();
   const local = ai.backend === "Local";
+  const picker = useRef<HTMLInputElement>(null);
+  const labels = { export: t("libraryExport"), import: t("libraryImport") };
 
   return (
     <Card
@@ -63,6 +67,45 @@ export const AiSettings = () => {
             }
           />
         </Grid>
+        <Card
+          title={t("libraryArchive")}
+          description={t("libraryArchiveHint")}
+          padding="sm"
+        >
+          <Stack direction="row" gap={2} style={{ flexWrap: "wrap" }}>
+            {(["export", "import"] as const).map((action) => (
+              <Button
+                key={action}
+                icon={{ export: "download", import: "upload" }[action]}
+                disabled={ai.transfer !== null}
+                onClick={() =>
+                  action === "export"
+                    ? void ai.transferLibrary(action)
+                    : picker.current?.click()
+                }
+              >
+                {labels[action]}
+              </Button>
+            ))}
+          </Stack>
+          <input
+            ref={picker}
+            type="file"
+            accept=".zip"
+            hidden
+            onChange={(event) => {
+              const file = event.currentTarget.files?.[0];
+              event.currentTarget.value = "";
+              if (file) void ai.transferLibrary("import", file);
+            }}
+          />
+          {ai.transfer && (
+            <ProgressBar
+              label={labels[ai.transfer.action]}
+              value={ai.transfer.progress}
+            />
+          )}
+        </Card>
         {ai.failed && (
           <MessageBar
             tone="error"

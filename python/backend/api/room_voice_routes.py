@@ -77,7 +77,7 @@ def _authenticated_room(relay: VoiceRelay, repository: RoomRepository, body: Voi
 def _add_session_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
     @app.get("/voice/capabilities")
     def voice_capabilities() -> dict[str, bool]:
-        return {"direct": True}
+        return {"direct": False}
 
     @app.post("/voice/join", response_model=VoiceJoinResponse)
     def voice_join(body: VoiceJoinDto) -> VoiceJoinResponse:
@@ -91,10 +91,8 @@ def _add_session_routes(app: FastAPI, relay: VoiceRelay, repository: RoomReposit
                 "Room participant was not found",
                 participantId=body.participant_id,
             )
-        token = relay.expect(
-            room_id, body.participant_id, machine_id=body.machine_id, direct=body.direct
-        )
-        return VoiceJoinResponse(voice_token=f"{token:016x}", direct=body.direct)
+        token = relay.expect(room_id, body.participant_id, machine_id=body.machine_id)
+        return VoiceJoinResponse(voice_token=f"{token:016x}")
 
     @app.post("/voice/candidate", status_code=204)
     def voice_candidate(body: VoiceCandidateDto) -> Response:
@@ -118,22 +116,9 @@ def _add_mix_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository)
         "/voice/peers", response_model=VoicePeersResponse, response_model_exclude_defaults=True
     )
     def voice_peers(body: VoicePeersDto) -> VoicePeersResponse:
-        room_id = _authenticated_room(relay, repository, body)
-        room = repository.get(room_id)
-        peers = (
-            relay.direct_peers(room_id, body.participant_id, int(body.voice_token, 16))
-            if room is not None and len(room.participants) == 2
-            else []
-        )
-        ready = bool(peers) and relay.direct_ready(
-            room_id,
-            body.participant_id,
-            int(body.voice_token, 16),
-            int(body.received_peer_token, 16) if body.received_peer_token else None,
-        )
-        return VoicePeersResponse(
-            peers=[VoicePeer.model_validate(peer) for peer in peers], direct_ready=ready
-        )
+        # Keep the old endpoint compatible without exposing a route around the server mixer.
+        _authenticated_room(relay, repository, body)
+        return VoicePeersResponse(peers=[])
 
     @app.post("/voice/metrics")
     def voice_metrics(body: VoicePeersDto) -> dict[str, object]:

@@ -73,6 +73,13 @@ def test_entrypoints_prepare_the_shared_accelerated_whisper_model() -> None:
         )
 
 
+def test_accelerator_startup_cache_is_invalidated_when_the_model_catalog_changes():
+    source = (ROOT / "scripts" / "build-steps.mjs").read_text(encoding="utf-8")
+
+    assert 'fingerprint(path.join(root, "python", "backend", "ai", "catalog.py"))' in source
+    assert "`.ad-voice-accelerator-${acceleratorVersion}`" in source
+
+
 def test_installer_contains_the_complete_kaggle_automation_runtime() -> None:
     requirements = (ROOT / "python" / "requirements.lock").read_text(encoding="utf-8")
     release = (ROOT / "release.bat").read_text(encoding="utf-8")

@@ -1,6 +1,9 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useNotify } from "../../../../../app/NotificationsProvider";
-import type { ModelDto } from "../../../../../contracts/models";
+import type {
+  ModelDto,
+  ProcessingJobDto,
+} from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
 import {
   useSettingsBackend,
@@ -27,6 +30,10 @@ export const useAiSettings = () => {
   const t = useText();
   const session = aiSettingsSessionFor(backend, desktop, events);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
+  const [transfer, setTransfer] = useState<{
+    action: "export" | "import";
+    progress: number;
+  } | null>(null);
   const failures = [
     ...Object.values(state.errors),
     ...Object.values(state.downloadErrors),
@@ -37,6 +44,27 @@ export const useAiSettings = () => {
 
   return {
     ...state,
+    transfer,
+    transferLibrary: async (action: "export" | "import", file?: File) => {
+      const path = file && desktop.pathForFile(file);
+      if (transfer || (action === "import" && !path)) return;
+      setTransfer({ action, progress: 0 });
+      const progress = (job: ProcessingJobDto) =>
+        setTransfer({ action, progress: job.progress ?? 0 });
+      try {
+        if (action === "export")
+          await desktop.revealInExplorer(await backend.exportLibrary(progress));
+        else
+          notify(
+            t("libraryImported", await backend.importLibrary(path!, progress)),
+            "success",
+          );
+      } catch (error) {
+        notify(messageOf(error, t("libraryTransferFailed")), "error");
+      } finally {
+        setTransfer(null);
+      }
+    },
     failed: failures.length > 0,
     error: failures.length
       ? messageOf(failures[0], t("modelsLoadFailed"))

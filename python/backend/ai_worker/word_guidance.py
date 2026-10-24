@@ -198,9 +198,11 @@ def with_word_guidance(
         alternatives = _recognized_cores(
             words, scores, frame_seconds, window, timings, voiced, margin, onsets
         )
-        if phrase is not None:
+        if phrase is not None or any(window.first <= index < window.last for index in timings):
+            # An unrecognized neighbour can occupy an earlier recognized word's real place.
+            # Refit that gap between heard anchors too, so the joint choice can move both.
             alternatives += _unrecognized_runs(
-                words, scores, frame_seconds, phrase, timings, voiced
+                words, scores, frame_seconds, phrase or window, timings, voiced
             )
         for index, candidate, interval in alternatives:
             options[index - first].append(candidate)
@@ -247,17 +249,21 @@ def _unrecognized_runs(
             continue
         end = heard[index][0] if index < window.last else window.end
         if first < index and start < end:
+            gap = ctc.Window(
+                first, index, start, end, window.heard_start if first == window.first else None
+            )
             candidates = ctc._align_window(
                 scores,
                 frame_seconds,
                 [w.text for w in words[first:index]],
-                ctc.Window(first, index, start, end),
+                gap,
             )
-            if first == window.first:
-                candidates = _settle_unrecognized_entry(candidates, window, frame_seconds)
+            candidates = _settle_unrecognized_entry(candidates, gap, frame_seconds)
             for offset, candidate in enumerate(candidates):
                 word = words[first + offset]
-                if word.score <= candidate.score + ctc._PREFERENCE and ctc._implausible(
+                if _onset_confidence(
+                    word, scores, frame_seconds
+                ) <= candidate.score + ctc._PREFERENCE and ctc._implausible(
                     [candidate], voiced
                 ) <= ctc._implausible([word], voiced):
                     result.append((first + offset, candidate, (start, end)))
@@ -272,6 +278,8 @@ def _settle_unrecognized_entry(
     frame_seconds: float,
 ) -> list[ctc.AlignedWord]:
     """A weak first-frame spike is a cropped search edge, not an independently heard entry."""
+    if len(words) != window.last - window.first:
+        return []
     first = words[0]
     entry = window.heard_start
     limit = words[1].start if len(words) > 1 else window.end

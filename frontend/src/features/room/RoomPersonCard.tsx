@@ -181,7 +181,7 @@ export const RoomPersonCard = ({
             )}
           </Stack>
         </div>
-        {/* Your own microphone goes out at full level in a room (see roomMicrophoneGain): no knob for it. */}
+        {/* Your own microphone uses the saved settings; this card controls other singers' levels. */}
         {!participant.self && (
           <RotaryKnob
             diameter={personKnobDiameter}

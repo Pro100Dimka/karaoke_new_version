@@ -277,6 +277,7 @@ export const KaraokeStage = ({
   );
   const show = useShowEngine({
     vocalActivity: document?.vocalActivity,
+    rhythm: document?.rhythm,
     notes: showNotes,
     lines,
     position,

@@ -6,9 +6,18 @@ from dataclasses import replace
 import pytest
 
 from backend.lyrics.domain import LyricsDocument, Note, Word
+from backend.lyrics.codec import decode_document, encode_document
 from backend.processing.cache_key import CacheIdentity, build_cache_key
 from backend.processing.domain import Job, JobState, JobType
 from backend.processing.policies import ResourceBudget
+
+
+def test_isolated_rhythm_survives_document_serialization_and_rejects_invalid_points():
+    document = LyricsDocument("Song", "Artist", 3, None, None, "", (), rhythm=((0.5, 1), (2, 0.4)))
+    assert decode_document(encode_document(document)).rhythm == document.rhythm
+    for rhythm in [((4, 1),), ((1, 2),), ((2, 1), (1, 1))]:
+        with pytest.raises(ValueError, match="Rhythm"):
+            replace(document, rhythm=rhythm).validate()
 
 
 def test_note_must_stay_inside_word() -> None:

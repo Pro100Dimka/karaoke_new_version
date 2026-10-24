@@ -134,7 +134,8 @@ const pythonLane = async () => {
     await exec("python", `${quote(path.join(root, "ensure-ai-runtime.bat"))} ${quote(python)}`);
     writeFileSync(runtimeStamp, packages);
   }
-  const acceleratorStamp = path.join(path.dirname(path.dirname(python)), ".ad-voice-accelerator");
+  const acceleratorVersion = fingerprint(path.join(root, "python", "backend", "ai", "catalog.py"));
+  const acceleratorStamp = path.join(path.dirname(path.dirname(python)), `.ad-voice-accelerator-${acceleratorVersion}`);
   const prepared = existsSync(acceleratorStamp) ? readFileSync(acceleratorStamp, "utf8") : "";
   if (!prepared || !existsSync(path.join(prepared, "model.bin"))) {
     const output = await run("-m backend.ai_worker prepare-accelerator", { check: false, capture: true })

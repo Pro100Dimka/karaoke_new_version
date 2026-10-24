@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 import json
 from pathlib import Path
+from dataclasses import replace
 
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -27,7 +28,12 @@ def ready_song(client, source: Path) -> dict[str, object]:
 def test_editor_api_round_trips_the_measured_karaoke_target(tmp_path: Path) -> None:
     source = tmp_path / "target.wav"
     write_wav(source)
-    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+
+    class RhythmProvider(FakeAiProvider):
+        def separate(self, *args, **kwargs):
+            return replace(super().separate(*args, **kwargs), rhythm=((0.2, 1), (0.7, 0.7)))
+
+    with app_client(tmp_path / "runtime", ai_providers=(RhythmProvider(),)) as client:
         song = ready_song(client, source)
         song_id = str(song["songId"])
         measured = client.app.state.container.songs.get_editor.execute(song_id).document
@@ -35,6 +41,7 @@ def test_editor_api_round_trips_the_measured_karaoke_target(tmp_path: Path) -> N
         assert measured.words[0].notes[0].contour
         opened = client.get(f"/songs/{song_id}/editor").json()
         document = opened["document"]
+        assert document["rhythm"] == [[0.2, 1], [0.7, 0.7]]
         assert document.get("vocalActivity") == [
             list(interval) for interval in measured.vocal_activity
         ]
@@ -47,6 +54,7 @@ def test_editor_api_round_trips_the_measured_karaoke_target(tmp_path: Path) -> N
         )
         assert saved.status_code == 200, saved.text
         restored = client.app.state.container.songs.get_editor.execute(song_id).document
+        assert restored.rhythm == measured.rhythm
         assert restored.vocal_activity == measured.vocal_activity
         assert restored.words[0].notes[0].contour == measured.words[0].notes[0].contour
 

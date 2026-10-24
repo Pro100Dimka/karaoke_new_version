@@ -61,7 +61,7 @@ class PrepareSongClip:
         )
         if cancel is not None and cancel.is_set():
             return song
-        return self._save(song, LOCAL_CLIP if ready else None)
+        return self._save(song, LOCAL_CLIP) if ready else song
 
     def _save(self, song: Song, video_url: str | None) -> Song:
         with self._locks.acquire(song.song_id), self._uow.create() as transaction:

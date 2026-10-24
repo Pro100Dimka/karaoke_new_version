@@ -116,11 +116,8 @@ describe("central room voice transport", () => {
     await transport.leaveRoomVoice();
   });
 
-  it("switches a duet only after fresh reception and bilateral confirmation, then revokes a departed peer", async () => {
+  it("keeps server audio audible even when a legacy server advertises a ready direct peer", async () => {
     vi.useFakeTimers();
-    let packets = 0;
-    let ready = false;
-    let departed = false;
     const peer = { participantId: "guest", host: "203.0.113.5", port: 41002, voiceToken: "0000000000000002" };
     const requests: Array<{ path: string; body: Record<string, unknown> }> = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
@@ -128,31 +125,25 @@ describe("central room voice transport", () => {
       requests.push({ path, body: JSON.parse(String(init?.body ?? "{}")) });
       const body = path === "/voice/capabilities" ? { direct: true }
         : path === "/voice/join" ? { voiceToken: "0000000000000001", direct: true }
-        : path === "/voice/peers" ? { peers: departed ? [] : [peer], directReady: ready } : {};
+        : path === "/voice/peers" ? { peers: [peer], directReady: true } : {};
       return new Response(JSON.stringify(body));
     }));
     sendAudioRequest.mockImplementation(async ({ command }) => ({ status: 0, text:
       command === "JoinMediaSession" ? "MediaSessionJoined localPort=41001"
-        : command === "GetDiagnostics" ? `RemoteDirectFirstPackets.guest: ${packets}` : "Ok" }));
+        : command === "GetDiagnostics" ? "RemoteDirectFirstPackets.guest: 400" : "Ok" }));
     const transport = await import("./RoomServerTransport");
     await transport.joinRoomVoice("room", "host");
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "SetDirectPeer", args: peer });
-    const switches = () => sendAudioRequest.mock.calls.filter(([request]) =>
-      request.command === "SetRemoteMute" && request.args.participantId === "__room_server_mix__" && request.args.muted);
-    expect(switches()).toHaveLength(0);
-    packets = 400;
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(requests.filter(r => r.path === "/voice/peers").at(-1)?.body.receivedPeerToken).toBe(peer.voiceToken);
-    expect(switches()).toHaveLength(0);
-    ready = true;
-    packets = 800;
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(switches()).toHaveLength(1);
-    departed = true;
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "RemoveRemoteParticipant", args: { participantId: "guest" } });
-    expect(sendAudioRequest).toHaveBeenCalledWith({ command: "SetRemoteMute", args: { participantId: "__room_server_mix__", muted: false } });
+    await vi.advanceTimersByTimeAsync(5000);
+    await transport.setRoomVoiceParticipantGain("guest", 0.5);
+    expect(requests.find(r => r.path === "/voice/join")?.body.direct).not.toBe(true);
+    expect(requests.some(r => ["/voice/capabilities", "/voice/candidate", "/voice/peers"].includes(r.path))).toBe(false);
+    expect(sendAudioRequest.mock.calls.map(([request]) => request.command)).toEqual(["JoinMediaSession"]);
+    expect(transport.roomVoiceRoute()).toBe("relay");
+    await transport.joinRoomVoice("room", "host");
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(sendAudioRequest.mock.calls.map(([request]) => request.command)).toEqual([
+      "JoinMediaSession", "LeaveMediaSession", "JoinMediaSession",
+    ]);
     await transport.leaveRoomVoice();
     expect(vi.getTimerCount()).toBe(0);
   });

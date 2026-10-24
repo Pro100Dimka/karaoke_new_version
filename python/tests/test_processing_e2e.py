@@ -18,6 +18,22 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+def test_failed_clip_download_keeps_discovered_url_for_retry(tmp_path, monkeypatch) -> None:
+    source = tmp_path / "SadSvit - Небо.wav"
+    write_wav(source)
+    with next_client(tmp_path) as client:
+        imported = import_song(client, source)
+        container = client.app.state.container
+        clip = container.songs.start_processing._preparation._clip
+        with container.database.create() as transaction:
+            song = transaction.songs.get(imported["songId"])
+            song = replace(song, video_url="https://www.youtube.com/watch?v=cPzhNzqt9LA")
+            transaction.songs.update(song)
+            transaction.commit()
+        monkeypatch.setattr(clip._downloader, "download", lambda *args, **kwargs: False)
+        assert clip.execute(song).video_url == song.video_url
+
+
 def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)

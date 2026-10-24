@@ -8,6 +8,7 @@ import numpy as np
 import soundfile as sf
 
 from backend.processing.algorithms import MusicMetadata
+from backend.ai.domain import SeparatedAudio
 from backend.processing.domain import CancellationPolicy, StageReport
 from backend.processing.job_manager import JobContext
 from backend.processing.compute_policy import ExecutionContext
@@ -57,6 +58,7 @@ class PreparedAudio:
     music: MusicMetadata
     instrumental: Path
     reference_vocal: Path
+    rhythm: tuple[tuple[float, float], ...] = ()
 
 
 class PrepareProcessingAudio:
@@ -85,7 +87,7 @@ class PrepareProcessingAudio:
     ) -> PreparedAudio:
         normalized, cache_hit = self._normalize_audio(song, workspace, context, reports)
         music = self._analyze_music(normalized, context, reports)
-        instrumental, reference = self._separate(
+        separated = self._separate(
             normalized,
             workspace,
             providers,
@@ -93,7 +95,9 @@ class PrepareProcessingAudio:
             reports,
             execution,
         )
-        return PreparedAudio(cache_hit, music, instrumental, reference)
+        return PreparedAudio(
+            cache_hit, music, separated.instrumental, separated.reference_vocal, separated.rhythm
+        )
 
     def _normalize_audio(
         self,
@@ -134,7 +138,7 @@ class PrepareProcessingAudio:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
-    ) -> tuple[Path, Path]:
+    ) -> SeparatedAudio:
         separated = self._stages.run(
             "StemSeparation",
             CancellationPolicy.INTERRUPTIBLE,
@@ -156,4 +160,4 @@ class PrepareProcessingAudio:
             lambda: self._reference.validate(separated.reference_vocal),
             progress=0.48,
         )
-        return separated.instrumental, separated.reference_vocal
+        return separated

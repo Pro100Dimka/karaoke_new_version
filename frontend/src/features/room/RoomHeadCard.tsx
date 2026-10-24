@@ -184,21 +184,40 @@ export const RoomHeadCard = ({
           items={menu}
         />
       </Stack>
-      <div className="roomFrameControls">
-        {!actions.detached && <IconButton
-          size="xs"
-          variant="ghost"
-          icon="minus"
-          label={t("collapseRoom")}
-          onClick={actions.onCollapse}
-        />}
-        <IconButton
-          size="xs"
-          variant="ghost"
-          icon="close"
-          label={t("leaveRoom")}
-          onClick={actions.onLeave}
-        />
+      <div
+        className="roomFrameControls"
+        style={{
+          zIndex: 21,
+          isolation: "isolate",
+          boxShadow: "0 0 0 2px var(--ad-background, #19080d)",
+        }}
+      >
+        {[
+          {
+            show: !actions.detached,
+            icon: "minus",
+            label: t("collapseRoom"),
+            onClick: actions.onCollapse,
+          },
+          {
+            show: true,
+            icon: "close",
+            label: t("leaveRoom"),
+            onClick: actions.onLeave,
+          },
+        ]
+          .filter(({ show }) => show)
+          .map(({ icon, label, onClick }) => (
+            <IconButton
+              key={icon}
+              size="xs"
+              variant="secondary"
+              icon={icon}
+              label={label}
+              style={{ fontSize: "1rem", color: "var(--ad-text)" }}
+              onClick={onClick}
+            />
+          ))}
       </div>
     </Card>
   );

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MusicState } from "./musicPulse";
+import { ShowEngine } from "./showEngine";
 import type { PerformanceEvent } from "./performanceTracker";
 import {
   ambientFor,
@@ -14,6 +15,42 @@ const music = (intensity = 1): MusicState => ({
   intensity,
   pause: false,
   beatPeriod: 0.5,
+});
+
+describe("lyrics rhythm", () => {
+  it("keeps a strong short hit at a normal animation-frame interval", () => {
+    const engine = new ShowEngine();
+    engine.load([], [], new Map(), true, undefined, [[1, 1]]);
+    engine.advance(0, 0.99, undefined, true);
+    engine.advance(16, 1.016, undefined, true);
+    expect(engine.state.musicBeat).toBeGreaterThan(0.7);
+  });
+
+  it("does not bounce to arbitrary backing sounds without isolated rhythm evidence", () => {
+    const engine = new ShowEngine();
+    engine.load([], []);
+    engine.advance(1000, 0.4, undefined, true);
+    engine.hear(Array(18).fill(0.8), 1020);
+    engine.advance(1020, 0.42, undefined, true);
+    expect(engine.state.musicBeat).toBe(0);
+  });
+
+  it("follows bass and drum onsets at the source position, including seek and pause", () => {
+    const engine = new ShowEngine();
+    engine.load([], [], new Map(), true, undefined, [
+      [0.5, 1],
+      [1, 0.8],
+    ]);
+    engine.advance(1000, 0.48, undefined, true);
+    engine.advance(1020, 0.5, undefined, true);
+    expect(engine.state.musicBeat).toBeGreaterThan(0.7);
+    engine.advance(1040, 0.1, undefined, true);
+    expect(engine.state.musicBeat).toBe(0);
+    engine.advance(1060, 1, undefined, true);
+    expect(engine.state.musicBeat).toBeGreaterThan(0.5);
+    engine.advance(1080, 1, undefined, false);
+    expect(engine.state.musicBeat).toBe(0);
+  });
 });
 const context = (
   energy: number,

@@ -7,6 +7,7 @@ import type {
   ConfigurationValidationDto,
   KaggleActionDto,
   HistoryPageDto,
+  ProcessingJobDto,
 } from "../contracts/models";
 
 import { nextJobChange } from "./backendEvents";
@@ -89,9 +90,14 @@ const waitForJob = async (
 
 const waitForPackageReport = async (
   jobId: string,
+  onProgress?: (job: ProcessingJobDto) => void,
+  timeoutMilliseconds?: number,
 ): Promise<Record<string, unknown>> => {
   const job = await waitForJob(jobId, {
     label: "Package job",
+    timeoutMilliseconds,
+    onPoll: (current) =>
+      onProgress?.(mapJob(current, current.entityId ?? "library")),
     // The backend's own code (e.g. PackageConflict) lets the caller react to the reason.
     failure: (current) => {
       const error = current.error ?? {};
@@ -213,6 +219,24 @@ export const pythonClient: PythonClient = {
     if (typeof report.path !== "string" || !report.path)
       throw new Error("Package export completed without a path");
     return report.path;
+  },
+
+  async exportLibrary(onProgress) {
+    const job = await request<BackendJobRef>("POST", "/packages/library/export");
+    const report = await waitForPackageReport(job.jobId, onProgress, 86_400_000);
+    if (typeof report.path !== "string" || !report.path)
+      throw new Error("Library export completed without a path");
+    return report.path;
+  },
+
+  async importLibrary(path, onProgress) {
+    const job = await request<BackendJobRef>("POST", "/packages/library/import", {
+      path,
+    });
+    const report = await waitForPackageReport(job.jobId, onProgress, 86_400_000);
+    if (typeof report.imported !== "number" || typeof report.skipped !== "number")
+      throw new Error("Library import completed without its result");
+    return { imported: report.imported, skipped: report.skipped };
   },
 
   async importProject(path, decision = "SafeOnly") {

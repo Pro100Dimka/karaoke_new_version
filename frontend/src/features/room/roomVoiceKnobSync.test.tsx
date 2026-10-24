@@ -7,10 +7,7 @@ import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
 import type { RoomStateDto } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { clearStorage } from "../../shared/storage/localStore";
-import {
-  roomMicrophoneGain,
-  useVoiceChain,
-} from "../karaoke/console/voiceChain";
+import { useVoiceChain } from "../karaoke/console/voiceChain";
 import { SettingsProvider } from "../../app/SettingsProvider";
 import { AudioMonitoring } from "../settings/tabs/Audio/ui/AudioMonitoring";
 import { RoomDock } from "./RoomDock";
@@ -83,8 +80,10 @@ const InRoom = () => {
   return null;
 };
 
-const RoomSwitch = ({ inRoom }: { inRoom: boolean }) => {
+const RoomSwitch = ({ inRoom, voiceGain }: { inRoom: boolean; voiceGain: number }) => {
   const session = useRoomSession();
+  const { updatePreferences } = useApp("preferences");
+  useEffect(() => updatePreferences({ voiceGain }), [voiceGain, updatePreferences]);
   useEffect(() => session.setSnapshot(inRoom ? room : null), [inRoom, session]);
   return null;
 };
@@ -100,12 +99,12 @@ const SettingsForm = ({ children }: { children: ReactNode }) => {
   return <Form form={form}>{children}</Form>;
 };
 
-it("sends your microphone at full level in a room and brings the stored volume back when you leave", async () => {
+it.each([0.68, 4])("keeps the stored microphone gain %s when joining and leaving a room", async (voiceGain) => {
   clearStorage();
   const tree = (inRoom: boolean) => (
     <MemoryRouter>
       <AppProvider>
-        <RoomSwitch inRoom={inRoom} />
+        <RoomSwitch inRoom={inRoom} voiceGain={voiceGain} />
         <VoiceChain />
       </AppProvider>
     </MemoryRouter>
@@ -114,14 +113,14 @@ it("sends your microphone at full level in a room and brings the stored volume b
   await waitFor(() =>
     expect(vi.mocked(audioClient.setMixer)).toHaveBeenLastCalledWith(
       "mic",
-      roomMicrophoneGain,
+      voiceGain,
     ),
   );
   view.rerender(tree(false));
   await waitFor(() =>
     expect(vi.mocked(audioClient.setMixer)).toHaveBeenLastCalledWith(
       "mic",
-      0.68,
+      voiceGain,
     ),
   );
 });

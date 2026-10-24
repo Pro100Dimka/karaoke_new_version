@@ -21,6 +21,7 @@ from backend.models.commands import DeclareModel, DownloadModel, SelectModel
 from backend.models.queries import ListModels
 from backend.packages.background import StartPackageExport, StartPackageImport
 from backend.packages.inspect_package import InspectPackage
+from backend.packages.library_archive import LibraryArchive
 from backend.processing.cancel_processing import CancelProcessing
 from backend.processing.job_manager import ProcessingJobManager
 from backend.processing.reprocess_melody import ReprocessMelody
@@ -69,6 +70,7 @@ class PackageCases:
     inspect: InspectPackage
     start_export: StartPackageExport
     start_import: StartPackageImport
+    library: LibraryArchive
 
 
 @dataclass(frozen=True, slots=True)

@@ -150,6 +150,11 @@ export interface PythonClient {
     options?: ImportOptions,
   ): Promise<SongDto>;
   exportProject(songId: string, revision: number): Promise<string>;
+  exportLibrary(onProgress?: (job: ProcessingJobDto) => void): Promise<string>;
+  importLibrary(
+    path: string,
+    onProgress?: (job: ProcessingJobDto) => void,
+  ): Promise<{ imported: number; skipped: number }>;
   importProject(
     path: string,
     decision?: ProjectImportDecision,
