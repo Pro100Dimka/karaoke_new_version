@@ -46,11 +46,7 @@ export const SettingsProvider = ({
   );
 };
 
-const useSettingsPorts = () => {
-  const ports = useContext(SettingsContext);
-  if (!ports) throw new Error("SettingsProvider is missing");
-  return ports;
-};
+const useSettingsPorts = () => useContext(SettingsContext) ?? implementations;
 
 export const useSettingsAudio = () => useSettingsPorts().audio;
 export const useSettingsBackend = () => useSettingsPorts().backend;

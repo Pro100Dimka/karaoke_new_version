@@ -81,7 +81,7 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
         result_.finalized = false;
     }
     try {
-        writer_.open(path, sampleRateHz, channels);
+        writer_.open(path, sampleRateHz, channels, tap == RecordingTap::PerformanceMix);
         if (backing) {
             backingWriter_.open(path + ".backing.wav", sampleRateHz, channels);
             backingQueue_.prepare(queueFrames, channels);

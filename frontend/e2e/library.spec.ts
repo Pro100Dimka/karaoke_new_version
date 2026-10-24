@@ -5,6 +5,144 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(installDesktopBridge);
 });
 
+for (const width of [1440, 1100, 800, 390]) {
+  test(`appearance uses readable theme pictures and centred controls at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    await page.locator(".floatingControls").getByRole("button", { name: "Настройки", exact: true }).click();
+    const dialog = page.locator("dialog:modal");
+    await expect(dialog).toHaveCSS("opacity", "1");
+    const metrics = await dialog.evaluate(element => {
+      const box = (selector: string) => element.querySelector(selector)!.getBoundingClientRect();
+      const centre = (selector: string) => { const rect = box(selector); return rect.top + rect.height / 2; };
+      return {
+        themeWidth: box('[role="radio"]').width,
+        inputWidth: box('.ad-field:has(input:not([type="file"])) .ad-input-base').width,
+        themeHeight: box('[role="radiogroup"]').height,
+        profileOffset: Math.abs(centre('.ad-file-picker-avatar-button') - centre('.ad-field:has(input:not([type="file"])) .ad-input-base')),
+        overflow: element.scrollWidth - element.clientWidth,
+      };
+    });
+    await page.screenshot({ path: testInfo.outputPath("responsive-settings.png") });
+    expect(metrics.themeWidth, JSON.stringify(metrics)).toBeGreaterThanOrEqual(110);
+    expect(metrics.profileOffset).toBeLessThanOrEqual(2);
+    expect(metrics.inputWidth).toBeGreaterThanOrEqual(120);
+    expect(metrics.themeHeight).toBeLessThanOrEqual(width >= 1200 ? 400 : 700);
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+  });
+}
+
+test("settings scroll keeps the theme border and glow clear of the clipping edges", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 600 });
+  await page.goto("/");
+  await page.locator(".floatingControls").getByRole("button", { name: "Настройки", exact: true }).click();
+  const dialog = page.locator("dialog:modal");
+  const form = dialog.locator("form");
+  await expect(form).toHaveClass(/settingsBody/);
+  await expect(form).toHaveCSS("overflow-y", "auto");
+  await dialog.evaluate(async (element) => {
+    await document.fonts.ready;
+    await Promise.all([...element.getAnimations(), ...(element.querySelector(".ad-dialog-body")?.getAnimations() ?? [])].map(a => a.finished.catch(() => undefined)));
+  });
+  const clearance = await form.evaluate((element) => {
+    const card = element.querySelector(".ad-card")!.getBoundingClientRect();
+    const bounds = element.getBoundingClientRect();
+    return { left: card.left - bounds.left, top: card.top - bounds.top };
+  });
+  expect(clearance.left).toBeGreaterThanOrEqual(12);
+  expect(clearance.top).toBeGreaterThanOrEqual(12);
+});
+
+test("appearance labels keep the normal gap beside the avatar and rotary knob", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.locator(".floatingControls").getByRole("button", { name: "Настройки", exact: true }).click();
+  const dialog = page.locator("dialog:modal");
+  for (const name of ["Имя", "Радиостанция", "Шрифт заголовков"]) {
+    const control = dialog.getByLabel(name, { exact: true });
+    const gap = await control.evaluate((element) => {
+      const label = element.closest(".ad-field")!.querySelector(".ad-field-label")!;
+      const frame = element.closest(".ad-input-base") ?? element;
+      return frame.getBoundingClientRect().top - label.getBoundingClientRect().bottom;
+    });
+    expect(gap, name).toBeGreaterThanOrEqual(0);
+    expect(gap, name).toBeLessThanOrEqual(8);
+  }
+});
+
+test("theme choices show only pictures while retaining accessible names and selection", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.locator(".floatingControls").getByRole("button", { name: "Настройки", exact: true }).click();
+  const picker = page.locator("dialog:modal").getByRole("radiogroup", { name: "Тема" });
+  await expect(picker.getByRole("radio")).toHaveCount(4);
+  for (const choice of await picker.getByRole("radio").all()) {
+    await expect(choice).toHaveText("", { useInnerText: true });
+    await expect(choice).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(choice).toHaveCSS("background-image", "none");
+    await expect(choice).toHaveCSS("border-top-width", "0px");
+    await expect(choice).toHaveCSS("box-shadow", "none");
+  }
+  const green = picker.getByRole("radio", { name: "Зелёная" });
+  await green.click();
+  await expect(green).toHaveAttribute("aria-checked", "true");
+  await expect(green.locator(".ad-theme-card-check")).toBeHidden();
+  await expect(green.locator(".ad-theme-card-preview")).toHaveCSS("background-image", "none");
+  await page.screenshot({ path: testInfo.outputPath("appearance-icons.png") });
+});
+
+for (const [width, height] of [[1440, 900], [1100, 900], [800, 900], [1440, 600]] as const) {
+  test(`appearance cards fit their content without vertical stretching at ${width}x${height}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await page.locator(".floatingControls").getByRole("button", { name: "Настройки", exact: true }).click();
+    const dialog = page.locator("dialog:modal");
+    await expect(dialog.getByRole("radiogroup", { name: "Тема" })).toBeVisible();
+    await dialog.evaluate(async (element) => {
+      await document.fonts.ready;
+      await Promise.all([...element.getAnimations(), ...(element.querySelector(".ad-dialog-body")?.getAnimations() ?? [])]
+        .map((animation) => animation.finished.catch(() => undefined)));
+    });
+    const theme = dialog.getByRole("radiogroup", { name: "Тема" }).locator("..");
+    const panel = dialog.locator("form > .ad-grid");
+    const metrics = await panel.evaluate((element) => {
+      const theme = element.querySelector('[role="radiogroup"]')!.parentElement!;
+      const blocks = [...element.querySelectorAll(".ad-card")].filter((card) => card !== theme);
+      const bounds = (node: Element) => node.getBoundingClientRect().toJSON();
+      return { theme: bounds(theme), blocks: {
+        top: Math.min(...blocks.map((card) => card.getBoundingClientRect().top)),
+        bottom: Math.max(...blocks.map((card) => card.getBoundingClientRect().bottom)),
+      },
+        overflow: theme.scrollHeight - theme.clientHeight,
+        bottomGaps: [...element.querySelectorAll(".ad-card")].map(card =>
+          card.getBoundingClientRect().bottom - card.lastElementChild!.getBoundingClientRect().bottom),
+        panelOverflow: element.scrollWidth - element.clientWidth,
+        outside: [...element.querySelectorAll("*")].filter((child) => child.getBoundingClientRect().right > element.getBoundingClientRect().right + 1)
+          .slice(0, 12).map((child) => ({ tag: child.tagName, class: child.getAttribute("class"), rect: bounds(child) })) };
+    });
+    await page.screenshot({ path: testInfo.outputPath("appearance.png") });
+    expect(metrics.panelOverflow, JSON.stringify(metrics)).toBeLessThanOrEqual(1);
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    for (const gap of metrics.bottomGaps) expect(gap, JSON.stringify(metrics)).toBeLessThanOrEqual(32);
+    if (width >= 1200) {
+      expect(Math.abs(metrics.theme.top - metrics.blocks.top)).toBeLessThanOrEqual(1);
+    } else {
+      expect(metrics.blocks.top).toBeGreaterThanOrEqual(metrics.theme.bottom);
+    }
+    const body = dialog.locator(".ad-dialog-body");
+    expect(await body.evaluate((element) => element.scrollHeight <= element.clientHeight + 1 ||
+      ["auto", "scroll"].includes(getComputedStyle(element).overflowY))).toBe(true);
+    const last = dialog.getByRole("checkbox", { name: "Устанавливать обновления автоматически" });
+    await last.scrollIntoViewIfNeeded();
+    const lastBox = (await last.boundingBox())!;
+    const bodyBox = (await body.boundingBox())!;
+    expect(lastBox.y + lastBox.height).toBeLessThanOrEqual(bodyBox.y + bodyBox.height + 1);
+    const heading = theme.getByRole("heading", { name: "Тема", exact: true });
+    await heading.scrollIntoViewIfNeeded();
+    expect((await heading.boundingBox())!.y).toBeGreaterThanOrEqual((await body.boundingBox())!.y - 1);
+  });
+}
+
 test("library cards stay sharp and wide, stats have no glare, and only editable text selects", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");

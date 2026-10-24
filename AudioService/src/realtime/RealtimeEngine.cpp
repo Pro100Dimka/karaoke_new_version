@@ -147,7 +147,6 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
             // Control owns this scratch. The audible render still uses the realtime buffer pool.
             std::vector<float> tail(static_cast<std::size_t>(frames) * plan_.outputChannels);
             aligner_.read(tail, frames);
-            mixer_.clampToFullScale(tail);
             recording_.appendPerformanceTail(cutoff, tail, frames);
         } catch (const std::exception& error) {
             recording_.fail(error.what());
@@ -1035,7 +1034,6 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // they.
     renderTone(output, buffer.frames, accompaniment);
     if (performanceActive) {
-        mixer_.clampToFullScale(performance);
         recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
                         buffer.frames);
         performanceFrame_.store(sessionFrame() + buffer.frames);

@@ -38,12 +38,14 @@ const groupWords = (
     if (writtenBreak) writtenEnd += sizes?.[++writtenLine] ?? 0;
     const current = lines.at(-1);
     const previous = current?.at(-1);
+    const gap = previous ? word.start - previous.end + 1e-6 : 0;
     const startsNewLine =
       !current ||
       !previous ||
       writtenBreak ||
       current.length >= maxWordsPerLine ||
-      word.start - previous.end + 1e-6 >= pauseSeconds;
+      gap >= pauseSeconds ||
+      (/[,;:.!?…]$/.test(previous.text) && gap >= pauseSeconds / 4);
     if (startsNewLine) lines.push([word]);
     else current.push(word);
   }
@@ -51,7 +53,8 @@ const groupWords = (
 };
 
 /**
- * Written rows are upper bounds: a sung pause of about one beat also begins a phrase.
+ * Written rows are upper bounds: a pause of about one beat, or a shorter breath after
+ * punctuation, also begins a phrase. Continuous singing is never split by punctuation alone.
  * Only boundaries between words are used, so held vowels and their notes stay intact.
  * The same phrases feed lyrics and the piano roll; persisted words/timings remain untouched.
  */

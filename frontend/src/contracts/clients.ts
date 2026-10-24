@@ -191,7 +191,10 @@ export interface PythonClient {
   verifyKaggleSettings(): Promise<ConfigurationValidationDto>;
   loginKaggle(): Promise<KaggleActionDto>;
   deployKaggle(): Promise<KaggleActionDto>;
-  downloadModel(model: ModelDto): Promise<ProcessingJobDto>;
+  downloadModel(
+    model: ModelDto,
+    onProgress?: (job: ProcessingJobDto) => void,
+  ): Promise<ProcessingJobDto>;
   getJob(jobId: string): Promise<ProcessingJobDto>;
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;

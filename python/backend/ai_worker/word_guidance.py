@@ -181,6 +181,7 @@ def with_word_guidance(
     margin: float,
     *,
     recognized: Sequence[tuple[str, float, float]] = (),
+    onsets: Sequence[float] = (),
 ) -> list[ctc.AlignedWord]:
     result = list(words)
     for window in windows:
@@ -195,7 +196,7 @@ def with_word_guidance(
         first, last = max(0, window.first - 1), min(len(words), window.last + 1)
         options = [[word] for word in result[first:last]]
         alternatives = _recognized_cores(
-            words, scores, frame_seconds, window, timings, voiced, margin
+            words, scores, frame_seconds, window, timings, voiced, margin, onsets
         )
         if phrase is not None:
             alternatives += _unrecognized_runs(
@@ -218,13 +219,14 @@ def _recognized_cores(
     heard: Mapping[int, tuple[float, float]],
     voiced: np.ndarray,
     margin: float,
+    onsets: Sequence[float] = (),
 ) -> list[tuple[int, ctc.AlignedWord, tuple[float, float]]]:
     return [
         (index, candidate, interval)
         for index in range(window.first, window.last)
         if (interval := heard.get(index)) is not None
         for candidate in _candidates(
-            words[index], scores, frame_seconds, window, interval, voiced, margin
+            words[index], scores, frame_seconds, window, interval, voiced, margin, onsets
         )
     ]
 
@@ -291,6 +293,7 @@ def _candidates(
     interval: tuple[float, float],
     voiced: np.ndarray,
     margin: float,
+    onsets: Sequence[float] = (),
 ) -> list[ctc.AlignedWord]:
     first, last = interval
     miss = abs(first - word.start)
@@ -308,8 +311,27 @@ def _candidates(
         )
         if miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS
         and _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
+        and not _crosses_confirmed_entry(word, candidate, interval, onsets)
         and ctc._implausible([candidate], voiced) <= ctc._implausible([word], voiced)
     ]
+
+
+def _crosses_confirmed_entry(
+    word: ctc.AlignedWord,
+    candidate: ctc.AlignedWord,
+    interval: tuple[float, float],
+    onsets: Sequence[float],
+) -> bool:
+    """Do not move a core confirmed by a fresh vocal rise onto the preceding vowel.
+
+    Recognition can include a preceding pause; a core outside its recognized
+    phrase remains movable even if accompaniment has its own energy rise.
+    """
+    return interval[0] <= word.start <= interval[1] and any(
+        candidate.start < onset <= word.start
+        and word.start - onset <= ctc._ONSET_SEARCH_BEFORE_SECONDS
+        for onset in onsets
+    )
 
 
 def _onset_confidence(word: ctc.AlignedWord, scores: torch.Tensor, step: float) -> float:

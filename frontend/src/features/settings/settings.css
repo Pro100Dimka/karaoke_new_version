@@ -102,7 +102,7 @@
 
 .settingsBody {
   min-height: 0;
-  padding: var(--ad-space-1);
+  padding: var(--ad-space-4);
   /* Vertical only: the Neo UI cards' edge glow and animated scenes must not open a sideways scroll. */
   overflow: hidden auto;
   scrollbar-gutter: stable;

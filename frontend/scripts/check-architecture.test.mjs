@@ -1,9 +1,46 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { architectureViolations, baselineViolations } from "./check-architecture.mjs";
+import {
+  architectureViolations,
+  baselineViolations,
+} from "./check-architecture.mjs";
+
+test("the new AI tab follows Appearance without legacy settings or extra wrappers", () => {
+  const directory = join(process.cwd(), "src/features/settingsNEW/Ai");
+  const files = readdirSync(directory).filter((name) =>
+    /\.(ts|tsx)$/.test(name),
+  );
+  const lines = files.map(
+    (name) =>
+      readFileSync(join(directory, name), "utf8").trimEnd().split(/\r?\n/)
+        .length,
+  );
+  const source = files
+    .map((name) => readFileSync(join(directory, name), "utf8"))
+    .join("\n");
+  assert.doesNotMatch(source, /["'](?:\.\.\/)+settings\/|["'][^"']*\.css["']/);
+  const settings = readFileSync(join(directory, "../index.tsx"), "utf8");
+  assert.doesNotMatch(
+    settings,
+    /<SettingsProvider|SettingsContents|field:\s*\(/,
+  );
+  assert.match(source, /from ["']\.\.\/FormCard["']/);
+  assert.match(source, /Object\.entries\(blocks\(/);
+  assert.ok(
+    lines.reduce((sum, count) => sum + count, 0) <= 200,
+    files.map((name, index) => `${name}: ${lines[index]}`).join(", "),
+  );
+});
 
 test("architecture boundaries reject concrete clients and reverse dependencies", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));

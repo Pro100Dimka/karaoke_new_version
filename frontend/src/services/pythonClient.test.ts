@@ -24,6 +24,71 @@ const installBridge = (
 };
 
 describe("pythonClient contract", () => {
+  const model = {
+    id: "test-model",
+    purpose: "ASR",
+    version: "1",
+    sizeBytes: 100,
+    state: "not-installed",
+    selected: true,
+  } as const;
+
+  it("reuses backend job waiting to report a model download through completion", async () => {
+    const progress = vi.fn();
+    const calls = installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body: call.path.endsWith("/download")
+        ? { jobId: "model-job", state: "Queued" }
+        : { jobId: "model-job", state: "Succeeded", overallProgress: 1 },
+    }));
+    await expect(
+      pythonClient.downloadModel(model, progress),
+    ).resolves.toMatchObject({ id: "model-job", state: "completed" });
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "model-job", state: "queued" }),
+    );
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ state: "completed", progress: 100 }),
+    );
+    expect(calls.map((call) => call.path)).toEqual([
+      "/models/test-model/1/download",
+      "/jobs/model-job",
+    ]);
+  });
+
+  it("keeps the existing immediate model-download contract without a progress callback", async () => {
+    const calls = installBridge(() => ({
+      status: 202,
+      ok: true,
+      body: { jobId: "model-job", state: "Queued" },
+    }));
+    await expect(pythonClient.downloadModel(model)).resolves.toMatchObject({
+      state: "queued",
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it.each([
+    [
+      "Failed",
+      { message: "Checksum mismatch" },
+      { message: "Checksum mismatch" },
+    ],
+    ["Cancelled", null, { name: "AbortError" }],
+  ])("preserves model download outcome %s", async (state, error, expected) => {
+    installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body: call.path.endsWith("/download")
+        ? { jobId: "model-job", state: "Queued" }
+        : { jobId: "model-job", state, error, overallProgress: 0 },
+    }));
+    await expect(
+      pythonClient.downloadModel(model, vi.fn()),
+    ).rejects.toMatchObject(expected);
+  });
+
   it("reports the job identity and analysis stage while waiting", async () => {
     const progress = vi.fn();
     installBridge((call) => ({ status: 200, ok: true, body:

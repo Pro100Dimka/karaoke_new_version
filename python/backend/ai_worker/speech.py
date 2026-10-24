@@ -469,6 +469,7 @@ def align(
         voiced,
         _MARGIN_SECONDS,
         recognized=heard,
+        onsets=vocal_onsets(samples, _SAMPLE_RATE, _HOP).tolist(),
     )
     timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing))
     return alignment_payload(timed, heard_timings)

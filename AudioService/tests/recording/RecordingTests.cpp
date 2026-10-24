@@ -1367,6 +1367,7 @@ void performanceVoiceHeadroomPreservesTheRecordedBalance() {
     service.media().load(MediaSlot::Music, musicPath.string());
     expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
            "headroom reference backing is loaded");
+    service.realtime().setMixerGains(MixerGains{.microphone = 4.0F});
     service.media().play(MediaContext::Karaoke);
     const auto path = tempRoot / "voice-headroom.wav";
     expect(service.handleLine("1|PrepareRecording|id=headroom|tap=performance|path=" + path.string()).status == ControlStatus::Ok &&
@@ -1391,10 +1392,34 @@ void performanceVoiceHeadroomPreservesTheRecordedBalance() {
     // The left channel carries only the centred voice; subtracting it from the right isolates music.
     const auto last = recorded.size() - 2U;
     const auto recordedBacking = recorded[last + 1U] - recorded[last];
-    expect(std::abs(recordedBacking - render.back() * target / 0.4F) < 0.001F,
+    expect(std::abs(recordedBacking - render.back() * target / 1.6F) < 0.001F,
            "one constant gain preserves the original voice/backing balance and stereo image");
     expect(render.back() > recordedBacking * 2.0F && format.totalFrames == blocks * 128U,
            "saving headroom leaves live playback and the complete aligned duration unchanged");
+}
+
+void performanceHeadroomFinalizesAllOutputChannels() {
+    RecordingEngine recording;
+    for (const auto level : {0.5F, 0.01F}) {
+        const auto path = tempRoot / ("headroom-six-channels-" + std::to_string(level) + ".wav");
+        recording.prepare("six", path.string(), 48'000, 6, RecordingTap::PerformanceMix, 8192);
+        recording.start(SessionFrame{0}, 0);
+        recording.observeVoicePeak(level);
+        const std::vector<float> pcm(5000U * 6U, level);
+        recording.push(GenerationId{0}, RecordingTap::PerformanceMix, SessionFrame{0}, pcm, 5000);
+        const auto result = recording.stop(SessionFrame{5000});
+        expect(result.finalized, "six-channel performance finalizes without partial sample frames");
+        if (!result.finalized)
+            return;
+        WavDecoder decoder;
+        const auto format = decoder.open(path.string());
+        std::vector<float> actual(pcm.size());
+        expect(format.channels == 6 && format.totalFrames == 5000 && decoder.read(actual, 5000) == 5000,
+               "every output channel and frame survives headroom finalization");
+        const auto expected = std::min(level, 0.12589254F);
+        expect(std::ranges::all_of(actual, [expected](float value) { return std::abs(value - expected) < 0.0001F; }),
+               "loud voice is attenuated; a new quiet take neither inherits the old gain nor amplifies noise");
+    }
 }
 
 void performanceMixUsesTheServerDeadlineToAlignRemoteVoices() {

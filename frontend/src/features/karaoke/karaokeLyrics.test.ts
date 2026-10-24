@@ -138,6 +138,17 @@ describe("karaoke lyrics model", () => {
     expect(words).toEqual(original);
   });
 
+  it("uses a short breath after punctuation instead of leaving the last word orphaned", () => {
+    const words = [word("Всё", 0, 0.3), word("равно", 0.3, 0.8), word("вернусь,", 0.8, 2),
+      word("хоть", 2.16, 2.3), word("и", 2.3, 2.4), word("мне", 2.4, 2.6),
+      word("грустно", 2.6, 3), word("так", 3, 3.2), word("часто", 3.2, 4)];
+    expect(buildLines(words, undefined, 100).map((line) => line.words.map((item) => item.text).join(" "))).toEqual([
+      "Всё равно вернусь,", "хоть и мне грустно так часто",
+    ]);
+    // Punctuation without an audible pause must not break continuous singing.
+    expect(buildLines([word("Ты,", 0, 1), word("я", 1, 2)], undefined, 100)).toHaveLength(1);
+  });
+
   it("falls back to guessed lines when the text no longer matches the words", () => {
     const words = [word("a", 0, 1), word("b", 1, 2), word("c", 8, 9)];
     expect(

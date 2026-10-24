@@ -433,12 +433,26 @@ export const pythonClient: PythonClient = {
     return request<KaggleActionDto>("POST", "/settings/kaggle/deploy");
   },
 
-  async downloadModel(model) {
+  async downloadModel(model, onProgress) {
     const job = await request<BackendJobRef>(
       "POST",
       `/models/${encodeURIComponent(model.id)}/${encodeURIComponent(model.version)}/download`,
     );
-    return mapJob(job);
+    if (!onProgress) return mapJob(job);
+    onProgress(mapJob(job));
+    return mapJob(
+      await waitForJob(job.jobId, {
+        label: "Model download",
+        timeoutMilliseconds: 3_600_000,
+        onPoll: (current) => onProgress(mapJob(current)),
+        failure: (current) =>
+          current.state === "Cancelled"
+            ? new DOMException("Model download cancelled", "AbortError")
+            : new Error(
+                String(current.error?.message ?? "Model download failed"),
+              ),
+      }),
+    );
   },
 
   async getJob(jobId) {

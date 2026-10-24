@@ -24,6 +24,23 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_phrase():
+    from backend.ai_worker.speech import _hint_windows
+
+    lyrics = "we wait\nsing with me\nwe wait\nsing with me"
+    windows = _hint_windows(
+        lyrics,
+        [{"start": 1., "text": "we wait"}, {"start": 10., "text": "we wait"}],
+        20.,
+    )
+
+    for first, last in [(2, 5), (7, 10)]:
+        assert any(
+            window.first <= first and window.last >= last and window.start < window.end
+            for window in windows
+        ), "lyrics between catalogue entries must not be forced into an empty audio window"
+
+
 def _signal(bursts: list[tuple[float, float]], total: float) -> np.ndarray:
     samples = np.zeros(int(total * _RATE), dtype=np.float32)
     rng = np.random.default_rng(1)
@@ -1681,33 +1698,41 @@ def test_coarse_recognition_span_is_not_a_license_to_start_a_weak_word_at_its_en
     assert chosen == [near_entry]
 
 
-@pytest.mark.parametrize("next_start", [4., 6.])
+@pytest.mark.parametrize("next_start", [4.0, 6.0])
 def test_context_recognition_can_recover_words_outside_a_wrongly_short_first_asr_window(next_start):
     from backend.ai_worker.ctc import Window
     from backend.ai_worker.recognition import contextual_guidance
 
     words = "we sing a long ending then another line".split()
-    whole = [AlignedWord(w, i + 1., i + 1.5, (), .01) for i, w in enumerate(words)]
-    windows = [Window(0, 5, .5, 3, 1), Window(5, 8, next_start, 10, next_start)]
-    heard = {i: (i + 1., i + 1.5) for i in range(3)}
-    local = {"segments": [{"words": [dict(word=w, start=i+1., end=i+1.5) for i,w in enumerate(words[:5])]}]}
+    whole = [AlignedWord(w, i + 1.0, i + 1.5, (), 0.01) for i, w in enumerate(words)]
+    windows = [Window(0, 5, 0.5, 3, 1), Window(5, 8, next_start, 10, next_start)]
+    heard = {i: (i + 1.0, i + 1.5) for i in range(3)}
+    local = {
+        "segments": [
+            {"words": [dict(word=w, start=i + 1.0, end=i + 1.5) for i, w in enumerate(words[:5])]}
+        ]
+    }
 
     revised, supported = contextual_guidance(
-        words, windows, whole, heard, np.ones(1000, bool),
+        words,
+        windows,
+        whole,
+        heard,
+        np.ones(1000, bool),
         lambda contexts: {"contexts": [local for _ in contexts]},
     )
 
     assert revised[0].end > 5.5
-    assert supported[4] == (5., 5.5)
+    assert supported[4] == (5.0, 5.5)
 
 
 def test_recognition_margin_does_not_move_a_word_into_the_previous_syllable():
     from backend.ai_worker.word_guidance import _select_sequence
 
-    before = AlignedWord("we", 2.6, 3.5, (2.6, 2.8), .01)
-    within = AlignedWord("we", 3.1, 3.5, (3.1, 3.3), .005)
+    before = AlignedWord("we", 2.6, 3.5, (2.6, 2.8), 0.01)
+    within = AlignedWord("we", 3.1, 3.5, (3.1, 3.3), 0.005)
     assert _select_sequence(
-        [before], [[before, within]], {0: (3., 4.2)}, 0, np.ones(500, bool)
+        [before], [[before, within]], {0: (3.0, 4.2)}, 0, np.ones(500, bool)
     ) == [within]
 
 
@@ -1715,15 +1740,60 @@ def test_a_strong_word_average_does_not_hide_its_unsupported_first_phoneme(monke
     import torch
     from backend.ai_worker import ctc, word_guidance
 
-    word = AlignedWord("we", 4., 4.2, (4., 4.1), .3)
-    approximate = AlignedWord("we", 3., 3.5, (3., 3.2), 0.)
+    word = AlignedWord("we", 4.0, 4.2, (4.0, 4.1), 0.3)
+    approximate = AlignedWord("we", 3.0, 3.5, (3.0, 3.2), 0.0)
     scores = torch.zeros(300, 28)
     first_token = ctc._character_tokens("we")[0][0]
-    scores[200, first_token] = np.log(.001)
+    scores[200, first_token] = np.log(0.001)
     monkeypatch.setattr(word_guidance, "_core_candidates", lambda *_: [approximate])
 
     candidates = word_guidance._candidates(
-        word, scores, .02, ctc.Window(0, 1, 0, 5), (3., 3.5), np.ones(500, bool), .6
+        word, scores, 0.02, ctc.Window(0, 1, 0, 5), (3.0, 3.5), np.ones(500, bool), 0.6
     )
 
     assert candidates == [approximate]
+
+
+def test_fresh_phrase_recovery_preserves_the_acoustic_entry_after_the_previous_vowel(monkeypatch):
+    import json
+    import torch
+    from backend.ai_worker import speech
+    from backend.ai_worker.ctc import Window
+
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as f:
+        case = json.loads(str(f["clean_entry_metadata"]))
+        scores = torch.from_numpy(f["clean_entry_scores"])
+        vocal, backing = (
+            f["clean_entry_vocal"].astype(np.float32),
+            f["clean_entry_instrumental"].astype(np.float32),
+        )
+    whole = [AlignedWord(**w) for w in case["whole"]]
+    monkeypatch.setattr(
+        speech, "read_mono", lambda path, *_: backing if path.name == "backing.wav" else vocal
+    )
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
+    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
+    monkeypatch.setattr(
+        speech, "_alignment_windows", lambda *_: [Window(**w) for w in case["windows"]]
+    )
+    local = {
+        "segments": [{"words": [dict(word=k, start=a, end=b) for k, a, b in case["recognized"]]}]
+    }
+    monkeypatch.setattr(
+        speech,
+        "_accelerated_guidance",
+        lambda *_, contexts: {"contexts": [local for _ in contexts]},
+    )
+
+    words = speech.align(
+        Path("voice.wav"),
+        " ".join(w.text for w in whole),
+        "Russian",
+        instrumental=Path("backing.wav"),
+    )["words"]
+
+    # Original mix has a fresh vocal rise at ~65.4 s. Separate ASR windows put
+    # the following word near65.9s; the earlier vowel must not consume its entry.
+    assert 8.3 < words[8]["start"] < 8.9
+    assert 8.5 < words[9]["start"] < 9.3
+    assert words[9]["end"] - words[9]["start"] > 0.5
