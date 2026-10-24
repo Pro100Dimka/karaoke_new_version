@@ -113,12 +113,17 @@ export const upcomingLinePhase = (
   const previousEnd = lines[lineIndex - 1]?.end ?? 0;
   const longGap = line.start - previousEnd > lyricSilenceSeconds;
   const secondsUntilStart = line.start - position;
-  const kind = (
-    [
-      ["empty", position >= line.end + lyricSilenceSeconds || (longGap && secondsUntilStart > lyricSilenceSeconds)],
-      ["countdown", longGap && secondsUntilStart > 0.65],
-    ] as const
-  ).find(([, active]) => active)?.[0] ?? "text";
+  const kind =
+    (
+      [
+        [
+          "empty",
+          position >= line.end + lyricSilenceSeconds ||
+            (longGap && secondsUntilStart > lyricSilenceSeconds),
+        ],
+        ["countdown", longGap && secondsUntilStart > 0.65],
+      ] as const
+    ).find(([, active]) => active)?.[0] ?? "text";
   const followedBySilence = (lines[lineIndex + 1]?.start ?? Infinity) - line.end > lyricSilenceSeconds;
   const fadeOut = followedBySilence ? (line.end + lyricSilenceSeconds - position) / 0.7 : 1;
   const fadeIn =
