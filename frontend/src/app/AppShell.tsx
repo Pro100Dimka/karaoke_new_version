@@ -49,12 +49,12 @@ const Shell = () => {
   const libraryActive = isLibrary && !onTv;
   const { preferences } = useApp("preferences");
   const onScreen = useAppOnScreen();
-  useSpectrumFeed(onScreen && !preferences.reducedMotion, publishSpectrum);
+  const karaoke = isKaraoke(pathname) || onTv;
+  useSpectrumFeed(onScreen && !preferences.reducedMotion, publishSpectrum, karaoke ? 1000 / 60 : 50);
 
   // F11 toggles Karaoke fullscreen only; it never fires on other work zones. Leaving Karaoke undoes
   // only a full screen that F11 started there: one chosen from the title bar stays.
   // While Karaoke is open (here or on the TV) the screen stays on: singers do not touch the mouse.
-  const karaoke = isKaraoke(pathname) || onTv;
   useEffect(() => {
     if (!karaoke) return;
     void desktopClient.keepDisplayAwake(true);

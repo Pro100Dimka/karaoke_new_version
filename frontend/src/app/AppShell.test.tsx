@@ -92,19 +92,20 @@ describe("AppShell backdrop", () => {
       spectrumRange: [40, 12000],
       inert: true,
     });
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function));
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function), 50);
   });
 
   it("keeps the backdrop off outside the Library", () => {
     renderRoute("/karaoke/song");
     expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function), 1000 / 60);
   });
 
   it.each(["reducedMotion", "onScreen"] as const)("removes the backdrop and stops the spectrum feed when %s disables motion", (key) => {
     settings[key] = key === "reducedMotion";
     renderRoute("/");
     expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function));
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function), 50);
     settings.reducedMotion = false;
     settings.onScreen = true;
   });
@@ -112,7 +113,7 @@ describe("AppShell backdrop", () => {
   it.each(["reducedMotion", "onScreen"] as const)("stops the spectrum feed when %s disables motion", (key) => {
     settings[key] = key === "reducedMotion";
     renderRoute("/");
-    expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function));
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function), 50);
     settings.reducedMotion = false;
     settings.onScreen = true;
   });

@@ -1,4 +1,6 @@
-import { MusicPulse, type MusicCue, type MusicState } from "./musicPulse";
+import { MusicPulse, type MusicState } from "./musicPulse";
+import { approach } from "./fxPalette";
+import { reliablePitchHz } from "../karaokeLyrics";
 import {
   PerformanceTracker,
   type EnergyLevel,
@@ -33,6 +35,7 @@ export interface ShowState {
   streakSeconds: number;
   live: LiveNote | undefined;
   music: MusicState;
+  musicBeat: number;
   ambient: Ambient;
   playing: boolean;
   settings: ShowSettings;
@@ -51,7 +54,7 @@ export class ShowEngine {
   private tracker = new PerformanceTracker();
   private pulse = new MusicPulse();
   private director = new VisualDirector();
-  private cues: MusicCue[] = [];
+  private motionAt: number | undefined;
   private listeners = new Set<CommandListener>();
   private words: ReadonlyMap<string, NoteWord> = new Map();
   readonly voiceHistory: VoiceObservation[] = [];
@@ -63,6 +66,7 @@ export class ShowEngine {
     streakSeconds: 0,
     live: undefined,
     music: this.pulse.state,
+    musicBeat: 0,
     ambient: ambientFor(0, this.pulse.state, "full"),
     playing: false,
     settings: { intensity: "full", reducedMotion: false },
@@ -79,6 +83,8 @@ export class ShowEngine {
     this.tracker.load(notes, phrases, resetPerformance, vocalActivity);
     if (!resetPerformance) return;
     this.voiceHistory.length = 0;
+    this.motionAt = undefined;
+    this.state = { ...this.state, musicBeat: 0 };
     this.director.reset();
     this.pulse.reset();
   }
@@ -94,7 +100,7 @@ export class ShowEngine {
   /** A backing-track spectrum frame from AudioService. */
   hear(backingBands: readonly number[], now: number): void {
     if (!this.state.playing) return;
-    this.cues.push(...this.pulse.next(backingBands, now));
+    this.pulse.next(backingBands, now);
   }
 
   /** Called on every drawn song position: scores the voice and releases due effects. */
@@ -106,22 +112,31 @@ export class ShowEngine {
     sampleDuration?: number,
     scoreVoice = true,
     audioActive?: boolean,
+    confidence = 1,
   ): void {
     if (playing && scoreVoice) {
       const last = this.voiceHistory.at(-1)?.position;
       if (last !== undefined && (position < last || position > last + 1.5)) this.voiceHistory.length = 0;
-      if (last !== position) this.voiceHistory.push({ position, pitchHz });
+      if (last !== position) this.voiceHistory.push({ position, pitchHz: reliablePitchHz(pitchHz, confidence) });
       while (this.voiceHistory.length > 0 && this.voiceHistory[0]!.position < position - 3) this.voiceHistory.shift();
     }
-    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration, audioActive) : [];
+    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration, audioActive, confidence) : [];
     const music = this.pulse.state;
-    const commands = this.director.plan(now, events, playing ? this.cues : [], {
+    const elapsed = this.motionAt === undefined ? 0 : Math.max(0, Math.min(0.05, (now - this.motionAt) / 1000));
+    this.motionAt = now;
+    const targetBeat = playing ? Math.max(music.kick, music.snare) : 0;
+    const musicBeat = approach(
+      this.state.musicBeat,
+      targetBeat,
+      elapsed,
+      targetBeat > this.state.musicBeat ? 0.01 : 0.08,
+    );
+    const commands = this.director.plan(now, events, [], {
       energy: this.tracker.energy,
       streakSeconds: this.tracker.streakSeconds,
       music,
       untilBeat: this.pulse.untilNextBeat(now),
     });
-    this.cues = [];
     this.state = {
       ...this.state,
       energy: this.tracker.energy,
@@ -129,6 +144,7 @@ export class ShowEngine {
       streakSeconds: this.tracker.streakSeconds,
       live: playing ? this.tracker.live : undefined,
       music,
+      musicBeat,
       ambient: ambientFor(
         this.tracker.energy,
         music,

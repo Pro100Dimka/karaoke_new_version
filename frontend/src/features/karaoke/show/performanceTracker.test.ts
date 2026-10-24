@@ -44,6 +44,29 @@ const sing = (
 };
 
 describe("performance tracker", () => {
+  it("keeps weak pitch measurements out of both the final grade and green-note evidence", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "held", start: 0, end: 1, pitch: 60 }], []);
+    for (let i = 0; i < 20; i++) {
+      tracker.update((i + 0.5) * 0.05, hz(i < 10 ? 60 : 64), 0.05, true, i < 10 ? 1 : 0.4);
+    }
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(100);
+    expect(tracker.noteScore.noteStabilityPercent).toBeCloseTo(100);
+    expect(tracker.hitNoteIds.has("held")).toBe(true);
+    expect(tracker.noteScore).toMatchObject({ expectedPitchSeconds: 1, assessedPitchSeconds: 0.5 });
+  });
+
+  it("still counts reliable wrong notes and actual silence as mistakes", () => {
+    for (const voice of [hz(64), undefined]) {
+      const tracker = new PerformanceTracker();
+      tracker.load([{ id: "held", start: 0, end: 1, pitch: 60 }], []);
+      for (let i = 0; i < 20; i++) tracker.update((i + 0.5) * 0.05, voice, 0.05, voice !== undefined, 1);
+      expect(tracker.noteScore.pitchAccuracyPercent).toBe(0);
+      expect(tracker.hitNoteIds.has("held")).toBe(false);
+      expect(tracker.noteScore.assessedPitchSeconds).toBeCloseTo(1);
+    }
+  });
+
   it("measures stability as steady sung time without letting one outlier spoil a held phrase", () => {
     const tracker = new PerformanceTracker();
     tracker.load([{ id: "held", start: 0, end: 1, pitch: 60 }], []);
@@ -123,7 +146,7 @@ describe("performance tracker", () => {
     tracker.load([{ id: "sung", start: 0, end: 1, pitch: 60 },
       { id: "silent", start: 1, end: 2, pitch: 60 }], []);
     for (let i = 0; i < 40; i++) tracker.update((i + 0.5) * 0.05, i < 20 ? hz(60.2) : undefined, 0.05);
-    expect(tracker.noteScore).toMatchObject({ version: 1, hitNotes: 1, totalNotes: 2,
+    expect(tracker.noteScore).toMatchObject({ version: 3, hitNotes: 1, totalNotes: 2,
     });
     expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(50);
     expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(50);

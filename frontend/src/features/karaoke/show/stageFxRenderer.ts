@@ -3,7 +3,6 @@ import { LightBatch, beamVertexFloats, spriteFloats, spriteKind, type Rgb } from
 import { CanvasLightRenderer, type Rect } from "./gl/canvasLightRenderer";
 import { ParticlePool } from "./particlePool";
 import type { ShowEngine } from "./showEngine";
-import { StageRig } from "./stageRig";
 import type { FxCommand } from "./visualDirector";
 
 interface Timed {
@@ -23,12 +22,6 @@ interface Flare extends Timed {
   size: number;
   color: Rgb;
 }
-/** The singer's light travelling from the voice up to the fixture it is about to switch on. */
-interface Orb extends Timed {
-  from: { x: number; y: number };
-  fixture: number;
-}
-
 /** Where the readable parts of the screen are, refreshed a few times a second. */
 interface Anchors {
   lyrics?: DOMRect;
@@ -51,18 +44,14 @@ const alive = <T extends Timed>(items: T[], now: number): T[] =>
 const random = (from: number, to: number): number =>
   from + Math.random() * (to - from);
 const easeOut = (t: number): number => 1 - (1 - t) ** 3;
-const easeInOut = (t: number): number =>
-  t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 const rectOf = (rect: DOMRect | undefined): Rect | undefined =>
   rect
     ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height }
     : undefined;
 
 /**
- * The stage: a dark room whose lights the singer switches on. Each fixture powers on only when a light released
- * from the voice reaches it, so the cause is always visible; the rig moves in designed looks; big moments are rare,
- * prepared by a darkening and released on the beat. Light is drawn on a canvas and the clip,
- * lyrics and console react through CSS variables on the page.
+ * Performance rewards share one canvas. The lyrics react to music through CSS variables;
+ * the stage draws particles, rings and brief highlights without spotlights over the clip.
  */
 export class StageFxRenderer {
   private light: CanvasLightRenderer | undefined;
@@ -72,7 +61,6 @@ export class StageFxRenderer {
   private pixelWidth = 1;
   private pixelHeight = 1;
   private batch = new LightBatch(1400, 16);
-  private rig = new StageRig();
   private pool = new ParticlePool(particleBudgets[3]);
   private quality = 2;
   private frameTimes: number[] = [];
@@ -87,18 +75,12 @@ export class StageFxRenderer {
   private sizeAt = -Infinity;
   private sizedQuality = -1;
   private grade = 0;
-  private kick = 0;
-  private motionBeat = 0;
   private flash = 0;
-  private expansion = 0;
-  private lyricGlow = 0;
   private depth = 0;
   private rings: Ring[] = [];
   private flares: Flare[] = [];
-  private orbs: Orb[] = [];
   private rain: Timed | undefined;
   private rainDebt = 0;
-  private requested = 0;
   private styles = new Map<string, string>();
   private sweepToggle = false;
   private unsubscribe: () => void;
@@ -180,16 +162,15 @@ export class StageFxRenderer {
     const now = performance.now();
     const s = command.strength;
     const voice = this.voice();
-    const lyrics = this.anchors.lyrics;
     const reach =
       Math.hypot(this.width, this.height) *
       (this.anchors.consoleVisible ? 0.6 : 0.75);
     switch (command.kind) {
       case "beatPulse":
-        this.kick = Math.max(this.kick, s);
-        return;
       case "noteGlow":
-        this.lyricGlow = Math.max(this.lyricGlow, 0.35 * s);
+      case "phraseSweep":
+      case "crossLight":
+      case "laserSweep":
         return;
       case "chargeRelease":
         this.rings.push({
@@ -212,29 +193,14 @@ export class StageFxRenderer {
         });
         this.burst(voice.x, voice.y, 16 * s, 140, ["pink", "white"]);
         return;
-      case "phraseSweep":
-        this.lyricGlow = Math.max(this.lyricGlow, 0.45 * s);
-        return;
       case "phraseBloom":
-        this.lyricGlow = 1;
-        if (lyrics)
-          this.rig.setCue("focus", now, 1800, {
-            x: lyrics.left + lyrics.width / 2,
-            y: lyrics.top + lyrics.height / 2,
-          });
         this.sweepConsole();
-        return;
-      case "crossLight":
-        this.rig.setCue("cross", now, 2800);
         return;
       case "lightWave":
         this.flash = Math.max(this.flash, 0.25 * s);
         return;
       case "stageExpansion":
-        this.expansion = Math.max(this.expansion, s);
         this.flash = Math.max(this.flash, 0.5 * s);
-        this.rig.setCue("fan", now, 2600);
-        this.rig.ignite(0.8);
         this.rings.push({
           x: this.width / 2,
           y: this.height + 40,
@@ -275,10 +241,6 @@ export class StageFxRenderer {
         });
         this.flash = Math.max(this.flash, 0.4 * s);
         this.depth = Math.max(this.depth, 0.8 * s);
-        return;
-      case "laserSweep":
-        this.rig.setCue(this.motion ? "sweep" : "focus", now, 2200, voice);
-        this.flash = Math.max(this.flash, 0.2 * s);
         return;
       case "firework":
         this.starburst(s);
@@ -468,20 +430,11 @@ export class StageFxRenderer {
       elapsed,
       state.ambient.grade > this.grade ? 1.6 : 3.5,
     );
-    this.kick *= Math.exp(-elapsed / 0.2);
-    const targetBeat = state.playing ? this.kick : 0;
-    this.motionBeat = approach(this.motionBeat, targetBeat, elapsed,
-      targetBeat > this.motionBeat ? 0.06 : 0.22);
     this.flash *= Math.exp(-elapsed / 0.5);
-    this.expansion *= Math.exp(-elapsed / 2.4);
-    this.lyricGlow *= Math.exp(-elapsed / 1.1);
     this.depth *= Math.exp(-elapsed / 0.3);
     this.rings = alive(this.rings, now);
     this.flares = alive(this.flares, now);
     if (this.rain && progress(this.rain, now) >= 1) this.rain = undefined;
-    this.unlockFixtures(now, state.ambient.beams);
-    this.advanceOrbs(now);
-    this.rig.update(elapsed, now, time, this.width, this.motion);
     this.spawnRain(elapsed);
     this.pool.step(elapsed);
     this.applyStyles();
@@ -492,11 +445,6 @@ export class StageFxRenderer {
     const batch = this.batch;
     batch.clear();
     this.drawBokeh(batch, time);
-    this.rig.draw(batch, this.width, this.height, {
-      kick: this.kick,
-      flash: this.flash,
-      expansion: this.expansion,
-    });
     for (const ring of this.rings) {
       const p = progress(ring, now);
       const radius = ring.radius * easeOut(p);
@@ -523,7 +471,6 @@ export class StageFxRenderer {
         1.1,
       );
     }
-    for (const orb of this.orbs) this.drawOrb(batch, orb, now);
     this.pool.emit(batch, time);
     const view = { width: this.width, height: this.height };
     const protect = { lyrics: rectOf(this.anchors.lyrics), roll: rectOf(this.anchors.rollPanel) };
@@ -541,69 +488,6 @@ export class StageFxRenderer {
     } else {
       this.light?.render(batch, time, view, protect, bloom);
     }
-  }
-
-  /** As the energy earns another fixture, a light leaves the voice and travels up to switch it on. */
-  private unlockFixtures(now: number, beams: number): void {
-    const wanted = Math.min(this.rig.fixtures.length, Math.floor(beams + 0.35));
-    if (wanted < this.requested) {
-      this.rig.powerDown(wanted);
-      this.requested = wanted;
-      this.orbs = this.orbs.filter((orb) => orb.fixture < wanted);
-    }
-    while (this.requested < wanted) {
-      const delay = this.orbs.length * 260;
-      this.orbs.push({
-        from: this.voice(),
-        fixture: this.requested,
-        start: now + delay,
-        duration: this.motion ? 850 : 300,
-        strength: 1,
-      });
-      this.requested += 1;
-    }
-  }
-
-  private advanceOrbs(now: number): void {
-    this.orbs = this.orbs.filter((orb) => {
-      if (progress(orb, now) < 1) return true;
-      this.rig.powerOn(orb.fixture);
-      return false;
-    });
-  }
-
-  private orbAt(orb: Orb, t: number): { x: number; y: number } {
-    const to = this.rig.lamp(orb.fixture, this.width);
-    const control = {
-      x: orb.from.x + (to.x - orb.from.x) * 0.15,
-      y: Math.min(orb.from.y, to.y) + (orb.from.y - to.y) * 0.15 - 60,
-    };
-    const u = 1 - t;
-    return {
-      x: u * u * orb.from.x + 2 * u * t * control.x + t * t * to.x,
-      y: u * u * orb.from.y + 2 * u * t * control.y + t * t * to.y,
-    };
-  }
-
-  private drawOrb(batch: LightBatch, orb: Orb, now: number): void {
-    if (now < orb.start) return;
-    const p = progress(orb, now);
-    const t = easeInOut(Math.min(1, p));
-    const head = this.orbAt(orb, t);
-    // A comet: the hot head and a fading tail along the path it took.
-    for (let k = 8; k >= 1; k--) {
-      const back = this.orbAt(orb, Math.max(0, t - k * 0.025));
-      batch.sprite(
-        back.x,
-        back.y,
-        22 - k * 1.5,
-        spriteKind.glow,
-        pink,
-        (1 - k / 9) * 0.9,
-      );
-    }
-    batch.sprite(head.x, head.y, 34, spriteKind.glow, white, 2.4);
-    batch.sprite(head.x, head.y, 90, spriteKind.flare, pink, 0.9, 0.6);
   }
 
   private spawnRain(elapsed: number): void {
@@ -644,20 +528,13 @@ export class StageFxRenderer {
     }
   }
 
-  /** The clip keeps its cheap depth pulse; light and colour come from the stage canvas. */
+  /** Backing-track motion belongs only to the painted lyrics. */
   private applyStyles(): void {
-    this.setStyle(
-      "--show-video-scale",
-      (1 + (this.motion ? this.motionBeat * 0.009 : 0)).toFixed(5),
-    );
-    this.setStyle("--show-music-beat", this.motionBeat.toFixed(5));
-    this.setStyle("--show-lyric-glow", this.lyricGlow.toFixed(3));
+    const beat = this.engine.state.musicBeat ?? 0;
+    this.setStyle("--show-music-beat", beat.toFixed(5));
     this.setStyle(
       "--show-console-glow",
-      (
-        this.engine.state.ambient.consoleGlow *
-        (0.85 + this.kick * 0.15)
-      ).toFixed(3),
+      (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),
     );
     this.setStyle(
       "--show-roll-glow",

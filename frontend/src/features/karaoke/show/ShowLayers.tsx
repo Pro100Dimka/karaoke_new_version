@@ -139,7 +139,7 @@ export const useShowEngine = ({
     let changed = false;
     for (const frame of pitchFrames) {
       if (frame.epoch === lastPitch.current.epoch && frame.sequence <= lastPitch.current.sequence) continue;
-      engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds, true, frame.audioActive);
+      engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds, true, frame.audioActive, frame.confidence);
       lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
       changed = true;
     }

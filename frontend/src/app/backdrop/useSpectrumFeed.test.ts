@@ -40,6 +40,29 @@ it("uses the final spectrum as a compatibility fallback for an older AudioServic
   expect(toSpectrumFrame([0.7, 0.5], []).backingBands).toEqual([0.7, 0.5]);
 });
 
+it("ignores held tones and isolated harmonic movement but reacts to a broadband drum attack", () => {
+  const reaction = createPercussionReaction();
+  const held = Array(18).fill(0.3);
+  reaction.next(held);
+  for (let frame = 0; frame < 60; frame++) reaction.next(held, 1 / 60);
+  const harmonic = [...held];
+  harmonic[1] = 0.6;
+  harmonic[10] = 0.6;
+  expect(reaction.next(harmonic, 1 / 60).pulse).toBeLessThan(0.01);
+  reaction.next(held, 0.1);
+  const cymbal = [...held];
+  for (let band = 9; band < 18; band++) cymbal[band] = 0.6;
+  expect(reaction.next(cymbal, 0.1).snare).toBeLessThan(0.01);
+  reaction.next(held, 0.1);
+  const kick = [...held];
+  for (let band = 0; band < 5; band++) kick[band] = 0.55;
+  expect(reaction.next(kick, 0.1).kick).toBeGreaterThan(0.5);
+  reaction.next(held, 0.1);
+  const snare = [...held];
+  for (let band = 5; band < 17; band++) snare[band] = 0.5;
+  expect(reaction.next(snare, 0.1).snare).toBeGreaterThan(0.5);
+});
+
 it("ignores an in-flight spectrum after polling is disabled", async () => {
   let resolve: (value: {
     bands: number[];

@@ -441,7 +441,7 @@ std::string AudioService::diagnostics() {
             if (pitchFrames.tellp() > 0) pitchFrames << '|';
             pitchFrames << point.sequence << ',' << roomPlaybackFrame(point.capturedAt) << ','
                         << static_cast<double>(point.frames) * music.rate << ',' << point.pitchHz
-                        << ',' << (point.audioActive ? 1 : 0);
+                        << ',' << (point.audioActive ? 1 : 0) << ',' << point.confidence;
         }
     }
     const auto stageFrames = [this](LatencyRegistry::Stage id) {

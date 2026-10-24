@@ -94,7 +94,9 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
             song,
             session_metadata={
                 "karaokeNoteScore": {
-                    "version": 1,
+                    "version": 3,
+                    "expectedPitchSeconds": 10,
+                    "assessedPitchSeconds": 10,
                     "hitNotes": 3,
                     "totalNotes": 5,
                     "pitchAccuracyPercent": 61.25,
@@ -114,12 +116,47 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
             client.get(f"/recordings/{recording['recordingId']}").json()["analysisStatus"]
             == "Succeeded"
         )
+        started = client.post(f"/recordings/{recording['recordingId']}/analysis")
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        repeated = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
+        assert all(item["pitchAccuracyPercent"] == 61.25 for item in repeated)
+
+
+def test_uncertain_live_pitch_is_not_reported_as_bad_singing(tmp_path: Path) -> None:
+    source = tmp_path / "uncertain.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        recording = register_recording(
+            client,
+            ready_song(client, source),
+            session_metadata={
+                "karaokeNoteScore": {
+                    "version": 3,
+                    "hitNotes": 0,
+                    "totalNotes": 0,
+                    "expectedPitchSeconds": 10,
+                    "assessedPitchSeconds": 0,
+                    "pitchAccuracyPercent": 0,
+                    "meanSemitoneDeviation": 0,
+                    "rhythmAccuracyPercent": 100,
+                    "noteStabilityPercent": 0,
+                }
+            },
+        )
+        results = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
+        assert len(results) == 1
+        assert results[0]["state"] == "Failed"
+        assert results[0]["error"]["code"] == "AnalysisPitchUncertain"
 
 
 @pytest.mark.parametrize(
     "changes",
     [
         {"version": 0},
+        {"version": 1},
+        {"version": 2},
+        {"assessedPitchSeconds": 11},
         {"pitchAccuracyPercent": 101},
         {"meanSemitoneDeviation": -1},
         {"totalNotes": 0},
@@ -132,7 +169,9 @@ def test_incomplete_or_invalid_live_analysis_is_not_presented_as_a_result(
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         score = {
-            "version": 1,
+            "version": 3,
+            "expectedPitchSeconds": 10,
+            "assessedPitchSeconds": 10,
             "hitNotes": 3,
             "totalNotes": 5,
             "pitchAccuracyPercent": 61,

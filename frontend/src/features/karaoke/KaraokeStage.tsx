@@ -2,8 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { KaraokeLyrics, MelodyRoll, resizeEdges } from "@neo-ui-kit/react";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
-import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
-import { createPercussionReaction } from "../../app/backdrop/useSpectrumFeed";
 import { useText } from "../../i18n/useText";
 import { useApp } from "../../app/AppContext";
 import type { EditorDocument } from "../../application/editor/editorModel";
@@ -21,6 +19,7 @@ import {
   pitchMidiNearTarget,
   pitchRange,
   targetPitchAt,
+  reliablePitchHz,
   upcomingLinePhase,
   type LineDisplayPhase,
   type LyricLine,
@@ -50,20 +49,6 @@ const rollLead = 0.25;
 // The piano roll's window starts at the size of the roll on the karaoke screen.
 const pianoPanelSize = { width: 920, height: 220 };
 
-/** The music's kick drum, 0–1, for the roll to breathe with. */
-const useBeat = () => {
-  const [beat, setBeat] = useState(0);
-  const percussion = useMemo(createPercussionReaction, []);
-  useEffect(
-    () =>
-      subscribeSpectrum((frame) =>
-        setBeat(percussion.next(frame.backingBands).kick),
-      ),
-    [percussion],
-  );
-  return beat;
-};
-
 const PianoRoll = ({
   document,
   position,
@@ -90,7 +75,6 @@ const PianoRoll = ({
   opacity: number;
 }) => {
   const t = useText();
-  const beat = useBeat();
   const [span, setSpan] = useState(windowSeconds);
   const notes = useMemo(
     () =>
@@ -115,7 +99,7 @@ const PianoRoll = ({
       panel.detach(bounds, pointer),
     );
   const voicePosition = pitchFrame?.positionSeconds ?? position;
-  const observedPitch = pitchFrame ? pitchFrame.pitchHz : pitchHz;
+  const observedPitch = pitchFrame ? reliablePitchHz(pitchFrame.pitchHz, pitchFrame.confidence) : pitchHz;
   const activeNote = notes.find(
     (note) => voicePosition >= note.start && voicePosition <= note.end,
   );
@@ -163,7 +147,6 @@ const PianoRoll = ({
           accuracy={accuracy}
           hit={onTarget}
           hitIds={hitNoteIds}
-          beat={beat}
         />
         <RollFx
           engine={show}
@@ -221,14 +204,6 @@ const Lyrics = ({
       text: word.text,
       progress: sung ? letterProgress(word, position) : 0,
     })) ?? [];
-  const lyricLines = {
-    style: { opacity: phase.opacity ?? 1 },
-    current: phase.kind === "text" ? words(current, true) : [],
-    next: phase.kind === "text" ? words(next, false) : [],
-    currentKey: current?.start,
-    nextKey: next?.start,
-  };
-
   return (
     <>
       {countdown !== undefined && (
@@ -242,13 +217,12 @@ const Lyrics = ({
       )}
       <KaraokeLyrics
         className="lyrics"
-        {...lyricLines}
-      />
-      <KaraokeLyrics
-        className="lyrics lyricsFill"
-        aria-hidden="true"
         data-reduced-motion={reducedMotion || undefined}
-        {...lyricLines}
+        style={{ opacity: phase.opacity ?? 1 }}
+        current={phase.kind === "text" ? words(current, true) : []}
+        next={phase.kind === "text" ? words(next, false) : []}
+        currentKey={current?.start}
+        nextKey={next?.start}
       />
     </>
   );

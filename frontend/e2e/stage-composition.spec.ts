@@ -10,6 +10,13 @@ for (const width of [1920, 1830, 1440, 1100, 800]) {
     await page.getByLabel("Бумбокс — Люди", { exact: true }).getByRole("button", { name: /Запустить караоке|Play karaoke|Почати караоке/i }).click();
     await expect(page.locator(".consolePanels")).toBeVisible({ timeout: 25_000 });
     await expect(page.locator(".karaokeIntro")).toBeHidden({ timeout: 25_000 });
+    await expect.poll(() => page.locator(".ad-rotary-knob canvas").evaluateAll((canvases) =>
+      canvases.every((node) => {
+        const canvas = node as HTMLCanvasElement;
+        return canvas.width === canvas.height && canvas.width > 0 &&
+          canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data
+            .some((value, index) => index % 4 === 3 && value > 0);
+      })), { message: "Every rotary layer must finish painting after StrictMode setup" }).toBe(true);
     const issues = await page.locator(".consolePanels").evaluate((panels) => {
       const problems: string[] = [];
       const sliders = panels.querySelectorAll<HTMLElement>('[role="slider"]');
@@ -156,7 +163,7 @@ test("animated light colours keep a bounded texture cache", async ({ page }) => 
   expect(cached).toBeLessThanOrEqual(64);
 });
 
-test("all filled lyric text reacts together while upcoming white text stays still", async ({ page }) => {
+test("coloured and white words share one reacting lyric line", async ({ page }) => {
   await page.route("**/stage-composition-test", (route) =>
     route.fulfill({ contentType: "text/html", body: '<html><body><main class="karaokePage" id="stage-test"></main></body></html>' }));
   await page.goto("/stage-composition-test");
@@ -188,18 +195,20 @@ test("all filled lyric text reacts together while upcoming white text stays stil
         document: { revision: 1, words, notes: [], lyrics: "First Second Now Future" },
         layers: { showLyrics: true, showNotes: false }, vocalRange: "auto" })));
   });
-  const filled = page.locator(".lyricsFill .ad-lyrics-current");
+  const filled = page.locator(".lyrics .ad-lyrics-current");
   await expect(filled).toHaveCount(1);
+  await expect(page.locator(".lyrics")).toHaveCount(1);
   const words = filled.locator(".ad-lyric-word");
   await expect(words).toHaveCount(4);
   expect(await words.nth(0).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("100%");
   expect(await words.nth(1).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("100%");
   expect(await words.nth(3).evaluate((word) => word.style.getPropertyValue("--ad-lyric-fill"))).toBe("0%");
+  const whiteWidth = (await words.nth(3).boundingBox())!.width;
   await page.evaluate(async () => {
     const { publishSpectrum } = await import("/src/app/backdrop/spectrumEvents.ts");
     publishSpectrum({ bands: [], backingBands: Array(18).fill(0), bass: 0, active: false });
     publishSpectrum({ bands: [], backingBands: [1, 1, 1, 1, ...Array(14).fill(0)], bass: 1, active: true });
   });
   await expect.poll(() => filled.evaluate((line) => new DOMMatrix(getComputedStyle(line).transform).a)).toBeGreaterThan(1.015);
-  expect(await page.locator(".lyrics:not(.lyricsFill) .ad-lyrics-current").evaluate((line) => new DOMMatrix(getComputedStyle(line).transform).a)).toBe(1);
+  await expect.poll(async () => (await words.nth(3).boundingBox())!.width).toBeGreaterThan(whiteWidth * 1.01);
 });

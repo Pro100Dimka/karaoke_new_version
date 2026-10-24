@@ -281,6 +281,10 @@ export const scorableNoteDuration = (note: Pick<EditorNote, "start" | "end" | "c
 /** A full semitone is forgiving enough for ordinary karaoke singing while still rejecting the adjacent note. */
 export const karaokePitchToleranceSemitones = 1;
 
+/** Weak periodicity is an uncertain measurement, not evidence of a wrong sung note. */
+export const reliablePitchHz = (pitchHz: number | undefined, confidence = 1): number | undefined =>
+  confidence >= 0.8 ? pitchHz : undefined;
+
 /** Places a detected pitch in the octave nearest the target; karaoke scoring compares note names, not vocal register. */
 export const pitchMidiNearTarget = (
   pitchHz: number | undefined,

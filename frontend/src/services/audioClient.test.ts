@@ -18,6 +18,14 @@ const installBridge = (
 };
 
 describe("audioClient contract", () => {
+  it("preserves capture confidence and rejects impossible confidence values", async () => {
+    installBridge(() => ({ status: 0, text: ["RuntimeOutputSampleRate: 48000", "InputPitchEpoch: 2",
+      "InputPitchHistory: 1,48000,2048,440,1,0.92|2,50048,2048,430,1,1.2"].join("\n") }));
+    expect((await getAudioSnapshot()).pitchFrames).toMatchObject([
+      { sequence: 1, pitchHz: 440, audioActive: true, confidence: 0.92 },
+    ]);
+  });
+
   it("preserves audible unpitched activity in captured frames", async () => {
     installBridge(() => ({ status: 0, text: ["RuntimeOutputSampleRate: 48000", "InputPitchEpoch: 2",
       "InputPitchHistory: 1,48000,2048,0,1|2,50048,2048,0,0"].join("\n") }));

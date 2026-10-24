@@ -35,7 +35,7 @@ const minimumBeatGap = 0.24;
 const maximumBeatGap = 1.1;
 
 /**
- * Reads the backing track's spectrum (≈20 frames a second from AudioService) into the musical cues the show
+ * Reads the backing track's spectrum from AudioService into the musical cues the show
  * releases its rewards on: kick onsets and the tempo between them, the loudness of the current section relative
  * to the loudest part heard so far, breaks and surges. Times are `performance.now()` milliseconds. This is a live
  * heuristic, not a structural analysis: a chorus is recognised as "as loud as the loudest part so far".
@@ -79,7 +79,7 @@ export class MusicPulse {
         : Math.min(0.5, Math.max(0.001, (now - this.lastFrame) / 1000));
     this.lastFrame = now;
     const cues: MusicCue[] = [];
-    const { kick, snare } = this.percussion.next(bands);
+    const { kick, snare } = this.percussion.next(bands, elapsed);
     const loudness = average(bands);
     this.heard += elapsed;
     this.fast = ease(this.fast, loudness, elapsed, 0.35);

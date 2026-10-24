@@ -24,6 +24,33 @@ def ready_song(client, source: Path) -> dict[str, object]:
     return client.get(f"/songs/{song['songId']}").json()
 
 
+def test_editor_api_round_trips_the_measured_karaoke_target(tmp_path: Path) -> None:
+    source = tmp_path / "target.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        song_id = str(song["songId"])
+        measured = client.app.state.container.songs.get_editor.execute(song_id).document
+        assert measured.vocal_activity
+        assert measured.words[0].notes[0].contour
+        opened = client.get(f"/songs/{song_id}/editor").json()
+        document = opened["document"]
+        assert document.get("vocalActivity") == [
+            list(interval) for interval in measured.vocal_activity
+        ]
+        assert document["words"][0]["notes"][0].get("contour") == [
+            list(point) for point in measured.words[0].notes[0].contour
+        ]
+        saved = client.put(
+            f"/songs/{song_id}/editor",
+            json={"expectedRevision": opened["revision"], "document": document},
+        )
+        assert saved.status_code == 200, saved.text
+        restored = client.app.state.container.songs.get_editor.execute(song_id).document
+        assert restored.vocal_activity == measured.vocal_activity
+        assert restored.words[0].notes[0].contour == measured.words[0].notes[0].contour
+
+
 def test_editor_save_requires_expected_revision(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)

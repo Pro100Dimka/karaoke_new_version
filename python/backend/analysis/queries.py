@@ -29,7 +29,7 @@ class ListRecordingAnalyses:
         with self._uow.create() as transaction:
             results = transaction.analyses.list_for_recording(recording_id)
             recording = transaction.recordings.get(recording_id)
-            live = _live_result(recording) if recording else None
+            live = live_result(recording) if recording else None
             if live:
                 results = [*results, live]
             revisions: dict[str, int | None] = {}
@@ -40,27 +40,36 @@ class ListRecordingAnalyses:
         return [_current(result, revisions[result.song_id]) for result in results]
 
 
-def _live_result(recording: Recording) -> AnalysisResult | None:
+def live_result(recording: Recording) -> AnalysisResult | None:
     """The measurements collected while singing are immediately available, without another AI pass."""
-    values = _live_metrics((recording.session_metadata or {}).get("karaokeNoteScore"))
+    score = (recording.session_metadata or {}).get("karaokeNoteScore")
+    values = _live_metrics(score)
     if values is None or recording.song_id is None or recording.song_revision is None:
         return None
+    assert isinstance(score, Mapping)
+    uncertain = float(score["assessedPitchSeconds"]) < float(score["expectedPitchSeconds"]) * 0.25
     return AnalysisResult(
         f"live-{recording.recording_id}",
         recording.recording_id,
         recording.song_id,
         recording.song_revision,
         ANALYSIS_ALGORITHM_VERSION,
-        AnalysisState.SUCCEEDED,
+        AnalysisState.FAILED if uncertain else AnalysisState.SUCCEEDED,
         recording.created_at,
         recording.created_at,
         f"live-{recording.recording_id}",
         *values,
+        error={
+            "code": "AnalysisPitchUncertain",
+            "message": "Too little reliable microphone pitch evidence",
+        }
+        if uncertain
+        else None,
     )
 
 
 def _live_metrics(score: object) -> tuple[float, float, float, float] | None:
-    if not isinstance(score, Mapping) or score.get("version") != 1:
+    if not isinstance(score, Mapping) or score.get("version") != 3:
         return None
     fields = (
         "pitchAccuracyPercent",
@@ -80,13 +89,22 @@ def _live_metrics(score: object) -> tuple[float, float, float, float] | None:
             return None
         values.append(float(value))
     pitch, deviation, rhythm, stability = values
+    expected, assessed = score.get("expectedPitchSeconds"), score.get("assessedPitchSeconds")
+    if any(
+        not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value)
+        for value in (expected, assessed)
+    ):
+        return None
+    assert isinstance(expected, (int, float)) and isinstance(assessed, (int, float))
     total, hits = score.get("totalNotes"), score.get("hitNotes")
     if (
         max(pitch, rhythm, stability) > 100
         or not isinstance(total, int)
         or not isinstance(hits, int)
         or not 0 <= hits <= total
-        or total == 0
+        or expected <= 0
+        or not 0 <= assessed <= expected + 1e-6
+        or (total == 0 and assessed > 0)
     ):
         return None
     return pitch, deviation, rhythm, stability

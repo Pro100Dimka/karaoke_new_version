@@ -147,12 +147,14 @@ export const snapshot = async (
     pitchHz: diagnosticNumber(values.InputPitchHz) || undefined,
     pitchFrames: values.InputPitchHistory === undefined ? undefined : values.InputPitchHistory.split("|").flatMap((entry) => {
       const fields = entry.split(",").map(Number);
-      if (![4, 5].includes(fields.length) || fields.some((value) => !Number.isFinite(value) || value < 0) || sampleRate <= 0 ||
-          (fields.length === 5 && fields[4] !== 0 && fields[4] !== 1)) return [];
+      if (![4, 5, 6].includes(fields.length) || fields.some((value) => !Number.isFinite(value) || value < 0) || sampleRate <= 0 ||
+          (fields.length >= 5 && fields[4] !== 0 && fields[4] !== 1) ||
+          (fields.length === 6 && fields[5]! > 1)) return [];
       const [sequence, position, duration, pitch] = fields as [number, number, number, number];
       return [{ sequence, epoch: diagnosticNumber(values.InputPitchEpoch), positionSeconds: position / sampleRate,
         durationSeconds: duration / sampleRate, pitchHz: pitch || undefined,
-        audioActive: fields.length === 5 ? fields[4] === 1 : undefined }];
+        audioActive: fields.length >= 5 ? fields[4] === 1 : undefined,
+        confidence: fields[5] }];
     }),
   };
 };

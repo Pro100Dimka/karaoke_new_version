@@ -7,6 +7,7 @@ import threading
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.analysis.ports import RecordingPitchExtractor
 from backend.analysis.scoring import ScoreSummary, reference_audio_start, score_pitch
+from backend.analysis.queries import live_result
 from backend.recordings.domain import Recording
 from backend.domain_errors import DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
@@ -57,6 +58,7 @@ class StartRecordingAnalysis:
 
     def _start(self, recording_id: str) -> Job:
         recording, song_id, revision = self._inputs(recording_id)
+        live = live_result(recording)
         result = self._create_result(
             recording_id, song_id, revision, self._hasher.hash_file(recording.file_path)
         )
@@ -67,7 +69,9 @@ class StartRecordingAnalysis:
                 lambda context: self._run(result.analysis_id, context),
                 entity_id=result.analysis_id,
                 on_finally=lambda: self._settle(recording_id, result.analysis_id, admission),
-                admit=lambda cancel: admission.enter_context(
+                admit=None
+                if live is not None
+                else lambda cancel: admission.enter_context(
                     self._pitch.admit(recording.file_path, cancel)
                 ),
             )
@@ -127,6 +131,20 @@ class StartRecordingAnalysis:
     def _score(self, running: AnalysisResult, context: JobContext) -> ScoreSummary:
         """Measure both vocals with the same detector; UI polling is not analysis evidence."""
         recording = self._recording(running.recording_id)
+        live = live_result(recording)
+        if live is not None:
+            if live.state is AnalysisState.FAILED:
+                raise DomainError(
+                    "AnalysisPitchUncertain", "Too little reliable microphone pitch evidence", 422
+                )
+            return ScoreSummary(
+                live.pitch_accuracy_percent or 0.0,
+                live.mean_semitone_deviation or 0.0,
+                live.rhythm_accuracy_percent or 0.0,
+                live.note_stability_percent or 0.0,
+                (),
+                (),
+            )
         reference = decode_document(
             self._projects.read_text_artifact(running.song_id, running.song_revision, "lyricsSync")
         )

@@ -2,11 +2,9 @@ import { useEffect, useRef } from "react";
 import { audioClient } from "../../services/audioClient";
 import { useServices } from "../ServicesContext";
 
-const pollMilliseconds = 50;
 // Silence draws nothing new, so it is sampled rarely; after a second of full-rate silent frames every
 // music-driven visual has decayed to rest, and the first audible frame restores the full rate.
 const silentPollMilliseconds = 250;
-const silentFramesBeforeSlowing = 1000 / pollMilliseconds;
 const silenceLevel = 0.001;
 const isSilent = (frame: SpectrumFrame): boolean =>
   [...frame.bands, ...frame.backingBands].every(
@@ -34,46 +32,43 @@ export interface PercussionReaction {
 
 /**
  * Converts the logarithmic spectrum into short visual transients. Spectral flux catches the attack of a drum
- * instead of leaving the UI permanently enlarged by a sustained bass note; a small energy floor keeps softer
- * kick, snare and tom hits visible after AudioService smoothing.
+ * instead of leaving the UI permanently enlarged by a sustained bass note. Kick and snare ranges
+ * normalize their attacks independently, so quieter hits remain visible after a loud passage.
  */
 export const createPercussionReaction = () => {
   let previous: readonly number[] = [];
-  let kickEnvelope = 0;
-  let snareEnvelope = 0;
-  const bandReaction = (
-    bands: readonly number[],
-    from: number,
-    to: number,
-    gain: number,
-  ) => {
-    const energy = average(bands.slice(from, to));
-    const flux = average(
-      bands
-        .slice(from, to)
-        .map((level, index) =>
-          Math.max(0, level - (previous[from + index] ?? 0)),
-        ),
-    );
-    return Math.min(1, flux * gain + Math.max(0, energy - 0.1) * 0.35);
+  const channels = {
+    kick: { from: 0, to: 5, coverage: 0.6, peak: 0.015, mean: 0, cooldown: 0, envelope: 0 },
+    snare: { from: 5, to: 17, coverage: 0.6, peak: 0.015, mean: 0, cooldown: 0, envelope: 0 },
   };
-  const follow = (current: number, target: number) =>
-    target >= current ? target : current * 0.68;
 
   return {
-    next(bands: readonly number[]): PercussionReaction {
-      const kickTarget = bandReaction(bands, 0, 4, 2.8);
-      const snareTarget = Math.max(
-        bandReaction(bands, 4, 9, 2.7),
-        bandReaction(bands, 9, 14, 2.4),
-      );
-      kickEnvelope = follow(kickEnvelope, kickTarget);
-      snareEnvelope = follow(snareEnvelope, snareTarget);
+    next(bands: readonly number[], elapsed = 0.05): PercussionReaction {
+      for (const channel of Object.values(channels)) {
+        const levels = bands.slice(channel.from, channel.to);
+        const attacks = levels.map((level, index) =>
+          Math.max(0, level - (previous[channel.from + index] ?? 0)));
+        const flux = average(attacks);
+        // Each frequency range adapts to its own recent attacks. A quiet snare is not
+        // suppressed by the bass level, and a held bass note does not keep the text enlarged.
+        channel.peak = Math.max(0.015, flux, channel.peak * Math.exp(-elapsed / 1.5));
+        const threshold = Math.max(0.006, channel.mean * 1.8);
+        const broadband = attacks.filter((attack) => attack > 0.004).length >= levels.length * channel.coverage;
+        // A snare has a body as well as its noisy top. Treble-only cymbals and hi-hats
+        // must not flash the whole lyric line as if they were a snare.
+        const body = average(attacks.slice(0, Math.ceil(attacks.length / 3))) > 0.004;
+        channel.cooldown = Math.max(0, channel.cooldown - elapsed);
+        const hit = body && broadband && flux > threshold && channel.cooldown === 0;
+        const target = hit ? Math.min(1, Math.sqrt(flux / (channel.peak * 0.8))) : 0;
+        if (hit) channel.cooldown = 0.075;
+        channel.mean += (flux - channel.mean) * (1 - Math.exp(-elapsed / 0.4));
+        channel.envelope = Math.max(target, channel.envelope * Math.exp(-elapsed / 0.045));
+      }
       previous = [...bands];
       return {
-        kick: kickEnvelope,
-        snare: snareEnvelope,
-        pulse: Math.max(kickEnvelope, snareEnvelope),
+        kick: channels.kick.envelope,
+        snare: channels.snare.envelope,
+        pulse: Math.max(channels.kick.envelope, channels.snare.envelope),
       };
     },
   };
@@ -102,6 +97,7 @@ export const toSpectrumFrame = (
 export const useSpectrumFeed = (
   enabled: boolean,
   onFrame: (frame: SpectrumFrame) => void,
+  pollMilliseconds = 50,
 ): void => {
   const { audio } = useServices();
   const ready = audio.kind === "ready";
@@ -114,6 +110,7 @@ export const useSpectrumFeed = (
     let silentFrames = 0;
     const tick = async () => {
       if (stopped) return;
+      const started = performance.now();
       if (!inFlight.current) {
         inFlight.current = true;
         try {
@@ -128,15 +125,17 @@ export const useSpectrumFeed = (
         }
       }
       const delay =
-        silentFrames > silentFramesBeforeSlowing
+        silentFrames > 1000 / pollMilliseconds
           ? silentPollMilliseconds
           : pollMilliseconds;
-      if (!stopped) timer = window.setTimeout(() => void tick(), delay);
+      if (!stopped) timer = window.setTimeout(
+        () => void tick(), Math.max(4, delay - (performance.now() - started)),
+      );
     };
     void tick();
     return () => {
       stopped = true;
       window.clearTimeout(timer);
     };
-  }, [enabled, ready, onFrame]);
+  }, [enabled, ready, onFrame, pollMilliseconds]);
 };

@@ -169,7 +169,7 @@ describe("recordingCoordinator", () => {
       activeRevision: 3,
     } as SongDto);
     recordingCoordinator.updateKaraokeNoteScore({
-      version: 1,
+      version: 3,
       pitchAccuracyPercent: 74.3,
       meanSemitoneDeviation: 0.22,
       hitNotes: 3,
@@ -185,7 +185,7 @@ describe("recordingCoordinator", () => {
     expect(register?.body).toMatchObject({
       sessionMetadata: {
         karaokeNoteScore: {
-          version: 1,
+          version: 3,
           pitchAccuracyPercent: 74.3,
           meanSemitoneDeviation: 0.22,
           hitNotes: 3,

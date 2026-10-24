@@ -15,7 +15,9 @@ export type CoverState = "Embedded" | "Custom" | "Fallback";
 
 export interface KaraokeNoteScore {
   /** Present only for the timestamped live scorer; legacy UI counters are not final analysis. */
-  version?: 1;
+  version?: 3;
+  expectedPitchSeconds?: number;
+  assessedPitchSeconds?: number;
   pitchAccuracyPercent?: number;
   meanSemitoneDeviation?: number;
   hitNotes: number;
@@ -196,6 +198,8 @@ export interface PitchFrame {
   pitchHz?: number;
   /** Audible input includes consonants whose pitch cannot be measured. */
   audioActive?: boolean;
+  /** Periodicity of the captured audio; absent only with an older AudioService. */
+  confidence?: number;
 }
 
 export interface PlaybackSnapshot {

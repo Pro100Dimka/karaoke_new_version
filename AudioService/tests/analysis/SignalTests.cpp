@@ -166,10 +166,13 @@ void analysisDetectsLivePitch() {
     std::vector<float> samples(4096);
     for (std::size_t frame = 0; frame < samples.size(); ++frame)
         samples[frame] = 0.5F * sineAtFrame(440.0F, frame, rate);
-    analysis.push(GenerationId{3}, samples, static_cast<std::uint32_t>(samples.size()));
+    analysis.push(GenerationId{3}, samples, static_cast<std::uint32_t>(samples.size()), 2'000'000'000);
     waitForProcessedFrames(analysis, 2048);
     const auto pitch = analysis.snapshot().pitchHz;
     expect(std::abs(pitch - 440.0F) < 3.0F, "analysis publishes detected microphone pitch");
+    const auto history = analysis.pitchHistory();
+    expect(!history.empty() && history.back().confidence > 0.95F && history.back().confidence <= 1.0F,
+           "live pitch carries its measured periodicity instead of claiming every estimate is certain");
 }
 
 void analysisAccumulatesDeviceSizedBlocksForPitch() {

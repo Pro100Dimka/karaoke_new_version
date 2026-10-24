@@ -73,11 +73,9 @@ export class RollFxRenderer {
   private bloom: HTMLCanvasElement = document.createElement("canvas");
   private bloomContext: CanvasRenderingContext2D | null;
   private frame = 0;
-  private last = 0;
   private lane = { left: 0, top: 0, width: 0, height: 0 };
   private page = { left: 0, top: 0 };
   private laneAt = 0;
-  private kick = 0;
   private traces = new Map<string, Trace[]>();
   private sparkles: Moment[] = [];
   private glints: Moment[] = [];
@@ -122,9 +120,6 @@ export class RollFxRenderer {
       noteId: command.noteId,
     };
     switch (command.kind) {
-      case "beatPulse":
-        this.kick = Math.max(this.kick, command.strength);
-        return;
       case "noteGlow":
         if (command.strength >= 0.82) this.sparkles.push(moment);
         if (command.strength >= 0.92) this.glints.push(moment);
@@ -166,6 +161,7 @@ export class RollFxRenderer {
     style.top = `${this.lane.top - margin}px`;
     style.width = `${this.lane.width + margin * 2}px`;
     style.height = `${this.lane.height + margin * 2}px`;
+    style.clipPath = `inset(${margin}px)`;
     const ratio = Math.min(2, window.devicePixelRatio || 1);
     const width = Math.round((this.lane.width + margin * 2) * ratio);
     const height = Math.round((this.lane.height + margin * 2) * ratio);
@@ -205,11 +201,6 @@ export class RollFxRenderer {
   }
 
   private draw(now: number): void {
-    const elapsed = Math.min(
-      0.05,
-      this.last === 0 ? 0.016 : (now - this.last) / 1000,
-    );
-    this.last = now;
     const context = this.context;
     const small = this.lightContext;
     const blurred = this.bloomContext;
@@ -220,7 +211,6 @@ export class RollFxRenderer {
     const ratio = this.canvas.width / Math.max(1, fullWidth);
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.kick *= Math.exp(-elapsed / 0.18);
     this.expire(now);
     if (!view || this.lane.width === 0) return;
     const geometry = this.geometry(view);
@@ -312,7 +302,7 @@ export class RollFxRenderer {
 
   private drawHalo(context: CanvasRenderingContext2D, view: RollView): void {
     const glow = this.engine.state.ambient.rollGlow;
-    const strength = glow * 0.22 + this.kick * glow * 0.18;
+    const strength = glow * 0.22;
     if (strength < 0.01) return;
     const x = margin + this.lane.width * view.lead;
     const gradient = context.createLinearGradient(x - 22, 0, x + 22, 0);
@@ -504,14 +494,15 @@ export class RollFxRenderer {
     const y = midi !== undefined
       ? geometry.y(midi)
       : margin + this.lane.height / 2;
-    this.engine.voicePoint = { x: this.page.left + x, y: this.page.top + y };
+    const visible = midi !== undefined && midi >= view.low && midi <= view.high;
+    this.engine.voicePoint = visible ? { x: this.page.left + x, y: this.page.top + y } : undefined;
     if (state.level !== this.level) {
       if (this.level !== "" && state.energy > 1)
         this.bursts.push({ start: now, strength: 1 });
       this.level = state.level;
     }
     if (!state.playing) return;
-    if (midi === undefined) return;
+    if (!visible) return;
     const radius = Math.max(15, geometry.row * 1.25);
     const accuracy = live?.deviation === undefined ? 0 : live.accuracy;
     if (accuracy > 0.2) {
@@ -563,7 +554,7 @@ export class RollFxRenderer {
       const note = view.notes.find((candidate) => observation.position >= candidate.start && observation.position <= candidate.end);
       const target = note ? targetPitchAt(note, observation.position) : undefined;
       const midi = pitchMidiNearTarget(observation.pitchHz, target);
-      if (midi === undefined) { previous = undefined; continue; }
+      if (midi === undefined || midi < view.low || midi > view.high) { previous = undefined; continue; }
       const x = geometry.x(observation.position), y = geometry.y(midi);
       if (previous === undefined || observation.position - previous > 0.1) context.moveTo(x, y);
       else context.lineTo(x, y);

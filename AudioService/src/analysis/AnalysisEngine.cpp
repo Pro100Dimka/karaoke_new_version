@@ -88,7 +88,8 @@ namespace {
 constexpr std::uint32_t AnalysisWindowFrames = 2048;
 
 float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std::uint32_t channels,
-                    std::uint32_t sampleRateHz) noexcept {
+                    std::uint32_t sampleRateHz, float& confidence) noexcept {
+    confidence = 0.0F;
     if (frames < 4 || channels == 0 || sampleRateHz == 0)
         return 0.0F;
     const auto minimumLag = std::max(1U, sampleRateHz / 1200U);
@@ -177,6 +178,7 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std
         if (std::abs(curvature) > 1.0e-9)
             refinedLag += std::clamp(0.5 * (left - right) / curvature, -0.5, 0.5);
     }
+    confidence = static_cast<float>(std::clamp(bestCorrelation, 0.0, 1.0));
     return static_cast<float>(static_cast<double>(sampleRateHz) / refinedLag);
 }
 } // namespace
@@ -234,13 +236,14 @@ void AnalysisEngine::workerMain() noexcept {
         const auto zeroCrossingRate =
             frames > 1 ? static_cast<float>(crossings) / static_cast<float>(frames - 1U) : 0.0F;
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
-        const auto pitch = audioActive ? estimatePitch(scratch, frames, channels, rate) : 0.0F;
+        float confidence = 0.0F;
+        const auto pitch = audioActive ? estimatePitch(scratch, frames, channels, rate, confidence) : 0.0F;
         {
             std::lock_guard lock(pitchMutex_);
             if (workGeneration != generation_.load(std::memory_order_acquire)) continue;
             pitchHz_.store(pitch, std::memory_order_relaxed);
             if (frames != 0 && captureTimes[frames / 2] > 0) {
-                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch, audioActive});
+                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch, audioActive, confidence});
                 while (pitchHistory_.size() > 64) pitchHistory_.pop_front();
             }
         }

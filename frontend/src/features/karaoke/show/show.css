@@ -24,18 +24,22 @@
   pointer-events: none;
 }
 
-/* Keep video on its own composited transform layer; a fullscreen colour filter stalls weaker GPUs. */
-.karaokePage .sceneBackdrop {
-  transform: scale(var(--show-video-scale, 1));
-  will-change: transform;
-}
-
-/* Keep the reward halo on the painted glyphs, never on the fullscreen overlay. */
-.karaokePage .lyricsFill .ad-lyrics-current {
+/* One gently breathing line: coloured and white words share the same motion and light. */
+.karaokePage .lyrics .ad-lyrics-current {
   filter:
-    brightness(calc(1.08 + var(--show-music-beat, 0) * 0.35))
-    drop-shadow(0 0 calc(0.2rem + var(--show-music-beat, 0) * 0.3rem + var(--show-lyric-glow, 0) * 0.55rem)
-      rgb(255 100 180 / calc(0.35 + var(--show-music-beat, 0) * 0.3 + var(--show-lyric-glow, 0) * 0.25)));
+    brightness(calc(1.04 + var(--show-music-beat, 0) * 0.55))
+    drop-shadow(0 0 calc(0.04rem + var(--show-music-beat, 0) * 0.18rem)
+      rgb(255 238 244 / calc(var(--show-music-beat, 0) * 0.75)))
+    drop-shadow(0 0 calc(0.15rem + var(--show-music-beat, 0) * 0.5rem)
+      rgb(255 100 180 / calc(0.25 + var(--show-music-beat, 0) * 0.4)));
+  transform: scale(calc(1 + var(--show-music-beat, 0) * 0.022));
+  transform-origin: 50% 70%;
+  transition: none;
+  will-change: transform;
+  animation-name: show-lyric-in;
+}
+@keyframes show-lyric-in {
+  from { opacity: 0; }
 }
 
 /* The console stays still: only its frame glows softly on a long streak, and a perfect phrase sends one light
@@ -86,42 +90,26 @@
   }
 }
 
-/* The melody roll becomes an energy surface: its frame and the light around the playhead grow with the streak.
-   The kit's own grid and beat glow are kept; only the show's layer is added. */
+/* The melody roll rewards the voice; backing-track pulsation belongs only to the lyrics. */
 .karaokePage .pianoRollLane.ad-melody-roll {
+  --ad-roll-beat: 0 !important;
   box-shadow:
     inset 0 0.0625rem 0 #ffffff12,
-    0 0 calc(var(--ad-roll-beat) * 1.6rem)
-      rgb(from var(--ad-primary) r g b / 0.25),
     0 0 calc(var(--show-roll-glow, 0) * 2.6rem)
       rgb(255 46 138 / calc(var(--show-roll-glow, 0) * 0.28));
+  transition: none;
+}
+.karaokePage .pianoRollLane.ad-melody-roll::after {
+  transition: none;
+}
+.karaokePage .pianoRollLane .ad-melody-note[data-hit] {
+  animation: none;
 }
 .karaokePage .pianoRollLane.ad-melody-roll::before {
   backdrop-filter: none;
 }
 
-/* The white remainder stays still; the whole already painted layer breathes together. Both layers
-   reuse KaraokeLyrics' own gradients, typography, spacing and word progress. */
-.karaokePage .lyrics:not(.lyricsFill) .ad-lyrics-current {
-  filter: none;
-}
-.karaokePage .lyrics:not(.lyricsFill) .ad-lyrics-current .ad-lyric-word {
-  background-size: 0 0, calc(100% - var(--ad-lyric-fill, 0%)) 100%;
-  background-position: left, right;
-}
-.karaokePage .lyricsFill .ad-lyrics-current .ad-lyric-word {
-  background-size: var(--ad-lyric-fill, 0%) 100%, 0 0;
-}
-.karaokePage .lyricsFill .ad-lyrics-current {
-  transform: scale(calc(1 + var(--show-music-beat, 0) * 0.022));
-  transform-origin: 50% 70%;
-  transition: none;
-  will-change: transform;
-}
-.karaokePage .lyricsFill .ad-lyrics-next {
-  visibility: hidden;
-}
-.karaokePage .lyricsFill[data-reduced-motion] .ad-lyrics-current {
+.karaokePage .lyrics[data-reduced-motion] .ad-lyrics-current {
   transform: none;
   transition: none;
 }

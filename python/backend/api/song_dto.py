@@ -61,6 +61,7 @@ class NoteDto(ApiModel):
     note: int
     start: float
     end: float
+    contour: list[tuple[float, float, float] | tuple[float, float]] = []
 
 
 class WordDto(ApiModel):
@@ -79,6 +80,7 @@ class LyricsDocumentDto(ApiModel):
     key: str | None
     lyrics: str
     words: list[WordDto]
+    vocal_activity: list[tuple[float, float]] = []
 
 
 class EditorDto(ApiModel):
@@ -146,7 +148,10 @@ def lyrics_document_dto(document: LyricsDocument) -> LyricsDocumentDto:
             text=word.text,
             start=word.start,
             end=word.end,
-            notes=[NoteDto(note=item.note, start=item.start, end=item.end) for item in word.notes],
+            notes=[
+                NoteDto(note=item.note, start=item.start, end=item.end, contour=list(item.contour))
+                for item in word.notes
+            ],
             letters=list(word.letters),
         )
         for word in document.words
@@ -159,6 +164,7 @@ def lyrics_document_dto(document: LyricsDocument) -> LyricsDocumentDto:
         key=document.key,
         lyrics=document.lyrics,
         words=words,
+        vocal_activity=list(document.vocal_activity),
     )
 
 
@@ -168,7 +174,18 @@ def lyrics_document(dto: LyricsDocumentDto) -> LyricsDocument:
             word.text,
             word.start,
             word.end,
-            tuple(Note(note.note, note.start, note.end) for note in word.notes),
+            tuple(
+                Note(
+                    note.note,
+                    note.start,
+                    note.end,
+                    tuple(
+                        (point[0], point[1], point[2] if len(point) == 3 else 1.0)
+                        for point in note.contour
+                    ),
+                )
+                for note in word.notes
+            ),
             tuple(word.letters),
         )
         for word in dto.words
@@ -181,4 +198,5 @@ def lyrics_document(dto: LyricsDocumentDto) -> LyricsDocument:
         dto.key,
         dto.lyrics,
         words,
+        tuple(dto.vocal_activity),
     )
