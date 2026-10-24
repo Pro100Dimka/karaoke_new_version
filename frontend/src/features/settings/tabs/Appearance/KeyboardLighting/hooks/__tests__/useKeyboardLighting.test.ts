@@ -33,7 +33,7 @@ vi.mock("../../../../../../../app/AppContext", () => ({
     };
   },
 }));
-vi.mock("../../../../../SettingsProvider", () => ({
+vi.mock("../../../../../../../app/SettingsProvider", () => ({
   useSettingsLighting: () => service,
 }));
 vi.mock("../../../../../../../app/NotificationsProvider", () => ({

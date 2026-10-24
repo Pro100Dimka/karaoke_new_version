@@ -45,7 +45,7 @@ vi.mock("../../../../../../app/NotificationsProvider", () => ({
 vi.mock("../../../../../../i18n/useText", () => ({
   useText: () => (key: string) => key,
 }));
-vi.mock("../../../../SettingsProvider", () => {
+vi.mock("../../../../../../app/SettingsProvider", () => {
   const audio = {
     runtimeConfiguration: state.readRuntime,
     listDevices: state.readDevices,

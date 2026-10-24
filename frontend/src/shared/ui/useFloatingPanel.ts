@@ -1,4 +1,4 @@
-import { useCallback, useState, type RefObject } from "react";
+import { useCallback, useLayoutEffect, useState, type RefObject } from "react";
 import {
   panelControls,
   useFloatingPanel as useKitFloatingPanel,
@@ -21,6 +21,28 @@ const labelledControls = "label";
 
 /** Controls keep their own gestures inside floating and detached panels. */
 export const controlSelector = `${panelControls}, ${labelledControls}`;
+
+/** Drag bounds follow the rendered panel, including a participant joining or a section expanding. */
+export const useMeasuredPanelSize = (
+  ref: RefObject<HTMLElement | null>, fallback: { width: number; height: number }, mounted = true,
+) => {
+  const [size, setSize] = useState(fallback);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!mounted || !element) return;
+    const measure = () => {
+      const { width, height } = element.getBoundingClientRect();
+      if (width > 0 && height > 0) setSize((current) =>
+        current.width === width && current.height === height ? current : { width, height });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, mounted]);
+  return size;
+};
 
 /** The kit's floating panel, with labelled controls (switches, checkboxes) also keeping their own presses. */
 export const useFloatingPanel = (

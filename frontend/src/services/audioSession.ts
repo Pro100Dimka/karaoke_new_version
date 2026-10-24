@@ -164,12 +164,14 @@ const loadedPlaybackStates = new Set([2, 3, 4]);
 const failedPlaybackState = 7;
 
 export const waitForReady = async (): Promise<void> => {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  // A long track's native loudness scan can outlast 2.5 s, especially while processing another song.
+  const deadline = performance.now() + 15_000;
+  do {
     const state = Number((await diagnostics()).PlaybackState ?? 0);
     if (loadedPlaybackStates.has(state)) return;
     if (state === failedPlaybackState) throw new Error("AudioService failed to load the song");
     await new Promise((resolve) => window.setTimeout(resolve, 25));
-  }
+  } while (performance.now() < deadline);
   throw new Error("AudioService song loading timed out");
 };
 

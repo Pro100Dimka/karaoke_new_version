@@ -14,6 +14,7 @@
   overflow: hidden auto;
   scrollbar-width: none;
   touch-action: none;
+  padding-block-start: 0.7rem;
 }
 .roomDock:has(.roomArt) {
   inline-size: min(30rem, calc(100vw - 2 * var(--ad-space-5)));
@@ -28,10 +29,27 @@
 
 /* Head: cover, code and state, actions on the right. */
 .roomHead.ad-card {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: var(--ad-space-3);
+}
+.roomFrameControls {
+  position: absolute;
+  inset-block-start: -0.7rem;
+  inset-inline-end: 0.65rem;
+  display: flex;
+  gap: 0.2rem;
+  border: 1px solid var(--ad-primary);
+  border-radius: 0.6rem;
+  background: var(--ad-background, #19080d);
+  padding: 0.1rem;
+}
+.roomFrameControls .ad-icon-button {
+  inline-size: 1.65rem;
+  min-inline-size: 1.65rem;
+  block-size: 1.65rem;
 }
 .roomHead.ad-card[data-art] {
   grid-template-columns: auto minmax(0, 1fr) auto;

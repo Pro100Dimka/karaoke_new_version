@@ -11,8 +11,8 @@ import {
   roomMicrophoneGain,
   useVoiceChain,
 } from "../karaoke/console/voiceChain";
-import { SettingsProvider } from "../settings/SettingsProvider";
-import { AudioTests } from "../settings/tabs/Audio/AudioTests";
+import { SettingsProvider } from "../../app/SettingsProvider";
+import { AudioMonitoring } from "../settings/tabs/Audio/ui/AudioMonitoring";
 import { RoomDock } from "./RoomDock";
 vi.mock("../../app/SocialProvider", () => {
   const offline = { type: "offline" };
@@ -134,7 +134,7 @@ it("never shows a knob for your own microphone in the room, whatever the setting
         <InRoom />
         <SettingsForm>
           <SettingsProvider>
-            <AudioTests
+            <AudioMonitoring
               runtime={{
                 backend: "WASAPI Shared",
                 sampleRate: 48000,
@@ -144,10 +144,6 @@ it("never shows a knob for your own microphone in the room, whatever the setting
               }}
               audioAvailable
               microphoneIssue={false}
-              inputLevel={0}
-              testingInput={false}
-              onToggleInputTest={() => undefined}
-              onPlayTestSound={() => undefined}
               latencyControls={null}
               deviceControls={null}
             />

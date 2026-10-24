@@ -1,4 +1,5 @@
 import { BrowserWindow } from "electron";
+import type { EventEmitter } from "node:events";
 import * as path from "node:path";
 import { themeIconPath } from "./AppPaths";
 import { watchAppVisibility } from "./AppVisibility";
@@ -131,13 +132,14 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
     event.preventDefault();
     window.webContents.send(ipcChannels.closeRequested);
   });
-  const publish = () => publishWindowState(window);
-  window.on("maximize", publish);
-  window.on("unmaximize", publish);
-  window.on("minimize", publish);
-  window.on("restore", publish);
-  window.on("enter-full-screen", publish);
-  window.on("leave-full-screen", publish);
+  // On Windows the event can arrive before the native query reflects the new state.
+  const transitions = {
+    maximize: { maximized: true }, unmaximize: { maximized: false },
+    minimize: { minimized: true }, restore: { minimized: false },
+    "enter-full-screen": { fullscreen: true }, "leave-full-screen": { fullscreen: false },
+  };
+  for (const [event, state] of Object.entries(transitions))
+    (window as EventEmitter).on(event, () => publishWindowState(window, state));
   // A renderer that cannot load must still become visible so the user sees something.
   window.webContents.on("did-fail-load", (_event, code, description) => {
     options.log?.("renderer", "error", `Renderer failed to load (${code}): ${description}`);

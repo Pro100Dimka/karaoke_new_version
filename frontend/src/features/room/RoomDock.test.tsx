@@ -179,6 +179,23 @@ describe("RoomDock", () => {
     roomState = undefined as unknown as Record<string, unknown>;
   });
   roomState = undefined as unknown as Record<string, unknown>;
+  it("can move a short room panel to the bottom even after a taller layout was saved", () => {
+    const key = "adVoice.panelLayout.room.v1";
+    localStorage.setItem(key, JSON.stringify({ left: 100, top: 100, width: 300, height: 660 }));
+    const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockReturnValue({ left: 100, top: 100, width: 300, height: 240, right: 400, bottom: 340, x: 100, y: 100, toJSON: () => ({}) });
+    try {
+      const view = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+      const panel = view.container.querySelector(".roomDock") as HTMLElement;
+      fireEvent(panel, new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 150, clientY: 150 }));
+      fireEvent(panel, new MouseEvent("pointermove", { bubbles: true, clientX: 150, clientY: 700 }));
+      fireEvent(panel, new MouseEvent("pointerup", { bubbles: true }));
+      expect(panel.style.top).toBe(`${window.innerHeight - 240}px`);
+    } finally {
+      localStorage.removeItem(key);
+      measure.mockRestore();
+    }
+  });
   it("keeps retry available after a failed transfer clears progress", async () => {
     roomState = {
       ...roomTransferFailure({
@@ -343,7 +360,7 @@ describe("RoomDock", () => {
     ).toBeInTheDocument();
   });
 
-  it("checks live voice synchronization from the room dock without opening karaoke", async () => {
+  it("puts leave and collapse on the frame without redundant synchronization or detach actions", async () => {
     render(
       <MemoryRouter>
         <RoomDock />
@@ -360,10 +377,12 @@ describe("RoomDock", () => {
     expect(
       screen.getByRole("status", { name: "roomSyncResult" }),
     ).toBeInTheDocument();
-    mocks.startSyncCheck.mockResolvedValue(roomState);
-    fireEvent.click(screen.getByRole("button", { name: "roomActions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "roomCheckSync" }));
-    await waitFor(() => expect(mocks.startSyncCheck).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "collapseRoom" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "roomActions" })).not.toBeInTheDocument();
+    expect(screen.queryByText("roomCheckSync")).not.toBeInTheDocument();
+    expect(screen.queryByText("roomDetach")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "collapseRoom" }));
+    expect(screen.getByRole("button", { name: "expandRoom" })).toBeInTheDocument();
   });
 
   it("keeps the host's actions for a participant behind that participant's sliders button", async () => {

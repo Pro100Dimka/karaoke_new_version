@@ -20,6 +20,7 @@ import { DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
 import {
   useFloatingPanel,
+  useMeasuredPanelSize,
   useStoredPanelLayout,
 } from "../../shared/ui/useFloatingPanel";
 import { useRoomPeople } from "../social/useRoomPeople";
@@ -38,7 +39,6 @@ export const RoomDock = () => {
   const t = useText();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [checkingTiming, setCheckingTiming] = useState(false);
   const [selectedSongArtwork, setSelectedSongArtwork] = useState<{
     songId: string;
     title: string;
@@ -87,10 +87,11 @@ export const RoomDock = () => {
     placement.save,
   );
   const frameRef = useRef<HTMLElement>(null);
+  const measuredSize = useMeasuredPanelSize(frameRef, roomPanelSize, Boolean(room) && !collapsed && !panel.detached);
   const floating = useFloatingPanel(frameRef, {
-    layout: placement.layout,
+    layout: placement.layout && { ...placement.layout, ...measuredSize },
     onLayoutChange: placement.save,
-    defaultSize: roomPanelSize,
+    defaultSize: measuredSize,
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   // The dock stays out of the way while the Melody Editor owns the screen.
@@ -167,17 +168,6 @@ export const RoomDock = () => {
     }
   };
 
-  const checkTiming = async () => {
-    setCheckingTiming(true);
-    try {
-      await membership?.checkTiming();
-    } catch (error) {
-      failure(error);
-    } finally {
-      setCheckingTiming(false);
-    }
-  };
-
   const retryTransfer = async () => {
     try {
       await runtime.getProject()?.retry();
@@ -238,13 +228,9 @@ export const RoomDock = () => {
           }
           actions={{
             copied,
-            checkingSync: checkingTiming,
             detached: panel.detached,
             onCopy: () => void handleCopy(),
             onCollapse: () => setCollapsed(true),
-            onCheckSync: () => void checkTiming(),
-            onDetach: () => panel.detach(),
-            onAttach: panel.attach,
             onCancelTransfer: cancelTransfer,
             onRetryTransfer: () => void retryTransfer(),
             onReplaceProject: replaceProject,

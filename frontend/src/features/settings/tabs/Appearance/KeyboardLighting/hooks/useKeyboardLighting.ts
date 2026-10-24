@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../../../../../app/AppContext";
 import { useNotify } from "../../../../../../app/NotificationsProvider";
 import { useText } from "../../../../../../i18n/useText";
-import { useSettingsLighting } from "../../../../SettingsProvider";
+import { useSettingsLighting } from "../../../../../../app/SettingsProvider";
 
 /** Discover devices while this view is open and apply edits to the saved lighting settings. */
 export const useKeyboardLighting = () => {

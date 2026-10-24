@@ -4,6 +4,8 @@ import { ipcChannels, roomParticipantArgument } from "./ipcChannels";
 const desktopApi = {
   roomE2e: process.env.AD_VOICE_ROOM_E2E === "1",
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),
+  dragWindow: (phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.dragWindow, phase, anchorRatio, anchorY, screenX, screenY),
 
   toggleMaximize: (): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.toggleMaximize),

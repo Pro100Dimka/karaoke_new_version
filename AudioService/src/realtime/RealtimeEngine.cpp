@@ -1008,8 +1008,10 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         aligner_.add(performance, buffer.frames, 1.0F, 0);
     // The user recording always gets the processed voice exactly once, with the same timeline
     // correction, whether local monitoring (and its safety limiter) is enabled or not.
-    if (performanceActive && microphoneEnabled)
+    if (performanceActive && microphoneEnabled) {
+        recording_.observeVoicePeak(pcmPeak(mic) * gains.microphone);
         aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
+    }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
     (void)network_.renderRemote(generation, remote, buffer.frames,

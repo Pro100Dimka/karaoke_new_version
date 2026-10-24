@@ -5,12 +5,12 @@ import type {
   SettingsDesktopPort,
   SettingsJobEventsPort,
   SettingsLightingPort,
-} from "../../application/settings/SettingsPorts";
-import { audioClient } from "../../services/audioClient";
-import { nextJobChange } from "../../services/backendEvents";
-import { desktopClient } from "../../services/desktopClient";
-import { keyboardLightingClient } from "../../services/keyboardLightingClient";
-import { pythonClient } from "../../services/pythonClient";
+} from "../application/settings/SettingsPorts";
+import { audioClient } from "../services/audioClient";
+import { nextJobChange } from "../services/backendEvents";
+import { desktopClient } from "../services/desktopClient";
+import { keyboardLightingClient } from "../services/keyboardLightingClient";
+import { pythonClient } from "../services/pythonClient";
 
 export type SettingsPorts = {
   audio: SettingsAudioPort;

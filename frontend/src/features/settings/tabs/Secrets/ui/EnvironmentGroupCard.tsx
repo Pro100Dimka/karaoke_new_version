@@ -10,14 +10,14 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import { useText } from "../../../../../i18n/useText";
-import { EnvironmentField } from "./EnvironmentField";
+import type { KaggleSettings } from "../hooks/useEnvironmentSettings";
 import {
   groupState,
   type DisplayEntry,
   type EnvironmentGroup,
 } from "../model/environmentModel";
+import { EnvironmentField } from "./EnvironmentField";
 import { formatElapsed, groupUi } from "./environmentPresentation";
-import type { KaggleSettings } from "../hooks/useEnvironmentSettings";
 
 const kaggleActions = [
   { action: "login", icon: "login", label: "kaggleLogin", variant: undefined },
@@ -134,6 +134,7 @@ export const EnvironmentGroupCard = ({
       icon={ui.icon}
       title={t(ui.title)}
       description={t(ui.hint)}
+      style={{ background: "unset!important", boxShadow: "unset!important" }}
       actions={
         <span className="environmentGroupArt" aria-hidden="true">
           <GroupArt group={group} />

@@ -3,7 +3,7 @@ import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
 import {
   useSettingsAudio,
   useSettingsBackend,
-} from "../../../SettingsProvider";
+} from "../../../../../app/SettingsProvider";
 
 export interface SubsystemHealth {
   loading: boolean;

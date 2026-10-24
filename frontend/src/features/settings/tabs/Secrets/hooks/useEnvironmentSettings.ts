@@ -1,7 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsBackend } from "../../../SettingsProvider";
+import { useSettingsBackend } from "../../../../../app/SettingsProvider";
 import { environmentStoreFor } from "../model/environmentStore";
 import { valuesOf } from "../model/environmentModel";
 

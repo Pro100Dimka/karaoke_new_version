@@ -60,6 +60,8 @@ class RecordingEngine {
                  std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames,
                  bool backing = false);
     void setGeneration(GenerationId generation) noexcept;
+    // Render-thread measurement of the processed, gained singer, before backing is mixed in.
+    void observeVoicePeak(float peak) noexcept;
     /** leadInFrames: frames of the incoming stream to drop first. The aligned performance trails
      * the music by that lead, so dropping it keeps `playbackPosition` true for the first frame. */
     void start(SessionFrame sessionFrame, std::uint64_t playbackPosition,
@@ -134,6 +136,7 @@ class RecordingEngine {
     std::atomic<std::uint32_t> realtimeGapCount_{0};
     std::atomic<std::uint64_t> realtimeOverrunCount_{0};
     std::atomic<std::uint64_t> staleBlocks_{0};
+    std::atomic<float> voicePeak_{0.0F};
     std::atomic<std::uint32_t> leadInRemaining_{0}; // written by start(), consumed by the producer
     std::atomic<GenerationId> generation_{GenerationId{0}};
     std::atomic<bool> terminate_{false};

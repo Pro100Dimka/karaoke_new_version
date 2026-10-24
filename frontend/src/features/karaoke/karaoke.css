@@ -124,6 +124,12 @@ html[data-tv-screen] body {
   inset: 0;
   align-content: center;
 }
+.lyrics.ad-karaoke-lyrics .ad-lyrics-current {
+  font-size: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);
+}
+.lyrics.ad-karaoke-lyrics .ad-lyrics-next {
+  font-size: calc(clamp(1rem, 0.7rem + 1.4vw, 1.6rem) * 1.5);
+}
 
 /* The 4-3-2-1 count before a line that follows a long instrumental break, just above that line; each
    number pops in on its own second. */

@@ -69,7 +69,7 @@ describe("model download ownership", () => {
     const unsubscribe = store.subscribe(first);
     const completion = store.start(model);
     await vi.advanceTimersByTimeAsync(0);
-    expect(store.getSnapshot().jobs.model.id).toBe("job");
+    expect(store.getSnapshot().jobs.model?.id).toBe("job");
     unsubscribe();
     const before = first.mock.calls.length;
     const reopened = aiSettingsSessionFor(backend, desktop, events);
@@ -80,7 +80,7 @@ describe("model download ownership", () => {
     await completion;
     expect(first).toHaveBeenCalledTimes(before);
     expect(second).toHaveBeenCalled();
-    expect(reopened.getSnapshot().jobs.model.state).toBe("completed");
+    expect(reopened.getSnapshot().jobs.model?.state).toBe("completed");
     expect(backend.downloadModel).toHaveBeenCalledOnce();
     close();
   });
@@ -119,11 +119,11 @@ describe("model download ownership", () => {
       700, 1400, 2800,
     ]);
     expect(store.getSnapshot().downloadErrors.model).toBe(error);
-    expect(store.getSnapshot().jobs.model.id).toBe("job");
+    expect(store.getSnapshot().jobs.model?.id).toBe("job");
     backend.getJob.mockResolvedValue(job("completed", 1));
     await store.refresh();
     await vi.runAllTimersAsync();
-    expect(store.getSnapshot().jobs.model.state).toBe("completed");
+    expect(store.getSnapshot().jobs.model?.state).toBe("completed");
     expect(store.getSnapshot().downloadErrors).toEqual({});
     expect(backend.downloadModel).toHaveBeenCalledOnce();
   });

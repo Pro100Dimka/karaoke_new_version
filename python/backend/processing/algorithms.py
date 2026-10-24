@@ -65,7 +65,10 @@ def construct_document(
     pitch: Sequence[PitchPoint],
     music: MusicMetadata,
 ) -> LyricsDocument:
-    mapped_words = tuple(_word_with_notes(word, pitch) for word in words)
+    # Fit the performed melody before cutting it at lyric boundaries. Otherwise
+    # a short word on the crest of vibrato becomes an invented semitone change.
+    melody = _notes_from_points(pitch, 0.0, duration)
+    mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in words)
     document = LyricsDocument(
         title,
         artist,
@@ -80,9 +83,13 @@ def construct_document(
     return document
 
 
-def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint]) -> Word:
+def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequence[Note]) -> Word:
     points = [point for point in pitch if word.start <= point.time <= word.end]
-    notes = _notes_from_points(points, word.start, word.end)
+    notes = [
+        replace(note, start=max(word.start, note.start), end=min(word.end, note.end))
+        for note in melody
+        if note.start < word.end and note.end > word.start
+    ]
     measured = tuple(
         replace(
             note,

@@ -12,7 +12,7 @@ const services = vi.hoisted(() => ({
   },
   notify: vi.fn(),
 }));
-vi.mock("../../../../../SettingsProvider", () => ({
+vi.mock("../../../../../../../app/SettingsProvider", () => ({
   useSettingsBackend: () => services.backend,
   useSettingsDesktop: () => services.desktop,
 }));
@@ -54,7 +54,7 @@ it("reads jobs on demand and delivers the current diagnostics through both deskt
     expect.any(String),
   );
   expect(
-    JSON.parse(services.desktop.saveTextFile.mock.calls[0][1]),
+    JSON.parse(services.desktop.saveTextFile.mock.calls[0]![1]),
   ).toMatchObject({
     audioService: health.audio,
     failedProcessing: [],
@@ -63,7 +63,7 @@ it("reads jobs on demand and delivers the current diagnostics through both deskt
 
   rerender({ ...health, audio: { ServiceState: "Failed" } });
   await act(async () => result.current.deliverReport("clipboard"));
-  expect(JSON.parse(services.desktop.copyText.mock.calls[0][0])).toMatchObject({
+  expect(JSON.parse(services.desktop.copyText.mock.calls[0]![0])).toMatchObject({
     audioService: { ServiceState: "Failed" },
   });
   expect(services.backend.listJobs).toHaveBeenCalledTimes(2);
@@ -94,7 +94,7 @@ it("can export without job data and does not report a cancelled save as success"
 
   await act(async () => result.current.deliverReport("file"));
   expect(
-    JSON.parse(services.desktop.saveTextFile.mock.calls[0][1]),
+    JSON.parse(services.desktop.saveTextFile.mock.calls[0]![1]),
   ).toMatchObject({
     failedProcessing: "unavailable",
   });

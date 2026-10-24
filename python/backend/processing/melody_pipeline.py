@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from backend.processing.audio_pipeline import attenuate_playback_stems
 
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.ai.ports import AiProvider
@@ -296,6 +297,9 @@ class MelodyPipeline:
         context: JobContext,
         reports: list[StageReport],
     ) -> int:
+        instrumental, reference = attenuate_playback_stems(
+            (instrumental, reference), melody.parent / "playback", context.cancel
+        )
         return self._stages.run(
             "ProjectValidationPublication",
             CancellationPolicy.FINISH_BEFORE_CANCEL,
@@ -329,6 +333,7 @@ class MelodyPipeline:
                 if item is not None
             },
             "sourceRevision": inputs.song.active_revision,
+            "playbackPeakDbfs": -18,
             "lyricsSource": "ExistingProjectText",
             "lyricsTimingHints": [
                 {"start": hint.start, "text": hint.text} for hint in inputs.timing_hints

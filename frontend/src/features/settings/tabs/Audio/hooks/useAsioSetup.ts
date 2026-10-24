@@ -3,7 +3,7 @@ import type { DeviceDto } from "../../../../../contracts/models";
 import {
   useSettingsAudio,
   useSettingsDesktop,
-} from "../../../SettingsProvider";
+} from "../../../../../app/SettingsProvider";
 
 type SetupState = {
   phase: "idle" | "downloading" | "launched" | "detected" | "failed";

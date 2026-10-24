@@ -435,6 +435,7 @@ void recordingWritesWav();
 void recordingRejectsStaleGeneration();
 void prepareRecordingSelectsMasterMixTap();
 void performanceMixRecordsVoiceWithoutMonitoring();
+void performanceVoiceHeadroomPreservesTheRecordedBalance();
 void performanceMixUsesTheServerDeadlineToAlignRemoteVoices();
 void performanceMixContainsConfiguredAutoTune();
 void performanceMixFollowsMusicGain();

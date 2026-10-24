@@ -35,7 +35,16 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
   ];
 
   return (
-    <Card border padding="none" className="advancedAboutCard">
+    <Card
+      border
+      padding="none"
+      className="advancedAboutCard"
+      style={{
+        background: "unset!important",
+        height: "100%",
+        boxShadow: "unset!important",
+      }}
+    >
       <Planet className="advancedAboutPlanet">
         <Stack gap={1}>
           <Typography variant="h3" as="h2">

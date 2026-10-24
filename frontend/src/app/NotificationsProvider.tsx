@@ -8,9 +8,25 @@ import {
   type ReactNode,
 } from "react";
 import { MessageBar } from "@neo-ui-kit/react";
+import infoUrl from "../assets/sounds/notice-info.ogg";
+import successUrl from "../assets/sounds/notice-success.ogg";
+import warningUrl from "../assets/sounds/notice-warning.ogg";
+import errorUrl from "../assets/sounds/notice-error.ogg";
+import invitationUrl from "../assets/sounds/notice-invitation.ogg";
 
 export type NotificationIntent = "info" | "success" | "warning" | "error";
-type Notify = (message: string, intent?: NotificationIntent) => void;
+type Notify = (message: string, intent?: NotificationIntent, options?: { silent?: boolean }) => void;
+
+const soundUrls = { info: infoUrl, success: successUrl, warning: warningUrl, error: errorUrl, invitation: invitationUrl };
+let sounding: HTMLAudioElement | undefined;
+
+/** Short, bounded interface sounds; a new notice replaces the tail instead of building a noisy queue. */
+export const playNotificationSound = (kind: keyof typeof soundUrls): void => {
+  sounding?.pause();
+  sounding = new Audio(soundUrls[kind]);
+  sounding.volume = 0.45;
+  void sounding.play().catch(() => undefined);
+};
 
 const NotifyContext = createContext<Notify | null>(null);
 const visibleMilliseconds = 4000;
@@ -31,7 +47,8 @@ export const NotificationsProvider = ({
   const [toasts, setToasts] = useState<readonly Toast[]>([]);
   const nextId = useRef(0);
 
-  const notify = useCallback<Notify>((message, intent = "info") => {
+  const notify = useCallback<Notify>((message, intent = "info", options) => {
+    if (!options?.silent) playNotificationSound(intent);
     const id = (nextId.current += 1);
     setToasts((current) => [
       ...current.slice(-(maxVisible - 1)),

@@ -46,6 +46,7 @@ interface ProjectArtifacts {
 interface DesktopApi {
   readonly roomE2e?: boolean;
   minimize(): Promise<void>;
+  dragWindow(phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void>;
   toggleMaximize(): Promise<boolean>;
   close(): Promise<void>;
   isMaximized(): Promise<boolean>;

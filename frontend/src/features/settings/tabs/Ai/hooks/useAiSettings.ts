@@ -6,7 +6,7 @@ import {
   useSettingsBackend,
   useSettingsDesktop,
   useSettingsJobEvents,
-} from "../../../SettingsProvider";
+} from "../../../../../app/SettingsProvider";
 import {
   aiSettingsSessionFor,
   type ProcessingBackend,

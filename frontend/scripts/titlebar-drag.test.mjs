@@ -8,10 +8,16 @@ const styles = readFileSync(
 );
 
 test("the free title-bar area drags the window while its controls stay clickable", () => {
+  const titlebar = readFileSync(new URL("../src/app/TitleBar.tsx", import.meta.url), "utf8");
+  // Pointer capture handles both true fullscreen and modal top layers, where a native drag region fails.
   assert.match(
     styles,
-    /\.titleBarLeading\s*\{[^}]*-webkit-app-region:\s*drag/s,
+    /\.titleBarLeading\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
   );
+  assert.match(titlebar, /onPointerDown=/);
+  assert.match(titlebar, /setPointerCapture/);
+  assert.match(titlebar, /desktopClient\.dragWindow\("start"/);
+  assert.match(titlebar, /closest\("button"\)/);
   assert.match(
     styles,
     /\.titleBarLeading button\s*[,{][^}]*-webkit-app-region:\s*no-drag/s,

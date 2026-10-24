@@ -1,6 +1,27 @@
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./desktopBridge";
 
+test("karaoke lyrics are one and a half times the original size for both displayed lines", async ({ page }) => {
+  await page.route("**/stage-composition-test", (route) => route.fulfill({
+    contentType: "text/html",
+    body: '<div class="lyrics ad-karaoke-lyrics"><p class="ad-lyrics-current">Большая строка</p><p class="ad-lyrics-next">Следующая строка</p></div><p id="original-current" class="ad-lyrics-current">Original</p><p id="original-next" class="ad-lyrics-next">Original</p>',
+  }));
+  for (const width of [800, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/stage-composition-test");
+    const sizes = await page.evaluate(async () => {
+      await import("/node_modules/@neo-ui-kit/react/dist/styles.css");
+      await import("/src/features/karaoke/karaoke.css");
+      document.documentElement.style.setProperty("--ad-font-family-heading", "serif");
+      const size = (selector: string) => parseFloat(getComputedStyle(document.querySelector(selector)!).fontSize);
+      return ["current", "next"].map((line) => ({
+        actual: size(`.lyrics .ad-lyrics-${line}`), original: size(`#original-${line}`),
+      }));
+    });
+    for (const { actual, original } of sizes) expect(actual).toBeCloseTo(original * 1.5, 2);
+  }
+});
+
 for (const width of [1920, 1830, 1440, 1100, 800]) {
   test(`console controls remain clickable and contained at ${width}px`, async ({ page }) => {
     await page.addInitScript(installDesktopBridge);

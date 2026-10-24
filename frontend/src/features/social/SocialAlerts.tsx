@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { playNotificationSound } from "../../app/NotificationsProvider";
 import { Button, Card, Stack, Typography } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
 import {
@@ -80,6 +81,15 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
   const invites = inbox.invites.filter(
     (invite) => !invitations.isRequestedRoom(invite.roomId),
   );
+  const heard = useRef(new Set<string>());
+  useEffect(() => {
+    const keys = [
+      ...invites.map((invite) => `invite:${invite.inviteId}`),
+      ...requests.map((person) => `friend:${person.accountId}`),
+    ];
+    if (keys.some((key) => !heard.current.has(key))) playNotificationSound("invitation");
+    keys.forEach((key) => heard.current.add(key));
+  }, [invites, requests]);
 
   return (
     <div className="socialAlerts" aria-live="polite">

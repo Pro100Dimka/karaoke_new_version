@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { audioClient, getAudioSnapshot } from "./audioClient";
-import { audioRows } from "../features/settings/tabs/Audio/audioRows";
+import { audioOptions } from "../features/settings/tabs/Audio/model/audioOptions";
+import { waitForReady } from "./audioSession";
 
 const installBridge = (
   reply: (command: string) => { status: number; text: string },
@@ -18,6 +19,22 @@ const installBridge = (
 };
 
 describe("audioClient contract", () => {
+  it.each([
+    { readyAfter: 3000, failed: false, expected: "ready" },
+    { readyAfter: Infinity, failed: true, expected: "AudioService failed to load the song" },
+    { readyAfter: Infinity, failed: false, expected: "AudioService song loading timed out" },
+  ])("waits for a slow real load and still bounds failed/stuck loads: $expected", async ({ readyAfter, failed, expected }) => {
+    vi.useFakeTimers();
+    try {
+      const started = performance.now();
+      installBridge(() => ({ status: 0, text: `PlaybackState: ${failed ? 7 : performance.now() - started >= readyAfter ? 2 : 1}` }));
+      const result = waitForReady().then(() => "ready", (error: Error) => error.message);
+      await vi.advanceTimersByTimeAsync(15_100);
+      expect(await result).toBe(expected);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it("preserves capture confidence and rejects impossible confidence values", async () => {
     installBridge(() => ({ status: 0, text: ["RuntimeOutputSampleRate: 48000", "InputPitchEpoch: 2",
       "InputPitchHistory: 1,48000,2048,440,1,0.92|2,50048,2048,430,1,1.2"].join("\n") }));
@@ -599,23 +616,18 @@ describe("audioClient contract", () => {
     };
     const capabilities = await audioClient.configurationCapabilities(configuration);
     const runtime = await audioClient.applyConfiguration(configuration);
-    const rows = audioRows(
-      ((key: string) => key) as never,
-      { ...configuration, bufferFrames: 0 },
+    const options = audioOptions({
+      t: ((key: string) => key) as never,
+      values: { ...configuration, bufferFrames: 0 },
       runtime,
-      [],
-      true,
-      () => undefined,
-      capabilities,
-    );
-    const period = rows.find((row) => "tag" in row && row.tag === "periodFrames") as
-      { options: readonly { value: number }[] };
+      configurationCapabilities: capabilities,
+    });
     for (const command of ["GetAudioCapabilities", "Reconfigure"])
       expect(requests).toContainEqual({
         command,
         args: expect.objectContaining({ input: "mic", output: "phones", rate: 48000, period: 128 }),
       });
-    expect(period.options.map((option) => option.value)).toEqual([128, 160, 480]);
+    expect(options.periods.map((option) => option.value)).toEqual([128, 160, 480]);
   });
 
   it("lets AudioService negotiate channels and preserves a requested small ASIO buffer", async () => {

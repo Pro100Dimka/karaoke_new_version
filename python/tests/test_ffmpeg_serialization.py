@@ -92,6 +92,33 @@ def test_project_manifest_serialization_round_trip() -> None:
     assert decode_manifest(encode_manifest(manifest)) == manifest
 
 
+def test_playback_stems_have_minus_18_dbfs_headroom_without_changing_the_mix_knobs(
+    tmp_path: Path,
+) -> None:
+    import numpy as np
+    import soundfile as sf
+    from backend.processing.audio_pipeline import attenuate_playback_stems
+
+    source = tmp_path / "stems"
+    source.mkdir()
+    time = np.arange(44100) / 44100
+    wave = np.column_stack((np.sin(2 * np.pi * 440 * time), np.sin(2 * np.pi * 660 * time)))
+    originals = []
+    for name, level in (("instrumental", 0.9), ("vocals", 0.45)):
+        path = source / f"{name}.wav"
+        sf.write(path, wave * level, 44100, subtype="PCM_24")
+        originals.append(path)
+    before = [path.read_bytes() for path in originals]
+    targets = attenuate_playback_stems(tuple(originals), tmp_path / "playback", threading.Event())
+    for path, original in zip(targets, originals, strict=True):
+        samples, rate = sf.read(path, always_2d=True)
+        expected, _ = sf.read(original, always_2d=True)
+        assert rate == 44100 and samples.shape == expected.shape
+        assert 20 * np.log10(np.max(np.abs(samples))) == pytest.approx(-18, abs=0.001)
+        assert np.corrcoef(samples[:, 0], expected[:, 0])[0, 1] > 0.999999
+    assert [path.read_bytes() for path in originals] == before
+
+
 def test_lyrics_document_serialization_round_trip() -> None:
     document = LyricsDocument(
         "Title",

@@ -34,7 +34,8 @@ it("keeps console content within its floating panel and adapts the real lower gr
   // 90vw of the window, in pixels; the drag limits use the console's measured height.
   expect(component).toMatch(/consoleWidthShare\s*=\s*0\.9;/);
   expect(frame).toContain("defaultSize: size");
-  expect(frame).toMatch(/new ResizeObserver/);
+  expect(frame).toContain("useMeasuredPanelSize(frameRef");
+  expect(readFileSync(resolve("src/shared/ui/useFloatingPanel.ts"), "utf8")).toContain("new ResizeObserver");
   // The four panels keep their original row; small windows fold to two and then one.
   expect(css).toMatch(
     /@container\s*\(max-width:\s*46rem\)\s*\{\s*\.consolePanels\s*\{[^}]*grid-template-columns:\s*repeat\(2,/,

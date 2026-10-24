@@ -116,6 +116,28 @@ describe("karaoke lyrics model", () => {
     ]);
   });
 
+  it.each([60, 120, 180])("splits a written line at sung pauses at %s BPM without splitting a held word", (bpm) => {
+    const beat = 60 / bpm;
+    const words = [word("held", 0, 4), word("a", 4.08, 4.3),
+      word("b", 4.3 + beat, 4.6 + beat), word("c", 4.65 + beat, 5 + beat),
+      word("last", 6 + beat, 7 + beat)];
+    const lines = buildLines(words, "held a b c\nlast", bpm);
+    expect(lines.map((line) => line.words.map((item) => item.id))).toEqual([
+      ["held", "a"], ["b", "c"], ["last"],
+    ]);
+    expect(lines[0]).toMatchObject({ start: 0, end: 4.3 });
+    expect(lines.flatMap((line) => line.words)).toEqual(words);
+    expect(lines[0]?.words[0]).toBe(words[0]);
+  });
+
+  it("keeps brief articulation gaps together and limits oversized written lines too", () => {
+    const words = Array.from({ length: 10 }, (_, index) => word(String(index), index, index + 0.9));
+    const original = structuredClone(words);
+    const lyrics = words.slice(0, 9).map((item) => item.text).join(" ") + "\n9";
+    expect(buildLines(words, lyrics).map((line) => line.words.length)).toEqual([8, 1, 1]);
+    expect(words).toEqual(original);
+  });
+
   it("falls back to guessed lines when the text no longer matches the words", () => {
     const words = [word("a", 0, 1), word("b", 1, 2), word("c", 8, 9)];
     expect(

@@ -423,7 +423,9 @@ def _preferred(
             return closer
     left = [guided[index] for index in changed] if changed else guided
     right = [reference[index] for index in changed] if changed else reference
-    return guided if _confidence(left) > _confidence(right) + _PREFERENCE else reference
+    # Compare relative likelihood: an absolute probability margin suppresses all
+    # improvements in weak phonetic cores, even when the guided placement is twice as likely.
+    return guided if _confidence(left) > _confidence(right) * (1 + _PREFERENCE) else reference
 
 
 def _heard_distance(

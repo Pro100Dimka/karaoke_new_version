@@ -129,6 +129,21 @@ it("turns off spell checking: no underlines and no dictionary downloads", async 
   expect((BrowserWindow as unknown as { lastOptions: BrowserWindowConstructorOptions }).lastOptions.webPreferences?.spellcheck).toBe(false);
 });
 
+it("publishes the explicit fullscreen transition even when Windows reports its previous flag during the event", async () => {
+  const { createMainWindow } = await import("./MainWindow");
+  const { publishWindowState } = await import("./WindowState");
+  const window = createMainWindow({
+    rendererUrl: "file:///app/index.html", trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: "participant", closeConfirmed: () => false, reveal: vi.fn(),
+  });
+  expect(window.isFullScreen()).toBe(false);
+  window.emit("enter-full-screen");
+  expect(publishWindowState).toHaveBeenLastCalledWith(window, { fullscreen: true });
+  window.setFullScreen(true);
+  window.emit("leave-full-screen");
+  expect(publishWindowState).toHaveBeenLastCalledWith(window, { fullscreen: false });
+});
+
 it("fills the window with the saved theme's colour until the interface paints", async () => {
   const { createMainWindow, themeWindowBackground } = await import("./MainWindow");
   const { BrowserWindow } = await import("electron");

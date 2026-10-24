@@ -134,6 +134,11 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       className="advancedDiagnosticsCard"
       icon="stethoscope"
       title={t("diagnostics")}
+      style={{
+        background: "unset!important",
+        height: "100%",
+        boxShadow: "unset!important",
+      }}
       description={t("diagnosticsHint")}
     >
       <div className="settingsStack">

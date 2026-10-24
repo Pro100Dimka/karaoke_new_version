@@ -11,7 +11,7 @@ import type { SettingsTab } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
 import "./settings.css";
-import { SettingsProvider } from "./SettingsProvider";
+import { SettingsProvider } from "../../app/SettingsProvider";
 import tabs from "./tabs";
 
 const SettingsContents = ({ requestedTab }: { requestedTab: SettingsTab }) => {

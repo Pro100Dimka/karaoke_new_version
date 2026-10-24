@@ -8,7 +8,7 @@ const calls = vi.hoisted(() => ({
   relaunch: vi.fn(async () => undefined),
   listDevices: vi.fn(async (): Promise<readonly DeviceDto[]> => []),
 }));
-vi.mock("../../../../SettingsProvider", () => {
+vi.mock("../../../../../../app/SettingsProvider", () => {
   const audio = { listDevices: calls.listDevices };
   const desktop = {
     installAsio4All: calls.install,
@@ -79,7 +79,7 @@ describe("ASIO installation lifecycle", () => {
 
   it("continues 1500ms detection while the callback changes every second", async () => {
     calls.listDevices.mockResolvedValueOnce([]).mockResolvedValueOnce([driver]);
-    const callbacks = [vi.fn(), vi.fn(), vi.fn()];
+    const callbacks = [vi.fn(), vi.fn(), vi.fn()] as const;
     const { result, rerender } = renderHook(
       ({ onDetected }) => useAsioSetup(onDetected),
       { initialProps: { onDetected: callbacks[0] } },

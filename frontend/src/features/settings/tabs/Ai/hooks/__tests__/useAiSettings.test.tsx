@@ -26,7 +26,7 @@ const dependencies = vi.hoisted(() => ({
   events: { next: vi.fn() },
   notify: vi.fn(),
 }));
-vi.mock("../../../../SettingsProvider", () => ({
+vi.mock("../../../../../../app/SettingsProvider", () => ({
   useSettingsBackend: () => dependencies.backend,
   useSettingsDesktop: () => dependencies.desktop,
   useSettingsJobEvents: () => dependencies.events,

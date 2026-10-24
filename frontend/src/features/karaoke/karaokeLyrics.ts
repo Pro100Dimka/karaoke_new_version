@@ -8,7 +8,6 @@ export interface LyricLine {
 }
 
 const maxWordsPerLine = 8;
-const lineBreakGapSeconds = 1.2;
 export const lyricSilenceSeconds = 3;
 
 /** Number of words on each written line, or null when the lyrics do not split into exactly these words. */
@@ -29,20 +28,22 @@ const writtenLineSizes = (
 const groupWords = (
   words: readonly EditorWord[],
   sizes: readonly number[] | null,
+  pauseSeconds: number,
 ): EditorWord[][] => {
-  if (sizes) {
-    let offset = 0;
-    return sizes.map((size) => words.slice(offset, (offset += size)));
-  }
+  let writtenEnd = sizes?.[0] ?? words.length;
+  let writtenLine = 0;
   const lines: EditorWord[][] = [];
-  for (const word of words) {
+  for (const [index, word] of words.entries()) {
+    const writtenBreak = index === writtenEnd;
+    if (writtenBreak) writtenEnd += sizes?.[++writtenLine] ?? 0;
     const current = lines.at(-1);
     const previous = current?.at(-1);
     const startsNewLine =
       !current ||
       !previous ||
+      writtenBreak ||
       current.length >= maxWordsPerLine ||
-      word.start - previous.end > lineBreakGapSeconds;
+      word.start - previous.end + 1e-6 >= pauseSeconds;
     if (startsNewLine) lines.push([word]);
     else current.push(word);
   }
@@ -50,14 +51,18 @@ const groupWords = (
 };
 
 /**
- * Display lines follow the lyrics as written (one line per row). Without a matching text, or after words were edited,
- * lines are guessed from pauses and a maximum length.
+ * Written rows are upper bounds: a sung pause of about one beat also begins a phrase.
+ * Only boundaries between words are used, so held vowels and their notes stay intact.
+ * The same phrases feed lyrics and the piano roll; persisted words/timings remain untouched.
  */
 export const buildLines = (
   words: readonly EditorWord[],
   lyrics?: string,
+  bpm?: number,
 ): readonly LyricLine[] =>
-  groupWords(words, writtenLineSizes(lyrics, words.length)).map((group) => ({
+  groupWords(words, writtenLineSizes(lyrics, words.length),
+    Math.max(0.3, Math.min(0.9, 60 / (bpm && Number.isFinite(bpm) && bpm > 0 ? bpm : 120))),
+  ).map((group) => ({
     words: group,
     start: group[0]?.start ?? 0,
     end: group.at(-1)?.end ?? 0,

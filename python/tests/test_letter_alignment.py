@@ -1624,3 +1624,106 @@ def test_whisper_is_not_followed_into_silence() -> None:
     chosen = _preferred(guided, whole, 0, {0: 1.0, 1: 3.9}, voiced)
 
     assert [word.start for word in chosen] == [1.0, 2.5]
+
+
+def test_a_weak_but_better_phonetic_core_inside_its_phrase_beats_a_later_echo() -> None:
+    from backend.ai_worker.ctc import _preferred
+
+    guided = [AlignedWord("stay", 2.5, 3.5, (2.5,), 0.009)]
+    reference = [AlignedWord("stay", 5.0, 8.0, (5.0,), 0.005)]
+    voiced = voiced_frames(_signal([(2.5, 3.5), (5.0, 8.0)], 9.0), _RATE, _HOP)
+
+    chosen = _preferred(guided, reference, 0, {}, voiced)
+
+    assert chosen == guided, "an absolute confidence margin cannot privilege the worse placement"
+
+
+def test_clean_import_recovers_a_phrase_missing_from_full_recording_recognition(monkeypatch):
+    import json
+    import torch
+    from backend.ai_worker import speech
+    from backend.ai_worker.ctc import Window
+
+    # Raw emissions and independent ASR from the first processing of a new import.
+    with np.load(Path(__file__).with_name("fixtures") / "wildways-verse-entry.npz") as fixture:
+        case = json.loads(str(fixture["clean_reply_metadata"]))
+        scores = torch.from_numpy(fixture["clean_reply_scores"])
+    whole = [AlignedWord(**item) for item in case["whole"]]
+    windows = [Window(**item) for item in case["windows"]]
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(37 * _RATE, np.float32))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
+    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
+    monkeypatch.setattr(speech, "_alignment_windows", lambda *_: windows)
+    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(3701, bool))
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    local = {
+        "segments": [{"words": [dict(word=k, start=a, end=b) for k, a, b in case["recognized"]]}]
+    }
+    monkeypatch.setattr(
+        speech, "_accelerated_guidance", lambda *_, **_kw: {"contexts": [local] * len(windows)}
+    )
+
+    words = speech.align(Path("voice.wav"), " ".join(w.text for w in whole), "Russian")["words"]
+
+    assert 10 < words[7]["start"] < 11  # held word belongs to the earlier phrase
+    assert all(13 < w["start"] < 16 for w in words[8:11])  # reply precedes the instrumental
+    assert words[10]["end"] < 17
+
+
+def test_coarse_recognition_span_is_not_a_license_to_start_a_weak_word_at_its_end():
+    from backend.ai_worker.word_guidance import _select_sequence
+
+    late = AlignedWord("we", 4.0, 4.2, (4.0, 4.1), 0.01)
+    near_entry = AlignedWord("we", 3.1, 3.5, (3.1, 3.3), 0.005)
+    chosen = _select_sequence([late], [[late, near_entry]], {0: (3.0, 4.2)}, 0, np.ones(600, bool))
+
+    assert chosen == [near_entry]
+
+
+@pytest.mark.parametrize("next_start", [4., 6.])
+def test_context_recognition_can_recover_words_outside_a_wrongly_short_first_asr_window(next_start):
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.recognition import contextual_guidance
+
+    words = "we sing a long ending then another line".split()
+    whole = [AlignedWord(w, i + 1., i + 1.5, (), .01) for i, w in enumerate(words)]
+    windows = [Window(0, 5, .5, 3, 1), Window(5, 8, next_start, 10, next_start)]
+    heard = {i: (i + 1., i + 1.5) for i in range(3)}
+    local = {"segments": [{"words": [dict(word=w, start=i+1., end=i+1.5) for i,w in enumerate(words[:5])]}]}
+
+    revised, supported = contextual_guidance(
+        words, windows, whole, heard, np.ones(1000, bool),
+        lambda contexts: {"contexts": [local for _ in contexts]},
+    )
+
+    assert revised[0].end > 5.5
+    assert supported[4] == (5., 5.5)
+
+
+def test_recognition_margin_does_not_move_a_word_into_the_previous_syllable():
+    from backend.ai_worker.word_guidance import _select_sequence
+
+    before = AlignedWord("we", 2.6, 3.5, (2.6, 2.8), .01)
+    within = AlignedWord("we", 3.1, 3.5, (3.1, 3.3), .005)
+    assert _select_sequence(
+        [before], [[before, within]], {0: (3., 4.2)}, 0, np.ones(500, bool)
+    ) == [within]
+
+
+def test_a_strong_word_average_does_not_hide_its_unsupported_first_phoneme(monkeypatch):
+    import torch
+    from backend.ai_worker import ctc, word_guidance
+
+    word = AlignedWord("we", 4., 4.2, (4., 4.1), .3)
+    approximate = AlignedWord("we", 3., 3.5, (3., 3.2), 0.)
+    scores = torch.zeros(300, 28)
+    first_token = ctc._character_tokens("we")[0][0]
+    scores[200, first_token] = np.log(.001)
+    monkeypatch.setattr(word_guidance, "_core_candidates", lambda *_: [approximate])
+
+    candidates = word_guidance._candidates(
+        word, scores, .02, ctc.Window(0, 1, 0, 5), (3., 3.5), np.ones(500, bool), .6
+    )
+
+    assert candidates == [approximate]

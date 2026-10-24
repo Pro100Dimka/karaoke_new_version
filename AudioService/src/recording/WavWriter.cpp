@@ -78,10 +78,32 @@ void WavWriter::writeHeader(std::uint32_t dataBytes) {
     file_.write("data", 4);
     writeValue(file_, dataBytes);
 }
-void WavWriter::close() {
+void WavWriter::close(float gain) {
     RealtimeInstrumentation::reportDiskIo();
     if (!file_.is_open())
         return;
+    if (!std::isfinite(gain) || gain < 0.0F || gain > 1.0F)
+        throw std::invalid_argument("invalid recording attenuation");
+    // Finalization runs on the disk worker, after its PCM queue is drained. It needs no
+    // second song scan, DSP pass, or realtime work; channels share the same constant gain.
+    if (gain < 1.0F) {
+        std::array<std::int16_t, 8192> samples{};
+        for (std::uint64_t offset = 0; offset < dataBytes_;) {
+            const auto bytes = std::min<std::uint64_t>(samples.size() * sizeof(samples[0]), dataBytes_ - offset);
+            const auto position = static_cast<std::streamoff>(44U + offset);
+            file_.seekg(position);
+            file_.read(reinterpret_cast<char*>(samples.data()), static_cast<std::streamsize>(bytes));
+            if (!file_)
+                throw std::runtime_error("recording headroom read failed");
+            for (std::size_t index = 0; index < bytes / sizeof(samples[0]); ++index)
+                samples[index] = static_cast<std::int16_t>(std::lrint(samples[index] * gain));
+            file_.seekp(position);
+            file_.write(reinterpret_cast<const char*>(samples.data()), static_cast<std::streamsize>(bytes));
+            if (!file_)
+                throw std::runtime_error("recording headroom write failed");
+            offset += bytes;
+        }
+    }
     writeHeader(static_cast<std::uint32_t>(dataBytes_));
     file_.flush();
     const auto written = static_cast<bool>(file_);

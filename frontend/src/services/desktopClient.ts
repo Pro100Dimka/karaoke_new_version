@@ -3,6 +3,7 @@ import type { DesktopClient } from "../contracts/clients";
 const unavailable = async (): Promise<void> => undefined;
 export const desktopClient: DesktopClient = window.desktop ?? {
   minimize: unavailable,
+  dragWindow: unavailable,
   async toggleMaximize() {
     return false;
   },

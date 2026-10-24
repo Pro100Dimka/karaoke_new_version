@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useAsk } from "../../../../../../app/DialogProvider";
 import { useNotify } from "../../../../../../app/NotificationsProvider";
 import { useText } from "../../../../../../i18n/useText";
-import { useSettingsBackend } from "../../../../SettingsProvider";
+import { useSettingsBackend } from "../../../../../../app/SettingsProvider";
 
 type CleanupKind = "cache" | "temp";
 

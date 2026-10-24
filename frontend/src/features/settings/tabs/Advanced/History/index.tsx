@@ -40,6 +40,11 @@ export const HistoryPanel = () => {
     <Card
       border
       className="advancedHistoryCard"
+      style={{
+        background: "unset!important",
+        flex: "1",
+        boxShadow: "unset!important",
+      }}
       icon="list"
       title={t("history")}
       description={t("historyHint")}

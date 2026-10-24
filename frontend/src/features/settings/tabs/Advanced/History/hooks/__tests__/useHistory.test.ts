@@ -4,7 +4,7 @@ import type { HistoryEventDto } from "../../../../../../../contracts/models";
 import { useHistory } from "../useHistory";
 
 const backend = vi.hoisted(() => ({ history: vi.fn(), listSongs: vi.fn() }));
-vi.mock("../../../../../SettingsProvider", () => ({
+vi.mock("../../../../../../../app/SettingsProvider", () => ({
   useSettingsBackend: () => backend,
 }));
 

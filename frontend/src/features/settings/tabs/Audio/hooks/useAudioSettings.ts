@@ -4,7 +4,7 @@ import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { DeviceDto } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
 import { safeAudioConfiguration } from "../../../../../shared/preferences/preferences";
-import { useSettingsAudio } from "../../../SettingsProvider";
+import { useSettingsAudio } from "../../../../../app/SettingsProvider";
 import { audioSessionFor } from "../model/audioSession";
 import {
   automaticAudioTiming,

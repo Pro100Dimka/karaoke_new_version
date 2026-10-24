@@ -696,6 +696,8 @@ constexpr std::array tests{
     Test{"prepareRecordingSelectsMasterMixTap", Tests::prepareRecordingSelectsMasterMixTap},
     Test{"performanceMixRecordsVoiceWithoutMonitoring",
          Tests::performanceMixRecordsVoiceWithoutMonitoring},
+    Test{"performanceVoiceHeadroomPreservesTheRecordedBalance",
+         Tests::performanceVoiceHeadroomPreservesTheRecordedBalance},
     Test{"performanceMixUsesTheServerDeadlineToAlignRemoteVoices",
          Tests::performanceMixUsesTheServerDeadlineToAlignRemoteVoices},
     Test{"performanceMixContainsConfiguredAutoTune",

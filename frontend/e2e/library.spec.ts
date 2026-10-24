@@ -42,6 +42,19 @@ test("artist headings use the user's selected heading font", async ({ page }) =>
   await expect(artist).toHaveCSS("font-family", '"Selected Heading", serif');
 });
 
+test("artwork leads the song information on the left at wide and narrow widths", async ({ page }) => {
+  for (const width of [1440, 640]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const card = page.locator(".songCard").first();
+    await expect(card.locator(".songCardCover")).toBeVisible();
+    const cover = (await card.locator(".songCardCover").boundingBox())!;
+    const content = (await card.locator(".songCardContent").boundingBox())!;
+    expect(cover.x + cover.width).toBeLessThanOrEqual(content.x + 1);
+    await expect(card.locator(".songCardCover")).toHaveCSS("object-fit", "contain");
+  }
+});
+
 test("complete artwork and processing waveform fit inside equal height song cards", async ({ page }, testInfo) => {
   await page.addInitScript(() => {
     const request = window.desktop.pythonRequest;

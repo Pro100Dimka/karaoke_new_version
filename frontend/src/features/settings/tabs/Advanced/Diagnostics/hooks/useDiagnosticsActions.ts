@@ -5,7 +5,7 @@ import { useText } from "../../../../../../i18n/useText";
 import {
   useSettingsBackend,
   useSettingsDesktop,
-} from "../../../../SettingsProvider";
+} from "../../../../../../app/SettingsProvider";
 import type { SubsystemHealth } from "../../hooks/useSubsystemHealth";
 import { buildDiagnosticsReport } from "../model/diagnosticsReport";
 

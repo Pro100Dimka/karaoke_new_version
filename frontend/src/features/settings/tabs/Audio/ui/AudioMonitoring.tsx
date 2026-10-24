@@ -12,11 +12,11 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import { Fragment, useRef, useState, type ReactNode } from "react";
+import { useApp } from "../../../../../app/AppContext";
 import type { RuntimeAudioConfiguration } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { AcousticCalibration } from "./AcousticCalibration";
-import { useApp } from "../../../../../app/AppContext";
 import { useInputMonitoring } from "../hooks/useInputMonitoring";
+import { AcousticCalibration } from "./AcousticCalibration";
 
 const meterGain = 4;
 /** The stored levels are 0…1; the knobs show them as percent. */
@@ -87,14 +87,7 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
   ] as const;
 
   return (
-    <Card
-      className="audioConsole"
-      border
-      padding="none"
-      icon="wave"
-      title={t("audioDevicesTitle")}
-      description={t("audioDevicesHint")}
-    >
+    <Card className="audioConsole" border padding="none" icon="wave">
       <div className="audioSettingsGrid">
         <section
           className="audioLatencyPanel"

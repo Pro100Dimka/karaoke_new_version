@@ -36,6 +36,22 @@ def _music() -> MusicMetadata:
     return MusicMetadata(bpm=None, key=None)
 
 
+def test_word_boundaries_do_not_turn_a_vibrato_peak_into_a_different_sung_note() -> None:
+    points = [
+        PitchPoint(i / 100, 440 * 2 ** ((0.6 if 45 <= i < 51 else 0.0) / 12), 0.99, True)
+        for i in range(100)
+    ]
+    words = [
+        WordTiming(text, a, b, 1)
+        for text, a, b in [("we", 0, 0.45), ("are", 0.45, 0.51), ("here", 0.51, 1)]
+    ]
+
+    document = construct_document("t", "a", 1, "we are here", words, points, _music())
+
+    assert [note.note for word in document.words for note in word.notes] == [69, 69, 69]
+    assert document.words[1].notes[0].contour[0][1] == pytest.approx(0.6)
+
+
 def _pitch(times: list[float], frequency: float) -> list[PitchPoint]:
     return [PitchPoint(time, frequency, 0.9) for time in times]
 

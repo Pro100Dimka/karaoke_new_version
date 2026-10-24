@@ -110,6 +110,7 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
         realtimeGapCount_.store(0, std::memory_order_relaxed);
         realtimeOverrunCount_.store(0, std::memory_order_relaxed);
         staleBlocks_.store(0, std::memory_order_relaxed);
+        voicePeak_.store(0.0F, std::memory_order_relaxed);
         {
             std::lock_guard lock(mutex_);
             result_ = {};
@@ -340,10 +341,21 @@ RecordingResult RecordingEngine::result() const {
     return result_;
 }
 
+void RecordingEngine::observeVoicePeak(float peak) noexcept {
+    if (state() != RecordingState::Recording || selectedTap() != RecordingTap::PerformanceMix)
+        return;
+    auto previous = voicePeak_.load(std::memory_order_relaxed);
+    while (previous < peak && !voicePeak_.compare_exchange_weak(previous, peak, std::memory_order_relaxed)) {}
+}
+
 void RecordingEngine::finalize(std::uint64_t writtenFrames) {
-    writer_.close();
+    constexpr float VoicePeakCeiling = 0.12589254F; // -18 dBFS; never boost a quiet take/noise.
+    const auto peak = voicePeak_.load(std::memory_order_relaxed);
+    const auto gain = peak > VoicePeakCeiling ? VoicePeakCeiling / peak : 1.0F;
+    // One constant gain for the complete performance retains its chosen voice/backing balance.
+    writer_.close(gain);
     if (backingEnabled())
-        backingWriter_.close();
+        backingWriter_.close(gain);
     if (timelineWriter_.is_open()) {
         timelineWriter_.close();
         if (!timelineWriter_)

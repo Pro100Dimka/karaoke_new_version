@@ -66,9 +66,10 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
   const bringBack = useCallback(() => {
     const current = tvRef.current;
     if (!current) return;
-    endTv();
+    // Navigation is a React transition: retain the session until the karaoke route commits.
+    // The pathname effect closes the TV afterwards, without an empty Library render in between.
     navigate(routes.karaoke(current.songId), { state: { mode: current.mode } });
-  }, [endTv, navigate]);
+  }, [navigate]);
   bringBackRef.current = bringBack;
 
   const send = useCallback(() => {

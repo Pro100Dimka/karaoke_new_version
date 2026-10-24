@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppProvider, useApp } from "../../../../../../app/AppContext";
 import { NotificationsProvider } from "../../../../../../app/NotificationsProvider";
 import { audioClient } from "../../../../../../services/audioClient";
-import { SettingsProvider } from "../../../../SettingsProvider";
+import { SettingsProvider } from "../../../../../../app/SettingsProvider";
 import { applyVoiceChain } from "../../../../../karaoke/console/voiceChain";
 import { audioSessionFor } from "../../model/audioSession";
 import { useInputMonitoring } from "../useInputMonitoring";

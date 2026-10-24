@@ -34,6 +34,7 @@ def test_kaggle_notebook_embeds_the_current_worker() -> None:
         "python/backend/ai_worker/pitch.py",
         "python/backend/ai_worker/ctc.py",
         "python/backend/ai_worker/speech.py",
+        "python/backend/ai_worker/recognition.py",
         "python/backend/ai_worker/timing.py",
         "python/backend/lyrics/discovery.py",
         "python/backend/lyrics/codec.py",

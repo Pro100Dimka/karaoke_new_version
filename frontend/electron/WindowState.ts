@@ -83,10 +83,13 @@ export const saveWindowState = (window: BrowserWindow): void => {
   }
 };
 
-export const publishWindowState = (window: BrowserWindow): void => {
+export const publishWindowState = (window: BrowserWindow,
+  transition: Partial<{ maximized: boolean; fullscreen: boolean; minimized: boolean }> = {},
+): void => {
   window.webContents.send(ipcChannels.windowState, {
     maximized: window.isMaximized(),
     fullscreen: window.isFullScreen(),
     minimized: window.isMinimized(),
+    ...transition,
   });
 };

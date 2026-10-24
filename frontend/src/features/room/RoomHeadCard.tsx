@@ -20,13 +20,9 @@ const shownCode = (code: string): string =>
 
 export interface RoomHeadActions {
   copied: boolean;
-  checkingSync: boolean;
   detached: boolean;
   onCopy(): void;
   onCollapse(): void;
-  onCheckSync(): void;
-  onDetach(): void;
-  onAttach(): void;
   onCancelTransfer(): void;
   onRetryTransfer(): void;
   onReplaceProject(): void;
@@ -115,23 +111,6 @@ export const RoomHeadCard = ({
   const progress = failure ? undefined : room.transferProgress;
   const transferring = progress !== undefined && progress < 100;
   const menu: MenuItemData[] = [
-    ...(actions.detached
-      ? []
-      : [
-          {
-            id: "collapse",
-            label: t("collapseRoom"),
-            icon: "back",
-            onSelect: actions.onCollapse,
-          },
-        ]),
-    {
-      id: "sync",
-      label: t("roomCheckSync"),
-      icon: "signal",
-      disabled: actions.checkingSync,
-      onSelect: actions.onCheckSync,
-    },
     ...(room.transferId && !failure
       ? [
           {
@@ -142,19 +121,6 @@ export const RoomHeadCard = ({
           },
         ]
       : []),
-    actions.detached
-      ? {
-          id: "attach",
-          label: t("panelAttach"),
-          icon: "window",
-          onSelect: actions.onAttach,
-        }
-      : {
-          id: "detach",
-          label: t("roomDetach"),
-          icon: "window",
-          onSelect: actions.onDetach,
-        },
   ];
 
   return (
@@ -200,7 +166,7 @@ export const RoomHeadCard = ({
         <TransferNote room={room} actions={actions} failure={failure} />
       </div>
       <Stack gap={1} direction="row" align="center" className="roomHeadActions">
-        <IconButton
+        {menu.length > 0 && <IconButton
           ref={menuAnchor}
           size="sm"
           variant="ghost"
@@ -209,7 +175,7 @@ export const RoomHeadCard = ({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
-        />
+        />}
         <Menu
           open={menuOpen}
           onOpenChange={setMenuOpen}
@@ -217,14 +183,23 @@ export const RoomHeadCard = ({
           align="end"
           items={menu}
         />
-        <IconButton
-          size="sm"
+      </Stack>
+      <div className="roomFrameControls">
+        {!actions.detached && <IconButton
+          size="xs"
           variant="ghost"
-          icon="leave"
+          icon="minus"
+          label={t("collapseRoom")}
+          onClick={actions.onCollapse}
+        />}
+        <IconButton
+          size="xs"
+          variant="ghost"
+          icon="close"
           label={t("leaveRoom")}
           onClick={actions.onLeave}
         />
-      </Stack>
+      </div>
     </Card>
   );
 };

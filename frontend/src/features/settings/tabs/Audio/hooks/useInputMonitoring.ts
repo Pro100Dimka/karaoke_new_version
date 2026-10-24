@@ -3,7 +3,7 @@ import { useApp } from "../../../../../app/AppContext";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import { monitoringErrorText, useText } from "../../../../../i18n/useText";
 import { applyVoiceChain } from "../../../../karaoke/console/voiceChain";
-import { useSettingsAudio } from "../../../SettingsProvider";
+import { useSettingsAudio } from "../../../../../app/SettingsProvider";
 import { audioSessionFor } from "../model/audioSession";
 
 const meterIntervalMs = 100;

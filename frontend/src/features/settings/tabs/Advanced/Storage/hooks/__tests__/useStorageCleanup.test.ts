@@ -7,7 +7,7 @@ const { backend, ask, notify } = vi.hoisted(() => ({
   ask: vi.fn(),
   notify: vi.fn(),
 }));
-vi.mock("../../../../../SettingsProvider", () => ({
+vi.mock("../../../../../../../app/SettingsProvider", () => ({
   useSettingsBackend: () => backend,
 }));
 vi.mock("../../../../../../../app/DialogProvider", () => ({

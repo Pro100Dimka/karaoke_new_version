@@ -13,6 +13,10 @@ const statuses = [
 ] as const satisfies readonly SongStatus[];
 
 describe("song state/action matrix", () => {
+  it("does not offer full reprocessing for a ready song", () => {
+    expect(songStatusPresentation.ready.actions).not.toContain("reprocess");
+  });
+
   it("defines presentation for every song status", () => {
     expect(Object.keys(songStatusPresentation).sort()).toEqual(
       [...statuses].sort(),

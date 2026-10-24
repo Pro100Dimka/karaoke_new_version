@@ -3,7 +3,7 @@ import { useApp } from "../../../../../app/AppContext";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type { RuntimeAudioConfiguration } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsAudio } from "../../../SettingsProvider";
+import { useSettingsAudio } from "../../../../../app/SettingsProvider";
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);

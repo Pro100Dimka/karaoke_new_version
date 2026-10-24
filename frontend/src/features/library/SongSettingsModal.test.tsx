@@ -23,6 +23,12 @@ const renderSettings = (status: SongDto["status"] = "ready", overrides: Partial<
 };
 
 describe("existing song lyric realignment", () => {
+  it("keeps full reprocessing out of the song settings menu", () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole("button", { name: "Другие действия" }));
+    expect(screen.queryByRole("menuitem", { name: "Переобработать" })).not.toBeInTheDocument();
+  });
+
   it("previews discovered artwork, explains the video override and keeps deletion out of the save row", () => {
     renderSettings("ready", { artworkUrl: "https://example.org/cover.jpg", videoUrl: "https://example.org/video" });
     expect(screen.getByRole("img", { name: "Artist — Song" })).toHaveAttribute("src", "https://example.org/cover.jpg");

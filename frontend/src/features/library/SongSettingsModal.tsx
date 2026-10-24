@@ -230,7 +230,6 @@ const SongSettingsForm = ({
           </Button>
           <SplitButton size="sm" icon="folder" label={t("openFolder")} onClick={() => onOpenFolder(song)}
             items={[
-              { id: "reprocess", label: t("reprocess"), disabled: busy, onSelect: () => onReprocess(song) },
               ...(song.detectedBpm !== undefined || song.detectedKey ? [{ id: "detected", label: t("useDetectedValue"),
                 onSelect: () => { form.setValue("defaultKey", 0); form.setValue("defaultSpeed", 1); } }] : []),
               ...(song.coverState === "Custom" ? [{ id: "cover", label: t("removeCustomCover"), onSelect: () => void onRemoveCover(song) }] : []),

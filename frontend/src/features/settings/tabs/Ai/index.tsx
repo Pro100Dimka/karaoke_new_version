@@ -11,9 +11,9 @@ import {
   Typography,
 } from "@neo-ui-kit/react";
 import { useText } from "../../../../i18n/useText";
+import { useAiSettings, type ProcessingBackend } from "./hooks/useAiSettings";
 import "./ui/ai.css";
 import { ModelCard } from "./ui/ModelCard";
-import { useAiSettings, type ProcessingBackend } from "./hooks/useAiSettings";
 
 export const AiSettings = () => {
   const t = useText();
@@ -23,9 +23,8 @@ export const AiSettings = () => {
   return (
     <Card
       border
+      style={{ background: "unset!important", boxShadow: "unset!important" }}
       icon="chip"
-      title={t("aiSettingsTitle")}
-      description={t("aiSettingsHint")}
       actions={
         <div className="aiHeaderArt">
           <NeonWaves strands={18} stars={false} aria-hidden="true" />

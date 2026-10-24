@@ -1348,6 +1348,55 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
            "recording the voice does not force microphone monitoring into the speakers");
 }
 
+void performanceVoiceHeadroomPreservesTheRecordedBalance() {
+    const auto musicPath = tempRoot / "headroom-backing.wav";
+    std::vector<float> music(48'000U * 2U, 0.0F);
+    for (std::size_t index = 1; index < music.size(); index += 2)
+        music[index] = 0.1F;
+    WavWriter backing;
+    backing.open(musicPath.string(), 48'000, 2);
+    backing.write(music);
+    backing.close();
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    service.realtime().setMonitoring(false);
+    service.media().load(MediaSlot::Music, musicPath.string());
+    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+           "headroom reference backing is loaded");
+    service.media().play(MediaContext::Karaoke);
+    const auto path = tempRoot / "voice-headroom.wav";
+    expect(service.handleLine("1|PrepareRecording|id=headroom|tap=performance|path=" + path.string()).status == ControlStatus::Ok &&
+               service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+           "a normal performance recording starts");
+    constexpr std::uint32_t blocks = 200;
+    std::vector<float> capture(128, 0.4F), render(256, 0.0F);
+    for (std::uint32_t block = 0; block < blocks; ++block)
+        fake->pump(capture, 1, render, 2, block * 128, block * 128);
+    expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+           "headroom is finalized through the normal stop command");
+    WavDecoder decoder;
+    const auto format = decoder.open(path.string());
+    std::vector<float> recorded(static_cast<std::size_t>(format.totalFrames) * 2U);
+    decoder.read(recorded, static_cast<std::uint32_t>(format.totalFrames));
+    float voicePeak = 0.0F;
+    for (std::size_t index = 0; index < recorded.size(); index += 2)
+        voicePeak = std::max(voicePeak, std::abs(recorded[index]));
+    constexpr float target = 0.12589254F;
+    expect(std::abs(voicePeak - target) < 0.0001F,
+           "the recorded voice peaks at minus 18 dBFS without changing monitoring or mixer knobs");
+    // The left channel carries only the centred voice; subtracting it from the right isolates music.
+    const auto last = recorded.size() - 2U;
+    const auto recordedBacking = recorded[last + 1U] - recorded[last];
+    expect(std::abs(recordedBacking - render.back() * target / 0.4F) < 0.001F,
+           "one constant gain preserves the original voice/backing balance and stereo image");
+    expect(render.back() > recordedBacking * 2.0F && format.totalFrames == blocks * 128U,
+           "saving headroom leaves live playback and the complete aligned duration unchanged");
+}
+
 void performanceMixUsesTheServerDeadlineToAlignRemoteVoices() {
     NetworkAudioEngine network;
     network.prepare(48'000, 1, 24'000, 120, GenerationId{1});

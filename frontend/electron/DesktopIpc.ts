@@ -1,4 +1,4 @@
-import { app, clipboard, dialog, powerSaveBlocker, shell, type BrowserWindow, type FileFilter } from "electron";
+import { app, clipboard, dialog, powerSaveBlocker, screen, shell, type BrowserWindow, type FileFilter } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
@@ -45,6 +45,24 @@ const pickFiles = async (
 
 const registerWindowControls = ({ trustedIpc, window, reveal, confirmClose }: DesktopIpcContext) => {
   trustedIpc.handle(ipcChannels.minimize, () => window()?.minimize());
+  let drag: { x: number; y: number } | undefined;
+  trustedIpc.handle(ipcChannels.dragWindow, (_event, phase: unknown, ratio: unknown, y: unknown, x: unknown, screenY: unknown) => {
+    const current = window();
+    if (phase === "end" || !current) { drag = undefined; return; }
+    if (phase === "start") {
+      if (typeof ratio !== "number" || !Number.isFinite(ratio) || ratio < 0 || ratio > 1 ||
+          typeof y !== "number" || !Number.isFinite(y) || y < 0 || y > 80) return;
+      const bounds = current.getNormalBounds();
+      drag = { x: Math.round(bounds.width * ratio), y: Math.round(y) };
+      if (current.isFullScreen()) current.setFullScreen(false);
+      if (current.isMaximized()) current.unmaximize();
+    } else if (phase !== "move") return;
+    if (!drag) return;
+    const cursor = typeof x === "number" && Number.isFinite(x) && Math.abs(x) < 100000 &&
+      typeof screenY === "number" && Number.isFinite(screenY) && Math.abs(screenY) < 100000
+      ? { x, y: screenY } : screen.getCursorScreenPoint();
+    current.setPosition(cursor.x - drag.x, cursor.y - drag.y);
+  });
   trustedIpc.handle(ipcChannels.toggleMaximize, () => {
     const current = window();
     if (!current) return false;

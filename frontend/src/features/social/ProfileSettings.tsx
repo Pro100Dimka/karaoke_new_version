@@ -1,10 +1,4 @@
-import {
-  Card,
-  FilePicker,
-  Landscape,
-  Stack,
-  TextField,
-} from "@neo-ui-kit/react";
+import { Card, FilePicker, Stack, TextField } from "@neo-ui-kit/react";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
@@ -55,27 +49,31 @@ export const ProfileSettings = () => {
       icon="user"
       title={t("profile")}
     >
-      <Landscape className="profileLandscape">
-        <Stack direction="row" gap={4} align="center" wrap style={{ flex: 1 }}>
-          <FilePicker
-            variant="avatar"
-            src={photo}
-            name={preferences.displayName || me?.displayName}
-            accept="image/*"
-            size="lg"
-            disabled={busy || !me}
-            onFiles={(files) => choose(files?.[0])}
-          />
-          <TextField
-            label={t("displayName")}
-            value={preferences.displayName}
-            onValueChange={(displayName) => updatePreferences({ displayName })}
-            maxLength={48}
-            disabled={busy || !me}
-            style={{ flex: 1 }}
-          />
-        </Stack>
-      </Landscape>
+      <Stack
+        direction="row"
+        gap={4}
+        align="center"
+        wrap
+        style={{ flex: 1, padding: 16 }}
+      >
+        <FilePicker
+          variant="avatar"
+          src={photo}
+          name={preferences.displayName || me?.displayName}
+          accept="image/*"
+          size="lg"
+          disabled={busy || !me}
+          onFiles={(files) => choose(files?.[0])}
+        />
+        <TextField
+          label={t("displayName")}
+          value={preferences.displayName}
+          onValueChange={(displayName) => updatePreferences({ displayName })}
+          maxLength={48}
+          disabled={busy || !me}
+          style={{ flex: 1 }}
+        />
+      </Stack>
     </Card>
   );
 };

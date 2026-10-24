@@ -66,6 +66,13 @@ const useTopModal = () => {
 export const TitleBar = () => {
   const t = useText();
   const { fullscreen } = useWindowState();
+  const [moving, setMoving] = useState(false);
+  const grab = useRef<{ x: number; y: number; ratio: number; offsetY: number; moving: boolean } | null>(null);
+  const finishDrag = () => {
+    if (grab.current?.moving) void desktopClient.dragWindow("end");
+    grab.current = null;
+    setMoving(false);
+  };
   const modal = useTopModal();
   const controlsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -84,6 +91,7 @@ export const TitleBar = () => {
       ref={controlsRef}
       popover={modal ? "manual" : undefined}
       className="titleBarControls"
+      data-fullscreen={fullscreen || moving || undefined}
       role="toolbar"
       aria-label={t("windowControls")}
     >
@@ -102,7 +110,31 @@ export const TitleBar = () => {
     </div>
   );
   return (
-    <header className={fullscreen ? "titleBar titleBarFullscreen" : "titleBar"}>
+    <header
+      className={fullscreen || moving ? "titleBar titleBarFullscreen" : "titleBar"}
+      onPointerDown={(event) => {
+        if (event.button !== 0 || (event.target as Element).closest("button")) return;
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        grab.current = { x: event.screenX, y: event.screenY, ratio: event.clientX / window.innerWidth,
+          offsetY: Math.min(80, Math.max(0, event.clientY)), moving: false };
+      }}
+      onPointerMove={(event) => {
+        const anchor = grab.current;
+        if (!anchor) return;
+        if (!anchor.moving) {
+          if (Math.hypot(event.screenX - anchor.x, event.screenY - anchor.y) < 5) return;
+          anchor.moving = true;
+          setMoving(true);
+          void desktopClient.dragWindow("start", anchor.ratio, anchor.offsetY, event.screenX, event.screenY);
+        } else void desktopClient.dragWindow("move", undefined, undefined, event.screenX, event.screenY);
+      }}
+      onDoubleClick={(event) => {
+        if (!(event.target as Element).closest("button")) void desktopClient.toggleMaximize();
+      }}
+      onPointerUp={finishDrag}
+      onPointerCancel={finishDrag}
+      onLostPointerCapture={finishDrag}
+    >
       <div id={titleBarLeadingId} className="titleBarLeading" />
       {modal ? createPortal(controls, modal) : controls}
     </header>

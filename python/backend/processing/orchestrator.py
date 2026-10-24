@@ -1,8 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
 
-from backend.processing.audio_pipeline import PrepareProcessingAudio, PreparedAudio
+from backend.processing.audio_pipeline import (
+    PrepareProcessingAudio,
+    PreparedAudio,
+    attenuate_playback_stems,
+)
 from backend.processing.document_pipeline import BuildProcessingDocument, BuiltDocument
 from backend.processing.domain import (
     CancellationPolicy,
@@ -61,6 +66,12 @@ class PipelineOrchestrator:
                 song, prepared, providers, options, context, reports, execution
             )
             melody = self._render_melody(built, workspace, context, reports)
+            instrumental, reference = attenuate_playback_stems(
+                (prepared.instrumental, prepared.reference_vocal),
+                workspace / "playback",
+                context.cancel,
+            )
+            prepared = replace(prepared, instrumental=instrumental, reference_vocal=reference)
             revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
         finally:
@@ -94,6 +105,7 @@ class PipelineOrchestrator:
     ) -> int:
         provenance = {
             "algorithmVersion": _ALGORITHM_VERSION,
+            "playbackPeakDbfs": -18,
             "providers": _provider_provenance(providers),
             "lyricsSource": built.discovery.source,
             "lyricsTimingHints": [

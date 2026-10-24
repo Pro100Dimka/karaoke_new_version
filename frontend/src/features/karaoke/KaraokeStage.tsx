@@ -251,7 +251,7 @@ export const KaraokeStage = ({
   // Computed once and shared by both panels, so the piano roll can never show a different slice of the
   // song than the lyrics being read alongside it (see PianoRoll's shownWordIds).
   const lines = useMemo(
-    () => (document ? buildLines(document.words, document.lyrics) : []),
+    () => (document ? buildLines(document.words, document.lyrics, document.bpm) : []),
     [document],
   );
   const lineIndex = currentLineIndex(lines, position);

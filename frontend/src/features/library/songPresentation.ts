@@ -59,7 +59,6 @@ export const songStatusPresentation = {
       "recordings",
       "settings",
       "folder",
-      "reprocess",
       "delete",
     ],
   },

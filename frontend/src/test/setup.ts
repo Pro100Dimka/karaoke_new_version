@@ -9,3 +9,9 @@ afterEach(cleanup);
 if (typeof HTMLCanvasElement !== "undefined")
   HTMLCanvasElement.prototype.getContext = (() =>
     null) as typeof HTMLCanvasElement.prototype.getContext;
+
+// jsdom has no media output. Notification tests replace this with an observed Audio implementation.
+if (typeof HTMLMediaElement !== "undefined") {
+  HTMLMediaElement.prototype.play = () => Promise.resolve();
+  HTMLMediaElement.prototype.pause = () => undefined;
+}

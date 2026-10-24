@@ -1,7 +1,7 @@
 import { Button, Icon, IconButton, TextField } from "@neo-ui-kit/react";
 import { useRef } from "react";
 import { useText } from "../../../../../i18n/useText";
-import { useSettingsDesktop } from "../../../SettingsProvider";
+import { useSettingsDesktop } from "../../../../../app/SettingsProvider";
 import {
   effectiveState,
   isSecret,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useApp, useRoomRuntime, useRoomSession } from "../../app/AppContext";
-import { useNotify } from "../../app/NotificationsProvider";
+import { useNotify, playNotificationSound } from "../../app/NotificationsProvider";
 import { useServices } from "../../app/ServicesContext";
 import chimeUrlJoin from "../../assets/sounds/room-join.mp3";
 import chimeUrlLeave from "../../assets/sounds/room-leave.mp3";
@@ -17,6 +17,12 @@ const chimeUrls = { join: chimeUrlJoin, leave: chimeUrlLeave } satisfies
 export const RoomSync = () => {
   const runtime = useRoomRuntime();
   const { preferences } = useApp("preferences");
+  const { room } = useApp("room");
+  const lastRoom = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (room?.code && room.code !== lastRoom.current) playNotificationSound("success");
+    lastRoom.current = room?.code;
+  }, [room?.code]);
   const roomSession = useRoomSession();
   const { python } = useServices();
   const notify = useNotify();
@@ -35,7 +41,8 @@ export const RoomSync = () => {
       }),
       curtain: setLaunching,
       notify: (key, tone, params) =>
-        latest.current.notify(latest.current.t(key as MessageKey, params), tone),
+        latest.current.notify(latest.current.t(key as MessageKey, params), tone,
+          { silent: key === "participantJoined" || key === "participantLeft" }),
       chime: (kind) => {
         void new Audio(chimeUrls[kind]).play().catch(() => undefined);
       },

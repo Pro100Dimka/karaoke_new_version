@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import threading
+
+import numpy as np
+import soundfile as sf
 
 from backend.processing.algorithms import MusicMetadata
 from backend.processing.domain import CancellationPolicy, StageReport
@@ -13,6 +17,38 @@ from backend.processing.preflight import ProcessingProviders
 from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import AudioFileValidator
 from backend.songs.domain import Song
+from backend.domain_errors import DomainError
+
+
+def attenuate_playback_stems(
+    sources: tuple[Path, ...], workspace: Path, cancel: threading.Event
+) -> tuple[Path, ...]:
+    """Leave source/analysis audio intact; publish stems with at least 18 dB of peak headroom."""
+    workspace.mkdir(parents=True, exist_ok=True)
+    targets = []
+    ceiling = 10 ** (-18 / 20)
+    for index, source in enumerate(sources):
+        peak = 0.0
+        with sf.SoundFile(source) as audio:
+            for block in audio.blocks(blocksize=65536, dtype="float32", always_2d=True):
+                if cancel.is_set():
+                    raise DomainError("JobCancelled", "Processing was cancelled", 409)
+                peak = max(peak, float(np.max(np.abs(block))))
+            gain = min(1.0, ceiling / peak) if peak > 0 else 1.0
+            if gain == 1.0:
+                targets.append(source)
+                continue
+            target = workspace / f"{index}-{source.name}"
+            audio.seek(0)
+            with sf.SoundFile(
+                target, "w", samplerate=audio.samplerate, channels=audio.channels, subtype="PCM_24"
+            ) as output:
+                for block in audio.blocks(blocksize=65536, dtype="float32", always_2d=True):
+                    if cancel.is_set():
+                        raise DomainError("JobCancelled", "Processing was cancelled", 409)
+                    output.write(block * gain)
+            targets.append(target)
+    return tuple(targets)
 
 
 @dataclass(frozen=True, slots=True)

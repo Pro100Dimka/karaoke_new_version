@@ -34,13 +34,14 @@
   justify-content: flex-end;
   height: var(--title);
   padding-left: 0.875rem;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
+  user-select: none;
 }
 .titleBarFullscreen {
-  left: auto;
-  width: auto;
-  padding-left: 0;
-  border-bottom-left-radius: 0.6rem;
+  -webkit-app-region: no-drag;
+}
+.titleBarFullscreen .titleBarLeading {
+  -webkit-app-region: no-drag;
 }
 .titleBarLeading {
   display: flex;
@@ -48,7 +49,7 @@
   align-items: center;
   height: 100%;
   padding-left: var(--ad-space-2);
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 .titleBarLeading button,
 .titleBarControls {
@@ -61,13 +62,19 @@
 .titleBarControls[popover] {
   position: fixed;
   inset: 0 0 auto auto;
-  width: max-content;
+  width: 100%;
+  justify-content: flex-end;
+  -webkit-app-region: no-drag;
   height: var(--title);
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: var(--ad-text);
+}
+.titleBarControls[popover][data-fullscreen],
+.titleBarControls button {
+  -webkit-app-region: no-drag;
 }
 .windowButton.ad-icon-button {
   min-width: 2.9rem;

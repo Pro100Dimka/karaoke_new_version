@@ -1,34 +1,17 @@
 import {
-  useEffect,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
-  type RefObject,
 } from "react";
 import type { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import {
   useFloatingPanel,
+  useMeasuredPanelSize,
   type useStoredPanelLayout,
 } from "../../../shared/ui/useFloatingPanel";
 
 /** Before the console is first laid out (and in tests), the height its design starts from. */
 export const consoleDesignHeight = 320;
-
-/** The element's real height, followed as its content changes; the drag limits use it, not a guess. */
-const useMeasuredHeight = (ref: RefObject<HTMLElement | null>): number => {
-  const [height, setHeight] = useState(consoleDesignHeight);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => {
-      if (element.offsetHeight > 0) setHeight(element.offsetHeight);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [ref]);
-  return height;
-};
 
 interface ConsoleFrameProps {
   panel: ReturnType<typeof useDetachedPanel>;
@@ -53,7 +36,7 @@ export const ConsoleFrame = ({
   children,
 }: ConsoleFrameProps) => {
   const frameRef = useRef<HTMLElement>(null);
-  const height = useMeasuredHeight(frameRef);
+  const { height } = useMeasuredPanelSize(frameRef, { width, height: consoleDesignHeight });
   const size = useMemo(() => ({ width, height }), [width, height]);
   const floating = useFloatingPanel(frameRef, {
     // The console has no resize handles: only its place is kept, its size is always the designed one

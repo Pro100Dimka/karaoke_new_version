@@ -49,6 +49,11 @@ export const StoragePanel = ({
     <Card
       border
       className="advancedStorageCard"
+      style={{
+        background: "unset!important",
+        boxShadow: "unset!important",
+        height: "100%",
+      }}
       icon="database"
       title={t("storage")}
       description={

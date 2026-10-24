@@ -19,7 +19,7 @@ import type {
 } from "../../../../contracts/models";
 import type { MessageKey } from "../../../../i18n/messages";
 import { useText } from "../../../../i18n/useText";
-import { useSettingsDesktop } from "../../SettingsProvider";
+import { useSettingsDesktop } from "../../../../app/SettingsProvider";
 import { AsioSetupCard } from "./ui/AsioSetupCard";
 import { AudioMonitoring } from "./ui/AudioMonitoring";
 import {

@@ -28,7 +28,14 @@ from backend.ai_worker.ctc import (
 )
 from backend.ai_worker.paths import model_directory, model_file
 from backend.ai_worker.runtime import WHISPER_LANGUAGES, cpu_threads, device
-from backend.ai_worker.timing import vocal_onsets, voiced_frames
+from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
+from backend.ai_worker.recognition import (
+    alignment_payload,
+    guidance_positions,
+    contextual_guidance,
+    heard_words as _heard_words,
+    serialize,
+)
 from backend.ai_worker.word_guidance import (
     _key,
     _matching_blocks,
@@ -73,7 +80,12 @@ def _transcribe(vocal: Path, language: str, prompt: str | None) -> Mapping[str, 
 
 
 def _accelerated_guidance(
-    vocal: Path, language: str, prompt: str | None, threads: int | None = None
+    vocal: Path,
+    language: str,
+    prompt: str | None,
+    threads: int | None = None,
+    *,
+    contexts: Sequence[tuple[float, float, str]] = (),
 ) -> Mapping[str, object]:
     """Use full precision: quantized decoding omitted sung phrases and varied with thread budget."""
     model_path = model_file(SPEECH_MODEL).parent / "ctranslate2"
@@ -86,29 +98,21 @@ def _accelerated_guidance(
         cpu_threads=threads or cpu_threads(),
         num_workers=1,
     )
-    segments, _ = model.transcribe(
-        read_mono(vocal, _SAMPLE_RATE),
-        language=WHISPER_LANGUAGES.get(language),
-        word_timestamps=True,
-        initial_prompt=prompt,
-        condition_on_previous_text=False,
-        beam_size=5,
-        temperature=0.0,
-    )
-    serialized: list[dict[str, object]] = []
-    text = ""
-    for segment in segments:
-        text += segment.text
-        serialized.append(
-            {
-                "text": segment.text,
-                "words": [
-                    {"word": word.word, "start": word.start, "end": word.end}
-                    for word in segment.words or []
-                ],
-            }
+    samples = read_mono(vocal, _SAMPLE_RATE)
+    results = []
+    requests: Sequence[tuple[float, float, str | None]] = contexts or [(0.0, 0.0, prompt)]
+    for start, end, vocabulary in requests:
+        segments, _ = model.transcribe(
+            samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)] if contexts else samples,
+            language=WHISPER_LANGUAGES.get(language),
+            word_timestamps=True,
+            initial_prompt=vocabulary,
+            condition_on_previous_text=False,
+            beam_size=5,
+            temperature=0.0,
         )
-    return {"text": text, "segments": serialized}
+        results.append(serialize(segments, start))
+    return {"contexts": results} if contexts else results[0]
 
 
 def _guidance(
@@ -135,18 +139,6 @@ def transcribe(vocal: Path, language: str) -> dict[str, str]:
             token for token in text.split() if any(character.isalpha() for character in token)
         )
     }
-
-
-def _heard_words(result: Mapping[str, object]) -> list[tuple[str, float, float]]:
-    heard: list[tuple[str, float, float]] = []
-    segments = result.get("segments")
-    for segment in segments if isinstance(segments, list) else []:
-        words = segment.get("words") if isinstance(segment, dict) else None
-        for word in words if isinstance(words, list) else []:
-            key = _key(str(word.get("word", "")))
-            if key:
-                heard.append((key, float(word["start"]), float(word["end"])))
-    return heard
 
 
 def _windows(
@@ -441,25 +433,6 @@ def _unique_anchors(
                 expanded.append(candidate)
 
 
-def _aligned_word_payload(
-    word: AlignedWord, heard_timing: tuple[float, float] | None
-) -> dict[str, float | str | list[float] | list[str]]:
-    reasons = {
-        "ApproximateAlignment": word.score <= 0.0,
-        "AsrCtcBoundaryDisagreement": heard_timing is not None
-        and max(abs(word.start - heard_timing[0]), abs(word.end - heard_timing[1]))
-        > _MARGIN_SECONDS,
-    }
-    return {
-        "text": word.text,
-        "start": round(word.start, 3),
-        "end": round(word.end, 3),
-        "confidence": word.score,
-        "letters": list(word.letters),
-        "diagnostics": [reason for reason, present in reasons.items() if present],
-    }
-
-
 def align(
     vocal: Path,
     lyrics: str,
@@ -474,10 +447,17 @@ def align(
     whole = align_words(scores, frame_seconds, words)
     heard_timings = _heard_timings(words, heard, whole)
     windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
-    positions = {index: times[0] for index, times in heard_timings.items()}
-    positions.update(
-        (window.first, window.heard_start) for window in windows if window.heard_start is not None
+    backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
+    windows, supported = contextual_guidance(
+        words,
+        windows,
+        whole,
+        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK),
+        singing_frames(samples, backing, _SAMPLE_RATE, _HOP),
+        lambda contexts: _accelerated_guidance(vocal, language, None, contexts=contexts),
     )
+    heard_timings.update(supported)
+    positions = guidance_positions(heard_timings, windows)
     voiced = voiced_frames(samples, _SAMPLE_RATE, _HOP)
     guided = align_guided(scores, frame_seconds, words, windows, positions, voiced, whole)
     guided = with_word_guidance(
@@ -485,16 +465,10 @@ def align(
         scores,
         frame_seconds,
         windows,
-        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK),
+        supported,
         voiced,
         _MARGIN_SECONDS,
         recognized=heard,
     )
-    backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
     timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing))
-    return {
-        "words": [
-            _aligned_word_payload(word, heard_timings.get(index))
-            for index, word in enumerate(timed)
-        ]
-    }
+    return alignment_payload(timed, heard_timings)

@@ -199,17 +199,14 @@ def with_word_guidance(
         )
         if phrase is not None:
             alternatives += _unrecognized_runs(
-                words,
-                scores,
-                frame_seconds,
-                phrase,
-                timings,
-                voiced,
+                words, scores, frame_seconds, phrase, timings, voiced
             )
         for index, candidate, interval in alternatives:
             options[index - first].append(candidate)
             timings[index] = interval
-        result[first:last] = _select_sequence(result[first:last], options, timings, first, voiced)
+        result[first:last] = _select_sequence(
+            result[first:last], options, timings, first, voiced, margin=margin
+        )
     return result
 
 
@@ -310,9 +307,21 @@ def _candidates(
             margin,
         )
         if miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS
-        and word.score <= candidate.score + ctc._PREFERENCE
+        and _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
         and ctc._implausible([candidate], voiced) <= ctc._implausible([word], voiced)
     ]
+
+
+def _onset_confidence(word: ctc.AlignedWord, scores: torch.Tensor, step: float) -> float:
+    """Later correctly aligned letters cannot validate a misplaced opening phoneme."""
+    # Number pronunciations need phrase language; retain their existing whole-word evidence.
+    if not any(character.isalpha() for character in word.text):
+        return word.score
+    tokens = next((part for part in ctc._character_tokens(word.text) if part), [])
+    frame = round(word.start / step)
+    if not tokens or not 0 <= frame < scores.shape[0]:
+        return word.score
+    return min(word.score, float(scores[frame, tokens[0]].exp()))
 
 
 def _core_candidates(
@@ -347,6 +356,8 @@ def _select_sequence(
     heard: Mapping[int, tuple[float, float]],
     first: int,
     voiced: np.ndarray,
+    *,
+    margin: float = 0.6,
 ) -> list[ctc.AlignedWord]:
     """Choose word cores jointly; an improvement cannot crush or reverse a neighbour."""
     baseline = ctc.ordered(original)
@@ -355,14 +366,7 @@ def _select_sequence(
         following: list[tuple[float, float, list[ctc.AlignedWord]]] = []
         interval = heard.get(first + index)
         for word in choices:
-            distance = (
-                (
-                    max(0.0, interval[0] - word.start, word.start - interval[1])
-                    + max(0.0, interval[0] - word.end, word.end - interval[1])
-                )
-                if interval
-                else 0.0
-            )
+            distance = _recognition_distance(word, interval, margin)
             paths = [
                 (cost + distance, confidence - word.score, [*path, word])
                 for cost, confidence, path in states
@@ -372,6 +376,17 @@ def _select_sequence(
                 following.append(min(paths, key=lambda item: item[:2]))
         states = following
     return min(states, key=lambda item: item[:2])[2] if states else original
+
+
+def _recognition_distance(
+    word: ctc.AlignedWord, interval: tuple[float, float] | None, margin: float
+) -> float:
+    if interval is None:
+        return 0.0
+    # Word spans can include the previous vowel or silence. Keep the existing
+    # recognition margin, but do not let a wide span hide an arbitrarily late onset.
+    onset = max(0.0, interval[0] - word.start, round(word.start - interval[0] - margin, 6))
+    return onset + max(0.0, interval[0] - word.end, word.end - interval[1])
 
 
 def _compatible(

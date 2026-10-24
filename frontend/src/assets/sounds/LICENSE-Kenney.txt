@@ -1,0 +1,16 @@
+Interface Sounds (1.0), created/distributed by Kenney (www.kenney.nl), 2020-02-11.
+Source: https://kenney.nl/assets/interface-sounds
+License: Creative Commons Zero (CC0)
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Free to use in personal, educational and commercial projects. Credit is appreciated, not required.
+
+Bundled unchanged:
+notice-info.ogg = bong_001.ogg
+notice-success.ogg = confirmation_002.ogg
+notice-invitation.ogg = question_002.ogg
+notice-warning.ogg = question_001.ogg
+notice-error.ogg = error_004.ogg
+
+room-join.mp3 and room-leave.mp3 are the project's existing participant sounds;
+this notice does not alter their provenance or license.

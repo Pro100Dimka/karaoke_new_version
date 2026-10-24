@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { HistoryEventDto } from "../../../../../../contracts/models";
-import { useSettingsBackend } from "../../../../SettingsProvider";
+import { useSettingsBackend } from "../../../../../../app/SettingsProvider";
 import { historyKinds, type HistoryTab } from "../model/historyModel";
 
 const pageSize = 50;

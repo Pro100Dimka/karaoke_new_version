@@ -10,7 +10,7 @@ const calls = vi.hoisted(() => ({
   updatePreferences: vi.fn(),
   notify: vi.fn(),
 }));
-vi.mock("../../../../SettingsProvider", () => {
+vi.mock("../../../../../../app/SettingsProvider", () => {
   const audio = { measureAcousticLatency: calls.measure };
   return { useSettingsAudio: () => audio };
 });

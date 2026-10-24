@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   enterRoom: vi.fn(),
   leaveRoom: vi.fn(async () => undefined),
   notify: vi.fn(),
+  sound: vi.fn(),
 }));
 
 vi.mock("../../app/AppContext", () => ({
@@ -45,6 +46,7 @@ vi.mock("../../app/SocialProvider", async () => {
 });
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => mocks.notify,
+  playNotificationSound: mocks.sound,
 }));
 vi.mock("../../i18n/useText", () => ({
   useText: () => (key: string, params?: Record<string, string>) =>
@@ -94,6 +96,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.isRequestedRoom.mockReturnValue(false);
   mocks.room = null;
+});
+
+it("sounds a new invitation or friend request once across repeated inbox snapshots", () => {
+  const invitation = { inviteId: "sound-1", roomId: "room-a", sender: anna, createdAt: "" };
+  const view = render(<SocialAlerts inbox={inbox({ invites: [invitation] })} />);
+  expect(mocks.sound).toHaveBeenCalledExactlyOnceWith("invitation");
+  view.rerender(<SocialAlerts inbox={inbox({ invites: [{ ...invitation }] })} />);
+  expect(mocks.sound).toHaveBeenCalledOnce();
+  view.rerender(<SocialAlerts inbox={inbox({ invites: [invitation], friendRequests: [{ ...anna, relation: "Incoming" }] })} />);
+  expect(mocks.sound).toHaveBeenCalledTimes(2);
 });
 
 it("an accepted invitation leaves the current room and enters the friend's", async () => {
