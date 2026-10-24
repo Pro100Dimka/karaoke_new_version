@@ -61,7 +61,7 @@ vi.mock("./StartupRecovery", () => ({ StartupRecovery: () => null }));
 vi.mock("./ServiceBanner", () => ({ ServiceBanner: () => null }));
 vi.mock("../features/room/RoomDock", () => ({ RoomDock: () => null }));
 vi.mock("../features/room/RoomSync", () => ({ RoomSync: () => null }));
-vi.mock("../features/settingsNEW", () => ({ default: () => null }));
+vi.mock("../features/settings", () => ({ default: () => null }));
 // Karaoke itself (KaraokeHost) is tested on its own; here only whether it is on the TV matters.
 vi.mock("../features/karaoke/KaraokeHost", () => ({
   KaraokeHost: ({ children }: { children: React.ReactNode }) => children,

@@ -33,6 +33,7 @@ from backend.ai_worker.recognition import (
     alignment_payload,
     guidance_positions,
     contextual_guidance,
+    unhinted_windows,
     heard_words as _heard_words,
     serialize,
 )
@@ -350,22 +351,27 @@ def _alignment_windows(
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
             supported = _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK)
-            return [
-                phrase_window(
-                    window,
-                    recognized_phrase(
+            return unhinted_windows(
+                [
+                    phrase_window(
                         window,
-                        words[window.first : window.last],
-                        heard,
+                        recognized_phrase(
+                            window,
+                            words[window.first : window.last],
+                            heard,
+                            _MARGIN_SECONDS,
+                            allow_utterance=window.first - 1 in supported
+                            and window.last in supported,
+                        )[0],
+                        whole[window.first].start,
+                        supported.get(window.last - 1),
                         _MARGIN_SECONDS,
-                        allow_utterance=window.first - 1 in supported and window.last in supported,
-                    )[0],
-                    whole[window.first].start,
-                    supported.get(window.last - 1),
-                    _MARGIN_SECONDS,
-                )
-                for window in windows
-            ]
+                    )
+                    for window in windows
+                ],
+                whole,
+                _MARGIN_SECONDS,
+            )
     return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
 
 

@@ -145,3 +145,30 @@ def guidance_positions(
     return {index: times[0] for index, times in timings.items()} | {
         window.first: window.heard_start for window in windows if window.heard_start is not None
     }
+
+
+def unhinted_windows(
+    windows: Sequence[Window], whole: Sequence[AlignedWord], margin: float
+) -> list[Window]:
+    """Leave search space for text absent from timed catalogue entries.
+
+    A known line's coarse end is the next known line's start, so it also includes any
+    intervening untimed lyrics. Recover their start from the refined neighbour and CTC.
+    These are search bounds, never a decision about the end of singing.
+    """
+    return [
+        replace(
+            window,
+            start=max(
+                0.0,
+                windows[index - 1].start if index else 0.0,
+                min(
+                    windows[index - 1].end if index else window.start,
+                    whole[window.first].start - margin,
+                ),
+            ),
+        )
+        if window.heard_start is None
+        else window
+        for index, window in enumerate(windows)
+    ]

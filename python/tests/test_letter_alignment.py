@@ -25,18 +25,27 @@ _STEP = _HOP / _RATE
 
 
 def test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_phrase():
-    from backend.ai_worker.speech import _hint_windows
+    from backend.ai_worker.speech import _alignment_windows
 
     lyrics = "we wait\nsing with me\nwe wait\nsing with me"
-    windows = _hint_windows(
+    starts = [1.0, 2.0, 4.0, 5.0, 6.0, 10.0, 11.0, 14.0, 15.0, 16.0]
+    whole = [
+        AlignedWord(text, start, start + 0.4, (), 0.5)
+        for text, start in zip(lyrics.split(), starts, strict=True)
+    ]
+    windows = _alignment_windows(
         lyrics,
-        [{"start": 1., "text": "we wait"}, {"start": 10., "text": "we wait"}],
-        20.,
+        [{"start": 1.0, "text": "we wait"}, {"start": 10.0, "text": "we wait"}],
+        [],
+        whole,
+        np.zeros(20 * _RATE, dtype=np.float32),
     )
 
     for first, last in [(2, 5), (7, 10)]:
         assert any(
-            window.first <= first and window.last >= last and window.start < window.end
+            window.first <= first
+            and window.last >= last
+            and window.start <= starts[first] < window.end
             for window in windows
         ), "lyrics between catalogue entries must not be forced into an empty audio window"
 

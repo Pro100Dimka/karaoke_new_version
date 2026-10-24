@@ -5,7 +5,7 @@ import type { ThemeName } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
 import "../../settings/tabs/Appearance/ui/appearance.css";
 import { themeOptions } from "../../settings/tabs/Appearance/ui/appearanceOptions";
-import FormCard from "./FormCard";
+import FormCard from "../FormCard";
 import { blocks } from "./consts";
 
 interface IAppearancePanelProps {

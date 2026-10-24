@@ -11,7 +11,6 @@ import {
 import { useEffect, useState } from "react";
 import { useApp, useSettingsDialog } from "../../app/AppContext";
 import { RadioContextValue, useRadio } from "../../app/RadioContext";
-import { SettingsProvider } from "../../app/SettingsProvider";
 import { useSocialDirectory } from "../../app/SocialProvider";
 import { SocialDirectoryPort } from "../../application/social/SocialDirectory";
 import { SettingsTab } from "../../contracts/models";
@@ -19,11 +18,15 @@ import { useText } from "../../i18n/useText";
 import { Preferences } from "../../shared/preferences/preferences";
 import { SettingsAtmosphere } from "../../shared/ui/Atmosphere";
 import "../settings/settings.css";
+import { useAiSettings } from "../settings/tabs/Ai/hooks/useAiSettings";
+import AI from "./Ai";
 import Appearance from "./Appearance";
+
 export type SettingsFormValues = {
   preferences: Preferences;
   directory: SocialDirectoryPort;
   radio: RadioContextValue;
+  ai: ReturnType<typeof useAiSettings>;
 };
 const SettingsModal = () => {
   const { settingsTab } = useSettingsDialog();
@@ -33,36 +36,43 @@ const SettingsModal = () => {
   const t = useText();
   const { preferences, updatePreferences } = useApp("preferences");
   const radio = useRadio();
+  const ai = useAiSettings();
   const keys = ["preferences", "radio"] as const;
-  const vals = { preferences, directory, radio };
+  const vals = { preferences, directory, radio, ai };
+  const updateData = (values: SettingsFormValues) => {
+    const funcs = {
+      preferences: () => updatePreferences(values.preferences),
+      radio: () => {
+        const next = values.radio;
+        const actions = {
+          stationId: () => radio.setStation(next.stationId),
+          volume: () => radio.setVolume(next.volume),
+          enabled: radio.toggle,
+        };
+        (Object.keys(actions) as (keyof typeof actions)[]).forEach(
+          (key) => next[key] !== radio[key] && actions[key](),
+        );
+      },
+    };
+    keys.forEach((key) => {
+      if (JSON.stringify(values[key]) !== JSON.stringify(vals[key])) {
+        funcs[key]();
+      }
+    });
+  };
   const form = useForm<SettingsFormValues>({
     reinitialize: false,
-    initialValues: { preferences, directory, radio },
-    onSubmit: ({ preferences }) => {
-      updatePreferences(preferences);
-    },
+    initialValues: vals,
+    onSubmit: updateData,
   });
   useEffect(
-    () => {
-      const funcs = {
-        preferences: () => updatePreferences(form.values.preferences),
-        radio: () => {
-          const next = form.values.radio;
-          if (next.stationId !== radio.stationId)
-            radio.setStation(next.stationId);
-          if (next.volume !== radio.volume) radio.setVolume(next.volume);
-          if (next.enabled !== radio.enabled) radio.toggle();
-        },
-      };
-      keys.forEach((key) => {
-        if (JSON.stringify(form.values[key]) !== JSON.stringify(vals[key])) {
-          funcs[key]();
-        }
-      });
-    },
+    () => updateData(form.values),
     keys.map((key) => JSON.stringify(form.values[key])),
   );
-  const tabs = { appearance: { Component: Appearance, icon: "palette" } };
+  const tabs = {
+    appearance: { Component: Appearance, icon: "palette" },
+    aiProcessing: { Component: AI, icon: "chip" },
+  };
   const Content = tabs[tab as keyof typeof tabs].Component;
   return (
     <>
@@ -105,11 +115,9 @@ const SettingsModal = () => {
               icon: tabs[value as keyof typeof tabs].icon,
             }))}
           />
-          <SettingsProvider>
-            <Form form={form} className="settingsBody">
-              <Content updatePreferences={updatePreferences} form={form} />
-            </Form>
-          </SettingsProvider>
+          <Form form={form} className="settingsBody">
+            <Content updatePreferences={updatePreferences} form={form} />
+          </Form>
         </div>
       </Dialog>
     </>

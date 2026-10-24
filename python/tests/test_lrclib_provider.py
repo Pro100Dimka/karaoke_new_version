@@ -597,6 +597,56 @@ def test_missed_short_adlib_does_not_duplicate_a_performed_refrain():
     assert _complete_repeats(lyrics, heard, threading.Event()) == lyrics
 
 
+@pytest.mark.parametrize(
+    ("verse", "short", "full", "bridge", "final", "replies"),
+    [
+        (
+            "Первый свет над городами",
+            "Наши голоса над морем",
+            "А теперь слышны наши голоса над морем",
+            "Снова поезда уходят",
+            "Утром я опять уеду",
+            ["Наши голоса над морем", "Наши голоса над морем", "А теперь наши голоса надморем"],
+        ),
+        (
+            "На небі немає хвиль",
+            "Твій на сто відсотків",
+            "А тепер він твій на сто відсотків",
+            "Бачу що все це було намарне",
+            "Здається лиш final call",
+            # Independent unprompted ASR on the original separated vocal, 161–176 s.
+            ["Тріна стовитсотків", "Тріна стовитсотків", "А тепер твіна стовитсотків"],
+        ),
+    ],
+)
+def test_performed_full_reply_keeps_its_prefix_after_short_repeats(
+    verse,
+    short,
+    full,
+    bridge,
+    final,
+    replies,
+):
+    from backend.lyrics.discovery import _complete_repeats
+
+    catalog = "\n".join([verse, full, short, bridge, short, short, final])
+    # ASR merges words and misses one quiet word; the audible prefix still distinguishes
+    # the full reply from its suffix, even though this transition is absent in the catalogue.
+    heard = " ".join(
+        [
+            verse,
+            full,
+            short,
+            bridge,
+            *replies,
+            final,
+        ]
+    )
+    expected = "\n".join([verse, full, short, bridge, short, short, full, final])
+
+    assert _complete_repeats(catalog, heard, threading.Event()) == expected
+
+
 @pytest.mark.parametrize("extra_final", [False, True])
 def test_recognition_order_cannot_invent_a_repeat_without_an_extra_performed_occurrence(
     extra_final,

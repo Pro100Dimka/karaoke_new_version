@@ -302,6 +302,30 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
 _LinePath = tuple[float, tuple[tuple[int, int, int], ...]]
 
 
+def _line_variants(keys: Sequence[str]) -> set[tuple[int, int]]:
+    return {
+        (a, b)
+        for a, left in enumerate(keys)
+        for b, right in enumerate(keys)
+        if left == right or (right in left and 2 * len(right) > len(left))
+    }
+
+
+def _variant_transitions(
+    keys: Sequence[str], following: set[tuple[int, int]]
+) -> set[tuple[int, int]]:
+    variants = _line_variants(keys)
+    # Prefix/adlib variants compete on character evidence with the same transition prior.
+    return {
+        (before, after)
+        for previous, line in following
+        for before in range(len(keys))
+        if (previous, before) in variants or (before, previous) in variants
+        for after in range(len(keys))
+        if (line, after) in variants or (after, line) in variants
+    }
+
+
 def performed_phrases(
     lyrics: str,
     words: Sequence[str],
@@ -328,6 +352,7 @@ def _performed_lines(
     following: set[tuple[int, int]],
     cancel: threading.Event,
 ) -> tuple[tuple[int, int, int], ...]:
+    following = _variant_transitions(keys, following)
     states: list[dict[int, _LinePath]] = [{} for _ in range(len(heard) + 1)]
     states[0][-1] = (0.0, ())
     choice_cost = math.log2(len(keys) + 1)
@@ -414,29 +439,19 @@ def _line_anchors(
     original: list[int], performed: tuple[int, ...], keys: list[str]
 ) -> list[tuple[int, int]]:
     counts = Counter(original)
-    equivalent = {
-        (left, right): left == right
-        or (
-            keys[right] in keys[left]
-            # The same positive character support used by phrase recognition. Keep the
-            # catalogue's extra words when ASR misses a short adlib inside an occurrence.
-            and 2 * len(keys[right]) > len(keys[left])
-        )
-        for left in counts
-        for right in set(performed)
-    }
+    equivalent = _line_variants(keys)
     lengths = [[0.0] * (len(performed) + 1) for _ in range(len(original) + 1)]
     for i in range(len(original) - 1, -1, -1):
         for j in range(len(performed) - 1, -1, -1):
             lengths[i][j] = (
                 lengths[i + 1][j + 1] + 1 / counts[original[i]]
-                if equivalent[original[i], performed[j]]
+                if (original[i], performed[j]) in equivalent
                 else max(lengths[i + 1][j], lengths[i][j + 1])
             )
     anchors: list[tuple[int, int]] = []
     i = j = 0
     while i < len(original) and j < len(performed):
-        if equivalent[original[i], performed[j]]:
+        if (original[i], performed[j]) in equivalent:
             anchors.append((i, j))
             i, j = i + 1, j + 1
         elif lengths[i + 1][j] > lengths[i][j + 1]:
