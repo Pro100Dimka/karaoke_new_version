@@ -20,6 +20,7 @@ from backend.bootstrap.ai_wiring import (
     retrying_lyrics_providers,
 )
 from backend.bootstrap.lifecycle import BackendLifecycle
+from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
@@ -119,6 +120,7 @@ def _processing_wiring(
         LocalWorkStorage(config.roots.temp),
         runtime_probe,
         storage,
+        ProcessingResourceScheduler(runtime_probe, storage, config.roots.temp, config.resources),
         runtime_probe.without_waiting(),
     )
 

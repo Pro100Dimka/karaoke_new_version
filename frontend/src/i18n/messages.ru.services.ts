@@ -1,5 +1,7 @@
 // Russian texts for the service settings: ENV keys, Kaggle and processing.
 export const servicesRu = {
+  processingSongUnavailable: "Песня удалена из библиотеки",
+  processingFailedHelp: "Обработка не завершена. Повторите попытку; причину можно посмотреть в сведениях о задаче.",
   environmentKeys: "Ключи ENV",
   environmentGroupKaggle: "Kaggle GPU",
   environmentGroupRecognition: "Распознавание музыки",

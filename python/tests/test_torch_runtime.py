@@ -61,7 +61,9 @@ def test_unpack_replaces_the_torch_build_and_leaves_other_packages(tmp_path: Pat
     assert (site / "torchcrepe").is_dir()
 
 
-def test_gpu_build_counts_only_once_complete(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_gpu_build_counts_only_once_complete(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     sources = tmp_path / "sources"
     sources.mkdir()
     wheels = (
@@ -119,7 +121,9 @@ def test_an_nvidia_computer_fetches_the_gpu_build_in_the_background(
 
 
 def test_the_installer_downloads_the_same_gpu_build() -> None:
-    script = (Path(__file__).resolve().parents[2] / "installer" / "ad-voice.iss").read_text(encoding="utf-8")
+    script = (Path(__file__).resolve().parents[2] / "installer" / "ad-voice.iss").read_text(
+        encoding="utf-8"
+    )
     for wheel in torch_runtime.GPU_WHEELS:
         assert f"'{wheel.url}'" in script
         assert f"'{wheel.file_name}'" in script

@@ -202,32 +202,25 @@ def start_ready_room(room: Room, clock: Clock) -> Room:
 def _apply_media_control(
     room: Room, command: MediaControlCommand, position_seconds: float | None, clock: Clock
 ) -> Room:
+    state = room.playback_state
     if command is MediaControlCommand.START:
-        position = (
-            room.playback_position_seconds if room.playback_state is PlaybackState.PAUSED else 0.0
-        )
+        position = room.playback_position_seconds if state is PlaybackState.PAUSED else 0.0
         started_room = replace(
             room,
             playback_state=PlaybackState.PLAYING,
             playback_started_at=clock.now() + ROOM_START_LEAD,
             playback_position_seconds=position,
         )
-        if room.playback_state is PlaybackState.PLAYING:
+        if state is PlaybackState.PLAYING:
             return started_room
         return started_room.with_timing(room.singing_timing or room_timing(started_room))
     if command is MediaControlCommand.PAUSE:
-        if room.playback_state is PlaybackState.PAUSED:
+        if state is PlaybackState.PAUSED:
             return room
         paused = paused_room(room, clock)
         return replace(
             paused.with_timing(room_timing(paused)),
-            singing_timing=room.singing_timing or (
-                RoomTiming(
-                    room.room_playout_delay_ms, room.room_return_reserve_ms, room.room_timing_source
-                )
-                if room.playback_started_at is not None and clock.now() >= room.playback_started_at
-                else None
-            ),
+            singing_timing=_paused_singing_timing(room, clock),
         )
     if command is MediaControlCommand.STOP:
         stopped = replace(
@@ -239,8 +232,21 @@ def _apply_media_control(
         )
         return stopped.with_timing(room_timing(stopped))
     position = max(0.0, position_seconds or 0.0)
-    started = clock.now() if room.playback_state is PlaybackState.PLAYING else None
+    started = clock.now() if state is PlaybackState.PLAYING else None
     return replace(room, playback_position_seconds=position, playback_started_at=started)
+
+
+def _paused_singing_timing(room: Room, clock: Clock) -> RoomTiming | None:
+    timing = room.singing_timing
+    if (
+        timing is None
+        and room.playback_started_at is not None
+        and clock.now() >= room.playback_started_at
+    ):
+        timing = RoomTiming(
+            room.room_playout_delay_ms, room.room_return_reserve_ms, room.room_timing_source
+        )
+    return timing
 
 
 class UpdateSharedRoomState:

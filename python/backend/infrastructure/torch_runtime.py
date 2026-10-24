@@ -61,7 +61,9 @@ CPU_WHEELS = (
 )
 GPU_WHEELS = (
     _wheel("cu130", "torch", "339801f2163698a53c7fb3c91883e7f44331d22c34d45acfbce4eff71f2332fa"),
-    _wheel("cu130", "torchaudio", "ce09a7b144b7982b46c8fe399cf5f91d43dda571e9d6ddba67e928567551f614"),
+    _wheel(
+        "cu130", "torchaudio", "ce09a7b144b7982b46c8fe399cf5f91d43dda571e9d6ddba67e928567551f614"
+    ),
 )
 
 
@@ -149,7 +151,9 @@ def has_nvidia_gpu() -> bool:
         result = ProcessRunner().run(["nvidia-smi", "-L"], timeout_seconds=15)
     except DependencyError:
         return False
-    return result.exit_code == 0 and re.search(rb"^GPU \d+:", result.stdout, re.MULTILINE) is not None
+    return (
+        result.exit_code == 0 and re.search(rb"^GPU \d+:", result.stdout, re.MULTILINE) is not None
+    )
 
 
 def prepare_gpu_build(

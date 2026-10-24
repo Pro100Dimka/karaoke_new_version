@@ -150,6 +150,7 @@ const useStableCardHandlers = (
   return useMemo<SongCardHandlers>(
     () => ({
       onPlay: (song) => latest.current.onPlay(song),
+      onRehearse: (song) => latest.current.onRehearse?.(song),
       onProcess: (song) => latest.current.onProcess(song),
       onCancel: (song) => latest.current.onCancel(song),
       onDetails: (song) => latest.current.onDetails(song),
@@ -253,7 +254,7 @@ export const LibraryPage = () => {
   const tv = useKaraokeTv();
   const ask = useAsk();
   // While someone sings on the TV a chosen song waits its turn there, or replaces the current one.
-  const playOnTv = async (song: SongDto) => {
+  const playOnTv = async (song: SongDto, rehearsal = false) => {
     if (!tv) return;
     const current = songs.find((item) => item.id === tv.songId);
     if (song.id === tv.songId) return;
@@ -268,13 +269,13 @@ export const LibraryPage = () => {
     });
     if (choice !== "next" && choice !== "now") return;
     markPlayed(song.id);
-    tv.play({ id: song.id, title: song.title, artist: song.artist }, choice);
+    tv.play({ id: song.id, title: song.title, artist: song.artist, rehearsal }, choice);
     if (choice === "next") notify(t("tvQueued", { title: song.title }), "success");
   };
 
-  const playSong = (song: SongDto) => {
+  const playSong = (song: SongDto, rehearsal = false) => {
     if (tv?.active) {
-      void playOnTv(song);
+      void playOnTv(song, rehearsal);
       return;
     }
     const intent = roomSongPlayIntent(room);
@@ -289,7 +290,7 @@ export const LibraryPage = () => {
     markPlayed(song.id);
     setLaunching(true);
     window.setTimeout(
-      () => navigate(routes.karaoke(song.id), { state: { mode: "AutoStart" } }),
+      () => navigate(routes.karaoke(song.id), { state: { mode: rehearsal ? "Rehearsal" : "AutoStart" } }),
       curtainMilliseconds,
     );
   };
@@ -302,6 +303,7 @@ export const LibraryPage = () => {
 
   const cardHandlers = useStableCardHandlers({
     onPlay: playSong,
+    onRehearse: (song) => playSong(song, true),
     onProcess: (song) => void startProcessing(song),
     onCancel: (song) => {
       const { jobId } = song;

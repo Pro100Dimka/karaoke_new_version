@@ -39,8 +39,11 @@ export const useSongRecordings = (
   // The take whose analysis was opened: songs finished on the TV open theirs one after another.
   const handled = useRef<string | null>(null);
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
+  const analysisRuns = useRef(new Map<string, number>());
 
   const loadAnalysis = async (recordingId: string, songId: string, recalculate: boolean, request: number) => {
+    analysisRuns.current.set(recordingId, request);
+    const ownsRun = () => analysisRuns.current.get(recordingId) === request;
     const listRequest = requests.current.recordings;
     let started = false;
     setAnalysisProgress((items) => ({ ...items, [recordingId]: { recordingId, jobId: "", state: "Queued", stage: "Loading", progress: 0 } }));
@@ -51,13 +54,14 @@ export const useSongRecordings = (
       if (stored) return stored;
       started = true;
       return await catalog.analyzeRecording(recordingId, (progress) => {
-        setAnalysisProgress((items) => ({ ...items, [recordingId]: progress }));
+        if (ownsRun()) setAnalysisProgress((items) => ({ ...items, [recordingId]: progress }));
       });
     } catch (failure) {
+      if (!ownsRun() || toAppError(failure).code === "JobCancelled") return null;
       setAnalysisFailures((items) => ({ ...items, [recordingId]: errorMessageKey(toAppError(failure)) ?? "actionFailed" }));
       throw failure;
     } finally {
-      setAnalysisProgress((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+      if (ownsRun()) setAnalysisProgress((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
       if (started) {
         const items = await catalog.listRecordings(songId).catch(() => null);
         if (items && listRequest === requests.current.recordings) setRecordings(items);
@@ -75,6 +79,7 @@ export const useSongRecordings = (
     });
 
   useEffect(() => () => {
+    analysisRuns.current.clear();
     handled.current = null;
     requests.current.recordings += 1;
     requests.current.analysis += 1;

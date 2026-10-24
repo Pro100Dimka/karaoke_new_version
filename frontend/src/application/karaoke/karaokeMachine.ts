@@ -1,6 +1,6 @@
 import type { AppError } from "../../contracts/models";
 
-export type KaraokeOpenMode = "Normal" | "AutoStart" | "RoomPrepared";
+export type KaraokeOpenMode = "Normal" | "AutoStart" | "Rehearsal" | "RoomPrepared";
 
 /** The one closed lifecycle of a Karaoke session; never modelled as independent flags. */
 export type KaraokeState =

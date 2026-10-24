@@ -74,10 +74,10 @@ export const MixerPanel = ({
     value: gains[channel.id],
     onChange: (value) => onGainChange(channel.id, value),
   }));
-  const knob = (item: Knob, fixedWidth = false) => (
+  const knob = (item: Knob) => (
     <RotaryKnob
       key={item.id}
-      style={fixedWidth ? fixedKnobWidth(knobDiameter) : undefined}
+      style={fixedKnobWidth(knobDiameter)}
       showLabel
       label={t(item.label)}
       min={item.min}
@@ -96,17 +96,17 @@ export const MixerPanel = ({
   return (
     <>
       <ConsoleSection icon="music" title={t("consoleSong")}>
-        <Stack direction="row" gap={1} justify="around">
+        <Stack direction="row" gap={1} justify="around" wrap>
           {channelKnobs
             .filter((item) => item.id !== "mic")
             .map((item) => knob(item))}
         </Stack>
       </ConsoleSection>
       <ConsoleSection icon="mic" title={t("mixer")}>
-        <Stack direction="row" gap={1} justify="around">
+        <Stack direction="row" gap={1} justify="around" wrap>
           {microphone && (
             <div className="consoleMicrophone">
-              {knob(microphone, true)}
+              {knob(microphone)}
               <IconButton
                 size="xs"
                 round

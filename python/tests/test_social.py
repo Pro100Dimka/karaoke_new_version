@@ -316,10 +316,14 @@ def test_a_profile_photo_is_still_offered_after_the_app_reports_its_presence() -
             json={"mime": "image/png", "data": base64.b64encode(_PNG).decode()},
         )
         # The app goes on reporting where it is, with the account it connected with.
-        anna.send_json({"displayName": "anna", "participantId": "anna-seat", "roomId": "room-1", "revision": 2})
+        anna.send_json(
+            {"displayName": "anna", "participantId": "anna-seat", "roomId": "room-1", "revision": 2}
+        )
         while anna.receive_json().get("type") != "presenceAck":
             pass
-        seen = client.post("/social/people", headers=_headers("boris"), json={"participantIds": ["anna-seat"]}).json()
+        seen = client.post(
+            "/social/people", headers=_headers("boris"), json={"participantIds": ["anna-seat"]}
+        ).json()
 
     assert saved.json()["avatarVersion"] == 1
     # Version 0 means "no photo": others would never ask for it.

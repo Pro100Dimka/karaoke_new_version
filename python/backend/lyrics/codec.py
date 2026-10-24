@@ -35,6 +35,11 @@ def encode_document(document: LyricsDocument) -> str:
             "bpm": document.bpm,
             "key": document.key,
             "lyrics": document.lyrics,
+            **(
+                {"vocalActivity": [list(interval) for interval in document.vocal_activity]}
+                if document.vocal_activity
+                else {}
+            ),
             "words": [
                 {
                     "text": word.text,
@@ -42,8 +47,16 @@ def encode_document(document: LyricsDocument) -> str:
                     "end": word.end,
                     "letters": list(word.letters),
                     "notes": [
-                        {"note": note.note, "start": note.start, "end": note.end,
-                         **({"contour": [list(point) for point in note.contour]} if note.contour else {})}
+                        {
+                            "note": note.note,
+                            "start": note.start,
+                            "end": note.end,
+                            **(
+                                {"contour": [list(point) for point in note.contour]}
+                                if note.contour
+                                else {}
+                            ),
+                        }
                         for note in word.notes
                     ],
                 }
@@ -66,6 +79,10 @@ def decode_document(raw: str) -> LyricsDocument:
         key=_optional_text(data.get("key")),
         lyrics=_text(data, "lyrics", allow_empty=True),
         words=tuple(_word(item) for item in words_raw),
+        vocal_activity=tuple(
+            (point[0], point[1])
+            for point in _numeric_points(data.get("vocalActivity", []), dimensions=2)
+        ),
     )
     document.validate()
     return document
@@ -102,15 +119,29 @@ def _note(value: JsonValue) -> Note:
     note_value = value.get("note")
     if not isinstance(note_value, int):
         raise ValueError("note must be an integer")
-    contour = value.get("contour", [])
-    if not isinstance(contour, list) or any(
-        not isinstance(point, list) or len(point) != 2 or any(
-            isinstance(item, bool) or not isinstance(item, int | float) for item in point
-        ) for point in contour
-    ):
-        raise ValueError("note contour must be an array of numeric pairs")
-    return Note(note_value, _number(value, "start"), _number(value, "end"),
-                tuple((float(point[0]), float(point[1])) for point in contour))
+    contour = _numeric_points(value.get("contour", []), dimensions=3)
+    return Note(
+        note_value,
+        _number(value, "start"),
+        _number(value, "end"),
+        tuple((point[0], point[1], point[2]) for point in contour),
+    )
+
+
+def _numeric_points(value: JsonValue, *, dimensions: int) -> tuple[tuple[float, ...], ...]:
+    if not isinstance(value, list):
+        raise ValueError("expected an array of numeric points")
+    result = []
+    for point in value:
+        if (
+            not isinstance(point, list)
+            or len(point) not in {2, dimensions}
+            or any(isinstance(item, bool) or not isinstance(item, int | float) for item in point)
+        ):
+            raise ValueError("invalid numeric point")
+        numbers = tuple(float(item) for item in point if isinstance(item, int | float))
+        result.append(numbers + ((1.0,) if len(numbers) < dimensions else ()))
+    return tuple(result)
 
 
 def _text(data: dict[str, JsonValue], key: str, *, allow_empty: bool = False) -> str:

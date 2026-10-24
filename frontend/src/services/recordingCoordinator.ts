@@ -202,6 +202,7 @@ const stop = async (): Promise<RecordingStatus> => {
 };
 
 export const recordingCoordinator = {
+  elapsedSeconds: () => active ? takeSeconds(active) : 0,
   hasPendingTake: () => active !== null || pendingTransitions > 0,
   start(
     song: SongDto,

@@ -61,6 +61,28 @@ class ProjectPublisher:
         provenance: Mapping[str, object],
         lineage_id: str,
     ) -> int:
+        self._ensure_generated_baseline(song_id, expected_revision)
+        revision = expected_revision + 1
+        while self._storage.revision_exists(song_id, revision):
+            revision += 1
+        manifest, working = self._stage_generated(
+            song_id,
+            revision,
+            instrumental,
+            reference_vocal,
+            melody,
+            lyrics,
+            provenance,
+        )
+        entry = self._journal.begin(
+            RecoveryOperation.PROJECT_PUBLISH,
+            {"songId": song_id, "revision": manifest.revision, "working": str(working)},
+        )
+        self._commit(song_id, expected_revision, manifest, lineage_id, working, lyrics)
+        self._journal.complete(entry.transaction_id)
+        return manifest.revision
+
+    def _ensure_generated_baseline(self, song_id: str, expected_revision: int) -> None:
         # Generated timings must never silently replace a user's saved edits.
         previous = self._storage.load_manifest(song_id, expected_revision)
         checksums = {item.logical_name: item.checksum for item in previous.artifacts}
@@ -76,19 +98,6 @@ class ProjectPublisher:
                 "reset the editor to its AI baseline before regenerating timings.",
                 revision=expected_revision,
             )
-        revision = expected_revision + 1
-        while self._storage.revision_exists(song_id, revision):
-            revision += 1
-        manifest, working = self._stage_generated(
-            song_id, revision, instrumental, reference_vocal, melody, lyrics, provenance,
-        )
-        entry = self._journal.begin(
-            RecoveryOperation.PROJECT_PUBLISH,
-            {"songId": song_id, "revision": manifest.revision, "working": str(working)},
-        )
-        self._commit(song_id, expected_revision, manifest, lineage_id, working, lyrics)
-        self._journal.complete(entry.transaction_id)
-        return manifest.revision
 
     def _stage_generated(
         self,

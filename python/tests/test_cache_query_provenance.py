@@ -21,14 +21,21 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = pytest.mark.integration
 
 
-def test_normalization_does_not_reuse_audio_cached_before_loudness_protection(tmp_path: Path) -> None:
+def test_normalization_does_not_reuse_audio_cached_before_loudness_protection(
+    tmp_path: Path,
+) -> None:
     from backend.processing.cache_key import CacheIdentity, build_cache_key
     from backend.processing.normalize_stage import NormalizeStage
 
-    old_key = build_cache_key(CacheIdentity(
-        "source", "ffmpeg", "system", "normalize-1",
-        {"sampleRate": 44100, "channels": 2, "sampleFormat": "s16"},
-    ))
+    old_key = build_cache_key(
+        CacheIdentity(
+            "source",
+            "ffmpeg",
+            "system",
+            "normalize-1",
+            {"sampleRate": 44100, "channels": 2, "sampleFormat": "s16"},
+        )
+    )
     cache, normalizer = Mock(), Mock()
     cache.get.side_effect = lambda key: tmp_path / "clipped-cache.wav" if key == old_key else None
     cache.put.side_effect = lambda _key, path: path

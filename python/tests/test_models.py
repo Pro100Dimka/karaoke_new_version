@@ -69,7 +69,9 @@ def test_invalid_checksum_never_marks_partial_model_ready(
 
     assert job["state"] == "Failed"
     # Why it failed reaches the program log, not only the job's record.
-    failure = next(record for record in caplog.records if record.getMessage() == "Background job failed")
+    failure = next(
+        record for record in caplog.records if record.getMessage() == "Background job failed"
+    )
     assert getattr(failure, "jobId") == started.json()["jobId"]
     assert getattr(failure, "errorCode") == job["error"]["code"]
     models = client.get("/models", params={"purpose": "ASR"}).json()

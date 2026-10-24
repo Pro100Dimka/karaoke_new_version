@@ -72,6 +72,7 @@ const PianoRoll = ({
   keyShift,
   pitchHz,
   pitchFrame,
+  capturedPitch,
   show,
   hidden,
   opacity,
@@ -83,6 +84,7 @@ const PianoRoll = ({
   keyShift: number;
   pitchHz?: number;
   pitchFrame?: PitchFrame;
+  capturedPitch: boolean;
   show: ShowEngine;
   hidden: boolean;
   opacity: number;
@@ -157,7 +159,7 @@ const PianoRoll = ({
           maxPitch={range.max}
           window={span}
           onWindowChange={setSpan}
-          livePitch={liveMidi}
+          livePitch={capturedPitch ? undefined : liveMidi}
           accuracy={accuracy}
           hit={onTarget}
           hitIds={hitNoteIds}
@@ -301,6 +303,7 @@ export const KaraokeStage = ({
     [preferences.reducedMotion],
   );
   const show = useShowEngine({
+    vocalActivity: document?.vocalActivity,
     notes: showNotes,
     lines,
     position,
@@ -339,6 +342,7 @@ export const KaraokeStage = ({
           keyShift={keyShift}
           pitchHz={pitchHz}
           pitchFrame={pitchFrames?.at(-1)}
+          capturedPitch={pitchFrames !== undefined}
           show={show}
           hidden={lines.length > 0 && phase.kind === "empty"}
           opacity={phase.opacity ?? 1}

@@ -38,6 +38,8 @@ export interface ShowState {
   settings: ShowSettings;
 }
 
+interface VoiceObservation { position: number; pitchHz?: number }
+
 type CommandListener = (command: FxCommand) => void;
 
 /**
@@ -52,6 +54,7 @@ export class ShowEngine {
   private cues: MusicCue[] = [];
   private listeners = new Set<CommandListener>();
   private words: ReadonlyMap<string, NoteWord> = new Map();
+  readonly voiceHistory: VoiceObservation[] = [];
   /** Where the singer's voice is drawn now (page pixels), set by the melody roll's light layer when it is shown. */
   voicePoint: { x: number; y: number } | undefined;
   state: ShowState = {
@@ -69,9 +72,13 @@ export class ShowEngine {
     notes: readonly ShowNote[],
     phrases: readonly ShowPhrase[],
     words: ReadonlyMap<string, NoteWord> = new Map(),
+    resetPerformance = true,
+    vocalActivity?: readonly (readonly [number, number])[],
   ): void {
     this.words = words;
-    this.tracker.load(notes, phrases);
+    this.tracker.load(notes, phrases, resetPerformance, vocalActivity);
+    if (!resetPerformance) return;
+    this.voiceHistory.length = 0;
     this.director.reset();
     this.pulse.reset();
   }
@@ -98,8 +105,15 @@ export class ShowEngine {
     playing: boolean,
     sampleDuration?: number,
     scoreVoice = true,
+    audioActive?: boolean,
   ): void {
-    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration) : [];
+    if (playing && scoreVoice) {
+      const last = this.voiceHistory.at(-1)?.position;
+      if (last !== undefined && (position < last || position > last + 1.5)) this.voiceHistory.length = 0;
+      if (last !== position) this.voiceHistory.push({ position, pitchHz });
+      while (this.voiceHistory.length > 0 && this.voiceHistory[0]!.position < position - 3) this.voiceHistory.shift();
+    }
+    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration, audioActive) : [];
     const music = this.pulse.state;
     const commands = this.director.plan(now, events, playing ? this.cues : [], {
       energy: this.tracker.energy,

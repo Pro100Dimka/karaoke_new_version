@@ -1,5 +1,8 @@
 // English texts for recordings, their analysis and the studio master.
 export const recordingsEn = {
+  recordingRehearsal: "Rehearsal without recording",
+  recordingLive: "Recording · {time}",
+  recordingLivePaused: "Recording paused · {time}",
   recordingOpenAnalysis: "Open analysis",
   recordingReanalyze: "Recalculate analysis",
   analysisCancel: "Cancel analysis",

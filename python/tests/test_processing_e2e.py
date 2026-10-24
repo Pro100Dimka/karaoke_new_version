@@ -36,6 +36,8 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
         assert job["overallProgress"] == 1.0
         assert job["report"]["algorithmVersion"] == "pipeline-3"
         assert job["report"]["processingBackend"] == "Local"
+        assert job["report"]["songTitle"] == song["title"]
+        assert job["report"]["songArtist"] == song["artist"]
         updated = client.get(f"/songs/{song['songId']}").json()
         assert updated["status"] == "Ready"
         assert updated["activeRevision"] == 2

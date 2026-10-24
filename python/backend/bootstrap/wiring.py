@@ -13,6 +13,7 @@ from backend.infrastructure.local_storage import LocalWorkStorage
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.processing.job_manager import ProcessingJobManager
+from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.projects.content_lock import KeyedLockManager
 from backend.projects.operations import SongOperationRegistry
 from backend.projects.validator import ProjectValidator
@@ -50,5 +51,6 @@ class ProcessingWiring:
     workspaces: LocalWorkStorage
     runtime: RuntimeProbe
     storage: StorageSystem
+    resources: ProcessingResourceScheduler
     # The same facts for start-up and the diagnostics page, without waiting for the PyTorch probe.
     runtime_now: RuntimeProbe | None = None

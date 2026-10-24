@@ -175,9 +175,14 @@ def _word(value: JsonValue) -> WordTiming:
     )
     diagnostics = value.get("diagnostics", [])
     return WordTiming(
-        _text(value, "text"), start, end, _number(value, "confidence"), starts,
+        _text(value, "text"),
+        start,
+        end,
+        _number(value, "confidence"),
+        starts,
         tuple(item for item in diagnostics if isinstance(item, str))
-        if isinstance(diagnostics, list) else (),
+        if isinstance(diagnostics, list)
+        else (),
     )
 
 

@@ -14,8 +14,10 @@ from tests.fakes import FakeAiProvider
 from tests.test_resource_scheduler import FakeStorage
 
 MIB = 1024 * 1024
-CUDA_FACTS = (b'{"version": "2.9", "cuda": true, "runtime": "13.0", "gpu": "RTX Test",'
-              b' "total": 8000, "free": 6000}\n')
+CUDA_FACTS = (
+    b'{"version": "2.9", "cuda": true, "runtime": "13.0", "gpu": "RTX Test",'
+    b' "total": 8000, "free": 6000}\n'
+)
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +47,9 @@ class Runner:
 
 def test_torch_is_never_imported_into_the_backend_process(monkeypatch):
     monkeypatch.delitem(sys.modules, "torch", raising=False)
-    runner = Runner(ProcessResult(0, CUDA_FACTS, b""), ProcessResult(0, b"RTX Test, 8192, 7000\n", b""))
+    runner = Runner(
+        ProcessResult(0, CUDA_FACTS, b""), ProcessResult(0, b"RTX Test, 8192, 7000\n", b"")
+    )
     diagnostics = SystemRuntimeProbe(runner).inspect()
     assert "torch" not in sys.modules
     assert diagnostics.pytorch_version == "2.9"
@@ -56,14 +60,18 @@ def test_torch_is_never_imported_into_the_backend_process(monkeypatch):
 
 def test_configured_probe_refreshes_free_memory_without_probing_torch_again(tmp_path, monkeypatch):
     monkeypatch.setattr(runtime_probe, "_memory_bytes", lambda: (16000, 8000))
-    runner = Runner(ProcessResult(0, CUDA_FACTS, b""), ProcessResult(0, b"RTX Test, 8192, 7000\n", b""))
+    runner = Runner(
+        ProcessResult(0, CUDA_FACTS, b""), ProcessResult(0, b"RTX Test, 8192, 7000\n", b"")
+    )
     wiring = _processing_wiring(
         BackendConfig.load(tmp_path), runner, Mock(), (FakeAiProvider(),), (), FakeStorage()
     )
     first = wiring.runtime.inspect()
     monkeypatch.setattr(runtime_probe, "_memory_bytes", lambda: (16000, 1000))
     runner.smi = ProcessResult(0, b"RTX Test, 8192, 500\n", b"")
-    assert wiring.runtime.inspect() == replace(first, available_ram_bytes=1000, free_vram_bytes=500 * MIB)
+    assert wiring.runtime.inspect() == replace(
+        first, available_ram_bytes=1000, free_vram_bytes=500 * MIB
+    )
     assert runner.calls.count("torch") == 1
     assert runner.calls.count("ffmpeg") == 1
 
@@ -82,7 +90,11 @@ def test_falls_back_to_the_probe_memory_when_the_driver_tool_is_missing():
 def test_cpu_only_pytorch_reports_no_gpu_and_skips_the_driver_tool():
     runner = Runner(ProcessResult(0, b'{"version": "2.9", "cuda": false}\n', b""))
     diagnostics = SystemRuntimeProbe(runner).inspect()
-    assert (diagnostics.pytorch_version, diagnostics.cuda_available, diagnostics.gpu_name) == ("2.9", False, None)
+    assert (diagnostics.pytorch_version, diagnostics.cuda_available, diagnostics.gpu_name) == (
+        "2.9",
+        False,
+        None,
+    )
     assert "nvidia-smi" not in runner.calls
 
 

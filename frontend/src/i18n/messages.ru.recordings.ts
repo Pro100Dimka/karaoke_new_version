@@ -1,5 +1,8 @@
 // Russian texts for recordings, their analysis and the studio master.
 export const recordingsRu = {
+  recordingRehearsal: "Репетиция без записи",
+  recordingLive: "Запись · {time}",
+  recordingLivePaused: "Запись на паузе · {time}",
   recordingOpenAnalysis: "Открыть анализ",
   recordingReanalyze: "Пересчитать анализ",
   analysisCancel: "Отменить анализ",

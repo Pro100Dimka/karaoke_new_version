@@ -46,6 +46,7 @@ def build_social_cases(
     visits = SqliteVisitStore(database)
     hub = SocialHub()
     account_cases = Accounts(accounts, visits, ids, clock)
+
     def is_room_host(account_id: str, room_id: str) -> bool:
         participant_id = room_host_participant(room_id)
         if participant_id is None:

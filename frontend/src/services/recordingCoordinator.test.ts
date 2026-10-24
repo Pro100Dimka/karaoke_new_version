@@ -17,6 +17,31 @@ const nativeResult = (seconds: number) =>
   });
 
 describe("recordingCoordinator", () => {
+  it("reports elapsed capture time without counting pauses or musical seeks", async () => {
+    let now = 1000;
+    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    Object.assign(window, { desktop: {
+      pythonRequest: vi.fn(async () => ({ ok: true, body: { recordingId: "elapsed", filePath: "D:/elapsed.wav" } })),
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({ status: 0,
+        text: request.command === "GetRecordingState" ? nativeResult(3) : "D:/elapsed.wav" })),
+      inspectWave: vi.fn(async () => ({ durationSeconds: 3, sampleRate: 48000, channels: 2 })),
+    } });
+    await recordingCoordinator.start({ id: "song", activeRevision: 1 } as SongDto);
+    try {
+      now += 2000;
+      recordingCoordinator.observePosition(90);
+      expect(recordingCoordinator.elapsedSeconds()).toBe(2);
+      await recordingCoordinator.pause();
+      now += 5000;
+      expect(recordingCoordinator.elapsedSeconds()).toBe(2);
+      await recordingCoordinator.resume({ sourceSeconds: 90, playbackRate: 0.5, keyShift: 2 });
+      now += 1000;
+      expect(recordingCoordinator.elapsedSeconds()).toBe(3);
+    } finally {
+      await recordingCoordinator.stop();
+      clock.mockRestore();
+    }
+  });
   afterEach(() => Reflect.deleteProperty(window, "desktop"));
 
   it("records the audible master mix so playback contains the song and the configured voice", async () => {
@@ -144,6 +169,9 @@ describe("recordingCoordinator", () => {
       activeRevision: 3,
     } as SongDto);
     recordingCoordinator.updateKaraokeNoteScore({
+      version: 1,
+      pitchAccuracyPercent: 74.3,
+      meanSemitoneDeviation: 0.22,
       hitNotes: 3,
       totalNotes: 5,
       rhythmAccuracyPercent: 72,
@@ -157,6 +185,9 @@ describe("recordingCoordinator", () => {
     expect(register?.body).toMatchObject({
       sessionMetadata: {
         karaokeNoteScore: {
+          version: 1,
+          pitchAccuracyPercent: 74.3,
+          meanSemitoneDeviation: 0.22,
           hitNotes: 3,
           totalNotes: 5,
           rhythmAccuracyPercent: 72,

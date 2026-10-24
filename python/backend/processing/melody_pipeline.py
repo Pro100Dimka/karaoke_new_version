@@ -82,7 +82,7 @@ class MelodyPipeline:
             words = line.split()
             if not words:
                 continue
-            if [word.text for word in document.words[cursor:cursor + len(words)]] != words:
+            if [word.text for word in document.words[cursor : cursor + len(words)]] != words:
                 return ()
             result.append(LyricLineTiming(document.words[cursor].start, line))
             cursor += len(words)
@@ -130,7 +130,9 @@ class MelodyPipeline:
             )
         finally:
             self._workspaces.cleanup(workspace)
-        return self._report(inputs.song, revision, reports, provider, alignment, warnings, execution)
+        return self._report(
+            inputs.song, revision, reports, provider, alignment, warnings, execution
+        )
 
     @staticmethod
     def _report(
@@ -183,23 +185,8 @@ class MelodyPipeline:
     ) -> tuple[LyricsDocument, tuple[str, ...]]:
         document = inputs.document
         if alignment is not None:
-            words = tuple(
-                self._stages.run(
-                    "ForcedAlignment",
-                    CancellationPolicy.INTERRUPTIBLE,
-                    reports,
-                    context,
-                    lambda: alignment.align(
-                        reference,
-                        document.lyrics,
-                        lyrics_language(inputs.song, document.lyrics),
-                        context.cancel,
-                        timing_hints=inputs.timing_hints,
-                        execution=execution,
-                        instrumental=instrumental,
-                    ),
-                    progress=0.3,
-                )
+            words = self._aligned_words(
+                inputs, alignment, reference, context, reports, execution, instrumental
             )
             warnings = alignment_warnings(words)
         else:
@@ -207,9 +194,43 @@ class MelodyPipeline:
                 WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))
                 for word in document.words
             )
-            warnings = (f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",)
+            warnings = (
+                f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",
+            )
         stable = self._stable_pitch(provider, reference, context, reports, execution)
-        return self._construct(document, words, stable, context, reports), warnings + pitch_warnings(stable)
+        return self._construct(
+            document, words, stable, context, reports
+        ), warnings + pitch_warnings(stable)
+
+    def _aligned_words(
+        self,
+        inputs: MelodyInputs,
+        alignment: AiProvider,
+        reference: Path,
+        context: JobContext,
+        reports: list[StageReport],
+        execution: ExecutionContext,
+        instrumental: Path,
+    ) -> tuple[WordTiming, ...]:
+        document = inputs.document
+        return tuple(
+            self._stages.run(
+                "ForcedAlignment",
+                CancellationPolicy.INTERRUPTIBLE,
+                reports,
+                context,
+                lambda: alignment.align(
+                    reference,
+                    document.lyrics,
+                    lyrics_language(inputs.song, document.lyrics),
+                    context.cancel,
+                    timing_hints=inputs.timing_hints,
+                    execution=execution,
+                    instrumental=instrumental,
+                ),
+                progress=0.3,
+            )
+        )
 
     def _stable_pitch(
         self,
@@ -309,7 +330,8 @@ class MelodyPipeline:
             },
             "sourceRevision": inputs.song.active_revision,
             "lyricsSource": "ExistingProjectText",
-            "lyricsTimingHints": [{"start": hint.start, "text": hint.text}
-                                  for hint in inputs.timing_hints],
+            "lyricsTimingHints": [
+                {"start": hint.start, "text": hint.text} for hint in inputs.timing_hints
+            ],
             "warnings": list(warnings),
         }

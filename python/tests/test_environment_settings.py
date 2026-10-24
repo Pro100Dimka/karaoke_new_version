@@ -183,7 +183,9 @@ def test_environment_settings_api_never_returns_secret_values(
     monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
     monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))
 
-    saved = client.patch("/settings/environment/AD_VOICE_AUDD_TOKEN", json={"value": "private-token"})
+    saved = client.patch(
+        "/settings/environment/AD_VOICE_AUDD_TOKEN", json={"value": "private-token"}
+    )
     listed = client.get("/settings/environment")
 
     assert saved.status_code == 200

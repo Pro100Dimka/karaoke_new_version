@@ -71,13 +71,17 @@ def test_project_downloads_and_room_watching_need_the_participant_key() -> None:
 def test_the_real_host_still_reconnects_and_controls_the_room() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room_id = room_with_guest(client)
-        client.post(f"/rooms/{room_id}/disconnect", json={"participantId": HOST}, headers=as_(HOST_KEY))
+        client.post(
+            f"/rooms/{room_id}/disconnect", json={"participantId": HOST}, headers=as_(HOST_KEY)
+        )
         rejoined = client.post(
             f"/rooms/{room_id}/join",
             json={"participantId": HOST, "displayName": "Host"},
             headers=as_(HOST_KEY),
         )
-        closed = client.post(f"/rooms/{room_id}/close", json={"participantId": HOST}, headers=as_(HOST_KEY))
+        closed = client.post(
+            f"/rooms/{room_id}/close", json={"participantId": HOST}, headers=as_(HOST_KEY)
+        )
 
     assert rejoined.status_code == 200
     assert rejoined.json()["hostId"] == HOST
@@ -87,7 +91,9 @@ def test_the_real_host_still_reconnects_and_controls_the_room() -> None:
 def test_a_disconnected_participant_cannot_change_its_readiness() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
         room_id = room_with_guest(client)
-        client.post(f"/rooms/{room_id}/disconnect", json={"participantId": GUEST}, headers=as_(GUEST_KEY))
+        client.post(
+            f"/rooms/{room_id}/disconnect", json={"participantId": GUEST}, headers=as_(GUEST_KEY)
+        )
         update = client.post(
             f"/rooms/{room_id}/readiness",
             json={"participantId": GUEST, "readiness": "Ready"},
@@ -137,7 +143,11 @@ def test_a_participant_id_header_cannot_be_repeated_to_borrow_another_identity()
         room_id = room_with_guest(client)
         forged = client.get(
             f"/rooms/{room_id}/projects/song/1",
-            headers=[("X-Participant-Id", GUEST), ("X-Participant-Id", HOST), (ROOM_KEY_HEADER, GUEST_KEY)],
+            headers=[
+                ("X-Participant-Id", GUEST),
+                ("X-Participant-Id", HOST),
+                (ROOM_KEY_HEADER, GUEST_KEY),
+            ],
         )
 
     assert forged.status_code == 403
@@ -149,7 +159,15 @@ def _share(client: TestClient, room_id: str, participant: str, key: str) -> None
         f"/rooms/{room_id}/library",
         json={
             "participantId": participant,
-            "songs": [{"songId": "song-1", "revision": 1, "title": "Song", "artist": "A", "durationSeconds": 1}],
+            "songs": [
+                {
+                    "songId": "song-1",
+                    "revision": 1,
+                    "title": "Song",
+                    "artist": "A",
+                    "durationSeconds": 1,
+                }
+            ],
         },
         headers=as_(key),
     )

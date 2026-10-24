@@ -5,7 +5,7 @@ interface BackendNote {
   note: number;
   start: number;
   end: number;
-  contour?: readonly (readonly [number, number])[];
+  contour?: readonly (readonly [number, number, number?])[];
 }
 interface BackendWord {
   text: string;
@@ -24,6 +24,7 @@ interface BackendEditor {
     bpm: number | null;
     key: string | null;
     lyrics: string;
+    vocalActivity?: readonly (readonly [number, number])[];
     words: BackendWord[];
   };
 }
@@ -64,6 +65,7 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
     words,
     notes,
     lyrics: value.document.lyrics,
+    vocalActivity: value.document.vocalActivity,
   };
 };
 
@@ -76,6 +78,7 @@ const backendDocument = (song: SongDto, document: EditorDocument) => ({
   duration: song.durationSeconds,
   bpm: document.bpm ?? null,
   key: document.key ?? null,
+  ...(document.vocalActivity ? { vocalActivity: document.vocalActivity } : {}),
   lyrics:
     document.lyrics && wordCount(document.lyrics) === document.words.length
       ? document.lyrics

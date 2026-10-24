@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { titleBarLeadingId } from "../../app/TitleBar";
 import { useText } from "../../i18n/useText";
-import { IconButton } from "@neo-ui-kit/react";
+import { IconButton, Icon, Typography } from "@neo-ui-kit/react";
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */
@@ -11,6 +11,7 @@ interface KaraokeHeaderProps {
   /** Drawn in place rather than in the title bar: on the TV, which has no title bar. */
   inline?: boolean;
   onBack(): void;
+  recordingStatus?: { label: string; active: boolean };
 }
 
 export const KaraokeHeader = ({
@@ -18,10 +19,11 @@ export const KaraokeHeader = ({
   consoleToggle,
   inline = false,
   onBack,
+  recordingStatus,
 }: KaraokeHeaderProps) => {
   const t = useText();
 
-  const header = (
+  const header = (<>
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
         <IconButton
@@ -42,7 +44,11 @@ export const KaraokeHeader = ({
         )}
       </div>
     </header>
-  );
+    {recordingStatus && <div className="karaokeRecordingStatus" role="status" aria-live="off" data-recording={recordingStatus.active || undefined}>
+      <Icon name={recordingStatus.active ? "record" : "music"} />
+      <Typography variant="caption">{recordingStatus.label}</Typography>
+    </div>}
+  </>);
   const slot = inline ? null : document.getElementById(titleBarLeadingId);
   return slot ? createPortal(header, slot) : header;
 };

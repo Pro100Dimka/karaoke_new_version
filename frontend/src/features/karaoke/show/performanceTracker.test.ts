@@ -44,6 +44,102 @@ const sing = (
 };
 
 describe("performance tracker", () => {
+  it("measures stability as steady sung time without letting one outlier spoil a held phrase", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "held", start: 0, end: 1, pitch: 60 }], []);
+    for (let i = 0; i < 20; i++) tracker.update((i + 0.5) * 0.05, hz(i === 10 ? 63 : 60), 0.05);
+    expect(tracker.noteScore.noteStabilityPercent).toBeCloseTo(95);
+  });
+  it.each([false, true])("grades consonant activity independently of pitch (missing onset: %s)", (missingOnset) => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "held", start: 0.2, end: 0.8, pitch: 60 }], [], true, [[0, missingOnset ? 1 : 0.6]]);
+    for (let i = 0; i < 20; i++) {
+      const time = (i + 0.5) * 0.05;
+      const pitched = time >= 0.2 && time < 0.8;
+      tracker.update(time, pitched ? hz(60) : undefined, 0.05, missingOnset ? pitched : true);
+    }
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(60);
+  });
+  it("does not let brief transition notes erase long correctly sung phrases from stage energy", () => {
+    const tracker = new PerformanceTracker();
+    const notes = Array.from({ length: 20 }, (_, second) => [
+      { id: `held-${second}`, start: second, end: second + 0.8, pitch: 60 },
+      ...Array.from({ length: 10 }, (_, index) => ({ id: `brief-${second}-${index}`,
+        start: second + 0.8 + index * 0.02, end: second + 0.82 + index * 0.02, pitch: 60 })),
+    ]).flat();
+    tracker.load(notes, []);
+    for (let i = 0; i < 2000; i++) {
+      const time = (i + 0.5) / 100;
+      tracker.update(time, hz(time % 1 < 0.8 ? 60 : 63), 0.01);
+    }
+    expect(tracker.energy).toBeGreaterThanOrEqual(45);
+  });
+  it("weights final pitch by sung time rather than treating a tiny note like a held phrase", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "short", start: 0, end: 0.05, pitch: 60 },
+      { id: "held", start: 0.05, end: 1, pitch: 60 }], []);
+    for (let i = 0; i < 20; i++) tracker.update((i + 0.5) * 0.05, i === 0 ? undefined : hz(60), 0.05);
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(95);
+    expect(tracker.noteScore.noteStabilityPercent).toBeCloseTo(100);
+  });
+  it("counts singing through rests as a rhythm error", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "first", start: 0, end: 0.5, pitch: 60 },
+      { id: "second", start: 1, end: 1.5, pitch: 60 }], []);
+    for (let i = 0; i < 40; i++) tracker.update((i + 0.5) * 0.05, hz(60), 0.05);
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(50);
+  });
+  it("does not judge the unplayed remainder of a note as a rhythm error", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "held", start: 0, end: 1, pitch: 60 }], []);
+    for (let i = 0; i < 10; i++) tracker.update((i + 0.5) * 0.05, hz(60), 0.05);
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(100);
+  });
+  it("awakens the stage on a genuinely hit note even after an imperfect phrase", () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(12);
+    tracker.load(notes, phrases);
+    sing(tracker, 0, 4, () => undefined);
+    sing(tracker, 4 + frame, 4.6, () => hz(60));
+    expect(tracker.hitNoteIds.size).toBeGreaterThan(0);
+    expect(tracker.energy).toBeGreaterThanOrEqual(20);
+    sing(tracker, 4.6 + frame, 5, () => hz(60));
+    expect(tracker.energy).toBeGreaterThanOrEqual(20);
+  });
+  it("retains the complete take's measurements across seeks and starts a new total on load", () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(20);
+    tracker.load(notes, phrases);
+    sing(tracker, 0, 1, () => hz(60));
+    const first = tracker.noteScore.totalNotes;
+    sing(tracker, 5, 6, () => undefined);
+    expect(tracker.noteScore.totalNotes).toBeGreaterThan(first);
+    expect(tracker.noteScore.hitNotes).toBe(2);
+    tracker.load(notes, phrases);
+    expect(tracker.noteScore.totalNotes).toBe(0);
+  });
+  it("provides the final modal metrics directly from captured samples, including silent notes", () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: "sung", start: 0, end: 1, pitch: 60 },
+      { id: "silent", start: 1, end: 2, pitch: 60 }], []);
+    for (let i = 0; i < 40; i++) tracker.update((i + 0.5) * 0.05, i < 20 ? hz(60.2) : undefined, 0.05);
+    expect(tracker.noteScore).toMatchObject({ version: 1, hitNotes: 1, totalNotes: 2,
+    });
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(50);
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(50);
+    expect(tracker.noteScore.meanSemitoneDeviation).toBeCloseTo(0.2);
+  });
+  it("lights the stage within the first sung phrase and holds it across an instrumental break", () => {
+    const tracker = new PerformanceTracker();
+    const notes = song(20);
+    tracker.load(notes.notes, notes.phrases);
+    sing(tracker, 0, 5, () => hz(60.6));
+    expect(tracker.energy).toBeGreaterThanOrEqual(35);
+    sing(tracker, 5 + frame, 10, () => hz(60.6));
+    const earned = tracker.energy;
+    sing(tracker, 10 + frame, 18, () => undefined);
+    expect(tracker.energy).toBeGreaterThanOrEqual(earned - 3);
+  });
   it("scores a short note covered by capture windows even when neither centre lands inside it", () => {
     const tracker = new PerformanceTracker();
     tracker.load([{ id: "short", start: 0.04, end: 0.06, pitch: 60 }], []);

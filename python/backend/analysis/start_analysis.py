@@ -67,7 +67,9 @@ class StartRecordingAnalysis:
                 lambda context: self._run(result.analysis_id, context),
                 entity_id=result.analysis_id,
                 on_finally=lambda: self._settle(recording_id, result.analysis_id, admission),
-                admit=lambda cancel: admission.enter_context(self._pitch.admit(recording.file_path, cancel)),
+                admit=lambda cancel: admission.enter_context(
+                    self._pitch.admit(recording.file_path, cancel)
+                ),
             )
         except DomainError as exc:
             self._fail(result, exc.code, exc.message)

@@ -91,6 +91,7 @@ interface ShowInput {
   pitchFrames?: readonly PitchFrame[];
   playing: boolean;
   settings: ShowSettings;
+  vocalActivity?: readonly (readonly [number, number])[];
 }
 
 /** The karaoke screen's show: fed with the drawn position, the voice and the backing track; renders nothing itself. */
@@ -102,15 +103,18 @@ export const useShowEngine = ({
   pitchFrames,
   playing,
   settings,
+  vocalActivity,
 }: ShowInput): ShowEngine => {
   const engine = useMemo(() => new ShowEngine(), []);
   const [, refreshScore] = useReducer((version: number) => version + 1, 0);
   const lastPitch = useRef({ epoch: -1, sequence: 0 });
-  useEffect(
-    () =>
-      engine.load(notes, phrasesOf(lines, notes), wordsOfNotes(lines, notes)),
-    [engine, notes, lines],
-  );
+  const loadedLines = useRef<readonly LyricLine[] | undefined>(undefined);
+  useEffect(() => {
+    const resetPerformance = loadedLines.current !== lines;
+    engine.load(notes, phrasesOf(lines, notes), wordsOfNotes(lines, notes), resetPerformance, vocalActivity);
+    loadedLines.current = lines;
+    if (resetPerformance) lastPitch.current = { epoch: -1, sequence: 0 };
+  }, [engine, notes, lines, vocalActivity]);
   useEffect(() => engine.configure(settings), [engine, settings]);
   useEffect(
     () =>
@@ -135,7 +139,7 @@ export const useShowEngine = ({
     let changed = false;
     for (const frame of pitchFrames) {
       if (frame.epoch === lastPitch.current.epoch && frame.sequence <= lastPitch.current.sequence) continue;
-      engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds);
+      engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds, true, frame.audioActive);
       lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
       changed = true;
     }

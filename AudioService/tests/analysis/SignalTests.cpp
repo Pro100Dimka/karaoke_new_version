@@ -49,7 +49,7 @@ void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration() {
     for (std::size_t index = 0; index < history.size(); ++index) {
         const auto centre = firstAt + static_cast<MonotonicTicks>(index * window + window / 2) * 1'000'000'000 / rate;
         expect(std::abs(history[index].capturedAt - centre) <= 1 &&
-                   std::abs(history[index].pitchHz - 220) < 3,
+                   std::abs(history[index].pitchHz - 220) < 3 && history[index].audioActive,
                "pitch belongs to the capture window centre, independent of worker delay");
     }
     analysis.setGeneration(GenerationId{10});
@@ -223,5 +223,120 @@ void analysisRejectsUnpitchedNoise() {
     waitForProcessedFrames(analysis, 2048);
     expect(analysis.snapshot().pitchHz == 0.0F,
            "unpitched microphone noise cannot light arbitrary karaoke notes");
+}
+
+void analysisRejectsLowFrequencyDrift() {
+    for (const auto frequency : {3.0F, 20.0F, 40.0F}) {
+        AnalysisEngine analysis;
+        analysis.prepare(1, 48000, 48000, GenerationId{7});
+        std::vector<float> samples(2048);
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+            samples[frame] = 0.1F * sineAtFrame(frequency, frame, 48000);
+        analysis.push(GenerationId{7}, samples, static_cast<std::uint32_t>(samples.size()));
+        waitForProcessedFrames(analysis, 2048);
+        expect(analysis.snapshot().pitchHz == 0.0F,
+               "low-frequency drift must not become a fictitious 1200 Hz sung note");
+    }
+}
+
+void analysisPreservesLowVoiceAcrossSampleRates() {
+    for (const auto rate : {44100U, 48000U, 96000U, 192000U}) {
+        AnalysisEngine analysis;
+        analysis.prepare(1, rate, rate, GenerationId{8});
+        const auto frames = static_cast<std::uint32_t>(std::ceil(2048.0 * rate / 48000));
+        std::vector<float> samples(256);
+        for (std::uint32_t from = 0; from < frames; from += 256) {
+            for (std::uint32_t frame = 0; frame < samples.size(); ++frame)
+                samples[frame] = 0.3F * sineAtFrame(80.0F, from + frame, rate);
+            analysis.push(GenerationId{8}, samples, 256);
+        }
+        waitForProcessedFrames(analysis, frames);
+        expect(std::abs(analysis.snapshot().pitchHz - 80.0F) < 2.0F,
+               "a low voice keeps its pitch and analysis-window duration on high-rate devices");
+    }
+}
+
+void analysisDetectsBreathyVoiceAboveBackgroundNoise() {
+    AnalysisEngine analysis;
+    analysis.prepare(1, 48000, 48000, GenerationId{11});
+    std::vector<float> samples(2048);
+    std::uint32_t noise = 12345;
+    for (std::size_t frame = 0; frame < samples.size(); ++frame) {
+        noise = noise * 1664525U + 1013904223U;
+        const auto breath = (static_cast<float>(noise >> 8U) / 8388607.5F - 1.0F) * 0.25F;
+        samples[frame] = 0.18F * sineAtFrame(220, frame, 48000) + breath;
+    }
+    analysis.push(GenerationId{11}, samples, static_cast<std::uint32_t>(samples.size()));
+    waitForProcessedFrames(analysis, 2048);
+    expect(std::abs(analysis.snapshot().pitchHz - 220) < 6,
+           "audible breathy singing is measurable even below the old periodicity cutoff");
+}
+
+void analysisPitchDoesNotDependOnMicrophoneSensitivity() {
+    for (const auto level : {0.5F, 0.005F, 0.0005F}) {
+        AnalysisEngine analysis;
+        analysis.prepare(1, 48000, 48000, GenerationId{12});
+        std::vector<float> samples(2048);
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+            samples[frame] = level * sineAtFrame(220, frame, 48000);
+        analysis.push(GenerationId{12}, samples, static_cast<std::uint32_t>(samples.size()));
+        waitForProcessedFrames(analysis, 2048);
+        expect(std::abs(analysis.snapshot().pitchHz - 220) < 3,
+               "a clean quiet microphone must not become a missed note before the user's gain knob");
+    }
+}
+
+void analysisIgnoresQuietBleedAfterAudibleSinging() {
+    AnalysisEngine analysis;
+    analysis.prepare(1, 48000, 48000, GenerationId{13});
+    std::vector<float> samples(2048);
+    for (const auto level : {0.5F, 0.0005F}) {
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+            samples[frame] = level * sineAtFrame(220, frame, 48000);
+        const auto submitted = analysis.snapshot().processedFrames + samples.size();
+        analysis.push(GenerationId{13}, samples, static_cast<std::uint32_t>(samples.size()),
+                      2'000'000'000 + static_cast<MonotonicTicks>(submitted) * 1'000'000'000 / 48000);
+        waitForProcessedFrames(analysis, submitted);
+    }
+    const auto history = analysis.pitchHistory();
+    expect(history.size() == 2 && history.front().audioActive && !history.back().audioActive &&
+               history.back().pitchHz == 0,
+           "residual periodic bleed below the singer's audible range is neither a note nor an entry");
+}
+
+void analysisKeepsUnpitchedConsonantsAfterQuietSinging() {
+    AnalysisEngine analysis;
+    analysis.prepare(1, 48000, 48000, GenerationId{14});
+    std::vector<float> samples(2048);
+    std::uint32_t noise = 12345;
+    for (std::uint32_t block = 0; block <= 80; ++block) {
+        for (std::size_t frame = 0; frame < samples.size(); ++frame) {
+            noise = noise * 1664525U + 1013904223U;
+            samples[frame] = block < 80 ? 0.02F * sineAtFrame(220, frame, 48000)
+                : (static_cast<float>(noise >> 8U) / 8388607.5F - 1.0F) * 0.008F;
+        }
+        const auto submitted = static_cast<std::uint64_t>(block + 1) * samples.size();
+        analysis.push(GenerationId{14}, samples, static_cast<std::uint32_t>(samples.size()),
+                      2'000'000'000 + static_cast<MonotonicTicks>(block) * 2048 * 1'000'000'000 / 48000);
+        waitForProcessedFrames(analysis, submitted);
+    }
+    const auto history = analysis.pitchHistory();
+    expect(!history.empty() && history.back().pitchHz == 0 && history.back().audioActive,
+           "sustained quiet singing cannot become the noise floor and erase subsequent consonants");
+}
+
+void analysisSeparatesVoicePitchFromOutOfRangeNoise() {
+    for (const auto rate : {44100U, 48000U, 96000U}) {
+        AnalysisEngine analysis;
+        analysis.prepare(1, rate, rate, GenerationId{15});
+        const auto frames = static_cast<std::uint32_t>(std::ceil(2048.0 * rate / 48000));
+        std::vector<float> samples(frames);
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+            samples[frame] = 0.05F * sineAtFrame(220, frame, rate) + 0.3F * sineAtFrame(6000, frame, rate);
+        analysis.push(GenerationId{15}, samples, frames);
+        waitForProcessedFrames(analysis, frames);
+        expect(std::abs(analysis.snapshot().pitchHz - 220) < 6,
+               "high-frequency breath and device noise cannot replace the singer's fundamental");
+    }
 }
 } // namespace Tests

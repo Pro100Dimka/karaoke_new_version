@@ -50,8 +50,8 @@ class VocalPitchExtractor:
         self._settings = settings
         self._resources = resources
         self._workspaces = workspaces
-        self._admitted: ContextVar[tuple[AiProvider, AiProvider, ResourceLease] | None] = ContextVar(
-            "vocal_analysis_resources", default=None
+        self._admitted: ContextVar[tuple[AiProvider, AiProvider, ResourceLease] | None] = (
+            ContextVar("vocal_analysis_resources", default=None)
         )
 
     @contextmanager

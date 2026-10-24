@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AnalysisDto, RecordingDto, SongDto } from "../../contracts/models";
-import type { StudioMasterProgress } from "../../contracts/clients";
+import type { RecordingAnalysisProgress, StudioMasterProgress } from "../../contracts/clients";
 import { useSongRecordings } from "./useSongRecordings";
 
 const ports = vi.hoisted(() => ({
@@ -27,6 +27,30 @@ const analysis = (song: SongDto): AnalysisDto => ({
 });
 
 describe("recording dialog ownership", () => {
+  it("ignores old progress and completion when the same take has a newer request", async () => {
+    const jobs: { progress: (value: RecordingAnalysisProgress) => void; finish: (value: AnalysisDto) => void }[] = [];
+    ports.analyzeRecording.mockImplementation((_id, progress) => new Promise((finish) => jobs.push({ progress, finish })));
+    const { result } = renderHook(() => useSongRecordings([first], true, vi.fn()));
+    let older!: Promise<void>, newer!: Promise<void>;
+    act(() => { older = result.current.analyze(take(first), true); });
+    await waitFor(() => expect(jobs).toHaveLength(1));
+    act(() => { newer = result.current.analyze(take(first), true); });
+    await waitFor(() => expect(jobs).toHaveLength(2));
+    const update = { recordingId: take(first).id, jobId: "new", state: "Running", stage: "Scoring", progress: 50 };
+    act(() => jobs[1]!.progress(update));
+    act(() => jobs[0]!.progress({ ...update, jobId: "old", progress: 99 }));
+    expect(result.current.analysisProgress[take(first).id]?.jobId).toBe("new");
+    await act(async () => { jobs[0]!.finish(analysis(first)); await older; });
+    expect(result.current.analysisProgress[take(first).id]?.jobId).toBe("new");
+    await act(async () => { jobs[1]!.finish(analysis(first)); await newer; });
+  });
+  it("does not report an intentionally cancelled analysis as a failure", async () => {
+    ports.analyzeRecording.mockRejectedValue({ code: "JobCancelled", message: "Cancelled", source: "python" });
+    const { result } = renderHook(() => useSongRecordings([first], true, vi.fn()));
+    await act(() => result.current.analyze(take(first), true));
+    expect(result.current.analysisFailures[take(first).id]).toBeUndefined();
+    expect(ports.notify).not.toHaveBeenCalled();
+  });
   it("opens a stored result immediately without starting another analysis", async () => {
     ports.latestAnalysis.mockResolvedValue(analysis(first));
     const { result } = renderHook(() => useSongRecordings([first], true, vi.fn()));

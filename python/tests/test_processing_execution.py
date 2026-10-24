@@ -38,7 +38,8 @@ class ExecutionTrackingProvider(FakeAiProvider):
         self.alignment_audio = (args[0], kwargs.get("instrumental"))
         self.alignment_audio_info = tuple(
             (sf.info(path).frames, sf.info(path).samplerate)
-            for path in self.alignment_audio if path is not None
+            for path in self.alignment_audio
+            if path is not None
         )
         return super().align(*args, **kwargs)
 
@@ -106,8 +107,11 @@ def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyP
 @pytest.mark.parametrize("realign", [False, True])
 def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initial_report(realign):
     current = BackendSettings(
-        2, compute_mode=ComputeMode.CUDA, cpu_threads=2,
-        selected_pitch_provider="unavailable-local", selected_alignment_provider="unavailable-local",
+        2,
+        compute_mode=ComputeMode.CUDA,
+        cpu_threads=2,
+        selected_pitch_provider="unavailable-local",
+        selected_alignment_provider="unavailable-local",
         processing_backend=ProcessingBackend.KAGGLE,
     )
     settings = Mock()
@@ -130,7 +134,11 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
         expected.append(call(AiCapability.ALIGNMENT, "kaggle-p100"))
     assert resolver.execute.call_args_list == expected
     resources.claim_provider.assert_called_once_with(
-        remote, 42, ComputeMode.CPU, cpu_threads=2, additional_providers=(remote,) if realign else ()
+        remote,
+        42,
+        ComputeMode.CPU,
+        cpu_threads=2,
+        additional_providers=(remote,) if realign else (),
     )
     assert jobs.start.call_args.kwargs["initial_report"]["processingBackend"] == "Kaggle"
 

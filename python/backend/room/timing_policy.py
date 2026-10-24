@@ -129,7 +129,11 @@ class RoomTiming:
 def eligibility(route: TimedRoute, policy: RoomTimingPolicy = ROOM_TIMING) -> EligibilityReason:
     if not route.voice_timing_ready:
         return EligibilityReason.TIMING_NOT_MEASURED
-    limit = policy.maximum_idle_delay_ms if route.voice_route == "direct" else policy.eligibility_limit_ms
+    limit = (
+        policy.maximum_idle_delay_ms
+        if route.voice_route == "direct"
+        else policy.eligibility_limit_ms
+    )
     if route.voice_latency_ms > limit:
         return EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
     return EligibilityReason.ELIGIBLE
@@ -150,15 +154,7 @@ def select_room_timing(
     song_selected: bool,
     policy: RoomTimingPolicy = ROOM_TIMING,
 ) -> RoomTiming:
-    """
-    One deadline for the room and the relay's return reserve.
-
-    The deadline covers the slowest live listener's whole route, and also the latest measured
-    arrival of a voice at the relay plus the slowest live listener's return route, because the
-    relay closes every position once for all listeners. Routes beyond the live limit are left out: they get an
-    eligibility reason instead of raising the room. The result is packet aligned and bounded by the
-    policy's minimum and maximum.
-    """
+    """Select one bounded, packet-aligned deadline and return reserve before singing."""
     routes = list(connected)
     fallback = policy.return_requirement.fallback_ms
     if not routes:
@@ -169,29 +165,27 @@ def select_room_timing(
         return RoomTiming(ceiling, reserve, TimingSource.AWAITING_ROUTES)
     if not song_selected:
         return _idle_timing(routes, policy)
-    # A bilateral direct duet has no relay collection/return stages. Its measured whole
-    # path already includes capture, delivery and the listener's output submission lead.
-    # Keep the relay's fallback reserve separate; never invent zero-valued relay samples.
+    # Direct route measurements include capture/delivery/output; no measured relay reserve exists.
     if len(routes) == 2 and all(
         route.voice_route == "direct" and route.voice_route_calibrated for route in routes
     ):
         return RoomTiming(
-            _packet_aligned(max(route.voice_latency_ms for route in routes),
-                            replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)),
-            fallback, TimingSource.MEASURED,
+            _packet_aligned(
+                max(route.voice_latency_ms for route in routes),
+                replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms),
+            ),
+            fallback,
+            TimingSource.MEASURED,
         )
     live = [route for route in routes if eligibility(route, policy) is EligibilityReason.ELIGIBLE]
     if not live:
-        # Falling back to the minimum here would make every packet late, so no route could ever
-        # recover; keep the safest bounded deadline instead.
+        # The minimum would make every packet late and prevent recovery.
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.NO_ELIGIBLE_ROUTE)
     whole_route = max(route.voice_latency_ms for route in live)
     if not _returns_measured(live):
-        # Song timing is fixed at start. Keep the available headroom during calibration rather
-        # than locking in an unrepresentative first route sample.
+        # Freeze safe headroom at start while route samples are unrepresentative.
         return RoomTiming(policy.maximum_room_delay_ms, fallback, TimingSource.RETURN_CALIBRATING)
-    # Choose the measured budget before singing; the room freezes it for the performance.
-    # A later slow route must meet that deadline or leave the live mix, never inflate it.
+    # Freeze this measured deadline; later slow streams must leave the mix.
     return _measured_timing(live, whole_route, policy)
 
 

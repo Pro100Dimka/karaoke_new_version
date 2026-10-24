@@ -88,16 +88,23 @@ def test_generated_reprocessing_preserves_legacy_edits_without_manifest_checksum
         before = client.get(editor_path).json()
         if manual:
             before["document"]["words"][0]["notes"][0]["note"] = 70
-            saved = client.put(editor_path, json={
-                "expectedRevision": before["revision"], "document": before["document"],
-            })
+            saved = client.put(
+                editor_path,
+                json={
+                    "expectedRevision": before["revision"],
+                    "document": before["document"],
+                },
+            )
             assert saved.status_code == 200, saved.text
         before = client.get(editor_path).json()
         project = root / "songs" / song["songId"] / "revisions" / str(before["revision"])
         manifest_path = project / "manifest.json"
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        manifest["artifacts"] = [item for item in manifest["artifacts"]
-                                 if baseline or item["logicalName"] != "lyricsBaseline"]
+        manifest["artifacts"] = [
+            item
+            for item in manifest["artifacts"]
+            if baseline or item["logicalName"] != "lyricsBaseline"
+        ]
         for item in manifest["artifacts"]:
             if item["logicalName"] in {"lyricsSync", "lyricsBaseline"}:
                 item["checksum"] = None
@@ -116,7 +123,9 @@ def test_generated_reprocessing_preserves_legacy_edits_without_manifest_checksum
             assert job["state"] == "Succeeded", job
             assert client.get(editor_path).json()["revision"] == before["revision"] + 1
         if manual and baseline:
-            reset = client.post(f"{editor_path}/reset", json={"expectedRevision": before["revision"]})
+            reset = client.post(
+                f"{editor_path}/reset", json={"expectedRevision": before["revision"]}
+            )
             assert reset.status_code == 200, reset.text
             restarted = client.post(f"/songs/{song['songId']}/processing/lyrics")
             assert wait_for_job(client, restarted.json()["jobId"])["state"] == "Succeeded"

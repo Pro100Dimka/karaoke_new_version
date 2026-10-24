@@ -63,14 +63,13 @@ class ReprocessMelody:
         settings = self._settings.execute()
         provider = self._preflight.resolve(settings, AiCapability.PITCH)
         alignment = (
-            self._preflight.resolve(settings, AiCapability.ALIGNMENT)
-            if realign_lyrics
-            else None
+            self._preflight.resolve(settings, AiCapability.ALIGNMENT) if realign_lyrics else None
         )
         lease = self._resources.claim_provider(
             provider,
             self._pipeline.resource_size(inputs),
-            ComputeMode.CPU if provider_backend(provider) is ProcessingBackend.KAGGLE
+            ComputeMode.CPU
+            if provider_backend(provider) is ProcessingBackend.KAGGLE
             else settings.compute_mode,
             cpu_threads=settings.cpu_threads,
             additional_providers=(alignment,) if alignment else (),
@@ -100,6 +99,8 @@ class ReprocessMelody:
                 entity_id=song_id,
                 correlation_id=correlation_id,
                 initial_report={
+                    "songTitle": inputs.song.title,
+                    "songArtist": inputs.song.artist,
                     "processingBackend": provider_backend(provider).value,
                     "timingOperation": "lyrics" if alignment else "melody",
                 },

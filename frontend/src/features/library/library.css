@@ -240,3 +240,5 @@
   gap: var(--ad-space-4);
   padding: var(--ad-space-10) clamp(1rem, 3vw, 2.5rem);
 }
+
+.songSettingsCover { inline-size: min(100%, 18rem); max-block-size: 15rem; object-fit: contain; border-radius: var(--ad-radius); }

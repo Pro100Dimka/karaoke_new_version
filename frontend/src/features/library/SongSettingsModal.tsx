@@ -9,6 +9,7 @@ import {
   MessageBar,
   NumberField,
   Select,
+  SplitButton,
   TextField,
   useForm,
 } from "@neo-ui-kit/react";
@@ -24,7 +25,7 @@ import {
   saveSongPreferences,
   type VocalRange,
 } from "../../application/library/songPreferences";
-import { detectedSongMetadata } from "./songMetadataPresentation";
+import { detectedSongMetadata, languageLabels } from "./songMetadataPresentation";
 
 interface Props {
   song: SongDto | null;
@@ -36,7 +37,6 @@ interface Props {
   onDelete(song: SongDto): void;
 }
 
-const languages: SongLanguage[] = ["Auto", "Ukrainian", "Russian", "English"];
 const ranges = [
   "auto",
   "octave",
@@ -74,7 +74,7 @@ const SongSettingsForm = ({
   const t = useText();
   const files = useLibraryFiles();
   const status = songStatusPresentation[song.status];
-  const coverState = t(coverLabel[song.coverState]);
+  const coverState = t(song.artworkUrl && song.coverState === "Fallback" ? "coverOnline" : coverLabel[song.coverState]);
   const detected = detectedSongMetadata(song);
   const busy = song.status === "queued" || song.status === "processing";
 
@@ -147,7 +147,7 @@ const SongSettingsForm = ({
           <Select<SongLanguage>
             label={t("songLanguage")}
             value={form.values.language}
-            options={languages}
+            options={Object.entries(languageLabels).map(([value, label]) => ({ value: value as SongLanguage, label: t(label) }))}
             onValueChange={set("language")}
           />
           <TextField
@@ -171,6 +171,8 @@ const SongSettingsForm = ({
             label={t("videoUrl")}
             value={form.values.videoUrl}
             onValueChange={set("videoUrl")}
+            placeholder={song.videoUrl}
+            description={t(song.videoUrl ? "discoveredVideoHelp" : "videoOverrideHelp")}
           />
           <NumberField
             label={t("defaultKey")}
@@ -199,6 +201,7 @@ const SongSettingsForm = ({
             onValueChange={set("vocalRange")}
           />
         </Grid>
+        {song.artworkUrl && <img className="songSettingsCover" src={song.artworkUrl} alt={`${song.artist} — ${song.title}`} />}
         <KeyValueList
           items={[
             [t("detectedTempoLabel"), String(detected.bpm)],
@@ -210,27 +213,6 @@ const SongSettingsForm = ({
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
         <MessageBar tone="info">{t("realignLyricsHelp")}</MessageBar>
         <div className="songSettingsActions">
-          {(song.detectedBpm !== undefined || song.detectedKey) && (
-            <Button
-              size="sm"
-              icon="reset"
-              onClick={() => {
-                form.setValue("defaultKey", 0);
-                form.setValue("defaultSpeed", 1);
-              }}
-            >
-              {t("useDetectedValue")}
-            </Button>
-          )}
-          {song.coverState === "Custom" && (
-            <Button
-              size="sm"
-              icon="photo"
-              onClick={() => void onRemoveCover(song)}
-            >
-              {t("removeCustomCover")}
-            </Button>
-          )}
           <Button
             size="sm"
             icon="note"
@@ -242,27 +224,21 @@ const SongSettingsForm = ({
           >
             {t("melodyEditor")}
           </Button>
-          <Button size="sm" icon="folder" onClick={() => onOpenFolder(song)}>
+          <Button size="sm" icon="wave" disabled={song.status !== "ready"}
+            onClick={() => onReprocess(song, "lyrics")}>
+            {t("realignLyrics")}
+          </Button>
+          <SplitButton size="sm" icon="folder" label={t("openFolder")} onClick={() => onOpenFolder(song)}
+            items={[
+              { id: "reprocess", label: t("reprocess"), disabled: busy, onSelect: () => onReprocess(song) },
+              ...(song.detectedBpm !== undefined || song.detectedKey ? [{ id: "detected", label: t("useDetectedValue"),
+                onSelect: () => { form.setValue("defaultKey", 0); form.setValue("defaultSpeed", 1); } }] : []),
+              ...(song.coverState === "Custom" ? [{ id: "cover", label: t("removeCustomCover"), onSelect: () => void onRemoveCover(song) }] : []),
+              { id: "separator", separator: true },
+              { id: "delete", label: t("deleteSong"), icon: "trash", danger: true, disabled: busy, onSelect: () => onDelete(song) },
+            ]}>
             {t("openFolder")}
-          </Button>
-          {([
-            { label: "reprocess", mode: undefined, disabled: busy },
-            { label: "realignLyrics", mode: "lyrics", disabled: song.status !== "ready" },
-          ] as const).map(({ label, mode, disabled }) => (
-            <Button key={label} size="sm" icon="wave" disabled={disabled}
-              onClick={() => onReprocess(song, mode)}>
-              {t(label)}
-            </Button>
-          ))}
-          <Button
-            size="sm"
-            variant="danger"
-            icon="trash"
-            disabled={busy}
-            onClick={() => onDelete(song)}
-          >
-            {t("deleteSong")}
-          </Button>
+          </SplitButton>
           <Button
             type="submit"
             variant="primary"

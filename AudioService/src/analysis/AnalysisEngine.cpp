@@ -102,50 +102,71 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std
     mean /= frames;
     std::vector<double> centred(frames);
     std::vector<double> energyPrefix(static_cast<std::size_t>(frames) + 1U, 0.0);
+    // A centred moving average removes out-of-range breath/hiss before correlation, without
+    // shifting the capture-window timestamp. The first zero is about 3 kHz at every device rate.
+    const auto radius = std::max(1U, sampleRateHz / 6000U);
+    const auto sampleAt = [&](std::int64_t frame) {
+        const auto bounded = std::clamp<std::int64_t>(frame, 0, frames - 1U);
+        return samples[static_cast<std::size_t>(bounded) * channels];
+    };
+    double runningSum = 0;
+    for (auto frame = -static_cast<std::int64_t>(radius); frame <= radius; ++frame)
+        runningSum += sampleAt(frame);
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        centred[frame] = samples[static_cast<std::size_t>(frame) * channels] - mean;
+        centred[frame] = runningSum / (2U * radius + 1U) - mean;
         energyPrefix[frame + 1U] = energyPrefix[frame] + centred[frame] * centred[frame];
+        runningSum += sampleAt(static_cast<std::int64_t>(frame) + radius + 1U) -
+                      sampleAt(static_cast<std::int64_t>(frame) - radius);
     }
     const auto energy = energyPrefix.back();
-    if (energy / frames < 1.0e-5)
+    if (energy / frames < 1.0e-8)
         return 0.0F;
 
-    std::uint32_t bestLag = 0;
-    double bestCorrelation = -1.0;
-    std::vector<double> correlations(static_cast<std::size_t>(maximumLag) + 1U, -1.0);
-    for (std::uint32_t lag = minimumLag; lag <= maximumLag; ++lag) {
+    std::vector<double> correlations(static_cast<std::size_t>(maximumLag) + 2U, -1.0);
+    for (std::uint32_t lag = 0; lag <= maximumLag + 1; ++lag) {
         double correlation = 0.0;
         for (std::uint32_t frame = lag; frame < frames; ++frame) {
             correlation += centred[frame] * centred[frame - lag];
         }
         const auto currentEnergy = energyPrefix[frames] - energyPrefix[lag];
         const auto delayedEnergy = energyPrefix[frames - lag];
-        const auto denominator = std::sqrt(currentEnergy * delayedEnergy);
-        const auto normalized = denominator > 1.0e-12 ? correlation / denominator : 0.0;
+        const auto denominator = currentEnergy + delayedEnergy;
+        const auto normalized = denominator > 1.0e-12 ? 2.0 * correlation / denominator : 0.0;
         correlations[lag] = normalized;
-        if (normalized > bestCorrelation) {
-            bestCorrelation = normalized;
-            bestLag = lag;
+    }
+    // McLeod/Wyvill NSDF key maxima: one strongest peak per positive lobe, after the initial lobe.
+    // Taking the first small noisy peak inside a lobe systematically sharpens breathy voices.
+    std::vector<std::uint32_t> peaks;
+    bool initialLobe = true;
+    std::uint32_t peak = 0;
+    for (std::uint32_t lag = 1; lag <= maximumLag; ++lag) {
+        if (initialLobe) {
+            initialLobe = correlations[lag] > 0;
+            continue;
+        }
+        if (correlations[lag] <= 0) {
+            if (peak != 0) peaks.push_back(peak);
+            peak = 0;
+        } else if (lag >= minimumLag && correlations[lag] >= correlations[lag - 1] &&
+                   correlations[lag] >= correlations[lag + 1] &&
+                   (peak == 0 || correlations[lag] > correlations[peak])) {
+            peak = lag;
         }
     }
-    // Noise always has some accidental positive maximum. Requiring a strong periodic correlation
-    // keeps fan noise, consonants and backing-track bleed from producing arbitrary green karaoke
-    // notes.
-    if (bestLag == 0 || bestCorrelation < 0.6)
-        return 0.0F;
-
-    // Prefer the first strong local peak. The global maximum often occurs at a later multiple of
-    // the period; selecting that multiple would report a subharmonic and make the marker jump by an
-    // octave.
+    if (peak != 0) peaks.push_back(peak);
+    double bestCorrelation = 0;
+    for (const auto lag : peaks) bestCorrelation = std::max(bestCorrelation, correlations[lag]);
+    if (bestCorrelation < 0.35) return 0.0F;
     const auto strongPeak = bestCorrelation * 0.92;
-    auto selectedLag = bestLag;
-    for (auto lag = minimumLag + 1U; lag < bestLag; ++lag) {
-        if (correlations[lag] >= strongPeak && correlations[lag] >= correlations[lag - 1U] &&
-            correlations[lag] >= correlations[lag + 1U]) {
+    std::uint32_t selectedLag = 0;
+    for (const auto lag : peaks) {
+        if (correlations[lag] >= strongPeak) {
             selectedLag = lag;
             break;
         }
     }
+    // A monotone correlation slope is drift, not a period; never use the search boundary as a pitch.
+    if (selectedLag == 0) return 0.0F;
 
     double refinedLag = selectedLag;
     if (selectedLag > minimumLag && selectedLag < maximumLag) {
@@ -162,8 +183,16 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std
 
 void AnalysisEngine::workerMain() noexcept {
     const auto channels = channels_.load(std::memory_order_acquire);
-    std::vector<float> scratch(static_cast<std::size_t>(AnalysisWindowFrames) * channels);
-    std::array<MonotonicTicks, AnalysisWindowFrames> captureTimes{};
+    const auto rate = sampleRateHz_.load(std::memory_order_acquire);
+    const auto windowFrames = std::max(4U, static_cast<std::uint32_t>(
+        std::ceil(static_cast<double>(AnalysisWindowFrames) * rate / 48000)));
+    std::vector<float> scratch(static_cast<std::size_t>(windowFrames) * channels);
+    std::vector<MonotonicTicks> captureTimes(windowFrames);
+    // Match the reference track's 30 dB audible range, using a causal rolling 95th percentile.
+    // A sustained quiet voice must not be learned as noise; one click must not set the gate either.
+    const auto levelWindow = std::max(1U, rate * 10U / windowFrames);
+    std::vector<float> levels(levelWindow), sortedLevels(levelWindow);
+    std::uint32_t levelIndex = 0, levelCount = 0;
 
     for (;;) {
         const auto sequence = wakeSequence_.load(std::memory_order_acquire);
@@ -173,19 +202,27 @@ void AnalysisEngine::workerMain() noexcept {
         // makes an ordinary 100-300 Hz singing voice mathematically impossible to detect because
         // the correlation window is shorter than even one useful period. Keep those callback blocks
         // in the queue until one complete analysis window is available.
-        if (queue_.availableFrames() < AnalysisWindowFrames) {
+        if (queue_.availableFrames() < windowFrames) {
             wakeSequence_.wait(sequence, std::memory_order_acquire);
             continue;
         }
 
         const auto workGeneration = generation_.load(std::memory_order_acquire);
-        const auto frames = queue_.pop(scratch, AnalysisWindowFrames, {}, nullptr, captureTimes);
+        const auto frames = queue_.pop(scratch, windowFrames, {}, nullptr, captureTimes);
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleFrames_.fetch_add(frames, std::memory_order_relaxed);
             continue;
         }
         const auto count = static_cast<std::size_t>(frames) * channels;
         metrics_.observe(std::span<const float>{scratch.data(), count});
+        const auto rms = metrics_.snapshot().rms;
+        levels[levelIndex] = rms;
+        levelIndex = (levelIndex + 1U) % levelWindow;
+        levelCount = std::min(levelCount + 1U, levelWindow);
+        std::copy_n(levels.begin(), levelCount, sortedLevels.begin());
+        const auto percentile = sortedLevels.begin() + (levelCount * 95U + 99U) / 100U - 1U;
+        std::nth_element(sortedLevels.begin(), percentile, sortedLevels.begin() + levelCount);
+        const auto audioActive = rms > std::max(0.0001F, *percentile * 0.031622777F);
 
         std::uint64_t crossings = 0;
         for (std::uint32_t frame = 1; frame < frames; ++frame) {
@@ -197,13 +234,13 @@ void AnalysisEngine::workerMain() noexcept {
         const auto zeroCrossingRate =
             frames > 1 ? static_cast<float>(crossings) / static_cast<float>(frames - 1U) : 0.0F;
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
-        const auto pitch = estimatePitch(scratch, frames, channels, sampleRateHz_.load(std::memory_order_relaxed));
+        const auto pitch = audioActive ? estimatePitch(scratch, frames, channels, rate) : 0.0F;
         {
             std::lock_guard lock(pitchMutex_);
             if (workGeneration != generation_.load(std::memory_order_acquire)) continue;
             pitchHz_.store(pitch, std::memory_order_relaxed);
             if (frames != 0 && captureTimes[frames / 2] > 0) {
-                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch});
+                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch, audioActive});
                 while (pitchHistory_.size() > 64) pitchHistory_.pop_front();
             }
         }

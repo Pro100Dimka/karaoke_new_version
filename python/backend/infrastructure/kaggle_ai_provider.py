@@ -50,11 +50,7 @@ def _room_server_base_url() -> str:
 
 
 class KaggleAiProvider(AiProvider):
-    """Calls the user's private Kaggle notebook through its authenticated Gradio API.
-
-    Separation uploads the source once. The notebook keeps the vocal under an opaque
-    session id, so alignment and pitch do not upload that large file again.
-    """
+    """Authenticated Gradio client; an opaque session reuses the uploaded vocal for alignment/pitch."""
 
     def __init__(
         self,
@@ -170,8 +166,9 @@ class KaggleAiProvider(AiProvider):
         del execution
         hints = dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints])
         result = self._json_result(
-            self._invoke_vocal("/align", vocal, cancel, lyrics, language.value, hints,
-                               instrumental=instrumental)
+            self._invoke_vocal(
+                "/align", vocal, cancel, lyrics, language.value, hints, instrumental=instrumental
+            )
         )
         values = result.get("words")
         if not isinstance(values, list):
@@ -224,15 +221,22 @@ class KaggleAiProvider(AiProvider):
             except ValueError:
                 code = None
             if code == "KaggleSessionExpired":
-                return DependencyError(code, "The remote vocal session expired", providerId=_PROVIDER_ID)
+                return DependencyError(
+                    code, "The remote vocal session expired", providerId=_PROVIDER_ID
+                )
         return DependencyError(
             "KaggleUnavailable",
             "Kaggle GPU notebook is unavailable. Start the notebook; its address is detected automatically.",
-            providerId=_PROVIDER_ID, reason=type(error).__name__,
+            providerId=_PROVIDER_ID,
+            reason=type(error).__name__,
         )
 
     def _invoke_vocal(
-        self, api_name: str, vocal: Path, cancel: threading.Event, *arguments: object,
+        self,
+        api_name: str,
+        vocal: Path,
+        cancel: threading.Event,
+        *arguments: object,
         instrumental: Path | None = None,
     ) -> object:
         session = self._session(vocal, cancel, instrumental)
@@ -245,7 +249,9 @@ class KaggleAiProvider(AiProvider):
             cached = self._sessions.get(vocal.resolve())
             if cached is not None and cached[0] == session:
                 self._sessions.pop(vocal.resolve())
-        return self._invoke(api_name, cancel, self._session(vocal, cancel, instrumental), *arguments)
+        return self._invoke(
+            api_name, cancel, self._session(vocal, cancel, instrumental), *arguments
+        )
 
     def _client(self, *, allow_start: bool = True, cancel: threading.Event | None = None) -> Client:
         settings = self._settings()
@@ -334,9 +340,7 @@ class KaggleAiProvider(AiProvider):
 
     def _connect(self, url: str, token: str) -> Client:
         try:
-            # Gradio's default HTTP timeout is too short for uploading a full song or
-            # downloading two lossless WAV stems over a share tunnel. The queued GPU
-            # call itself is asynchronous, but its file transfers use this timeout.
+            # Full-song lossless transfers through the tunnel exceed Gradio's default HTTP timeout.
             generation = (url, token, self._health_generation(url, token))
             with self._lock:
                 if self._session_generation != generation:
@@ -370,14 +374,21 @@ class KaggleAiProvider(AiProvider):
 
     def _health_generation(self, url: str, token: str) -> str:
         probe = Client(
-            url, auth=("advoice", token), verbose=False,
+            url,
+            auth=("advoice", token),
+            verbose=False,
             httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
         )
         health = self._json_result(probe.predict(api_name="/health"))
         generation = health.get("sessionGeneration")
-        if health.get("protocolVersion") != _PROTOCOL_VERSION or not isinstance(generation, str) or not generation:
+        if (
+            health.get("protocolVersion") != _PROTOCOL_VERSION
+            or not isinstance(generation, str)
+            or not generation
+        ):
             raise DependencyError(
-                "KaggleProtocolMismatch", "The Kaggle notebook version does not match this application"
+                "KaggleProtocolMismatch",
+                "The Kaggle notebook version does not match this application",
             )
         return generation
 
@@ -390,7 +401,9 @@ class KaggleAiProvider(AiProvider):
                 "KaggleClientUnavailable", "Gradio client is not installed"
             ) from exc
 
-    def _session(self, vocal: Path, cancel: threading.Event, instrumental: Path | None = None) -> str:
+    def _session(
+        self, vocal: Path, cancel: threading.Event, instrumental: Path | None = None
+    ) -> str:
         _ensure_not_cancelled(cancel)
         while not self._session_lock.acquire(timeout=0.2):
             _ensure_not_cancelled(cancel)
@@ -401,8 +414,12 @@ class KaggleAiProvider(AiProvider):
             with self._lock:
                 session = self._sessions.get(vocal.resolve())
             if session is None or (backing is not None and session[1] != backing):
-                uploaded = self._invoke("/prepare_vocal", cancel, self._handle_file(vocal),
-                                        self._handle_file(instrumental) if instrumental else None)
+                uploaded = self._invoke(
+                    "/prepare_vocal",
+                    cancel,
+                    self._handle_file(vocal),
+                    self._handle_file(instrumental) if instrumental else None,
+                )
                 if not isinstance(uploaded, str) or not uploaded.strip():
                     raise self._invalid("Vocal upload response has no remote session id")
                 session = (uploaded.strip(), backing)
@@ -414,12 +431,10 @@ class KaggleAiProvider(AiProvider):
 
     @staticmethod
     def _file_path(value: object) -> Path:
-        if isinstance(value, str):
-            path = Path(value)
-        elif isinstance(value, Mapping) and isinstance(value.get("path"), str):
-            path = Path(value["path"])
-        else:
+        location = value.get("path") if isinstance(value, Mapping) else value
+        if not isinstance(location, str):
             raise KaggleAiProvider._invalid("Remote audio output is malformed")
+        path = Path(location)
         if not path.is_file():
             raise KaggleAiProvider._invalid("Remote audio output is missing")
         return path
@@ -459,7 +474,8 @@ class KaggleAiProvider(AiProvider):
             float(value["confidence"]),
             tuple(float(item) for item in letters),
             tuple(item for item in diagnostics if isinstance(item, str))
-            if isinstance(diagnostics, list) else (),
+            if isinstance(diagnostics, list)
+            else (),
         )
 
     @staticmethod

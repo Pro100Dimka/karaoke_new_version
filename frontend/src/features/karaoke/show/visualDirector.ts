@@ -177,7 +177,7 @@ export class VisualDirector {
         return;
       case "levelReached":
         if (
-          ["momentum", "onFire", "headliner", "legendary"].includes(
+          ["awakening", "flow", "momentum", "onFire", "headliner", "legendary"].includes(
             event.level,
           ) &&
           this.ready("lightWave", now)
@@ -185,7 +185,7 @@ export class VisualDirector {
           this.schedule(
             "lightWave",
             this.release(now, context, 400),
-            context.energy / 100,
+            Math.max(0.45, context.energy / 100),
           );
         }
         return;
@@ -393,7 +393,7 @@ export interface Ambient {
 /** The long-lived state of the stage for the current energy: it grows with the singer and settles when they stop. */
 /** Beams fade in from energy 30 to 45, then step up with the energy. */
 const beamCount = (energy: number): number => {
-  if (energy < 45) return Math.max(0, (energy - 30) / 15) * 2;
+  if (energy < 45) return Math.max(0, Math.min(1, (energy - 10) / 10)) * 2;
   if (energy < 60) return 2;
   if (energy < 75) return 4;
   return 6;

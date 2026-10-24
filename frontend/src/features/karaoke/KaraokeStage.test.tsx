@@ -3,23 +3,41 @@ import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
+import { KaraokeHeader } from "./KaraokeHeader";
 
 vi.mock("./useSmoothPosition", () => ({ useSmoothPosition: (position: number) => position }));
 
 describe("KaraokeStage", () => {
+  it("does not draw the delayed scalar at the current playhead when capture timestamps are available", () => {
+    const document: EditorDocument = { revision: 1, lyrics: "Sing", words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
+      notes: [{ id: "n", wordId: "w", start: 0, end: 1, pitch: 69 }] };
+    const { container } = render(<AppProvider><KaraokeStage songTitle="Song" position={0.4} playing rate={1}
+      document={document} layers={{ showLyrics: true, showNotes: true }} vocalRange="auto" pitchHz={440}
+      pitchFrames={[{ epoch: 1, sequence: 1, positionSeconds: 0.25, durationSeconds: 0.04, pitchHz: 440 }]} /></AppProvider>);
+    expect(container.querySelector(".ad-melody-voice")).toBeNull();
+    expect(container.querySelector(".ad-melody-trail path")).toBeNull();
+  });
+  it("keeps recording status visible independently of the auto-hidden navigation", () => {
+    render(<AppProvider><KaraokeHeader visible={false} consoleToggle={null} onBack={vi.fn()}
+      recordingStatus={{ label: "Запись · 0:42", active: true }} /></AppProvider>);
+    expect(screen.getByRole("status")).toHaveTextContent("Запись · 0:42");
+    expect(screen.getByRole("status").closest("[data-hidden]")).toBeNull();
+  });
   it("uses delayed capture frames once, rather than scoring the newest scalar at the drawn cursor", async () => {
     const editorDocument: EditorDocument = { revision: 1, lyrics: "Sing", words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
       notes: [{ id: "n", wordId: "w", start: 0, end: 0.1, pitch: 69 }] };
     const onNoteScoreChange = vi.fn();
     const frames = [0.025, 0.075].map((positionSeconds, sequence) => ({ sequence: sequence + 1, epoch: 1,
       positionSeconds, durationSeconds: 0.05, pitchHz: 440 }));
-    const stage = (position: number) => <AppProvider><KaraokeStage songTitle="Song" position={position} playing rate={1}
+    const stage = (position: number, keyShift = 0) => <AppProvider><KaraokeStage songTitle="Song" position={position} playing rate={1} keyShift={keyShift}
       document={editorDocument} layers={{ showLyrics: true, showNotes: true }} vocalRange="auto"
       pitchHz={220 * 2 ** (3 / 12)} pitchFrames={frames} onNoteScoreChange={onNoteScoreChange} /></AppProvider>;
     const view = render(stage(0.4));
     await waitFor(() => expect(onNoteScoreChange).toHaveBeenLastCalledWith(expect.objectContaining({ hitNotes: 1, totalNotes: 1 })));
     const before = onNoteScoreChange.mock.lastCall?.[0];
     view.rerender(stage(0.5));
+    expect(onNoteScoreChange.mock.lastCall?.[0]).toEqual(before);
+    view.rerender(stage(0.6, 3));
     expect(onNoteScoreChange.mock.lastCall?.[0]).toEqual(before);
   });
   it("fades lyrics and melody together before clearing them, then fades the next entry in", () => {
@@ -194,12 +212,12 @@ describe("KaraokeStage", () => {
         document.querySelector(".ad-melody-note[data-hit]"),
       ).not.toBeNull(),
     );
-    expect(onNoteScoreChange).toHaveBeenLastCalledWith({
+    expect(onNoteScoreChange).toHaveBeenLastCalledWith(expect.objectContaining({
       hitNotes: 1,
       totalNotes: 1,
-      rhythmAccuracyPercent: 50,
+      rhythmAccuracyPercent: 100,
       noteStabilityPercent: 100,
-    });
+    }));
   });
 
   it("shows the marker as a hit within a practical one-semitone karaoke tolerance", () => {

@@ -198,8 +198,10 @@ class VoiceRelay(RelayIngress):
                 return False
             if participant_id in self._direct_participants:
                 hosts = []
-                networks = tuple(ipaddress.ip_network(value) for value in
-                                 ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+                networks = tuple(
+                    ipaddress.ip_network(value)
+                    for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+                )
                 for host in local_hosts[:8]:
                     try:
                         address = ipaddress.IPv4Address(host)
@@ -210,14 +212,17 @@ class VoiceRelay(RelayIngress):
                 self._direct_candidates[participant_id] = (local_port, hosts)
             return True
 
-    def direct_ready(self, room_id: str, participant_id: str, token: int,
-                     received_peer_token: int | None) -> bool:
+    def direct_ready(
+        self, room_id: str, participant_id: str, token: int, received_peer_token: int | None
+    ) -> bool:
         """Both authenticated clients must keep reporting fresh reception in this session."""
         with self._lock:
             if not self._owns_locked(room_id, participant_id, token):
                 return False
             members = [value for (room, _key), value in self._sessions.items() if room == room_id]
-            if len(members) != 2 or any(name not in self._direct_participants for name, _ in members):
+            if len(members) != 2 or any(
+                name not in self._direct_participants for name, _ in members
+            ):
                 return False
             other_token = next(value for name, value in members if name != participant_id)
             if received_peer_token == other_token:
@@ -225,7 +230,8 @@ class VoiceRelay(RelayIngress):
             else:
                 self._direct_received.pop(participant_id, None)
             return all(
-                self._direct_received.get(name, (None, 0))[0] == (other_token if name == participant_id else token)
+                self._direct_received.get(name, (None, 0))[0]
+                == (other_token if name == participant_id else token)
                 and 0 <= self._now() - self._direct_received[name][1] <= 3.0
                 for name, _value in members
             )
@@ -234,8 +240,11 @@ class VoiceRelay(RelayIngress):
         if self._participant_endpoint is not None:
             return self._participant_endpoint(room_id, name)
         observed = self._rooms.get(room_id, {}).get(participant_key(name))
-        return (observed.address
-                if observed is not None and 0 <= self._now() - observed.last_seen <= 2.0 else None)
+        return (
+            observed.address
+            if observed is not None and 0 <= self._now() - observed.last_seen <= 2.0
+            else None
+        )
 
     def direct_peers(
         self, room_id: str, participant_id: str, token: int
@@ -244,7 +253,9 @@ class VoiceRelay(RelayIngress):
             if not self._owns_locked(room_id, participant_id, token):
                 return []
             members = [value for (room, _key), value in self._sessions.items() if room == room_id]
-            if len(members) != 2 or any(name not in self._direct_participants for name, _ in members):
+            if len(members) != 2 or any(
+                name not in self._direct_participants for name, _ in members
+            ):
                 return []
             peers = []
             for name, receive_token in members:
@@ -253,11 +264,18 @@ class VoiceRelay(RelayIngress):
                 endpoint = self._direct_endpoint_locked(room_id, name)
                 if endpoint is not None:
                     peer: dict[str, str | int | list[str]] = {
-                        "participant_id": name, "host": endpoint[0], "port": endpoint[1],
-                        "voice_token": f"{receive_token:016x}"}
+                        "participant_id": name,
+                        "host": endpoint[0],
+                        "port": endpoint[1],
+                        "voice_token": f"{receive_token:016x}",
+                    }
                     own_endpoint = self._direct_endpoint_locked(room_id, participant_id)
                     candidate = self._direct_candidates.get(name)
-                    if candidate is not None and own_endpoint is not None and own_endpoint[0] == endpoint[0]:
+                    if (
+                        candidate is not None
+                        and own_endpoint is not None
+                        and own_endpoint[0] == endpoint[0]
+                    ):
                         peer.update(local_port=candidate[0], local_hosts=candidate[1])
                     peers.append(peer)
             return peers

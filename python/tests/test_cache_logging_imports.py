@@ -45,11 +45,15 @@ def test_managed_backend_mirrors_structured_logs_to_stdout(tmp_path: Path) -> No
         logging.getLogger("backend.test").warning("audio device failed")
         mirror = loads_object(output.getvalue().strip())
         stored = loads_object((tmp_path / "backend.log").read_text(encoding="utf-8").strip())
-        assert mirror == stored == {
-            "level": "WARNING",
-            "logger": "backend.test",
-            "message": "audio device failed",
-        }
+        assert (
+            mirror
+            == stored
+            == {
+                "level": "WARNING",
+                "logger": "backend.test",
+                "message": "audio device failed",
+            }
+        )
     finally:
         for handler in root.handlers:
             handler.close()

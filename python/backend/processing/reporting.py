@@ -12,7 +12,8 @@ def alignment_warnings(words: Sequence[WordTiming]) -> tuple[str, ...]:
     warnings = (f"AlignmentApproximate:wordIndices={','.join(approximate)}",) if approximate else ()
     return warnings + tuple(
         f"AlignmentDiagnostic:wordIndex={index};{reason}"
-        for index, word in enumerate(words) for reason in word.diagnostics
+        for index, word in enumerate(words)
+        for reason in word.diagnostics
     )
 
 

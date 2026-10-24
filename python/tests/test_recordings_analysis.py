@@ -76,6 +76,77 @@ def test_recording_registration_is_idempotent_and_paginated(tmp_path: Path) -> N
         assert page.json()["items"][0]["recordingId"] == recording["recordingId"]
 
 
+def test_completed_live_analysis_is_available_without_any_ai_work(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        monkeypatch.setattr(
+            FakeAiProvider, "pitch", lambda *a, **kw: pytest.fail("Unexpected pitch pass")
+        )
+        monkeypatch.setattr(
+            FakeAiProvider, "separate", lambda *a, **kw: pytest.fail("Unexpected separation")
+        )
+        recording = register_recording(
+            client,
+            song,
+            session_metadata={
+                "karaokeNoteScore": {
+                    "version": 1,
+                    "hitNotes": 3,
+                    "totalNotes": 5,
+                    "pitchAccuracyPercent": 61.25,
+                    "meanSemitoneDeviation": 0.42,
+                    "rhythmAccuracyPercent": 72,
+                    "noteStabilityPercent": 88,
+                }
+            },
+        )
+        results = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
+        assert len(results) == 1
+        assert results[0]["state"] == "Succeeded"
+        assert results[0]["pitchAccuracyPercent"] == 61.25
+        assert results[0]["rhythmAccuracyPercent"] == 72
+        assert results[0]["noteStabilityPercent"] == 88
+        assert (
+            client.get(f"/recordings/{recording['recordingId']}").json()["analysisStatus"]
+            == "Succeeded"
+        )
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"version": 0},
+        {"pitchAccuracyPercent": 101},
+        {"meanSemitoneDeviation": -1},
+        {"totalNotes": 0},
+    ],
+)
+def test_incomplete_or_invalid_live_analysis_is_not_presented_as_a_result(
+    tmp_path: Path, changes
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        score = {
+            "version": 1,
+            "hitNotes": 3,
+            "totalNotes": 5,
+            "pitchAccuracyPercent": 61,
+            "meanSemitoneDeviation": 0.4,
+            "rhythmAccuracyPercent": 72,
+            "noteStabilityPercent": 88,
+            **changes,
+        }
+        recording = register_recording(
+            client, ready_song(client, source), session_metadata={"karaokeNoteScore": score}
+        )
+        assert client.get(f"/recordings/{recording['recordingId']}/analyses").json() == []
+
+
 def test_recording_rejects_metadata_mismatch(tmp_path: Path) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
@@ -220,14 +291,18 @@ def test_repeated_analysis_requests_share_the_running_job(tmp_path: Path, monkey
         assert wait_for_job(client, later["jobId"])["state"] == "Succeeded"
 
 
-def test_different_recordings_wait_for_analysis_resources_and_can_cancel_queue(tmp_path: Path, monkeypatch) -> None:
+def test_different_recordings_wait_for_analysis_resources_and_can_cancel_queue(
+    tmp_path: Path, monkeypatch
+) -> None:
     source = tmp_path / "song.wav"
     write_wav(source)
     entered, release = threading.Event(), threading.Event()
     original_pitch = FakeAiProvider.pitch
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         song = ready_song(client, source)
-        takes = [register_recording(client, song, idempotency_key=f"take-{index}") for index in range(3)]
+        takes = [
+            register_recording(client, song, idempotency_key=f"take-{index}") for index in range(3)
+        ]
 
         def blocked_pitch(self, path, cancel, *, execution):
             entered.set()
@@ -240,7 +315,7 @@ def test_different_recordings_wait_for_analysis_resources_and_can_cancel_queue(t
             assert entered.wait(3)
             second = client.post(f"/recordings/{takes[1]['recordingId']}/analysis").json()
             cancelled = client.post(f"/recordings/{takes[2]['recordingId']}/analysis").json()
-            threading.Event().wait(.15)
+            threading.Event().wait(0.15)
             assert client.get(f"/jobs/{second['jobId']}").json()["state"] == "Queued"
             assert client.post(f"/jobs/{cancelled['jobId']}/cancel").status_code == 200
         finally:
@@ -248,6 +323,37 @@ def test_different_recordings_wait_for_analysis_resources_and_can_cancel_queue(t
         assert wait_for_job(client, first["jobId"])["state"] == "Succeeded"
         assert wait_for_job(client, second["jobId"])["state"] == "Succeeded"
         assert wait_for_job(client, cancelled["jobId"])["state"] == "Cancelled"
+
+
+def test_analysis_waits_while_song_processing_owns_the_shared_compute_budget(
+    tmp_path: Path, monkeypatch
+) -> None:
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    entered, release = threading.Event(), threading.Event()
+    original = FakeAiProvider.separate
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        take = register_recording(client, song)
+
+        def blocked(self, *args, **kwargs):
+            entered.set()
+            assert release.wait(5)
+            return original(self, *args, **kwargs)
+
+        monkeypatch.setattr(FakeAiProvider, "separate", blocked)
+        processing = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        ).json()
+        try:
+            assert entered.wait(3)
+            analysis = client.post(f"/recordings/{take['recordingId']}/analysis").json()
+            threading.Event().wait(0.15)
+            assert client.get(f"/jobs/{analysis['jobId']}").json()["state"] == "Queued"
+        finally:
+            release.set()
+        assert wait_for_job(client, processing["jobId"])["state"] == "Succeeded"
+        assert wait_for_job(client, analysis["jobId"])["state"] == "Succeeded"
 
 
 @pytest.mark.parametrize(

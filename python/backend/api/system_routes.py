@@ -121,9 +121,7 @@ def history(
     offset: Annotated[int, Query(ge=0)] = 0,
     types: Annotated[list[str] | None, Query(max_length=20)] = None,
 ) -> HistoryPageDto:
-    return _history_page(
-        app.system.history.execute(limit=limit, offset=offset, event_types=types)
-    )
+    return _history_page(app.system.history.execute(limit=limit, offset=offset, event_types=types))
 
 
 @router.get("/jobs", response_model=JobPageDto)

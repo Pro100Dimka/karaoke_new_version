@@ -88,7 +88,7 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
         return;
       }
       const [next, ...rest] = current.queue;
-      if (next) setTv({ songId: next.id, mode: "AutoStart", queue: rest });
+      if (next) setTv({ songId: next.id, mode: next.rehearsal ? "Rehearsal" : "AutoStart", queue: rest });
       else endTv();
       if (analysis) navigate(routes.library, { state: analysis, replace: true });
     },
@@ -106,7 +106,7 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
     const queue = queueWith(current.queue, song, when);
     const finish = when === "now" ? controls.current?.finish : null;
     // Right away: the current song ends as with Stop (its take is kept) and the queue moves on.
-    if (when === "now" && !finish) setTv({ songId: song.id, mode: "AutoStart", queue: queue.slice(1) });
+    if (when === "now" && !finish) setTv({ songId: song.id, mode: song.rehearsal ? "Rehearsal" : "AutoStart", queue: queue.slice(1) });
     else setTv({ ...current, queue });
     if (finish) void finish();
   }, []);

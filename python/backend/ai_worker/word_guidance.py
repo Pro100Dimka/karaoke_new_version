@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
+import difflib
 from difflib import SequenceMatcher
 
 import numpy as np
@@ -382,3 +383,49 @@ def _compatible(
     return left.start < right.start and ctc._implausible(
         [ctc.ordered([left, right])[0]], voiced
     ) <= ctc._implausible([original], voiced)
+
+
+def _key(text: str) -> str:
+    return "".join(character for character in text.lower() if character.isalnum())
+
+
+def _matching_blocks(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[ctc.AlignedWord] | None = None,
+) -> list[difflib.Match]:
+    keys = [_key(word) for word in words]
+    heard_keys = [item[0] for item in heard]
+    if whole is None:
+        return difflib.SequenceMatcher(a=keys, b=heard_keys, autojunk=False).get_matching_blocks()
+    # Soft CTC timing disambiguates repeated choruses when ASR misses an occurrence.
+    scores = np.zeros((len(words) + 1, len(heard) + 1))
+    for i in range(len(words) - 1, -1, -1):
+        for j in range(len(heard) - 1, -1, -1):
+            match = (
+                scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+                if keys[i] == heard_keys[j]
+                else 0.0
+            )
+            scores[i, j] = max(scores[i + 1, j], scores[i, j + 1], match)
+    blocks: list[difflib.Match] = []
+    i, j = 0, 0
+    while i < len(words) and j < len(heard):
+        if keys[i] == heard_keys[j] and scores[i, j] == (
+            scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+        ):
+            if (
+                blocks
+                and blocks[-1].a + blocks[-1].size == i
+                and blocks[-1].b + blocks[-1].size == j
+            ):
+                previous = blocks[-1]
+                blocks[-1] = difflib.Match(previous.a, previous.b, previous.size + 1)
+            else:
+                blocks.append(difflib.Match(i, j, 1))
+            i, j = i + 1, j + 1
+        elif scores[i + 1, j] >= scores[i, j + 1]:
+            i += 1
+        else:
+            j += 1
+    return blocks

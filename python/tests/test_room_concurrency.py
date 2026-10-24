@@ -14,11 +14,13 @@ _READY_REPORTS = ("host", "g1", "g2")
 
 def test_concurrent_readiness_reports_are_never_lost(monkeypatch) -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()[
-            "roomId"
-        ]
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
         for guest in ("g1", "g2"):
-            client.post(f"/rooms/{room_id}/join", json={"participantId": guest, "displayName": guest})
+            client.post(
+                f"/rooms/{room_id}/join", json={"participantId": guest, "displayName": guest}
+            )
         client.post(
             f"/rooms/{room_id}/song",
             json={"participantId": "host", "songId": "song", "revision": 1},
@@ -64,4 +66,3 @@ def test_concurrent_readiness_reports_are_never_lost(monkeypatch) -> None:
     assert {p["participantId"]: p["readinessState"] for p in room["participants"]} == {
         participant: "Ready" for participant in _READY_REPORTS
     }
-

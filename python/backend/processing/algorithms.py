@@ -66,7 +66,16 @@ def construct_document(
     music: MusicMetadata,
 ) -> LyricsDocument:
     mapped_words = tuple(_word_with_notes(word, pitch) for word in words)
-    document = LyricsDocument(title, artist, duration, music.bpm, music.key, lyrics, mapped_words)
+    document = LyricsDocument(
+        title,
+        artist,
+        duration,
+        music.bpm,
+        music.key,
+        lyrics,
+        mapped_words,
+        _vocal_activity(pitch, duration),
+    )
     document.validate()
     return document
 
@@ -74,12 +83,46 @@ def construct_document(
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint]) -> Word:
     points = [point for point in pitch if word.start <= point.time <= word.end]
     notes = _notes_from_points(points, word.start, word.end)
-    measured = tuple(replace(note, contour=tuple({
-        (point.time - note.start) / (note.end - note.start):
-         _frequency_to_midi(point.frequency) - note.note
-        for point in points if note.start <= point.time < note.end and _has_pitch(point)
-    }.items())) for note in notes)
+    measured = tuple(
+        replace(
+            note,
+            contour=tuple(
+                (fraction, values[0], values[1])
+                for fraction, values in {
+                    (point.time - note.start) / (note.end - note.start): (
+                        _frequency_to_midi(point.frequency) - note.note
+                        if point.frequency > 0
+                        else 0.0,
+                        point.confidence
+                        if point.frequency > 0 and point.audio_active is not False
+                        else 0.0,
+                    )
+                    for point in points
+                    if note.start <= point.time < note.end
+                }.items()
+            ),
+        )
+        for note in notes
+    )
     return Word(word.text, word.start, word.end, measured, word.letters)
+
+
+def _vocal_activity(
+    points: Sequence[PitchPoint], duration: float
+) -> tuple[tuple[float, float], ...]:
+    step = _pitch_step(points)
+    intervals: list[tuple[float, float]] = []
+    for point in points:
+        if point.audio_active is False or (point.audio_active is None and not _has_pitch(point)):
+            continue
+        start, end = max(0.0, point.time - step / 2), min(duration, point.time + step / 2)
+        if end <= start:
+            continue
+        if intervals and start <= intervals[-1][1] + 1e-8:
+            intervals[-1] = (intervals[-1][0], max(intervals[-1][1], end))
+        else:
+            intervals.append((start, end))
+    return tuple(intervals)
 
 
 def _notes_from_points(points: Sequence[PitchPoint], start: float, end: float) -> tuple[Note, ...]:

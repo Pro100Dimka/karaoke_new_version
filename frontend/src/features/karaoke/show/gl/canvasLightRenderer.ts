@@ -65,7 +65,7 @@ export class CanvasLightRenderer {
       const rightX = beams[offset + 16]!, rightY = beams[offset + 17]!;
       const color = [beams[offset + 4]!, beams[offset + 5]!, beams[offset + 6]!]
         .map((value) => Math.round(Math.min(1, Math.max(0, value)) * 255));
-      const strength = Math.min(0.28, beams[offset + 7]! * 0.18);
+      const strength = Math.min(0.55, beams[offset + 7]! * 0.65);
       const gradient = context.createLinearGradient(x, y, (leftX + rightX) / 2, (leftY + rightY) / 2);
       gradient.addColorStop(0, `rgba(${color.join(",")},${strength})`);
       gradient.addColorStop(1, `rgba(${color.join(",")},0)`);

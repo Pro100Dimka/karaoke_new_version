@@ -28,6 +28,7 @@ const knownCodes = {
   MissingRequiredModels: "errorMissingModels",
   ProcessingAlreadyRunning: "errorProcessingRunning",
   AnalysisPitchUncertain: "analysisPitchUncertain",
+  JobCancelled: "jobCancelled",
   RevisionConflict: "errorRevisionConflict",
   ProjectInvalid: "errorProjectInvalid",
   ProjectUpgradeRequired: "errorProjectUpgrade",

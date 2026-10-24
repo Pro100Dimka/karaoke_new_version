@@ -2,6 +2,7 @@ import { easeOutCubic, rgba } from "./fxPalette";
 import { levelProgress, type ShowNote } from "./performanceTracker";
 import type { ShowEngine } from "./showEngine";
 import type { FxCommand } from "./visualDirector";
+import { pitchMidiNearTarget, targetPitchAt } from "../karaokeLyrics";
 
 /** What the melody roll is showing right now, in the same terms MelodyRoll lays its notes out with. */
 export interface RollView {
@@ -258,6 +259,7 @@ export class RollFxRenderer {
     this.drawTarget(context, view, geometry);
     this.drawTraces(context, view, geometry);
     this.drawMoments(context, view, geometry, now);
+    this.drawVoiceTrail(context, view, geometry);
     this.drawVoice(context, view, geometry, now);
   }
 
@@ -268,11 +270,14 @@ export class RollFxRenderer {
     for (const note of view.notes) {
       if (!note.contour?.length) continue;
       context.beginPath();
+      let started = false;
       for (const [index, point] of note.contour.entries()) {
+        if ((point[2] ?? 1) < 0.5) { started = false; continue; }
         const x = geometry.x(note.start + point[0] * (note.end - note.start));
         const y = geometry.y(note.pitch + point[1]);
-        if (index === 0) context.moveTo(x, y);
+        if (!started || index === 0) context.moveTo(x, y);
         else context.lineTo(x, y);
+        started = true;
       }
       context.stroke();
     }
@@ -492,11 +497,12 @@ export class RollFxRenderer {
     now: number,
   ): void {
     const state = this.engine.state;
-    const x = margin + this.lane.width * view.lead;
+    const observation = this.engine.voiceHistory.at(-1);
+    const x = geometry.x(observation?.position ?? view.position);
     const live = state.live;
-    const y = live
-      ? geometry.y(live.target) -
-        Math.max(-1, Math.min(1, live.deviation ?? 0)) * geometry.row
+    const midi = pitchMidiNearTarget(observation?.pitchHz, live?.target);
+    const y = midi !== undefined
+      ? geometry.y(midi)
       : margin + this.lane.height / 2;
     this.engine.voicePoint = { x: this.page.left + x, y: this.page.top + y };
     if (state.level !== this.level) {
@@ -505,6 +511,7 @@ export class RollFxRenderer {
       this.level = state.level;
     }
     if (!state.playing) return;
+    if (midi === undefined) return;
     const radius = Math.max(15, geometry.row * 1.25);
     const accuracy = live?.deviation === undefined ? 0 : live.accuracy;
     if (accuracy > 0.2) {
@@ -545,5 +552,23 @@ export class RollFxRenderer {
       context.arc(x, y, radius * (1 + 1.8 * easeOutCubic(p)), 0, Math.PI * 2);
       context.stroke();
     }
+  }
+
+  private drawVoiceTrail(context: CanvasRenderingContext2D, view: RollView, geometry: Geometry): void {
+    context.lineWidth = Math.max(1.5, geometry.row * 0.1);
+    context.strokeStyle = rgba("white", 0.85);
+    context.beginPath();
+    let previous: number | undefined;
+    for (const observation of this.engine.voiceHistory) {
+      const note = view.notes.find((candidate) => observation.position >= candidate.start && observation.position <= candidate.end);
+      const target = note ? targetPitchAt(note, observation.position) : undefined;
+      const midi = pitchMidiNearTarget(observation.pitchHz, target);
+      if (midi === undefined) { previous = undefined; continue; }
+      const x = geometry.x(observation.position), y = geometry.y(midi);
+      if (previous === undefined || observation.position - previous > 0.1) context.moveTo(x, y);
+      else context.lineTo(x, y);
+      previous = observation.position;
+    }
+    context.stroke();
   }
 }

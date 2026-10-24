@@ -5,6 +5,7 @@ export interface QueuedSong {
   id: string;
   title: string;
   artist?: string;
+  rehearsal?: boolean;
 }
 
 /** Karaoke on a TV: the whole screen goes there, and the laptop keeps the Library. */

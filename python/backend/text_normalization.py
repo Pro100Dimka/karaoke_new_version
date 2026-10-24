@@ -10,6 +10,20 @@ def normalize_search(value: str) -> str:
     return unicodedata.normalize("NFKC", value).strip().casefold()
 
 
+def strip_catalog_credits(value: str) -> str:
+    """Discard a catalogue's standalone source credit before alignment or cache reuse."""
+    return "\n".join(
+        line.strip()
+        for line in value.splitlines()
+        if line.strip()
+        and not re.fullmatch(
+            r"\s*(?:Взято с сайта|Взято із сайту)\s*:?(?:\s+https?://\S+)?\s*",
+            line,
+            re.IGNORECASE,
+        )
+    )
+
+
 _CYRILLIC_TO_LATIN = str.maketrans(
     {
         "а": "a",

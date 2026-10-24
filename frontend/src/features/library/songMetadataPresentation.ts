@@ -1,5 +1,9 @@
-import type { RecordingDto, SongDto } from "../../contracts/models";
+import type { RecordingDto, SongDto, SongLanguage } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
+
+export const languageLabels = {
+  Auto: "languageAuto", Ukrainian: "languageUkrainian", Russian: "languageRussian", English: "languageEnglish",
+} as const satisfies Record<SongLanguage, MessageKey>;
 
 export const detectedSongMetadata = (
   song: Pick<SongDto, "detectedBpm" | "detectedKey">,

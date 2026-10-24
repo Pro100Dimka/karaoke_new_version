@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { PlaybackSnapshot } from "../../contracts/models";
 import { useKaraokeAudio } from "../../app/KaraokeProvider";
 
-const pollMilliseconds = 100;
+const pollMilliseconds = 25;
 
 interface PositionPollingOptions {
   enabled: boolean;

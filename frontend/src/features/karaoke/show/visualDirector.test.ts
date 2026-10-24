@@ -42,6 +42,11 @@ const phrase = (
 });
 
 describe("visual director", () => {
+  it("keeps visible stage lights for an early earned reward", () => {
+    expect(ambientFor(20, music(), "full").beams).toBeGreaterThanOrEqual(1.5);
+    const commands = new VisualDirector().plan(0, [{ kind: "levelReached", level: "awakening" }], [], context(20));
+    expect(commands.some((command) => command.kind === "lightWave" && command.strength >= 0.45)).toBe(true);
+  });
   it("gives nothing for a weak note and escalating light for better ones", () => {
     const director = new VisualDirector();
     expect(director.plan(0, [note(0.4)], [], context(0))).toEqual([]);

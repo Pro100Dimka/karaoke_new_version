@@ -1,3 +1,4 @@
+import { languageLabels } from "./songMetadataPresentation";
 import { useRef, useState } from "react";
 import {
   Button,
@@ -63,10 +64,7 @@ const sortOptions = [
 ] as const satisfies readonly { value: LibrarySort; label: MessageKey }[];
 const languageOptions = [
   { value: "all", label: "allLanguages" },
-  { value: "Auto", label: "languageAuto" },
-  { value: "Ukrainian", label: "languageUkrainian" },
-  { value: "Russian", label: "languageRussian" },
-  { value: "English", label: "languageEnglish" },
+  ...Object.entries(languageLabels).map(([value, label]) => ({ value: value as Exclude<LibraryLanguageFilter, "all">, label })),
 ] as const satisfies readonly {
   value: LibraryLanguageFilter;
   label: MessageKey;

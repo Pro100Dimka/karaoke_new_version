@@ -53,8 +53,18 @@ def test_hot_float_source_is_normalized_before_integer_conversion(tmp_path: Path
     FfmpegAudioNormalizer(runner).normalize(source, target, threads=1, cancel=threading.Event())
 
     measured = runner.run(
-        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(target), "-af",
-         "loudnorm=I=-14:TP=-1:print_format=json", "-f", "null", "-"],
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostats",
+            "-i",
+            str(target),
+            "-af",
+            "loudnorm=I=-14:TP=-1:print_format=json",
+            "-f",
+            "null",
+            "-",
+        ],
         timeout_seconds=30,
     )
     report = json.loads(re.search(rb'\{\s*"input_i".*?\}', measured.stderr, re.S)[0])

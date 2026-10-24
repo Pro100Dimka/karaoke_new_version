@@ -18,7 +18,7 @@ describe("editorApi music metadata", () => {
     const source = {
       songId: "song-1", revision: 7,
       document: {
-        title: "Song", artist: "Artist", duration: 1810, bpm: null, key: null, lyrics: "la\nla",
+        title: "Song", artist: "Artist", duration: 1810, bpm: null, key: null, lyrics: "la\nla", vocalActivity: [[12, 14], [1800, 1806]],
         words: [
           { text: "la", start: 12, end: 14, letters: [12, 12.2],
             notes: [{ note: 60, start: 12.2, end: 13.8, contour: [[0, -0.25], [0.5, 0.3], [1, 0]] }] },
@@ -38,7 +38,7 @@ describe("editorApi music metadata", () => {
       document, 7)).toBe(8);
     expect(request.mock.lastCall?.[0].body).toMatchObject({
       expectedRevision: 7,
-      document: { lyrics: "la\nla", words: source.document.words },
+      document: { lyrics: "la\nla", words: source.document.words, vocalActivity: source.document.vocalActivity },
     });
   });
 

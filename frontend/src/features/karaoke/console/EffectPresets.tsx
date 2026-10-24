@@ -18,7 +18,7 @@ export const EffectPresets = ({
   const t = useText();
   return (
     <ConsoleSection icon="grid" title={t("consoleMode")}>
-      <Grid columns={4} gap={2}>
+      <Grid className="consolePresets" columns={4} gap={2}>
         {effectPresets.map((preset) => (
           <ToggleButton
             key={preset.id}

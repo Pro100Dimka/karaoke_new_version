@@ -102,7 +102,7 @@ def test_native_relay_process_reads_participant_levels_from_the_data_plane() -> 
 
 
 def test_native_relay_process_reads_observed_endpoint_without_inventing_one() -> None:
-    process = _Channel([*_STARTED, '{"host":"203.0.113.5","port":53001}', '{}'])
+    process = _Channel([*_STARTED, '{"host":"203.0.113.5","port":53001}', "{}"])
     relay = _relay(process)
     relay.start()
     assert relay.participant_endpoint("room", "alice") == ("203.0.113.5", 53001)

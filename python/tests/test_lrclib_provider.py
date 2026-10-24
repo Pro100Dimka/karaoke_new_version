@@ -31,10 +31,15 @@ _ROWS = (
 
 @pytest.mark.parametrize("credit", ["Взято с сайта", "Взято с сайта https://example.org/song"])
 def test_ukrainian_catalog_removes_source_credit_before_alignment(credit: str) -> None:
-    provider = PisniLyricsProvider(transport=httpx.MockTransport(lambda request: httpx.Response(
-        200, text=f'<meta property="og:title" content="O.Torvald - Ліхтарі">'
-        f'<div class="desc-full">Перший рядок<br>{credit}<br>Другий рядок</div>',
-    )))
+    provider = PisniLyricsProvider(
+        transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                text=f'<meta property="og:title" content="O.Torvald - Ліхтарі">'
+                f'<div class="desc-full">Перший рядок<br>{credit}<br>Другий рядок</div>',
+            )
+        )
+    )
     result = provider.search(_song("Ліхтарі", "O.Torvald"), Language.AUTO, threading.Event())
     assert result[0].lyrics == "Перший рядок\nДругий рядок"
 
@@ -510,6 +515,36 @@ def test_online_abbreviation_does_not_replace_a_fuller_saved_ai_catalog():
     )
     assert result.lyrics == complete
     assert "LyricsCatalogCached" in result.warnings
+
+
+def test_cached_catalog_does_not_reintroduce_the_publishers_credit():
+    from backend.lyrics.codec import encode_document
+    from backend.lyrics.domain import LyricsDocument
+
+    baseline = encode_document(
+        LyricsDocument(
+            "T",
+            "A",
+            188,
+            None,
+            None,
+            "Перший світ над містами\nВзято с сайта\nНаші голоси над морем",
+            (),
+        )
+    )
+    projects = SimpleNamespace(
+        load_manifest=lambda *_: SimpleNamespace(provenance={"lyricsSource": "PisniUA"}),
+        read_text_artifact=lambda *_: baseline,
+    )
+    result = LyricsDiscovery(_NoSidecar(), (), LyricsMatchPolicy(), projects=projects).discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi("Перший світ над містами Наші голоси над морем"),
+        threading.Event(),
+        online_enabled=False,
+        execution=EXECUTION,
+    )
+    assert "Взято" not in result.lyrics
 
 
 @pytest.mark.parametrize(

@@ -1,4 +1,4 @@
-import type { ProcessingJobDto } from "../../contracts/models";
+import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 
 type JobState = ProcessingJobDto["state"];
@@ -20,12 +20,18 @@ export const stateTone = {
   cancelling: "processing",
   completed: "success",
   failed: "error",
-  cancelled: "error",
+  cancelled: "offline",
   interrupted: "error",
 } as const satisfies Record<
   JobState,
-  "pending" | "processing" | "success" | "error"
+  "pending" | "processing" | "success" | "error" | "offline"
 >;
+
+export const processingTitle = (job: ProcessingJobDto, song?: SongDto): string | undefined => {
+  const title = song?.title ?? job.songTitle;
+  const artist = song?.artist ?? job.songArtist;
+  return title ? [artist, title].filter(Boolean).join(" — ") : undefined;
+};
 
 export const isActive = (job: ProcessingJobDto) =>
   job.state === "processing" || job.state === "cancelling";

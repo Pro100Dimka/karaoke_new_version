@@ -158,7 +158,9 @@ class SqliteAccountStore:
             "UPDATE accounts SET avatar_version = avatar_version + 1 WHERE account_id = ?",
             (account_id,),
         )
-        rows = self._db.rows("SELECT avatar_version FROM accounts WHERE account_id = ?", (account_id,))
+        rows = self._db.rows(
+            "SELECT avatar_version FROM accounts WHERE account_id = ?", (account_id,)
+        )
         version = rows[0][0] if rows else 0
         return version if isinstance(version, int) else 0
 

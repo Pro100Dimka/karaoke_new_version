@@ -15,6 +15,15 @@ const frame = readFileSync(
   "utf8",
 );
 
+it("preserves the compact console appearance without extra headings or scrollbars", () => {
+  const section = readFileSync(resolve("src/features/karaoke/console/ConsoleSection.tsx"), "utf8");
+  const presets = readFileSync(resolve("src/features/karaoke/console/EffectPresets.tsx"), "utf8");
+  expect(section).not.toContain("title={title}");
+  expect(section).not.toContain("icon={icon}");
+  expect(presets).toContain("columns={4}");
+  expect(css.match(/\.karaokeConsoleCard\.ad-card\s*\{([^}]*)\}/)?.[1]).not.toMatch(/overflow:\s*auto/);
+});
+
 it("keeps console content within its floating panel and adapts the real lower grid", () => {
   expect(css).toMatch(
     /\.karaokeConsolePanel\s*\{[^}]*container-type:\s*inline-size/s,
@@ -26,7 +35,7 @@ it("keeps console content within its floating panel and adapts the real lower gr
   expect(component).toMatch(/consoleWidthShare\s*=\s*0\.9;/);
   expect(frame).toContain("defaultSize: size");
   expect(frame).toMatch(/new ResizeObserver/);
-  // The four panels stay in one row until the console gets narrow, then fold to two and to one.
+  // The four panels keep their original row; small windows fold to two and then one.
   expect(css).toMatch(
     /@container\s*\(max-width:\s*46rem\)\s*\{\s*\.consolePanels\s*\{[^}]*grid-template-columns:\s*repeat\(2,/,
   );

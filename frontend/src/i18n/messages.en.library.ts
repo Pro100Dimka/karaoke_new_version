@@ -1,4 +1,7 @@
 export const libraryEn = {
+  coverOnline: "Artwork found online",
+  discoveredVideoHelp: "The discovered video is used automatically. Enter a link to choose another.",
+  videoOverrideHelp: "Optional video override. Leave empty to allow automatic discovery.",
   realignLyrics: "Refine words and notes",
   realignLyricsHelp: "Re-align the existing text to the vocal and rebuild notes in a new revision. Manual edits are preserved. If they block processing, the queue offers an explicit return to AI timing; the edited revision remains in project history.",
   resetLyricsAndReprocess: "Return to AI timing and reprocess",

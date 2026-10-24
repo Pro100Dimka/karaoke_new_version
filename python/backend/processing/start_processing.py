@@ -6,7 +6,13 @@ import hashlib
 import threading
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
-from backend.processing.domain import Job, JobType, ProcessingMode, ProcessingOptions, ProcessingReport
+from backend.processing.domain import (
+    Job,
+    JobType,
+    ProcessingMode,
+    ProcessingOptions,
+    ProcessingReport,
+)
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ExecutionContext
 from backend.processing.job_manager import JobContext, ProcessingJobManager
@@ -150,7 +156,11 @@ class StartProcessing:
             entity_id=song_id,
             mode=mode,
             correlation_id=correlation_id,
-            initial_report={"processingBackend": processing_backend.value},
+            initial_report={
+                "processingBackend": processing_backend.value,
+                "songTitle": song.title,
+                "songArtist": song.artist,
+            },
             on_finally=lambda: self._finish(song_id, admission),
             admit=lambda cancel: self._admit(
                 admission, providers, source_bytes, compute_mode, cancel

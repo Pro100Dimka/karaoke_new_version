@@ -54,8 +54,9 @@ def test_direct_candidates_share_private_addresses_only_inside_the_same_public_n
     relay = VoiceRelay(participant_endpoint=lambda _room, name: endpoints[name])
     host = relay.expect("room", "host", direct=True)
     guest = relay.expect("room", "guest", direct=True)
-    assert relay.register_local_port("room", "guest", guest, 41002,
-                                     ("192.168.0.2", "127.0.0.1", "8.8.8.8", "invalid"))
+    assert relay.register_local_port(
+        "room", "guest", guest, 41002, ("192.168.0.2", "127.0.0.1", "8.8.8.8", "invalid")
+    )
     peer = relay.direct_peers("room", "host", host)[0]
     assert peer["local_hosts"] == ["192.168.0.2"]
     assert peer["local_port"] == 41002
@@ -1531,8 +1532,12 @@ def test_opted_in_duet_discovers_observed_internet_endpoints_and_revokes_old_tok
     relay.datagram_received(_packet("host", host), ("198.51.100.9", 51001))
     relay.datagram_received(_packet("guest", guest), ("203.0.113.5", 62002))
     assert relay.direct_peers("room-1", "host", host) == [
-        {"participant_id": "guest", "host": "203.0.113.5", "port": 62002,
-         "voice_token": f"{guest:016x}"}
+        {
+            "participant_id": "guest",
+            "host": "203.0.113.5",
+            "port": 62002,
+            "voice_token": f"{guest:016x}",
+        }
     ]
     assert relay.direct_peers("room-1", "host", guest) == []
     relay.expect("room-1", "guest", direct=True)

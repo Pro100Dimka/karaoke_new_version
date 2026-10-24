@@ -84,7 +84,8 @@ class SocialHub:
             return
         with self._lock:
             account_ids = tuple(
-                account_id for account_id, current_room in self._rooms.items()
+                account_id
+                for account_id, current_room in self._rooms.items()
                 if current_room == room_id and self._sockets.get(account_id)
             )
         if account_ids:
@@ -98,9 +99,7 @@ class SocialHub:
     async def _broadcast(self, account_ids: tuple[str, ...], message: object) -> None:
         with self._lock:
             sockets = tuple(
-                socket
-                for account_id in account_ids
-                for socket in self._sockets.get(account_id, ())
+                socket for account_id in account_ids for socket in self._sockets.get(account_id, ())
             )
         for socket in sockets:
             try:

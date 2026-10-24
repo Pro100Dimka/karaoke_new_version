@@ -106,7 +106,9 @@ def _source_evidence(
     return np.asarray(dominance), np.asarray(explained)
 
 
-def harmonic_evidence(samples: np.ndarray, sample_rate: int, hop: int) -> tuple[np.ndarray, np.ndarray]:
+def harmonic_evidence(
+    samples: np.ndarray, sample_rate: int, hop: int
+) -> tuple[np.ndarray, np.ndarray]:
     """Relative harmonic amplitudes across melody changes, plus reliability of that structure.
 
     Autocorrelation locates the fundamental; amplitudes use harmonic number rather than absolute
@@ -121,17 +123,19 @@ def harmonic_evidence(samples: np.ndarray, sample_rate: int, hop: int) -> tuple[
     bins = np.arange(1, 17)[:, None] * (sample_rate / lag)[None, :] * 2048 / sample_rate
     indices = np.clip(np.rint(bins).astype(int), 2, spectrum.shape[0] - 3)
     # Neighbouring bins accommodate finite FFT resolution; the existing brief-gap scale smooths vibrato.
-    peaks = np.maximum.reduce([
-        np.take_along_axis(spectrum, indices + delta, axis=0) for delta in range(-2, 3)
-    ])
+    peaks = np.maximum.reduce(
+        [np.take_along_axis(spectrum, indices + delta, axis=0) for delta in range(-2, 3)]
+    )
     envelope = median_filter(np.sqrt(peaks), size=(1, 11)).T
     envelope /= np.maximum(np.linalg.norm(envelope, axis=1, keepdims=True), 1e-12)
     return envelope, periodicity
 
 
 def continued_frames(
-    active: np.ndarray, evidence: tuple[np.ndarray, np.ndarray] | None,
-    bounds: tuple[float, float, float], step: float,
+    active: np.ndarray,
+    evidence: tuple[np.ndarray, np.ndarray] | None,
+    bounds: tuple[float, float, float],
+    step: float,
 ) -> np.ndarray:
     """Reject a different periodic source after a word, retaining uncertain and matching frames.
 

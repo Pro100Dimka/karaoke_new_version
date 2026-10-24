@@ -114,7 +114,10 @@ class SystemRuntimeProbe:
         total_vram, free_vram = (None, None)
         if torch and torch.cuda:
             # Free VRAM changes between jobs, so it is read fresh, without a CUDA context here.
-            total_vram, free_vram = _gpu_memory(self._processes, torch.gpu) or (torch.total_vram, torch.free_vram)
+            total_vram, free_vram = _gpu_memory(self._processes, torch.gpu) or (
+                torch.total_vram,
+                torch.free_vram,
+            )
         total_ram, available_ram = _memory_bytes()
         return RuntimeDiagnostics(
             python_version=platform.python_version(),
@@ -174,8 +177,10 @@ def _torch_facts(processes: ProcessRunner) -> _TorchFacts | None:
     except ValueError:
         facts = None
     if facts is None:
-        logger.warning("PyTorch runtime probe is unavailable: %s",
-                       result.stderr.decode("utf-8", errors="replace").strip()[-500:])
+        logger.warning(
+            "PyTorch runtime probe is unavailable: %s",
+            result.stderr.decode("utf-8", errors="replace").strip()[-500:],
+        )
         return None
     return _TorchFacts(
         version=str(facts.get("version") or "unknown"),
@@ -191,7 +196,11 @@ def _gpu_memory(processes: ProcessRunner, gpu: str | None) -> tuple[int, int] | 
     """Total and free VRAM of the GPU PyTorch uses, from the NVIDIA driver's own tool."""
     try:
         result = processes.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total,memory.free", "--format=csv,noheader,nounits"],
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total,memory.free",
+                "--format=csv,noheader,nounits",
+            ],
             timeout_seconds=5,
         )
     except DependencyError:

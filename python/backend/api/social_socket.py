@@ -62,9 +62,7 @@ async def social_socket(websocket: WebSocket) -> None:
             presence = PresenceDto.model_validate(await websocket.receive_json())
             me = await anyio.to_thread.run_sync(_report, social, me, presence)
             social.hub.set_room(me.account_id, me.room_id)
-            await social.hub.send(
-                websocket, {"type": "presenceAck", "revision": presence.revision}
-            )
+            await social.hub.send(websocket, {"type": "presenceAck", "revision": presence.revision})
     except (WebSocketDisconnect, ValidationError, ValueError):
         pass
     finally:

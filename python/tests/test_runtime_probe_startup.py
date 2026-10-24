@@ -23,7 +23,14 @@ class _SlowTorch(ProcessRunner):
             return ProcessResult(1, b"", b"")
         self.torch_probes += 1
         self.release.wait(10)
-        facts = {"version": "2.11.0+cu130", "cuda": True, "runtime": "13.0", "gpu": "RTX", "total": 8, "free": 7}
+        facts = {
+            "version": "2.11.0+cu130",
+            "cuda": True,
+            "runtime": "13.0",
+            "gpu": "RTX",
+            "total": 8,
+            "free": 7,
+        }
         return ProcessResult(0, json.dumps(facts).encode(), b"")
 
 
@@ -46,7 +53,9 @@ def test_start_up_reports_at_once_and_a_job_gets_the_gpu_once_probed() -> None:
         waiting.join(10)
 
         assert job == [True]
-        assert processes.torch_probes == 1  # the job joined the start-up probe instead of a second one
+        assert (
+            processes.torch_probes == 1
+        )  # the job joined the start-up probe instead of a second one
         assert probe.without_waiting().inspect().gpu_name == "RTX"
     finally:
         processes.release.set()

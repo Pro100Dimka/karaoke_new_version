@@ -37,6 +37,7 @@ def test_kaggle_notebook_embeds_the_current_worker() -> None:
         "python/backend/ai_worker/timing.py",
         "python/backend/lyrics/discovery.py",
         "python/backend/lyrics/codec.py",
+        "python/backend/lyrics/domain.py",
         "python/backend/text_normalization.py",
     ):
         assert relative in assets, f"The notebook omits the current worker asset: {relative}"
@@ -63,7 +64,9 @@ def test_server_registers_existing_vocal_in_a_ttl_managed_session_without_separa
 
     server = Path(__file__).parents[2] / "kaggle" / "ad_voice_server.py"
     source = server.read_text(encoding="utf-8")
-    functions = {node.name: node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)}
+    functions = {
+        node.name: node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)
+    }
     assert "prepare_vocal" in functions, "Existing projects need a vocal-upload session endpoint"
     assert 'api_name="prepare_vocal"' in source
     sessions = tmp_path / "sessions"
@@ -71,12 +74,22 @@ def test_server_registers_existing_vocal_in_a_ttl_managed_session_without_separa
     stale.mkdir(parents=True)
     os.utime(stale, (0, 0))
     namespace = {
-        "Path": Path, "SESSIONS": sessions, "TTL_SECONDS": 6 * 60 * 60,
-        "os": os, "shutil": shutil, "time": time, "uuid": uuid, "json": json,
-        "_lock": threading.Lock(), "_pitch_jobs": {},
-        "gr": SimpleNamespace(Error=RuntimeError), "_track_activity": lambda function: function,
+        "Path": Path,
+        "SESSIONS": sessions,
+        "TTL_SECONDS": 6 * 60 * 60,
+        "os": os,
+        "shutil": shutil,
+        "time": time,
+        "uuid": uuid,
+        "json": json,
+        "_lock": threading.Lock(),
+        "_pitch_jobs": {},
+        "gr": SimpleNamespace(Error=RuntimeError),
+        "_track_activity": lambda function: function,
     }
-    selected = [functions[name] for name in ("_cleanup", "_new_session", "_session", "prepare_vocal")]
+    selected = [
+        functions[name] for name in ("_cleanup", "_new_session", "_session", "prepare_vocal")
+    ]
     exec(compile(ast.Module(body=selected, type_ignores=[]), str(server), "exec"), namespace)
     vocal = tmp_path / "source-vocal.wav"
     vocal.write_bytes(b"preserved vocal bytes")
@@ -86,7 +99,9 @@ def test_server_registers_existing_vocal_in_a_ttl_managed_session_without_separa
     session_id = namespace["prepare_vocal"](str(vocal), str(backing))
     directory = namespace["_session"](session_id)
 
-    assert len(session_id) == 32 and all(character in "0123456789abcdef" for character in session_id)
+    assert len(session_id) == 32 and all(
+        character in "0123456789abcdef" for character in session_id
+    )
     assert (directory / "separation" / "vocals.wav").read_bytes() == vocal.read_bytes()
     assert (directory / "separation" / "instrumental.wav").read_bytes() == backing.read_bytes()
     assert not stale.exists()
@@ -104,20 +119,33 @@ def test_server_alignment_receives_the_uploaded_backing_when_available(tmp_path,
     from unittest.mock import Mock
 
     source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
-    function = next(node for node in ast.parse(source).body
-                    if isinstance(node, ast.FunctionDef) and node.name == "align_song")
+    function = next(
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "align_song"
+    )
     separation = tmp_path / "separation"
     separation.mkdir()
     backing = separation / "instrumental.wav"
     if has_backing:
         backing.write_bytes(b"backing audio")
     align = Mock(return_value={"words": []})
-    namespace = {"Path": Path, "json": json, "align": align,
-                 "_session": lambda _session: tmp_path, "_track_activity": lambda function: function}
+    namespace = {
+        "Path": Path,
+        "json": json,
+        "align": align,
+        "_session": lambda _session: tmp_path,
+        "_track_activity": lambda function: function,
+    }
     exec(compile(ast.Module(body=[function], type_ignores=[]), "server-align", "exec"), namespace)
     namespace["align_song"]("session", "hello", "English", "[]")
-    align.assert_called_once_with(separation / "vocals.wav", "hello", "English", [],
-                                  instrumental=backing if has_backing else None)
+    align.assert_called_once_with(
+        separation / "vocals.wav",
+        "hello",
+        "English",
+        [],
+        instrumental=backing if has_backing else None,
+    )
 
 
 def test_server_health_identifies_its_process_generation():
@@ -125,15 +153,23 @@ def test_server_health_identifies_its_process_generation():
     from types import SimpleNamespace
 
     source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
-    nodes = [node for node in ast.parse(source).body if (
-        isinstance(node, ast.FunctionDef) and node.name == "health"
-    ) or (
-        isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id in {"SESSION_GENERATION", "PROTOCOL_VERSION"}
-            for target in node.targets
+    nodes = [
+        node
+        for node in ast.parse(source).body
+        if (isinstance(node, ast.FunctionDef) and node.name == "health")
+        or (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name)
+                and target.id in {"SESSION_GENERATION", "PROTOCOL_VERSION"}
+                for target in node.targets
+            )
         )
-    )]
-    namespace = {"uuid": uuid, "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False))}
+    ]
+    namespace = {
+        "uuid": uuid,
+        "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)),
+    }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server-health", "exec"), namespace)
     first = namespace["health"]()["sessionGeneration"]
     assert len(first) == 32

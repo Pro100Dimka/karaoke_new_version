@@ -5,7 +5,7 @@ export interface EditorNote {
   start: number;
   end: number;
   /** Relative time (0..1), semitone offset; follows this note when it is edited. */
-  contour?: readonly (readonly [number, number])[];
+  contour?: readonly (readonly [number, number, number?])[];
 }
 
 export interface EditorWord {
@@ -25,6 +25,7 @@ export interface EditorDocument {
   notes: readonly EditorNote[];
   /** The lyrics as written, one line per row; the words come from splitting it, so it tells where lines break. */
   lyrics?: string;
+  vocalActivity?: readonly (readonly [number, number])[];
 }
 
 const minNoteSeconds = 0.03;

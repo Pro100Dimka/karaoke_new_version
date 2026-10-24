@@ -54,6 +54,7 @@ vi.mock("../../services/audioClient", () => ({
 }));
 vi.mock("../../services/recordingCoordinator", () => ({
   recordingCoordinator: {
+    elapsedSeconds: () => 0,
     start: vi.fn(),
     stop: vi.fn(),
     pause: vi.fn(async () => ({ recording: true })),
@@ -108,6 +109,12 @@ const startSession = async () => {
 };
 
 describe("karaoke recording ownership", () => {
+  it("starts rehearsal without allocating or starting a recording", async () => {
+    const { result } = renderHook(() => useKaraokeSession("song", "Rehearsal" as never, true));
+    await waitFor(() => expect(result.current.state.kind).toBe("playing"));
+    expect(recordingCoordinator.start).not.toHaveBeenCalled();
+    expect(audioClient.play).toHaveBeenCalledOnce();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(ensurePerformanceAnalysis).mockRejectedValue(

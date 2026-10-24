@@ -18,6 +18,7 @@ struct PitchObservation {
     MonotonicTicks capturedAt{0};
     std::uint32_t frames{0};
     float pitchHz{0};
+    bool audioActive{false};
 };
 
 struct AnalysisSnapshot {

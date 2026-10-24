@@ -64,7 +64,9 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         room = await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         if project_source(room, song_id, revision) != participant_id:
             raise ForbiddenError("RoomPermissionDenied", "Only the song owner may upload it")
-        await store_project(request, _project_path(root, room_id, song_id, revision, participant_id))
+        await store_project(
+            request, _project_path(root, room_id, song_id, revision, participant_id)
+        )
         return Response(status_code=204)
 
     @app.get("/rooms/{room_id}/projects/{song_id}/{revision}")

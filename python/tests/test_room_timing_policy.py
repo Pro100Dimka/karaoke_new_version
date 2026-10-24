@@ -33,15 +33,25 @@ class Route:
     voice_route_calibrated: bool = True
 
 
-@pytest.mark.parametrize("direct,calibrated,count,expected", [
-    (True, True, 2, 27.5), (False, True, 2, 110),
-    (True, False, 2, 110), (True, True, 3, 110),
-])
+@pytest.mark.parametrize(
+    "direct,calibrated,count,expected",
+    [
+        (True, True, 2, 27.5),
+        (False, True, 2, 110),
+        (True, False, 2, 110),
+        (True, True, 3, 110),
+    ],
+)
 def test_direct_duet_uses_measured_whole_route_without_waiting_for_relay_stages(
-    direct, calibrated, count, expected,
+    direct,
+    calibrated,
+    count,
+    expected,
 ) -> None:
-    routes = [Route(26, None, None, voice_route="direct",
-                    voice_route_calibrated=calibrated) for _ in range(count)]
+    routes = [
+        Route(26, None, None, voice_route="direct", voice_route_calibrated=calibrated)
+        for _ in range(count)
+    ]
     routes[0] = Route(19, None, None, voice_route="direct" if direct else "relay")
     selected = timing(*routes)
     assert selected.playout_delay_ms == expected
@@ -53,8 +63,10 @@ def timing(*routes: Route, song_selected: bool = True):
 
 
 def test_direct_continuity_budget_is_not_clipped_to_legacy_singing_ceiling() -> None:
-    routes = [Route(176, None, None, voice_route="direct"),
-              Route(92, None, None, voice_route="direct")]
+    routes = [
+        Route(176, None, None, voice_route="direct"),
+        Route(92, None, None, voice_route="direct"),
+    ]
     assert timing(*routes).playout_delay_ms == 177.5
     assert eligibility(routes[0]) is EligibilityReason.ELIGIBLE
     routes[0] = Route(400, None, None, voice_route="direct")
@@ -230,7 +242,9 @@ def test_g_a_slow_return_listener_and_a_slow_singer_are_both_covered_by_one_clos
     assert selected.playout_delay_ms == 32.5
 
 
-def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching_song_timing() -> None:
+def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching_song_timing() -> (
+    None
+):
     fast = Route(65.0, return_requirement_ms=20.0, arrival_requirement_ms=40.0)
     shared_480 = Route(92.5, return_requirement_ms=50.0, arrival_requirement_ms=55.0)
 
@@ -273,7 +287,9 @@ def test_an_uncalibrated_route_keeps_the_previous_deadline_and_says_so(routes) -
     assert selected.playout_delay_ms == 110.0  # the song's fixed deadline while routes calibrate
 
 
-def test_the_deadline_stays_within_the_live_ceiling_and_the_reserve_leaves_collection_time() -> None:
+def test_the_deadline_stays_within_the_live_ceiling_and_the_reserve_leaves_collection_time() -> (
+    None
+):
     selected = timing(Route(79.0, 70.0, 20.0), Route(70.0, 2.0, 10.0))
 
     assert selected.playout_delay_ms <= ROOM_TIMING.maximum_room_delay_ms

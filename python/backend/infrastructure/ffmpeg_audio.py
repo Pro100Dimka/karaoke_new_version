@@ -15,8 +15,11 @@ def loudnorm_filter(measured: dict[str, float] | None = None, *, lra: int = 7) -
     if measured is None:
         return settings + ":print_format=json"
     ranges = {
-        "input_i": (-99, 0), "input_lra": (0, 99), "input_tp": (-99, 99),
-        "input_thresh": (-99, 0), "target_offset": (-99, 99),
+        "input_i": (-99, 0),
+        "input_lra": (0, 99),
+        "input_tp": (-99, 99),
+        "input_thresh": (-99, 0),
+        "target_offset": (-99, 99),
     }
     if not all(
         math.isfinite(measured[key]) and low <= measured[key] <= high
@@ -86,16 +89,25 @@ class FfmpegAudioNormalizer:
         if measured is None:
             raise DependencyError("ProcessingFailed", "FFmpeg loudness analysis failed")
         result = self._run(
-            source, loudnorm_filter(measured, lra=11),
+            source,
+            loudnorm_filter(measured, lra=11),
             ["-ar", "44100", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
-            threads, cancel, quiet=True,
+            threads,
+            cancel,
+            quiet=True,
         )
         if result.exit_code != 0:
             raise DependencyError("ProcessingFailed", "FFmpeg normalization failed")
 
     def _run(
-        self, source: Path, audio_filter: str, output: list[str], threads: int,
-        cancel: threading.Event, *, quiet: bool,
+        self,
+        source: Path,
+        audio_filter: str,
+        output: list[str],
+        threads: int,
+        cancel: threading.Event,
+        *,
+        quiet: bool,
     ) -> ProcessResult:
         return self._runner.run(
             [

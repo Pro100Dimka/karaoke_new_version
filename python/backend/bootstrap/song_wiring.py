@@ -130,12 +130,7 @@ def _build_processing(
     catalog_lookup: SongCatalogLookup | None,
 ) -> tuple[StartProcessing, ReprocessMelody]:
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
-    resources = ProcessingResourceScheduler(
-        processing.runtime,
-        processing.storage,
-        runtime.config.roots.temp,
-        runtime.config.resources,
-    )
+    resources = processing.resources
     runner = StageRunner(SystemMonotonicClock())
     publisher = _project_publisher(runtime, project)
     pipeline = _processing_pipeline(runtime, project, processing, publisher, runner)

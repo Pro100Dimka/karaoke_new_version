@@ -245,7 +245,7 @@ export const pitchHzToMidi = (pitchHz: number): number =>
 export const targetPitchAt = (
   note: Pick<EditorNote, "start" | "end" | "pitch" | "contour">,
   position: number,
-): number => {
+): number | undefined => {
   const points = note.contour;
   if (!points?.length) return note.pitch;
   const fraction = (position - note.start) / (note.end - note.start);
@@ -258,8 +258,24 @@ export const targetPitchAt = (
   }
   const left = points[Math.max(0, low - 1)]!;
   const right = points[Math.min(low, points.length - 1)]!;
+  const nearest = Math.abs(left[0] - fraction) <= Math.abs(right[0] - fraction) ? left : right;
+  if ((nearest[2] ?? 1) < 0.5) return undefined;
   const weight = right[0] > left[0] ? Math.max(0, Math.min(1, (fraction - left[0]) / (right[0] - left[0]))) : 0;
   return note.pitch + left[1] + (right[1] - left[1]) * weight;
+};
+
+/** Only reliable parts of the saved contour can require a pitch hit. */
+export const scorableNoteDuration = (note: Pick<EditorNote, "start" | "end" | "contour">): number => {
+  const points = note.contour;
+  const fraction = points?.length ? points.reduce((sum, point, index) => {
+    if ((point[2] ?? 1) < 0.5) return sum;
+    const previous = points[index - 1];
+    const next = points[index + 1];
+    const start = previous ? (previous[0] + point[0]) / 2 : 0;
+    const end = next ? (next[0] + point[0]) / 2 : 1;
+    return sum + end - start;
+  }, 0) : 1;
+  return Math.max(0, note.end - note.start) * fraction;
 };
 
 /** A full semitone is forgiving enough for ordinary karaoke singing while still rejecting the adjacent note. */

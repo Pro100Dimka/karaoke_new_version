@@ -40,12 +40,8 @@ def test_room_server_can_move_udp_audio_to_the_native_data_plane(monkeypatch) ->
         relay_port=40_000, native_relay_executable=Path("NativeVoiceRelay")
     )
     with TestClient(app) as client:
-        room = client.post(
-            "/rooms", json={"participantId": "host", "displayName": "Host"}
-        ).json()
-        voice = client.post(
-            "/voice/join", json={"roomId": room["roomId"], "participantId": "host"}
-        )
+        room = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()
+        voice = client.post("/voice/join", json={"roomId": room["roomId"], "participantId": "host"})
         assert voice.status_code == 200
 
     assert events[0:2] == ["init:NativeVoiceRelay:40000", "start"]
@@ -77,8 +73,7 @@ def test_relay_membership_keeps_a_ready_source_when_its_listener_route_slows(mon
             assert updated["playbackState"] == "Playing"
             assert updated["participants"][0]["voiceEligible"] is eligible
         eligible_commands = [command for command in commands if command.startswith("ELIGIBLE\t")]
-        assert eligible_commands == [f"ELIGIBLE\t{room_id}",
-                                     f"ELIGIBLE\t{room_id}\thost"]
+        assert eligible_commands == [f"ELIGIBLE\t{room_id}", f"ELIGIBLE\t{room_id}\thost"]
 
 
 def test_slow_listener_return_does_not_suppress_its_upstream_voice(monkeypatch) -> None:
@@ -89,27 +84,47 @@ def test_slow_listener_return_does_not_suppress_its_upstream_voice(monkeypatch) 
         room_id = client.post(
             "/rooms", json={"participantId": "host", "displayName": "Host"}
         ).json()["roomId"]
-        client.post(f"/rooms/{room_id}/join",
-                    json={"participantId": "guest", "displayName": "Guest"})
-        client.post(f"/rooms/{room_id}/song",
-                    json={"participantId": "host", "songId": "song", "revision": 1})
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"}
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        )
         for participant_id in ("host", "guest"):
-            client.post(f"/rooms/{room_id}/timing", json={
-                "participantId": participant_id, "voiceLatencyMs": 40,
-                "returnRequirementMs": 12, "arrivalRequirementMs": 20})
-            client.post(f"/rooms/{room_id}/readiness", json={
-                "participantId": participant_id, "readiness": "Ready"})
-        changed = client.post(f"/rooms/{room_id}/timing", json={
-            "participantId": "host", "voiceLatencyMs": 175,
-            "returnRequirementMs": 115, "arrivalRequirementMs": 20}).json()
+            client.post(
+                f"/rooms/{room_id}/timing",
+                json={
+                    "participantId": participant_id,
+                    "voiceLatencyMs": 40,
+                    "returnRequirementMs": 12,
+                    "arrivalRequirementMs": 20,
+                },
+            )
+            client.post(
+                f"/rooms/{room_id}/readiness",
+                json={"participantId": participant_id, "readiness": "Ready"},
+            )
+        changed = client.post(
+            f"/rooms/{room_id}/timing",
+            json={
+                "participantId": "host",
+                "voiceLatencyMs": 175,
+                "returnRequirementMs": 115,
+                "arrivalRequirementMs": 20,
+            },
+        ).json()
 
         assert changed["playbackState"] == "Playing"
         assert changed["participants"][0]["voiceEligible"] is False
         assert [command for command in commands if command.startswith("ELIGIBLE\t")][-1] == (
-            f"ELIGIBLE\t{room_id}\tguest\thost")
+            f"ELIGIBLE\t{room_id}\tguest\thost"
+        )
 
 
-def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(monkeypatch) -> None:
+def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
+    monkeypatch,
+) -> None:
     commands: list[str] = []
     relay = VoiceRelay(control_command=commands.append)
     monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
@@ -133,9 +148,9 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
         ).json()
         assert selected["playbackState"] == "Stopped"
         assert selected["roomPlayoutDelayMs"] == 250
-        assert set([item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]) == {
-            "host", "guest"
-        }
+        assert set(
+            [item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]
+        ) == {"host", "guest"}
 
         for participant_id in ("host", "guest"):
             started = client.post(
@@ -153,21 +168,25 @@ def test_selected_song_keeps_conversation_audible_until_playback_and_after_stop(
             json={"participantId": "host", "command": "Pause"},
         ).json()
         assert paused["roomPlayoutDelayMs"] == 250
-        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[2] == "250.0"
+        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[
+            2
+        ] == "250.0"
         resumed = client.post(
             f"/rooms/{room_id}/control",
             json={"participantId": "host", "command": "Start"},
         ).json()
         assert resumed["roomPlayoutDelayMs"] == 110
-        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[2] == "110.0"
+        assert [item for item in commands if item.startswith("DEADLINE\t")][-1].split("\t")[
+            2
+        ] == "110.0"
         stopped = client.post(
             f"/rooms/{room_id}/control",
             json={"participantId": "host", "command": "Stop"},
         ).json()
         assert stopped["roomPlayoutDelayMs"] == 250
-        assert set([item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]) == {
-            "host", "guest"
-        }
+        assert set(
+            [item for item in commands if item.startswith("ELIGIBLE\t")][-1].split("\t")[2:]
+        ) == {"host", "guest"}
 
 
 def test_song_waits_for_returned_mix_calibration_after_probe_bootstrap() -> None:
@@ -366,25 +385,61 @@ def test_direct_duet_discovery_requires_opt_in_and_exactly_two_room_members(monk
     relay = VoiceRelay(participant_endpoint=lambda _room, _participant: ("203.0.113.5", 41002))
     monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()["roomId"]
-        client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
-        voices = {participant: client.post("/voice/join", json={
-            "roomId": room_id, "participantId": participant, "direct": True,
-        }).json() for participant in ("host", "guest")}
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"}
+        )
+        voices = {
+            participant: client.post(
+                "/voice/join",
+                json={
+                    "roomId": room_id,
+                    "participantId": participant,
+                    "direct": True,
+                },
+            ).json()
+            for participant in ("host", "guest")
+        }
         assert all(voice.get("direct") is True for voice in voices.values())
-        query = {"roomId": room_id, "participantId": "host", "voiceToken": voices["host"]["voiceToken"]}
-        assert client.post("/voice/peers", json=query).json() == {"peers": [{
-            "participantId": "guest", "host": "203.0.113.5", "port": 41002,
-            "voiceToken": voices["guest"]["voiceToken"],
-        }]}
-        assert client.post("/voice/peers", json={**query, "voiceToken": "0000000000000001"}).status_code == 403
-        client.post("/voice/peers", json={**query, "receivedPeerToken": voices["guest"]["voiceToken"]})
-        received = client.post("/voice/peers", json={
-            **query, "participantId": "guest", "voiceToken": voices["guest"]["voiceToken"],
-            "receivedPeerToken": voices["host"]["voiceToken"],
-        }).json()
+        query = {
+            "roomId": room_id,
+            "participantId": "host",
+            "voiceToken": voices["host"]["voiceToken"],
+        }
+        assert client.post("/voice/peers", json=query).json() == {
+            "peers": [
+                {
+                    "participantId": "guest",
+                    "host": "203.0.113.5",
+                    "port": 41002,
+                    "voiceToken": voices["guest"]["voiceToken"],
+                }
+            ]
+        }
+        assert (
+            client.post(
+                "/voice/peers", json={**query, "voiceToken": "0000000000000001"}
+            ).status_code
+            == 403
+        )
+        client.post(
+            "/voice/peers", json={**query, "receivedPeerToken": voices["guest"]["voiceToken"]}
+        )
+        received = client.post(
+            "/voice/peers",
+            json={
+                **query,
+                "participantId": "guest",
+                "voiceToken": voices["guest"]["voiceToken"],
+                "receivedPeerToken": voices["host"]["voiceToken"],
+            },
+        ).json()
         assert received.get("directReady") is True
-        client.post(f"/rooms/{room_id}/join", json={"participantId": "third", "displayName": "Third"})
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "third", "displayName": "Third"}
+        )
         assert client.post("/voice/peers", json=query).json() == {"peers": []}
 
 
@@ -435,9 +490,7 @@ def test_personal_participant_gain_requires_the_listeners_voice_token() -> None:
             f"/rooms/{room_id}/join",
             json={"participantId": "guest", "displayName": "Guest"},
         )
-        voice = client.post(
-            "/voice/join", json={"roomId": room_id, "participantId": "host"}
-        ).json()
+        voice = client.post("/voice/join", json={"roomId": room_id, "participantId": "host"}).json()
         body = {
             "roomId": room_id,
             "participantId": "host",
@@ -445,7 +498,9 @@ def test_personal_participant_gain_requires_the_listeners_voice_token() -> None:
             "gain": 0.25,
         }
 
-        rejected = client.post("/voice/participant-gain", json={**body, "voiceToken": "0000000000000001"})
+        rejected = client.post(
+            "/voice/participant-gain", json={**body, "voiceToken": "0000000000000001"}
+        )
         accepted = client.post(
             "/voice/participant-gain", json={**body, "voiceToken": voice["voiceToken"]}
         )
@@ -633,22 +688,42 @@ def test_last_voice_timing_report_starts_a_song_that_is_already_downloaded() -> 
 
 def test_direct_duet_timing_is_accepted_without_fabricated_relay_measurements() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client:
-        room_id = client.post("/rooms", json={"participantId": "host", "displayName": "Host"}).json()["roomId"]
-        client.post(f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"})
-        client.post(f"/rooms/{room_id}/song", json={"participantId": "host", "songId": "song", "revision": 1})
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"}
+        )
+        client.post(
+            f"/rooms/{room_id}/song",
+            json={"participantId": "host", "songId": "song", "revision": 1},
+        )
         for participant_id in ("host", "guest"):
-            client.post(f"/rooms/{room_id}/readiness", json={
-                "participantId": participant_id, "readiness": "Ready",
-            })
-            response = client.post(f"/rooms/{room_id}/timing", json={
-                "participantId": participant_id, "voiceLatencyMs": 26,
-                "voiceRoute": "direct", "routeCalibrated": True,
-            })
+            client.post(
+                f"/rooms/{room_id}/readiness",
+                json={
+                    "participantId": participant_id,
+                    "readiness": "Ready",
+                },
+            )
+            response = client.post(
+                f"/rooms/{room_id}/timing",
+                json={
+                    "participantId": participant_id,
+                    "voiceLatencyMs": 26,
+                    "voiceRoute": "direct",
+                    "routeCalibrated": True,
+                },
+            )
             assert response.status_code == 200, response.text
         assert response.json()["roomPlayoutDelayMs"] == 27.5
-        fallback = client.post(f"/rooms/{room_id}/timing", json={
-            "participantId": "guest", "voiceLatencyMs": 26,
-        })
+        fallback = client.post(
+            f"/rooms/{room_id}/timing",
+            json={
+                "participantId": "guest",
+                "voiceLatencyMs": 26,
+            },
+        )
         assert fallback.json()["roomPlayoutDelayMs"] == 110
 
 

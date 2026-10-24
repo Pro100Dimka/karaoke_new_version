@@ -71,6 +71,7 @@ export const useKaraokeSession = (
   const [monitoring, setMonitoring] = useState(false);
   const [recording, setRecording] = useState<RecordingUiState>("idle");
   const [recordingId, setRecordingId] = useState<string | undefined>();
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [recoveredNotice, setRecoveredNotice] = useState(false);
   const initialGains = useRef<MixerChannelGains>({
     music: preferences.musicGain,
@@ -235,6 +236,7 @@ export const useKaraokeSession = (
   const onAudioSnapshot = useCallback((snapshot: PlaybackSnapshot) => {
     setPitchHz(snapshot.pitchHz);
     setPitchFrames(snapshot.pitchFrames);
+    setRecordingSeconds(recordingCoordinator.elapsedSeconds());
     setMonitoring(snapshot.monitoring);
     if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
       monitoringWarningShown.current = true;
@@ -392,7 +394,7 @@ export const useKaraokeSession = (
         stateRef.current.kind === "ready" ||
         stateRef.current.kind === "paused"
       ) {
-        if (capabilities.microphone === "ready" && recordingRef.current !== "recording"
+        if (mode !== "Rehearsal" && capabilities.microphone === "ready" && recordingRef.current !== "recording"
           && !(await startRecording())) return;
         if (generation !== playbackGeneration.current) return;
         await audioClient.play();
@@ -406,7 +408,7 @@ export const useKaraokeSession = (
     } finally {
       playPending.current = false;
     }
-  }, [room, roomPlayback, fail, capabilities.microphone, startRecording, finishLocalPerformance]);
+  }, [room, roomPlayback, mode, fail, capabilities.microphone, startRecording, finishLocalPerformance]);
 
   const onRoomPlaybackEvent = useCallback(
     (event: "PLAY" | "PAUSE") => dispatch({ type: event }),
@@ -423,7 +425,7 @@ export const useKaraokeSession = (
 
   // Opened from the library, the performance starts on its own once the opening scene releases it.
   useEffect(() => {
-    if (mode === "AutoStart" && startReleased && state.kind === "ready" && recording === "idle")
+    if ((mode === "AutoStart" || mode === "Rehearsal") && startReleased && state.kind === "ready" && recording === "idle")
       void togglePlay();
   }, [mode, startReleased, state.kind, recording, togglePlay]);
 
@@ -501,6 +503,7 @@ export const useKaraokeSession = (
     monitoring,
     recording,
     recordingId,
+    recordingSeconds,
     recoveredNotice,
     gains,
     interactive,

@@ -19,9 +19,11 @@ import {
   phaseOf,
   phases,
   processingDuration,
+  processingTitle,
   stateLabel,
   stateTone,
 } from "./processingModel";
+import { errorMessageKey } from "../../shared/errors";
 
 export interface JobActions {
   canMove(direction: -1 | 1): boolean;
@@ -117,7 +119,7 @@ export const ProcessingJobCard = ({
         )}
         <div className="processingJobMain">
           <Typography as="strong" variant="title" truncate>
-            {song ? `${song.artist} — ${song.title}` : job.songId}
+            {processingTitle(job, song) ?? t("processingSongUnavailable")}
           </Typography>
           <Stack
             direction="row"
@@ -144,9 +146,9 @@ export const ProcessingJobCard = ({
           </Stack>
           <Steps className="processingSteps" steps={phases.map((step) => t(step))}
             current={phase ?? -1} aria-label={t("processingDetailsStage")} />
-          {retryable && (
+          {(job.state === "failed" || job.state === "interrupted") && (
             <MessageBar tone="error">
-              {job.error?.message ?? t(stateLabel[job.state])}
+              {t(job.error && errorMessageKey(job.error) || "processingFailedHelp")}
             </MessageBar>
           )}
           {job.error?.code === "ManualLyricsConflict" && song && actions.onResetLyrics && (

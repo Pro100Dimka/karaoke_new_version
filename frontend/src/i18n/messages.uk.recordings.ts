@@ -1,5 +1,8 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
+  recordingRehearsal: "Репетиція без запису",
+  recordingLive: "Запис · {time}",
+  recordingLivePaused: "Запис на паузі · {time}",
   recordingOpenAnalysis: "Відкрити аналіз",
   recordingReanalyze: "Перерахувати аналіз",
   analysisCancel: "Скасувати аналіз",

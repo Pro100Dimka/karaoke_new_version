@@ -93,10 +93,15 @@ def test_remote_pitch_preserves_optional_audio_activity(activity) -> None:
 
 @pytest.mark.parametrize("diagnostics", [[], ["AsrCtcBoundaryDisagreement"]])
 def test_remote_alignment_preserves_optional_word_diagnostics(diagnostics) -> None:
-    word = KaggleAiProvider._word({
-        "text": "la", "start": 1.0, "end": 1.5, "confidence": 0.8,
-        "diagnostics": diagnostics,
-    })
+    word = KaggleAiProvider._word(
+        {
+            "text": "la",
+            "start": 1.0,
+            "end": 1.5,
+            "confidence": 0.8,
+            "diagnostics": diagnostics,
+        }
+    )
 
     assert word.diagnostics == tuple(diagnostics)
 
@@ -252,12 +257,16 @@ def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_
     assert vocal.read_bytes() == b"existing project vocal"
 
 
-def test_existing_vocal_and_backing_are_uploaded_once_for_alignment_then_pitch(tmp_path: Path) -> None:
+def test_existing_vocal_and_backing_are_uploaded_once_for_alignment_then_pitch(
+    tmp_path: Path,
+) -> None:
     vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
     client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
-    provider.align(vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing)
+    provider.align(
+        vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing
+    )
     provider.pitch(vocal, cancel, execution=execution)
     assert [name for name, _args in client.calls] == ["/prepare_vocal", "/align", "/pitch"]
     assert client.calls[0][1] == (str(vocal), str(backing))
@@ -270,7 +279,9 @@ def test_vocal_only_cached_session_is_upgraded_when_alignment_needs_backing(tmp_
     provider = _Provider(client)
     execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
     provider.pitch(vocal, cancel, execution=execution)
-    provider.align(vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing)
+    provider.align(
+        vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing
+    )
     uploads = [args for name, args in client.calls if name == "/prepare_vocal"]
     assert uploads == [(str(vocal), None), (str(vocal), str(backing))]
     assert provider._sessions[vocal.resolve()][1] == backing.resolve()
@@ -283,9 +294,17 @@ def test_separated_session_reuses_its_existing_backing_for_alignment(tmp_path: P
     client = _Client(remote_backing, remote_vocal)
     provider = _Provider(client)
     execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
-    separated = provider.separate(tmp_path / "source.wav", tmp_path / "output", cancel, execution=execution)
-    provider.align(separated.reference_vocal, "hello", Language.ENGLISH, cancel,
-                   execution=execution, instrumental=separated.instrumental)
+    separated = provider.separate(
+        tmp_path / "source.wav", tmp_path / "output", cancel, execution=execution
+    )
+    provider.align(
+        separated.reference_vocal,
+        "hello",
+        Language.ENGLISH,
+        cancel,
+        execution=execution,
+        instrumental=separated.instrumental,
+    )
     assert [name for name, _args in client.calls] == ["/separate", "/align"]
     assert client.calls[1][1][0] == "a1b2"
 
@@ -318,18 +337,30 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
     monkeypatch.setattr(kaggle_provider_module, "Client", Notebook)
     provider = KaggleAiProvider(
         lambda: BackendSettings(
-            2, processing_backend=ProcessingBackend.KAGGLE,
-            kaggle_url=state["url"], kaggle_token=state["token"]
-        ), discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+            2,
+            processing_backend=ProcessingBackend.KAGGLE,
+            kaggle_url=state["url"],
+            kaggle_token=state["token"],
+        ),
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
     monkeypatch.setattr(provider, "_handle_file", str)
     vocal = tmp_path / "vocal.wav"
     provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
-    state[change] = {"generation": "second", "url": "https://second.gradio.live", "token": "token-two"}[change]
+    state[change] = {
+        "generation": "second",
+        "url": "https://second.gradio.live",
+        "token": "token-two",
+    }[change]
 
     provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
 
-    assert [name for name, _args in calls] == ["/prepare_vocal", "/pitch", "/prepare_vocal", "/pitch"]
+    assert [name for name, _args in calls] == [
+        "/prepare_vocal",
+        "/pitch",
+        "/prepare_vocal",
+        "/pitch",
+    ]
     assert calls[-1][1][0] == "b" * 32
     assert len(set(probes)) == 2
 
@@ -351,18 +382,32 @@ def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twic
     vocal = tmp_path / "vocal.wav"
     backing = tmp_path / "instrumental.wav" if operation == "align" else None
     provider._sessions[vocal.resolve()] = ("expired", backing)
+
     def invoke():
         if operation == "align":
-            return provider.align(vocal, "hello", Language.ENGLISH, threading.Event(),
-                                  instrumental=backing, execution=ExecutionContext(ComputeDevice.CPU, 1))
-        return provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
+            return provider.align(
+                vocal,
+                "hello",
+                Language.ENGLISH,
+                threading.Event(),
+                instrumental=backing,
+                execution=ExecutionContext(ComputeDevice.CPU, 1),
+            )
+        return provider.pitch(
+            vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1)
+        )
+
     if expires_twice:
         with pytest.raises(DependencyError) as error:
             invoke()
         assert error.value.code == "KaggleSessionExpired"
     else:
         assert len(invoke()) == 1
-    assert [name for name, _args in client.calls] == [f"/{operation}", "/prepare_vocal", f"/{operation}"]
+    assert [name for name, _args in client.calls] == [
+        f"/{operation}",
+        "/prepare_vocal",
+        f"/{operation}",
+    ]
     assert client.calls[1][1] == (str(vocal), str(backing) if backing else None)
 
 
@@ -408,7 +453,9 @@ def test_cancellation_interrupts_waiting_for_an_existing_vocal_upload(tmp_path, 
 
     def invoke():
         try:
-            provider.pitch(tmp_path / "vocal.wav", cancel, execution=ExecutionContext(ComputeDevice.CPU, 1))
+            provider.pitch(
+                tmp_path / "vocal.wav", cancel, execution=ExecutionContext(ComputeDevice.CPU, 1)
+            )
         except DomainError as error:
             errors.append(error.code)
         finally:
@@ -500,7 +547,8 @@ def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allow
 
 @pytest.mark.parametrize("protocol_version", [4, 5])
 def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_workers(
-    monkeypatch, protocol_version,
+    monkeypatch,
+    protocol_version,
 ) -> None:
     timeouts: list[object] = []
 

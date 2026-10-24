@@ -164,7 +164,9 @@ class ProgramLogHandler(logging.Handler):
                 "room-server",
                 [
                     {
-                        "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+                        "timestamp": datetime.fromtimestamp(
+                            record.created, timezone.utc
+                        ).isoformat(),
                         "source": record.name,
                         "level": record.levelname,
                         "message": message,

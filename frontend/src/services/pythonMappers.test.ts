@@ -73,7 +73,7 @@ describe("processing job mapping", () => {
       stageProgress: 1,
       overallProgress: 1,
       error: null,
-      report: { processingBackend: "Kaggle" },
+      report: { processingBackend: "Kaggle", songTitle: "Saved song", songArtist: "Saved artist" },
       startedAt: "2026-09-25T12:00:00Z",
       finishedAt: "2026-09-25T12:03:17Z",
     } satisfies BackendJob);
@@ -82,6 +82,8 @@ describe("processing job mapping", () => {
       startedAt: "2026-09-25T12:00:00Z",
       finishedAt: "2026-09-25T12:03:17Z",
       processingBackend: "Kaggle",
+      songTitle: "Saved song",
+      songArtist: "Saved artist",
     });
   });
 });

@@ -1,4 +1,6 @@
 export const processingUk = {
+  processingSongUnavailable: "Пісню видалено з бібліотеки",
+  processingFailedHelp: "Обробку не завершено. Повторіть спробу; причину можна переглянути у відомостях про завдання.",
   processingSummary:
     "Усього завдань: {total} · У роботі: {active} · Очікують: {queued}",
   processingMoveUp: "Вище в черзі",

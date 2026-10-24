@@ -119,7 +119,10 @@ def test_room_diagnostics_include_the_server_return_send_cadence(tmp_path: Path)
 
 
 def _program_lines(root: Path) -> list[dict[str, object]]:
-    return [json.loads(line) for line in (root / "program.jsonl").read_text(encoding="utf-8").splitlines()]
+    return [
+        json.loads(line)
+        for line in (root / "program.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
 
 
 def test_program_logs_from_two_computers_share_one_ordered_file(tmp_path: Path) -> None:
@@ -170,9 +173,7 @@ def test_program_log_upload_rejects_other_identity_and_unbounded_input(tmp_path:
     with TestClient(app) as client:
         assert client.post("/app-logs", json=body).status_code == 403
         assert (
-            client.post(
-                "/app-logs", headers={ROOM_KEY_HEADER: "b" * 64}, json=body
-            ).status_code
+            client.post("/app-logs", headers={ROOM_KEY_HEADER: "b" * 64}, json=body).status_code
             == 403
         )
         assert (
@@ -230,7 +231,10 @@ def test_program_log_keeps_recent_lines_within_single_file_limit(tmp_path: Path)
     target = tmp_path / "program.jsonl"
     log = ProgramLog(target, max_bytes=400)
     for number in range(10):
-        log.append("client", [{"timestamp": "t", "source": "audio", "level": "INFO", "message": str(number)}])
+        log.append(
+            "client",
+            [{"timestamp": "t", "source": "audio", "level": "INFO", "message": str(number)}],
+        )
     lines = _program_lines(tmp_path)
     assert target.stat().st_size <= 400
     assert lines[-1]["message"] == "9"
@@ -310,7 +314,9 @@ def test_room_metrics_and_server_errors_are_visible_in_program_log(tmp_path: Pat
             == 204
         )
     handler = ProgramLogHandler(ProgramLog(target))
-    handler.handle(logging.LogRecord("room.server", logging.ERROR, __file__, 1, "server failed", (), None))
+    handler.handle(
+        logging.LogRecord("room.server", logging.ERROR, __file__, 1, "server failed", (), None)
+    )
     lines = _program_lines(tmp_path)
     assert lines[0]["source"] == "room-diagnostics"
     assert json.loads(lines[0]["message"])["Backend"] == "ASIO"
@@ -318,7 +324,9 @@ def test_room_metrics_and_server_errors_are_visible_in_program_log(tmp_path: Pat
     assert lines[1]["message"] == "server failed"
 
 
-def test_room_server_runtime_logs_uvicorn_errors_in_program_file(tmp_path: Path, monkeypatch) -> None:
+def test_room_server_runtime_logs_uvicorn_errors_in_program_file(
+    tmp_path: Path, monkeypatch
+) -> None:
     from backend import room_server_main
 
     root_logger = logging.getLogger()

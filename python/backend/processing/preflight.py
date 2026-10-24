@@ -25,12 +25,17 @@ class ProcessingPreflight:
 
     def execute(self, settings: BackendSettings) -> ProcessingProviders:
         capabilities = {
-            "separation": AiCapability.SEPARATION, "asr": AiCapability.ASR,
-            "alignment": AiCapability.ALIGNMENT, "pitch": AiCapability.PITCH,
+            "separation": AiCapability.SEPARATION,
+            "asr": AiCapability.ASR,
+            "alignment": AiCapability.ALIGNMENT,
+            "pitch": AiCapability.PITCH,
         }
-        return ProcessingProviders(**{
-            name: self.resolve(settings, capability) for name, capability in capabilities.items()
-        })
+        return ProcessingProviders(
+            **{
+                name: self.resolve(settings, capability)
+                for name, capability in capabilities.items()
+            }
+        )
 
     def resolve(self, settings: BackendSettings, capability: AiCapability) -> AiProvider:
         preferred = {
@@ -40,7 +45,8 @@ class ProcessingPreflight:
             AiCapability.PITCH: settings.selected_pitch_provider,
         }
         provider_id = (
-            _KAGGLE_PROVIDER if settings.processing_backend is ProcessingBackend.KAGGLE
+            _KAGGLE_PROVIDER
+            if settings.processing_backend is ProcessingBackend.KAGGLE
             else preferred[capability]
         )
         return self._resolver.execute(capability, provider_id)
@@ -48,6 +54,7 @@ class ProcessingPreflight:
 
 def provider_backend(provider: AiProvider) -> ProcessingBackend:
     return (
-        ProcessingBackend.KAGGLE if provider.descriptor.required_resources.get("remote")
+        ProcessingBackend.KAGGLE
+        if provider.descriptor.required_resources.get("remote")
         else ProcessingBackend.LOCAL
     )

@@ -9,7 +9,6 @@ from backend.infrastructure.recording_files import LocalRecordingStorage
 from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.infrastructure.wave_pitch import VocalPitchExtractor
 from backend.models.commands import EnsureRequiredModels
-from backend.processing.resource_scheduler import ProcessingResourceScheduler
 from backend.processing.preflight import ProcessingPreflight
 from backend.recordings.allocate_target import AllocateRecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
@@ -54,9 +53,7 @@ def _analysis_and_mastering(
     inspector = WaveRecordingInspector()
     publisher = PublishStudioMaster(storage, inspector, register, runtime.clock, runtime.ids)
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
-    resources = ProcessingResourceScheduler(
-        processing.runtime, processing.storage, runtime.config.roots.temp, runtime.config.resources
-    )
+    resources = processing.resources
     settings = GetSettings(runtime.database)
     analysis = StartRecordingAnalysis(
         runtime.database,

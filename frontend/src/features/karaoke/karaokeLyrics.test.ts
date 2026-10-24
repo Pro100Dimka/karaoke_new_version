@@ -10,6 +10,7 @@ import {
   pitchHzToMidi,
   pitchRange,
   targetPitchAt,
+  scorableNoteDuration,
   upcomingLinePhase,
   type LyricLine,
 } from "./karaokeLyrics";
@@ -27,6 +28,11 @@ const line = (start: number, end: number): LyricLine => ({
 });
 
 describe("karaoke lyrics model", () => {
+  it("does not grade an uncertain reference fundamental as a singer's wrong note", () => {
+    const note = { pitch: 60, start: 0, end: 1, contour: [[0, 0, 1], [0.5, 3, 0.35], [1, 0, 1]] as const };
+    expect(targetPitchAt(note, 0.5)).toBeUndefined();
+    expect(scorableNoteDuration(note)).toBeCloseTo(0.5);
+  });
   it("follows the saved contour and carries it with transposed and resized notes", () => {
     const note = { pitch: 60, start: 2, end: 4, contour: [[0, -0.3], [1, 0.3]] as const };
     expect(targetPitchAt(note, 3)).toBeCloseTo(60);

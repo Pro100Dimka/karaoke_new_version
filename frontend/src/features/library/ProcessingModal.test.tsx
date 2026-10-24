@@ -7,6 +7,7 @@ import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { desktopClient } from "../../services/desktopClient";
 import { useProcessingQueue } from "./useProcessingQueue";
 import { ProcessingSignal } from "./ProcessingSignal";
+import { ProcessingJobCard, type JobActions } from "./ProcessingJobCard";
 import { clearStorage } from "../../shared/storage/localStore";
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
@@ -28,6 +29,17 @@ it("shows free disk space and application size without inventing disk capacity",
     onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
   await waitFor(() => expect(screen.getByText(/processingDiskUsage/)).toBeInTheDocument());
   expect(screen.queryByRole("progressbar", { name: "processingDiskFree" })).not.toBeInTheDocument();
+});
+
+it.each(["failed", "cancelled"] as const)("keeps a human title and understandable %s state after deleting the song", (state) => {
+  const job = { id: "job", songId: "raw-uuid", songTitle: "Saved title", songArtist: "Saved artist",
+    type: "SongProcessing", state, stage: "Failed", progress: 5,
+    error: { code: "BackgroundFailure", message: "Background job failed", source: "python" } } as ProcessingJobDto;
+  const { container } = render(<ProcessingJobCard job={job} index={0} actions={{} as JobActions} />);
+  expect(screen.getByText("Saved artist — Saved title")).toBeInTheDocument();
+  expect(screen.queryByText("Background job failed")).not.toBeInTheDocument();
+  if (state === "cancelled") expect(container.querySelector('.ad-status-indicator[data-status="error"]')).toBeNull();
+  else expect(screen.getByText("processingFailedHelp")).toBeInTheDocument();
 });
 
 it("keeps cleared jobs hidden after reopening and fresh backend results, while showing new jobs", async () => {

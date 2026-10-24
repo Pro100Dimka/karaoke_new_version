@@ -15,17 +15,64 @@ def _frequency(midi: int) -> float:
     return 440.0 * (2.0 ** ((midi - 69) / 12.0))
 
 
+def test_reference_activity_uses_capture_window_centres_at_any_detector_step() -> None:
+    for step in (0.01, 0.05):
+        points = tuple(PitchPoint(0.1 + i * step, 440, 0.99) for i in range(round(0.8 / step) + 1))
+        document = construct_document(
+            "T", "A", 1, "la", (WordTiming("la", 0, 1, 1),), points, MusicMetadata(None, None)
+        )
+        result = score_pitch(document, points, performance_duration=1, reference_pitch=points)
+        assert result.rhythm_accuracy_percent == pytest.approx(100)
+
+
 def test_saved_notes_override_a_different_audio_target_and_respect_manual_edits() -> None:
     from dataclasses import replace
 
-    document = LyricsDocument("Song", "Artist", 1, None, None, "la",
-                              (Word("la", 0, 1, (Note(60, 0, 1),)),))
+    document = LyricsDocument(
+        "Song", "Artist", 1, None, None, "la", (Word("la", 0, 1, (Note(60, 0, 1),)),)
+    )
     displayed = tuple(PitchPoint(i / 100, _frequency(60), 0.99) for i in range(100))
     audio = tuple(PitchPoint(i / 100, _frequency(62), 0.99) for i in range(100))
-    assert score_pitch(document, displayed, performance_duration=1, reference_pitch=audio).pitch_accuracy_percent == 100
-    assert score_pitch(document, audio, performance_duration=1, reference_pitch=audio).pitch_accuracy_percent == 0
+    assert (
+        score_pitch(
+            document, displayed, performance_duration=1, reference_pitch=audio
+        ).pitch_accuracy_percent
+        == 100
+    )
+    assert (
+        score_pitch(
+            document, audio, performance_duration=1, reference_pitch=audio
+        ).pitch_accuracy_percent
+        == 0
+    )
     edited = replace(document, words=(Word("la", 0, 1, (Note(63, 0, 1),)),))
-    assert score_pitch(edited, displayed, performance_duration=1, reference_pitch=audio).pitch_accuracy_percent == 0
+    assert (
+        score_pitch(
+            edited, displayed, performance_duration=1, reference_pitch=audio
+        ).pitch_accuracy_percent
+        == 0
+    )
+
+
+def test_saved_target_keeps_consonant_activity_and_does_not_grade_uncertain_reference_pitch() -> (
+    None
+):
+    points = tuple(
+        PitchPoint(
+            i / 100,
+            _frequency(72 if i == 50 else 69),
+            0.35 if i == 50 else (0.99 if 20 <= i < 80 else 0.1),
+            True,
+        )
+        for i in range(100)
+    )
+    document = construct_document(
+        "T", "A", 1, "la", (WordTiming("la", 0, 1, 1),), points, MusicMetadata(None, None)
+    )
+    result = score_pitch(document, points, performance_duration=1, reference_pitch=points)
+    assert result.pitch_accuracy_percent == pytest.approx(100)
+    assert result.rhythm_accuracy_percent == pytest.approx(100)
+    assert result.note_stability_percent == pytest.approx(100)
 
 
 def _vocal_contour() -> tuple[PitchPoint, ...]:
@@ -39,8 +86,9 @@ def _vocal_contour() -> tuple[PitchPoint, ...]:
 
 def test_identical_reference_audio_scores_perfectly_despite_vibrato_and_wrong_live_values() -> None:
     contour = _vocal_contour()
-    document = construct_document("Song", "Artist", 2, "la", (WordTiming("la", 0, 2, 1),),
-                                  contour, MusicMetadata(120, "A"))
+    document = construct_document(
+        "Song", "Artist", 2, "la", (WordTiming("la", 0, 2, 1),), contour, MusicMetadata(120, "A")
+    )
     score = score_pitch(
         document,
         contour,
@@ -201,8 +249,9 @@ def test_waveform_calibration_requires_an_unmodified_continuous_reference(
 @pytest.mark.parametrize("mistake", ["wrong_notes", "silence", "late", "singing_in_rests"])
 def test_audio_comparison_does_not_reward_wrong_notes_silence_or_wrong_rhythm(mistake: str) -> None:
     reference = _vocal_contour()
-    document = construct_document("Song", "Artist", 2, "la", (WordTiming("la", 0, 2, 1),),
-                                  reference, MusicMetadata(120, "A"))
+    document = construct_document(
+        "Song", "Artist", 2, "la", (WordTiming("la", 0, 2, 1),), reference, MusicMetadata(120, "A")
+    )
     transformations = {
         "wrong_notes": lambda p: PitchPoint(p.time, p.frequency * 2 ** (3 / 12), p.confidence),
         "silence": lambda p: PitchPoint(p.time, 0, 0),

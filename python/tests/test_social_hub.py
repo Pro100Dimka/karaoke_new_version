@@ -25,7 +25,9 @@ def test_voice_levels_are_pushed_only_to_open_apps_in_the_room() -> None:
         hub.set_room("anna", "room-a")
         hub.set_room("boris", "room-b")
 
-        hub.broadcast_room("room-a", {"type": "voiceLevels", "roomId": "room-a", "levels": {"anna": 0.7}})
+        hub.broadcast_room(
+            "room-a", {"type": "voiceLevels", "roomId": "room-a", "levels": {"anna": 0.7}}
+        )
         await asyncio.wait_for(in_room.received.wait(), timeout=1)
 
         assert in_room.messages == [

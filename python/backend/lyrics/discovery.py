@@ -13,7 +13,12 @@ from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.lyrics.codec import decode_document, decode_timing_hints
 from backend.projects.ports import ProjectStorage
 from backend.songs.filename_metadata import UNKNOWN_ARTIST
-from backend.text_normalization import normalize_catalog_identity, spell_lyric_percentages, strip_annotations
+from backend.text_normalization import (
+    normalize_catalog_identity,
+    spell_lyric_percentages,
+    strip_annotations,
+    strip_catalog_credits,
+)
 from backend.lyrics.ports import (
     LyricLineTiming,
     LyricsCandidate,
@@ -44,7 +49,8 @@ class LyricsDiscovery:
         sidecar: SidecarLyricsReader,
         online: Sequence[OnlineLyricsProvider],
         policy: LyricsMatchPolicy,
-        *, projects: ProjectStorage | None = None,
+        *,
+        projects: ProjectStorage | None = None,
     ) -> None:
         self._sidecar = sidecar
         self._online = tuple(online)
@@ -64,29 +70,29 @@ class LyricsDiscovery:
         local = self._local(song)
         warnings: list[str] = []
         previous = self._previous(song, warnings) if local is None else None
-        found = local or (self._from_online(song, cancel, warnings, previous) if online_enabled else None) or previous
+        found = (
+            local
+            or (self._from_online(song, cancel, warnings, previous) if online_enabled else None)
+            or previous
+        )
         if found:
             language = lyrics_language(song, found.lyrics).value
             found = replace(
-                found, lyrics=spell_lyric_percentages(found.lyrics, language),
-                timing_hints=tuple(replace(hint, text=spell_lyric_percentages(hint.text, language))
-                                   for hint in found.timing_hints),
+                found,
+                lyrics=spell_lyric_percentages(found.lyrics, language),
+                timing_hints=tuple(
+                    replace(hint, text=spell_lyric_percentages(hint.text, language))
+                    for hint in found.timing_hints
+                ),
             )
         lyrics = asr.transcribe(
-            reference_vocal, lyrics_language(song, found.lyrics if found else ""),
-            cancel, execution=execution,
+            reference_vocal,
+            lyrics_language(song, found.lyrics if found else ""),
+            cancel,
+            execution=execution,
         ).strip()
         if found:
-            completed = _complete_repeats(found.lyrics, lyrics, cancel)
-            before = Counter(_lyrics_key(line) for line in found.lyrics.splitlines())
-            after = Counter(_lyrics_key(line) for line in completed.splitlines())
-            return found if completed == found.lyrics else replace(
-                found, lyrics=completed, timing_hints=tuple(
-                    hint for hint in found.timing_hints
-                    if before[_lyrics_key(hint.text)] == after[_lyrics_key(hint.text)]
-                ),
-                warnings=(*found.warnings, "LyricsRepeatsRecovered"),
-            )
+            return _with_completed_repeats(found, lyrics, cancel)
         if not lyrics:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
         return LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))
@@ -99,19 +105,33 @@ class LyricsDiscovery:
             source = manifest.provenance.get("lyricsSource")
             if not isinstance(source, str) or source == "ASR":
                 return None
-            raw = self._projects.read_text_artifact(song.song_id, song.active_revision, "lyricsBaseline")
+            raw = self._projects.read_text_artifact(
+                song.song_id, song.active_revision, "lyricsBaseline"
+            )
             document = decode_document(raw)
-            lyrics = document.lyrics
+            lyrics = strip_catalog_credits(document.lyrics)
             saved_warnings = manifest.provenance.get("warnings", ())
-            recovered = isinstance(saved_warnings, (tuple, list)) and "LyricsRepeatsRecovered" in saved_warnings
+            recovered = (
+                isinstance(saved_warnings, (tuple, list))
+                and "LyricsRepeatsRecovered" in saved_warnings
+            )
         except (DomainError, ValueError, OSError):
             return None
         return (
-            LyricsDiscoveryResult(lyrics, source, (
-                *warnings, "LyricsCatalogCached",
-                *(("LyricsRepeatsRecovered",) if recovered else ()),
-            ), decode_timing_hints(manifest.provenance.get("lyricsTimingHints"), document.duration))
-            if lyrics.strip() else None
+            LyricsDiscoveryResult(
+                lyrics,
+                source,
+                (
+                    *warnings,
+                    "LyricsCatalogCached",
+                    *(("LyricsRepeatsRecovered",) if recovered else ()),
+                ),
+                decode_timing_hints(
+                    manifest.provenance.get("lyricsTimingHints"), document.duration
+                ),
+            )
+            if lyrics.strip()
+            else None
         )
 
     def _local(self, song: Song) -> LyricsDiscoveryResult | None:
@@ -138,24 +158,35 @@ class LyricsDiscovery:
                 continue
             matches = [item for item in candidates if self._matches(song, item)]
             if matches:
-                return self._select_version(song, candidates, matches[0], previous, warnings,
-                                            provider.provider_id)
+                return self._select_version(
+                    song, candidates, matches[0], previous, warnings, provider.provider_id
+                )
         return None
 
     def _select_version(
-        self, song: Song, candidates: Sequence[LyricsCandidate], matched: LyricsCandidate,
-        previous: LyricsDiscoveryResult | None, warnings: list[str], source: str,
+        self,
+        song: Song,
+        candidates: Sequence[LyricsCandidate],
+        matched: LyricsCandidate,
+        previous: LyricsDiscoveryResult | None,
+        warnings: list[str],
+        source: str,
     ) -> LyricsDiscoveryResult:
         eligible = [item for item in candidates if self._matches(song, item, check_artist=False)]
         versions = [item for item in eligible if _same_vocabulary(matched.lyrics, item.lyrics)]
-        distances = {item: abs(song.duration - item.duration)
-                     if song.duration is not None and item.duration is not None
-                     else (math.inf if song.duration is not None else 0.0) for item in eligible}
-        # Extra words can belong to another release or duet. First match the recording;
-        # fuller catalog copies remain preferable among equally close durations.
+        distances = {
+            item: abs(song.duration - item.duration)
+            if song.duration is not None and item.duration is not None
+            else (math.inf if song.duration is not None else 0.0)
+            for item in eligible
+        }
+        # Match release duration first; prefer fuller lyrics only among equally close copies.
         candidate = min(versions, key=lambda item: (distances[item], -len(item.lyrics.split())))
-        cached_distances = [distances[item] for item in versions
-                            if previous and _lyrics_key(previous.lyrics) == _lyrics_key(item.lyrics)]
+        cached_distances = [
+            distances[item]
+            for item in versions
+            if previous and _lyrics_key(previous.lyrics) == _lyrics_key(item.lyrics)
+        ]
         if cached_distances and min(cached_distances) > distances[candidate]:
             warnings.append("LyricsCatalogVersionChanged")
         if previous and (
@@ -165,17 +196,28 @@ class LyricsDiscovery:
             and len(previous.lyrics.split()) > len(candidate.lyrics.split())
         ):
             return previous
-        timed = next((item for item in eligible if distances[item] == distances[candidate]
-                      and item.timing_hints and _lyrics_match(candidate.lyrics, item.lyrics)), None)
-        return LyricsDiscoveryResult(candidate.lyrics, source, tuple(warnings),
-                                     timed.timing_hints if timed else candidate.timing_hints)
+        timed = _timed_catalog_version(eligible, candidate, distances)
+        return LyricsDiscoveryResult(
+            candidate.lyrics,
+            source,
+            tuple(warnings),
+            timed.timing_hints if timed else candidate.timing_hints,
+        )
 
     def _matches(
-        self, song: Song, candidate: LyricsCandidate, *, check_artist: bool = True,
+        self,
+        song: Song,
+        candidate: LyricsCandidate,
+        *,
+        check_artist: bool = True,
     ) -> bool:
         if not _similar(song.title, candidate.title):
             return False
-        if check_artist and song.artist != UNKNOWN_ARTIST and not _similar(song.artist, candidate.artist):
+        if (
+            check_artist
+            and song.artist != UNKNOWN_ARTIST
+            and not _similar(song.artist, candidate.artist)
+        ):
             return False
         if song.duration is None or candidate.duration is None:
             return True
@@ -203,8 +245,10 @@ def _lyrics_match(expected: str, actual: str) -> bool:
 
 
 def _same_vocabulary(expected: str, actual: str) -> bool:
-    vocabularies = [" ".join(sorted({_lyrics_key(word) for word in text.split() if _lyrics_key(word)}))
-                    for text in (expected, actual)]
+    vocabularies = [
+        " ".join(sorted({_lyrics_key(word) for word in text.split() if _lyrics_key(word)}))
+        for text in (expected, actual)
+    ]
     return _lyrics_match(*vocabularies)
 
 
@@ -239,9 +283,15 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
         return lyrics
     original = [keys.index(_lyrics_key(line)) for line in lines]
     heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
-    performed = tuple(index for index, _, _ in _performed_lines(
-        keys, heard, set(zip(original, original[1:])), cancel,
-    ))
+    performed = tuple(
+        index
+        for index, _, _ in _performed_lines(
+            keys,
+            heard,
+            set(zip(original, original[1:])),
+            cancel,
+        )
+    )
     merged = _merge_lines(original, performed, keys)
     if len(merged) == len(original):
         return lyrics
@@ -253,7 +303,9 @@ _LinePath = tuple[float, tuple[tuple[int, int, int], ...]]
 
 
 def performed_phrases(
-    lyrics: str, words: Sequence[str], cancel: threading.Event,
+    lyrics: str,
+    words: Sequence[str],
+    cancel: threading.Event,
 ) -> tuple[tuple[str, int, int], ...]:
     """Catalogue phrase and the independent ASR word span that supports each occurrence."""
     lines = [line for line in lyrics.splitlines() if _lyrics_key(line)]
@@ -262,13 +314,19 @@ def performed_phrases(
         return ()
     original = [keys.index(_lyrics_key(line)) for line in lines]
     matches = _performed_lines(
-        keys, [_lyrics_key(word) for word in words], set(zip(original, original[1:])), cancel,
+        keys,
+        [_lyrics_key(word) for word in words],
+        set(zip(original, original[1:])),
+        cancel,
     )
     return tuple((lines[original.index(index)], first, last) for index, first, last in matches)
 
 
 def _performed_lines(
-    keys: list[str], heard: list[str], following: set[tuple[int, int]], cancel: threading.Event,
+    keys: list[str],
+    heard: list[str],
+    following: set[tuple[int, int]],
+    cancel: threading.Event,
 ) -> tuple[tuple[int, int, int], ...]:
     states: list[dict[int, _LinePath]] = [{} for _ in range(len(heard) + 1)]
     states[0][-1] = (0.0, ())
@@ -288,10 +346,12 @@ def _performed_lines(
         for index, key in enumerate(keys):
             sequential = max(
                 (value for last, value in row.items() if (last, index) in following),
-                key=lambda item: item[0], default=empty,
+                key=lambda item: item[0],
+                default=empty,
             )
             score, path = max(
-                ((best[0] - choice_cost, best[1]), sequential), key=lambda item: item[0],
+                ((best[0] - choice_cost, best[1]), sequential),
+                key=lambda item: item[0],
             )
             for end, support in _line_matches(key, heard, start):
                 candidate = (score + support, (*path, (index, start, end)))
@@ -308,9 +368,16 @@ def _line_matches(key: str, heard: list[str], start: int) -> list[tuple[int, int
         # Beyond twice the phrase length even a complete character match cannot score positively.
         if len(joined) > 2 * len(key):
             break
-        blocks = [block for block in SequenceMatcher(
-            None, key, joined, autojunk=False,
-        ).get_matching_blocks() if block.size]
+        blocks = [
+            block
+            for block in SequenceMatcher(
+                None,
+                key,
+                joined,
+                autojunk=False,
+            ).get_matching_blocks()
+            if block.size
+        ]
         if not blocks or blocks[0].b >= len(heard[start]):
             continue
         if blocks[-1].b + blocks[-1].size <= len(joined) - len(heard[end]):
@@ -343,21 +410,27 @@ def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str
     return merged
 
 
-def _line_anchors(original: list[int], performed: tuple[int, ...], keys: list[str]) -> list[tuple[int, int]]:
+def _line_anchors(
+    original: list[int], performed: tuple[int, ...], keys: list[str]
+) -> list[tuple[int, int]]:
     counts = Counter(original)
     equivalent = {
-        (left, right): left == right or (
+        (left, right): left == right
+        or (
             keys[right] in keys[left]
             # The same positive character support used by phrase recognition. Keep the
             # catalogue's extra words when ASR misses a short adlib inside an occurrence.
             and 2 * len(keys[right]) > len(keys[left])
-        ) for left in counts for right in set(performed)
+        )
+        for left in counts
+        for right in set(performed)
     }
     lengths = [[0.0] * (len(performed) + 1) for _ in range(len(original) + 1)]
     for i in range(len(original) - 1, -1, -1):
         for j in range(len(performed) - 1, -1, -1):
             lengths[i][j] = (
-                lengths[i + 1][j + 1] + 1 / counts[original[i]] if equivalent[original[i], performed[j]]
+                lengths[i + 1][j + 1] + 1 / counts[original[i]]
+                if equivalent[original[i], performed[j]]
                 else max(lengths[i + 1][j], lengths[i][j + 1])
             )
     anchors: list[tuple[int, int]] = []
@@ -371,3 +444,42 @@ def _line_anchors(original: list[int], performed: tuple[int, ...], keys: list[st
         else:
             j += 1
     return anchors
+
+
+def _with_completed_repeats(
+    found: LyricsDiscoveryResult, lyrics: str, cancel: threading.Event
+) -> LyricsDiscoveryResult:
+    completed = _complete_repeats(found.lyrics, lyrics, cancel)
+    before = Counter(_lyrics_key(line) for line in found.lyrics.splitlines())
+    after = Counter(_lyrics_key(line) for line in completed.splitlines())
+    return (
+        found
+        if completed == found.lyrics
+        else replace(
+            found,
+            lyrics=completed,
+            timing_hints=tuple(
+                hint
+                for hint in found.timing_hints
+                if before[_lyrics_key(hint.text)] == after[_lyrics_key(hint.text)]
+            ),
+            warnings=(*found.warnings, "LyricsRepeatsRecovered"),
+        )
+    )
+
+
+def _timed_catalog_version(
+    eligible: Sequence[LyricsCandidate],
+    candidate: LyricsCandidate,
+    distances: dict[LyricsCandidate, float],
+) -> LyricsCandidate | None:
+    return next(
+        (
+            item
+            for item in eligible
+            if distances[item] == distances[candidate]
+            and item.timing_hints
+            and _lyrics_match(candidate.lyrics, item.lyrics)
+        ),
+        None,
+    )

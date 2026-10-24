@@ -54,7 +54,10 @@ def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
 
     performance = tmp_path / "take.wav"
     balance = renderer.render(
-        *paths, tmp_path / "master.wav", threading.Event(), performance_mix=performance,
+        *paths,
+        tmp_path / "master.wav",
+        threading.Event(),
+        performance_mix=performance,
     )
 
     assert balance.vocal_gain_db == pytest.approx(12.0)
@@ -73,20 +76,30 @@ def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     assert runner.mastering_passes == 2
 
 
-@pytest.mark.parametrize(("voice_level", "music_level", "reference_level"), [
-    (0.1, 0.3, 0.1),
-    (0.01, 0.1, 0.1),
-])
+@pytest.mark.parametrize(
+    ("voice_level", "music_level", "reference_level"),
+    [
+        (0.1, 0.3, 0.1),
+        (0.01, 0.1, 0.1),
+    ],
+)
 def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
-    tmp_path: Path, voice_level: float, music_level: float, reference_level: float,
+    tmp_path: Path,
+    voice_level: float,
+    music_level: float,
+    reference_level: float,
 ) -> None:
     import numpy as np
     import soundfile as sf
 
     time = np.arange(48000 * 4) / 48000
-    vocal, backing, reference = [tmp_path / name for name in ("voice.wav", "backing.wav", "reference.wav")]
+    vocal, backing, reference = [
+        tmp_path / name for name in ("voice.wav", "backing.wav", "reference.wav")
+    ]
     for path, frequency, amplitude in (
-        (vocal, 440, voice_level), (backing, 220, music_level), (reference, 440, reference_level),
+        (vocal, 440, voice_level),
+        (backing, 220, music_level),
+        (reference, 440, reference_level),
     ):
         samples = amplitude * np.sin(2 * np.pi * frequency * time)
         sf.write(path, np.column_stack((samples, samples)), 48000)
@@ -96,21 +109,39 @@ def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
     runner = ProcessRunner()
 
     FfmpegStudioMasterRenderer(runner).render(
-        vocal, backing, reference, backing, target, threading.Event(), performance_mix=performance,
+        vocal,
+        backing,
+        reference,
+        backing,
+        target,
+        threading.Event(),
+        performance_mix=performance,
     )
 
     result = runner.run(
-        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(target), "-af",
-         "loudnorm=I=-14:TP=-1:print_format=json", "-f", "null", "-"],
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-nostats",
+            "-i",
+            str(target),
+            "-af",
+            "loudnorm=I=-14:TP=-1:print_format=json",
+            "-f",
+            "null",
+            "-",
+        ],
         timeout_seconds=30,
     )
     measured = json.loads(re.search(rb'\{\s*"input_i".*?\}', result.stderr, re.S)[0])
     assert float(measured["input_i"]) == pytest.approx(-14, abs=0.25)
     assert float(measured["input_tp"]) <= -0.9
     samples, rate = sf.read(target, always_2d=True)
-    mono = samples[rate:rate * 3].mean(axis=1)
+    mono = samples[rate : rate * 3].mean(axis=1)
     axis = np.arange(len(mono)) / rate
-    levels = [abs(np.mean(mono * np.exp(-2j * np.pi * frequency * axis))) for frequency in (440, 220)]
+    levels = [
+        abs(np.mean(mono * np.exp(-2j * np.pi * frequency * axis))) for frequency in (440, 220)
+    ]
     actual_ratio = 20 * np.log10(levels[0] / levels[1])
     expected_ratio = 20 * np.log10(max(voice_level, reference_level) / music_level)
     assert actual_ratio == pytest.approx(expected_ratio, abs=0.8)

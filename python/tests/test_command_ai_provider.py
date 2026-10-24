@@ -93,8 +93,12 @@ def test_alignment_supplies_synchronized_instrumental_to_the_worker() -> None:
     backing = Path("same-timeline-instrumental.wav")
 
     provider.align(
-        Path("vocal.wav"), "la", Language.AUTO, threading.Event(),
-        execution=EXECUTION, instrumental=backing,
+        Path("vocal.wav"),
+        "la",
+        Language.AUTO,
+        threading.Event(),
+        execution=EXECUTION,
+        instrumental=backing,
     )
 
     arguments = provider._runner.command
@@ -106,10 +110,17 @@ def test_worker_cli_passes_the_optional_instrumental_context(monkeypatch) -> Non
 
     received = {}
     monkeypatch.setattr(worker, "align", lambda *args, **kwargs: received.update(kwargs) or {})
-    args = worker._parser().parse_args([
-        "align", "--input", "vocal.wav", "--lyrics", "la",
-        "--instrumental", "same-timeline-instrumental.wav",
-    ])
+    args = worker._parser().parse_args(
+        [
+            "align",
+            "--input",
+            "vocal.wav",
+            "--lyrics",
+            "la",
+            "--instrumental",
+            "same-timeline-instrumental.wav",
+        ]
+    )
 
     worker._run(args)
 
@@ -120,10 +131,21 @@ def test_worker_cli_passes_the_optional_instrumental_context(monkeypatch) -> Non
 def test_alignment_preserves_optional_word_diagnostics(diagnostics) -> None:
     import json
 
-    provider = _provider(json.dumps({"words": [{
-        "text": "la", "start": 1.0, "end": 1.5, "confidence": 0.8,
-        "diagnostics": diagnostics,
-    }]}).encode())
+    provider = _provider(
+        json.dumps(
+            {
+                "words": [
+                    {
+                        "text": "la",
+                        "start": 1.0,
+                        "end": 1.5,
+                        "confidence": 0.8,
+                        "diagnostics": diagnostics,
+                    }
+                ]
+            }
+        ).encode()
+    )
 
     word = provider.align(
         Path("vocal.wav"), "la", Language.AUTO, threading.Event(), execution=EXECUTION

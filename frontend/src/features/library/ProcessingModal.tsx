@@ -11,7 +11,7 @@ import { useText } from "../../i18n/useText";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { formatBytes } from "../../shared/utils/format";
 import { ProcessingJobCard } from "./ProcessingJobCard";
-import { processingDuration, stateLabel } from "./processingModel";
+import { processingDuration, processingTitle, stateLabel } from "./processingModel";
 import { useProcessingQueue } from "./useProcessingQueue";
 import "./processing.css";
 
@@ -107,7 +107,7 @@ export const ProcessingModal = ({
     setNotice({
       title: t("processingJobDetails"),
       text: [
-        song ? `${song.artist} — ${song.title}` : job.songId,
+        processingTitle(job, song) ?? t("processingSongUnavailable"),
         `${t("processingDetailsState")}: ${t(stateLabel[job.state])}`,
         `${t("processingDetailsStage")}: ${job.stage}`,
         `${t("processingDetailsProgress")}: ${job.progress}%`,

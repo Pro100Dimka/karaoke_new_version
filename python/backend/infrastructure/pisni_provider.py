@@ -11,7 +11,11 @@ from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricsCandidate
 from backend.songs.domain import Language, Song
 from backend.songs.filename_metadata import UNKNOWN_ARTIST, split_artist_title
-from backend.text_normalization import normalize_catalog_identity, strip_annotations
+from backend.text_normalization import (
+    normalize_catalog_identity,
+    strip_annotations,
+    strip_catalog_credits,
+)
 
 _TEXT = re.compile(
     r'<div[^>]+class=["\'][^"\']*\bdesc-full\b[^"\']*["\'][^>]*>(.*?)</div>',
@@ -82,12 +86,6 @@ def _candidate(page: str) -> LyricsCandidate | None:
         return None
     text = re.sub(r"<br\s*/?>|</p\s*>", "\n", match[1], flags=re.IGNORECASE)
     text = html.unescape(re.sub(r"<[^>]+>", "", text))
-    lyrics = "\n".join(
-        line.strip() for line in text.splitlines()
-        if line.strip() and not re.fullmatch(
-            r"\s*(?:Взято с сайта|Взято із сайту)\s*:?(?:\s+https?://\S+)?\s*",
-            line, re.IGNORECASE,
-        )
-    )
+    lyrics = strip_catalog_credits(text)
     artist, title = identity
     return LyricsCandidate(lyrics, title, artist, None, "PisniUA") if lyrics else None

@@ -16,7 +16,13 @@ from pathlib import Path
 from backend.room.timing_policy import ROOM_TIMING
 from backend.room.voice_protocol import VOICE_PACKET_FRAMES, VOICE_SAMPLE_RATE_HZ
 
-HEADER = Path(__file__).resolve().parents[2] / "AudioService" / "src" / "network" / "RoomAudioContract.hpp"
+HEADER = (
+    Path(__file__).resolve().parents[2]
+    / "AudioService"
+    / "src"
+    / "network"
+    / "RoomAudioContract.hpp"
+)
 
 
 def render() -> str:

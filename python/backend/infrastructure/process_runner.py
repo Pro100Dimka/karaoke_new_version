@@ -245,7 +245,9 @@ class LineProcess:
     def __init__(self, process: subprocess.Popen[str]) -> None:
         if process.stdin is None or process.stdout is None or process.stderr is None:
             process.kill()
-            raise DependencyError("ProcessUnavailable", "External process control pipes are missing")
+            raise DependencyError(
+                "ProcessUnavailable", "External process control pipes are missing"
+            )
         self._process = process
         self._stdin = process.stdin
         self._stdout = process.stdout

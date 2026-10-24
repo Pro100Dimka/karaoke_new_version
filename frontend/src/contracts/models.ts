@@ -14,6 +14,10 @@ export type SongLanguage = "Auto" | "Ukrainian" | "Russian" | "English";
 export type CoverState = "Embedded" | "Custom" | "Fallback";
 
 export interface KaraokeNoteScore {
+  /** Present only for the timestamped live scorer; legacy UI counters are not final analysis. */
+  version?: 1;
+  pitchAccuracyPercent?: number;
+  meanSemitoneDeviation?: number;
   hitNotes: number;
   totalNotes: number;
   rhythmAccuracyPercent: number;
@@ -60,6 +64,8 @@ export interface ProcessingJobDto {
   id: string;
   type: string;
   songId: string;
+  songTitle?: string;
+  songArtist?: string;
   state:
     | "queued"
     | "processing"
@@ -188,6 +194,8 @@ export interface PitchFrame {
   positionSeconds: number;
   durationSeconds: number;
   pitchHz?: number;
+  /** Audible input includes consonants whose pitch cannot be measured. */
+  audioActive?: boolean;
 }
 
 export interface PlaybackSnapshot {

@@ -19,7 +19,12 @@ from torchaudio.pipelines._wav2vec2.utils import _extend_model
 from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import device
-from backend.ai_worker.timing import continued_frames, harmonic_evidence, singing_frames, voiced_frames
+from backend.ai_worker.timing import (
+    continued_frames,
+    harmonic_evidence,
+    singing_frames,
+    voiced_frames,
+)
 from backend.moment_spreading import spread_tied_moments
 
 _CHUNK_SECONDS = 20.0
@@ -93,7 +98,8 @@ def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     # therefore not the frame stride. Using that ratio both drops frames at chunk seams and gradually
     # stretches the concatenated time axis. All chunks use the extractor's fixed sample stride.
     frame_samples = prod(
-        stride for _, _, stride in MMS_FA._params["extractor_conv_layer_config"]  # noqa: SLF001
+        stride
+        for _, _, stride in MMS_FA._params["extractor_conv_layer_config"]  # noqa: SLF001
     )
     with torch.inference_mode():
         for start in range(0, len(audio), chunk):
@@ -113,10 +119,17 @@ def _character_tokens(word: str, context: str = "") -> list[list[int]]:
     number = re.fullmatch(r"(\d+)(\W*)", word)
     if number:
         text = context.casefold()
-        locale = next((key for key, present in {
-            "uk": any(char in "іїєґ" for char in text),
-            "ru": any("а" <= char <= "я" or char == "ё" for char in text),
-        }.items() if present), "en")
+        locale = next(
+            (
+                key
+                for key, present in {
+                    "uk": any(char in "іїєґ" for char in text),
+                    "ru": any("а" <= char <= "я" or char == "ё" for char in text),
+                }.items()
+                if present
+            ),
+            "en",
+        )
         try:
             spoken = num2words(int(number[1]), lang=locale)
             boundaries = np.linspace(0, len(spoken), len(number[1]) + 1, dtype=int)
@@ -174,10 +187,8 @@ def align_words(
         end = spans[position - 1].end * frame_seconds + offset_seconds
         start = next(moment for moment in letters if moment is not None)
         confidence = float(np.mean([span.score for span in spans[first_token:position]]))
-        found.append(AlignedWord(
-            word, float(start), float(end),
-            _filled_letters(spread_tied_moments(letters, float(end)), float(end)), confidence,
-        ))
+        filled = _filled_letters(spread_tied_moments(letters, float(end)), float(end))
+        found.append(AlignedWord(word, float(start), float(end), filled, confidence))
     return _placed(found, words)
 
 
@@ -215,14 +226,8 @@ def _placed(found: list[AlignedWord | None], words: Sequence[str]) -> list[Align
         before = result[-1].end if result else 0.0
         after = next((later.start for later in found[index + 1 :] if later is not None), before)
         moment = min(before, after)
-        result.append(
-            AlignedWord(
-                words[index],
-                moment,
-                max(after, moment + _MINIMUM_WORD_SECONDS),
-                (moment,) * len(words[index]),
-            )
-        )
+        end = max(after, moment + _MINIMUM_WORD_SECONDS)
+        result.append(AlignedWord(words[index], moment, end, (moment,) * len(words[index])))
     return result
 
 
@@ -235,7 +240,9 @@ def with_sung_ends(
     voice really stops, at most where the next word begins.
     """
     voiced = singing_frames(samples, instrumental, _VOICE_RATE, _VOICE_HOP)
-    harmonics = harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
+    harmonics = (
+        harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
+    )
     step = _VOICE_HOP / _VOICE_RATE
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
@@ -371,10 +378,16 @@ def align_guided(
             continue
         guided = _align_window(scores, frame_seconds, chunk, window)
         reference = list(whole[window.first : window.last])
-        candidates = [candidate for candidate in (guided, reference)
-                      if not result or candidate[0].start >= result[-1].start]
-        result.extend(candidates[0] if len(candidates) == 1 else
-                      _preferred(guided, reference, window.first, heard, voiced))
+        candidates = [
+            candidate
+            for candidate in (guided, reference)
+            if not result or candidate[0].start >= result[-1].start
+        ]
+        result.extend(
+            candidates[0]
+            if len(candidates) == 1
+            else _preferred(guided, reference, window.first, heard, voiced)
+        )
     return ordered(result)
 
 
@@ -387,11 +400,17 @@ def _preferred(
 ) -> list[AlignedWord]:
     # Unchanged words supply no evidence for either placement. Compare the disputed
     # boundaries so one bad word is not hidden by the rest of a correctly timed phrase.
-    changed = [index for index, (left, right) in enumerate(zip(guided, reference, strict=True))
-               if max(abs(left.start - right.start), abs(left.end - right.end))
-               > _HEARD_DISAGREEMENT_SECONDS]
-    local_heard = {first + index: heard[first + index] for index in changed
-                   if first + index in heard} if changed else heard
+    changed = [
+        index
+        for index, (left, right) in enumerate(zip(guided, reference, strict=True))
+        if max(abs(left.start - right.start), abs(left.end - right.end))
+        > _HEARD_DISAGREEMENT_SECONDS
+    ]
+    local_heard = (
+        {first + index: heard[first + index] for index in changed if first + index in heard}
+        if changed
+        else heard
+    )
     guided_miss = _heard_distance(guided, first, local_heard)
     reference_miss = _heard_distance(reference, first, local_heard)
     if (
@@ -399,9 +418,7 @@ def _preferred(
         and reference_miss is not None
         and abs(guided_miss - reference_miss) > _HEARD_DISAGREEMENT_SECONDS
     ):
-        closer, other = (
-            (guided, reference) if guided_miss < reference_miss else (reference, guided)
-        )
+        closer, other = (guided, reference) if guided_miss < reference_miss else (reference, guided)
         if voiced is None or _implausible(closer, voiced) <= _implausible(other, voiced):
             return closer
     left = [guided[index] for index in changed] if changed else guided
@@ -409,7 +426,9 @@ def _preferred(
     return guided if _confidence(left) > _confidence(right) + _PREFERENCE else reference
 
 
-def _heard_distance(words: Sequence[AlignedWord], first: int, heard: Mapping[int, float]) -> float | None:
+def _heard_distance(
+    words: Sequence[AlignedWord], first: int, heard: Mapping[int, float]
+) -> float | None:
     distances = [
         abs(word.start - heard[first + index])
         for index, word in enumerate(words)
@@ -427,7 +446,10 @@ def _implausible(words: Sequence[AlignedWord], voiced: np.ndarray) -> int:
         frame = int(word.start / step)
         if frame < len(voiced) and not voiced[frame : frame + lead].any():
             count += 1
-        if word.end - word.start < _CRAMMED_WORD_SECONDS and sum(c.isalnum() for c in word.text) >= 2:
+        if (
+            word.end - word.start < _CRAMMED_WORD_SECONDS
+            and sum(c.isalnum() for c in word.text) >= 2
+        ):
             count += 1
     return count
 
@@ -445,18 +467,10 @@ def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]
         raw: list[float | None] = [
             word_start + (word_end - word_start) * k / count for k in range(len(word))
         ]
-        result.append(
-            AlignedWord(
-                word,
-                word_start,
-                word_end,
-                tuple(
-                    round(moment, 3)
-                    for moment in spread_tied_moments(raw, word_end)
-                    if moment is not None
-                ),
-            )
+        letters = tuple(
+            round(moment, 3) for moment in spread_tied_moments(raw, word_end) if moment is not None
         )
+        result.append(AlignedWord(word, word_start, word_end, letters))
     return result
 
 

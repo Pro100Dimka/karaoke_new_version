@@ -166,10 +166,13 @@ export const mapJob = (
 ): ProcessingJobDto => {
   const full = "overallProgress" in job ? job : null;
   const timingOperation = full?.report?.timingOperation;
+    const report = full?.report;
   return {
     id: job.jobId,
     type: full?.type ?? "SongProcessing",
     songId: full?.entityId ?? songId,
+      songTitle: typeof report?.songTitle === "string" ? report.songTitle : undefined,
+      songArtist: typeof report?.songArtist === "string" ? report.songArtist : undefined,
     state: mapped(jobStates, job.state, "queued"),
     stage: full?.stage ?? "Queued",
     progress: full ? jobProgress(full) : 0,

@@ -18,7 +18,7 @@ export type SongCardHandlers = Record<
   | "onDelete"
   | "onViewError",
   (song: SongDto) => void
->;
+> & { onRehearse?(song: SongDto): void };
 
 const actionMeta = {
   play: { label: "play", icon: "play" },
@@ -162,13 +162,15 @@ export const SongCard = memo(
                   onOpenChange={setMenuOpen}
                   anchorRef={menuAnchor}
                   align="end"
-                  items={menuActions.map((id) => ({
+                  items={[...(handlers.onRehearse && !roomSelection && song.status === "ready" ? [{
+                    id: "rehearsal", label: t("recordingRehearsal"), icon: "music", onSelect: () => handlers.onRehearse?.(song),
+                  }] : []), ...menuActions.map((id) => ({
                     id,
                     label: t(actionMeta[id].label),
                     icon: actionMeta[id].icon,
                     danger: id === "delete",
                     onSelect: () => run(id),
-                  }))}
+                  }))]}
                 />
               </>
             )}

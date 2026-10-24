@@ -19,7 +19,9 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = pytest.mark.integration
 
 
-def test_import_cancellation_after_copy_does_not_commit_a_song_without_files(tmp_path: Path) -> None:
+def test_import_cancellation_after_copy_does_not_commit_a_song_without_files(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "source.wav"
     write_wav(source)
     cancelled = Event()
