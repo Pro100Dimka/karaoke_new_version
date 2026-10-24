@@ -25,6 +25,7 @@ interface Props {
   onResetLyrics?(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
+  playbackDisabled?: boolean;
 }
 /** A question or a note over the queue: confirmed actions run only after "OK". */
 interface Notice {
@@ -87,6 +88,7 @@ export const ProcessingModal = ({
   onResetLyrics,
   onOpenFolder,
   onPlay,
+  playbackDisabled,
 }: Props) => {
   const t = useText();
   const queue = useProcessingQueue(open, focusSongId);
@@ -191,6 +193,7 @@ export const ProcessingModal = ({
                   onMove: (direction) => queue.move(job.id, direction),
                   onOpenFolder,
                   onPlay,
+                  playbackDisabled,
                   onRetry: (song) => void onRetry(song,
                     job.timingOperation === "lyrics" ? "lyrics" : undefined),
                   onResetLyrics,

@@ -1,7 +1,22 @@
-import { act, render } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
+import { act, render, waitFor } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
 import { AppProvider, useApp, useRoomSession, useSettingsDialog } from "./AppContext";
-import type { RoomStateDto } from "../contracts/models";
+import type { ProcessingJobDto, RoomStateDto } from "../contracts/models";
+
+const jobs = vi.hoisted(() => ({
+  list: vi.fn<() => Promise<ProcessingJobDto[]>>(async () => []),
+  refresh: () => {},
+}));
+vi.mock("../services/pythonClient", () => ({
+  pythonClient: { listJobs: jobs.list },
+}));
+vi.mock("../services/backendEvents", () => ({
+  refreshOnJobChanges: (refresh: () => void) => {
+    jobs.refresh = refresh;
+    return () => {};
+  },
+}));
+beforeEach(() => jobs.list.mockResolvedValue([]));
 
 const roomPorts = vi.hoisted(() => ({
   createRoom: vi.fn(async () => ({ code: "joined", hostId: "host", role: "host", participants: [], playbackLocked: false })),
@@ -112,6 +127,62 @@ it("keeps settings border motion enabled while opening and closing settings", ()
   act(() => actions.openSettings());
   expect(document.documentElement.dataset.adMotion).toBe("on");
   act(() => dialog.setSettingsOpen(false));
+  expect(document.documentElement.dataset.adMotion).toBe("on");
+  view.unmount();
+});
+
+it.each(["queued", "processing", "cancelling"] as const)(
+  "stops all motion for a local %s song job and restores it after the last job",
+  async (state) => {
+    const job = {
+      id: "job",
+      type: "SongProcessing",
+      state,
+      processingBackend: "Local",
+    } as ProcessingJobDto;
+    jobs.list.mockResolvedValue([job, { ...job, id: "second" }]);
+    let actions!: ReturnType<typeof useApp<"actions">>;
+    let preferences!: ReturnType<typeof useApp<"preferences">>["preferences"];
+    const Capture = () => {
+      actions = useApp("actions");
+      preferences = useApp("preferences").preferences;
+      return null;
+    };
+    const view = render(
+      <AppProvider>
+        <Capture />
+      </AppProvider>,
+    );
+    act(() => actions.updatePreferences({ reducedMotion: false }));
+    await waitFor(() =>
+      expect(document.documentElement.dataset.adMotion).toBe("off"),
+    );
+    expect(document.documentElement.dataset.reducedMotion).toBe("true");
+    expect(preferences.reducedMotion).toBe(false);
+    jobs.list.mockResolvedValue([job]);
+    await act(async () => jobs.refresh());
+    expect(document.documentElement.dataset.adMotion).toBe("off");
+    jobs.list.mockResolvedValue([]);
+    await act(async () => jobs.refresh());
+    await waitFor(() =>
+      expect(document.documentElement.dataset.adMotion).toBe("on"),
+    );
+    expect(document.documentElement.dataset.reducedMotion).toBe("false");
+    view.unmount();
+  },
+);
+
+it.each([
+  { type: "SongProcessing", state: "processing", processingBackend: "Kaggle" },
+  { type: "SongProcessing", state: "completed", processingBackend: "Local" },
+  { type: "SongProcessing", state: "failed", processingBackend: "Local" },
+  { type: "SongProcessing", state: "cancelled", processingBackend: "Local" },
+  { type: "SongProcessing", state: "interrupted", processingBackend: "Local" },
+  { type: "ModelDownload", state: "processing", processingBackend: "Local" },
+])("keeps motion enabled for $type/$state/$processingBackend", async (job) => {
+  jobs.list.mockResolvedValue([job as ProcessingJobDto]);
+  const view = render(<AppProvider>{null}</AppProvider>);
+  await waitFor(() => expect(jobs.list).toHaveBeenCalled());
   expect(document.documentElement.dataset.adMotion).toBe("on");
   view.unmount();
 });

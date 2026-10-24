@@ -25,6 +25,7 @@ import type {
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import { pythonClient } from "../services/pythonClient";
+import { refreshOnJobChanges } from "../services/backendEvents";
 import { roomClient } from "../services/roomClient";
 import { participantId } from "../services/roomMappers";
 import { rememberRoomProjectCopy, roomProjectCopy } from "../services/roomProjectCopies";
@@ -41,6 +42,7 @@ interface AppContextValue {
   language: Language;
   room: RoomStateDto | null;
   preferences: Preferences;
+  localProcessing: boolean;
   setTheme(value: ThemeName): void;
   setLanguage(value: Language): void;
   /** Opens the settings dialog; stable, so a button holding it never redraws when the dialog opens. */
@@ -61,6 +63,7 @@ type AppSlices = {
   preferences: Pick<AppContextValue, "preferences" | "updatePreferences">;
   room: Pick<AppContextValue, "room">;
   actions: Pick<AppContextValue, "setTheme" | "setLanguage" | "openSettings" | "updatePreferences">;
+  processing: Pick<AppContextValue, "localProcessing">;
 };
 const AppContext = createContext<AppContextValue | null>(null);
 const LanguageContext = createContext<AppSlices["language"] | null>(null);
@@ -70,8 +73,16 @@ const RoomContext = createContext<AppSlices["room"] | null>(null);
 const ActionsContext = createContext<AppSlices["actions"] | null>(null);
 const RoomSessionContext = createContext<RoomSessionController | null>(null);
 const RoomRuntimeContext = createContext<RoomRuntimeCoordinator | null>(null);
-const contexts = { all: AppContext, language: LanguageContext, theme: ThemeContext,
-  preferences: PreferencesContext, room: RoomContext, actions: ActionsContext };
+const contexts = {
+  all: AppContext,
+  language: LanguageContext,
+  theme: ThemeContext,
+  preferences: PreferencesContext,
+  room: RoomContext,
+  actions: ActionsContext,
+  processing: AppContext,
+};
+
 // Kept apart from the app context: opening or closing the dialog must not redraw every screen that reads the app
 // context (the library grid, karaoke, the room panel...), only the dialog.
 const SettingsDialogContext = createContext<SettingsDialogValue | null>(null);
@@ -80,6 +91,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
+  const [localProcessing, setLocalProcessing] = useState(false);
+  useEffect(() => {
+    let active = true;
+    let generation = 0;
+    const refresh = async () => {
+      const request = ++generation;
+      try {
+        const jobs = await pythonClient.listJobs();
+        if (active && request === generation)
+          setLocalProcessing(
+            jobs.some(
+              (job) =>
+                job.type === "SongProcessing" &&
+                job.processingBackend === "Local" &&
+                ["queued", "processing", "cancelling"].includes(job.state),
+            ),
+          );
+      } catch {
+        // Keep the last known lock during an outage; reconnect refreshes the jobs.
+      }
+    };
+    void refresh();
+    const unsubscribe = refreshOnJobChanges(() => void refresh(), 250);
+    const timer = window.setInterval(() => void refresh(), 5000);
+    return () => {
+      active = false;
+      unsubscribe();
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const [roomSession] = useState(() => {
     const key = storageKey("roomSession");
     return new RoomSessionController(roomClient, audioClient, participantId, {
@@ -102,14 +144,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const onScreen = useAppOnScreen();
   useEffect(() => {
     document.documentElement.dataset.reducedMotion = String(
-      preferences.reducedMotion,
+      preferences.reducedMotion || localProcessing,
     );
     document.documentElement.dataset.adMotion =
-      preferences.reducedMotion || !onScreen ? "off" : "on";
+      preferences.reducedMotion || localProcessing || !onScreen ? "off" : "on";
     // Electron keeps document.hidden=false when minimized, so the kit needs its desktop wake-up.
-    if (onScreen && !preferences.reducedMotion)
+    if (onScreen && !preferences.reducedMotion && !localProcessing)
       document.dispatchEvent(new Event("visibilitychange"));
-  }, [preferences.reducedMotion, onScreen]);
+  }, [preferences.reducedMotion, onScreen, localProcessing]);
   useEffect(
     () => applyAppFonts(preferences.headingFont, preferences.textFont),
     [preferences.headingFont, preferences.textFont],
@@ -180,12 +222,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       language: preferences.language,
       room,
       preferences,
+      localProcessing,
       setTheme,
       setLanguage,
       openSettings,
       updatePreferences,
     }),
-    [preferences, room, openSettings, setTheme, setLanguage, updatePreferences],
+    [preferences, room, localProcessing, openSettings, setTheme, setLanguage, updatePreferences],
   );
   const languageValue = useMemo(() => ({ language: preferences.language }), [preferences.language]);
   const themeValue = useMemo(() => ({ theme: preferences.theme }), [preferences.theme]);

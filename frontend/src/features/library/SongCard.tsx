@@ -69,10 +69,12 @@ export const SongCard = memo(
     song,
     handlers,
     roomSelection,
+    playbackDisabled = false,
   }: {
     song: SongDto;
     handlers: SongCardHandlers;
     roomSelection?: { role: string; selected: boolean };
+    playbackDisabled?: boolean;
   }) {
     const t = useText();
     const menuAnchor = useRef<HTMLButtonElement>(null);
@@ -133,7 +135,11 @@ export const SongCard = memo(
               variant="primary"
               icon={primaryIcon(primary, roomSelection)}
               label={t(presentation.primaryLabel)}
-              disabled={presentation.primaryDisabled || primary === null}
+              disabled={
+                presentation.primaryDisabled ||
+                primary === null ||
+                (primary === "play" && playbackDisabled)
+              }
               onClick={() => primary && run(primary)}
             />
             {allowed.has("recordings") && (
@@ -163,7 +169,11 @@ export const SongCard = memo(
                   anchorRef={menuAnchor}
                   align="end"
                   items={[...(handlers.onRehearse && !roomSelection && song.status === "ready" ? [{
-                    id: "rehearsal", label: t("recordingRehearsal"), icon: "music", onSelect: () => handlers.onRehearse?.(song),
+                    id: "rehearsal",
+                    label: t("recordingRehearsal"),
+                    icon: "music",
+                    disabled: playbackDisabled,
+                    onSelect: () => handlers.onRehearse?.(song),
                   }] : []), ...menuActions.map((id) => ({
                     id,
                     label: t(actionMeta[id].label),
@@ -185,6 +195,7 @@ export const SongCard = memo(
   (previous, next) =>
     previous.song === next.song &&
     previous.handlers === next.handlers &&
+    previous.playbackDisabled === next.playbackDisabled &&
     previous.roomSelection?.role === next.roomSelection?.role &&
     previous.roomSelection?.selected === next.roomSelection?.selected,
 );

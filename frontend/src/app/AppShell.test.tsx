@@ -13,6 +13,7 @@ const settings = vi.hoisted(() => ({
   reducedMotion: false,
   onScreen: true,
   onTv: false,
+  localProcessing: false,
 }));
 
 vi.mock("@neo-ui-kit/react", () => ({
@@ -38,7 +39,7 @@ vi.mock("./RadioContext", () => ({ RadioProvider: ({ children }: { children: Rea
 vi.mock("./AppContext", async () => {
   const { useSyncExternalStore } = await import("react");
   return {
-    useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion } }),
+    useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion }, localProcessing: settings.localProcessing }),
     useSettingsDialog: () => ({
       settingsOpen: useSyncExternalStore(
         (listener) => {
@@ -83,6 +84,30 @@ const renderRoute = (path: string) =>
   );
 
 describe("AppShell backdrop", () => {
+  it("releases the WebGL backdrop and spectrum polling while local processing is active", () => {
+    settings.localProcessing = true;
+    const view = renderRoute("/");
+    expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(
+      false,
+      expect.any(Function),
+      50,
+    );
+    settings.localProcessing = false;
+    view.rerender(
+      <MemoryRouter>
+        <AppShell />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
+    expect(useSpectrumFeed).toHaveBeenLastCalledWith(
+      true,
+      expect.any(Function),
+      50,
+    );
+    view.unmount();
+  });
+
   it("shows QuantumBackground behind the Library, edge to edge and fed with AudioService's spectrum", () => {
     renderRoute("/");
     expect(screen.getByTestId("quantum-background")).toHaveClass("libraryBackdrop");

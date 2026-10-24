@@ -53,6 +53,38 @@ const job = (
   progress: state === "completed" ? 100 : 0,
 });
 
+it("disables starting completed songs from the processing queue while the PC is busy", async () => {
+  const ready = song("ready", "Ready song");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    job("done", ready.id, "completed"),
+  ]);
+  const onPlay = vi.fn();
+  const props = {
+    open: true,
+    songs: [ready],
+    onClose: vi.fn(),
+    onCancel: vi.fn(),
+    onRetry: vi.fn(),
+    onOpenFolder: vi.fn(),
+    onPlay,
+  };
+  const view = render(
+    <LibraryProvider>
+      <ProcessingModal {...props} playbackDisabled />
+    </LibraryProvider>,
+  );
+  const play = await screen.findByRole("button", { name: "play" });
+  expect(play).toBeDisabled();
+  fireEvent.click(play);
+  expect(onPlay).not.toHaveBeenCalled();
+  view.rerender(
+    <LibraryProvider>
+      <ProcessingModal {...props} />
+    </LibraryProvider>,
+  );
+  expect(screen.getByRole("button", { name: "play" })).toBeEnabled();
+});
+
 it("offers explicit baseline recovery only for a manual-edit conflict", async () => {
   const existing = song("existing", "Edited song");
   vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{

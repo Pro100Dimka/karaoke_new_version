@@ -56,10 +56,11 @@ const Shell = () => {
   const isLibrary = pathname === routes.library;
   const libraryActive = isLibrary && !onTv;
   const { preferences } = useApp("preferences");
+  const { localProcessing } = useApp("processing");
   const onScreen = useAppOnScreen();
   const karaoke = isKaraoke(pathname) || onTv;
   useSpectrumFeed(
-    onScreen && !preferences.reducedMotion,
+    onScreen && !preferences.reducedMotion && !localProcessing,
     publishSpectrum,
     karaoke ? 1000 / 60 : 50,
   );
@@ -100,7 +101,10 @@ const Shell = () => {
         <TitleBar />
         <RouteSurface
           animateBackground={
-            libraryActive && onScreen && !preferences.reducedMotion
+            libraryActive &&
+            onScreen &&
+            !preferences.reducedMotion &&
+            !localProcessing
           }
         />
         {isLibrary && <FloatingControls />}

@@ -1,6 +1,114 @@
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./desktopBridge";
 
+for (const processingBackend of ["Local", "Kaggle"] as const) {
+  test(`${processingBackend} processing controls motion and karaoke entry`, async ({
+    page,
+  }) => {
+    await page.addInitScript(
+      ({ processingBackend }) => {
+        const original = window.desktop!.pythonRequest;
+        let running = true;
+        const listeners = new Set<(event: unknown) => void>();
+        window.desktop!.onBackendEvent = (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        };
+        Object.assign(window, {
+          setProcessing: (active: boolean) => {
+            running = active;
+            listeners.forEach((listener) =>
+              listener({ type: "job.changed", data: { jobId: "busy" } }),
+            );
+          },
+        });
+        window.desktop!.pythonRequest = async (request) => {
+          if (request.path.split("?")[0] === "/jobs")
+            return {
+              ok: true,
+              status: 200,
+              body: {
+                items: [
+                  {
+                    jobId: "busy",
+                    entityId: "another-song",
+                    type: "SongProcessing",
+                    state: running ? "Running" : "Succeeded",
+                    stage: "StemSeparation",
+                    overallProgress: running ? 0.4 : 1,
+                    report: { processingBackend },
+                  },
+                ],
+                limit: 200,
+                offset: 0,
+              },
+            };
+          return original(request);
+        };
+      },
+      { processingBackend },
+    );
+    await page.goto("/");
+    const play = page.getByRole("button", {
+      name: "Запустить караоке",
+      exact: true,
+    });
+    await expect(play).toBeVisible();
+    const local = processingBackend === "Local";
+    await expect(page.locator("html")).toHaveAttribute(
+      "data-ad-motion",
+      local ? "off" : "on",
+    );
+    await expect(play).toBeEnabled({ enabled: !local });
+    await expect(page.locator(".libraryBackdrop")).toHaveCount(local ? 0 : 1);
+    if (local) {
+      await page
+        .locator(".floatingControls")
+        .getByRole("button", { name: "Настройки", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              document
+                .getAnimations()
+                .filter((animation) => animation.playState === "running")
+                .length,
+          ),
+        )
+        .toBe(0);
+      await page
+        .getByRole("button", { name: "Закрыть диалог", exact: true })
+        .click();
+    }
+    await page.evaluate(() =>
+      (
+        window as unknown as { setProcessing(active: boolean): void }
+      ).setProcessing(false),
+    );
+    await expect(page.locator("html")).toHaveAttribute("data-ad-motion", "on");
+    await expect(play).toBeEnabled();
+    await expect(page.locator(".libraryBackdrop")).toHaveCount(1);
+    await play.click();
+    await page.evaluate(() =>
+      (
+        window as unknown as { setProcessing(active: boolean): void }
+      ).setProcessing(true),
+    );
+    if (local) {
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-ad-motion",
+        "off",
+      );
+      await expect(page.locator(".sceneCurtain")).toHaveCount(0);
+      expect(page.url()).not.toContain("/karaoke/");
+    } else {
+      await expect(page).toHaveURL(/\/karaoke\/song-1/);
+    }
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(installDesktopBridge);
 });

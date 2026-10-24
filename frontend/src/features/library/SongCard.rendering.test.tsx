@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 import { SongCard, type SongCardHandlers } from "./SongCard";
 import type { SongDto } from "../../contracts/models";
@@ -84,4 +84,44 @@ it("skips parent updates when the song and room selection stay unchanged", () =>
     />,
   );
   expect(state.translate.mock.calls.length).toBeGreaterThan(calls);
+});
+
+it("disables karaoke and rehearsal on every ready card during local processing", () => {
+  const play = vi.fn();
+  const handlers = Object.fromEntries(
+    [
+      "onPlay",
+      "onRehearse",
+      "onProcess",
+      "onCancel",
+      "onDetails",
+      "onSettings",
+      "onRecordings",
+      "onOpenFolder",
+      "onDelete",
+      "onViewError",
+    ].map((key) => [key, play]),
+  ) as unknown as SongCardHandlers;
+  const song = {
+    id: "ready",
+    title: "Ready",
+    artist: "A",
+    status: "ready",
+  } as SongDto;
+  const view = render(<SongCard song={song} handlers={handlers} />);
+  expect(screen.getByRole("button", { name: "play" })).toBeEnabled();
+  view.rerender(<SongCard song={song} handlers={handlers} playbackDisabled />);
+  const button = screen.getByRole("button", { name: "play" });
+  expect(button).toBeDisabled();
+  fireEvent.click(button);
+  expect(play).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "moreActions" }));
+  const rehearsal = screen.getByRole("menuitem", {
+    name: "recordingRehearsal",
+  });
+  expect(rehearsal).toBeDisabled();
+  fireEvent.click(rehearsal);
+  expect(play).not.toHaveBeenCalled();
+  view.rerender(<SongCard song={song} handlers={handlers} />);
+  expect(screen.getByRole("button", { name: "play" })).toBeEnabled();
 });

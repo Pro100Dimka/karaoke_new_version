@@ -172,7 +172,10 @@ export const LibraryPage = () => {
   const guarded = useGuardedAction();
   const titleId = useId();
   const pageRef = useRef<HTMLElement>(null);
-  const { preferences, updatePreferences, openSettings } = useApp();
+  const { preferences, updatePreferences, openSettings, localProcessing } =
+    useApp();
+  const processing = useRef(localProcessing);
+  processing.current = localProcessing;
   const { python } = useServices();
   const library = useLibrarySongs();
   const { state } = library;
@@ -267,13 +270,14 @@ export const LibraryPage = () => {
         { id: "now", label: t("tvReplaceNow"), appearance: "primary" },
       ],
     });
-    if (choice !== "next" && choice !== "now") return;
+    if (processing.current || (choice !== "next" && choice !== "now")) return;
     markPlayed(song.id);
     tv.play({ id: song.id, title: song.title, artist: song.artist, rehearsal }, choice);
     if (choice === "next") notify(t("tvQueued", { title: song.title }), "success");
   };
 
   const playSong = (song: SongDto, rehearsal = false) => {
+    if (processing.current) return;
     if (tv?.active) {
       void playOnTv(song, rehearsal);
       return;
@@ -290,7 +294,13 @@ export const LibraryPage = () => {
     markPlayed(song.id);
     setLaunching(true);
     window.setTimeout(
-      () => navigate(routes.karaoke(song.id), { state: { mode: rehearsal ? "Rehearsal" : "AutoStart" } }),
+      () => {
+        if (processing.current) setLaunching(false);
+        else
+          navigate(routes.karaoke(song.id), {
+            state: { mode: rehearsal ? "Rehearsal" : "AutoStart" },
+          });
+      },
       curtainMilliseconds,
     );
   };
@@ -390,6 +400,7 @@ export const LibraryPage = () => {
               <SongCard
                 song={song}
                 handlers={cardHandlers}
+                playbackDisabled={localProcessing}
                 roomSelection={roomLibrary.songSelection(song)}
               />
             )}
@@ -425,6 +436,7 @@ export const LibraryPage = () => {
         onResetLyrics={resetAndReprocess}
         onOpenFolder={openFolder}
         onPlay={playSong}
+        playbackDisabled={localProcessing}
       />
       <SongSettingsModal
         song={settingsSong}

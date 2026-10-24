@@ -30,6 +30,7 @@ export interface JobActions {
   onMove(direction: -1 | 1): void;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
+  playbackDisabled?: boolean;
   onRetry(song: SongDto): void;
   onResetLyrics?(song: SongDto): void;
   onStop(): void;
@@ -162,6 +163,7 @@ export const ProcessingJobCard = ({
             <IconButton
               icon="play"
               label={t("play")}
+              disabled={actions.playbackDisabled}
               onClick={() => actions.onPlay(song)}
             />
           )}
