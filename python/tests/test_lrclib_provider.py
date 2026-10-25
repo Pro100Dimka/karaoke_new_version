@@ -24,6 +24,29 @@ from tests.fakes import FakeAiProvider, FakeLyricsProvider
 EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 
+def test_catalog_version_follows_performed_repeats_instead_of_only_duration() -> None:
+    verse = ["Первый куплет звучит здесь", "Второй куплет звучит дальше"]
+    chorus = "Этот припев звучит опять"
+    wrong = "\n".join([verse[0], *[chorus] * 3, verse[1], chorus])
+    correct = "\n".join([verse[0], chorus, verse[1], *[chorus] * 3])
+    candidates = [
+        LyricsCandidate(text, "T", "A", seconds, "catalog")
+        for text, seconds in [(wrong, 188), (correct, 189)]
+    ]
+    discovery = LyricsDiscovery(
+        _NoSidecar(), (FakeLyricsProvider([candidates]),), LyricsMatchPolicy()
+    )
+    result = discovery.discover(
+        _song("T", "A"),
+        Path("voice.wav"),
+        _TranscriptAi(correct),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+    assert result.lyrics == correct
+
+
 def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus_prefix() -> None:
     from backend.lyrics.phrases import _complete_repeats
 
@@ -39,6 +62,39 @@ def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus
         "\n".join(chorus * 2), " ".join(chorus * 2) + " " + heard_tail, threading.Event()
     )
     assert result.splitlines() == chorus * 2 + ["дозволиш мені"] * 4
+
+
+def test_discovery_checks_the_ending_with_its_preceding_phrase_when_whole_song_asr_misses_replies():
+    from dataclasses import replace
+
+    chorus = "Хочеш я твоїм кольором буду\nЯкщо ти ним бути дозволиш мені"
+    starts = []
+
+    class EndingAi(FakeAiProvider):
+        def transcribe(self, vocal, language, cancel, *, execution, start_seconds=0):
+            starts.append(start_seconds)
+            return chorus + (" До свалиш мені" * 4 if start_seconds else " Дякую за перегляд")
+
+    song = replace(_song("8 ий колір", "Моторролла"), duration=264.22855)
+    discovery = LyricsDiscovery(
+        _NoSidecar(),
+        (
+            FakeLyricsProvider(
+                [[LyricsCandidate(chorus, song.title, song.artist, song.duration, "catalog")]]
+            ),
+        ),
+        LyricsMatchPolicy(),
+    )
+    result = discovery.discover(
+        song,
+        Path("voice.wav"),
+        EndingAi(),
+        threading.Event(),
+        online_enabled=True,
+        execution=EXECUTION,
+    )
+    assert result.lyrics.splitlines() == chorus.splitlines() + ["дозволиш мені"] * 4
+    assert starts == [0, pytest.approx(song.duration - 48)]
 
 
 @pytest.mark.parametrize("catalog", [False, True])
@@ -412,7 +468,7 @@ class _TranscriptAi(FakeAiProvider):
         self.text = text
         self.languages: list[Language] = []
 
-    def transcribe(self, vocal, language, cancel, *, execution):
+    def transcribe(self, vocal, language, cancel, *, execution, start_seconds=0):
         self.languages.append(language)
         return self.text
 
@@ -467,7 +523,7 @@ def test_catalog_text_selects_ukrainian_for_audio_coverage_check(text):
         online_enabled=True,
         execution=EXECUTION,
     )
-    assert ai.languages == [Language.UKRAINIAN]
+    assert ai.languages == [Language.UKRAINIAN, Language.UKRAINIAN]
     assert result.lyrics == text
 
 

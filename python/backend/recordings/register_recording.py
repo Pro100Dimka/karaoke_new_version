@@ -4,7 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
 from backend.domain_errors import ConflictError, DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
@@ -40,12 +40,15 @@ class RegisterRecording:
         inspector: RecordingFileInspector,
         clock: Clock,
         ids: IdGenerator,
+        *,
+        balance: Callable[[Path, str, int], None] | None = None,
     ) -> None:
         self._uow = uow
         self._storage = storage
         self._inspector = inspector
         self._clock = clock
         self._ids = ids
+        self._balance = balance
 
     def execute(self, request: RegisterRecordingRequest) -> Recording:
         validate_recording_id(request.recording_id)
@@ -56,6 +59,12 @@ class RegisterRecording:
         metadata = self._inspector.inspect(path)
         self._validate_metadata(request, metadata.duration, metadata.sample_rate, metadata.channels)
         self._validate_song_revision(request)
+        if self._balance is not None and request.song_id and request.song_revision is not None:
+            self._balance(path, request.song_id, request.song_revision)
+            metadata = self._inspector.inspect(path)
+            self._validate_metadata(
+                request, metadata.duration, metadata.sample_rate, metadata.channels
+            )
         recording = Recording(
             request.recording_id,
             path,

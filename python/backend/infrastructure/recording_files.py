@@ -97,24 +97,26 @@ class LocalRecordingStorage:
 
     def quarantine(self, recording_id: str, file_path: Path) -> Path:
         source = self.validate_owned_file(file_path)
+        if source.parent != _recording_directory(self._root, recording_id):
+            raise DomainError("InvalidRecording", "Recording belongs to another directory", 400)
         target = _recording_directory(self._quarantine, recording_id) / source.name
-        target.parent.mkdir(parents=True, exist_ok=True)
+        target.parent.parent.mkdir(parents=True, exist_ok=True)
         try:
-            source.replace(target)
+            source.parent.replace(target.parent)
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Recording quarantine failed") from exc
         return target
 
     def restore_quarantine(self, quarantine_path: Path, target: Path) -> None:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        quarantine_path.replace(target)
+        ensure_within(quarantine_path, self._quarantine)
+        ensure_within(target, self._root)
+        target.parent.parent.mkdir(parents=True, exist_ok=True)
+        quarantine_path.parent.replace(target.parent)
 
     def finalize_quarantine(self, quarantine_path: Path) -> None:
-        quarantine_path.unlink(missing_ok=True)
-        try:
-            quarantine_path.parent.rmdir()
-        except OSError:
-            return
+        directory = ensure_within(quarantine_path, self._quarantine).parent
+        validate_recording_id(directory.name)
+        shutil.rmtree(directory)
 
     def read_recovery_descriptor(self, path: Path) -> dict[str, object]:
         try:

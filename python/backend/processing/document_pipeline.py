@@ -10,7 +10,7 @@ from backend.processing.algorithms import construct_document, stabilize_pitch
 from backend.processing.audio_pipeline import PreparedAudio
 from backend.processing.domain import CancellationPolicy, ProcessingOptions, StageReport
 from backend.processing.job_manager import JobContext
-from backend.processing.compute_policy import ExecutionContext
+from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.processing.policies import concurrent_stage_thread_split
 from backend.processing.ports import ConcurrentRunner
 from backend.processing.reporting import alignment_warnings, pitch_warnings
@@ -55,7 +55,8 @@ class BuildProcessingDocument:
         discovery = self._discover(
             song, prepared, providers, options, context, reports, align_execution
         )
-        if discovery.timing_hints:
+        parallel = not discovery.timing_hints or execution.device is ComputeDevice.CUDA
+        if not parallel:
             align_execution = pitch_execution = execution
         pitch_reports: list[StageReport] = []
         stable: tuple[PitchPoint, ...] = ()
@@ -73,7 +74,7 @@ class BuildProcessingDocument:
                 song, prepared, discovery, providers, context, reports, align_execution
             )
 
-        self._run_stages(execution, run_align, run_pitch, parallel=not discovery.timing_hints)
+        self._run_stages(execution, run_align, run_pitch, parallel=parallel)
         reports.extend(pitch_reports)
         document = self._construct(song, prepared, discovery, words, stable, context, reports)
         warnings = discovery.warnings + alignment_warnings(words) + pitch_warnings(stable)

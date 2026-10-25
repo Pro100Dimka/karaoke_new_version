@@ -40,7 +40,10 @@ export interface ShowState {
   settings: ShowSettings;
 }
 
-interface VoiceObservation { position: number; pitchHz?: number }
+interface VoiceObservation {
+  position: number;
+  pitchHz?: number;
+}
 
 type CommandListener = (command: FxCommand) => void;
 
@@ -80,7 +83,28 @@ export class ShowEngine {
     rhythm: readonly (readonly [number, number])[] = [],
   ): void {
     this.words = words;
-    this.rhythm = rhythm;
+    this.rhythm = rhythm.filter(([time, strength], index) => {
+      let peak = strength;
+      for (const direction of [-1, 1]) {
+        for (
+          let i = index + direction;
+          i >= 0 && i < rhythm.length;
+          i += direction
+        ) {
+          const [otherTime, otherStrength] = rhythm[i]!;
+          const distance = Math.abs(otherTime - time);
+          if (distance > 0.75) break;
+          peak = Math.max(peak, otherStrength);
+          if (
+            distance < 0.18 &&
+            (otherStrength > strength ||
+              (otherStrength === strength && i < index))
+          )
+            return false;
+        }
+      }
+      return strength >= peak * 0.6;
+    });
     this.tracker.load(notes, phrases, resetPerformance, vocalActivity);
     if (!resetPerformance) return;
     this.voiceHistory.length = 0;
@@ -94,8 +118,12 @@ export class ShowEngine {
     this.state = { ...this.state, settings };
   }
 
-  get hitNoteIds() { return this.tracker.hitNoteIds; }
-  get noteScore() { return this.tracker.noteScore; }
+  get hitNoteIds() {
+    return this.tracker.hitNoteIds;
+  }
+  get noteScore() {
+    return this.tracker.noteScore;
+  }
 
   /** A backing-track spectrum frame from AudioService. */
   hear(backingBands: readonly number[], now: number): void {
@@ -116,11 +144,29 @@ export class ShowEngine {
   ): void {
     if (playing && scoreVoice) {
       const last = this.voiceHistory.at(-1)?.position;
-      if (last !== undefined && (position < last || position > last + 1.5)) this.voiceHistory.length = 0;
-      if (last !== position) this.voiceHistory.push({ position, pitchHz: reliablePitchHz(pitchHz, confidence) });
-      while (this.voiceHistory.length > 0 && this.voiceHistory[0]!.position < position - 3) this.voiceHistory.shift();
+      if (last !== undefined && (position < last || position > last + 1.5))
+        this.voiceHistory.length = 0;
+      if (last !== position)
+        this.voiceHistory.push({
+          position,
+          pitchHz: reliablePitchHz(pitchHz, confidence),
+        });
+      while (
+        this.voiceHistory.length > 0 &&
+        this.voiceHistory[0]!.position < position - 3
+      )
+        this.voiceHistory.shift();
     }
-    const events = playing && scoreVoice ? this.tracker.update(position, pitchHz, sampleDuration, audioActive, confidence) : [];
+    const events =
+      playing && scoreVoice
+        ? this.tracker.update(
+            position,
+            pitchHz,
+            sampleDuration,
+            audioActive,
+            confidence,
+          )
+        : [];
     const music = this.pulse.state;
     const musicBeat = playing ? this.rhythmAt(position) : 0;
     const commands = this.director.plan(now, events, [], {

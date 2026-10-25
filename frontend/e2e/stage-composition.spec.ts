@@ -1,6 +1,17 @@
 import { expect, test } from "@playwright/test";
 import { installDesktopBridge } from "./desktopBridge";
 
+test("leaving an unfinished solo song uses the saved-performance fade", async ({ page }) => {
+  await page.addInitScript(installDesktopBridge);
+  await page.goto("/");
+  await page.getByLabel("Бумбокс — Люди", { exact: true }).getByRole("button", { name: /Запустить караоке|Play karaoke|Почати караоке/i }).click();
+  await expect(page.locator(".karaokeIntro")).toBeHidden({ timeout: 25_000 });
+  await expect(page.locator(".karaokeConsole")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.locator('.sceneCurtain[data-phase="closing"]')).toBeVisible();
+  await expect(page).not.toHaveURL(/karaoke/);
+});
+
 test("karaoke lyrics are one and a half times the original size for both displayed lines", async ({ page }) => {
   await page.route("**/stage-composition-test", (route) => route.fulfill({
     contentType: "text/html",

@@ -33,7 +33,7 @@ from backend.ai_worker.recognition import (
     contextual_guidance,
     unhinted_windows,
     phrase_coverage,
-    heard_words as _heard_words,
+    independent_words,
 )
 from backend.ai_worker.word_guidance import (
     _key,
@@ -142,14 +142,18 @@ def _guidance(
         return _transcribe(vocal, language, prompt)
 
 
-def transcribe(vocal: Path, language: str) -> dict[str, str]:
-    text = str(_guidance(vocal, language, None, prefer_accelerated=True).get("text", ""))
+def transcribe(vocal: Path, language: str, *, start_seconds: float = 0.0) -> dict[str, object]:
+    source = (
+        read_mono(vocal, _SAMPLE_RATE)[round(start_seconds * _SAMPLE_RATE) :]
+        if start_seconds
+        else vocal
+    )
+    result = _guidance(source, language, None, prefer_accelerated=True)
     # Recognition of singing sometimes invents symbols and numbers ("1.5%"); only words with letters are lyrics.
-    return {
-        "text": " ".join(
-            token for token in text.split() if any(character.isalpha() for character in token)
-        )
-    }
+    text = (
+        token for token in str(result.get("text", "")).split() if any(c.isalpha() for c in token)
+    )
+    return {"text": " ".join(text), "segments": result.get("segments", [])}
 
 
 def _windows(
@@ -197,19 +201,17 @@ def _alignment_evidence(
     language: str,
     lyrics: str,
     instrumental: np.ndarray | None = None,
+    recognition: Mapping[str, object] | None = None,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
     """Independent recognition precedes CTC; the native models do not compete for memory."""
     threads = cpu_threads()
-    sources: list[Path | np.ndarray] = [vocal]
-    if instrumental is not None:
-        backing = np.pad(
-            instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))
-        )
-        sources.append(samples + backing)
-    candidates = [
-        _heard_words(_guidance(source, language, None, threads, prefer_accelerated=True))
-        for source in sources
-    ]
+    candidates = independent_words(
+        vocal,
+        samples,
+        instrumental,
+        recognition,
+        lambda source: _guidance(source, language, None, threads, prefer_accelerated=True),
+    )
     heard = max(
         candidates,
         key=lambda view: (
@@ -460,12 +462,13 @@ def align(
     language: str,
     timing_hints: Sequence[Mapping[str, object]] = (),
     instrumental: Path | None = None,
+    recognition: Mapping[str, object] | None = None,
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-    """Align phrases, then phonetic word cores, and refine the actual sung tails."""
-    samples = read_mono(vocal, _SAMPLE_RATE)
-    words = lyrics.split()
+    samples, words = read_mono(vocal, _SAMPLE_RATE), lyrics.split()
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
-    scores, frame_seconds, heard = _alignment_evidence(vocal, samples, language, lyrics, backing)
+    scores, frame_seconds, heard = _alignment_evidence(
+        vocal, samples, language, lyrics, backing, recognition
+    )
     whole = align_words(scores, frame_seconds, words)
     heard_timings = _heard_timings(words, heard, whole)
     windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
@@ -480,9 +483,8 @@ def align(
     heard_timings.update(supported)
     positions = guidance_positions(heard_timings, windows)
     voiced = voiced_frames(samples, _SAMPLE_RATE, _HOP)
-    guided = align_guided(scores, frame_seconds, words, windows, positions, voiced, whole)
     guided = with_word_guidance(
-        guided,
+        align_guided(scores, frame_seconds, words, windows, positions, voiced, whole),
         scores,
         frame_seconds,
         windows,

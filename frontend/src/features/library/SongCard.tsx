@@ -9,7 +9,6 @@ import { songStatusPresentation, type SongActionId } from "./songPresentation";
 
 export type SongCardHandlers = Record<
   | "onPlay"
-  | "onProcess"
   | "onCancel"
   | "onDetails"
   | "onSettings"
@@ -22,8 +21,6 @@ export type SongCardHandlers = Record<
 
 const actionMeta = {
   play: { label: "play", icon: "play" },
-  process: { label: "process", icon: "wave" },
-  reprocess: { label: "reprocess", icon: "reset" },
   cancelQueued: { label: "cancelQueueItem", icon: "stop" },
   processingDetails: { label: "openProcessingDetails", icon: "processing" },
   recordings: { label: "recordings", icon: "headphones" },
@@ -35,17 +32,14 @@ const actionMeta = {
 
 const menuOrder = [
   "settings",
-  "reprocess",
   "folder",
   "viewError",
   "delete",
 ] as const satisfies readonly SongActionId[];
 const primaryActions = {
   play: "play",
-  process: "process",
   cancel: "cancelQueued",
   details: "processingDetails",
-  repair: "reprocess",
 } as const satisfies Record<
   Exclude<
     (typeof songStatusPresentation)[keyof typeof songStatusPresentation]["primaryAction"],
@@ -86,8 +80,6 @@ export const SongCard = memo(
     const run = (id: SongActionId): void => {
       const map = {
         play: handlers.onPlay,
-        process: handlers.onProcess,
-        reprocess: handlers.onProcess,
         cancelQueued: handlers.onCancel,
         processingDetails: handlers.onDetails,
         recordings: handlers.onRecordings,
@@ -112,7 +104,12 @@ export const SongCard = memo(
         aria-label={`${song.artist} — ${song.title}`}
       >
         {song.artworkUrl && (
-          <img className="songCardCover" src={song.artworkUrl} alt="" loading="lazy" />
+          <img
+            className="songCardCover"
+            src={song.artworkUrl}
+            alt=""
+            loading="lazy"
+          />
         )}
         <div className="songCardContent">
           <header className="songCardHead">
@@ -168,19 +165,28 @@ export const SongCard = memo(
                   onOpenChange={setMenuOpen}
                   anchorRef={menuAnchor}
                   align="end"
-                  items={[...(handlers.onRehearse && !roomSelection && song.status === "ready" ? [{
-                    id: "rehearsal",
-                    label: t("recordingRehearsal"),
-                    icon: "music",
-                    disabled: playbackDisabled,
-                    onSelect: () => handlers.onRehearse?.(song),
-                  }] : []), ...menuActions.map((id) => ({
-                    id,
-                    label: t(actionMeta[id].label),
-                    icon: actionMeta[id].icon,
-                    danger: id === "delete",
-                    onSelect: () => run(id),
-                  }))]}
+                  items={[
+                    ...(handlers.onRehearse &&
+                    !roomSelection &&
+                    song.status === "ready"
+                      ? [
+                          {
+                            id: "rehearsal",
+                            label: t("recordingRehearsal"),
+                            icon: "music",
+                            disabled: playbackDisabled,
+                            onSelect: () => handlers.onRehearse?.(song),
+                          },
+                        ]
+                      : []),
+                    ...menuActions.map((id) => ({
+                      id,
+                      label: t(actionMeta[id].label),
+                      icon: actionMeta[id].icon,
+                      danger: id === "delete",
+                      onSelect: () => run(id),
+                    })),
+                  ]}
                 />
               </>
             )}

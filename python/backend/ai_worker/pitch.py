@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 import torch
@@ -13,7 +14,7 @@ from backend.ai_worker.timing import audible_frames
 _SAMPLE_RATE = 16_000
 _HOP_SAMPLES = 160  # 10 ms
 _FMIN, _FMAX = 65.0, 1100.0
-_BATCH = 512
+_BATCH = MappingProxyType({"cpu": 512, "cuda": 128})
 _SMOOTHING = 3
 
 
@@ -42,19 +43,20 @@ def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
     target = device()
     samples = read_mono(vocal, _SAMPLE_RATE)
     audio = torch.from_numpy(samples)[None]
-    frequency, periodicity = torchcrepe.predict(
-        audio,
-        _SAMPLE_RATE,
-        _HOP_SAMPLES,
-        _FMIN,
-        _FMAX,
-        # "tiny" locks onto the 2nd/4th harmonic on sustained notes (one or two octaves too high), which
-        # puts wrong notes on screen; "full" keeps the fundamental and still runs about 2x realtime on CPU.
-        model="full",
-        batch_size=_BATCH,
-        device=target,
-        return_periodicity=True,
-    )
+    with torch.autocast("cuda", dtype=torch.float16, enabled=target == "cuda"):
+        frequency, periodicity = torchcrepe.predict(
+            audio,
+            _SAMPLE_RATE,
+            _HOP_SAMPLES,
+            _FMIN,
+            _FMAX,
+            # "tiny" locks onto the 2nd/4th harmonic on sustained notes (one or two octaves too high), which
+            # puts wrong notes on screen; "full" keeps the fundamental and still runs about 2x realtime on CPU.
+            model="full",
+            batch_size=_BATCH[target],
+            device=target,
+            return_periodicity=True,
+        )
     periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
     step = _HOP_SAMPLES / _SAMPLE_RATE
     return {

@@ -202,7 +202,7 @@ const stop = async (): Promise<RecordingStatus> => {
 };
 
 export const recordingCoordinator = {
-  elapsedSeconds: () => active ? takeSeconds(active) : 0,
+  elapsedSeconds: () => (active ? takeSeconds(active) : 0),
   hasPendingTake: () => active !== null || pendingTransitions > 0,
   start(
     song: SongDto,
@@ -246,6 +246,7 @@ export const recordingCoordinator = {
           id: active.target.recordingId,
           path: active.target.filePath,
           tap: "performance",
+          backing: true,
         });
         active.prepared = true;
       }

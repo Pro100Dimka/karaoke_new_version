@@ -15,6 +15,7 @@ from backend.ai_worker.ctc import (
     with_voice_onsets,
 )
 from backend.ai_worker.timing import voiced_frames
+from backend.ai_worker.recognition import heard_words
 from backend.lyrics.codec import decode_document, encode_document
 from backend.lyrics.domain import LyricsDocument, Word
 from backend.moment_spreading import spread_tied_moments as _spread_tied_letters
@@ -22,6 +23,50 @@ from backend.moment_spreading import spread_tied_moments as _spread_tied_letters
 _RATE = 16_000
 _HOP = 160
 _STEP = _HOP / _RATE
+
+
+def test_transcription_keeps_word_evidence_for_the_following_alignment(monkeypatch):
+    from backend.ai_worker import speech
+
+    result = {"text": "we sing", "segments": [{"words": [{"word": "we", "start": 1, "end": 2}]}]}
+    monkeypatch.setattr(speech, "_guidance", lambda *_a, **_kw: result)
+    transcript = speech.transcribe(Path("vocal.wav"), "English")
+    assert transcript["text"] == "we sing"
+    assert transcript["segments"] == result["segments"]
+
+
+@pytest.mark.parametrize("reuse_vocal", [False, True])
+def test_alignment_reuses_independent_recognition_instead_of_decoding_it_again(
+    monkeypatch, reuse_vocal
+):
+    import json
+    import torch
+    from backend.ai_worker import speech
+
+    with np.load(Path(__file__).with_name("fixtures") / "chorus-entry.npz") as fixture:
+        case = json.loads(str(fixture["recognition_metadata"]))
+    calls = []
+    monkeypatch.setattr(
+        speech,
+        "_guidance",
+        lambda audio, *_a, **_kw: (
+            calls.append(audio) or case["partial" if isinstance(audio, Path) else "mixed"]
+        ),
+    )
+    monkeypatch.setattr(speech, "emission", lambda *_: (torch.zeros(1, 28), 0.02))
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda _: None)
+    _, _, heard = speech._alignment_evidence(
+        Path("vocal.wav"),
+        np.ones(160),
+        "Ukrainian",
+        "\n".join(case["expected"]),
+        np.ones(160),
+        recognition=case["partial"] if reuse_vocal else None,
+    )
+    assert heard == heard_words(case["mixed"])
+    assert len(calls) == 2 - reuse_vocal
+    # The original recording is not identical to the reconstructed mix: always decode the latter.
+    np.testing.assert_array_equal(calls[-1], np.full(160, 2.0))
 
 
 def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_replies() -> None:
@@ -231,7 +276,7 @@ def test_alignment_uses_the_more_complete_independent_audio_view(monkeypatch):
         np.ones(160),
     )
 
-    assert heard == speech._heard_words(case["mixed"])
+    assert heard == heard_words(case["mixed"])
     assert len(calls) == 2
     np.testing.assert_array_equal(calls[1], np.full(160, 2.0))
 
@@ -1291,6 +1336,38 @@ def test_a_long_asr_prefix_padding_cannot_move_a_catalog_entry_into_an_instrumen
     windows = _alignment_windows(lyrics, hints, heard, whole, np.zeros(24 * _RATE))
 
     assert windows[0].heard_start == 9.0
+
+
+def test_unhinted_phrase_recovers_a_word_whose_first_letter_was_borrowed_from_the_previous_vowel():
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.word_guidance import recognized_phrase
+
+    words = "А тепер він твій на сто відсотків".split()
+    heard = [
+        (text, start, end)
+        for text, start, end in [
+            ("а", 156.12, 156.28),
+            ("тепер", 156.28, 156.76),
+            ("він", 156.76, 157.04),
+            ("звіра", 157.98, 158.52),
+            ("сто", 158.76, 159.02),
+            ("відсотків", 159.02, 160.29),
+        ]
+    ]
+    phrase, local = recognized_phrase(Window(0, 7, 156.14, 161.98), words, heard, 0.6)
+    assert phrase is not None
+    assert 157.8 < local[3][0] < local[3][1] < 158.6
+
+
+def test_a_partial_transcript_cannot_anchor_an_entire_unhinted_phrase():
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.word_guidance import recognized_phrase
+
+    words = "we sing under the moon".split()
+    heard = [(word, 1 + index * 0.2, 1.2 + index * 0.2) for index, word in enumerate(words[:3])]
+    phrase, supported = recognized_phrase(Window(0, 5, 0.5, 4), words, heard, 0.6)
+    assert phrase is None
+    assert supported == {}
 
 
 def test_a_catalog_entry_and_a_supported_last_word_can_bound_a_partly_recognized_phrase():

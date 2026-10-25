@@ -73,7 +73,7 @@ class RecordingEngine {
     void fail(std::string_view error) noexcept;
     // Control thread only, while the render-owned performance producer is suspended and drained.
     void appendPerformanceTail(SessionFrame cutoff, std::span<const float> samples,
-                               std::uint32_t frames);
+                               std::uint32_t frames, std::span<const float> backing = {});
     void push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
               std::span<const float> samples, std::uint32_t frames,
               RecordingTimeline timeline = {}, std::span<const float> backing = {}) noexcept;

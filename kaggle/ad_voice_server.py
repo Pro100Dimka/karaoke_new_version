@@ -226,9 +226,9 @@ def _compress_stem(source: Path) -> str:
 
 
 @_track_activity
-def transcribe_song(session_id: str, language: str) -> str:
+def transcribe_song(session_id: str, language: str, start_seconds: float = 0.0) -> str:
     vocal = _session(session_id) / "separation" / "vocals.wav"
-    return transcribe(vocal, language)["text"]
+    return str(transcribe(vocal, language, start_seconds=start_seconds)["text"])
 
 
 @_track_activity
@@ -310,7 +310,7 @@ def main() -> None:
         )
         gr.Button(visible=False).click(
             transcribe_song,
-            [session_id, language],
+            [session_id, language, gr.Number(value=0, visible=False)],
             lyrics,
             api_name="transcribe",
             concurrency_limit=1,

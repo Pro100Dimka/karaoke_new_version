@@ -1348,7 +1348,7 @@ void performanceMixRecordsVoiceWithoutMonitoring() {
            "recording the voice does not force microphone monitoring into the speakers");
 }
 
-void performanceVoiceHeadroomPreservesTheRecordedBalance() {
+static void checkPerformanceHeadroom(bool paired) {
     const auto musicPath = tempRoot / "headroom-backing.wav";
     std::vector<float> music(48'000U * 2U, 0.0F);
     for (std::size_t index = 1; index < music.size(); index += 2)
@@ -1369,8 +1369,9 @@ void performanceVoiceHeadroomPreservesTheRecordedBalance() {
            "headroom reference backing is loaded");
     service.realtime().setMixerGains(MixerGains{.microphone = 4.0F});
     service.media().play(MediaContext::Karaoke);
-    const auto path = tempRoot / "voice-headroom.wav";
-    expect(service.handleLine("1|PrepareRecording|id=headroom|tap=performance|path=" + path.string()).status == ControlStatus::Ok &&
+    const auto path = tempRoot / (paired ? "voice-headroom-paired.wav" : "voice-headroom.wav");
+    expect(service.handleLine("1|PrepareRecording|id=headroom|tap=performance|path=" + path.string() +
+                              (paired ? "|backing=true" : "")).status == ControlStatus::Ok &&
                service.handleLine("1|StartRecording").status == ControlStatus::Ok,
            "a normal performance recording starts");
     constexpr std::uint32_t blocks = 200;
@@ -1396,7 +1397,22 @@ void performanceVoiceHeadroomPreservesTheRecordedBalance() {
            "one constant gain preserves the original voice/backing balance and stereo image");
     expect(render.back() > recordedBacking * 2.0F && format.totalFrames == blocks * 128U,
            "saving headroom leaves live playback and the complete aligned duration unchanged");
+    if (paired) {
+        WavDecoder companion;
+        const auto backingFormat = companion.open(path.string() + ".backing.wav");
+        expect(backingFormat.totalFrames == format.totalFrames,
+               "performance companion includes the aligned lead and final tail");
+        std::vector<float> accompaniment(recorded.size());
+        companion.read(accompaniment, static_cast<std::uint32_t>(format.totalFrames));
+        for (std::size_t index = 0; index < recorded.size(); index += 2)
+            expect(std::abs(accompaniment[index]) < 0.0001F &&
+                       std::abs(accompaniment[index + 1] - (recorded[index + 1] - recorded[index])) < 0.0001F,
+                   "companion contains the exact gained backing without any processed singer");
+    }
 }
+
+void performanceVoiceHeadroomPreservesTheRecordedBalance() { checkPerformanceHeadroom(false); }
+void performanceCompanionPreservesTheAlignedBacking() { checkPerformanceHeadroom(true); }
 
 void performanceHeadroomFinalizesAllOutputChannels() {
     RecordingEngine recording;

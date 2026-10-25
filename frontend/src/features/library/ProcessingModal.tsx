@@ -11,7 +11,11 @@ import { useText } from "../../i18n/useText";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { formatBytes } from "../../shared/utils/format";
 import { ProcessingJobCard } from "./ProcessingJobCard";
-import { processingDuration, processingTitle, stateLabel } from "./processingModel";
+import {
+  processingDuration,
+  processingTitle,
+  stateLabel,
+} from "./processingModel";
 import { useProcessingQueue } from "./useProcessingQueue";
 import "./processing.css";
 
@@ -21,8 +25,6 @@ interface Props {
   focusSongId?: string;
   onClose(): void;
   onCancel(jobId: string): Promise<void>;
-  onRetry(song: SongDto, mode?: "lyrics"): Promise<void>;
-  onResetLyrics?(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;
@@ -38,15 +40,22 @@ interface Notice {
 type Disk = { free: number; used: number } | null;
 const clearGroups = {
   completed: {
-    label: "processingClearCompleted", title: "processingClearCompletedTitle", text: "processingClearCompletedText",
+    label: "processingClearCompleted",
+    title: "processingClearCompletedTitle",
+    text: "processingClearCompletedText",
     matches: (job: ProcessingJobDto) => job.state === "completed",
   },
   failed: {
-    label: "processingClearFailed", title: "processingClearFailedTitle", text: "processingClearFailedText",
-    matches: (job: ProcessingJobDto) => job.state === "failed" || job.state === "interrupted",
+    label: "processingClearFailed",
+    title: "processingClearFailedTitle",
+    text: "processingClearFailedText",
+    matches: (job: ProcessingJobDto) =>
+      job.state === "failed" || job.state === "interrupted",
   },
   all: {
-    label: "processingClearAll", title: "processingClearAllTitle", text: "processingClearAllText",
+    label: "processingClearAll",
+    title: "processingClearAllTitle",
+    text: "processingClearAllText",
     matches: () => true,
   },
 } as const;
@@ -84,8 +93,6 @@ export const ProcessingModal = ({
   focusSongId,
   onClose,
   onCancel,
-  onRetry,
-  onResetLyrics,
   onOpenFolder,
   onPlay,
   playbackDisabled,
@@ -194,9 +201,6 @@ export const ProcessingModal = ({
                   onOpenFolder,
                   onPlay,
                   playbackDisabled,
-                  onRetry: (song) => void onRetry(song,
-                    job.timingOperation === "lyrics" ? "lyrics" : undefined),
-                  onResetLyrics,
                   onStop: () => stop(job),
                   onDetails: () => details(job),
                   onRemove: () => remove(job),
@@ -230,9 +234,13 @@ export const ProcessingModal = ({
             icon="trash"
             aria-disabled={queue.visible.length === 0}
             label={t("processingClear")}
-            onClick={() => queue.visible.length > 0 && clear(clearGroups.completed)}
+            onClick={() =>
+              queue.visible.length > 0 && clear(clearGroups.completed)
+            }
             items={Object.entries(clearGroups).map(([id, group]) => ({
-              id, label: t(group.label), disabled: !queue.visible.some(group.matches),
+              id,
+              label: t(group.label),
+              disabled: !queue.visible.some(group.matches),
               onSelect: () => clear(group),
             }))}
           >

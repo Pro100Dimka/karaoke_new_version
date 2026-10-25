@@ -3,8 +3,6 @@ import type { MessageKey } from "../../i18n/messages";
 
 export type SongActionId =
   | "play"
-  | "process"
-  | "reprocess"
   | "cancelQueued"
   | "processingDetails"
   | "recordings"
@@ -16,7 +14,7 @@ export type SongActionId =
 interface SongStatusPresentation {
   label: MessageKey;
   tone: "default" | "primary" | "success" | "danger";
-  primaryAction: "play" | "process" | "cancel" | "details" | "repair" | "none";
+  primaryAction: "play" | "cancel" | "details" | "none";
   primaryLabel: MessageKey;
   primaryDisabled: boolean;
   /** Exactly the actions the state/action matrix allows; everything else is hidden or disabled. */
@@ -27,10 +25,10 @@ export const songStatusPresentation = {
   "not-processed": {
     label: "notProcessed",
     tone: "default",
-    primaryAction: "process",
-    primaryLabel: "process",
-    primaryDisabled: false,
-    actions: ["process", "settings", "folder", "delete"],
+    primaryAction: "none",
+    primaryLabel: "notProcessed",
+    primaryDisabled: true,
+    actions: ["settings", "folder", "delete"],
   },
   queued: {
     label: "queued",
@@ -54,21 +52,15 @@ export const songStatusPresentation = {
     primaryAction: "play",
     primaryLabel: "play",
     primaryDisabled: false,
-    actions: [
-      "play",
-      "recordings",
-      "settings",
-      "folder",
-      "delete",
-    ],
+    actions: ["play", "recordings", "settings", "folder", "delete"],
   },
   failed: {
     label: "failed",
     tone: "danger",
-    primaryAction: "process",
-    primaryLabel: "retryReprocess",
-    primaryDisabled: false,
-    actions: ["reprocess", "viewError", "settings", "folder", "delete"],
+    primaryAction: "none",
+    primaryLabel: "failed",
+    primaryDisabled: true,
+    actions: ["viewError", "settings", "folder", "delete"],
   },
   importing: {
     label: "importing",
@@ -81,9 +73,9 @@ export const songStatusPresentation = {
   invalid: {
     label: "projectInvalid",
     tone: "danger",
-    primaryAction: "repair",
-    primaryLabel: "repairReprocess",
-    primaryDisabled: false,
-    actions: ["viewError", "reprocess", "folder", "delete"],
+    primaryAction: "none",
+    primaryLabel: "projectInvalid",
+    primaryDisabled: true,
+    actions: ["viewError", "folder", "delete"],
   },
 } satisfies Record<SongStatus, SongStatusPresentation>;

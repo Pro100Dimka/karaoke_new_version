@@ -6,48 +6,90 @@ import { LibraryProvider } from "../../app/LibraryProvider";
 import type { SongDto } from "../../contracts/models";
 import { SongSettingsModal } from "./SongSettingsModal";
 
-const renderSettings = (status: SongDto["status"] = "ready", overrides: Partial<SongDto> = {}) => {
+const renderSettings = (
+  status: SongDto["status"] = "ready",
+  overrides: Partial<SongDto> = {},
+) => {
   const song: SongDto = {
-    id: "existing", title: "Song", artist: "Artist", language: "Auto", status,
-    durationSeconds: 200, createdAt: "2026-10-20", coverState: "Fallback",
-    activeRevision: 2, projectFormatVersion: 1,
+    id: "existing",
+    title: "Song",
+    artist: "Artist",
+    language: "Auto",
+    status,
+    durationSeconds: 200,
+    createdAt: "2026-10-20",
+    coverState: "Fallback",
+    activeRevision: 2,
+    projectFormatVersion: 1,
     ...overrides,
   };
-  const onReprocess = vi.fn();
-  render(<MemoryRouter><AppProvider><LibraryProvider>
-    <SongSettingsModal song={song} onReprocess={onReprocess}
-      onClose={vi.fn()} onSave={vi.fn()} onRemoveCover={vi.fn()}
-      onOpenFolder={vi.fn()} onDelete={vi.fn()} />
-  </LibraryProvider></AppProvider></MemoryRouter>);
-  return { song, onReprocess };
+  render(
+    <MemoryRouter>
+      <AppProvider>
+        <LibraryProvider>
+          <SongSettingsModal
+            song={song}
+            onClose={vi.fn()}
+            onSave={vi.fn()}
+            onRemoveCover={vi.fn()}
+            onOpenFolder={vi.fn()}
+            onDelete={vi.fn()}
+          />
+        </LibraryProvider>
+      </AppProvider>
+    </MemoryRouter>,
+  );
+  return { song };
 };
 
 describe("existing song lyric realignment", () => {
+  it("offers no processing or realignment for an existing song", () => {
+    renderSettings();
+    expect(
+      screen.queryByRole("button", {
+        name: /Уточнить слова и ноты|Переобработать/,
+      }),
+    ).toBeNull();
+  });
   it("keeps full reprocessing out of the song settings menu", () => {
     renderSettings();
     fireEvent.click(screen.getByRole("button", { name: "Другие действия" }));
-    expect(screen.queryByRole("menuitem", { name: "Переобработать" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitem", { name: "Переобработать" }),
+    ).not.toBeInTheDocument();
   });
 
   it("previews discovered artwork, explains the video override and keeps deletion out of the save row", () => {
-    renderSettings("ready", { artworkUrl: "https://example.org/cover.jpg", videoUrl: "https://example.org/video" });
-    expect(screen.getByRole("img", { name: "Artist — Song" })).toHaveAttribute("src", "https://example.org/cover.jpg");
+    renderSettings("ready", {
+      artworkUrl: "https://example.org/cover.jpg",
+      videoUrl: "https://example.org/video",
+    });
+    expect(screen.getByRole("img", { name: "Artist — Song" })).toHaveAttribute(
+      "src",
+      "https://example.org/cover.jpg",
+    );
     expect(screen.getByText(/Найденный клип/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Удалить песню" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Язык Определять автоматически" })).toHaveTextContent("Определять автоматически");
+    expect(
+      screen.queryByRole("button", { name: "Удалить песню" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Язык Определять автоматически" }),
+    ).toHaveTextContent("Определять автоматически");
   });
-  it("offers a separate word and note realignment action and explains manual edit preservation", () => {
-    const { song, onReprocess } = renderSettings();
-    fireEvent.click(screen.getByRole("button", { name: "Уточнить слова и ноты" }));
-    expect(onReprocess).toHaveBeenCalledWith(song, "lyrics");
-    expect(screen.getByText(/Ручные изменения сохраняются/)).toBeInTheDocument();
+  it("keeps word and note realignment out of the settings", () => {
+    renderSettings();
+    expect(
+      screen.queryByRole("button", { name: "Уточнить слова и ноты" }),
+    ).toBeNull();
   });
 
   it.each(["queued", "processing", "not-processed"] as const)(
     "does not offer realignment while the song is %s",
     (status) => {
       renderSettings(status);
-      expect(screen.getByRole("button", { name: "Уточнить слова и ноты" })).toBeDisabled();
+      expect(
+        screen.queryByRole("button", { name: "Уточнить слова и ноты" }),
+      ).toBeNull();
     },
   );
 });

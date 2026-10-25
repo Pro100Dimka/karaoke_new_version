@@ -8,8 +8,7 @@ from pathlib import Path
 from backend.ai_worker.pitch import pitch
 from backend.ai_worker.separation import separate
 from backend.ai_worker.speech import align, prepare_accelerator, transcribe
-from backend.serialization import dumps
-from backend.serialization import loads_list
+from backend.serialization import dumps, loads_list, loads_object
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -22,12 +21,14 @@ def _parser() -> argparse.ArgumentParser:
     transcribe_action = actions.add_parser("transcribe")
     transcribe_action.add_argument("--input", type=Path, required=True)
     transcribe_action.add_argument("--language", default="Auto")
+    transcribe_action.add_argument("--start-seconds", type=float, default=0.0)
     align_action = actions.add_parser("align")
     align_action.add_argument("--input", type=Path, required=True)
     align_action.add_argument("--language", default="Auto")
     align_action.add_argument("--lyrics", required=True)
     align_action.add_argument("--timing-hints")
     align_action.add_argument("--instrumental", type=Path)
+    align_action.add_argument("--recognition-stdin", action="store_true")
     pitch_action = actions.add_parser("pitch")
     pitch_action.add_argument("--input", type=Path, required=True)
     return parser
@@ -39,10 +40,22 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
     if args.action == "separate":
         return separate(args.input, args.output)
     if args.action == "transcribe":
-        return transcribe(args.input, args.language)
+        return transcribe(args.input, args.language, start_seconds=args.start_seconds)
     if args.action == "align":
         hints = loads_list(args.timing_hints) if args.timing_hints else []
-        return align(args.input, args.lyrics, args.language, hints, instrumental=args.instrumental)
+        recognition = (
+            loads_object(sys.stdin.buffer.read().decode("utf-8"))
+            if args.recognition_stdin
+            else None
+        )
+        return align(
+            args.input,
+            args.lyrics,
+            args.language,
+            hints,
+            instrumental=args.instrumental,
+            recognition=recognition,
+        )
     return pitch(args.input)
 
 

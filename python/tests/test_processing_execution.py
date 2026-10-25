@@ -48,6 +48,50 @@ class ExecutionTrackingProvider(FakeAiProvider):
         return super().pitch(*args, **kwargs)
 
 
+def test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget(monkeypatch):
+    import threading
+    from types import SimpleNamespace
+    from backend.infrastructure.job_executor import ThreadConcurrentRunner
+    from backend.processing.document_pipeline import BuildProcessingDocument
+    from backend.processing.compute_policy import ExecutionContext
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.lyrics.domain import LyricsDocument
+    from backend.lyrics.ports import LyricLineTiming
+
+    pipeline = BuildProcessingDocument(Mock(), Mock(), ThreadConcurrentRunner())
+    barrier = threading.Barrier(2)
+    threads = []
+
+    def stage(*args):
+        threads.append(args[-1].cpu_threads)
+        barrier.wait(timeout=2)
+        return ()
+
+    monkeypatch.setattr(
+        pipeline,
+        "_discover",
+        lambda *_: LyricsDiscoveryResult(
+            "we sing", "catalog", (), (LyricLineTiming(1, "we sing"),)
+        ),
+    )
+    monkeypatch.setattr(pipeline, "_align", stage)
+    monkeypatch.setattr(pipeline, "_stable_pitch", stage)
+    monkeypatch.setattr(
+        pipeline, "_construct", lambda *_: LyricsDocument("T", "A", 2, None, None, "", ())
+    )
+    pipeline.run(
+        Mock(),
+        SimpleNamespace(rhythm=()),
+        Mock(),
+        Mock(),
+        Mock(),
+        [],
+        ExecutionContext(ComputeDevice.CUDA, 8),
+    )
+    assert sum(threads) == 8
+    assert all(count > 0 for count in threads)
+
+
 @pytest.mark.parametrize("realign", [False, True])
 def test_full_and_existing_alignment_receive_the_backing_from_the_same_timeline(tmp_path, realign):
     source = tmp_path / "song.wav"

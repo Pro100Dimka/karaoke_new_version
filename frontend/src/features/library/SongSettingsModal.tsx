@@ -25,7 +25,10 @@ import {
   saveSongPreferences,
   type VocalRange,
 } from "../../application/library/songPreferences";
-import { detectedSongMetadata, languageLabels } from "./songMetadataPresentation";
+import {
+  detectedSongMetadata,
+  languageLabels,
+} from "./songMetadataPresentation";
 
 interface Props {
   song: SongDto | null;
@@ -33,7 +36,6 @@ interface Props {
   onSave(song: SongDto, patch: SongPatch): Promise<void>;
   onRemoveCover(song: SongDto): Promise<void>;
   onOpenFolder(song: SongDto): void;
-  onReprocess(song: SongDto, mode?: "lyrics"): void;
   onDelete(song: SongDto): void;
 }
 
@@ -67,14 +69,17 @@ const SongSettingsForm = ({
   onSave,
   onRemoveCover,
   onOpenFolder,
-  onReprocess,
   onDelete,
 }: { song: SongDto } & Omit<Props, "song">) => {
   const navigate = useNavigate();
   const t = useText();
   const files = useLibraryFiles();
   const status = songStatusPresentation[song.status];
-  const coverState = t(song.artworkUrl && song.coverState === "Fallback" ? "coverOnline" : coverLabel[song.coverState]);
+  const coverState = t(
+    song.artworkUrl && song.coverState === "Fallback"
+      ? "coverOnline"
+      : coverLabel[song.coverState],
+  );
   const detected = detectedSongMetadata(song);
   const busy = song.status === "queued" || song.status === "processing";
 
@@ -147,7 +152,10 @@ const SongSettingsForm = ({
           <Select<SongLanguage>
             label={t("songLanguage")}
             value={form.values.language}
-            options={Object.entries(languageLabels).map(([value, label]) => ({ value: value as SongLanguage, label: t(label) }))}
+            options={Object.entries(languageLabels).map(([value, label]) => ({
+              value: value as SongLanguage,
+              label: t(label),
+            }))}
             onValueChange={set("language")}
           />
           <TextField
@@ -172,7 +180,9 @@ const SongSettingsForm = ({
             value={form.values.videoUrl}
             onValueChange={set("videoUrl")}
             placeholder={song.videoUrl}
-            description={t(song.videoUrl ? "discoveredVideoHelp" : "videoOverrideHelp")}
+            description={t(
+              song.videoUrl ? "discoveredVideoHelp" : "videoOverrideHelp",
+            )}
           />
           <NumberField
             label={t("defaultKey")}
@@ -201,7 +211,13 @@ const SongSettingsForm = ({
             onValueChange={set("vocalRange")}
           />
         </Grid>
-        {song.artworkUrl && <img className="songSettingsCover" src={song.artworkUrl} alt={`${song.artist} — ${song.title}`} />}
+        {song.artworkUrl && (
+          <img
+            className="songSettingsCover"
+            src={song.artworkUrl}
+            alt={`${song.artist} — ${song.title}`}
+          />
+        )}
         <KeyValueList
           items={[
             [t("detectedTempoLabel"), String(detected.bpm)],
@@ -211,7 +227,6 @@ const SongSettingsForm = ({
           ]}
         />
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
-        <MessageBar tone="info">{t("realignLyricsHelp")}</MessageBar>
         <div className="songSettingsActions">
           <Button
             size="sm"
@@ -224,18 +239,44 @@ const SongSettingsForm = ({
           >
             {t("melodyEditor")}
           </Button>
-          <Button size="sm" icon="wave" disabled={song.status !== "ready"}
-            onClick={() => onReprocess(song, "lyrics")}>
-            {t("realignLyrics")}
-          </Button>
-          <SplitButton size="sm" icon="folder" label={t("openFolder")} onClick={() => onOpenFolder(song)}
+          <SplitButton
+            size="sm"
+            icon="folder"
+            label={t("openFolder")}
+            onClick={() => onOpenFolder(song)}
             items={[
-              ...(song.detectedBpm !== undefined || song.detectedKey ? [{ id: "detected", label: t("useDetectedValue"),
-                onSelect: () => { form.setValue("defaultKey", 0); form.setValue("defaultSpeed", 1); } }] : []),
-              ...(song.coverState === "Custom" ? [{ id: "cover", label: t("removeCustomCover"), onSelect: () => void onRemoveCover(song) }] : []),
+              ...(song.detectedBpm !== undefined || song.detectedKey
+                ? [
+                    {
+                      id: "detected",
+                      label: t("useDetectedValue"),
+                      onSelect: () => {
+                        form.setValue("defaultKey", 0);
+                        form.setValue("defaultSpeed", 1);
+                      },
+                    },
+                  ]
+                : []),
+              ...(song.coverState === "Custom"
+                ? [
+                    {
+                      id: "cover",
+                      label: t("removeCustomCover"),
+                      onSelect: () => void onRemoveCover(song),
+                    },
+                  ]
+                : []),
               { id: "separator", separator: true },
-              { id: "delete", label: t("deleteSong"), icon: "trash", danger: true, disabled: busy, onSelect: () => onDelete(song) },
-            ]}>
+              {
+                id: "delete",
+                label: t("deleteSong"),
+                icon: "trash",
+                danger: true,
+                disabled: busy,
+                onSelect: () => onDelete(song),
+              },
+            ]}
+          >
             {t("openFolder")}
           </SplitButton>
           <Button

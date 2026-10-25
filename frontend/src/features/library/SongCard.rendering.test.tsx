@@ -13,7 +13,6 @@ it("shows a still cover without an equalizer or pointer tilt", () => {
   const noop = () => {};
   const handlers: SongCardHandlers = {
     onPlay: noop,
-    onProcess: noop,
     onCancel: noop,
     onDetails: noop,
     onSettings: noop,
@@ -36,7 +35,10 @@ it("shows a still cover without an equalizer or pointer tilt", () => {
       handlers={handlers}
     />,
   );
-  expect(view.container.querySelector("img")).toHaveAttribute("src", "https://example.com/cover.jpg");
+  expect(view.container.querySelector("img")).toHaveAttribute(
+    "src",
+    "https://example.com/cover.jpg",
+  );
   expect(view.container.querySelector(".ad-equalizer")).toBeNull();
   expect(view.container.querySelector(".ad-tilt")).toBeNull();
 });
@@ -45,7 +47,6 @@ it("skips parent updates when the song and room selection stay unchanged", () =>
   const noop = () => {};
   const handlers: SongCardHandlers = {
     onPlay: noop,
-    onProcess: noop,
     onCancel: noop,
     onDetails: noop,
     onSettings: noop,
@@ -92,7 +93,6 @@ it("disables karaoke and rehearsal on every ready card during local processing",
     [
       "onPlay",
       "onRehearse",
-      "onProcess",
       "onCancel",
       "onDetails",
       "onSettings",

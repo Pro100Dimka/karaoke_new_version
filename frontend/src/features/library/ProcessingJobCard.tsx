@@ -1,5 +1,4 @@
 import {
-  Button,
   Card,
   IconButton,
   Menu,
@@ -15,7 +14,6 @@ import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
 import {
   isActive,
-  isRetryable,
   phaseOf,
   phases,
   processingDuration,
@@ -31,8 +29,6 @@ export interface JobActions {
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;
-  onRetry(song: SongDto): void;
-  onResetLyrics?(song: SongDto): void;
   onStop(): void;
   onDetails(): void;
   onRemove(): void;
@@ -61,7 +57,6 @@ export const ProcessingJobCard = ({
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const active = isActive(job);
-  const retryable = isRetryable(job);
   const duration = processingDuration(job);
   const phase = job.state === "completed" ? phases.length : phaseOf(job);
   const menu: MenuItemData[] = [
@@ -133,8 +128,16 @@ export const ProcessingJobCard = ({
               label={t(stateLabel[job.state])}
             />
             {job.processingBackend && (
-              <Typography variant="caption" tone="muted" title={t("processingVia")}>
-                {t(job.processingBackend === "Kaggle" ? "processingBackendKaggle" : "processingBackendLocal")}
+              <Typography
+                variant="caption"
+                tone="muted"
+                title={t("processingVia")}
+              >
+                {t(
+                  job.processingBackend === "Kaggle"
+                    ? "processingBackendKaggle"
+                    : "processingBackendLocal",
+                )}
               </Typography>
             )}
             {duration && (
@@ -142,20 +145,24 @@ export const ProcessingJobCard = ({
                 variant="caption"
                 tone="muted"
                 title={t("processingDuration")}
-              >{duration}</Typography>
+              >
+                {duration}
+              </Typography>
             )}
           </Stack>
-          <Steps className="processingSteps" steps={phases.map((step) => t(step))}
-            current={phase ?? -1} aria-label={t("processingDetailsStage")} />
+          <Steps
+            className="processingSteps"
+            steps={phases.map((step) => t(step))}
+            current={phase ?? -1}
+            aria-label={t("processingDetailsStage")}
+          />
           {(job.state === "failed" || job.state === "interrupted") && (
             <MessageBar tone="error">
-              {t(job.error && errorMessageKey(job.error) || "processingFailedHelp")}
+              {t(
+                (job.error && errorMessageKey(job.error)) ||
+                  "processingFailedHelp",
+              )}
             </MessageBar>
-          )}
-          {job.error?.code === "ManualLyricsConflict" && song && actions.onResetLyrics && (
-            <Button size="sm" icon="reset" onClick={() => actions.onResetLyrics?.(song)}>
-              {t("resetLyricsAndReprocess")}
-            </Button>
           )}
         </div>
         <div className="processingJobActions">
@@ -185,13 +192,6 @@ export const ProcessingJobCard = ({
                 onClick={() => actions.onMove(direction)}
               />
             ))}
-          {retryable && song && (
-            <IconButton
-              icon="reset"
-              label={t("retry")}
-              onClick={() => actions.onRetry(song)}
-            />
-          )}
           <IconButton
             ref={menuAnchor}
             variant="ghost"

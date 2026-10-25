@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from contextlib import ExitStack
+from pathlib import Path
 
 from backend.ai.ports import AiProvider
 from backend.ai.registry import AiProviderRegistry
@@ -58,6 +59,7 @@ from backend.projects.operations import SongOperationRegistry
 from backend.projects.validator import ProjectValidator
 from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.register_recording import RegisterRecording
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recovery.reconcile_library import ReconcileLibrary
 from backend.recovery.recover_transactions import RecoverTransactions
 from backend.recovery.reconcile_songs import ReconcileInterruptedSongs
@@ -146,7 +148,7 @@ def _build_locked(
             config, processes, jobs, ai_providers, lyrics_providers, storage, database
         )
         runtime = RuntimeWiring(config, database, processes, clock, ids, hasher)
-        recording_storage, register = _recording_wiring(config, database, clock, ids)
+        recording_storage, register = _recording_wiring(runtime, project)
         recovery = _startup_recovery(runtime, project, processing, recording_storage, register)
         container = _assemble_container(
             runtime,
@@ -209,13 +211,29 @@ def _start_executor(config: BackendConfig, startup: ExitStack) -> BoundedJobExec
 
 
 def _recording_wiring(
-    config: BackendConfig,
-    database: Database,
-    clock: UtcClock,
-    ids: UuidGenerator,
+    runtime: RuntimeWiring,
+    project: ProjectWiring,
 ) -> tuple[LocalRecordingStorage, RegisterRecording]:
-    storage = LocalRecordingStorage(config.roots)
-    register = RegisterRecording(database, storage, WaveRecordingInspector(), clock, ids)
+    storage = LocalRecordingStorage(runtime.config.roots)
+    renderer = FfmpegStudioMasterRenderer(runtime.processes)
+
+    def balance(path: Path, song_id: str, revision: int) -> None:
+        if not Path(str(path) + ".backing.wav").is_file():
+            return
+        renderer.balance_recording(
+            path,
+            project.projects.artifact_path(song_id, revision, "referenceVocal"),
+            project.projects.artifact_path(song_id, revision, "instrumental"),
+        )
+
+    register = RegisterRecording(
+        runtime.database,
+        storage,
+        WaveRecordingInspector(),
+        runtime.clock,
+        runtime.ids,
+        balance=balance,
+    )
     return storage, register
 
 

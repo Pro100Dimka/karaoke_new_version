@@ -40,13 +40,16 @@ def recognized_phrase(
         if allow_utterance
         else None
     )
-    if window.heard_start is None or span is None:
+    if span is None or (
+        window.heard_start is None and (not matches or max(matches)[0] < len(key) * 0.5)
+    ):
         return None, {}
     first, last = span
     phrase = replace(
         window,
         start=min(window.start, heard[first][1]) if matches else window.start,
         end=min(window.end, heard[last - 1][2] + margin),
+        heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
     )
     return phrase, _character_intervals(words, heard[first:last], window.first) if matches else {}
 
@@ -114,6 +117,8 @@ def _character_intervals(
                 max(start, result.get(index - 1, (start, start))[1]),
                 min(end, result.get(index + 1, (end, end))[0]),
             )
+            if result[index][1] <= result[index][0]:
+                result[index] = (spoken[positions[0]][1][0], spoken[positions[-1]][1][1])
     return result
 
 

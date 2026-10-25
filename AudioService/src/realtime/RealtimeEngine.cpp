@@ -91,8 +91,9 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     remoteMixPeak_.store(0.0F, std::memory_order_relaxed);
     masterOutputNonzeroBlocks_.store(0, std::memory_order_relaxed);
     masterOutputPeak_.store(0.0F, std::memory_order_relaxed);
-    aligner_.prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
-                     plan.maximumBlockFrames);
+    for (auto* aligner : {&aligner_, &backingAligner_})
+        aligner->prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
+                         plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
     // Acoustic correlation is optional diagnostics, not a worker started for normal singing.
     observedMonitoringLatencyNs_.store(-1, std::memory_order_relaxed);
@@ -147,7 +148,12 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
             // Control owns this scratch. The audible render still uses the realtime buffer pool.
             std::vector<float> tail(static_cast<std::size_t>(frames) * plan_.outputChannels);
             aligner_.read(tail, frames);
-            recording_.appendPerformanceTail(cutoff, tail, frames);
+            std::vector<float> backing;
+            if (recording_.backingEnabled()) {
+                backing.resize(tail.size());
+                backingAligner_.read(backing, frames);
+            }
+            recording_.appendPerformanceTail(cutoff, tail, frames, backing);
         } catch (const std::exception& error) {
             recording_.fail(error.what());
             throw;
@@ -198,7 +204,8 @@ void RealtimeEngine::reset() noexcept {
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
     capturedEndTicks_.store(0, std::memory_order_relaxed);
-    aligner_.reset();
+    for (auto* aligner : {&aligner_, &backingAligner_})
+        aligner->reset();
     voiceLateFrames_ = -1.0;
     lastRenderAt_ = 0;
     bridgeFillAfterRenderFrames_ = 0;
@@ -1000,6 +1007,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         mixer_.add(output, performance, 1.0F);
     }
     std::span<const float> recordedBacking;
+    const auto pairedPerformance =
+        recording_.backingEnabled() && recording_.selectedTap() == RecordingTap::PerformanceMix;
     if (recording_.backingEnabled()) {
         // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
         // here before the performance aligner reuses buffer 3 for an aligned recording mix.
@@ -1008,6 +1017,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     }
     if (performanceActive)
         aligner_.add(performance, buffer.frames, 1.0F, 0);
+    if (performanceActive && pairedPerformance)
+        backingAligner_.add(recordedBacking, buffer.frames, 1.0F, 0);
     // The user recording always gets the processed voice exactly once, with the same timeline
     // correction, whether local monitoring (and its safety limiter) is enabled or not.
     if (performanceActive && microphoneEnabled) {
@@ -1032,13 +1043,15 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     if (performanceActive) {
         aligner_.add(remote, buffer.frames, gains.remote, network_.remoteRecordingDelayFrames());
         aligner_.read(performance, buffer.frames);
+        if (pairedPerformance)
+            backingAligner_.read(rawMic, buffer.frames);
     }
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do
     // they.
     renderTone(output, buffer.frames, accompaniment);
     if (performanceActive) {
         recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
-                        buffer.frames);
+                        buffer.frames, {}, recordedBacking);
         performanceFrame_.store(sessionFrame() + buffer.frames);
     }
     mixer_.clampToFullScale(output);

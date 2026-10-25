@@ -7,12 +7,15 @@ from typing import Mapping, Sequence
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.paths import ensure_within
+from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
+
+_RecognitionKey = tuple[threading.Event, Path, Language, str, str]
 
 
 class CommandAiProvider:
@@ -28,6 +31,8 @@ class CommandAiProvider:
         self._command = tuple(command)
         self._runner = runner
         self._timeout = timeout_seconds
+        self._recognitions: dict[_RecognitionKey, dict[str, JsonValue]] = {}
+        self._recognition_lock = threading.Lock()
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
@@ -55,17 +60,47 @@ class CommandAiProvider:
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        start_seconds: float = 0.0,
     ) -> str:
+        key = (
+            self._recognition_key(vocal, language, cancel, execution) if not start_seconds else None
+        )
         payload = self._invoke(
             "transcribe",
-            ["--input", str(vocal), "--language", language.value],
+            [
+                "--input",
+                str(vocal),
+                "--language",
+                language.value,
+                "--start-seconds",
+                str(start_seconds),
+            ],
             cancel,
             execution=execution,
         )
         transcript = payload.get("text")
         if not isinstance(transcript, str):
             raise DependencyError("AiProviderInvalidOutput", "AI provider field text is invalid")
+        if key is not None and isinstance(payload.get("segments"), list):
+            with self._recognition_lock:
+                self._recognitions[key] = payload
+                if len(self._recognitions) > 4:
+                    self._recognitions.pop(next(iter(self._recognitions)))
         return transcript
+
+    def _recognition_key(
+        self, vocal: Path, language: Language, cancel: threading.Event, execution: ExecutionContext
+    ) -> _RecognitionKey | None:
+        if self._descriptor.provider_id != "local-torch" or not vocal.is_file():
+            return None
+        return cancel, vocal.resolve(), language, execution.device.value, sha256_file(vocal)
+
+    def _recognition_for(
+        self, vocal: Path, language: Language, cancel: threading.Event, execution: ExecutionContext
+    ) -> dict[str, JsonValue] | None:
+        key = self._recognition_key(vocal, language, cancel, execution)
+        with self._recognition_lock:
+            return self._recognitions.get(key) if key is not None else None
 
     def align(
         self,
@@ -78,14 +113,7 @@ class CommandAiProvider:
         execution: ExecutionContext,
         instrumental: Path | None = None,
     ) -> Sequence[WordTiming]:
-        arguments = [
-            "--input",
-            str(vocal),
-            "--language",
-            language.value,
-            "--lyrics",
-            lyrics,
-        ]
+        arguments = ["--input", str(vocal), "--language", language.value, "--lyrics", lyrics]
         if instrumental is not None:
             arguments.extend(["--instrumental", str(instrumental)])
         if timing_hints:
@@ -95,11 +123,15 @@ class CommandAiProvider:
                     dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints]),
                 ]
             )
+        recognition = self._recognition_for(vocal, language, cancel, execution)
+        if recognition is not None:
+            arguments.append("--recognition-stdin")
         payload = self._invoke(
             "align",
             arguments,
             cancel,
             execution=execution,
+            input_data=dumps(recognition).encode("utf-8") if recognition is not None else None,
         )
         values = payload.get("words")
         if not isinstance(values, list):
@@ -122,12 +154,14 @@ class CommandAiProvider:
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        input_data: bytes | None = None,
     ) -> dict[str, JsonValue]:
         try:
             result = self._runner.run(
                 [*self._command, action, *arguments],
                 timeout_seconds=self._timeout,
                 cancel=cancel,
+                input_data=input_data,
                 environment={
                     **_thread_environment(execution.cpu_threads),
                     "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),

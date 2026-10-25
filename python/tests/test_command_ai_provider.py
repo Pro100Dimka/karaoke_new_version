@@ -17,18 +17,36 @@ from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 
+def test_worker_recognition_input_uses_utf8_even_with_a_windows_text_encoding(monkeypatch):
+    import io
+    from backend.ai_worker import __main__ as cli
+    from backend.serialization import dumps
+
+    evidence = {"segments": [{"words": [{"word": "Восьмим", "start": 1, "end": 2}]}]}
+    stream = io.TextIOWrapper(io.BytesIO(dumps(evidence).encode("utf-8")), encoding="cp1251")
+    monkeypatch.setattr(cli.sys, "stdin", stream)
+    calls = []
+    monkeypatch.setattr(cli, "align", lambda *_a, **options: calls.append(options) or {"words": []})
+    args = cli._parser().parse_args(
+        ["align", "--input", "vocal.wav", "--lyrics", "Восьмим", "--recognition-stdin"]
+    )
+    cli._run(args)
+    assert calls[0]["recognition"] == evidence
+
+
 class _ScriptedRunner(ProcessRunner):
     def __init__(self, stdout: bytes, exit_code: int = 0) -> None:
         self._result = ProcessResult(exit_code, stdout, b"")
 
-    def run(self, command, **_):
+    def run(self, command, **options):
         self.command = command
+        self.options = options
         return self._result
 
 
-def _provider(stdout: bytes, exit_code: int = 0) -> CommandAiProvider:
+def _provider(stdout: bytes, exit_code: int = 0, *, provider_id="scripted") -> CommandAiProvider:
     descriptor = AiProviderDescriptor(
-        provider_id="scripted",
+        provider_id=provider_id,
         version="1",
         capabilities=frozenset(AiCapability),
         supported_languages=frozenset({"Auto"}),
@@ -36,6 +54,48 @@ def _provider(stdout: bytes, exit_code: int = 0) -> CommandAiProvider:
         required_resources={},
     )
     return CommandAiProvider(descriptor, ["worker"], _ScriptedRunner(stdout, exit_code))
+
+
+@pytest.mark.parametrize("change", [None, "vocal", "source", "language", "job", "device"])
+@pytest.mark.parametrize("word_count", [1, 2000])
+def test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job(
+    tmp_path, change, word_count
+):
+    from backend.serialization import dumps, loads_object
+
+    provider = _provider(b"", provider_id="local-torch")
+    runner = provider._runner
+    cancel = threading.Event()
+    vocal, source = tmp_path / "vocal.wav", tmp_path / "source.mp3"
+    evidence = []
+    for audio, word in [(vocal, "verse"), (source, "chorus")]:
+        audio.write_bytes(word.encode())
+        result = {
+            "text": word,
+            "segments": [{"words": [{"word": word, "start": 1, "end": 2}] * word_count}],
+        }
+        evidence.append(result)
+        runner._result = ProcessResult(0, dumps(result).encode(), b"")
+        provider.transcribe(audio, Language.ENGLISH, cancel, execution=EXECUTION)
+    if change in {"vocal", "source"}:
+        (vocal if change == "vocal" else source).write_bytes(b"changed audio")
+    runner._result = ProcessResult(0, b'{"words": []}', b"")
+    provider.align(
+        vocal,
+        "verse chorus",
+        Language.RUSSIAN if change == "language" else Language.ENGLISH,
+        threading.Event() if change == "job" else cancel,
+        execution=ExecutionContext(ComputeDevice.CUDA, 1) if change == "device" else EXECUTION,
+    )
+    if change in {"vocal", "language", "job", "device"}:
+        assert "--recognition-stdin" not in runner.command
+        assert not runner.options.get("input_data")
+    else:
+        assert "--recognition-stdin" in runner.command
+        assert loads_object(runner.options["input_data"].decode()) == evidence[0]
+        if word_count == 2000 and change is None:
+            assert len(runner.options["input_data"]) > 65536
+            assert max(map(len, runner.command)) < 4096
 
 
 def test_transcript_may_be_empty_for_a_vocal_without_speech() -> None:

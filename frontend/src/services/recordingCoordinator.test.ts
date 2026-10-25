@@ -20,13 +20,30 @@ describe("recordingCoordinator", () => {
   it("reports elapsed capture time without counting pauses or musical seeks", async () => {
     let now = 1000;
     const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
-    Object.assign(window, { desktop: {
-      pythonRequest: vi.fn(async () => ({ ok: true, body: { recordingId: "elapsed", filePath: "D:/elapsed.wav" } })),
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({ status: 0,
-        text: request.command === "GetRecordingState" ? nativeResult(3) : "D:/elapsed.wav" })),
-      inspectWave: vi.fn(async () => ({ durationSeconds: 3, sampleRate: 48000, channels: 2 })),
-    } });
-    await recordingCoordinator.start({ id: "song", activeRevision: 1 } as SongDto);
+    Object.assign(window, {
+      desktop: {
+        pythonRequest: vi.fn(async () => ({
+          ok: true,
+          body: { recordingId: "elapsed", filePath: "D:/elapsed.wav" },
+        })),
+        audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
+          status: 0,
+          text:
+            request.command === "GetRecordingState"
+              ? nativeResult(3)
+              : "D:/elapsed.wav",
+        })),
+        inspectWave: vi.fn(async () => ({
+          durationSeconds: 3,
+          sampleRate: 48000,
+          channels: 2,
+        })),
+      },
+    });
+    await recordingCoordinator.start({
+      id: "song",
+      activeRevision: 1,
+    } as SongDto);
     try {
       now += 2000;
       recordingCoordinator.observePosition(90);
@@ -34,7 +51,11 @@ describe("recordingCoordinator", () => {
       await recordingCoordinator.pause();
       now += 5000;
       expect(recordingCoordinator.elapsedSeconds()).toBe(2);
-      await recordingCoordinator.resume({ sourceSeconds: 90, playbackRate: 0.5, keyShift: 2 });
+      await recordingCoordinator.resume({
+        sourceSeconds: 90,
+        playbackRate: 0.5,
+        keyShift: 2,
+      });
       now += 1000;
       expect(recordingCoordinator.elapsedSeconds()).toBe(3);
     } finally {
@@ -72,7 +93,12 @@ describe("recordingCoordinator", () => {
 
     expect(audioRequest).toHaveBeenCalledWith({
       command: "PrepareRecording",
-      args: { id: "take-1", path: "D:/take-1.wav", tap: "performance" },
+      args: {
+        id: "take-1",
+        path: "D:/take-1.wav",
+        tap: "performance",
+        backing: true,
+      },
     });
     await recordingCoordinator.stop();
   });

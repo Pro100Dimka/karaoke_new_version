@@ -48,6 +48,7 @@ class LyricsDiscoveryResult:
     source: str
     warnings: tuple[str, ...]
     timing_hints: tuple[LyricLineTiming, ...] = ()
+    alternatives: tuple[LyricsCandidate, ...] = ()
 
 
 class LyricsDiscovery:
@@ -109,23 +110,70 @@ class LyricsDiscovery:
         sources = [reference_vocal]
         if found and song.source_path and song.source_path.is_file():
             sources.append(song.source_path)
+        language = lyrics_language(song, found.lyrics if found else "")
+        transcripts = []
         for source in dict.fromkeys(sources):
             lyrics = asr.transcribe(
                 source,
-                lyrics_language(song, found.lyrics if found else ""),
+                language,
                 cancel,
                 execution=execution,
             )
             lyrics = clean_lyrics(
-                lyrics, lyrics_language(song, found.lyrics if found else lyrics).value
+                lyrics, language.value if found else lyrics_language(song, lyrics).value
             )
+            transcripts.append(lyrics)
+        found = self._recognized_version(song, found, transcripts)
+        for lyrics in transcripts:
             if found:
                 found = _with_completed_repeats(found, lyrics, cancel)
             elif lyrics:
                 found = LyricsDiscoveryResult(lyrics, "ASR", tuple(warnings))
         if found is None:
             raise DependencyError("LyricsUnavailable", "No lyrics source produced usable lyrics")
-        return found
+        return self._ending(song, reference_vocal, asr, cancel, found, execution)
+
+    def _ending(
+        self,
+        song: Song,
+        vocal: Path,
+        asr: AiProvider,
+        cancel: threading.Event,
+        found: LyricsDiscoveryResult,
+        execution: ExecutionContext,
+    ) -> LyricsDiscoveryResult:
+        # Keep the preceding phrase in context: a short sung answer alone is often decoded as silence.
+        if found.source == "ASR" or not song.duration or song.duration <= 48:
+            return found
+        language = lyrics_language(song, found.lyrics)
+        heard = asr.transcribe(
+            vocal, language, cancel, execution=execution, start_seconds=song.duration - 48
+        )
+        return _with_completed_repeats(found, clean_lyrics(heard, language.value), cancel)
+
+    def _recognized_version(
+        self, song: Song, found: LyricsDiscoveryResult | None, transcripts: Sequence[str]
+    ) -> LyricsDiscoveryResult | None:
+        if found is None or not found.alternatives:
+            return found
+        selected = self._select_version(
+            song,
+            found.alternatives,
+            found.alternatives[0],
+            None,
+            list(found.warnings),
+            found.source,
+            transcripts,
+        )
+        language = lyrics_language(song, selected.lyrics).value
+        return replace(
+            selected,
+            lyrics=clean_lyrics(selected.lyrics, language),
+            timing_hints=tuple(
+                replace(hint, text=clean_lyrics(hint.text, language))
+                for hint in selected.timing_hints
+            ),
+        )
 
     def _previous(self, song: Song, warnings: list[str]) -> LyricsDiscoveryResult | None:
         if self._projects is None:
@@ -188,21 +236,24 @@ class LyricsDiscovery:
                 continue
             matches = [item for item in candidates if self._matches(song, item)]
             if matches:
+                eligible = [
+                    item for item in candidates if self._matches(song, item, check_artist=False)
+                ]
                 return self._select_version(
-                    song, candidates, matches[0], previous, warnings, provider.provider_id
+                    song, eligible, matches[0], previous, warnings, provider.provider_id
                 )
         return None
 
     def _select_version(
         self,
         song: Song,
-        candidates: Sequence[LyricsCandidate],
+        eligible: Sequence[LyricsCandidate],
         matched: LyricsCandidate,
         previous: LyricsDiscoveryResult | None,
         warnings: list[str],
         source: str,
+        transcripts: Sequence[str] = (),
     ) -> LyricsDiscoveryResult:
-        eligible = [item for item in candidates if self._matches(song, item, check_artist=False)]
         versions = [item for item in eligible if _same_vocabulary(matched.lyrics, item.lyrics)]
         distances = {
             item: abs(song.duration - item.duration)
@@ -210,8 +261,7 @@ class LyricsDiscovery:
             else (math.inf if song.duration is not None else 0.0)
             for item in eligible
         }
-        # Match release duration first; prefer fuller lyrics only among equally close copies.
-        candidate = min(versions, key=lambda item: (distances[item], -len(item.lyrics.split())))
+        candidate = _best_catalog_version(versions, distances, transcripts)
         cached_distances = [
             distances[item]
             for item in versions
@@ -232,6 +282,7 @@ class LyricsDiscovery:
             source,
             tuple(warnings),
             timed.timing_hints if timed else candidate.timing_hints,
+            tuple(dict.fromkeys([matched, *eligible])),
         )
 
     def _matches(
@@ -292,6 +343,32 @@ def lyrics_language(song: Song, lyrics: str = "") -> Language:
         Language.RUSSIAN
         if any("а" <= char.casefold() <= "я" for char in identity)
         else Language.AUTO
+    )
+
+
+def _best_catalog_version(
+    candidates: Sequence[LyricsCandidate],
+    distances: dict[LyricsCandidate, float],
+    transcripts: Sequence[str],
+) -> LyricsCandidate:
+    return min(
+        candidates,
+        key=lambda item: (
+            -_performed_coverage(item.lyrics, transcripts),
+            distances[item],
+            -len(item.lyrics.split()),
+        ),
+    )
+
+
+def _performed_coverage(lyrics: str, transcripts: Sequence[str]) -> int:
+    expected = [_lyrics_key(word) for word in clean_lyrics(lyrics, "Auto").split()]
+    return sum(
+        block.size
+        for heard in transcripts
+        for block in SequenceMatcher(
+            None, expected, [_lyrics_key(word) for word in heard.split()], autojunk=False
+        ).get_matching_blocks()
     )
 
 

@@ -18,6 +18,27 @@ const music = (intensity = 1): MusicState => ({
 });
 
 describe("lyrics rhythm", () => {
+  it("ignores weak drum rolls between accents without silencing a quieter passage", () => {
+    const engine = new ShowEngine();
+    engine.load([], [], new Map(), true, undefined, [
+      [1, 1],
+      [1.12, 0.3],
+      [1.24, 0.35],
+      [1.36, 0.25],
+      [1.5, 0.9],
+      [5, 0.3],
+      [5.5, 0.35],
+    ]);
+    for (const position of [1, 1.5, 5, 5.5]) {
+      engine.advance(position * 1000, position, undefined, true);
+      expect(engine.state.musicBeat).toBeGreaterThan(0.25);
+    }
+    for (const position of [1.12, 1.24, 1.36, 1.24]) {
+      engine.advance(position * 1000, position, undefined, true);
+      expect(engine.state.musicBeat).toBe(0);
+    }
+  });
+
   it("keeps the hit crisp instead of swelling through the next tenth of a second", () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [[1, 1]]);
@@ -92,14 +113,33 @@ const phrase = (
 });
 
 describe("visual director", () => {
-  it.each([0, 20, 80])("keeps the musical beat expressive at performance energy %s", (energy) => {
-    const commands = new VisualDirector().plan(1000, [], [{ kind: "beat", at: 1000, strength: 1 }], context(energy));
-    expect(commands).toContainEqual(expect.objectContaining({ kind: "beatPulse", strength: 1 }));
-  });
+  it.each([0, 20, 80])(
+    "keeps the musical beat expressive at performance energy %s",
+    (energy) => {
+      const commands = new VisualDirector().plan(
+        1000,
+        [],
+        [{ kind: "beat", at: 1000, strength: 1 }],
+        context(energy),
+      );
+      expect(commands).toContainEqual(
+        expect.objectContaining({ kind: "beatPulse", strength: 1 }),
+      );
+    },
+  );
   it("keeps visible stage lights for an early earned reward", () => {
     expect(ambientFor(20, music(), "full").beams).toBeGreaterThanOrEqual(1.5);
-    const commands = new VisualDirector().plan(0, [{ kind: "levelReached", level: "awakening" }], [], context(20));
-    expect(commands.some((command) => command.kind === "lightWave" && command.strength >= 0.45)).toBe(true);
+    const commands = new VisualDirector().plan(
+      0,
+      [{ kind: "levelReached", level: "awakening" }],
+      [],
+      context(20),
+    );
+    expect(
+      commands.some(
+        (command) => command.kind === "lightWave" && command.strength >= 0.45,
+      ),
+    ).toBe(true);
   });
   it("gives nothing for a weak note and escalating light for better ones", () => {
     const director = new VisualDirector();

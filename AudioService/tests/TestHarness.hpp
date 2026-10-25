@@ -441,6 +441,7 @@ void recordingRejectsStaleGeneration();
 void prepareRecordingSelectsMasterMixTap();
 void performanceMixRecordsVoiceWithoutMonitoring();
 void performanceVoiceHeadroomPreservesTheRecordedBalance();
+void performanceCompanionPreservesTheAlignedBacking();
 void performanceHeadroomFinalizesAllOutputChannels();
 void performanceMixUsesTheServerDeadlineToAlignRemoteVoices();
 void performanceMixContainsConfiguredAutoTune();

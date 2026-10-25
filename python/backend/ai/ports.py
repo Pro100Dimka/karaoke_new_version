@@ -25,6 +25,7 @@ class AiProvider(Protocol):
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        start_seconds: float = 0.0,
     ) -> str: ...
 
     # Every stage receives the admitted device and its share of the job's CPU budget.

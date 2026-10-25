@@ -1,7 +1,7 @@
 // English texts for the service settings: ENV keys, Kaggle and processing.
 export const servicesEn = {
   processingSongUnavailable: "Song removed from library",
-  processingFailedHelp: "Processing did not finish. Retry, or open job details to inspect the cause.",
+  processingFailedHelp: "Processing did not finish. Open job details to inspect the cause. Delete the song from the library before adding it again.",
   environmentKeys: "ENV keys",
   environmentGroupKaggle: "Kaggle GPU",
   environmentGroupRecognition: "Music recognition",

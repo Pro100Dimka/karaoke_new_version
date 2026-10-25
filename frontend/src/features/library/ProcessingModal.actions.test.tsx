@@ -12,12 +12,15 @@ import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
 import { LibraryProvider } from "../../app/LibraryProvider";
 import { DialogProvider } from "../../app/DialogProvider";
-import { useSongActions } from "./useSongActions";
 import { clearStorage } from "../../shared/storage/localStore";
 
 const recovery = vi.hoisted(() => ({ reset: vi.fn(), notify: vi.fn() }));
-vi.mock("../../app/EditorProvider", () => ({ useEditorRepository: () => ({ reset: recovery.reset }) }));
-vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => recovery.notify }));
+vi.mock("../../app/EditorProvider", () => ({
+  useEditorRepository: () => ({ reset: recovery.reset }),
+}));
+vi.mock("../../app/NotificationsProvider", () => ({
+  useNotify: () => recovery.notify,
+}));
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 
@@ -53,6 +56,40 @@ const job = (
   progress: state === "completed" ? 100 : 0,
 });
 
+it("never retries or resets a failed existing song", async () => {
+  const existing = song("existing", "Existing song");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    {
+      ...job("failed", existing.id, "failed"),
+      error: {
+        code: "ManualLyricsConflict",
+        message: "Manual edits",
+        source: "python",
+      },
+    },
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[existing]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
+  const card = (await screen.findByText("Artist — Existing song")).closest(
+    "li",
+  )!;
+  expect(
+    within(card).queryByRole("button", {
+      name: /retry|resetLyricsAndReprocess/i,
+    }),
+  ).toBeNull();
+});
+
 it("disables starting completed songs from the processing queue while the PC is busy", async () => {
   const ready = song("ready", "Ready song");
   vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
@@ -64,7 +101,6 @@ it("disables starting completed songs from the processing queue while the PC is 
     songs: [ready],
     onClose: vi.fn(),
     onCancel: vi.fn(),
-    onRetry: vi.fn(),
     onOpenFolder: vi.fn(),
     onPlay,
   };
@@ -85,69 +121,102 @@ it("disables starting completed songs from the processing queue while the PC is 
   expect(screen.getByRole("button", { name: "play" })).toBeEnabled();
 });
 
-it("offers explicit baseline recovery only for a manual-edit conflict", async () => {
+it("keeps baseline recovery out of the queue after a manual-edit conflict", async () => {
   const existing = song("existing", "Edited song");
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
-    ...job("manual-job", existing.id, "failed"), timingOperation: "lyrics",
-    error: { code: "ManualLyricsConflict", message: "Manual edits exist", source: "python" },
-  }]);
-  const onResetLyrics = vi.fn();
-  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
-    onCancel={vi.fn()} onRetry={vi.fn()} onResetLyrics={onResetLyrics}
-    onOpenFolder={vi.fn()} onPlay={vi.fn()} />
-  </LibraryProvider>);
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    {
+      ...job("manual-job", existing.id, "failed"),
+      timingOperation: "lyrics",
+      error: {
+        code: "ManualLyricsConflict",
+        message: "Manual edits exist",
+        source: "python",
+      },
+    },
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[existing]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
   const card = (await screen.findByText("Artist — Edited song")).closest("li")!;
-  fireEvent.click(within(card).getByRole("button", { name: "resetLyricsAndReprocess" }));
-  expect(onResetLyrics).toHaveBeenCalledExactlyOnceWith(existing);
+  expect(
+    within(card).queryByRole("button", { name: "resetLyricsAndReprocess" }),
+  ).toBeNull();
 });
 
-it.each(["cancel", "resetLyricsAndReprocess"])(
-  "requires the rendered recovery confirmation before %s",
-  async (choice) => {
+it.each(["ManualLyricsConflict", "ProcessFailure"])(
+  "does not offer a reset or retry after %s",
+  async (code) => {
     const existing = song("existing", "Edited song");
-    vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
-      ...job("manual-job", existing.id, "failed"), timingOperation: "lyrics",
-      error: { code: "ManualLyricsConflict", message: "Manual edits exist", source: "python" },
-    }]);
+    vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+      {
+        ...job("manual-job", existing.id, "failed"),
+        timingOperation: "lyrics",
+        error: { code, message: "Processing failed", source: "python" },
+      },
+    ]);
     recovery.reset.mockReset().mockResolvedValue(2);
-    const processSong = vi.fn().mockResolvedValue(undefined);
-    const operations = { processSong, refresh: vi.fn(), deleteSong: vi.fn() };
-    const Harness = () => {
-      const actions = useSongActions(operations, vi.fn());
-      return <ProcessingModal open songs={[existing]} onClose={vi.fn()}
-        onCancel={vi.fn()} onRetry={actions.startProcessing} onResetLyrics={actions.resetAndReprocess}
-        onOpenFolder={vi.fn()} onPlay={vi.fn()} />;
-    };
-    render(<LibraryProvider><DialogProvider><Harness /></DialogProvider></LibraryProvider>);
-    const card = (await screen.findByText("Artist — Edited song")).closest("li")!;
-    fireEvent.click(within(card).getByRole("button", { name: "resetLyricsAndReprocess" }));
-    const dialog = await screen.findByRole("dialog", { name: "resetLyricsTitle" });
-    expect(within(dialog).getByText("resetLyricsBody")).toBeInTheDocument();
+    render(
+      <LibraryProvider>
+        <DialogProvider>
+          <ProcessingModal
+            open
+            songs={[existing]}
+            onClose={vi.fn()}
+            onCancel={vi.fn()}
+            onOpenFolder={vi.fn()}
+            onPlay={vi.fn()}
+          />
+        </DialogProvider>
+      </LibraryProvider>,
+    );
+    const card = (await screen.findByText("Artist — Edited song")).closest(
+      "li",
+    )!;
+    expect(
+      within(card).queryByRole("button", {
+        name: /retry|resetLyricsAndReprocess/,
+      }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("dialog", { name: "resetLyricsTitle" }),
+    ).toBeNull();
     expect(recovery.reset).not.toHaveBeenCalled();
-    fireEvent.click(within(dialog).getByRole("button", { name: choice }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "resetLyricsTitle" })).toBeNull());
-    if (choice === "cancel") {
-      expect(recovery.reset).not.toHaveBeenCalled();
-      expect(processSong).not.toHaveBeenCalled();
-    } else {
-      expect(recovery.reset).toHaveBeenCalledExactlyOnceWith(existing.id, 1);
-      expect(processSong).toHaveBeenCalledExactlyOnceWith({ ...existing, activeRevision: 2 }, "lyrics");
-    }
   },
 );
 
-it("retries lyric realignment with the same operation instead of full source processing", async () => {
+it("keeps a failed lyric job visible without a restart control", async () => {
   const existing = song("existing", "Existing song");
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
-    ...job("lyrics-job", existing.id, "failed"), timingOperation: "lyrics",
-  }]);
-  const onRetry = vi.fn().mockResolvedValue(undefined);
-  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
-    onCancel={vi.fn()} onRetry={onRetry} onOpenFolder={vi.fn()} onPlay={vi.fn()} />
-  </LibraryProvider>);
-  const card = (await screen.findByText("Artist — Existing song")).closest("li")!;
-  fireEvent.click(within(card).getByRole("button", { name: "retry" }));
-  expect(onRetry).toHaveBeenCalledWith(existing, "lyrics");
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    {
+      ...job("lyrics-job", existing.id, "failed"),
+      timingOperation: "lyrics",
+    },
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[existing]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
+  const card = (await screen.findByText("Artist — Existing song")).closest(
+    "li",
+  )!;
+  expect(within(card).queryByRole("button", { name: "retry" })).toBeNull();
 });
 
 it("connects every processing queue control to an action", async () => {
@@ -168,26 +237,27 @@ it("connects every processing queue control to an action", async () => {
   const onOpenFolder = vi.fn();
   const onPlay = vi.fn();
   const onCancel = vi.fn().mockResolvedValue(undefined);
-  const onRetry = vi.fn().mockResolvedValue(undefined);
 
   render(
     <LibraryProvider>
-    <ProcessingModal
-      open
-      songs={songs}
-      onClose={vi.fn()}
-      onCancel={onCancel}
-      onRetry={onRetry}
-      onOpenFolder={onOpenFolder}
-      onPlay={onPlay}
-    />,
-    </LibraryProvider>
+      <ProcessingModal
+        open
+        songs={songs}
+        onClose={vi.fn()}
+        onCancel={onCancel}
+        onOpenFolder={onOpenFolder}
+        onPlay={onPlay}
+      />
+      ,
+    </LibraryProvider>,
   );
 
   const doneCard = (await screen.findByText("Artist — Done song")).closest(
     "li",
   )!;
-  fireEvent.click(within(doneCard).getByRole("button", { name: "processingJobActions" }));
+  fireEvent.click(
+    within(doneCard).getByRole("button", { name: "processingJobActions" }),
+  );
   fireEvent.click(screen.getByRole("menuitem", { name: "openFolder" }));
   fireEvent.click(within(doneCard).getByRole("button", { name: "play" }));
   expect(onOpenFolder).toHaveBeenCalledWith(songs[0]);
@@ -199,8 +269,9 @@ it("connects every processing queue control to an action", async () => {
   expect(onCancel).toHaveBeenCalledWith("job-active");
 
   const failedCard = screen.getByText("Artist — Failed song").closest("li")!;
-  fireEvent.click(within(failedCard).getByRole("button", { name: "retry" }));
-  expect(onRetry).toHaveBeenCalledWith(songs[3], undefined);
+  expect(
+    within(failedCard).queryByRole("button", { name: "retry" }),
+  ).toBeNull();
 
   const queuedBCard = screen.getByText("Artist — Queued B").closest("li")!;
   fireEvent.click(
@@ -228,11 +299,19 @@ it("connects every processing queue control to an action", async () => {
   fireEvent.click(screen.getByRole("button", { name: "done" }));
 
   fireEvent.click(
-    screen.getByRole("button", { name: "processingClear" }).parentElement!.querySelector(".ad-split-button-trigger")!,
+    screen
+      .getByRole("button", { name: "processingClear" })
+      .parentElement!.querySelector(".ad-split-button-trigger")!,
   );
-  fireEvent.click(screen.getByRole("menuitem", { name: "processingClearCompleted" }));
-  const clearDialog = screen.getByRole("dialog", { name: "processingClearCompletedTitle" });
-  fireEvent.click(within(clearDialog).getByRole("button", { name: "processingClear" }));
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "processingClearCompleted" }),
+  );
+  const clearDialog = screen.getByRole("dialog", {
+    name: "processingClearCompletedTitle",
+  });
+  fireEvent.click(
+    within(clearDialog).getByRole("button", { name: "processingClear" }),
+  );
   await waitFor(() =>
     expect(screen.queryByText("Artist — Done song")).not.toBeInTheDocument(),
   );
@@ -241,39 +320,101 @@ it("connects every processing queue control to an action", async () => {
 it.each([
   ["processingClearCompleted", ["completed"]],
   ["processingClearFailed", ["failed", "interrupted"]],
-  ["processingClearAll", ["completed", "failed", "interrupted", "cancelled", "queued", "processing", "cancelling"]],
-] as const)("clears only the selected group through %s without cancelling processing", async (choice, removed) => {
-  const states = ["completed", "failed", "interrupted", "cancelled", "queued", "processing", "cancelling"] as const;
-  const songs = states.map((state) => song(state, state));
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue(states.map((state) => job(`job-${state}`, state, state)));
-  const onCancel = vi.fn();
-  render(<LibraryProvider><ProcessingModal open songs={songs} onClose={vi.fn()}
-    onCancel={onCancel} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
-  await screen.findByText("Artist — completed");
-  fireEvent.click(screen.getByRole("button", { name: "processingClear" }).parentElement!.querySelector(".ad-split-button-trigger")!);
-  for (const label of ["processingClearCompleted", "processingClearFailed", "processingClearAll"])
-    expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("menuitem", { name: choice }));
-  const confirmation = screen.getAllByRole("dialog").find((dialog) => dialog.classList.contains("processingNotice"))!;
-  if (choice === "processingClearAll")
-    expect(within(confirmation).getByText("processingClearAllText")).toBeInTheDocument();
-  fireEvent.click(within(confirmation).getByRole("button", { name: "processingClear" }));
-  await waitFor(() => {
-    for (const state of states) {
-      const title = screen.queryByText(`Artist — ${state}`);
-      expect(Boolean(title)).toBe(!removed.some((value) => value === state));
-    }
-  });
-  expect(onCancel).not.toHaveBeenCalled();
-});
+  [
+    "processingClearAll",
+    [
+      "completed",
+      "failed",
+      "interrupted",
+      "cancelled",
+      "queued",
+      "processing",
+      "cancelling",
+    ],
+  ],
+] as const)(
+  "clears only the selected group through %s without cancelling processing",
+  async (choice, removed) => {
+    const states = [
+      "completed",
+      "failed",
+      "interrupted",
+      "cancelled",
+      "queued",
+      "processing",
+      "cancelling",
+    ] as const;
+    const songs = states.map((state) => song(state, state));
+    vi.spyOn(pythonClient, "listJobs").mockResolvedValue(
+      states.map((state) => job(`job-${state}`, state, state)),
+    );
+    const onCancel = vi.fn();
+    render(
+      <LibraryProvider>
+        <ProcessingModal
+          open
+          songs={songs}
+          onClose={vi.fn()}
+          onCancel={onCancel}
+          onOpenFolder={vi.fn()}
+          onPlay={vi.fn()}
+        />
+      </LibraryProvider>,
+    );
+    await screen.findByText("Artist — completed");
+    fireEvent.click(
+      screen
+        .getByRole("button", { name: "processingClear" })
+        .parentElement!.querySelector(".ad-split-button-trigger")!,
+    );
+    for (const label of [
+      "processingClearCompleted",
+      "processingClearFailed",
+      "processingClearAll",
+    ])
+      expect(screen.getByRole("menuitem", { name: label })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("menuitem", { name: choice }));
+    const confirmation = screen
+      .getAllByRole("dialog")
+      .find((dialog) => dialog.classList.contains("processingNotice"))!;
+    if (choice === "processingClearAll")
+      expect(
+        within(confirmation).getByText("processingClearAllText"),
+      ).toBeInTheDocument();
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "processingClear" }),
+    );
+    await waitFor(() => {
+      for (const state of states) {
+        const title = screen.queryByText(`Artist — ${state}`);
+        expect(Boolean(title)).toBe(!removed.some((value) => value === state));
+      }
+    });
+    expect(onCancel).not.toHaveBeenCalled();
+  },
+);
 
 it("shows pipeline steps without the redundant overall progress bar or percentage", async () => {
   const existing = song("active", "Active song");
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
-    ...job("job-active", existing.id, "processing"), stage: "MusicAnalysis", progress: 42,
-  }]);
-  render(<LibraryProvider><ProcessingModal open songs={[existing]} onClose={vi.fn()}
-    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    {
+      ...job("job-active", existing.id, "processing"),
+      stage: "MusicAnalysis",
+      progress: 42,
+    },
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[existing]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
   const card = (await screen.findByText("Artist — Active song")).closest("li")!;
   expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
   expect(within(card).queryByText("42%")).not.toBeInTheDocument();
@@ -282,25 +423,59 @@ it("shows pipeline steps without the redundant overall progress bar or percentag
 });
 
 it("shows all pipeline steps and marks the actual current step", async () => {
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([{
-    ...job("steps", "active", "processing"), stage: "ForcedAlignment", progress: 60,
-  }]);
-  render(<LibraryProvider><ProcessingModal open songs={[song("active", "Steps")]} onClose={vi.fn()}
-    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    {
+      ...job("steps", "active", "processing"),
+      stage: "ForcedAlignment",
+      progress: 60,
+    },
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[song("active", "Steps")]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
   const card = (await screen.findByText("Artist — Steps")).closest("li")!;
-  const steps = within(card).getByRole("list", { name: "processingDetailsStage" });
+  const steps = within(card).getByRole("list", {
+    name: "processingDetailsStage",
+  });
   expect(within(steps).getAllByRole("listitem")).toHaveLength(5);
-  expect(within(steps).getByText("processingPhaseLyrics").closest("li")).toHaveAttribute("aria-current", "step");
-  expect(within(steps).getByText("processingPhasePrepare").closest("li")).toHaveAttribute("data-state", "done");
+  expect(
+    within(steps).getByText("processingPhaseLyrics").closest("li"),
+  ).toHaveAttribute("aria-current", "step");
+  expect(
+    within(steps).getByText("processingPhasePrepare").closest("li"),
+  ).toHaveAttribute("data-state", "done");
 });
 
 it("uses the kit split button for clearing completed jobs and choosing another group", async () => {
-  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([job("done", "done", "completed")]);
-  render(<LibraryProvider><ProcessingModal open songs={[song("done", "Done")]} onClose={vi.fn()}
-    onCancel={vi.fn()} onRetry={vi.fn()} onOpenFolder={vi.fn()} onPlay={vi.fn()} /></LibraryProvider>);
+  vi.spyOn(pythonClient, "listJobs").mockResolvedValue([
+    job("done", "done", "completed"),
+  ]);
+  render(
+    <LibraryProvider>
+      <ProcessingModal
+        open
+        songs={[song("done", "Done")]}
+        onClose={vi.fn()}
+        onCancel={vi.fn()}
+        onOpenFolder={vi.fn()}
+        onPlay={vi.fn()}
+      />
+    </LibraryProvider>,
+  );
   await screen.findByText("Artist — Done");
   const clear = screen.getByRole("button", { name: "processingClear" });
   expect(clear.closest(".ad-split-button")).not.toBeNull();
   fireEvent.click(clear);
-  expect(screen.getByRole("dialog", { name: "processingClearCompletedTitle" })).toBeInTheDocument();
+  expect(
+    screen.getByRole("dialog", { name: "processingClearCompletedTitle" }),
+  ).toBeInTheDocument();
 });

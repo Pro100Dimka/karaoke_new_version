@@ -76,6 +76,58 @@ def test_recording_registration_is_idempotent_and_paginated(tmp_path: Path) -> N
         assert page.json()["items"][0]["recordingId"] == recording["recordingId"]
 
 
+def test_capture_without_a_backing_companion_does_not_need_processed_song_artifacts(tmp_path):
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        recording = register_recording(client, song)
+        assert Path(recording["filePath"]).is_file()
+
+
+def test_new_performance_is_balanced_before_registration_and_retry_preserves_capture(tmp_path):
+    import numpy as np
+    import soundfile as sf
+
+    source = tmp_path / "song.wav"
+    write_wav(source, seconds=2)
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song = ready_song(client, source)
+        target = client.post("/recordings/target").json()
+        path = Path(target["filePath"])
+        axis = np.arange(44100 * 2) / 44100
+        music = 0.05 * np.sin(2 * np.pi * 220 * axis)
+        sf.write(path, 0.5 * np.sin(2 * np.pi * 880 * axis) + music, 44100)
+        sf.write(Path(str(path) + ".backing.wav"), music, 44100)
+        captured = path.read_bytes()
+        payload = {
+            "recordingId": target["recordingId"],
+            "filePath": str(path),
+            "duration": 2,
+            "sampleRate": 44100,
+            "channels": 1,
+            "createdAt": datetime.now(UTC).isoformat(),
+            "songId": song["songId"],
+            "songRevision": song["activeRevision"],
+            "gaps": [],
+        }
+        response = client.post("/recordings", json=payload)
+        assert response.status_code == 201, response.text
+        assert path.with_name("recording.original.wav").read_bytes() == captured
+        samples, rate = sf.read(path)
+        assert rate == 44100 and len(samples) == 88200
+        levels = [
+            abs(np.mean(samples * np.exp(-2j * np.pi * frequency * axis)))
+            for frequency in (880, 220)
+        ]
+        assert abs(20 * np.log10(levels[0] / levels[1])) < 3
+        balanced = path.read_bytes()
+        assert client.post("/recordings", json=payload).status_code == 201
+        assert path.read_bytes() == balanced
+        assert client.delete(f"/recordings/{target['recordingId']}").status_code == 204
+        assert not path.parent.exists()
+
+
 def test_completed_live_analysis_is_available_without_any_ai_work(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -544,7 +596,11 @@ def test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration(
 
     voice = amplitude(440, 0.05, 0.25)
     actual, expected, tolerance = {
-        "balance": (20 * np.log10(voice / amplitude(220, 0.05, 0.25)), 20 * np.log10(2), 0.8),
+        "balance": (
+            20 * np.log10(voice / amplitude(220, 0.05, 0.25)),
+            20 * np.log10(2) + job["report"]["balance"]["vocalGainDb"],
+            0.8,
+        ),
         "effects": (amplitude(440, 0.7, 0.9) / voice, 0.6, 0.05),
         "duration": (len(samples) / output_rate, 1.0, 1 / output_rate),
     }[property_name]

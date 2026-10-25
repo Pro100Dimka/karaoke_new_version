@@ -13,6 +13,12 @@ const statuses = [
 ] as const satisfies readonly SongStatus[];
 
 describe("song state/action matrix", () => {
+  it.each(statuses)("never offers processing an existing %s song", (status) => {
+    const presentation = songStatusPresentation[status];
+    expect(presentation.actions).not.toContain("process");
+    expect(presentation.actions).not.toContain("reprocess");
+    expect(["process", "repair"]).not.toContain(presentation.primaryAction);
+  });
   it("does not offer full reprocessing for a ready song", () => {
     expect(songStatusPresentation.ready.actions).not.toContain("reprocess");
   });
@@ -40,10 +46,9 @@ describe("song state/action matrix", () => {
     }
   });
 
-  it("offers Repair/Reprocess, details and delete for an invalid project", () => {
+  it("offers details, folder and deletion for an invalid project", () => {
     expect(songStatusPresentation.invalid.actions).toEqual([
       "viewError",
-      "reprocess",
       "folder",
       "delete",
     ]);

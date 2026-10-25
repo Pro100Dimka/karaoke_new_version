@@ -24,9 +24,10 @@ export const useSongActions = (
   const catalog = useLibraryCatalog();
   const repository = useEditorRepository();
 
-  const startProcessing = (song: SongDto, mode?: "lyrics") =>
+  const startProcessing = (song: SongDto) =>
     guarded(async () => {
-      await processSong(song, mode);
+      if (song.status !== "not-processed") return;
+      await processSong(song);
       notify(t("processingStarted"), "info");
     });
 
@@ -36,7 +37,11 @@ export const useSongActions = (
       body: t("resetLyricsBody", { revision: song.activeRevision }),
       actions: [
         { id: "cancel", label: t("cancel") },
-        { id: "reset", label: t("resetLyricsAndReprocess"), appearance: "primary" },
+        {
+          id: "reset",
+          label: t("resetLyricsAndReprocess"),
+          appearance: "primary",
+        },
       ],
     });
     if (choice !== "reset") return;

@@ -65,6 +65,7 @@ class FakeAiProvider:
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        start_seconds: float = 0.0,
     ) -> str:
         del vocal, language
         if cancel.is_set():

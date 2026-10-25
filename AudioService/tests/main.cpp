@@ -708,6 +708,8 @@ constexpr std::array tests{
          Tests::performanceMixRecordsVoiceWithoutMonitoring},
     Test{"performanceVoiceHeadroomPreservesTheRecordedBalance",
          Tests::performanceVoiceHeadroomPreservesTheRecordedBalance},
+    Test{"performanceCompanionPreservesTheAlignedBacking",
+         Tests::performanceCompanionPreservesTheAlignedBacking},
     Test{"performanceHeadroomFinalizesAllOutputChannels",
          Tests::performanceHeadroomFinalizesAllOutputChannels},
     Test{"performanceMixUsesTheServerDeadlineToAlignRemoteVoices",

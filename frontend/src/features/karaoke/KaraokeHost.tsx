@@ -44,6 +44,10 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
   const displays = useDisplayCount();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [tv, setTv] = useState<TvPlayback | null>(null);
+  const [ending, setEnding] = useState<{
+    songId: string;
+    takeId?: string;
+  } | null>(null);
   const tvRef = useRef(tv);
   tvRef.current = tv;
   const controls = useRef<KaraokeScreenControls | null>(null);
@@ -82,19 +86,43 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
 
   const finished = useCallback(
     (songId: string, takeId: string | undefined) => {
-      const analysis = takeId ? { analysisSongId: songId, analysisFor: takeId } : undefined;
+      const analysis = takeId
+        ? { analysisSongId: songId, analysisFor: takeId }
+        : undefined;
       const current = tvRef.current;
       if (!current) {
-        navigate(routes.library, { state: analysis });
+        setEnding((previous) => previous ?? { songId, takeId });
         return;
       }
       const [next, ...rest] = current.queue;
-      if (next) setTv({ songId: next.id, mode: next.rehearsal ? "Rehearsal" : "AutoStart", queue: rest });
+      if (next)
+        setTv({
+          songId: next.id,
+          mode: next.rehearsal ? "Rehearsal" : "AutoStart",
+          queue: rest,
+        });
       else endTv();
-      if (analysis) navigate(routes.library, { state: analysis, replace: true });
+      if (analysis)
+        navigate(routes.library, { state: analysis, replace: true });
     },
     [endTv, navigate],
   );
+
+  useEffect(() => {
+    if (!ending) return;
+    const timer = window.setTimeout(() => {
+      navigate(routes.library, {
+        state: {
+          performanceReturn: true,
+          ...(ending.takeId
+            ? { analysisSongId: ending.songId, analysisFor: ending.takeId }
+            : {}),
+        },
+      });
+      setEnding(null);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [ending, navigate]);
 
   const leave = useCallback(() => {
     if (tvRef.current) endTv();
@@ -107,7 +135,12 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
     const queue = queueWith(current.queue, song, when);
     const finish = when === "now" ? controls.current?.finish : null;
     // Right away: the current song ends as with Stop (its take is kept) and the queue moves on.
-    if (when === "now" && !finish) setTv({ songId: song.id, mode: song.rehearsal ? "Rehearsal" : "AutoStart", queue: queue.slice(1) });
+    if (when === "now" && !finish)
+      setTv({
+        songId: song.id,
+        mode: song.rehearsal ? "Rehearsal" : "AutoStart",
+        queue: queue.slice(1),
+      });
     else setTv({ ...current, queue });
     if (finish) void finish();
   }, []);
@@ -142,13 +175,17 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
     [displays, room, active, tv, send, bringBack, stop, play],
   );
 
-  const shown = tv ?? (routeSongId ? { songId: routeSongId, mode: routeMode } : null);
+  const shown =
+    tv ?? (routeSongId ? { songId: routeSongId, mode: routeMode } : null);
   const screen = tv ? tvWindow.screen : null;
 
   return (
     <KaraokeTvContext.Provider value={value}>
       <KaraokeSlotContext.Provider value={setSlot}>
         {children}
+        {ending && (
+          <div className="sceneCurtain" data-phase="closing" aria-hidden />
+        )}
         {shown && (
           <KaraokeScreen
             key={shown.songId}

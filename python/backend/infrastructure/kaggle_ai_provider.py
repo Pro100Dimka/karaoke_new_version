@@ -145,9 +145,10 @@ class KaggleAiProvider(AiProvider):
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
+        start_seconds: float = 0.0,
     ) -> str:
-        del execution
-        result = self._invoke_vocal("/transcribe", vocal, cancel, language.value)
+        arguments = (language.value, start_seconds) if start_seconds else (language.value,)
+        result = self._invoke_vocal("/transcribe", vocal, cancel, *arguments)
         if not isinstance(result, str):
             raise self._invalid("Transcription response is malformed")
         return result
@@ -163,7 +164,6 @@ class KaggleAiProvider(AiProvider):
         instrumental: Path | None = None,
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
-        del execution
         hints = dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints])
         result = self._json_result(
             self._invoke_vocal(

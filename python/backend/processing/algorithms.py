@@ -69,21 +69,24 @@ def construct_document(
     # a short word on the crest of vibrato becomes an invented semitone change.
     melody = _notes_from_points(pitch, 0.0, duration)
     mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in words)
+    activity = _vocal_activity(pitch, duration)
     document = LyricsDocument(
         title,
         artist,
         duration,
         music.bpm,
         music.key,
-        _phrase_lines(lyrics, words),
+        _phrase_lines(lyrics, words, activity),
         mapped_words,
-        _vocal_activity(pitch, duration),
+        activity,
     )
     document.validate()
     return document
 
 
-def _phrase_lines(lyrics: str, words: Sequence[WordTiming]) -> str:
+def _phrase_lines(
+    lyrics: str, words: Sequence[WordTiming], activity: Sequence[tuple[float, float]]
+) -> str:
     """Persist readable phrases at written boundaries, breaths, and the eight-word limit."""
     boundaries: set[int] = set()
     count = 0
@@ -92,10 +95,19 @@ def _phrase_lines(lyrics: str, words: Sequence[WordTiming]) -> str:
         boundaries.add(count)
     if count != len(words):
         return lyrics
+    pauses = [
+        (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= 0.35
+    ]
     lines: list[list[str]] = []
     for index, word in enumerate(words):
         if not lines or (
-            index in boundaries or len(lines[-1]) >= 8 or word.start - words[index - 1].end >= 0.35
+            index in boundaries
+            or len(lines[-1]) >= 8
+            or word.start - words[index - 1].end >= 0.35
+            or any(
+                words[index - 1].start < start < word.start and end <= word.start + 0.15
+                for start, end in pauses
+            )
         ):
             lines.append([])
         lines[-1].append(word.text)

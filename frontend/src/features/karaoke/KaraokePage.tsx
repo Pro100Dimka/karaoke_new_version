@@ -132,6 +132,10 @@ export const KaraokeScreen = ({
   const { load, state } = session;
 
   const backToLibrary = async () => {
+    if (!room && ["ready", "playing", "paused"].includes(state.kind)) {
+      await session.finishPerformance();
+      return;
+    }
     if (!(await session.confirmExit())) return;
     if (room) {
       if (!canControlRoom(room)) {

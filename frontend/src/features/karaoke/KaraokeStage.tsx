@@ -99,11 +99,15 @@ const PianoRoll = ({
       panel.detach(bounds, pointer),
     );
   const voicePosition = pitchFrame?.positionSeconds ?? position;
-  const observedPitch = pitchFrame ? reliablePitchHz(pitchFrame.pitchHz, pitchFrame.confidence) : pitchHz;
+  const observedPitch = pitchFrame
+    ? reliablePitchHz(pitchFrame.pitchHz, pitchFrame.confidence)
+    : pitchHz;
   const activeNote = notes.find(
     (note) => voicePosition >= note.start && voicePosition <= note.end,
   );
-  const targetPitch = activeNote ? targetPitchAt(activeNote, voicePosition) : undefined;
+  const targetPitch = activeNote
+    ? targetPitchAt(activeNote, voicePosition)
+    : undefined;
   const liveMidi = pitchMidiNearTarget(observedPitch, targetPitch);
   const accuracy = pitchAccuracy(observedPitch, targetPitch);
   const onTarget = Boolean(
@@ -136,6 +140,7 @@ const PianoRoll = ({
       >
         <MelodyRoll
           className="pianoRollLane"
+          style={{ background: "rgba(4, 6, 12, 0.16)" }}
           label={t("pianoRoll")}
           notes={inLine}
           position={position}
@@ -250,13 +255,17 @@ export const KaraokeStage = ({
   // Computed once and shared by both panels, so the piano roll can never show a different slice of the
   // song than the lyrics being read alongside it (see PianoRoll's shownWordIds).
   const lines = useMemo(
-    () => (document ? buildLines(document.words, document.lyrics, document.bpm) : []),
+    () =>
+      document ? buildLines(document.words, document.lyrics, document.bpm) : [],
     [document],
   );
   const lineIndex = currentLineIndex(lines, position);
   const current = lines[lineIndex];
   const next = lines[lineIndex + 1];
-  const preview = current && next && next.start - current.end <= lyricSilenceSeconds ? next : undefined;
+  const preview =
+    current && next && next.start - current.end <= lyricSilenceSeconds
+      ? next
+      : undefined;
   const shown = [current, preview];
   const phase = upcomingLinePhase(lines, lineIndex, position);
   const showNotes = useMemo(
@@ -285,7 +294,9 @@ export const KaraokeStage = ({
     playing,
     settings: showSettings,
   });
-  useEffect(() => { onNoteScoreChange?.(show.noteScore); }, [show, pitchFrames, position, onNoteScoreChange]);
+  useEffect(() => {
+    onNoteScoreChange?.(show.noteScore);
+  }, [show, pitchFrames, position, onNoteScoreChange]);
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
@@ -317,7 +328,7 @@ export const KaraokeStage = ({
           pitchFrame={pitchFrames?.at(-1)}
           capturedPitch={pitchFrames !== undefined}
           show={show}
-          hidden={lines.length > 0 && phase.kind === "empty"}
+          hidden={lines.length > 0 && phase.kind !== "text"}
           opacity={phase.opacity ?? 1}
         />
       )}
@@ -325,7 +336,12 @@ export const KaraokeStage = ({
       <StageFx engine={show} />
       <section className="stage" aria-label={songTitle}>
         {showLyrics && (
-          <Lyrics position={position} shown={shown} phase={phase} reducedMotion={preferences.reducedMotion} />
+          <Lyrics
+            position={position}
+            shown={shown}
+            phase={phase}
+            reducedMotion={preferences.reducedMotion}
+          />
         )}
         {(instrumental || minimal) && (
           <p className="instrumentalMode">

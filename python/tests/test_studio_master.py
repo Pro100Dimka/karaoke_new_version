@@ -42,6 +42,40 @@ class MasteringProcessRunner:
         return ProcessResult(0, b"", b"")
 
 
+def test_normal_take_balance_finishes_in_one_render_without_remastering(tmp_path):
+    runner = MasteringProcessRunner([-18, -12, -18, -12])
+    renderer = FfmpegStudioMasterRenderer(runner)
+    renderer.render(
+        *[
+            tmp_path / name
+            for name in ("vocal.wav", "backing.wav", "reference.wav", "original.wav")
+        ],
+        tmp_path / "balanced.wav",
+        threading.Event(),
+        performance_mix=tmp_path / "take.wav",
+        enhance=False,
+    )
+    assert runner.mastering_passes == 1
+    assert "loudnorm" not in runner.filter_graph
+    assert "equalizer" not in runner.filter_graph
+    assert "alimiter" in runner.filter_graph
+
+
+def test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy(tmp_path):
+    import numpy as np
+    import soundfile as sf
+
+    path = tmp_path / "recording.wav"
+    music = 0.1 * np.sin(2 * np.pi * 220 * np.arange(32000) / 16000)
+    sf.write(path, music, 16000)
+    backing = Path(str(path) + ".backing.wav")
+    backing.write_bytes(path.read_bytes())
+    captured = path.read_bytes()
+    FfmpegStudioMasterRenderer(ProcessRunner()).balance_recording(path, path, backing)
+    assert path.read_bytes() == captured
+    assert not backing.exists()
+
+
 def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     tmp_path: Path,
 ) -> None:
@@ -81,13 +115,17 @@ def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     [
         (0.1, 0.3, 0.1),
         (0.01, 0.1, 0.1),
+        (0.5, 0.1, 0.1),
+        (0.1, 0.03, 0.03),
     ],
 )
+@pytest.mark.parametrize("normal_recording", [False, True])
 def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
     tmp_path: Path,
     voice_level: float,
     music_level: float,
     reference_level: float,
+    normal_recording: bool,
 ) -> None:
     import numpy as np
     import soundfile as sf
@@ -108,15 +146,23 @@ def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
     sf.write(performance, sf.read(vocal)[0] + sf.read(backing)[0], 48000)
     runner = ProcessRunner()
 
-    FfmpegStudioMasterRenderer(runner).render(
-        vocal,
-        backing,
-        reference,
-        backing,
-        target,
-        threading.Event(),
-        performance_mix=performance,
-    )
+    renderer = FfmpegStudioMasterRenderer(runner)
+    if normal_recording:
+        sf.write(Path(str(performance) + ".backing.wav"), sf.read(backing)[0], 48000)
+        renderer.balance_recording(performance, reference, backing)
+        assert performance.with_name("take.original.wav").is_file()
+        target = performance
+        assert sf.info(target).frames == 4 * 48000
+    else:
+        renderer.render(
+            vocal,
+            backing,
+            reference,
+            backing,
+            target,
+            threading.Event(),
+            performance_mix=performance,
+        )
 
     result = runner.run(
         [
@@ -134,7 +180,8 @@ def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
         timeout_seconds=30,
     )
     measured = json.loads(re.search(rb'\{\s*"input_i".*?\}', result.stderr, re.S)[0])
-    assert float(measured["input_i"]) == pytest.approx(-14, abs=0.25)
+    if not normal_recording:
+        assert float(measured["input_i"]) == pytest.approx(-14, abs=0.25)
     assert float(measured["input_tp"]) <= -0.9
     samples, rate = sf.read(target, always_2d=True)
     mono = samples[rate : rate * 3].mean(axis=1)
@@ -143,5 +190,5 @@ def test_studio_master_preserves_loudness_and_the_requested_vocal_balance(
         abs(np.mean(mono * np.exp(-2j * np.pi * frequency * axis))) for frequency in (440, 220)
     ]
     actual_ratio = 20 * np.log10(levels[0] / levels[1])
-    expected_ratio = 20 * np.log10(max(voice_level, reference_level) / music_level)
+    expected_ratio = 20 * np.log10(reference_level / music_level)
     assert actual_ratio == pytest.approx(expected_ratio, abs=0.8)

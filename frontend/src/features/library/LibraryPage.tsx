@@ -7,7 +7,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useApp } from "../../app/AppContext";
 import { useNotify } from "../../app/NotificationsProvider";
 import { routes } from "../../shared/routes";
@@ -151,7 +151,6 @@ const useStableCardHandlers = (
     () => ({
       onPlay: (song) => latest.current.onPlay(song),
       onRehearse: (song) => latest.current.onRehearse?.(song),
-      onProcess: (song) => latest.current.onProcess(song),
       onCancel: (song) => latest.current.onCancel(song),
       onDetails: (song) => latest.current.onDetails(song),
       onSettings: (song) => latest.current.onSettings(song),
@@ -167,6 +166,13 @@ const useStableCardHandlers = (
 export const LibraryPage = () => {
   const files = useLibraryFiles();
   const navigate = useNavigate();
+  const entrance = useLocation().state as {
+    performanceReturn?: boolean;
+    analysisFor?: string;
+  } | null;
+  const [returning, setReturning] = useState(
+    Boolean(entrance?.performanceReturn),
+  );
   const t = useText();
   const notify = useNotify();
   const guarded = useGuardedAction();
@@ -227,7 +233,31 @@ export const LibraryPage = () => {
     state.status === "ready",
     library.refresh,
   );
-  const { startProcessing, resetAndReprocess, confirmDelete, showError } = useSongActions(
+  const reveal =
+    state.status !== "loading" &&
+    (!entrance?.analysisFor ||
+      songRecordings.analysisRecordId === entrance.analysisFor ||
+      state.status === "error");
+  useEffect(() => {
+    if (!returning || !reveal) return;
+    const timer = window.setTimeout(
+      () => setReturning(false),
+      curtainMilliseconds,
+    );
+    return () => window.clearTimeout(timer);
+  }, [returning, reveal]);
+  const returnCurtain = returning && (
+    <div
+      className="sceneCurtain"
+      data-phase={reveal ? "opening" : "waiting"}
+      aria-hidden
+      style={{
+        animationDirection: "reverse",
+        ...(reveal ? {} : { animation: "none" }),
+      }}
+    />
+  );
+  const { startProcessing, confirmDelete, showError } = useSongActions(
     library,
     () => setSettingsSong(null),
   );
@@ -246,7 +276,8 @@ export const LibraryPage = () => {
     if (!backendReady) return;
     return libraryCommands.subscribe((command) => {
       if (command.type === "addSong") void importRef.current.addSong();
-      else if (command.type === "importFiles") void importRef.current.importFiles(command.paths);
+      else if (command.type === "importFiles")
+        void importRef.current.importFiles(command.paths);
       else {
         setInvitationCode(command.code);
         setRoomOpen(true);
@@ -263,7 +294,10 @@ export const LibraryPage = () => {
     if (song.id === tv.songId) return;
     const choice = await ask({
       title: t("tvBusyTitle"),
-      body: t("tvBusyBody", { current: current?.title ?? "…", title: song.title }),
+      body: t("tvBusyBody", {
+        current: current?.title ?? "…",
+        title: song.title,
+      }),
       actions: [
         { id: "cancel", label: t("cancel") },
         { id: "next", label: t("tvQueueNext") },
@@ -272,8 +306,12 @@ export const LibraryPage = () => {
     });
     if (processing.current || (choice !== "next" && choice !== "now")) return;
     markPlayed(song.id);
-    tv.play({ id: song.id, title: song.title, artist: song.artist, rehearsal }, choice);
-    if (choice === "next") notify(t("tvQueued", { title: song.title }), "success");
+    tv.play(
+      { id: song.id, title: song.title, artist: song.artist, rehearsal },
+      choice,
+    );
+    if (choice === "next")
+      notify(t("tvQueued", { title: song.title }), "success");
   };
 
   const playSong = (song: SongDto, rehearsal = false) => {
@@ -293,16 +331,13 @@ export const LibraryPage = () => {
     }
     markPlayed(song.id);
     setLaunching(true);
-    window.setTimeout(
-      () => {
-        if (processing.current) setLaunching(false);
-        else
-          navigate(routes.karaoke(song.id), {
-            state: { mode: rehearsal ? "Rehearsal" : "AutoStart" },
-          });
-      },
-      curtainMilliseconds,
-    );
+    window.setTimeout(() => {
+      if (processing.current) setLaunching(false);
+      else
+        navigate(routes.karaoke(song.id), {
+          state: { mode: rehearsal ? "Rehearsal" : "AutoStart" },
+        });
+    }, curtainMilliseconds);
   };
   const openFolder = (song: SongDto) =>
     void files.revealProject(song.id, song.activeRevision);
@@ -314,7 +349,6 @@ export const LibraryPage = () => {
   const cardHandlers = useStableCardHandlers({
     onPlay: playSong,
     onRehearse: (song) => playSong(song, true),
-    onProcess: (song) => void startProcessing(song),
     onCancel: (song) => {
       const { jobId } = song;
       if (jobId) void guarded(() => library.cancelJob(jobId));
@@ -347,13 +381,22 @@ export const LibraryPage = () => {
     roomLibrary.publishView(query, nextFilters);
   };
 
-  if (state.status === "loading") return <LibraryLoading pageRef={pageRef} />;
+  if (state.status === "loading")
+    return (
+      <>
+        <LibraryLoading pageRef={pageRef} />
+        {returnCurtain}
+      </>
+    );
   if (state.status === "error")
     return (
-      <LibraryLoadError
-        pageRef={pageRef}
-        onRetry={() => void library.reload()}
-      />
+      <>
+        <LibraryLoadError
+          pageRef={pageRef}
+          onRetry={() => void library.reload()}
+        />
+        {returnCurtain}
+      </>
     );
 
   const activeJobs = localSongs.filter((song) =>
@@ -432,8 +475,6 @@ export const LibraryPage = () => {
         focusSongId={focusSongId}
         onClose={() => setProcessingOpen(false)}
         onCancel={(jobId) => guarded(() => library.cancelJob(jobId))}
-        onRetry={(song, mode) => startProcessing(song, mode)}
-        onResetLyrics={resetAndReprocess}
         onOpenFolder={openFolder}
         onPlay={playSong}
         playbackDisabled={localProcessing}
@@ -446,18 +487,15 @@ export const LibraryPage = () => {
           setSettingsSong(await library.removeSongCover(song))
         }
         onOpenFolder={openFolder}
-        onReprocess={(song, mode) => {
-          setSettingsSong(null);
-          void startProcessing(song, mode);
-          if (mode === "lyrics") openProcessing(song.id);
-        }}
         onDelete={(song) => void confirmDelete(song)}
       />
       <RecordingsModal
         song={songRecordings.song}
         recordings={songRecordings.recordings}
         onClose={songRecordings.close}
-        onAnalyze={(recording, recalculate) => void songRecordings.analyze(recording, recalculate)}
+        onAnalyze={(recording, recalculate) =>
+          void songRecordings.analyze(recording, recalculate)
+        }
         progress={songRecordings.analysisProgress}
         failures={songRecordings.analysisFailures}
         onCancelAnalysis={(jobId) => void songRecordings.cancelAnalysis(jobId)}
@@ -470,8 +508,16 @@ export const LibraryPage = () => {
         analysis={songRecordings.analysis}
         song={songRecordings.analysisSong}
         recordingId={songRecordings.analysisRecordId ?? undefined}
-        pending={songRecordings.analysisRecordId ? songRecordings.analysisProgress[songRecordings.analysisRecordId] : undefined}
-        failure={songRecordings.analysisRecordId ? songRecordings.analysisFailures[songRecordings.analysisRecordId] : undefined}
+        pending={
+          songRecordings.analysisRecordId
+            ? songRecordings.analysisProgress[songRecordings.analysisRecordId]
+            : undefined
+        }
+        failure={
+          songRecordings.analysisRecordId
+            ? songRecordings.analysisFailures[songRecordings.analysisRecordId]
+            : undefined
+        }
         onCancelAnalysis={(jobId) => void songRecordings.cancelAnalysis(jobId)}
         recordings={songRecordings.recordings}
         onDelete={(recording) => void songRecordings.remove(recording)}
@@ -482,6 +528,7 @@ export const LibraryPage = () => {
         onClose={songRecordings.closeAnalysis}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}
+      {returnCurtain}
     </main>
   );
 };

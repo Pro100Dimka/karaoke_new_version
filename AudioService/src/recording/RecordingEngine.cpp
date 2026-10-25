@@ -65,8 +65,9 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     if (std::ranges::find(activeStates, state()) != activeStates.end()) {
         throw std::logic_error("recording is active");
     }
-    if (backing && tap != RecordingTap::MasterMix)
-        throw std::invalid_argument("backing companion requires the master tap");
+    constexpr std::array pairedTaps{RecordingTap::MasterMix, RecordingTap::PerformanceMix};
+    if (backing && std::ranges::find(pairedTaps, tap) == pairedTaps.end())
+        throw std::invalid_argument("backing companion requires a mixed recording tap");
 
     epoch_.fetch_add(1);
     drainProducers();
@@ -83,7 +84,8 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
     try {
         writer_.open(path, sampleRateHz, channels, tap == RecordingTap::PerformanceMix);
         if (backing) {
-            backingWriter_.open(path + ".backing.wav", sampleRateHz, channels);
+            backingWriter_.open(path + ".backing.wav", sampleRateHz, channels,
+                                tap == RecordingTap::PerformanceMix);
             backingQueue_.prepare(queueFrames, channels);
         }
         if (tap == RecordingTap::NetworkInput || tap == RecordingTap::MasterMix) {
@@ -91,8 +93,9 @@ void RecordingEngine::prepare(std::string id, std::string path, std::uint32_t sa
             timelineWriter_.open(
                 std::filesystem::path{std::u8string{timelinePath.begin(), timelinePath.end()}},
                 std::ios::out | std::ios::trunc);
-            timelineWriter_ << "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
-                               "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz\n";
+            timelineWriter_
+                << "wavOffsetFrames,timelineFrame,frames,sampleRateHz,roomClockValid,"
+                   "captureTimelineFrame,captureEndTimelineFrame,timelineSampleRateHz\n";
             if (!timelineWriter_)
                 throw std::runtime_error("cannot open recording timeline: " + timelinePath);
         }
@@ -177,9 +180,11 @@ void RecordingEngine::resume(SessionFrame sessionFrame) {
 }
 
 void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const float> samples,
-                                            std::uint32_t frames) {
+                                            std::uint32_t frames, std::span<const float> backing) {
     const auto dropped = std::min(leadInRemaining_.exchange(0), frames);
     samples = samples.subspan(static_cast<std::size_t>(dropped) * channels_);
+    if (!backing.empty())
+        backing = backing.subspan(static_cast<std::size_t>(dropped) * channels_);
     frames -= dropped;
     if (frames > cutoff.value())
         throw std::logic_error("recording tail precedes the session timeline");
@@ -192,7 +197,8 @@ void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const
             const auto available = queueSpace_.wait_until(lock, deadline, [&] {
                 return state() != RecordingState::Recording || terminate_.load() ||
                        (queue_.capacityFrames() - queue_.availableFrames() >= count &&
-                        blockWrite_.load() - blockRead_.load() < blocks_.size());
+                        blockWrite_.load() - blockRead_.load() < blocks_.size() &&
+                        (!backingEnabled() || backingQueue_.freeFrames() >= count));
             });
             if (!available || state() != RecordingState::Recording || terminate_.load()) {
                 if (state() == RecordingState::Recording) {
@@ -203,8 +209,10 @@ void RecordingEngine::appendPerformanceTail(SessionFrame cutoff, std::span<const
                 throw std::runtime_error("recording tail queue drain failed");
             }
         }
-        push(generation_.load(), RecordingTap::PerformanceMix, frame, samples, count);
+        push(generation_.load(), RecordingTap::PerformanceMix, frame, samples, count, {}, backing);
         samples = samples.subspan(static_cast<std::size_t>(count) * channels_);
+        if (!backing.empty())
+            backing = backing.subspan(static_cast<std::size_t>(count) * channels_);
         frames -= count;
         frame += count;
     }

@@ -4,6 +4,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from collections import Counter
 from dataclasses import replace
 import threading
+from pathlib import Path
 
 import numpy as np
 from faster_whisper.transcribe import Segment
@@ -16,6 +17,23 @@ from backend.lyrics.phrases import _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
+
+
+def independent_words(
+    vocal: Path,
+    samples: np.ndarray,
+    instrumental: np.ndarray | None,
+    recognition: Mapping[str, object] | None,
+    recognize: Callable[[Path | np.ndarray], Mapping[str, object]],
+) -> list[list[tuple[str, float, float]]]:
+    """Reuse the identical vocal; the original recording cannot replace the reconstructed mix."""
+    candidates = [heard_words(recognition if recognition is not None else recognize(vocal))]
+    if instrumental is not None:
+        backing = np.pad(
+            instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))
+        )
+        candidates.append(heard_words(recognize(samples + backing)))
+    return candidates
 
 
 def phrase_coverage(lyrics: str, heard: Sequence[tuple[str, float, float]]) -> int:

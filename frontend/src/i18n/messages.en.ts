@@ -379,9 +379,9 @@ export const en = {
   errorProcessingRunning: "This song is already being processed.",
   errorRevisionConflict: "The project changed since it was opened.",
   errorProjectInvalid:
-    "The song project is invalid or incomplete. Repair or reprocess it.",
+    "The song project is invalid or incomplete. Delete the song and add it again.",
   errorProjectUpgrade:
-    "The project format is old. Reprocess / upgrade the project.",
+    "The project format is old. Delete the song and add it again.",
   errorProjectTooNew:
     "The project was made by a newer version. Update the application.",
   errorRoomNotFound: "Room not found.",

@@ -5,10 +5,16 @@ from pathlib import Path
 import re
 import threading
 import math
+import os
+import shutil
+from tempfile import TemporaryDirectory
+
+import soundfile as sf
 
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
 from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
+from backend.infrastructure.paths import ensure_within
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +52,8 @@ class FfmpegStudioMasterRenderer:
         cancel: threading.Event,
         *,
         performance_mix: Path,
+        audio_format: tuple[int, int] = (48000, 2),
+        enhance: bool = True,
     ) -> StudioMasterBalance:
         levels = self._levels(
             user_vocal, performance_instrumental, reference_vocal, original_instrumental, cancel
@@ -53,12 +61,62 @@ class FfmpegStudioMasterRenderer:
         user_db, performance_db, reference_db, original_db = levels
         # Compare ratios, not absolute stem levels: restoring the project's full-volume backing
         # used to bury a voice that was already clearly audible over the recorded accompaniment.
-        vocal_gain = max(0.0, (reference_db - original_db) - (user_db - performance_db))
+        vocal_gain = (reference_db - original_db) - (user_db - performance_db)
         target.parent.mkdir(parents=True, exist_ok=True)
         # Separation can classify echo/reverb as accompaniment. Keep the original mixed take;
         # the separated voice only supplements it when needed, never replaces the wet voice.
-        self._render_audio(performance_mix, user_vocal, target, vocal_gain, cancel)
+        correction = user_vocal if vocal_gain >= 0 else performance_instrumental
+        self._render_audio(
+            performance_mix,
+            correction,
+            target,
+            vocal_gain,
+            cancel,
+            audio_format=audio_format,
+            enhance=enhance,
+        )
         return StudioMasterBalance(vocal_gain, user_db, performance_db, reference_db, original_db)
+
+    def balance_recording(self, path: Path, reference: Path, instrumental: Path) -> None:
+        backing = ensure_within(Path(str(path) + ".backing.wav"), path.parent)
+        if not backing.is_file():
+            return
+        original = ensure_within(path.with_name(f"{path.stem}.original.wav"), path.parent)
+        source = original if original.is_file() else path
+        with TemporaryDirectory(prefix=".balance-", dir=path.parent) as directory:
+            vocal, target = Path(directory) / "vocal.wav", Path(directory) / "balanced.wav"
+            result = self._mix(
+                source,
+                backing,
+                "[1:a]volume=-1[backing];[0:a][backing]amix=inputs=2:duration=first:normalize=0[out]",
+                ["-c:a", "pcm_f32le", str(vocal)],
+                threading.Event(),
+                quiet=True,
+            )
+            if result.exit_code != 0:
+                raise DependencyError("RecordingBalanceFailed", "Cannot isolate the recorded voice")
+            info = sf.info(source)
+            try:
+                self.render(
+                    vocal,
+                    backing,
+                    reference,
+                    instrumental,
+                    target,
+                    threading.Event(),
+                    performance_mix=source,
+                    audio_format=(info.samplerate, info.channels),
+                    enhance=False,
+                )
+            except DependencyError as error:
+                if error.code == "StudioMasterSilentTrack":
+                    backing.unlink()
+                    return
+                raise
+            if not original.is_file():
+                shutil.copy2(path, original)
+            os.replace(target, path)
+            backing.unlink()
 
     def _render_audio(
         self,
@@ -67,24 +125,32 @@ class FfmpegStudioMasterRenderer:
         target: Path,
         vocal_gain: float,
         cancel: threading.Event,
+        *,
+        audio_format: tuple[int, int] = (48000, 2),
+        enhance: bool = True,
     ) -> None:
-        # Two passes of one mix: the first measures its loudness, the second renders it normalised.
-        analysis = self._mix(
-            performance,
-            vocal,
-            self._filter_graph(vocal_gain, loudnorm_filter()),
-            ["-f", "null", "-"],
-            cancel,
-            quiet=False,
-        )
-        measured = parse_loudness(analysis.stderr) if analysis.exit_code == 0 else None
-        if measured is None:
-            raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
+        rate, channels = audio_format
+        loudness = "anull"
+        if enhance:
+            analysis = self._mix(
+                performance,
+                vocal,
+                self._filter_graph(vocal_gain, loudnorm_filter(), enhance),
+                ["-f", "null", "-"],
+                cancel,
+                quiet=False,
+            )
+            measured = parse_loudness(analysis.stderr) if analysis.exit_code == 0 else None
+            if measured is None:
+                raise DependencyError(
+                    "StudioMasterFailed", "Studio master loudness analysis failed"
+                )
+            loudness = loudnorm_filter(measured)
         result = self._mix(
             performance,
             vocal,
-            self._filter_graph(vocal_gain, loudnorm_filter(measured)),
-            ["-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(target)],
+            self._filter_graph(vocal_gain, loudness, enhance),
+            ["-ar", str(rate), "-ac", str(channels), "-c:a", "pcm_s16le", str(target)],
             cancel,
             quiet=True,
         )
@@ -124,16 +190,25 @@ class FfmpegStudioMasterRenderer:
         )
 
     @staticmethod
-    def _filter_graph(vocal_gain: float, loudnorm: str) -> str:
-        # The take already contains one copy of the processed voice. Add only the excess
-        # needed for the requested gain; adding another full copy would double it at 0 dB.
-        supplement = math.expm1(vocal_gain * math.log(10) / 20)
+    def _filter_graph(vocal_gain: float, loudnorm: str, enhance: bool = True) -> str:
+        # Preserve the wet take. Raise a quiet voice with its separated stem; lower a loud
+        # voice by attenuating the take and restoring only the missing accompaniment.
+        gain = math.exp(vocal_gain * math.log(10) / 20)
+        supplement = abs(gain - 1)
+        effects = (
+            (
+                "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
+                "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
+            )
+            if enhance
+            else ""
+        )
+        limiter = ",alimiter=limit=0.891:attack=5:release=50:level=false"
         return (
+            f"[0:a]volume={min(1, gain):.9f}[take];"
             f"[1:a]volume={supplement:.9f}[boost];"
-            "[0:a][boost]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-            "equalizer=f=280:t=q:w=0.9:g=-0.8,equalizer=f=3500:t=q:w=1.0:g=0.7,"
-            "acompressor=threshold=0.18:ratio=1.45:attack=30:release=220:makeup=1.08,"
-            f"{loudnorm},alimiter=limit=0.891:attack=5:release=50:level=false[out]"
+            "[take][boost]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+            f"{effects}{loudnorm}{limiter}[out]"
         )
 
     def _levels(

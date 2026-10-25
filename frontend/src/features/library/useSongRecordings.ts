@@ -7,7 +7,10 @@ import type {
   RecordingDto,
   SongDto,
 } from "../../contracts/models";
-import type { RecordingAnalysisProgress, StudioMasterProgress } from "../../contracts/clients";
+import type {
+  RecordingAnalysisProgress,
+  StudioMasterProgress,
+} from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import type { MessageKey } from "../../i18n/messages";
 import { useLibraryCatalog } from "../../app/LibraryProvider";
@@ -31,8 +34,12 @@ export const useSongRecordings = (
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
   const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
-  const [analysisProgress, setAnalysisProgress] = useState<Readonly<Record<string, RecordingAnalysisProgress>>>({});
-  const [analysisFailures, setAnalysisFailures] = useState<Readonly<Record<string, MessageKey>>>({});
+  const [analysisProgress, setAnalysisProgress] = useState<
+    Readonly<Record<string, RecordingAnalysisProgress>>
+  >({});
+  const [analysisFailures, setAnalysisFailures] = useState<
+    Readonly<Record<string, MessageKey>>
+  >({});
   const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(
     null,
   );
@@ -41,30 +48,64 @@ export const useSongRecordings = (
   const requests = useRef({ recordings: 0, analysis: 0, master: 0 });
   const analysisRuns = useRef(new Map<string, number>());
 
-  const loadAnalysis = async (recordingId: string, songId: string, recalculate: boolean, request: number) => {
+  const loadAnalysis = async (
+    recordingId: string,
+    songId: string,
+    recalculate: boolean,
+    request: number,
+  ) => {
     analysisRuns.current.set(recordingId, request);
     const ownsRun = () => analysisRuns.current.get(recordingId) === request;
     const listRequest = requests.current.recordings;
     let started = false;
-    setAnalysisProgress((items) => ({ ...items, [recordingId]: { recordingId, jobId: "", state: "Queued", stage: "Loading", progress: 0 } }));
-    setAnalysisFailures((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+    setAnalysisProgress((items) => ({
+      ...items,
+      [recordingId]: {
+        recordingId,
+        jobId: "",
+        state: "Queued",
+        stage: "Loading",
+        progress: 0,
+      },
+    }));
+    setAnalysisFailures((items) =>
+      Object.fromEntries(
+        Object.entries(items).filter(([id]) => id !== recordingId),
+      ),
+    );
     try {
-      const stored = recalculate ? null : await catalog.latestAnalysis(recordingId);
+      const stored = recalculate
+        ? null
+        : await catalog.latestAnalysis(recordingId);
       if (request !== requests.current.analysis) return null;
       if (stored) return stored;
       started = true;
       return await catalog.analyzeRecording(recordingId, (progress) => {
-        if (ownsRun()) setAnalysisProgress((items) => ({ ...items, [recordingId]: progress }));
+        if (ownsRun())
+          setAnalysisProgress((items) => ({
+            ...items,
+            [recordingId]: progress,
+          }));
       });
     } catch (failure) {
-      if (!ownsRun() || toAppError(failure).code === "JobCancelled") return null;
-      setAnalysisFailures((items) => ({ ...items, [recordingId]: errorMessageKey(toAppError(failure)) ?? "actionFailed" }));
+      if (!ownsRun() || toAppError(failure).code === "JobCancelled")
+        return null;
+      setAnalysisFailures((items) => ({
+        ...items,
+        [recordingId]: errorMessageKey(toAppError(failure)) ?? "actionFailed",
+      }));
       throw failure;
     } finally {
-      if (ownsRun()) setAnalysisProgress((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+      if (ownsRun())
+        setAnalysisProgress((items) =>
+          Object.fromEntries(
+            Object.entries(items).filter(([id]) => id !== recordingId),
+          ),
+        );
       if (started) {
         const items = await catalog.listRecordings(songId).catch(() => null);
-        if (items && listRequest === requests.current.recordings) setRecordings(items);
+        if (items && listRequest === requests.current.recordings)
+          setRecordings(items);
       }
     }
   };
@@ -78,13 +119,16 @@ export const useSongRecordings = (
       setSong(target);
     });
 
-  useEffect(() => () => {
-    analysisRuns.current.clear();
-    handled.current = null;
-    requests.current.recordings += 1;
-    requests.current.analysis += 1;
-    requests.current.master += 1;
-  }, []);
+  useEffect(
+    () => () => {
+      analysisRuns.current.clear();
+      handled.current = null;
+      requests.current.recordings += 1;
+      requests.current.analysis += 1;
+      requests.current.master += 1;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!ready) return;
@@ -105,8 +149,11 @@ export const useSongRecordings = (
     const takeId = value.analysisFor;
     const request = ++requests.current.analysis;
     const listRequest = ++requests.current.recordings;
-    const current = () => request === requests.current.analysis &&
+    const current = () =>
+      request === requests.current.analysis &&
       listRequest === requests.current.recordings;
+    setAnalysisSong(target);
+    setAnalysisRecordId(takeId);
     void (async () => {
       try {
         // Only the analysis modal opens here; recordings is still fetched because the analysis modal
@@ -115,12 +162,14 @@ export const useSongRecordings = (
         if (!current()) return;
         setRecordings(items);
         // Right after a performance the analysis may not exist yet, so it is requested when there is no stored result.
-        setAnalysisSong(target);
-        setAnalysisRecordId(takeId);
         const result = await loadAnalysis(takeId, target.id, false, request);
         if (current()) setAnalysis(result);
       } catch (failure) {
-        if (current()) notify(t(errorMessageKey(toAppError(failure)) ?? "actionFailed"), "error");
+        if (current())
+          notify(
+            t(errorMessageKey(toAppError(failure)) ?? "actionFailed"),
+            "error",
+          );
       }
     })();
   }, [ready, songs, location.state, notify, t, catalog]);
@@ -129,18 +178,22 @@ export const useSongRecordings = (
     guarded(async () => {
       const request = ++requests.current.analysis;
       setAnalysis(null);
-      setAnalysisSong(songs.find((item) => item.id === recording.songId) ?? null);
+      setAnalysisSong(
+        songs.find((item) => item.id === recording.songId) ?? null,
+      );
       setAnalysisRecordId(recording.id);
-      const result = await loadAnalysis(recording.id, recording.songId, recalculate, request);
+      const result = await loadAnalysis(
+        recording.id,
+        recording.songId,
+        recalculate,
+        request,
+      );
       if (request === requests.current.analysis) setAnalysis(result);
     });
 
   const rename = (recording: RecordingDto, displayName: string) =>
     guarded(async () => {
-      const saved = await catalog.renameRecording(
-        recording.id,
-        displayName,
-      );
+      const saved = await catalog.renameRecording(recording.id, displayName);
       setRecordings((items) =>
         items.map((item) => (item.id === saved.id ? saved : item)),
       );

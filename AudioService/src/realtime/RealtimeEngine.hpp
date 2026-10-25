@@ -419,6 +419,7 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
     std::atomic<MonotonicTicks> roomFollowTicks_{0}; // written by render
     PerformanceAligner aligner_; // render; exclusive control during a drained performance lease
+    PerformanceAligner backingAligner_;
     std::atomic<bool> performanceSuspended_{false};
     std::atomic<std::uint32_t> performanceReaders_{0};
     std::atomic<SessionFrame> performanceFrame_{SessionFrame{0}};

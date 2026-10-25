@@ -15,6 +15,43 @@ from backend.processing.algorithms import MusicMetadata, construct_document, sta
 _A4, _C5 = 440.0, 523.25
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA memory/accuracy regression")
+def test_full_pitch_model_keeps_sung_notes_with_less_than_half_the_cuda_working_memory(monkeypatch):
+    import gc
+    import torchcrepe
+
+    rate = 16000
+    axis = np.arange(rate * 6, dtype=np.float32) / rate
+    samples = (0.3 * np.sin(2 * np.pi * 220 * axis) + 0.1 * np.sin(2 * np.pi * 440 * axis)).astype(
+        np.float32
+    )
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    baseline, confidence = torchcrepe.predict(
+        torch.from_numpy(samples)[None],
+        rate,
+        160,
+        65,
+        1100,
+        model="full",
+        batch_size=512,
+        device="cuda",
+        return_periodicity=True,
+    )
+    baseline_peak = torch.cuda.max_memory_allocated()
+    gc.collect()
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    monkeypatch.setattr(pitch_worker, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(pitch_worker, "device", lambda: "cuda")
+    result = pitch_worker.pitch(None)["points"]
+    assert torch.cuda.max_memory_allocated() < baseline_peak * 0.5
+    frequencies = np.array([point["frequency"] for point in result])
+    voiced = confidence.numpy()[0] > 0.8
+    assert voiced.sum() > 400
+    assert np.max(abs(12 * np.log2(frequencies[voiced] / baseline.numpy()[0][voiced]))) < 0.5
+
+
 def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line_breaks() -> None:
     from backend.lyrics.codec import decode_document, encode_document
 
@@ -49,6 +86,28 @@ def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_tr
 
 def _music() -> MusicMetadata:
     return MusicMetadata(bpm=None, key=None)
+
+
+@pytest.mark.parametrize(
+    "pause,expected", [(0.5, "stay\nwith me"), (0.2, "stay with me"), (0, "stay with me")]
+)
+def test_phrases_follow_original_vocal_silence_even_when_alignment_bridges_it(pause, expected):
+    from backend.ai_worker.timing import audible_frames
+
+    rate = 16000
+    axis = np.arange(rate * 2) / rate
+    samples = 0.2 * np.sin(2 * np.pi * 220 * axis)
+    samples[(axis >= 1 - pause) & (axis < 1)] = 0
+    active = audible_frames(samples, 160)
+    # An uncertain sung note remains audible; pitch confidence alone must not invent a pause.
+    pitch = tuple(PitchPoint(i / 100, 220, 0.1, bool(active[i])) for i in range(200))
+    words = (
+        WordTiming("stay", 0, 1, 1),
+        WordTiming("with", 1, 1.4, 1),
+        WordTiming("me", 1.4, 2, 1),
+    )
+    document = construct_document("t", "a", 2, "stay with me", words, pitch, _music())
+    assert document.lyrics == expected
 
 
 def test_word_boundaries_do_not_turn_a_vibrato_peak_into_a_different_sung_note() -> None:
