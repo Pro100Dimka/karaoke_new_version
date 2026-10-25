@@ -10,6 +10,42 @@ vi.mock("./useSmoothPosition", () => ({
 }));
 
 describe("KaraokeStage", () => {
+  it("previews words only in the final countdown second without filling them before singing", () => {
+    const document: EditorDocument = {
+      revision: 1, lyrics: "Held word", notes: [],
+      words: [
+        { id: "a", text: "Held", start: 20, end: 24, letters: [0, 0.05, 0.95, 0.98] },
+        { id: "b", text: "word", start: 24, end: 25 },
+      ],
+    };
+    const stage = (position: number) => (
+      <AppProvider><KaraokeStage songTitle="Song" position={position} playing={false} rate={1}
+        document={document} layers={{ showLyrics: true, showNotes: false }} vocalRange="auto" /></AppProvider>
+    );
+    const view = render(stage(17.1));
+    const fill = () => [...view.container.querySelectorAll<HTMLElement>(".ad-lyrics-current .ad-lyric-word")]
+      .map((word) => word.style.getPropertyValue("--ad-lyric-fill"));
+    for (const position of [17.1, 18.1, 18.99]) {
+      view.rerender(stage(position));
+      expect(screen.getByRole("timer")).toHaveTextContent(String(Math.ceil(20 - position)));
+      expect(screen.queryByText("Held")).not.toBeInTheDocument();
+      expect(fill()).toEqual([]);
+    }
+    for (const position of [19, 19.1, 19.4]) {
+      view.rerender(stage(position));
+      expect(screen.getByText("Held")).toBeVisible();
+      expect(fill()).toEqual(["0%", "0%"]);
+    }
+    view.rerender(stage(22));
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(parseFloat(fill()[0]!)).toBeGreaterThan(25);
+    expect(parseFloat(fill()[0]!)).toBeLessThan(50);
+    expect(fill()[1]).toBe("0%");
+    view.rerender(stage(17.5));
+    expect(fill()).toEqual([]);
+    view.rerender(stage(19.1));
+    expect(fill()).toEqual(["0%", "0%"]);
+  });
   it("does not draw the delayed scalar at the current playhead when capture timestamps are available", () => {
     const document: EditorDocument = {
       revision: 1,

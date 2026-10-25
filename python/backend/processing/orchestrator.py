@@ -108,6 +108,7 @@ class PipelineOrchestrator:
             "playbackPeakDbfs": -18,
             "providers": _provider_provenance(providers),
             "lyricsSource": built.discovery.source,
+            "lyricsSourceText": built.discovery.lyrics,
             "lyricsTimingHints": [
                 {"start": hint.start, "text": hint.text} for hint in built.discovery.timing_hints
             ],

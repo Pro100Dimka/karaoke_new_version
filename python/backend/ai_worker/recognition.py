@@ -26,9 +26,16 @@ def independent_words(
     recognition: Mapping[str, object] | None,
     recognize: Callable[[Path | np.ndarray], Mapping[str, object]],
 ) -> list[list[tuple[str, float, float]]]:
-    """Reuse the identical vocal; the original recording cannot replace the reconstructed mix."""
+    """Reuse the job's verified independent views before reconstructing another full mix."""
     candidates = [heard_words(recognition if recognition is not None else recognize(vocal))]
-    if instrumental is not None:
+    alternatives = recognition.get("alternatives", []) if recognition is not None else []
+    if isinstance(alternatives, list):
+        candidates.extend(
+            words
+            for view in alternatives
+            if isinstance(view, dict) and (words := heard_words(view))
+        )
+    if instrumental is not None and len(candidates) == 1:
         backing = np.pad(
             instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))
         )
@@ -94,7 +101,7 @@ def context_windows(
         end = min(
             following.end,
             next(
-                (a + _MARGIN for a, _ in pauses if a > (window.heard_start or window.start)),
+                (a + _MARGIN for a, _ in pauses if a > window.end),
                 following.end,
             ),
         )
@@ -207,8 +214,16 @@ def _ending_guidance(
     for index in range(first, len(windows)):
         window = windows[index]
         start, end = local[window.first][0], local[window.last - 1][1]
+        # Whisper includes the previous vowel in a word's span. If that span already
+        # contains the established entry, it supplies no evidence for moving it earlier.
+        contains_entry = (
+            window.heard_start is not None and start <= window.heard_start <= local[window.first][1]
+        )
         revised[index] = replace(
-            window, start=max(0, start - _MARGIN), end=end + _MARGIN, heard_start=start
+            window,
+            start=window.start if contains_entry else max(0, start - _MARGIN),
+            end=end + _MARGIN,
+            heard_start=window.heard_start if contains_entry else start,
         )
     return revised, supported
 

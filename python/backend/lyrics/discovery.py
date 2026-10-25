@@ -187,7 +187,21 @@ class LyricsDiscovery:
                 song.song_id, song.active_revision, "lyricsBaseline"
             )
             document = decode_document(raw)
-            lyrics = strip_catalog_credits(document.lyrics)
+            hints = decode_timing_hints(
+                manifest.provenance.get("lyricsTimingHints"), document.duration
+            )
+            saved = manifest.provenance.get("lyricsSourceText")
+            lyrics = (
+                saved
+                if isinstance(saved, str) and saved.split() == document.lyrics.split()
+                else document.lyrics
+            )
+            catalog = "\n".join(hint.text for hint in hints)
+            # Legacy projects stored screen line breaks. Restore phrase boundaries only
+            # when the complete catalogue contains exactly the same words in the same order.
+            if catalog.split() == lyrics.split():
+                lyrics = catalog
+            lyrics = strip_catalog_credits(lyrics)
             saved_warnings = manifest.provenance.get("warnings", ())
             recovered = (
                 isinstance(saved_warnings, (tuple, list))
@@ -204,9 +218,7 @@ class LyricsDiscovery:
                     "LyricsCatalogCached",
                     *(("LyricsRepeatsRecovered",) if recovered else ()),
                 ),
-                decode_timing_hints(
-                    manifest.provenance.get("lyricsTimingHints"), document.duration
-                ),
+                hints,
             )
             if lyrics.strip()
             else None

@@ -28,6 +28,18 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
     original = [keys.index(_lyrics_key(line)) for line in lines]
     heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
     matches = _performed_lines(keys, heard, set(zip(original, original[1:])), cancel)
+    # A catalogue's standalone prefix can steal the last reply ("дозволиш" / "дозволиш мені").
+    # Retain the full heard suffix when it supplies repeated complete answers.
+    stop, tails = len(matches), _tails(lyrics)
+    while stop and any(
+        tail.startswith(key) and tail != key
+        for key in [keys[matches[stop - 1][0]]]
+        for tail in tails
+    ):
+        stop -= 1
+    after = matches[stop - 1][2] if stop else 0
+    if stop < len(matches) and _repeat_ending(lyrics, heard[after:], cancel) != lyrics:
+        matches = matches[:stop]
     performed = tuple(index for index, _, _ in matches)
     merged = _merge_lines(original, performed, keys)
     written = {_lyrics_key(line): line for line in reversed(lines)}
@@ -43,14 +55,7 @@ def _repeat_ending(lyrics: str, heard: list[str], cancel: threading.Event) -> st
     """Recover repeated outro tails without making the singer repeat their unsung prefixes."""
     if not heard:
         return lyrics
-    written = {
-        _lyrics_key(tail): tail
-        for line in lyrics.splitlines()
-        for words in [line.split()]
-        for size in range(2, len(words) // 2 + 1)
-        for tail in [" ".join(words[-size:])]
-        if len(_lyrics_key(tail)) >= 8
-    }
+    written = _tails(lyrics)
     keys = list(written)
     if not keys:
         return lyrics
@@ -58,6 +63,17 @@ def _repeat_ending(lyrics: str, heard: list[str], cancel: threading.Event) -> st
     counts = Counter(index for index, _, _ in matches)
     tails = [written[keys[index]] for index, _, _ in matches if counts[index] >= 2]
     return "\n".join([lyrics, *tails]) if tails else lyrics
+
+
+def _tails(lyrics: str) -> dict[str, str]:
+    return {
+        _lyrics_key(tail): tail
+        for line in lyrics.splitlines()
+        for words in [line.split()]
+        for size in range(2, len(words) // 2 + 1)
+        for tail in [" ".join(words[-size:])]
+        if len(_lyrics_key(tail)) >= 8
+    }
 
 
 _LinePath = tuple[float, tuple[tuple[int, int, int], ...]]
@@ -154,16 +170,13 @@ def _line_matches(key: str, heard: list[str], start: int) -> list[tuple[int, int
         # Beyond twice the phrase length even a complete character match cannot score positively.
         if len(joined) > 2 * len(key):
             break
-        blocks = [
-            block
-            for block in SequenceMatcher(
-                None,
-                key,
-                joined,
-                autojunk=False,
-            ).get_matching_blocks()
-            if block.size
-        ]
+        if 2 * len(joined) <= len(key):
+            continue
+        matcher = SequenceMatcher(None, key, joined, autojunk=False)
+        # Multiset overlap is an upper bound: prune only scores that cannot become positive.
+        if matcher.quick_ratio() <= max(len(key), len(joined)) / (len(key) + len(joined)):
+            continue
+        blocks = [block for block in matcher.get_matching_blocks() if block.size]
         if not blocks or blocks[0].b >= len(heard[start]):
             continue
         if blocks[-1].b + blocks[-1].size <= len(joined) - len(heard[end]):

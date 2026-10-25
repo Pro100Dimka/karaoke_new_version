@@ -76,6 +76,23 @@ def test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy(tmp_p
     assert not backing.exists()
 
 
+@pytest.mark.parametrize("level", [-70.0, -70.1, float("-inf"), float("inf")])
+def test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain(tmp_path, level):
+    from backend.domain_errors import DependencyError
+
+    runner = MasteringProcessRunner([level])
+    renderer = FfmpegStudioMasterRenderer(runner)
+    with pytest.raises(DependencyError) as error:
+        renderer._integrated_loudness(tmp_path / "silent.wav", threading.Event())
+    assert error.value.code == "StudioMasterSilentTrack"
+    assert runner.mastering_passes == 0
+
+
+def test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor(tmp_path):
+    renderer = FfmpegStudioMasterRenderer(MasteringProcessRunner([-69.9]))
+    assert renderer._integrated_loudness(tmp_path / "quiet.wav", threading.Event()) == -69.9
+
+
 def test_studio_master_raises_quiet_vocal_to_the_original_song_balance(
     tmp_path: Path,
 ) -> None:

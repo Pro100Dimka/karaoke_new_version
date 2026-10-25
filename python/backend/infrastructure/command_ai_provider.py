@@ -100,7 +100,18 @@ class CommandAiProvider:
     ) -> dict[str, JsonValue] | None:
         key = self._recognition_key(vocal, language, cancel, execution)
         with self._recognition_lock:
-            return self._recognitions.get(key) if key is not None else None
+            recognition = self._recognitions.get(key) if key is not None else None
+            cached = list(self._recognitions.items())
+        if recognition is None or key is None:
+            return None
+        alternatives: list[JsonValue] = [
+            payload
+            for other, payload in cached
+            if other != key
+            and (other[0], other[2], other[3]) == (key[0], key[2], key[3])
+            and self._recognition_key(other[1], language, cancel, execution) == other
+        ]
+        return {**recognition, "alternatives": alternatives}
 
     def align(
         self,

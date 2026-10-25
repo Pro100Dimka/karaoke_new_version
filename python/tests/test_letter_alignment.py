@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+
 import numpy as np
 import pytest
 
@@ -23,6 +24,252 @@ from backend.moment_spreading import spread_tied_moments as _spread_tied_letters
 _RATE = 16_000
 _HOP = 160
 _STEP = _HOP / _RATE
+
+
+@pytest.mark.parametrize("target", ["cpu", "cuda"])
+def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings(
+    monkeypatch, target
+):
+    from backend.ai_worker import speech
+    import torch
+
+    model = torch.nn.ModuleDict(
+        {
+            "linear": speech.whisper.model.Linear(4, 4),
+            "conv": speech.whisper.model.Conv1d(4, 4, 1),
+            "embedding": torch.nn.Embedding(8, 4),
+            "norm": speech.whisper.model.LayerNorm(4),
+        }
+    )
+    values = torch.arange(12, dtype=torch.float16).reshape(1, 3, 4) / 10
+    expected = model["linear"](values).detach().clone()
+    checkpoints, transfers = [], []
+
+    def load(_path, *, device):
+        checkpoints.append(device)
+        return model
+
+    def transfer(device):
+        transfers.append((device, model["linear"].weight.dtype))
+        return model
+
+    monkeypatch.setattr(model, "set_alignment_heads", lambda *_: None, raising=False)
+    monkeypatch.setattr(model, "to", transfer)
+    monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
+    monkeypatch.setattr(speech.whisper, "load_model", load)
+
+    loaded = speech._speech_model(target)
+
+    dtype = torch.float16 if target == "cuda" else torch.float32
+    assert loaded["linear"].weight.dtype == dtype
+    assert loaded["conv"].weight.dtype == dtype
+    assert loaded["embedding"].weight.dtype == torch.float32
+    assert loaded["norm"].weight.dtype == torch.float32
+    torch.testing.assert_close(loaded["linear"](values), expected, rtol=0, atol=0)
+    assert checkpoints == ["cpu"], "the checkpoint must not make a GPU/CPU/GPU round trip"
+    assert transfers == ([("cuda", torch.float16)] if target == "cuda" else [])
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_encoder_reuse_checks_audio_values_and_restores_forward_after_errors(fail):
+    import weakref
+    import torch
+    from backend.ai_worker.runtime import cached_encoder
+
+    class Encoder(torch.nn.Module):
+        calls = 0
+
+        def forward(self, mel):
+            self.calls += 1
+            return mel * 2
+
+    encoder = Encoder()
+    mel = torch.arange(8, dtype=torch.float32).reshape(2, 4)
+    try:
+        with cached_encoder(encoder), torch.no_grad():
+            first = encoder(mel)
+            assert encoder(mel.clone()) is first
+            assert encoder.calls == 1, "word timing must reuse the same audio features"
+            mel.add_(1)
+            torch.testing.assert_close(encoder(mel), mel * 2)
+            encoder(mel.double())
+            encoder(mel.reshape(1, 8))
+            assert encoder.calls == 4, "changed content, dtype and shape invalidate the cache"
+            if fail:
+                raise RuntimeError("decoder failed")
+    except RuntimeError:
+        assert fail
+    assert "forward" not in vars(encoder), "restoration must not leave a bound-method cycle"
+    with cached_encoder(encoder), torch.no_grad():
+        encoder(mel)
+    assert encoder.calls == 5, "features must not survive their transcription scope"
+    with cached_encoder(encoder):
+        mel.requires_grad_(True)
+        (encoder(mel) + encoder(mel)).sum().backward()
+    torch.testing.assert_close(mel.grad, torch.full_like(mel, 4))
+    assert encoder.calls == 7, "training must keep its own computation graphs"
+    reference = weakref.ref(encoder)
+    del encoder
+    assert reference() is None, "encoder weights must be released without waiting for cyclic GC"
+
+
+def test_native_word_timing_reuses_encoder_without_redecoding_the_audio(monkeypatch):
+    import torch
+    from backend.ai_worker import speech
+
+    calls = []
+
+    class Model:
+        encoder = torch.nn.Identity()
+
+        @torch.no_grad()
+        def transcribe(self, audio, **_options):
+            mel = torch.from_numpy(audio).reshape(1, -1)
+            self.encoder(mel)
+            self.encoder(mel.clone())
+            return {"segments": []}
+
+    model = Model()
+    model.encoder.register_forward_pre_hook(lambda *_: calls.append(1))
+    # Count actual encoder work, independently of hooks which run even on a cache hit.
+    model.encoder.forward = lambda mel: calls.append("encode") or mel * 2
+    original = model.encoder.forward
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech, "_speech_model", lambda _: model)
+    speech._accelerated_guidance(np.arange(16, dtype=np.float32), "English", None)
+    assert calls.count("encode") == 1
+    assert model.encoder.forward is original
+
+
+def test_source_evidence_bounds_spectral_memory_without_changing_chunk_seams(monkeypatch):
+    from backend.ai_worker import timing
+
+    rng = np.random.default_rng(42)
+    samples = rng.normal(0, 0.05, _RATE * 45 + 73).astype(np.float32)
+    backing = rng.normal(0, 0.1, len(samples)).astype(np.float32)
+    # Independent full-track reference, including smoothing at both outer edges.
+    vocal_stft = timing.librosa.stft(samples, n_fft=2048, hop_length=_HOP)
+    backing_stft = timing.librosa.stft(backing, n_fft=2048, hop_length=_HOP)
+    vocal_power, backing_power = np.abs(vocal_stft) ** 2, np.abs(backing_stft) ** 2
+    dominance = (vocal_power**2 / (vocal_power + backing_power + 1e-12)).sum(axis=0)
+    dominance /= vocal_power.sum(axis=0) + 1e-12
+    window = round(_RATE / _HOP) | 1
+    cross = timing.uniform_filter1d(vocal_stft * backing_stft.conj(), window, axis=1)
+    coherence = np.clip(
+        np.abs(cross) ** 2
+        / (
+            timing.uniform_filter1d(vocal_power, window, axis=1)
+            * timing.uniform_filter1d(backing_power, window, axis=1)
+            + 1e-12
+        ),
+        0,
+        1,
+    )
+    explained = (coherence * vocal_power).sum(axis=0) / (vocal_power.sum(axis=0) + 1e-12)
+    stft = timing.librosa.stft
+    sizes = []
+
+    def bounded_stft(audio, **kwargs):
+        sizes.append(len(audio))
+        return stft(audio, **kwargs)
+
+    monkeypatch.setattr(timing.librosa, "stft", bounded_stft)
+    actual = timing._source_evidence(samples, backing, _RATE, _HOP)
+
+    assert max(sizes) <= 22 * _RATE, "spectral allocations must stay bounded for long songs"
+    np.testing.assert_allclose(actual[0], dominance, rtol=2e-6, atol=1e-7)
+    np.testing.assert_allclose(actual[1], explained, rtol=2e-6, atol=1e-7)
+
+
+def test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings(monkeypatch):
+    from backend.ai_worker import speech, timing
+
+    words = [AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)]
+    samples = _signal([(1.0, 3.0)], 4.0)
+    monkeypatch.setattr(speech, "read_mono", lambda path, *_: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, []))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(
+        speech, "contextual_guidance", lambda w, windows, whole, times, *_: (windows, times)
+    )
+    calls = []
+    source_evidence = timing._source_evidence
+
+    def measured(*args):
+        calls.append(1)
+        return source_evidence(*args)
+
+    monkeypatch.setattr(timing, "_source_evidence", measured)
+    result = speech.align(Path("vocal.wav"), "ah", "English", instrumental=Path("backing.wav"))
+
+    assert result["words"][0]["start"] == pytest.approx(1.0, abs=0.1)
+    assert len(calls) == 1, "the identical vocal/backing evidence must be reused within the job"
+
+
+@pytest.mark.parametrize("refinements, fail_first", [(0, False), (2, False), (2, True)])
+def test_alignment_loads_one_speech_model_for_its_refinements_only(
+    monkeypatch, refinements, fail_first
+):
+    from backend.ai_worker import speech
+    from backend.ai_worker.ctc import Window
+
+    loaded, decoded = [], []
+
+    class Model:
+        encoder = speech.torch.nn.Identity()
+
+        def transcribe(self, *_args, **_kwargs):
+            decoded.append(self)
+            if fail_first and len(decoded) == 1:
+                raise RuntimeError("A failed decoder must not be reused")
+            return {"segments": []}
+
+    def load(_target):
+        model = Model()
+        loaded.append(model)
+        return model
+
+    def refine(words, windows, whole, timings, activity, recognize):
+        for index in range(refinements):
+            try:
+                recognize([(float(index), float(index + 1), "ah")])
+            except RuntimeError:
+                pass
+        return windows, timings
+
+    words = [AlignedWord("ah", 1, 1.3, (1, 1.1), 0.8)]
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech, "_speech_model", load)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(3 * _RATE, np.float32))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, []))
+    monkeypatch.setattr(speech, "_alignment_windows", lambda *_: [Window(0, 1, 0, 3)])
+    monkeypatch.setattr(speech, "contextual_guidance", refine)
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **_kw: words)
+    for _ in range(2):
+        speech.align(Path("vocal.wav"), "ah", "English")
+    assert len(loaded) == (2 + fail_first if refinements else 0)
+    if refinements:
+        assert decoded[-1] is decoded[-2]
+        assert (decoded[0] is decoded[1]) != fail_first
+        assert decoded[1] is not decoded[2], "models must not leak across jobs"
+
+
+def test_recognition_context_does_not_cut_off_a_word_after_an_internal_vocal_pause():
+    from backend.ai_worker.ctc import Window
+    from backend.ai_worker.recognition import context_windows
+
+    active = np.zeros(17000, bool)
+    active[15600:15753] = True
+    active[15813:16031] = True
+    active[16248:16498] = True
+    windows = [Window(0, 7, 156.14, 161.98, 156.12), Window(7, 11, 161.98, 165.14, 162.58)]
+    contexts = context_windows(
+        "А тепер він твій на сто відсотків Твій на сто відсотків".split(), windows, active
+    )
+    assert contexts[0][1] >= 160.31
 
 
 def test_transcription_keeps_word_evidence_for_the_following_alignment(monkeypatch):
@@ -184,6 +431,7 @@ def test_default_recognizer_recovers_all_performed_choruses_from_a_fresh_import(
         speech.whisper,
         "load_model",
         lambda path, **_: SimpleNamespace(
+            encoder=speech.torch.nn.Identity(),
             set_alignment_heads=lambda *_: None,
             transcribe=lambda *_a, **_kw: deepcopy(
                 case["strong" if "large-v3-turbo" in str(path) else "weak"]
@@ -291,6 +539,14 @@ def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkey
     ]
 
     class NativeModel:
+        encoder = speech.torch.nn.Identity()
+
+        def modules(self):
+            return ()
+
+        def to(self, target):
+            return self
+
         def set_alignment_heads(self, heads):
             selected.append(heads)
 
@@ -600,7 +856,7 @@ def test_without_any_recognised_run_the_whole_song_is_one_stretch() -> None:
 
 
 def test_heard_repeated_choruses_match_their_temporal_occurrence_when_one_is_missing() -> None:
-    from backend.ai_worker.speech import _alignment_windows, _heard_positions
+    from backend.ai_worker.speech import _alignment_windows, _heard_timings
 
     words = "we will stay we will stay we will stay".split()
     whole = [
@@ -616,8 +872,8 @@ def test_heard_repeated_choruses_match_their_temporal_occurrence_when_one_is_mis
 
     assert [(window.first, window.last) for window in windows] == [(0, 3), (3, 9)]
     assert windows[1].start == pytest.approx(10.4)
-    assert _heard_positions(words, heard, whole) == {
-        index: whole[index].start for index in range(3, 9)
+    assert _heard_timings(words, heard, whole) == {
+        index: (whole[index].start, whole[index].end) for index in range(3, 9)
     }
 
 
@@ -879,6 +1135,8 @@ def test_alignment_guidance_uses_native_cpu_precision_and_preserves_word_timesta
     calls: dict[str, object] = {}
 
     class FakeModel:
+        encoder = speech.torch.nn.Identity()
+
         def __init__(self, path: str, **options: object) -> None:
             calls["load"] = (path, options)
 
@@ -936,8 +1194,11 @@ def test_native_alignment_recognition_disables_sampling_fallback(monkeypatch):
 
     calls = {}
     model = SimpleNamespace(
+        encoder=speech.torch.nn.Identity(),
         transcribe=lambda path, **options: calls.update(options) or {},
         set_alignment_heads=lambda *_: None,
+        modules=lambda: (),
+        to=lambda _target: model,
     )
     monkeypatch.setattr(speech, "device", lambda: "cuda")
     monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
@@ -1029,7 +1290,7 @@ def test_coverage_transcription_uses_independent_full_text_even_with_cuda_alignm
     monkeypatch.setattr(speech, "device", lambda: "cuda")
     monkeypatch.setattr(speech, "_transcribe", lambda *_: {"text": "first verse"})
     monkeypatch.setattr(
-        speech, "_accelerated_guidance", lambda *_: {"text": "first verse final chorus"}
+        speech, "_accelerated_guidance", lambda *_, **_kw: {"text": "first verse final chorus"}
     )
     assert speech.transcribe(Path("voice.wav"), "English")["text"] == "first verse final chorus"
 
@@ -1049,6 +1310,8 @@ def test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode(
     selected_threads = []
 
     class Model:
+        encoder = speech.torch.nn.Identity()
+
         def __init__(self, _path, **options):
             assert options["device"] == "cpu"
 
@@ -2094,7 +2357,7 @@ def test_fresh_phrase_recovery_preserves_the_acoustic_entry_after_the_previous_v
     monkeypatch.setattr(
         speech,
         "_accelerated_guidance",
-        lambda *_, contexts: {"contexts": [local for _ in contexts]},
+        lambda _vocal, _language, _prompt, contexts, **_kw: {"contexts": [local for _ in contexts]},
     )
 
     words = speech.align(

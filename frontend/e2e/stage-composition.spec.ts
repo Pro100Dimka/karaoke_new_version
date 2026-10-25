@@ -308,7 +308,13 @@ test("coloured and white words share one reacting lyric line", async ({ page }) 
     );
     await page.clock.runFor(16);
     await expect(page.getByRole("timer")).toHaveText(String(count));
-    await expect(page.locator(".lyrics .ad-lyric-word")).toHaveCount(0);
+    await expect(page.locator(".lyrics .ad-lyric-word")).toHaveCount(count === 1 ? 4 : 0);
+    if (count !== 1) continue;
+    expect(await words.evaluateAll((items) => items.map((word) => word.style.getPropertyValue("--ad-lyric-fill"))))
+      .toEqual(["0%", "0%", "0%", "0%"]);
+    const counter = (await page.getByRole("timer").boundingBox())!;
+    const preview = (await filled.boundingBox())!;
+    expect(counter.y + counter.height).toBeLessThan(preview.y);
   }
   await page.clock.runFor(300);
   await expect(page.getByRole("timer")).toHaveCount(0);

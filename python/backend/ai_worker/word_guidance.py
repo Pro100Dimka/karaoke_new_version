@@ -33,16 +33,21 @@ def recognized_phrase(
         for last, support in _line_matches(key, keys, first)
         if heard[last - 1][1] < window.end and heard[last - 1][2] <= window.end + margin
     ]
+    # Equal text support must keep the nearest occurrence, not the largest ASR index.
+    entry = window.heard_start if window.heard_start is not None else window.start
+    best = max(
+        matches,
+        key=lambda match: (match[0], -abs(heard[match[1]][1] - entry)),
+        default=None,
+    )
     span = (
-        max(matches)[1:]
-        if matches
+        best[1:]
+        if best is not None
         else _nearby_utterance(window, heard, margin)
         if allow_utterance
         else None
     )
-    if span is None or (
-        window.heard_start is None and (not matches or max(matches)[0] < len(key) * 0.5)
-    ):
+    if span is None or (window.heard_start is None and (best is None or best[0] < len(key) * 0.5)):
         return None, {}
     first, last = span
     phrase = replace(
@@ -378,9 +383,9 @@ def _core_candidates(
         ctc.Window(0, 1, start, end),
     )
     end = min(last, window.end)
-    if start < end:
-        # A zero-confidence alternative cannot defeat strong phonetic evidence. A
-        # misplaced core may move in full; acoustic refinement still owns the tail.
+    if start < end and not start <= word.start < end:
+        # A recognition span can include the previous vowel. An interpolated entry
+        # supplies no acoustic evidence against a CTC core already inside that span.
         candidates.extend(ctc._evenly([word.text], start, end))
     return candidates
 

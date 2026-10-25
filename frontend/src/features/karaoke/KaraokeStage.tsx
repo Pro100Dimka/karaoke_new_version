@@ -200,8 +200,9 @@ const Lyrics = ({
 }) => {
   const t = useText();
   const [current, next] = shown;
-  // Give the countdown and the upcoming words separate turns before the vocal entry.
+  // Preview on "1"; saved word times keep the text unfilled until singing starts.
   const { countdown } = phase;
+  const textVisible = phase.kind === "text" || countdown === 1;
   const words = (line: LyricLine | undefined, sung: boolean) =>
     line?.words.map((word) => ({
       id: word.id,
@@ -223,8 +224,8 @@ const Lyrics = ({
         className="lyrics"
         data-reduced-motion={reducedMotion || undefined}
         style={{ opacity: phase.opacity ?? 1 }}
-        current={phase.kind === "text" ? words(current, true) : []}
-        next={phase.kind === "text" ? words(next, false) : []}
+        current={textVisible ? words(current, true) : []}
+        next={textVisible ? words(next, false) : []}
         currentKey={current?.start}
         nextKey={next?.start}
       />

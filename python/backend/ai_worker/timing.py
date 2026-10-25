@@ -83,13 +83,32 @@ def singing_frames(
 def _source_evidence(
     samples: np.ndarray, instrumental: np.ndarray, sample_rate: int, hop: int
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Bound spectral working memory, preserving the FFT and smoothing context at seams."""
+    backing = np.pad(instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental))))
+    count = 1 + len(samples) // hop
+    chunk = max(1, round(20 * sample_rate / hop))
+    context = (round(sample_rate / hop) | 1) // 2 + (1024 + hop - 1) // hop
+    dominance, coherence = np.empty(count), np.empty(count)
+    for first in range(0, count, chunk):
+        last = min(count, first + chunk)
+        begin, end = max(0, first - context), min(count, last + context)
+        local = _source_block(
+            samples[begin * hop : end * hop], backing[begin * hop : end * hop], sample_rate, hop
+        )
+        selection = slice(first - begin, last - begin)
+        dominance[first:last], coherence[first:last] = local[0][selection], local[1][selection]
+    return dominance, coherence
+
+
+def _source_block(
+    samples: np.ndarray, backing: np.ndarray, sample_rate: int, hop: int
+) -> tuple[np.ndarray, np.ndarray]:
     """Soft source dominance and the fraction of vocal power linearly explained by backing.
 
     Low coherence supplies positive evidence for a quiet independent voice even when backing
     dominates the same frequency bands. One second averages phase across many harmonic cycles;
     a fixed phase-shifted or filtered copy of the accompaniment instead remains coherent.
     """
-    backing = np.pad(instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental))))
     vocal_stft = librosa.stft(samples, n_fft=2048, hop_length=hop)
     backing_stft = librosa.stft(backing, n_fft=2048, hop_length=hop)
     vocal_power, backing_power = np.abs(vocal_stft) ** 2, np.abs(backing_stft) ** 2

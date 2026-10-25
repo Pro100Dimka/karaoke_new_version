@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from math import prod
 from types import MappingProxyType
@@ -232,14 +232,14 @@ def _placed(found: list[AlignedWord | None], words: Sequence[str]) -> list[Align
 
 
 def with_sung_ends(
-    words: list[AlignedWord], samples: np.ndarray, instrumental: np.ndarray | None = None
+    words: list[AlignedWord],
+    samples: np.ndarray,
+    instrumental: np.ndarray | None = None,
+    voiced: np.ndarray | None = None,
 ) -> list[AlignedWord]:
-    """Stretches each word to the end of the sound it starts.
-
-    The model marks a letter by the instant it is recognised, so a held vowel looks short; the end of a word is where the
-    voice really stops, at most where the next word begins.
-    """
-    voiced = singing_frames(samples, instrumental, _VOICE_RATE, _VOICE_HOP)
+    """Extend phonetic cores through singing, stopping at silence or the next word."""
+    if voiced is None:
+        voiced = singing_frames(samples, instrumental, _VOICE_RATE, _VOICE_HOP)
     harmonics = (
         harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
     )
@@ -376,8 +376,19 @@ def align_guided(
         chunk = list(words[window.first : window.last])
         if not chunk:
             continue
-        guided = _align_window(scores, frame_seconds, chunk, window)
         reference = list(whole[window.first : window.last])
+        if voiced is not None and window.heard_start is not None:
+            step = _VOICE_HOP / _VOICE_RATE
+            pause = _first_long_silence(voiced, reference[0].start, reference[0].end, step)
+            if pause is not None and pause <= window.heard_start:
+                first = round(pause / step)
+                sounding = np.flatnonzero(voiced[first : round(reference[0].end / step)])
+                entry = float((first + sounding[0]) * step) if len(sounding) else pause
+                if window.heard_start < entry < window.end:
+                    # A line entry inside a long pause cannot belong to the preceding
+                    # vowel. Refit its phonemes at the voice returning after that pause.
+                    window = replace(window, start=max(window.start, entry))
+        guided = _align_window(scores, frame_seconds, chunk, window)
         candidates = [
             candidate
             for candidate in (guided, reference)

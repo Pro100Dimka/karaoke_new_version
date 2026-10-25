@@ -280,7 +280,7 @@ def _audio_evidenced_points(monkeypatch, *, silent: bool) -> tuple[PitchPoint, .
     monkeypatch.setattr(pitch_worker, "read_mono", lambda *_: samples)
     monkeypatch.setattr(pitch_worker, "device", lambda: "cpu")
     monkeypatch.setattr(
-        pitch_worker.torchcrepe, "predict", lambda *_args, **_kwargs: (frequency, confidence)
+        pitch_worker, "_predict_active", lambda *_args, **_kwargs: (frequency, confidence)
     )
     monkeypatch.setattr(pitch_worker.torchcrepe.filter, "median", lambda value, _: value)
     return tuple(decode_pitch(point) for point in pitch_worker.pitch(None)["points"])

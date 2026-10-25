@@ -4,6 +4,7 @@ import difflib
 import threading
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -25,7 +26,7 @@ from backend.ai_worker.ctc import (
     with_voice_onsets,
 )
 from backend.ai_worker.paths import model_directory, model_file
-from backend.ai_worker.runtime import WHISPER_LANGUAGES, cpu_threads, device
+from backend.ai_worker.runtime import WHISPER_LANGUAGES, cached_encoder, cpu_threads, device
 from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
 from backend.ai_worker.recognition import (
     alignment_payload,
@@ -69,8 +70,13 @@ def prepare_accelerator() -> dict[str, str]:
 
 
 def _speech_model(target: str) -> whisper.Whisper:
-    model = whisper.load_model(str(model_file(SPEECH_MODEL)), device=target)
-    # Local checkpoints omit the named model's non-persistent timing-head preset.
+    # Keep checkpoint precision for projections/embeddings; avoid recasting the vocabulary per token.
+    model = whisper.load_model(str(model_file(SPEECH_MODEL)), device="cpu")
+    for layer in model.modules() if target == "cuda" else ():
+        if isinstance(layer, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Embedding)):
+            layer.half()
+    if target == "cuda":
+        model.to(target)
     name = SPEECH_MODEL.model_id.removeprefix("whisper-")
     model.set_alignment_heads(whisper._ALIGNMENT_HEADS[name])
     return model
@@ -79,17 +85,17 @@ def _speech_model(target: str) -> whisper.Whisper:
 def _transcribe(
     vocal: Path | np.ndarray, language: str, prompt: str | None
 ) -> Mapping[str, object]:
-    target = device()
-    model = _speech_model(target)
-    result: Mapping[str, object] = model.transcribe(
-        vocal if isinstance(vocal, np.ndarray) else str(vocal),
-        language=WHISPER_LANGUAGES.get(language),
-        word_timestamps=True,
-        initial_prompt=prompt,
-        fp16=target == "cuda",
-        condition_on_previous_text=False,
-        temperature=0.0,
-    )
+    model = _speech_model(target := device())
+    with cached_encoder(model.encoder):
+        result: Mapping[str, object] = model.transcribe(
+            vocal if isinstance(vocal, np.ndarray) else str(vocal),
+            language=WHISPER_LANGUAGES.get(language),
+            word_timestamps=True,
+            initial_prompt=prompt,
+            fp16=target == "cuda",
+            condition_on_previous_text=False,
+            temperature=0.0,
+        )
     return result
 
 
@@ -97,32 +103,37 @@ def _accelerated_guidance(
     vocal: Path | np.ndarray,
     language: str,
     prompt: str | None,
-    threads: int | None = None,
+    contexts: Sequence[tuple[float, float, str | None]] = (),
     *,
-    contexts: Sequence[tuple[float, float, str]] = (),
+    threads: int | None = None,
+    model_cache: list[whisper.Whisper] | None = None,
 ) -> Mapping[str, object]:
     """Use the native decoder: converted decoding omitted whole sung repeats in real recordings."""
     target = device()
     torch.set_num_threads(threads or cpu_threads())
-    model = _speech_model(target)
+    model = model_cache.pop() if model_cache else _speech_model(target)
     samples = vocal if isinstance(vocal, np.ndarray) else read_mono(vocal, _SAMPLE_RATE)
     results = []
-    requests: Sequence[tuple[float, float, str | None]] = contexts or [(0.0, 0.0, prompt)]
-    for start, end, vocabulary in requests:
-        result = model.transcribe(
-            samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)] if contexts else samples,
-            language=WHISPER_LANGUAGES.get(language),
-            word_timestamps=True,
-            initial_prompt=vocabulary,
-            condition_on_previous_text=False,
-            fp16=target == "cuda",
-            temperature=0.0,
-        )
+    for start, end, vocabulary in contexts or [(0.0, 0.0, prompt)]:
+        with cached_encoder(model.encoder):
+            result = model.transcribe(
+                samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)]
+                if contexts
+                else samples,
+                language=WHISPER_LANGUAGES.get(language),
+                word_timestamps=True,
+                initial_prompt=vocabulary,
+                condition_on_previous_text=False,
+                fp16=target == "cuda",
+                temperature=0.0,
+            )
         for segment in result.get("segments", []):
             for item in [segment, *segment.get("words", [])]:
                 for key in ("start", "end"):
                     item[key] += start
         results.append(result)
+    if model_cache is not None:
+        model_cache.append(model)
     return {"contexts": results} if contexts else results[0]
 
 
@@ -137,7 +148,7 @@ def _guidance(
     if device() == "cuda" and not prefer_accelerated:
         return _transcribe(vocal, language, prompt)
     try:
-        return _accelerated_guidance(vocal, language, prompt, threads)
+        return _accelerated_guidance(vocal, language, prompt, threads=threads)
     except (FileNotFoundError, OSError, RuntimeError, ValueError):
         return _transcribe(vocal, language, prompt)
 
@@ -223,15 +234,6 @@ def _alignment_evidence(
     scores, frame_seconds = emission(samples)
     alignment_model.cache_clear()
     return scores, frame_seconds, heard
-
-
-def _heard_positions(
-    words: list[str],
-    heard: list[tuple[str, float, float]],
-    whole: Sequence[AlignedWord] | None = None,
-) -> dict[int, float]:
-    """Start second of every lyric word that Whisper heard in the same order as written."""
-    return {index: times[0] for index, times in _heard_timings(words, heard, whole).items()}
 
 
 def _heard_timings(
@@ -477,8 +479,8 @@ def align(
         windows,
         whole,
         _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK),
-        singing_frames(samples, backing, _SAMPLE_RATE, _HOP),
-        lambda contexts: _accelerated_guidance(vocal, language, None, contexts=contexts),
+        activity := singing_frames(samples, backing, _SAMPLE_RATE, _HOP),
+        partial(_accelerated_guidance, vocal, language, None, model_cache=[]),
     )
     heard_timings.update(supported)
     positions = guidance_positions(heard_timings, windows)
@@ -494,5 +496,5 @@ def align(
         recognized=heard,
         onsets=vocal_onsets(samples, _SAMPLE_RATE, _HOP).tolist(),
     )
-    timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing))
+    timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing, activity))
     return alignment_payload(timed, heard_timings)

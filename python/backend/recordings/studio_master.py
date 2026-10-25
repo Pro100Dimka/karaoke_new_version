@@ -244,6 +244,8 @@ class FfmpegStudioMasterRenderer:
             cancel=cancel,
         )
         matches = re.findall(rb"\bI:\s*(-?(?:inf|\d+(?:\.\d+)?))\s+LUFS", result.stderr)
-        if result.exit_code != 0 or not matches or matches[-1] == b"-inf":
+        level = float(matches[-1]) if matches else -math.inf
+        # ebur128 reports its absolute silence gate as -70 LUFS, not always -inf.
+        if result.exit_code != 0 or not math.isfinite(level) or level <= -70:
             raise DependencyError("StudioMasterSilentTrack", "A required mastering stem is silent")
-        return float(matches[-1])
+        return level

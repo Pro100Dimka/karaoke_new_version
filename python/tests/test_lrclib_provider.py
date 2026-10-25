@@ -24,6 +24,32 @@ from tests.fakes import FakeAiProvider, FakeLyricsProvider
 EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 
+@pytest.mark.parametrize(
+    "key, heard, expected, comparisons",
+    [
+        ("aaaa", ["a", "b", "c", "d"], [], 0),
+        ("aabb", ["a", "a", "z", "z"], [], 0),
+        ("", ["", ""], [], 0),
+        ("abcd", ["a", "b", "c", "d"], [(3, 2), (4, 4)], 2),
+    ],
+)
+def test_phrase_matching_skips_impossible_character_scores(
+    monkeypatch, key, heard, expected, comparisons
+):
+    from backend.lyrics import phrases
+
+    original = phrases.SequenceMatcher.get_matching_blocks
+    calls = []
+
+    def compare(matcher):
+        calls.append((matcher.a, matcher.b))
+        return original(matcher)
+
+    monkeypatch.setattr(phrases.SequenceMatcher, "get_matching_blocks", compare)
+    assert phrases._line_matches(key, heard, 0) == expected
+    assert len(calls) == comparisons
+
+
 def test_catalog_version_follows_performed_repeats_instead_of_only_duration() -> None:
     verse = ["Первый куплет звучит здесь", "Второй куплет звучит дальше"]
     chorus = "Этот припев звучит опять"
@@ -62,6 +88,16 @@ def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus
         "\n".join(chorus * 2), " ".join(chorus * 2) + " " + heard_tail, threading.Event()
     )
     assert result.splitlines() == chorus * 2 + ["дозволиш мені"] * 4
+
+
+@pytest.mark.parametrize("heard_tail", ["До свалиш мені", "Дозволиш мені"])
+def test_an_earlier_standalone_prefix_cannot_consume_the_final_sung_replies(heard_tail):
+    from backend.lyrics.phrases import _complete_repeats
+
+    text = "Дозволиш\nЯ знаю натягнуться струни\nЯкщо ти ним бути дозволиш мені"
+    heard = text.replace("\n", " ") + " " + (heard_tail + " ") * 4
+    result = _complete_repeats(text, heard, threading.Event())
+    assert result.splitlines() == text.splitlines() + ["дозволиш мені"] * 4
 
 
 def test_discovery_checks_the_ending_with_its_preceding_phrase_when_whole_song_asr_misses_replies():
@@ -582,7 +618,7 @@ def test_original_mix_recovers_sung_repeats_missed_in_the_vocal_stem(
     assert result.lyrics.splitlines() == [
         line.translate(str.maketrans("", "", ",.!?")) for line in case["expected"]
     ]
-    assert calls == [vocal, original]
+    assert calls == [vocal, original, vocal]
 
 
 def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_chorus():

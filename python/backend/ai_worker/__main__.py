@@ -5,8 +5,6 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from backend.ai_worker.pitch import pitch
-from backend.ai_worker.separation import separate
 from backend.ai_worker.speech import align, prepare_accelerator, transcribe
 from backend.serialization import dumps, loads_list, loads_object
 
@@ -38,6 +36,8 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
     if args.action == "prepare-accelerator":
         return prepare_accelerator()
     if args.action == "separate":
+        from backend.ai_worker.separation import separate
+
         return separate(args.input, args.output)
     if args.action == "transcribe":
         return transcribe(args.input, args.language, start_seconds=args.start_seconds)
@@ -56,6 +56,8 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
             instrumental=args.instrumental,
             recognition=recognition,
         )
+    from backend.ai_worker.pitch import pitch
+
     return pitch(args.input)
 
 

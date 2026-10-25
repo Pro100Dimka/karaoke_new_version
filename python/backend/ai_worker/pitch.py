@@ -39,26 +39,44 @@ def _pitch_points(
     ]
 
 
+def _predict_active(
+    samples: np.ndarray, active: np.ndarray, target: str
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Keep CREPE's batches and decoder context; omit only wholly inaudible batches."""
+    audio = torch.from_numpy(samples)[None]
+    frequency = torch.zeros((1, len(active)))
+    periodicity = torch.zeros_like(frequency)
+    if not active.any():
+        return frequency, periodicity
+    batch = _BATCH[target]
+    # Include the model's 64-ms receptive field and the final confidence smoothing.
+    margin = (_HOP_SAMPLES - 1 + torchcrepe.WINDOW_SIZE // 2) // _HOP_SAMPLES + _SMOOTHING // 2
+    for index, frames in enumerate(
+        torchcrepe.preprocess(audio, _SAMPLE_RATE, _HOP_SAMPLES, batch, target)
+    ):
+        first, last = index * batch, index * batch + len(frames)
+        if not active[max(0, first - margin) : last + margin].any():
+            continue
+        # Retain the full model: tiny can mistake harmonics for notes an octave or two higher.
+        probabilities = torchcrepe.infer(frames, model="full", device=target)
+        predicted, confidence = torchcrepe.postprocess(
+            probabilities.T[None], _FMIN, _FMAX, return_periodicity=True
+        )
+        frequency[:, first:last] = predicted.cpu()
+        periodicity[:, first:last] = confidence.cpu()
+    return frequency, periodicity
+
+
 def pitch(vocal: Path) -> dict[str, list[dict[str, float | bool]]]:
     target = device()
     samples = read_mono(vocal, _SAMPLE_RATE)
-    audio = torch.from_numpy(samples)[None]
-    with torch.autocast("cuda", dtype=torch.float16, enabled=target == "cuda"):
-        frequency, periodicity = torchcrepe.predict(
-            audio,
-            _SAMPLE_RATE,
-            _HOP_SAMPLES,
-            _FMIN,
-            _FMAX,
-            # "tiny" locks onto the 2nd/4th harmonic on sustained notes (one or two octaves too high), which
-            # puts wrong notes on screen; "full" keeps the fundamental and still runs about 2x realtime on CPU.
-            model="full",
-            batch_size=_BATCH[target],
-            device=target,
-            return_periodicity=True,
-        )
-    periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
+    active = audible_frames(samples, _HOP_SAMPLES)
+    with (
+        torch.inference_mode(),
+        torch.autocast("cuda", dtype=torch.float16, enabled=target == "cuda"),
+    ):
+        frequency, periodicity = _predict_active(samples, active, target)
+    if periodicity.shape[-1] > _SMOOTHING // 2:
+        periodicity = torchcrepe.filter.median(periodicity, _SMOOTHING)
     step = _HOP_SAMPLES / _SAMPLE_RATE
-    return {
-        "points": _pitch_points(frequency, periodicity, step, audible_frames(samples, _HOP_SAMPLES))
-    }
+    return {"points": _pitch_points(frequency, periodicity, step, active)}
