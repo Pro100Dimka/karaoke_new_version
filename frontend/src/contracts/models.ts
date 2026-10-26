@@ -148,6 +148,8 @@ export interface RuntimeAudioConfiguration {
   endpointBufferFrames: number;
   /** Known monitoring delay from the audio system; excludes unreported hardware latency. */
   estimatedLatencyMs: number | null;
+  /** Extra USB transport from a supported vendor API; null means unknown, not zero. */
+  usbLatency?: { inputMs: number | null; outputMs: number | null };
   /** The parts of estimatedLatencyMs, each from its own source; null where AudioService gave none. */
   latencyParts?: LatencyParts;
   /** Device timeline observation or fallback model; never a full physical loopback measurement. */

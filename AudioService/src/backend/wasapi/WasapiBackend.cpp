@@ -2,6 +2,7 @@
 #include "backend/wasapi/WasapiBackend.hpp"
 #include "backend/wasapi/WasapiPcm.hpp"
 #include "common/WindowsText.hpp"
+#include "devices/DeviceManager.hpp"
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -81,6 +82,129 @@ bool rawProcessingSupported(IMMDevice* device) {
     PropVariantClear(&value);
     return supported;
 }
+
+// Thesycon's WDM position omits the USB transport reported by its separate control API.
+// Read that API without opening ASIO or changing its buffers. This ABI was verified for 5.13;
+// unknown versions/devices stay unknown instead of inheriting another device's latency.
+class ThesyconUsbLatency {
+    using Status = unsigned int;
+    struct AsioInfo {
+        std::array<unsigned int, 2> rates;
+        std::array<unsigned int, 2> reserved;
+        unsigned int flags, inputLatency, outputLatency, bufferFrames, bufferSizeCount;
+        std::array<unsigned int, 40> bufferSizes;
+    };
+    static_assert(sizeof(AsioInfo) == 196);
+    HMODULE module_{nullptr};
+    Status (__cdecl* enumerate_)(){nullptr};
+    unsigned int (__cdecl* count_)(){nullptr};
+    Status (__cdecl* openDevice_)(unsigned int, unsigned int*){nullptr};
+    Status (__cdecl* closeDevice_)(unsigned int){nullptr};
+    Status (__cdecl* containerId_)(unsigned int, wchar_t*, unsigned int){nullptr};
+    Status (__cdecl* asioRelation_)(unsigned int, unsigned int*){nullptr};
+    Status (__cdecl* asioInfo_)(unsigned int, AsioInfo*){nullptr};
+    GUID container_{};
+    MonotonicTicks lastRead_{0};
+    double milliseconds_{-1.0};
+
+    template <class Function> Function function(const char* name) const noexcept {
+        return reinterpret_cast<Function>(GetProcAddress(module_, name));
+    }
+    bool matches(unsigned int handle) const noexcept {
+        std::array<wchar_t, 64> text{};
+        GUID container{};
+        return containerId_(handle, text.data(), static_cast<unsigned int>(text.size())) == 0 &&
+               text.back() == L'\0' && SUCCEEDED(CLSIDFromString(text.data(), &container)) &&
+               IsEqualGUID(container_, container);
+    }
+
+  public:
+    ~ThesyconUsbLatency() {
+        if (module_) FreeLibrary(module_);
+    }
+    static std::unique_ptr<ThesyconUsbLatency> find(IMMDevice* endpoint) {
+        ComPtr<IPropertyStore> properties;
+        if (!endpoint || FAILED(endpoint->OpenPropertyStore(STGM_READ, &properties))) return {};
+        PROPVARIANT value;
+        PropVariantInit(&value);
+        GUID container{};
+        const auto found = SUCCEEDED(properties->GetValue(PKEY_Device_ContainerId, &value)) &&
+                           value.vt == VT_CLSID && value.puuid != nullptr;
+        if (found) container = *value.puuid;
+        PropVariantClear(&value);
+        if (!found || IsEqualGUID(container, GUID_NULL)) return {};
+
+        DeviceManager devices;
+        for (const auto& device : devices.enumerate()) {
+            if (device.backend != BackendKind::Asio || device.direction != Direction::Output)
+                continue;
+            const auto key = L"CLSID\\" + widen(device.id) + L"\\InprocServer32";
+            std::array<wchar_t, 32768> registered{};
+            DWORD bytes = static_cast<DWORD>(sizeof(registered));
+            if (RegGetValueW(HKEY_CLASSES_ROOT, key.c_str(), nullptr, RRF_RT_REG_SZ, nullptr,
+                             registered.data(), &bytes) != ERROR_SUCCESS) continue;
+            auto path = std::filesystem::path(registered.data());
+            auto filename = path.filename().wstring();
+            constexpr std::wstring_view suffix = L"asio_x64.dll";
+            if (!path.is_absolute() || filename.size() < suffix.size() ||
+                _wcsicmp(filename.c_str() + filename.size() - suffix.size(), suffix.data()) != 0)
+                continue;
+            filename.replace(filename.size() - suffix.size(), suffix.size(), L"api_x64.dll");
+            path.replace_filename(filename);
+            auto reader = std::make_unique<ThesyconUsbLatency>();
+            reader->module_ = LoadLibraryExW(path.c_str(), nullptr,
+                LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+            if (!reader->module_) continue;
+            const auto version = reader->function<unsigned int (__cdecl*)()>("TUSBAUDIO_GetApiVersion");
+            reader->enumerate_ = reader->function<decltype(enumerate_)>("TUSBAUDIO_EnumerateDevices");
+            reader->count_ = reader->function<decltype(count_)>("TUSBAUDIO_GetDeviceCount");
+            reader->openDevice_ = reader->function<decltype(openDevice_)>("TUSBAUDIO_OpenDeviceByIndex");
+            reader->closeDevice_ = reader->function<decltype(closeDevice_)>("TUSBAUDIO_CloseDevice");
+            reader->containerId_ = reader->function<decltype(containerId_)>("TUSBAUDIO_GetDeviceContainerIdString");
+            reader->asioRelation_ = reader->function<decltype(asioRelation_)>("TUSBAUDIO_GetASIORelation");
+            reader->asioInfo_ = reader->function<decltype(asioInfo_)>("TUSBAUDIO_GetASIOInstanceInfo");
+            if (!version || !reader->enumerate_ || !reader->count_ || !reader->openDevice_ || !reader->closeDevice_ ||
+                !reader->containerId_ || !reader->asioRelation_ || !reader->asioInfo_ ||
+                version() != 0x0005000D || reader->enumerate_() != 0 || reader->count_() != 1) continue;
+            reader->container_ = container;
+            unsigned int handle = 0;
+            if (reader->openDevice_(0, &handle) != 0) continue;
+            const auto match = reader->matches(handle);
+            (void)reader->closeDevice_(handle);
+            if (match) return reader;
+        }
+        return {};
+    }
+
+    // Called by control-thread snapshots, never from capture/render. Re-read live settings;
+    // another ASIO application can change the USB buffers while our WDM stream stays open.
+    double read(Direction direction, std::uint32_t rate) noexcept {
+        const auto now = monotonicTicksNow();
+        if (lastRead_ != 0 && now - lastRead_ < 1'000'000'000) return milliseconds_;
+        lastRead_ = now;
+        milliseconds_ = -1.0;
+        // One ASIO instance can aggregate devices. Until that mapping is verified, only use
+        // a single-device API instance, and recheck after hotplug before accepting its latency.
+        if (enumerate_() != 0 || count_() != 1) return milliseconds_;
+        unsigned int handle = 0, relation = 0;
+        if (openDevice_(0, &handle) != 0) return milliseconds_;
+        AsioInfo info{};
+        const auto valid = matches(handle) && asioRelation_(handle, &relation) == 0 &&
+                           asioInfo_(relation, &info) == 0;
+        (void)closeDevice_(handle);
+        if (!valid || rate == 0 || info.rates[0] != rate || info.rates[1] != rate ||
+            info.bufferFrames == 0 || info.inputLatency < info.bufferFrames ||
+            info.outputLatency == 0 || info.bufferSizeCount > info.bufferSizes.size())
+            return milliseconds_;
+        const auto sizes = std::span(info.bufferSizes).first(info.bufferSizeCount);
+        if (std::ranges::find(sizes, info.bufferFrames) == sizes.end()) return milliseconds_;
+        // ASIO input latency includes its application buffer; WDM already accounts for its own.
+        const auto frames = direction == Direction::Input
+                                ? info.inputLatency - info.bufferFrames : info.outputLatency;
+        milliseconds_ = static_cast<double>(frames) * 1000.0 / rate;
+        return milliseconds_;
+    }
+};
 
 // Processing mode affects the periods reported by the engine, so capabilities are queried with
 // the same properties the stream is opened with.
@@ -369,6 +493,7 @@ struct WasapiBackend::Impl {
     IAudioCallback* callback{nullptr};
     GenerationId generation{0};
     RuntimeConfiguration runtime{};
+    std::unique_ptr<ThesyconUsbLatency> inputUsbLatency, outputUsbLatency;
     std::vector<float> captureScratch, renderScratch;
     std::atomic<std::uint32_t> padding{0};
     std::atomic<std::uint64_t> xruns{0}, deadlineMisses{0}, renderClockSkipFrames{0},
@@ -613,6 +738,8 @@ struct WasapiBackend::Impl {
     }
 
     void closeAll() noexcept {
+        inputUsbLatency.reset();
+        outputUsbLatency.reset();
         running.store(false, std::memory_order_release);
         if (stopEvent)
             SetEvent(stopEvent);
@@ -987,6 +1114,16 @@ struct WasapiBackend::Impl {
         runtime.outputReportedLatencyHns = outputLatency;
         runtime.inputReportedLatencyResult = static_cast<std::int32_t>(inputLatencyResult);
         runtime.outputReportedLatencyResult = static_cast<std::int32_t>(outputLatencyResult);
+        try {
+            if (!deviceFactory) {
+                if (inputClient) inputUsbLatency = ThesyconUsbLatency::find(inputDevice.Get());
+                outputUsbLatency = ThesyconUsbLatency::find(outputDevice.Get());
+            }
+        } catch (...) {
+            // Optional vendor metadata must never prevent ordinary Windows audio from opening.
+            inputUsbLatency.reset();
+            outputUsbLatency.reset();
+        }
         captureScratch.assign(static_cast<std::size_t>(MaxBlockFrames) * runtime.inputChannels,
                               0.0F);
         renderScratch.assign(static_cast<std::size_t>(MaxBlockFrames) * runtime.outputChannels,
@@ -1740,6 +1877,12 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
     result.inputSharedMaximumPeriodFrames = inputPeriod.maximum;
     result.inputSharedActualPeriodFrames = inputPeriod.actual;
     result.captureDiscontinuities = impl_->captureDiscontinuities.load(std::memory_order_relaxed);
+    if (impl_->inputUsbLatency)
+        result.inputUsbLatencyMs = impl_->inputUsbLatency->read(Direction::Input,
+                                                               impl_->runtime.inputSampleRateHz);
+    if (impl_->outputUsbLatency)
+        result.outputUsbLatencyMs = impl_->outputUsbLatency->read(Direction::Output,
+                                                                 impl_->runtime.outputSampleRateHz);
     return result;
 }
 #endif

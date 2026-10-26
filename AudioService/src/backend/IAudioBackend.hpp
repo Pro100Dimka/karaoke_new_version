@@ -100,6 +100,9 @@ struct BackendSnapshot {
     // DEVICE_MINIMUM (the driver's smallest period) or DEVICE_DEFAULT (its default) when exclusive.
     std::string_view inputExclusivePeriodChoice{"NONE"};
     std::uint32_t audioThreadId{0}; // correlate the callback thread with an ETW trace
+    // Additional USB transport omitted by WDM timestamps; -1 when the vendor API is unavailable.
+    // Display-only: never applied to audio/room timestamps or acoustic calibration profiles.
+    double inputUsbLatencyMs{-1.0}, outputUsbLatencyMs{-1.0};
 };
 
 class IAudioBackend {

@@ -136,6 +136,10 @@ export const runtimeConfigurationFromDiagnostics = (
     sharedPeriodLocked: values.SharedEnginePeriodicityLocked === "1",
     endpointBufferFrames: diagnosticNumber(values.RuntimeOutputEndpointBufferFrames),
     estimatedLatencyMs: latency,
+    usbLatency: {
+      inputMs: finiteOrNull(values.LocalUsbInputMs),
+      outputMs: finiteOrNull(values.LocalUsbOutputMs),
+    },
     latencyEstimateSource: available && measuring ? "measuring" : latency === null ? "unavailable"
       : observed !== null ? "device-timeline" : "driver-model",
     captureTimestampAdjusted: values.LocalCaptureTimestampAdjusted === "1",

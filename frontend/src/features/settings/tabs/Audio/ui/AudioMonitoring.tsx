@@ -40,7 +40,16 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
     useInputMonitoring(audioAvailable && !props.microphoneIssue);
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const diagnosticsAnchor = useRef<HTMLButtonElement>(null);
-  const latencyMs = audioAvailable ? runtime.estimatedLatencyMs : null;
+  // Acoustic residuals already include USB transport and stay separate from this automatic sum.
+  const usb = audioAvailable ? runtime.usbLatency : undefined;
+  const usbMs =
+    runtime.latencyEstimateSource === "device-timeline"
+      ? (usb?.inputMs ?? 0) + (usb?.outputMs ?? 0)
+      : 0;
+  const latencyMs =
+    audioAvailable && runtime.estimatedLatencyMs !== null
+      ? runtime.estimatedLatencyMs + usbMs
+      : null;
   const parts = audioAvailable ? runtime.latencyParts : undefined;
   const timing = audioAvailable ? runtime.latencyTiming : undefined;
   const notes = [
@@ -67,7 +76,6 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
         ["latencyPartDsp", parts.dspMs?.toFixed(2) ?? null],
       ] as const)
     : [];
-  // The estimate covers only what the audio system reports; the tooltip keeps that caveat at hand.
   const latencyCaveat = (
     <Stack as="span" gap="0.35rem">
       <strong>{t("physicalLatencyUnmeasured")}</strong>
@@ -105,7 +113,7 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
                   size="sm"
                   variant="ghost"
                   icon="info"
-                  label={t("physicalLatencyUnmeasured")}
+                  label={t("latencyTechnicalDetails")}
                   aria-pressed={diagnosticsOpen}
                   onClick={() => setDiagnosticsOpen((open) => !open)}
                 />
@@ -136,8 +144,8 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
                     })}
               </Typography>
               <StatusIndicator
-                status={audioAvailable ? "success" : "error"}
-                label={t(audioAvailable ? "healthy" : "unavailable")}
+                status={audioAvailable ? "warning" : "error"}
+                label={t(audioAvailable ? "latencyIncomplete" : "unavailable")}
               />
             </Stack>
             {props.latencyControls}
@@ -161,6 +169,24 @@ export const AudioMonitoring = (props: AudioMonitoringProps) => {
                   {t(note)}
                 </Typography>
               ))}
+              {audioAvailable && runtime.backend !== "ASIO" && (
+                <Stack gap="0.15rem">
+                  {([
+                    ["latencyUsbInput", usb?.inputMs],
+                    ["latencyUsbOutput", usb?.outputMs],
+                  ] as const).map(([label, milliseconds]) => (
+                    <Typography key={label} variant="caption" tone="muted">
+                      {t(label, {
+                        value: milliseconds == null
+                          ? t("latencyUsbUnknown") : milliseconds.toFixed(2),
+                      })}
+                    </Typography>
+                  ))}
+                  <Typography variant="caption" tone="muted">
+                    {t("latencyUsbHint")}
+                  </Typography>
+                </Stack>
+              )}
               {parts && (
                 <Stack as="ul" gap="0.15rem" className="audioLatencyParts">
                   {partRows.map(([label, value]) =>

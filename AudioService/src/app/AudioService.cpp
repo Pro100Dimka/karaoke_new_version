@@ -803,6 +803,11 @@ std::string AudioService::diagnostics() {
         << "LocalObservedLatencyKind: SIGNAL_AGE_NOT_CPU_TIME\n"
         << "LocalPhysicalLatencyMs: UNKNOWN\n"
         << "LocalDriverTimestampErrorBoundMs: UNKNOWN\n"
+        << "LocalUsbInputMs: " << backend.inputUsbLatencyMs << '\n'
+        << "LocalUsbOutputMs: " << backend.outputUsbLatencyMs << '\n'
+        << "LocalUsbLatencySource: "
+        << (backend.inputUsbLatencyMs >= 0 || backend.outputUsbLatencyMs >= 0
+                ? "THESYCON_API_5_13" : "UNAVAILABLE") << '\n'
         << "LocalCaptureEstimateSource: "
         << (session_.runtime().inputChannels == 0 ? "NO_CAPTURE"
             : session_.runtime().inputLatencyFrames != 0 ? "DRIVER_REPORTED"
