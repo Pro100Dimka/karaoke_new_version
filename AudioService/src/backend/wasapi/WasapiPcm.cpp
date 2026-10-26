@@ -60,7 +60,9 @@ MonotonicTicks justInTimeRenderAt(MonotonicTicks lastRenderEventAt, MonotonicTic
     if (gapNs == 0 || std::llabs(gapNs - periodNs) > periodNs / 4)
         return 0;
     const auto margin =
-        std::min(std::max<MonotonicTicks>(0, renderWorkPeakNs) + SafetyNs, periodNs - MinimumLeadNs);
+        std::max(std::max<MonotonicTicks>(0, renderWorkPeakNs) + SafetyNs, MinimumLeadNs);
+    if (margin >= periodNs)
+        return 0;
     const auto target = lastRenderEventAt + periodNs - margin;
     return target > now ? target : 0;
 }

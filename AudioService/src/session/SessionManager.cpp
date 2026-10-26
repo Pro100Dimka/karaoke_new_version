@@ -52,6 +52,8 @@ SessionManager::chooseSupported(RequestedConfiguration requested,
                 : (capabilities.sampleRatesHz.empty() ? capabilities.defaultSampleRateHz
                                                       : capabilities.sampleRatesHz.front());
     }
+    if (requested.periodFrames == 0)
+        requested.periodFrames = capabilities.automaticPeriodFrames;
     const auto fundamental = std::max(1U, capabilities.fundamentalPeriodFrames);
     const auto periodInRange = requested.periodFrames >= capabilities.minPeriodFrames &&
                                requested.periodFrames <= capabilities.maxPeriodFrames;

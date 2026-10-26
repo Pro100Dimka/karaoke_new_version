@@ -9,7 +9,9 @@
 // physical = renderLead + residual + captureAge, so comparing the four mode combinations shows
 // which side a delay belongs to, independently of whether a driver's timestamps are honest.
 // Build: cl /nologo /std:c++20 /O2 /EHsc wasapi-rtt.cpp ole32.lib avrt.lib
-// Usage: wasapi-rtt <capture s|e> <render s|e> [runs=3] [periodMs=10]
+// Shared defaults: normal capture, RAW render when accepted by Windows.
+// periodMs applies only to Exclusive; Shared always requests the minimum supported period.
+// Usage: wasapi-rtt <capture s|e> <render s|e> [runs=3] [periodMs=10] [raw-input|legacy|comm]
 #define NOMINMAX
 #include <windows.h>
 #include <audioclient.h>
@@ -126,7 +128,7 @@ WAVEFORMATEXTENSIBLE exclusiveCandidate(unsigned channels, unsigned rate, unsign
     return x;
 }
 
-std::string gOptions; // "noraw", "legacy", "comm": capture-only variants for localisation
+std::string gOptions; // "raw-input", "legacy", "comm": capture-only variants for localisation
 
 struct Stream {
     bool exclusive{false};
@@ -155,19 +157,20 @@ struct Stream {
             UINT32 def = 0, fund = 0, mn = 0, mx = 0;
             const bool variant = flow == eCapture;
             const bool legacy = variant && gOptions.find("legacy") != std::string::npos;
-            if (!legacy && SUCCEEDED(client->QueryInterface(IID_PPV_ARGS(&c3))) &&
-                SUCCEEDED(c3->GetSharedModeEnginePeriod(mix, &def, &fund, &mn, &mx))) {
+            if (!legacy && SUCCEEDED(client->QueryInterface(IID_PPV_ARGS(&c3)))) {
                 AudioClientProperties props{sizeof props};
                 props.eCategory = variant && gOptions.find("comm") != std::string::npos
                                       ? AudioCategory_Communications : AudioCategory_Media;
-                props.Options = variant && gOptions.find("noraw") != std::string::npos
+                props.Options = variant && gOptions.find("raw-input") == std::string::npos
                                     ? AUDCLNT_STREAMOPTIONS_NONE : AUDCLNT_STREAMOPTIONS_RAW;
-                if (props.Options && FAILED(c3->SetClientProperties(&props))) {
+                auto propertiesResult = c3->SetClientProperties(&props);
+                if (FAILED(propertiesResult) && props.Options != AUDCLNT_STREAMOPTIONS_NONE) {
                     props.Options = AUDCLNT_STREAMOPTIONS_NONE;
-                    c3->SetClientProperties(&props);
-                } else if (!props.Options) {
-                    c3->SetClientProperties(&props);
+                    propertiesResult = c3->SetClientProperties(&props);
                 }
+                check(propertiesResult, "SetClientProperties");
+                check(c3->GetSharedModeEnginePeriod(mix, &def, &fund, &mn, &mx),
+                      "GetSharedModeEnginePeriod");
                 check(c3->InitializeSharedAudioStream(AUDCLNT_STREAMFLAGS_EVENTCALLBACK, mn, mix,
                                                       nullptr), "InitializeSharedAudioStream");
                 UINT32 actualFormatPeriod = 0;
@@ -458,7 +461,8 @@ int main(int argc, char** argv) {
             return 1;
         }
     if (argc < 3) {
-        std::fprintf(stderr, "usage: wasapi-rtt <capture s|e> <render s|e> [runs] [periodMs]\n");
+        std::fprintf(stderr, "usage: wasapi-rtt <capture s|e> <render s|e> [runs] [periodMs] "
+                             "[raw-input|legacy|comm]\n");
         return 2;
     }
     const bool capExclusive = argv[1][0] == 'e', renExclusive = argv[2][0] == 'e';

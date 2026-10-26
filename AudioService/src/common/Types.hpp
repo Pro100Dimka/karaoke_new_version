@@ -140,6 +140,8 @@ struct AudioDeviceCapabilities {
     std::vector<std::uint32_t> inputPeriodFrames{};
     std::string periodSelectionReason{"UNKNOWN"};
     std::string inputPeriodSelectionReason{"NO_INPUT_ENDPOINT"};
+    // Backend recommendation for Auto; zero retains the existing default selection.
+    std::uint32_t automaticPeriodFrames{0};
 };
 
 struct RequestedConfiguration {

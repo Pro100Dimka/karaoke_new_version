@@ -208,7 +208,7 @@ class ThesyconUsbLatency {
 
 // Processing mode affects the periods reported by the engine, so capabilities are queried with
 // the same properties the stream is opened with.
-// Returns whether the stream bypasses the Windows signal processing (RAW).
+// Returns whether Windows accepted RAW processing; endpoint effects may still apply.
 bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device, Direction direction,
                                 std::string_view* reason = nullptr) {
     ComPtr<IAudioClient2> client2;
@@ -217,7 +217,11 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device, Directi
             *reason = "IAUDIOCLIENT2_UNAVAILABLE";
         return false;
     }
-    const auto raw = direction == Direction::Output && rawProcessingSupported(device);
+    wchar_t diagnosticRawInput[2]{};
+    const auto rawRequested = direction == Direction::Output ||
+        (GetEnvironmentVariableW(L"AD_VOICE_WASAPI_DIAGNOSTIC_RAW_INPUT",
+                                 diagnosticRawInput, 2) == 1 && diagnosticRawInput[0] == L'1');
+    const auto raw = rawRequested && rawProcessingSupported(device);
     AudioClientProperties properties{sizeof(AudioClientProperties), FALSE, AudioCategory_Media,
                                      raw ? AUDCLNT_STREAMOPTIONS_RAW : AUDCLNT_STREAMOPTIONS_NONE};
     if (raw && SUCCEEDED(client2->SetClientProperties(&properties))) {
@@ -227,9 +231,9 @@ bool configureSharedMediaClient(IAudioClient* client, IMMDevice* device, Directi
     }
     if (reason) {
         const std::array reasons{
-            std::pair{direction == Direction::Input, "WINDOWS_PROCESSING"},
             std::pair{raw, "RAW_REQUEST_REJECTED"},
-            std::pair{true, "RAW_PROPERTY_UNAVAILABLE"},
+            std::pair{rawRequested, "RAW_PROPERTY_UNAVAILABLE"},
+            std::pair{true, "WINDOWS_PROCESSING"},
         };
         *reason = std::ranges::find_if(reasons, [](const auto& item) { return item.first; })->second;
     }
@@ -1687,6 +1691,8 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
         }
         caps.periodFrames = WasapiPcm::sharedPeriodChoices(
             caps.minPeriodFrames, caps.maxPeriodFrames, caps.fundamentalPeriodFrames);
+        if (!caps.periodFrames.empty())
+            caps.automaticPeriodFrames = caps.periodFrames.front();
         if (caps.periodSelectionReason == "AVAILABLE" && caps.periodFrames.size() == 1)
             caps.periodSelectionReason = "ONLY_ONE_PERIOD";
         if (inClient) {
@@ -1778,6 +1784,28 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
         impl_->running.store(true, std::memory_order_release);
         impl_->thread = std::thread(&Impl::threadMain, impl_.get());
         check(impl_->outputClient->Start(), "render start failed");
+        if (impl_->mode == WasapiMode::Shared && impl_->inputClient && !impl_->exclusiveCapture &&
+            impl_->runtime.inputPeriodFrames == impl_->runtime.outputPeriodFrames &&
+            impl_->runtime.inputSampleRateHz == impl_->runtime.outputSampleRateHz) {
+            const auto periodHns = framesToHns(impl_->runtime.outputPeriodFrames,
+                                               impl_->runtime.outputSampleRateHz);
+            // Separate equal shared capture/render periods at startup so a fresh microphone
+            // packet can reach the just-in-time render write. Short periods cannot leave the
+            // existing 3 ms render margin plus scheduling headroom. Sleep is too imprecise here.
+            if (periodHns >= 80'000) {
+                const auto timer = CreateWaitableTimerExW(
+                    nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+                if (timer) {
+                    LARGE_INTEGER due{};
+                    due.QuadPart = -periodHns / 2;
+                    if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
+                        HANDLE events[]{impl_->stopEvent, timer};
+                        WaitForMultipleObjects(2, events, FALSE, 100);
+                    }
+                    CloseHandle(timer);
+                }
+            }
+        }
         if (impl_->inputClient)
             check(impl_->inputClient->Start(), "capture start failed");
     } catch (...) {
