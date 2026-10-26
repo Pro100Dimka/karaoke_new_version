@@ -6,8 +6,9 @@ import shlex
 import sys
 import threading
 from collections.abc import Callable, Sequence
+from pathlib import Path
 
-from backend.ai.catalog import CATALOG
+from backend.ai.catalog import ALIGNMENT_MODEL, CATALOG, SPEECH_MODEL
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.ai.ports import AiProvider
 from backend.bootstrap.config import BackendConfig
@@ -104,16 +105,30 @@ def _command_provider(
     config: BackendConfig,
     processes: ProcessRunner,
 ) -> AiProvider:
+    resources: dict[str, int | float | str] = {
+        "cpuThreads": config.resources.cpu_threads,
+        "supportsCuda": provider_id == "local-torch",
+    }
+    if provider_id == "local-torch":
+        crepe = importlib.util.find_spec("torchcrepe")
+        weights = (
+            Path(crepe.origin).parent / "assets" / "full.pth" if crepe and crepe.origin else None
+        )
+        pitch_bytes = weights.stat().st_size if weights and weights.is_file() else 0
+        # Admission floors, not peak predictions: Whisper loads fp16 weights alongside its fp32
+        # model; MMS loads an fp32 state dict alongside its model. Pitch can overlap alignment.
+        # Activations, decoded audio and CUDA workspaces still depend on the input/runtime.
+        resources.update(
+            ramBytes=max(3 * SPEECH_MODEL.size, 2 * ALIGNMENT_MODEL.size) + 2 * pitch_bytes,
+            vramBytes=max(SPEECH_MODEL.size, ALIGNMENT_MODEL.size) + pitch_bytes,
+        )
     descriptor = AiProviderDescriptor(
         provider_id=provider_id,
         version=version,
         capabilities=frozenset(AiCapability),
         supported_languages=frozenset({"Auto", "Ukrainian", "Russian", "English"}),
         required_models=required_models,
-        required_resources={
-            "cpuThreads": config.resources.cpu_threads,
-            "supportsCuda": provider_id == "local-torch",
-        },
+        required_resources=resources,
     )
     return CommandAiProvider(
         descriptor,

@@ -15,6 +15,7 @@ dependencies = [
   "sqlalchemy>=2.0,<3",
   "shazamio==0.8.1",
   "audioop-lts==0.2.2; python_version >= '3.13'",
+  "numpy>=1.26,<3",
   "yt-dlp>=2026.3.17",
   "gradio-client>=1.13,<2",
   "kaggle==2.2.4",

@@ -1,3 +1,6 @@
+import { audioClient } from "../../services/audioClient";
+import { pythonClient } from "../../services/pythonClient";
+import { recordingCoordinator } from "../../services/recordingCoordinator";
 import {
   useCallback,
   useEffect,
@@ -17,11 +20,6 @@ import type {
   SongDto,
 } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import {
-  useKaraokeAudio,
-  useKaraokeBackend,
-  useKaraokeRecording,
-} from "../../app/KaraokeProvider";
 import { KaraokeRecordingCoordinator } from "../../application/karaoke/KaraokeRecordingCoordinator";
 import type { KaraokeNoteScore } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
@@ -58,9 +56,6 @@ export const useKaraokeSession = (
   mode: KaraokeOpenMode,
   startReleased: boolean,
 ) => {
-  const audioClient = useKaraokeAudio();
-  const pythonClient = useKaraokeBackend();
-  const recordingCoordinator = useKaraokeRecording();
   const recordingWorkRef = useRef<KaraokeRecordingCoordinator>(null);
   recordingWorkRef.current ??= new KaraokeRecordingCoordinator(
     pythonClient,
@@ -254,8 +249,10 @@ export const useKaraokeSession = (
   const monitoringWarningShown = useRef(false);
   const onAudioSnapshot = useCallback(
     (snapshot: PlaybackSnapshot) => {
-      setPitchHz(snapshot.pitchHz);
-      setPitchFrames(snapshot.pitchFrames);
+      if (stateRef.current.kind === "playing") {
+        setPitchHz(snapshot.pitchHz);
+        setPitchFrames(snapshot.pitchFrames);
+      }
       setMonitoring(snapshot.monitoring);
       if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
         monitoringWarningShown.current = true;

@@ -9,6 +9,7 @@ namespace {
 using Entry = std::pair<std::string_view, ControlCommand>;
 
 constexpr std::array commands{
+    Entry{"GetPlaybackSnapshot", ControlCommand::GetPlaybackSnapshot},
     Entry{"GetServiceState", ControlCommand::GetServiceState},
     Entry{"GetClock", ControlCommand::GetClock},
     Entry{"GetDevices", ControlCommand::GetDevices},

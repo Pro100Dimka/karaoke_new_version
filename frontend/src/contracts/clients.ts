@@ -181,6 +181,7 @@ export interface PythonClient {
     onProgress?: (progress: StudioMasterProgress) => void,
   ): Promise<RecordingDto>;
   listModels(): Promise<readonly ModelDto[]>;
+  deleteModel(model: ModelDto): Promise<void>;
   getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
   updateAiProcessingSettings(value: {
     processingBackend: "Local" | "Kaggle";
@@ -204,6 +205,7 @@ export interface PythonClient {
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
+  freeStorageBytes(): Promise<number>;
   /** Newest first; `types` limits the page (and its total) to those event kinds. */
   history(limit: number, offset: number, types?: readonly string[]): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
@@ -389,8 +391,6 @@ export interface AudioServiceClient {
   setPitchShift(semitones: number): Promise<void>;
   setDspParameter(name: string, value: number): Promise<void>;
   setDspEnabled(enabled: boolean): Promise<void>;
-  startRecording(): Promise<PlaybackSnapshot>;
-  stopRecording(): Promise<PlaybackSnapshot>;
   playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
   pauseRecordingPreview(owner?: symbol): Promise<void>;
   seekRecordingPreview(positionSeconds: number, owner?: symbol): Promise<void>;

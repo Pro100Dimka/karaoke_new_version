@@ -10,7 +10,7 @@ from tests.conftest import app_client
 from tests.helpers import wait_for_job
 from backend.domain_errors import DomainError
 from backend.infrastructure.http_downloader import HttpDownloader
-from backend.infrastructure.file_hasher import Sha256FileHasher
+from backend.infrastructure.hashing import sha256_file
 import backend.infrastructure.http_downloader as downloader_module
 
 
@@ -252,10 +252,10 @@ def test_cancelled_model_download_does_not_fail_or_publish_uncommitted_weights(
                 return payload[8:]
             return b""
 
-    original_hash = Sha256FileHasher.hash_file
+    original_hash = sha256_file
 
-    def hash_file(self, path):
-        result = original_hash(self, path)
+    def hash_file(path):
+        result = original_hash(path)
         if phase == "verification":
             entered.set()
             assert release.wait(5)
@@ -263,7 +263,7 @@ def test_cancelled_model_download_does_not_fail_or_publish_uncommitted_weights(
 
     with monkeypatch.context() as patch:
         patch.setattr(downloader_module.urllib.request, "urlopen", lambda *a, **k: Response())
-        patch.setattr(Sha256FileHasher, "hash_file", hash_file)
+        patch.setattr(client.app.state.container.models.download, "_hasher", hash_file)
         started = client.post("/models/asr/cancelled/download")
         job_id = started.json()["jobId"]
         try:

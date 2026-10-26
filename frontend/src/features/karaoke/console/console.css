@@ -15,6 +15,29 @@
   pointer-events: none;
 }
 
+.karaokeConsolePanel[data-dock]:not([data-dock="free"]) {
+  position: fixed;
+  z-index: 5;
+  max-block-size: calc(100dvh - var(--title, 40px) - 16px);
+  overflow: auto;
+  touch-action: auto;
+}
+.karaokeConsolePanel:is([data-dock="top"], [data-dock="bottom"]) {
+  inline-size: 90vw;
+  left: 5vw;
+}
+.karaokeConsolePanel[data-dock="top"] { top: calc(var(--title, 40px) + 8px); }
+.karaokeConsolePanel[data-dock="bottom"] { bottom: 8px; }
+.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) {
+  top: calc(var(--title, 40px) + 8px);
+  inline-size: min(360px, 92vw);
+}
+.karaokeConsolePanel[data-dock="left"] { left: 8px; }
+.karaokeConsolePanel[data-dock="right"] { right: 8px; }
+.karaokeConsolePanel[data-dock="top"][data-hidden] { transform: translateY(-110%); }
+.karaokeConsolePanel[data-dock="left"][data-hidden] { transform: translateX(-110%); }
+.karaokeConsolePanel[data-dock="right"][data-hidden] { transform: translateX(110%); }
+
 .karaokeConsoleCard.ad-card {
   display: grid;
   gap: var(--ad-space-2);

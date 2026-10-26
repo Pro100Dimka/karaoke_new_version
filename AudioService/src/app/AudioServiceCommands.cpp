@@ -87,6 +87,8 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
         out << "inputSampleRateHz=" << capabilities->inputSampleRateHz << '\n';
         return ControlResponse{ControlStatus::Ok, out.str()};
     }
+    case ControlCommand::GetPlaybackSnapshot:
+        return ControlResponse{ControlStatus::Ok, diagnostics(true)};
     case ControlCommand::GetDiagnostics:
         return ControlResponse{ControlStatus::Ok, diagnostics()};
     case ControlCommand::PrepareSession: {

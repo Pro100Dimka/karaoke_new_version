@@ -19,7 +19,7 @@ from backend.recordings.register_recording import RegisterRecording, RegisterRec
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.runtime import Clock, IdGenerator
 from backend.settings.domain import ProcessingBackend
-from backend.settings.queries import GetSettings
+from backend.settings.queries import SettingsReader
 
 _KAGGLE_PROVIDER = "kaggle-p100"
 
@@ -31,7 +31,7 @@ class StartStudioMaster:
         jobs: ProcessingJobManager,
         projects: ProjectStorage,
         resolver: ResolveAiProvider,
-        settings: GetSettings,
+        settings: SettingsReader,
         resources: ProcessingResourceScheduler,
         workspaces: LocalWorkStorage,
         renderer: FfmpegStudioMasterRenderer,
@@ -50,7 +50,7 @@ class StartStudioMaster:
     def execute(self, recording_id: str) -> Job:
         recording = self._recording(recording_id)
         self._project_identity(recording)
-        settings = self._settings.execute()
+        settings = self._settings()
         preferred = (
             _KAGGLE_PROVIDER
             if settings.processing_backend is ProcessingBackend.KAGGLE

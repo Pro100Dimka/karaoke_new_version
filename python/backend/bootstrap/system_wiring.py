@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from backend.bootstrap.container import SystemCases
 from backend.bootstrap.lifecycle import BackendLifecycle
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
@@ -11,9 +13,8 @@ from backend.infrastructure.database import Database
 from backend.infrastructure.job_executor import BoundedJobExecutor
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.reconcile_library import ReconcileLibrary
-from backend.settings.queries import GetSettings
+from backend.settings.queries import get_settings, SettingsReader
 from backend.settings.update_settings import UpdateSettings, ValidateSettingsSchema
-from backend.storage.cleanup import ClearProcessingCache, RemoveTemporaryFiles
 
 
 def build_system_cases(
@@ -22,7 +23,7 @@ def build_system_cases(
     processing: ProcessingWiring,
     lifecycle: BackendLifecycle,
     executor: BoundedJobExecutor,
-    settings: GetSettings,
+    settings: SettingsReader,
     reconcile: ReconcileLibrary,
 ) -> SystemCases:
     current = processing.runtime_now or processing.runtime
@@ -48,14 +49,15 @@ def build_system_cases(
         ListHistory(runtime.database),
         processing.jobs,
         StartLibraryReconciliation(processing.jobs, reconcile),
-        ClearProcessingCache(processing.storage),
-        RemoveTemporaryFiles(processing.storage),
+        processing.storage.clear_cache,
+        partial(processing.storage.cleanup_temp, 3600),
+        partial(processing.storage.free_bytes, runtime.config.roots.app),
     )
 
 
-def validated_settings(database: Database) -> GetSettings:
-    settings = GetSettings(database)
-    current = settings.execute()
+def validated_settings(database: Database) -> SettingsReader:
+    settings = partial(get_settings, database)
+    current = settings()
     validated = ValidateSettingsSchema().execute(current)
     if validated != current:
         with database.create() as transaction:

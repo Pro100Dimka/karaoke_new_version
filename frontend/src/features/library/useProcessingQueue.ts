@@ -1,21 +1,17 @@
+import { useApp } from "../../app/AppContext";
 import { useEffect, useState } from "react";
 import type { ProcessingJobDto } from "../../contracts/models";
-import { useLibraryCatalog, useLibraryJobEvents } from "../../app/LibraryProvider";
 import { readJson, storageKey, writeJson } from "../../shared/storage/localStore";
 
-const refreshMilliseconds = 1000;
 type JobState = ProcessingJobDto["state"];
 const hiddenJobsKey = storageKey("processingQueue.hidden");
 
 /**
- * The processing queue while the window is open, re-read when the backend reports a job change; the queued jobs
- * in the order the user arranged them, and cards the user removed from the list kept hidden.
+ * Local ordering and hidden cards over the shared job snapshot. Opening this window does not start
+ * another backend subscription or polling loop.
  */
 export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
-  const catalog = useLibraryCatalog();
-  const events = useLibraryJobEvents();
-  const [jobs, setJobs] = useState<readonly ProcessingJobDto[]>([]);
-  const [failed, setFailed] = useState(false);
+  const { jobs, failed } = useApp("jobs");
   const [queueOrder, setQueueOrder] = useState<readonly string[]>([]);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
     const stored = readJson(hiddenJobsKey);
@@ -25,45 +21,12 @@ export const useProcessingQueue = (open: boolean, focusSongId?: string) => {
 
   useEffect(() => {
     if (!open) return;
-    let active = true;
-    let generation = 0;
-    let timer: number | undefined;
-    const load = async () => {
-      const request = ++generation;
-      const current = () => active && request === generation;
-      try {
-        const items = await catalog.listJobs();
-        if (!current()) return;
-        setJobs(items);
-        setQueueOrder((previous) => {
-          const queued = items
-            .filter((item) => item.state === "queued")
-            .map((item) => item.id);
-          return [
-            ...previous.filter((id) => queued.includes(id)),
-            ...queued.filter((id) => !previous.includes(id)),
-          ];
-        });
-        setFailed(false);
-      } catch {
-        if (current()) setFailed(true);
-      } finally {
-        // Pushed job changes refresh the list; only without them is it polled.
-        if (current() && !events.available())
-          timer = window.setTimeout(() => void load(), refreshMilliseconds);
-      }
-    };
-    void load();
-    const unsubscribe = events.subscribe(
-      () => void load(),
-      refreshMilliseconds,
-    );
-    return () => {
-      active = false;
-      unsubscribe();
-      window.clearTimeout(timer);
-    };
-  }, [open, catalog, events]);
+    const queued = jobs.filter((job) => job.state === "queued").map((job) => job.id);
+    setQueueOrder((previous) => [
+      ...previous.filter((id) => queued.includes(id)),
+      ...queued.filter((id) => !previous.includes(id)),
+    ]);
+  }, [open, jobs]);
 
   const visible = jobs.filter((job) => !hidden.has(job.id));
   // The focused song comes first; queued jobs keep their slots but follow the user's order.

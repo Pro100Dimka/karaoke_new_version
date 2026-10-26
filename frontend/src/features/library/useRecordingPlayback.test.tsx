@@ -1,7 +1,6 @@
 import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useRecordingPlayback } from "./useRecordingPlayback";
-import { LibraryProvider } from "../../app/LibraryProvider";
 import { RecordingPlayer } from "./RecordingPlayer";
 
 const audio = vi.hoisted(() => ({
@@ -35,7 +34,7 @@ describe("recording preview polling", () => {
   afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it("exposes a permanent rotary volume control that changes the actual preview gain", () => {
-    render(<LibraryProvider><RecordingPlayer recording={recording} /></LibraryProvider>);
+    render(<><RecordingPlayer recording={recording} /></>);
     const knob = screen.getByRole("slider", { name: "recordingVolume" });
     expect(knob.closest(".ad-rotary-knob")).not.toBeNull();
     expect(knob).toHaveAttribute("aria-valuenow", "1");
@@ -48,7 +47,7 @@ describe("recording preview polling", () => {
 
   it("keeps one slow status request in flight", async () => {
     audio.recordingPreviewStatus.mockReturnValue(new Promise(() => undefined));
-    const { result } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
+    const { result } = renderHook(() => useRecordingPlayback(recording));
     await act(() => result.current.toggle());
     await act(() => vi.advanceTimersByTimeAsync(1000));
     expect(audio.recordingPreviewStatus).toHaveBeenCalledOnce();
@@ -61,7 +60,7 @@ describe("recording preview polling", () => {
         resolve = value;
       }),
     );
-    const { result } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
+    const { result } = renderHook(() => useRecordingPlayback(recording));
     await act(() => result.current.toggle());
     await act(() => vi.advanceTimersByTimeAsync(100));
     await act(() => result.current.toggle());
@@ -75,7 +74,7 @@ describe("recording preview polling", () => {
   it("releases a preview that is still loading when its player unmounts", async () => {
     let finish!: () => void;
     audio.playRecording.mockReturnValue(new Promise<void>((resolve) => { finish = resolve; }));
-    const { result, unmount } = renderHook(() => useRecordingPlayback(recording), { wrapper: LibraryProvider });
+    const { result, unmount } = renderHook(() => useRecordingPlayback(recording));
     let playing!: Promise<void>;
     act(() => { playing = result.current.toggle(); });
     unmount();

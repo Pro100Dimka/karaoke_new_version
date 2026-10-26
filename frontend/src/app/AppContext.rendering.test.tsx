@@ -11,6 +11,7 @@ vi.mock("../services/pythonClient", () => ({
   pythonClient: { listJobs: jobs.list },
 }));
 vi.mock("../services/backendEvents", () => ({
+  backendEventsAvailable: () => true,
   refreshOnJobChanges: (refresh: () => void) => {
     jobs.refresh = refresh;
     return () => {};

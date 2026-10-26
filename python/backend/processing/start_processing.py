@@ -22,7 +22,7 @@ from backend.processing.preflight import ProcessingPreflight, ProcessingProvider
 from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
-from backend.settings.queries import GetSettings
+from backend.settings.queries import SettingsReader
 from backend.settings.domain import ProcessingBackend
 from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import SongStorage
@@ -60,7 +60,7 @@ class StartProcessing:
         self,
         jobs: ProcessingJobManager,
         pipeline: PipelineOrchestrator,
-        settings: GetSettings,
+        settings: SettingsReader,
         preflight: ProcessingPreflight,
         storage: SongStorage,
         resources: ProcessingResourceScheduler,
@@ -109,7 +109,7 @@ class StartProcessing:
         submitted = False
         try:
             song = self._preparation.execute(song)
-            settings = self._settings.execute()
+            settings = self._settings()
             providers = self._preflight.execute(settings)
             compute_mode = (
                 ComputeMode.CPU
@@ -183,7 +183,7 @@ class StartProcessing:
                     providers,
                     source_bytes,
                     compute_mode,
-                    cpu_threads=self._settings.execute().cpu_threads,
+                    cpu_threads=self._settings().cpu_threads,
                 )
                 return
             except DomainError as exc:

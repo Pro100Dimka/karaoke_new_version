@@ -14,7 +14,7 @@ it("restores the server mix slot after every room voice session recreation", asy
         return {
           status: 0,
           text:
-            request.command === "GetDiagnostics"
+            ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? "SessionState: Running"
               : "Ok",
         };
@@ -66,7 +66,7 @@ it("restores personal participant gain after reconnect without recreating a none
         return {
           status: 0,
           text:
-            request.command === "GetDiagnostics"
+            ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? "SessionState: Running"
               : "Ok",
         };
@@ -100,7 +100,7 @@ it("does not carry a muted personal mix into a newly joined room", async () => {
       audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
         status: 0,
         text:
-          request.command === "GetDiagnostics" ? "SessionState: Running" : "Ok",
+          ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command) ? "SessionState: Running" : "Ok",
       })),
     },
   });
@@ -139,7 +139,7 @@ it("keeps the selected ASIO backend across a temporary WASAPI fallback and resto
         return {
           status: 0,
           text:
-            request.command === "GetDiagnostics"
+            ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
               : request.command === "GetDevices"
                 ? devicesAvailable
@@ -204,7 +204,7 @@ it.each([
         sessionState = "Prepared";
       }
       if (request.command === "StartSession") sessionState = "Running";
-      return { status: 0, text: request.command === "GetDiagnostics"
+      return { status: 0, text: ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
         ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
         : request.command === "GetDevices"
           ? "asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nmic,Microphone Array,1,0,2\nspeaker,Speakers,1,1,2"
@@ -280,7 +280,7 @@ it("keeps the working WASAPI fallback alive when preferred ASIO is still unavail
         return {
           status: 0,
           text:
-            request.command === "GetDiagnostics"
+            ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
               : request.command === "GetDevices"
                 ? "default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2"
@@ -326,7 +326,7 @@ it("does not tear down an active ASIO session when its endpoint disappears befor
         return {
           status: 0,
           text:
-            request.command === "GetDiagnostics"
+            ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? `SessionState: ${sessionState}\nBackend: ASIO\nRuntimeOutputSampleRate: 48000`
               : request.command === "GetDevices"
                 ? "default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2"
@@ -367,7 +367,7 @@ it("accepts an enumerated ASIO driver whose channel count is not probed", async 
           status: 0,
           text: request.command === "GetDevices"
             ? "audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0"
-            : request.command === "GetDiagnostics"
+            : ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
               ? "SessionState: Running\nBackend: ASIO\nRuntimeOutputSampleRate: 48000"
               : "Ok",
         };
@@ -403,7 +403,7 @@ it("keeps output running on Shared when an installed ASIO driver rejects startup
     if (request.command === "StartSession") sessionState = "Running";
     return { status: 0, text: request.command === "GetDevices"
       ? "audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0"
-      : request.command === "GetDiagnostics"
+      : ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
         ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 44100`
         : "Ok" };
   }) } });
@@ -467,7 +467,7 @@ it.each([
           return {
             status: 0,
             text:
-              request.command === "GetDiagnostics"
+              ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
                 ? [
                     "SessionState: Running",
                     `Backend: ${actual}`,
@@ -598,7 +598,7 @@ it("preserves preferred, actual, room and final-PCM invariants through 1000 seed
           return {
             status: 0,
             text:
-              request.command === "GetDiagnostics"
+              ["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command)
                 ? [
                     `SessionState: ${sessionState}`,
                     `Backend: ${actual}`,

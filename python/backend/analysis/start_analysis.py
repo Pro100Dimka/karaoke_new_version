@@ -60,7 +60,7 @@ class StartRecordingAnalysis:
         recording, song_id, revision = self._inputs(recording_id)
         live = live_result(recording)
         result = self._create_result(
-            recording_id, song_id, revision, self._hasher.hash_file(recording.file_path)
+            recording_id, song_id, revision, self._hasher(recording.file_path)
         )
         admission = ExitStack()
         try:

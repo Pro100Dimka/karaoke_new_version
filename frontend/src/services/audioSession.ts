@@ -42,7 +42,6 @@ export const audioState = {
   // The singer's own mute (the room's microphone button); it never changes the microphone's volume.
   microphoneEnabled: true,
   monitoring: false,
-  recording: false,
   durationSeconds: 0,
   sessionId: crypto.randomUUID(),
   reconfiguration: new AudioReconfigurationState(),
@@ -105,9 +104,9 @@ export const refreshClock = async (): Promise<void> => {
   nativeClock = await refreshNativeClock(nativeClock, () => command("GetClock"));
 };
 
-export const diagnostics = async (): Promise<Record<string, string>> => {
+export const diagnostics = async (playbackOnly = false): Promise<Record<string, string>> => {
   const started = performance.now();
-  const values = parseKeyValues(await command("GetDiagnostics"));
+  const values = parseKeyValues(await command(playbackOnly ? "GetPlaybackSnapshot" : "GetDiagnostics"));
   const received = performance.now();
   nativeClock = acceptClockSample(nativeClock, Number(values.MonotonicTicks), started, received);
   return values;
@@ -127,7 +126,7 @@ const playbackStates: Readonly<Partial<Record<number, PlaybackSnapshot["state"]>
 export const snapshot = async (
   forcedState?: PlaybackSnapshot["state"],
 ): Promise<PlaybackSnapshot> => {
-  const values = await diagnostics();
+  const values = await diagnostics(true);
   const sampleRate = sampleRateOf(values);
   const frames = diagnosticNumber(
     values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames,
@@ -140,7 +139,6 @@ export const snapshot = async (
     state: forcedState ?? playbackStates[Number(values.PlaybackState ?? 2)] ?? "ready",
     positionSeconds: sampleRate > 0 ? frames / sampleRate : 0,
     durationSeconds: audioState.durationSeconds,
-    recording: audioState.recording,
     monitoring: audioState.monitoring,
     monitoringSafetyTripped: values.MonitoringSafetyTripped === "1",
     inputLevel: diagnosticNumber(values.InputRMS),

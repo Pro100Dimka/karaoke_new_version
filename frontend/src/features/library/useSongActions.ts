@@ -1,9 +1,9 @@
+import { pythonClient as catalog } from "../../services/pythonClient";
+import { editorApi as repository } from "../editor/editorApi";
 import { useAsk } from "../../app/DialogProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useLibraryCatalog } from "../../app/LibraryProvider";
-import { useEditorRepository } from "../../app/EditorProvider";
 import { useGuardedAction } from "./useGuardedAction";
 
 interface SongOperations {
@@ -21,8 +21,6 @@ export const useSongActions = (
   const notify = useNotify();
   const t = useText();
   const guarded = useGuardedAction();
-  const catalog = useLibraryCatalog();
-  const repository = useEditorRepository();
 
   const startProcessing = (song: SongDto) =>
     guarded(async () => {

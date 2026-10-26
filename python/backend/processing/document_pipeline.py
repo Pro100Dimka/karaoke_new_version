@@ -53,7 +53,7 @@ class BuildProcessingDocument:
         align_execution = replace(execution, cpu_threads=align_threads)
         pitch_execution = replace(execution, cpu_threads=pitch_threads)
         discovery = self._discover(
-            song, prepared, providers, options, context, reports, align_execution
+            song, prepared, providers, options, context, reports, execution
         )
         parallel = not discovery.timing_hints or execution.device is ComputeDevice.CUDA
         if not parallel:

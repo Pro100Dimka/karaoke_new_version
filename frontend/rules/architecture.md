@@ -338,12 +338,17 @@ useEverything
 
 ```text
 theme
-service clients
-small global UI capability
-routing-level dependency
+shared UI state
+routing-level dependency with a replaceable implementation
 ```
 
 ---
+
+Статические клиенты импортируются напрямую из публичных модулей `services`.
+Context нужен для разделяемого состояния или реальной подмены реализации, а не
+для возврата одного неизменного объекта через дополнительные hooks.
+Допустимые публичные модули перечислены в `scripts/check-architecture.mjs`;
+внутреннее состояние транспорта и преобразование протоколов остаются внутри `services`.
 
 # 23. Context не является глобальной БД
 
@@ -723,7 +728,9 @@ status → badge
 
 ---
 
-# 87. @neo-ui-kit/react — основной design system
+# 87. Neo UI kit — основной design system
+
+> **Design system проекта:** `@neo-ui-kit/react`; компоненты и tokens импортируются из пакета, формы используют `useForm`, иконки — `Icon`. Локальный `src/theme/ui`, Formik и `GetForm`/`RenderFormikFields` не являются текущим implementation path. Правила о повторном использовании стандартных контролов, accessibility и typed boundaries сохраняются.
 
 ---
 
@@ -2407,3 +2414,686 @@ LOCKED
 Новые общие правила добавляются только при появлении нового реального класса архитектурной проблемы.
 
 Не расширять архитектуру speculative-ограничениями «на будущее».
+
+---
+
+# Frontend — правила универсальности по железу и устройствам
+
+## 1. Главный принцип
+
+Frontend не должен быть написан под конкретный компьютер, конкретную модель GPU, конкретный монитор, конкретный микрофон или конкретный аудиоинтерфейс.
+
+Он должен работать от:
+
+```text
+capabilities
+runtime configuration
+available devices
+service state
+```
+
+---
+
+## 2. Frontend не определяет hardware capabilities самостоятельно
+
+Источник истины:
+
+```text
+Python Backend
+AudioService
+Electron Main
+```
+
+Frontend только отображает их.
+
+---
+
+## 3. Нельзя писать hardware logic по имени устройства
+
+Запрещено:
+
+```ts
+if (device.name.includes("Realtek")) {
+  ...
+}
+```
+
+---
+
+## 4. Нельзя писать GPU logic по модели
+
+Запрещено:
+
+```ts
+if (gpuName.includes("RTX")) {
+  ...
+}
+```
+
+---
+
+## 5. Использовать capabilities
+
+Например:
+
+```text
+canUseCuda
+supportsAsio
+supportsExclusiveMode
+supportsInputTest
+supportsOutputTest
+```
+
+---
+
+## 6. Capability gating обязателен
+
+Если capability отсутствует:
+
+```text
+feature hidden
+или
+feature disabled
+```
+
+согласно UX policy.
+
+---
+
+## 7. Не показывать недоступную функцию как рабочую
+
+Например ASIO setting не должен выглядеть доступным, если ASIO отсутствует.
+
+---
+
+## 8. Device list всегда runtime
+
+Frontend не содержит заранее список:
+
+```text
+Realtek
+Razer
+Audient
+JBL
+```
+
+---
+
+## 9. Не hardcode input devices
+
+---
+
+## 10. Не hardcode output devices
+
+---
+
+## 11. Display name устройства только для UI
+
+Не использовать display name как внутренний ID.
+
+---
+
+## 12. Использовать stable device identifier
+
+Если его предоставляет AudioService.
+
+---
+
+## 13. Если device identifier нестабилен между reboot
+
+Должна существовать отдельная re-resolution policy.
+
+Frontend не угадывает устройство по имени самостоятельно.
+
+---
+
+## 14. System Default — отдельный выбор
+
+Например:
+
+```text
+System Default Input
+System Default Output
+```
+
+---
+
+## 15. Не превращать default device в конкретный physical device навсегда
+
+---
+
+## 16. Hot-plug обязателен к поддержке
+
+Подключили/отключили устройство:
+
+```text
+device list refresh
+selected state revalidated
+```
+
+---
+
+## 17. Исчезнувшее устройство — нормальный runtime state
+
+Например:
+
+```text
+Selected device unavailable
+```
+
+а не crash.
+
+---
+
+## 18. Не предполагать наличие микрофона
+
+---
+
+## 19. No-mic mode должен быть валиден
+
+Если product flow позволяет Karaoke без записи/live pitch.
+
+---
+
+## 20. Не предполагать наличие отдельного output device
+
+---
+
+## 21. Не предполагать наличие ASIO
+
+---
+
+## 22. Не предполагать наличие WASAPI Exclusive
+
+---
+
+## 23. Не предполагать CUDA
+
+---
+
+## 24. Не предполагать high-end GPU
+
+---
+
+## 25. Не предполагать фиксированный sample rate
+
+Запрещено:
+
+```ts
+const sampleRate = 48000;
+```
+
+как universal truth.
+
+---
+
+## 26. Не предполагать фиксированный buffer size
+
+---
+
+## 27. Requested configuration и Runtime configuration разделяются
+
+Frontend может показывать:
+
+```text
+Requested
+Runtime
+```
+
+---
+
+## 28. Runtime configuration authoritative
+
+Если requested:
+
+```text
+48 kHz
+128 frames
+```
+
+а runtime:
+
+```text
+44.1 kHz
+256 frames
+```
+
+UI показывает фактический runtime.
+
+---
+
+## 29. Frontend не рассчитывает runtime config самостоятельно
+
+---
+
+## 30. Frontend не исправляет device negotiation
+
+Он только отображает результат AudioService.
+
+---
+
+## 31. Backend names не должны быть захардкожены в business logic
+
+Если список backends динамический — брать из capability contract.
+
+---
+
+## 32. Device-specific options показывать только при поддержке
+
+---
+
+## 33. Capability отсутствует — не отправлять бессмысленную команду
+
+---
+
+## 34. Frontend не должен определять CPU count самостоятельно ради processing decisions
+
+---
+
+## 35. Frontend не выбирает CUDA/CPU по имени железа
+
+---
+
+## 36. Frontend отображает доступные compute modes от Python
+
+---
+
+## 37. Не считать, что все ПК одинаково быстрые
+
+---
+
+## 38. Progress приходит от backend
+
+---
+
+## 39. Не использовать fixed processing timeout
+
+Плохо:
+
+```text
+processing > 60 sec
+→ error
+```
+
+---
+
+## 40. Timeout допустим для transport/network dependency
+
+Но не как ограничение длительности нормального AI processing.
+
+---
+
+## 41. ETA показывать только если backend её предоставляет как надежную
+
+---
+
+## 42. Не вычислять ETA по модели GPU на frontend
+
+---
+
+## 43. Low-end hardware должно оставаться usable
+
+---
+
+## 44. Heavy visual effects не должны влиять на correctness
+
+---
+
+## 45. Reduced Motion учитывать
+
+---
+
+## 46. Можно иметь reduced visual workload mode
+
+Если это предусмотрено продуктом.
+
+---
+
+## 47. Visualizer failure не ломает Karaoke
+
+---
+
+## 48. Renderer может деградировать визуально
+
+Core UI — нет.
+
+---
+
+## 49. Minimized/suspended state снижает visual workload
+
+---
+
+## 50. После restore renderer корректно восстанавливается
+
+---
+
+## 51. Frontend не проектируется под один monitor resolution
+
+Запрещено:
+
+```text
+только 1920×1080
+```
+
+---
+
+## 52. Minimum supported window size задаётся отдельно
+
+---
+
+## 53. Windows DPI scaling обязателен
+
+Проверить:
+
+```text
+100%
+125%
+150%
+200%
+```
+
+---
+
+## 54. Не использовать layout, завязанный на физические pixels экрана
+
+---
+
+## 55. Multi-monitor behavior не должен зависеть от React assumptions
+
+---
+
+## 56. Window placement принадлежит Electron Main
+
+---
+
+## 57. Frontend не хранит координаты окна как UI state
+
+---
+
+## 58. Long text должен выдерживать разные display size
+
+---
+
+## 59. Localization expansion учитывать
+
+Русский/украинский/английский имеют разную длину строк.
+
+---
+
+## 60. Не строить layout по фиксированной длине английского текста
+
+---
+
+## 61. Responsive layout должен работать при меньших размерах окна
+
+---
+
+## 62. High DPI assets должны масштабироваться корректно
+
+---
+
+## 63. Предпочитать vector icons/components
+
+---
+
+## 64. Не использовать bitmap icon там, где есть vector equivalent
+
+---
+
+## 65. Touch support не добавлять без product requirement
+
+---
+
+## 66. Mouse/keyboard не должны зависеть от модели устройства
+
+---
+
+## 67. Frontend не делает device workaround в component
+
+Если workaround нужен:
+
+```text
+он должен быть в AudioService/Electron infrastructure
+```
+
+---
+
+## 68. Frontend может отображать device-specific warning
+
+Но не реализовывать driver workaround.
+
+---
+
+## 69. Service reconnect обновляет capabilities
+
+---
+
+## 70. После AudioService restart device list читается заново
+
+---
+
+## 71. Старый device snapshot не считается authoritative после reconnect
+
+---
+
+## 72. Capability snapshot имеет lifecycle
+
+```text
+loading
+ready
+degraded
+failed
+```
+
+---
+
+## 73. UI не показывает старые capabilities как новые после reconnect
+
+---
+
+## 74. Unsupported capability имеет понятный UI state
+
+---
+
+## 75. Не использовать имя устройства для условного JSX
+
+Плохо:
+
+```tsx
+{
+  device.name === "Audient iD4" && <SpecialSettings />;
+}
+```
+
+---
+
+## 76. Использовать capability
+
+```tsx
+{
+  device.capabilities.supportsHardwareMonitoring && <HardwareMonitoring />;
+}
+```
+
+---
+
+## 77. Не использовать модель GPU для показа settings
+
+---
+
+## 78. Использовать backend capabilities
+
+---
+
+## 79. Device list key = stable device ID
+
+Не display name.
+
+---
+
+## 80. Duplicate display names должны корректно отображаться
+
+---
+
+## 81. Frontend должен уметь показать два устройства с одинаковым названием
+
+---
+
+## 82. При необходимости показывать дополнительное disambiguation поле
+
+Например backend/type/channel.
+
+---
+
+## 83. Не угадывать disambiguation самостоятельно
+
+---
+
+## 84. Runtime device capabilities могут измениться
+
+После:
+
+```text
+driver restart
+device reconnect
+backend switch
+```
+
+---
+
+## 85. UI должен обновляться от нового snapshot
+
+---
+
+## 86. Не держать stale supported sample rates
+
+---
+
+## 87. Не держать stale buffer sizes
+
+---
+
+## 88. Не держать stale channel list
+
+---
+
+## 89. Hardware capability errors отделять от generic errors
+
+---
+
+## 90. Например:
+
+```text
+DeviceUnavailable
+BackendUnavailable
+UnsupportedConfiguration
+```
+
+---
+
+## 91. Frontend не должен падать при неизвестной модели устройства
+
+---
+
+## 92. Новое неизвестное устройство должно работать через общий contract
+
+---
+
+## 93. UI не требует whitelist конкретных производителей
+
+---
+
+## 94. Device manufacturer не должен влиять на обычный UI flow
+
+---
+
+## 95. Исключение — только если capability contract реально сообщает vendor-specific feature
+
+---
+
+## 96. Feature support определяется capability, не брендом
+
+---
+
+## 97. Test matrix frontend должна включать fake capabilities
+
+Например:
+
+```text
+no mic
+one mic
+many mics
+no ASIO
+ASIO available
+CUDA unavailable
+low-end
+high-end
+```
+
+---
+
+## 98. Unit/component tests не требуют настоящего железа
+
+---
+
+## 99. Использовать fake capability snapshots
+
+---
+
+## 100. Device hot-plug тестировать через fake events
+
+---
+
+## 101. Не делать frontend tests зависимыми от устройства машины CI
+
+---
+
+## 102. DPI/layout tests выделяются отдельно
+
+---
+
+## 103. Capability-driven UI должен быть deterministic
+
+---
+
+## 104. Unknown capability не должна случайно включать feature
+
+---
+
+## 105. По умолчанию unsupported/unknown → safe state
+
+---
+
+## 106. Но unknown не нужно silently маскировать под known false, если это protocol issue
+
+---
+
+## 107. Protocol mismatch отдельный state
+
+---
+
+## 108. Frontend не должен гадать hardware support
+
+---
+
+## 109. Главный принцип
+
+```text
+FRONTEND
+НЕ ПРИНИМАЕТ РЕШЕНИЯ
+ПО МОДЕЛИ ЖЕЛЕЗА.
+
+FRONTEND
+ОТОБРАЖАЕТ CAPABILITIES,
+ПОЛУЧЕННЫЕ ОТ AUTHORITATIVE SYSTEM.
+```
+
+---
+
+## 110. Обязательное правило
+
+```text
+НЕТ HARDWARE-SPECIFIC UI LOGIC,
+ЕСЛИ ТО ЖЕ РЕШЕНИЕ МОЖНО ВЫРАЗИТЬ
+ЧЕРЕЗ CAPABILITY / RUNTIME STATE.
+```

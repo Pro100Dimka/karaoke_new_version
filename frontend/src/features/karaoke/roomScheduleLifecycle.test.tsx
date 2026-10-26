@@ -10,11 +10,8 @@ const audio = vi.hoisted(() => ({
 }));
 const getAudioSnapshot = vi.hoisted(() => vi.fn());
 vi.mock("../../services/audioClient", () => ({
-  audioClient: audio,
+  audioClient: { ...audio, snapshot: getAudioSnapshot },
   getAudioSnapshot,
-}));
-vi.mock("../../app/KaraokeProvider", () => ({
-  useKaraokeAudio: () => ({ ...audio, snapshot: getAudioSnapshot }),
 }));
 
 const snapshot = (): RoomStateDto => ({

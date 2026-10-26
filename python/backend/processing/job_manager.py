@@ -91,6 +91,13 @@ class ProcessingJobManager:
             raise NotFoundError("JobNotFound", "Background job was not found", jobId=job_id)
         return job
 
+    def run_when_idle(self, action: Callable[[], None]) -> None:
+        """Keep model removal atomic with submission; cancelled workers may still own files."""
+        with self._state_lock:
+            if self._executor.stats().get("activeOrQueued", 0):
+                raise ConflictError("ModelsInUse", "Wait for background jobs to finish before deleting models")
+            action()
+
     def list(self, *, limit: int, offset: int, job_type: JobType | None = None) -> Sequence[Job]:
         with self._uow.create() as transaction:
             return transaction.jobs.list(limit=limit, offset=offset, job_type=job_type)

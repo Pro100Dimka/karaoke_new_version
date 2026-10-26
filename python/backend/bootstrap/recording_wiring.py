@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from backend.analysis.queries import ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
 from backend.ai.provider_resolver import ResolveAiProvider
@@ -10,14 +12,14 @@ from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.infrastructure.wave_pitch import VocalPitchExtractor
 from backend.models.commands import EnsureRequiredModels
 from backend.processing.preflight import ProcessingPreflight
-from backend.recordings.allocate_target import AllocateRecordingTarget
+from backend.recordings.allocate_target import allocate_recording_target
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.start_studio_master import PublishStudioMaster, StartStudioMaster
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recordings.update_recording import UpdateRecordingName
-from backend.settings.queries import GetSettings
+from backend.settings.queries import get_settings
 
 
 def build_recording_cases(
@@ -31,7 +33,7 @@ def build_recording_cases(
         runtime, project, processing, storage, register
     )
     return RecordingCases(
-        AllocateRecordingTarget(storage, runtime.ids),
+        partial(allocate_recording_target, storage, runtime.ids),
         register,
         GetRecording(runtime.database),
         ListRecordings(runtime.database),
@@ -54,7 +56,7 @@ def _analysis_and_mastering(
     publisher = PublishStudioMaster(storage, inspector, register, runtime.clock, runtime.ids)
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
     resources = processing.resources
-    settings = GetSettings(runtime.database)
+    settings = partial(get_settings, runtime.database)
     analysis = StartRecordingAnalysis(
         runtime.database,
         processing.jobs,

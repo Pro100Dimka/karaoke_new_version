@@ -58,7 +58,7 @@ class LibraryArchive:
             checksums = {}
             progress = _progress(context, "Snapshot", 0, 0.15)
             for index, (name, source) in enumerate(files.items()):
-                checksums[name.as_posix()] = self._hasher.hash_file(source)
+                checksums[name.as_posix()] = self._hasher(source)
                 progress((index + 1) / max(1, len(files)))
             manifest = {
                 "version": 1,
@@ -96,7 +96,7 @@ class LibraryArchive:
             self._archive.extract(path, workspace, _progress(context, "Extract", 0, 0.8))
             progress = _progress(context, "Verify", 0.8, 0.15)
             for index, (name, checksum) in enumerate(files.items()):
-                if self._hasher.hash_file(workspace / name) != checksum:
+                if self._hasher(workspace / name) != checksum:
                     raise ValueError("Library file checksum failed")
                 progress((index + 1) / max(1, len(files)))
             context.ensure_not_cancelled()

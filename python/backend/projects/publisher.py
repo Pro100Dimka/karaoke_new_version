@@ -88,7 +88,7 @@ class ProjectPublisher:
         checksums = {item.logical_name: item.checksum for item in previous.artifacts}
         for name in ("lyricsSync", "lyricsBaseline"):
             if name in checksums and not checksums[name]:
-                checksums[name] = self._hasher.hash_file(
+                checksums[name] = self._hasher(
                     self._storage.artifact_path(song_id, expected_revision, name)
                 )
         if "lyricsSync" in checksums and checksums.get("lyricsBaseline") != checksums["lyricsSync"]:
@@ -221,19 +221,19 @@ class ProjectPublisher:
                 "instrumental",
                 Path("audio/instrumental.wav"),
                 ArtifactCategory.PORTABLE,
-                self._hasher.hash_file(instrumental),
+                self._hasher(instrumental),
             ),
             ProjectArtifact(
                 "referenceVocal",
                 Path("audio/reference-vocal.wav"),
                 ArtifactCategory.PORTABLE,
-                self._hasher.hash_file(reference_vocal),
+                self._hasher(reference_vocal),
             ),
             ProjectArtifact(
                 "melody",
                 Path("audio/melody.wav"),
                 ArtifactCategory.PORTABLE,
-                self._hasher.hash_file(melody),
+                self._hasher(melody),
             ),
             ProjectArtifact(
                 "lyricsSync",

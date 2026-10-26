@@ -2,12 +2,11 @@ import { radioStations } from "../../../../../app/radioStations";
 import type { Language, ThemeName } from "../../../../../contracts/models";
 import type { MessageKey } from "../../../../../i18n/messages";
 import type { AppFont } from "../../../../../shared/preferences/appFonts";
+import languages from "../../../../../i18n/languages.json";
 
-export const langs = [
-  { value: "uk", label: "Українська" },
-  { value: "ru", label: "Русский" },
-  { value: "en", label: "English" },
-] as const satisfies readonly { value: Language; label: string }[];
+export const langs = (Object.keys(languages) as Language[]).map((value) => ({
+  value, label: languages[value],
+}));
 
 export const radioStationOptions = radioStations.map(({ id, name }) => ({
   value: id,

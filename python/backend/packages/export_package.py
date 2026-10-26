@@ -86,7 +86,7 @@ class ExportPackage:
         }
         artifacts: list[PackageArtifact] = [
             PackageArtifact(
-                PurePosixPath("manifest.json"), self._hasher.hash_file(snapshot / "manifest.json")
+                PurePosixPath("manifest.json"), self._hasher(snapshot / "manifest.json")
             )
         ]
         for artifact in project.artifacts:
@@ -95,12 +95,12 @@ class ExportPackage:
             relative = PurePosixPath(artifact.relative_path.as_posix())
             source = snapshot / artifact.relative_path
             files[relative] = source
-            artifacts.append(PackageArtifact(relative, self._hasher.hash_file(source)))
+            artifacts.append(PackageArtifact(relative, self._hasher(source)))
         local_clip = clip_path(song) or snapshot / "media" / "clip.mp4"
         if song.video_url == LOCAL_CLIP and local_clip is not None and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
-            artifacts.append(PackageArtifact(relative, self._hasher.hash_file(local_clip)))
+            artifacts.append(PackageArtifact(relative, self._hasher(local_clip)))
         identity = _song_identity(song)
         return (
             PackageManifest(

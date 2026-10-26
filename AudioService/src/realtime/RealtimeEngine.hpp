@@ -12,7 +12,6 @@
 #include "diagnostics/AcousticLatencyMeter.hpp"
 #include "diagnostics/GraphIntrospection.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
-#include "diagnostics/PassiveLatencyEstimator.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 #include "dsp/DspChain.hpp"
 #include "graph/Mixer.hpp"
@@ -181,9 +180,6 @@ class RealtimeEngine final : public IAudioCallback {
         return acousticLatencyNs_.load(std::memory_order_relaxed);
     }
     /** Control thread: the last completed acoustic measurement. */
-    [[nodiscard]] PassiveLatencySnapshot passiveLatency() const noexcept {
-        return passiveLatency_.snapshot();
-    }
     [[nodiscard]] AcousticLatencyMeter::Result lastAcousticLatency() const noexcept {
         return latencyMeter_.lastResult();
     }
@@ -424,7 +420,6 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<std::uint32_t> performanceReaders_{0};
     std::atomic<SessionFrame> performanceFrame_{SessionFrame{0}};
     AcousticLatencyMeter latencyMeter_;
-    PassiveLatencyEstimator passiveLatency_; // dormant; no automatic acoustic experiment
     std::atomic<MonotonicTicks> observedMonitoringLatencyNs_{-1};
     std::atomic<bool> captureTimelineUsable_{false};
     // False until the clock bridge first hands render a full microphone block after prepare(): an

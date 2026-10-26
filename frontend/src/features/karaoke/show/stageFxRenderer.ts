@@ -120,12 +120,19 @@ export class StageFxRenderer {
   }
 
   start(): void {
+    cancelAnimationFrame(this.frame);
+    this.last = 0;
     // The next frame is booked first, so one failed frame can never stop the show.
     const tick = (now: number) => {
       this.frame = requestAnimationFrame(tick);
       this.draw(now);
     };
     this.frame = requestAnimationFrame(tick);
+  }
+
+  setPlaying(playing: boolean): void {
+    if (playing) this.start();
+    else cancelAnimationFrame(this.frame);
   }
 
   stop(): void {

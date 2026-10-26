@@ -123,6 +123,7 @@ export const useShowEngine = ({
     );
     loadedLines.current = lines;
     if (resetPerformance) lastPitch.current = { epoch: -1, sequence: 0 };
+    refreshScore();
   }, [engine, notes, lines, vocalActivity, rhythm]);
   useEffect(() => engine.configure(settings), [engine, settings]);
   useEffect(
@@ -159,8 +160,9 @@ export const useShowEngine = ({
 };
 
 /** The stage effects layer: over the clip, under the melody roll, lyrics and console. */
-export const StageFx = ({ engine }: { engine: ShowEngine }) => {
+export const StageFx = ({ engine, playing = true }: { engine: ShowEngine; playing?: boolean }) => {
   const container = useRef<HTMLDivElement>(null);
+  const activeRenderer = useRef<StageFxRenderer | null>(null);
   useEffect(() => {
     const element = container.current;
     const host = element?.closest<HTMLElement>(".karaokePage");
@@ -169,12 +171,14 @@ export const StageFx = ({ engine }: { engine: ShowEngine }) => {
     const canvas = document.createElement("canvas");
     element.append(canvas);
     const renderer = new StageFxRenderer(canvas, engine, host);
-    renderer.start();
+    activeRenderer.current = renderer;
     return () => {
       renderer.stop();
+      activeRenderer.current = null;
       canvas.remove();
     };
   }, [engine]);
+  useEffect(() => activeRenderer.current?.setPlaying(playing), [engine, playing]);
   return <div ref={container} className="showFx" aria-hidden />;
 };
 
@@ -182,11 +186,14 @@ export const StageFx = ({ engine }: { engine: ShowEngine }) => {
 export const RollFx = ({
   engine,
   view,
+  playing = true,
 }: {
   engine: ShowEngine;
   view: RollView;
+  playing?: boolean;
 }) => {
   const canvas = useRef<HTMLCanvasElement>(null);
+  const activeRenderer = useRef<RollFxRenderer | null>(null);
   const current = useRef<RollView | undefined>(view);
   current.current = view;
   useEffect(() => {
@@ -194,8 +201,12 @@ export const RollFx = ({
     const frame = element?.parentElement;
     if (!element || !frame) return;
     const renderer = new RollFxRenderer(element, engine, frame, current);
-    renderer.start();
-    return () => renderer.stop();
+    activeRenderer.current = renderer;
+    return () => { renderer.stop(); activeRenderer.current = null; };
   }, [engine]);
+  useEffect(() => activeRenderer.current?.setPlaying(playing), [engine, playing]);
+  useEffect(() => {
+    if (!playing) activeRenderer.current?.setPlaying(false);
+  }, [playing, view]);
   return <canvas ref={canvas} className="showRollFx" aria-hidden />;
 };

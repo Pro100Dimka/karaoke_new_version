@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router-dom";
 import { EditorPage } from "../features/editor/EditorPage";
 import { KaraokePage } from "../features/karaoke/KaraokePage";
 import { LibraryPage } from "../features/library/LibraryPage";
+import { HelpPage } from "../features/help/HelpPage";
 import { AppProvider } from "./AppContext";
 import { AppShell } from "./AppShell";
 import { BootstrapGate } from "./BootstrapGate";
@@ -13,15 +14,13 @@ import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { NeoTheme } from "./NeoTheme";
 import { routePatterns, routes } from "../shared/routes";
 import { SocialProvider } from "./SocialProvider";
-import { LibraryProvider } from "./LibraryProvider";
-import { EditorProvider } from "./EditorProvider";
-import { KaraokeProvider } from "./KaraokeProvider";
 
 const RoutedApp = () => (
   <HashRouter>
     <Routes>
       <Route element={<AppShell />}>
         <Route path={routePatterns.library} element={<LibraryPage />} />
+        <Route path={routePatterns.help} element={<HelpPage />} />
         <Route path={routePatterns.karaoke} element={<KaraokePage />} />
         <Route path={routePatterns.editor} element={<EditorPage />} />
         <Route path="*" element={<Navigate to={routes.library} replace />} />
@@ -35,11 +34,11 @@ const ThemedApp = () => (
     <DialogProvider>
       <CloseGuardsProvider>
         <ServicesProvider>
-          <KaraokeProvider><BootstrapGate>
+          <BootstrapGate>
             <SocialProvider>
-              <LibraryProvider><EditorProvider><RoutedApp /></EditorProvider></LibraryProvider>
+              <RoutedApp />
             </SocialProvider>
-          </BootstrapGate></KaraokeProvider>
+          </BootstrapGate>
         </ServicesProvider>
       </CloseGuardsProvider>
     </DialogProvider>

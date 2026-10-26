@@ -1,3 +1,4 @@
+import { desktopClient as files } from "../../services/desktopClient";
 import {
   useEffect,
   useId,
@@ -15,9 +16,8 @@ import { useServices } from "../../app/ServicesContext";
 import type { SongPatch } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useLibraryFiles } from "../../app/LibraryProvider";
 import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
-import { Button, Card, EmptyState, Shimmer } from "@neo-ui-kit/react";
+import { Button, Card, EmptyState, Shimmer, Stack, tr } from "@neo-ui-kit/react";
 import { mergeRoomLibrary } from "../../application/room/roomLibrary";
 import { RoomModal } from "../room/RoomModal";
 import { roomSongPlayIntent } from "../room/roomSongIntent";
@@ -164,7 +164,6 @@ const useStableCardHandlers = (
 };
 
 export const LibraryPage = () => {
-  const files = useLibraryFiles();
   const navigate = useNavigate();
   const entrance = useLocation().state as {
     performanceReturn?: boolean;
@@ -194,6 +193,9 @@ export const LibraryPage = () => {
   const [focusSongId, setFocusSongId] = useState<string | undefined>();
   const [settingsSong, setSettingsSong] = useState<SongDto | null>(null);
   const [launching, setLaunching] = useState(false);
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const debouncedQuery = useDebouncedValue(query, searchDebounceMilliseconds);
   const roomLibrary = useRoomLibrary({ setQuery, setViewFilters });
   const { room } = roomLibrary;
@@ -287,6 +289,28 @@ export const LibraryPage = () => {
 
   const tv = useKaraokeTv();
   const ask = useAsk();
+  const deleteSelected = async () => {
+    const targets = localSongs.filter((song) => selected.has(song.id) && !activeJobStatuses.has(song.status));
+    if (!targets.length || deleting) return;
+    const choice = await ask({
+      title: tr("Удалить выбранные песни ({count})?", { count: targets.length }),
+      body: tr("Будут удалены выбранные песни, их обработки и записи. Это действие нельзя отменить."),
+      tone: "warning",
+      actions: [{ id: "cancel", label: t("cancel") }, { id: "delete", label: tr("Удалить"), appearance: "primary" }],
+    });
+    if (choice !== "delete") return;
+    setDeleting(true);
+    try {
+      for (const song of targets) {
+        try {
+          await library.deleteSong(song);
+          setSelected((current) => { const next = new Set(current); next.delete(song.id); return next; });
+        } catch (error) {
+          notify(`${song.title}: ${error instanceof Error ? error.message : String(error)}`, "error");
+        }
+      }
+    } finally { setDeleting(false); }
+  };
   // While someone sings on the TV a chosen song waits its turn there, or replaces the current one.
   const playOnTv = async (song: SongDto, rehearsal = false) => {
     if (!tv) return;
@@ -430,6 +454,21 @@ export const LibraryPage = () => {
           onAddSong={addSong}
         />
         {visibleSongs.length > 0 ? (
+          <>
+          <Stack direction="row" gap={2} wrap>
+            <Button icon="check" disabled={deleting} onClick={() => { setSelecting(!selecting); setSelected(new Set()); }}>
+              {selecting ? t("cancel") : tr("Выбрать несколько")}
+            </Button>
+            {selecting && <>
+              <Button disabled={deleting} onClick={() => setSelected(new Set(visibleSongs
+                .filter((song) => !song.roomOwnerId && !activeJobStatuses.has(song.status)).map((song) => song.id)))}>
+                {tr("Выбрать все показанные")}
+              </Button>
+              <Button icon="trash" disabled={deleting || !selected.size} onClick={() => void deleteSelected()}>
+                {tr("Удалить выбранные ({count})", { count: selected.size })}
+              </Button>
+            </>}
+          </Stack>
           <VirtualGrid
             items={visibleSongs}
             itemKey={(song) => song.id}
@@ -443,11 +482,20 @@ export const LibraryPage = () => {
               <SongCard
                 song={song}
                 handlers={cardHandlers}
-                playbackDisabled={localProcessing}
+                playbackDisabled={localProcessing || selecting}
+                selection={selecting && !song.roomOwnerId ? {
+                  checked: selected.has(song.id), disabled: deleting || activeJobStatuses.has(song.status),
+                  toggle: () => setSelected((current) => {
+                    const next = new Set(current);
+                    if (next.has(song.id)) next.delete(song.id); else next.add(song.id);
+                    return next;
+                  }),
+                } : undefined}
                 roomSelection={roomLibrary.songSelection(song)}
               />
             )}
           />
+          </>
         ) : (
           <LibraryEmptyState
             kind={songs.length === 0 ? "firstRun" : "noResults"}

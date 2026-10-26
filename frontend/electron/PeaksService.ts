@@ -42,6 +42,10 @@ export const workerPeaks = (
   };
   return (filePath, bins) =>
     new Promise((resolve, reject) => {
+      if (pending.size >= cachedFiles) {
+        reject(new Error("Waveform queue is full"));
+        return;
+      }
       worker ??= start();
       const id = ++nextId;
       pending.set(id, { resolve, reject });

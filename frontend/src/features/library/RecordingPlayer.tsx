@@ -1,8 +1,8 @@
+import { audioClient as preview } from "../../services/audioClient";
 import { useState } from "react";
 import { IconButton, RotaryKnob, Typography, Waveform } from "@neo-ui-kit/react";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useRecordingPreview } from "../../app/LibraryProvider";
 import { formatTime } from "../../shared/utils/format";
 import { useRecordingPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { useRecordingPlayback } from "./useRecordingPlayback";
@@ -11,7 +11,6 @@ import "./recording-player.css";
 
 /** Player of one take: play/pause, seekable waveform, time and a persistent volume knob. */
 export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
-  const preview = useRecordingPreview();
   const t = useText();
   const peaks = useRecordingPeaks(recording.id);
   const { playing, position, toggle, seek } = useRecordingPlayback(recording);

@@ -21,8 +21,8 @@ const ports = vi.hoisted(() => ({
   ask: vi.fn(),
   locationState: null as Record<string, unknown> | null,
 }));
-vi.mock("../../app/LibraryProvider", () => ({
-  useLibraryCatalog: () => ports,
+vi.mock("../../services/pythonClient", () => ({
+  pythonClient: ports,
 }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => ports.notify,

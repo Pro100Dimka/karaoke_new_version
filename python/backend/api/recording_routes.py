@@ -80,7 +80,7 @@ class AnalysisDto(ApiModel):
 
 @router.post("/target", response_model=RecordingTargetDto)
 def allocate_target(app: ContainerDep) -> RecordingTargetDto:
-    target = app.recordings.allocate.execute()
+    target = app.recordings.allocate()
     return RecordingTargetDto(recording_id=target.recording_id, file_path=str(target.file_path))
 
 

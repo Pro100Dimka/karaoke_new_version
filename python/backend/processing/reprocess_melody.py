@@ -16,7 +16,7 @@ from backend.processing.preflight import ProcessingPreflight, provider_backend
 from backend.processing.reporting import report_payload
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.projects.operations import SongOperation, SongOperationRegistry
-from backend.settings.queries import GetSettings
+from backend.settings.queries import SettingsReader
 from backend.settings.domain import ProcessingBackend
 from backend.songs.domain import SongStatus
 
@@ -25,7 +25,7 @@ class ReprocessMelody:
     def __init__(
         self,
         jobs: ProcessingJobManager,
-        settings: GetSettings,
+        settings: SettingsReader,
         resolver: ResolveAiProvider,
         resources: ProcessingResourceScheduler,
         pipeline: MelodyPipeline,
@@ -60,7 +60,7 @@ class ReprocessMelody:
                 "Melody reprocess requires a Ready project",
             )
         inputs = self._pipeline.load_inputs(song)
-        settings = self._settings.execute()
+        settings = self._settings()
         provider = self._preflight.resolve(settings, AiCapability.PITCH)
         alignment = (
             self._preflight.resolve(settings, AiCapability.ALIGNMENT) if realign_lyrics else None

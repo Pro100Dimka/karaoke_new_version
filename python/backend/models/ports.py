@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -29,4 +30,5 @@ class Downloader(Protocol):
         timeout_seconds: float,
         max_bytes: int,
         cancel: threading.Event,
+        progress: Callable[[int], None] | None = None,
     ) -> int: ...

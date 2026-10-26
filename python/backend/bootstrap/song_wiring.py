@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import partial
+
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.bootstrap.container import SongCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
@@ -31,7 +33,7 @@ from backend.processing.stage_runner import StageRunner
 from backend.processing.start_processing import StartProcessing
 from backend.projects.migration import GetProjectCompatibility, MigrateProject
 from backend.projects.publisher import ProjectPublisher
-from backend.settings.queries import GetSettings
+from backend.settings.queries import get_settings
 from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
@@ -138,7 +140,7 @@ def _build_processing(
     start = StartProcessing(
         processing.jobs,
         pipeline,
-        GetSettings(runtime.database),
+        partial(get_settings, runtime.database),
         ProcessingPreflight(resolver),
         project.songs,
         resources,
@@ -173,7 +175,7 @@ def _reprocess_melody(
     )
     return ReprocessMelody(
         processing.jobs,
-        GetSettings(runtime.database),
+        partial(get_settings, runtime.database),
         resolver,
         resources,
         pipeline,

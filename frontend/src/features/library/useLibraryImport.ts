@@ -1,9 +1,9 @@
+import { desktopClient as libraryFiles } from "../../services/desktopClient";
 import { useState, type DragEvent } from "react";
 import { useNotify } from "../../app/NotificationsProvider";
 import type { ImportMetadata, ImportOptions } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useLibraryFiles } from "../../app/LibraryProvider";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { importOneByOne } from "./batchImport";
 import { dragLeavesBoundary } from "./fileDrag";
@@ -24,7 +24,6 @@ export const useLibraryImport = ({
   backendReady,
 }: LibraryImportOptions) => {
   const t = useText();
-  const libraryFiles = useLibraryFiles();
   const notify = useNotify();
   const [addOpen, setAddOpen] = useState(false);
   const [droppedPath, setDroppedPath] = useState("");

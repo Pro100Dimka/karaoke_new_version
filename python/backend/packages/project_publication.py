@@ -133,7 +133,7 @@ class PackageProjectPublication:
             target = workspace.joinpath(*artifact.path.parts)
             if not target.is_file():
                 self._checksum_error(artifact.path.as_posix())
-            if self._hasher.hash_file(target) != artifact.checksum:
+            if self._hasher(target) != artifact.checksum:
                 self._checksum_error(artifact.path.as_posix())
 
     @staticmethod

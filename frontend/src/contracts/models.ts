@@ -212,7 +212,6 @@ export interface PlaybackSnapshot {
   state: "ready" | "playing" | "paused" | "recovering" | "finished";
   positionSeconds: number;
   durationSeconds: number;
-  recording: boolean;
   monitoring: boolean;
   monitoringSafetyTripped?: boolean;
   inputLevel: number;

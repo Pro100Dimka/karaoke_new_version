@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { clearStorage } from "../../shared/storage/localStore";
-import { EditorProvider } from "../../app/EditorProvider";
 import { useEditorSession } from "./useEditorSession";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { loadDraft } from "./editorDraft";
@@ -28,11 +27,12 @@ vi.mock("../../services/audioClient", () => ({
     play: vi.fn(),
     pause: vi.fn(),
     seek: vi.fn(),
+    snapshot: vi.fn(),
   },
   getAudioSnapshot: vi.fn(),
 }));
 const editorApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
-vi.mock("./editorApi", () => ({ createEditorApi: () => editorApi }));
+vi.mock("./editorApi", () => ({ editorApi }));
 
 const document: EditorDocument = {
   revision: 1,
@@ -68,7 +68,7 @@ describe("editor session", () => {
 
     const { result, rerender } = renderHook(
       ({ songId }) => useEditorSession(songId),
-      { initialProps: { songId: "first" }, wrapper: EditorProvider },
+      { initialProps: { songId: "first" } },
     );
     await waitFor(() => expect(result.current.audioReady).toBe(true));
 
@@ -87,7 +87,7 @@ describe("editor session", () => {
     editorApi.save.mockImplementationOnce(() => new Promise<number>((resolve) => {
       finishSave = resolve;
     })).mockResolvedValueOnce(3);
-    const { result } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
     let saving!: Promise<boolean>;
@@ -117,7 +117,7 @@ describe("editor session", () => {
     editorApi.save.mockImplementation(() => new Promise<number>((resolve) => {
       finishSave = resolve;
     }));
-    const { result } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
     let saving!: Promise<boolean>;
@@ -136,7 +136,7 @@ describe("editor session", () => {
     }));
     const { result, rerender } = renderHook(
       ({ songId }) => useEditorSession(songId),
-      { initialProps: { songId: "first" }, wrapper: EditorProvider },
+      { initialProps: { songId: "first" } },
     );
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
@@ -155,7 +155,7 @@ describe("editor session", () => {
   });
 
   it("removes a recovery draft after undo returns to the saved document", async () => {
-    const { result } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     vi.useFakeTimers();
     act(() => result.current.move(new Set(["note"]), 1, 0));
@@ -171,7 +171,7 @@ describe("editor session", () => {
     editorApi.save.mockRejectedValueOnce({ code: "RevisionConflict", message: "Changed externally" })
       .mockResolvedValueOnce(11);
     dialogs.ask.mockResolvedValueOnce(choice);
-    const { result } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
     editorApi.load.mockResolvedValueOnce({ ...document, revision: 10 });
@@ -187,7 +187,7 @@ describe("editor session", () => {
 
   it("keeps edits after a failed save and allows retry", async () => {
     editorApi.save.mockRejectedValueOnce(new Error("Disk full")).mockResolvedValueOnce(2);
-    const { result } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
     await act(async () => { expect(await result.current.save()).toBe(false); });
@@ -199,7 +199,7 @@ describe("editor session", () => {
   });
 
   it("keeps unsaved edits when the application language changes", async () => {
-    const { result, rerender } = renderHook(() => useEditorSession("song"), { wrapper: EditorProvider });
+    const { result, rerender } = renderHook(() => useEditorSession("song"));
     await waitFor(() => expect(result.current.audioReady).toBe(true));
     act(() => result.current.move(new Set(["note"]), 1, 0));
 

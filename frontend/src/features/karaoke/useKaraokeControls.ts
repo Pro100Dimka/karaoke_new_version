@@ -1,3 +1,5 @@
+import { audioClient } from "../../services/audioClient";
+import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { canControlRoom } from "../../application/room/roomModel";
 import {
   useCallback,
@@ -8,7 +10,6 @@ import {
 } from "react";
 import { useApp, useRoomPlayback } from "../../app/AppContext";
 import type { MixerChannelGains } from "../../contracts/models";
-import { useKaraokeAudio, useKaraokeRecording } from "../../app/KaraokeProvider";
 import { useNotify } from "../../app/NotificationsProvider";
 import { monitoringErrorText, useText } from "../../i18n/useText";
 import { sharedStateOf } from "../../application/room/roomModel";
@@ -50,8 +51,6 @@ export const useKaraokeControls = ({
   setGains,
   setMonitoring,
 }: KaraokeControlsOptions) => {
-  const audioClient = useKaraokeAudio();
-  const recordingCoordinator = useKaraokeRecording();
   const notify = useNotify();
   const t = useText();
   const { preferences, updatePreferences, room } = useApp();

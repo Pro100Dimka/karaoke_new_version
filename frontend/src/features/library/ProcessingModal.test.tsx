@@ -1,3 +1,4 @@
+import { AppProvider } from "../../app/AppContext";
 import {
   act,
   cleanup,
@@ -9,7 +10,6 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
-import { LibraryProvider } from "../../app/LibraryProvider";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { desktopClient } from "../../services/desktopClient";
 import { useProcessingQueue } from "./useProcessingQueue";
@@ -40,7 +40,7 @@ it("shows free disk space and application size without inventing disk capacity",
     },
   } as Awaited<ReturnType<typeof pythonClient.diagnostics>>);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[]}
@@ -49,7 +49,7 @@ it("shows free disk space and application size without inventing disk capacity",
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   await waitFor(() =>
     expect(screen.getByText(/processingDiskUsage/)).toBeInTheDocument(),
@@ -106,7 +106,7 @@ it("keeps cleared jobs hidden after reopening and fresh backend results, while s
   }));
   const list = vi.spyOn(pythonClient, "listJobs").mockResolvedValue(jobs);
   const first = renderHook(() => useProcessingQueue(true), {
-    wrapper: LibraryProvider,
+    wrapper: AppProvider,
   });
   await waitFor(() => expect(first.result.current.visible).toHaveLength(4));
   act(() => first.result.current.hide(jobs.map((job) => job.id)));
@@ -123,7 +123,7 @@ it("keeps cleared jobs hidden after reopening and fresh backend results, while s
     fresh,
   ]);
   const reopened = renderHook(() => useProcessingQueue(true), {
-    wrapper: LibraryProvider,
+    wrapper: AppProvider,
   });
   await waitFor(() => expect(reopened.result.current.ordered).toEqual([fresh]));
 });
@@ -153,7 +153,7 @@ it("loads the song waveform for processing instead of drawing the progress compo
 });
 
 it.each(["reply", "failure"])(
-  "keeps a pushed completed job when the older request finishes with %s",
+  "coalesces pushed job changes after a slow request finishes with %s",
   async (outcome) => {
     vi.useFakeTimers();
     let pushed: (event: unknown) => void = () => undefined;
@@ -175,7 +175,7 @@ it.each(["reply", "failure"])(
     };
     let finish!: (value: ProcessingJobDto[]) => void;
     let fail!: (error: Error) => void;
-    vi.spyOn(pythonClient, "listJobs")
+    const load = vi.spyOn(pythonClient, "listJobs")
       .mockImplementationOnce(
         () =>
           new Promise((resolve, reject) => {
@@ -185,13 +185,16 @@ it.each(["reply", "failure"])(
       )
       .mockResolvedValue([completed]);
     const { result } = renderHook(() => useProcessingQueue(true), {
-      wrapper: LibraryProvider,
+      wrapper: AppProvider,
     });
     await act(async () => {
-      pushed({ type: "job.changed", data: { jobId: completed.id } });
-      await vi.advanceTimersByTimeAsync(0);
+      for (let index = 0; index < 3; index++) {
+        pushed({ type: "job.changed", data: { jobId: completed.id } });
+        await vi.advanceTimersByTimeAsync(250);
+      }
     });
-    expect(result.current.ordered).toEqual([completed]);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(result.current.ordered).toEqual([]);
     await act(async () => {
       if (outcome === "reply")
         finish([{ ...completed, state: "processing", progress: 25 }]);
@@ -199,10 +202,11 @@ it.each(["reply", "failure"])(
     });
     expect(result.current.ordered).toEqual([completed]);
     expect(result.current.failed).toBe(false);
+    expect(load).toHaveBeenCalledTimes(2);
   },
 );
 
-it("keeps only one queue request in flight and stops polling when closed", async () => {
+it("shares one sequential poll across queue opening and closing, and stops on provider unmount", async () => {
   vi.useFakeTimers();
   let finish: (() => void) | undefined;
   const pending = new Promise<[]>((resolve) => {
@@ -220,9 +224,9 @@ it("keeps only one queue request in flight and stops polling when closed", async
     onPlay: vi.fn(),
   };
   const view = render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal {...props} open />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(5000);
@@ -232,17 +236,29 @@ it("keeps only one queue request in flight and stops polling when closed", async
     finish?.();
     await pending;
   });
+  expect(load).toHaveBeenCalledTimes(2);
+  view.rerender(
+    <AppProvider>
+      <ProcessingModal {...props} open={false} />
+    </AppProvider>,
+  );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1000);
   });
-  expect(load).toHaveBeenCalledTimes(2);
+  expect(load).toHaveBeenCalledTimes(3);
   view.rerender(
-    <LibraryProvider>
-      <ProcessingModal {...props} open={false} />
-    </LibraryProvider>,
+    <AppProvider>
+      <ProcessingModal {...props} open />
+    </AppProvider>,
   );
+  expect(load).toHaveBeenCalledTimes(3);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1000);
+  });
+  expect(load).toHaveBeenCalledTimes(4);
+  view.unmount();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(5000);
   });
-  expect(load).toHaveBeenCalledTimes(2);
+  expect(load).toHaveBeenCalledTimes(4);
 });

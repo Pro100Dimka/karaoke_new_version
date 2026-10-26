@@ -40,7 +40,8 @@ class ModelDto(ApiModel):
 
 @router.get("", response_model=list[ModelDto])
 def list_models(app: ContainerDep, purpose: AiCapability | None = None) -> list[ModelDto]:
-    return [_model(item) for item in app.models.list.execute(purpose)]
+    with app.database.create() as transaction:
+        return [_model(item) for item in transaction.models.list(purpose)]
 
 
 @router.put("/{model_id}/{version}", response_model=ModelDto)
@@ -71,6 +72,11 @@ def select_model(model_id: str, version: str, app: ContainerDep) -> ModelDto:
 def download_model(model_id: str, version: str, app: ContainerDep) -> JobRefDto:
     job = app.models.download.execute(model_id, version)
     return JobRefDto(job_id=job.job_id, state=job.state.value)
+
+
+@router.delete("/{model_id}/{version}", status_code=204)
+def delete_model(model_id: str, version: str, app: ContainerDep) -> None:
+    app.models.delete.execute(model_id, version)
 
 
 def _model(model: AiModel) -> ModelDto:

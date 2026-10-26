@@ -23,7 +23,7 @@ from backend.models.domain import ComputeMode
 from backend.processing.preflight import ProcessingPreflight, provider_backend
 from backend.processing.resource_scheduler import ProcessingResourceScheduler, ResourceLease
 from backend.settings.domain import ProcessingBackend
-from backend.settings.queries import GetSettings
+from backend.settings.queries import SettingsReader
 
 # Windows read per block: memory stays bounded by this many windows of audio whatever the length
 # of the take (a whole take used to be unpacked into Python integers and ran out of memory).
@@ -42,7 +42,7 @@ class VocalPitchExtractor:
     def __init__(
         self,
         preflight: ProcessingPreflight,
-        settings: GetSettings,
+        settings: SettingsReader,
         resources: ProcessingResourceScheduler,
         workspaces: LocalWorkStorage,
     ) -> None:
@@ -115,7 +115,7 @@ class VocalPitchExtractor:
                 self._workspaces.cleanup(workspace)
 
     def _claim(self, recording: Path) -> tuple[AiProvider, AiProvider, ResourceLease]:
-        settings = self._settings.execute()
+        settings = self._settings()
         separation = self._preflight.resolve(settings, AiCapability.SEPARATION)
         pitch = self._preflight.resolve(settings, AiCapability.PITCH)
         mode = (

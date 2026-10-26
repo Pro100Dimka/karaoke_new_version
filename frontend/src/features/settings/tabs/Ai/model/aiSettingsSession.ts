@@ -14,10 +14,11 @@ type Resource = "models" | "free" | "backend" | "dataRoot";
 type Backend = Pick<
   SettingsBackendPort,
   | "listModels"
-  | "diagnostics"
+  | "freeStorageBytes"
   | "getAiProcessingSettings"
   | "updateAiProcessingSettings"
   | "downloadModel"
+  | "deleteModel"
   | "getJob"
   | "cancelJob"
 >;
@@ -126,7 +127,7 @@ export const createAiSettingsSession = (
   const refreshModels = () =>
     Promise.all([
       readModels(),
-      read("free", async () => (await backend.diagnostics()).storage.free),
+      read("free", () => backend.freeStorageBytes()),
     ]);
   const readBackend = () =>
     snapshot.savingBackend
@@ -215,6 +216,20 @@ export const createAiSettingsSession = (
       };
     },
     refresh,
+    remove: async (model: ModelDto) => {
+      if (running.has(model.id) || snapshot.pendingDownloads.has(model.id)) return;
+      publish({ pendingDownloads: new Set(snapshot.pendingDownloads).add(model.id) });
+      try {
+        await backend.deleteModel(model);
+        const { [model.id]: _removed, ...jobs } = snapshot.jobs;
+        publish({ jobs });
+        await refreshModels();
+      } finally {
+        const pendingDownloads = new Set(snapshot.pendingDownloads);
+        pendingDownloads.delete(model.id);
+        publish({ pendingDownloads });
+      }
+    },
     start: (model: ModelDto) =>
       run(model.id, () => {
         const job = snapshot.jobs[model.id];

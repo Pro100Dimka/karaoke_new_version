@@ -83,7 +83,7 @@ class ImportSong:
         if repeated:
             _checkpoint(progress, ensure_not_cancelled, "Completed", 1.0)
             return repeated
-        identity = self._hasher.hash_file(source)
+        identity = self._hasher(source)
         _checkpoint(progress, ensure_not_cancelled, "Hashing", 0.2)
         self._ensure_not_duplicate(identity)
         embedded = self._media.inspect(source)

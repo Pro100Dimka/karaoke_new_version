@@ -164,12 +164,12 @@ html[data-tv-screen] body {
 .karaokePage > .pianoRoll {
   position: fixed;
   z-index: 0;
-  top: 14%;
-  left: 50%;
-  width: min(57.5rem, 80vw);
-  height: clamp(8rem, 22vh, 14rem);
+  top: var(--title, 40px);
+  left: 0;
+  width: 100vw;
+  height: 33.333vh;
   border-radius: var(--ad-radius-lg, 1rem);
-  transform: translateX(-50%);
+  transform: none;
   cursor: grab;
   touch-action: none;
 }

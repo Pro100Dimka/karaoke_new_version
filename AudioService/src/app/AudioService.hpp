@@ -7,7 +7,6 @@
 #include "diagnostics/FailureSnapshot.hpp"
 #include "diagnostics/GraphIntrospection.hpp"
 #include "diagnostics/LatencyRegistry.hpp"
-#include "diagnostics/SongCalibrationPolicy.hpp"
 #include "diagnostics/TraceBuffer.hpp"
 #include "ipc/ControlProtocol.hpp"
 #include "media/MediaController.hpp"
@@ -26,6 +25,7 @@
 #include <string>
 
 enum class ServiceState { Starting, Running, Stopping, Stopped, Failed, Count };
+enum class CalibrationOrigin { None, Profile, TestSignal, Song };
 
 class AudioService {
   public:
@@ -35,7 +35,7 @@ class AudioService {
     [[nodiscard]] bool shutdownRequested() const noexcept {
         return shutdownRequested_.load(std::memory_order_acquire);
     }
-    [[nodiscard]] std::string diagnostics();
+    [[nodiscard]] std::string diagnostics(bool playbackOnly = false);
     /** Song frame the room hears at `at` (what every participant's timer shows). */
     [[nodiscard]] std::uint64_t roomPlaybackFrame(MonotonicTicks at) const noexcept;
     [[nodiscard]] ControlResponse handle(const ControlRequest& request);

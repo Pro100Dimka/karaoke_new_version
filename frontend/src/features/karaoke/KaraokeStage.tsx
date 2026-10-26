@@ -61,6 +61,7 @@ const PianoRoll = ({
   show,
   hidden,
   opacity,
+  playing,
 }: {
   document: EditorDocument;
   position: number;
@@ -73,6 +74,7 @@ const PianoRoll = ({
   show: ShowEngine;
   hidden: boolean;
   opacity: number;
+  playing: boolean;
 }) => {
   const t = useText();
   const [span, setSpan] = useState(windowSeconds);
@@ -154,6 +156,7 @@ const PianoRoll = ({
           hitIds={hitNoteIds}
         />
         <RollFx
+          playing={playing}
           engine={show}
           view={{
             notes: inLine,
@@ -295,9 +298,10 @@ export const KaraokeStage = ({
     playing,
     settings: showSettings,
   });
+  const noteScore = show.noteScore;
   useEffect(() => {
-    onNoteScoreChange?.(show.noteScore);
-  }, [show, pitchFrames, position, onNoteScoreChange]);
+    onNoteScoreChange?.(noteScore);
+  }, [noteScore, onNoteScoreChange]);
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that
@@ -320,6 +324,7 @@ export const KaraokeStage = ({
           of .stage's own stacking context could never do regardless of its own z-index. */}
       {showPiano && (
         <PianoRoll
+          playing={playing}
           document={document}
           position={position}
           vocalRange={vocalRange}
@@ -334,7 +339,7 @@ export const KaraokeStage = ({
         />
       )}
       {/* After the roll: stage light passes in front of its glass (softened over it) but stays under the lyrics and console. */}
-      <StageFx engine={show} />
+      <StageFx engine={show} playing={playing} />
       <section className="stage" aria-label={songTitle}>
         {showLyrics && (
           <Lyrics

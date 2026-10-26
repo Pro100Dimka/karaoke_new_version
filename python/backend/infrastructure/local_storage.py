@@ -28,6 +28,7 @@ class LocalStorageSystem:
                 raise DependencyError(
                     "StorageUnavailable", "Storage root is not writable", path=str(path)
                 ) from exc
+        (self._roots.app / ".ad-voice-data").write_text("ADVoice.App", encoding="utf-8")
 
     def free_bytes(self, path: Path) -> int:
         existing = path

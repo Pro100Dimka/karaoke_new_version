@@ -98,6 +98,23 @@
   display: flex;
   gap: var(--ad-space-3);
 }
+
+.helpPage { height: 100%; overflow: auto; padding: 24px; }
+.helpHeader { display: flex; align-items: center; gap: 24px; margin-bottom: 24px; }
+.helpHeader h1 { margin: 0; }
+.helpLayout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; max-width: 1280px; margin: auto; }
+.helpNavigation { display: flex; flex-direction: column; gap: 8px; align-self: start; position: sticky; top: 0; }
+.helpNavigation button { justify-content: flex-start; text-align: start; }
+.helpArticle p { line-height: 1.7; white-space: pre-line; }
+.helpArticle figure { margin: 24px 0; }
+.helpArticle img { width: 100%; border-radius: 12px; }
+.helpArticle figcaption { margin-top: 8px; color: var(--ad-text-muted); font-size: 0.85rem; }
+@media (max-width: 720px) {
+  .helpPage { padding: 12px; }
+  .helpLayout { grid-template-columns: 1fr; }
+  .helpNavigation { position: static; flex-direction: row; overflow: auto; }
+  .helpNavigation button { flex-shrink: 0; }
+}
 /* What the radio plays, above its volume: title, then artist. */
 .radioTrack {
   display: grid;

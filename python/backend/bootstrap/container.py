@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from backend.analysis.queries import ListRecordingAnalyses
@@ -17,8 +18,7 @@ from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.instance_lock import BackendInstanceLock
 from backend.infrastructure.job_executor import BoundedJobExecutor
-from backend.models.commands import DeclareModel, DownloadModel, SelectModel
-from backend.models.queries import ListModels
+from backend.models.commands import DeclareModel, DeleteModel, DownloadModel, SelectModel
 from backend.packages.background import StartPackageExport, StartPackageImport
 from backend.packages.inspect_package import InspectPackage
 from backend.packages.library_archive import LibraryArchive
@@ -27,7 +27,7 @@ from backend.processing.job_manager import ProcessingJobManager
 from backend.processing.reprocess_melody import ReprocessMelody
 from backend.processing.start_processing import StartProcessing
 from backend.projects.migration import GetProjectCompatibility, MigrateProject
-from backend.recordings.allocate_target import AllocateRecordingTarget
+from backend.recordings.allocate_target import RecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
@@ -35,14 +35,13 @@ from backend.recordings.update_recording import UpdateRecordingName
 from backend.recordings.start_studio_master import StartStudioMaster
 from backend.recovery.background import StartLibraryReconciliation
 from backend.recovery.startup_recovery import RecoverySummary
-from backend.settings.queries import GetSettings
+from backend.settings.queries import SettingsReader
 from backend.settings.update_settings import UpdateSettings
 from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, GetSongWaveform, ListSongs
 from backend.songs.update_song import UpdateSong
-from backend.storage.cleanup import ClearProcessingCache, RemoveTemporaryFiles
 from backend.storage.domain import StorageRoots
 
 
@@ -75,7 +74,7 @@ class PackageCases:
 
 @dataclass(frozen=True, slots=True)
 class RecordingCases:
-    allocate: AllocateRecordingTarget
+    allocate: Callable[[], RecordingTarget]
     register: RegisterRecording
     get: GetRecording
     list: ListRecordings
@@ -90,21 +89,22 @@ class RecordingCases:
 class ModelCases:
     declare: DeclareModel
     select: SelectModel
-    list: ListModels
     download: DownloadModel
+    delete: DeleteModel
 
 
 @dataclass(frozen=True, slots=True)
 class SystemCases:
     capabilities: GetCapabilities
     diagnostics: GetDiagnostics
-    settings: GetSettings
+    settings: SettingsReader
     update_settings: UpdateSettings
     history: ListHistory
     jobs: ProcessingJobManager
     reconcile: StartLibraryReconciliation
-    clear_cache: ClearProcessingCache
-    remove_temp: RemoveTemporaryFiles
+    clear_cache: Callable[[], int]
+    remove_temp: Callable[[], int]
+    free_storage_bytes: Callable[[], int]
 
 
 @dataclass(slots=True)

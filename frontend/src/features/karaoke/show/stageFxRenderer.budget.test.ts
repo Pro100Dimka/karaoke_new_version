@@ -1,16 +1,13 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { StageFxRenderer } from "./stageFxRenderer";
 import { ShowEngine } from "./showEngine";
-import { LightRenderer } from "./gl/lightRenderer";
 import { CanvasLightRenderer } from "./gl/canvasLightRenderer";
 import type { FxCommand } from "./visualDirector";
 
-vi.mock("./gl/lightRenderer", () => ({ LightRenderer: { create: vi.fn(() => undefined) } }));
 vi.mock("./gl/canvasLightRenderer", () => ({ CanvasLightRenderer: { create: vi.fn(() => undefined) } }));
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.mocked(LightRenderer.create).mockClear();
   vi.mocked(CanvasLightRenderer.create).mockClear();
 });
 
@@ -107,7 +104,7 @@ it("initializes stage light away from the main thread when OffscreenCanvas is av
 
   const renderer = new StageFxRenderer(canvas, engine, document.body);
 
-  expect(LightRenderer.create).not.toHaveBeenCalled();
+  expect(CanvasLightRenderer.create).not.toHaveBeenCalled();
   expect(postMessage).toHaveBeenCalledWith({ type: "init", canvas: offscreen }, [offscreen]);
   renderer.stop();
   expect(terminate).toHaveBeenCalledOnce();
@@ -116,7 +113,7 @@ it("initializes stage light away from the main thread when OffscreenCanvas is av
 it("does not require WebGL for the stage when workers are unavailable", () => {
   const engine = { onCommand: () => () => undefined } as unknown as ShowEngine;
   const renderer = new StageFxRenderer(document.createElement("canvas"), engine, document.body);
-  expect(LightRenderer.create).not.toHaveBeenCalled();
+  expect(CanvasLightRenderer.create).toHaveBeenCalledOnce();
   renderer.stop();
 });
 

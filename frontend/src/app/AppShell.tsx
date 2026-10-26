@@ -6,7 +6,6 @@ import { TvRemote } from "../features/karaoke/tv/TvRemote";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
 import SettingsModal from "../features/settings";
-// import SettingsModal from "../features/settingsNEW";
 import { desktopClient } from "../services/desktopClient";
 import { routes } from "../shared/routes";
 import "./app.css";

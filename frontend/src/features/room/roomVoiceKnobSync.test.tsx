@@ -51,9 +51,6 @@ vi.mock("../../services/audioClient", () => ({
     })),
   },
 }));
-vi.mock("../../app/KaraokeProvider", () => ({
-  useKaraokeAudio: () => audioClient,
-}));
 
 const room = {
   code: "ROOM42",

@@ -1,4 +1,6 @@
 import { useState, useSyncExternalStore } from "react";
+import { tr } from "@neo-ui-kit/react";
+import { useAsk } from "../../../../../app/DialogProvider";
 import { useNotify } from "../../../../../app/NotificationsProvider";
 import type {
   ModelDto,
@@ -27,6 +29,7 @@ export const useAiSettings = () => {
   const desktop = useSettingsDesktop();
   const events = useSettingsJobEvents();
   const notify = useNotify();
+  const ask = useAsk();
   const t = useText();
   const session = aiSettingsSessionFor(backend, desktop, events);
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
@@ -71,6 +74,18 @@ export const useAiSettings = () => {
       : null,
     loadingModels: state.models === null && !("models" in state.errors),
     refresh: session.refresh,
+    remove: async (model: ModelDto) => {
+      const choice = await ask({
+        title: tr("Удалить модель"),
+        body: tr("Удалить {name}? Песни и записи сохранятся. Модель можно будет скачать снова.", { name: model.id }),
+        tone: "warning",
+        actions: [
+          { id: "cancel", label: t("cancel") },
+          { id: "delete", label: tr("Удалить модель"), appearance: "primary" },
+        ],
+      });
+      if (choice === "delete") await session.remove(model).catch(reportError);
+    },
     download: async (model: ModelDto) => {
       try {
         if ((await session.start(model)).state === "completed")

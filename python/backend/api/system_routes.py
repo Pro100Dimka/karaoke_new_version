@@ -23,6 +23,11 @@ router = APIRouter()
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
 
 
+@router.get("/storage/free")
+def free_storage_bytes(app: ContainerDep) -> int:
+    return app.system.free_storage_bytes()
+
+
 class HealthDto(ApiModel):
     ok: bool
     state: str
@@ -151,12 +156,12 @@ class CleanupDto(ApiModel):
 
 @router.post("/storage/cache/clear", response_model=CleanupDto)
 def clear_cache(app: ContainerDep) -> CleanupDto:
-    return CleanupDto(removed=app.system.clear_cache.execute().removed)
+    return CleanupDto(removed=app.system.clear_cache())
 
 
 @router.post("/storage/temp/clear", response_model=CleanupDto)
 def clear_temp(app: ContainerDep) -> CleanupDto:
-    return CleanupDto(removed=app.system.remove_temp.execute().removed)
+    return CleanupDto(removed=app.system.remove_temp())
 
 
 @router.post("/recovery/reconcile", response_model=JobDto, status_code=202)

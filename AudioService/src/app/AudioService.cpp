@@ -418,17 +418,10 @@ std::uint64_t AudioService::roomPlaybackFrame(MonotonicTicks at) const noexcept 
                      std::llround(aheadTicks * framesPerTick * static_cast<double>(music.rate)));
 }
 
-std::string AudioService::diagnostics() {
+std::string AudioService::diagnostics(bool playbackOnly) {
     latency_.set(LatencyRegistry::Stage::MediaPitch, 0, media_.processingLatencyFrames(), 0);
-    const auto rt = realtime_.snapshot();
-    const auto micGap = realtime_.micGapTimeline();
-    const auto backend = session_.backendSnapshot();
-    const auto graph = graphInfo_.snapshot();
     const auto analysis = analysis_.snapshot();
     const auto music = media_.snapshot(MediaSlot::Music);
-    const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
-    const auto net = network_.diagnostics();
-    const auto fullTrace = network_.diagnosticPacketTrace().status();
     const auto sig = signal_.snapshot();
     const auto observedAt = monotonicTicksNow();
     const auto presentationPosition = roomPlaybackFrame(observedAt);
@@ -444,6 +437,27 @@ std::string AudioService::diagnostics() {
                         << ',' << (point.audioActive ? 1 : 0) << ',' << point.confidence;
         }
     }
+    std::ostringstream out;
+    out << "MonotonicTicks: " << observedAt << '\n'
+        << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
+        << "RequestedSampleRate: " << session_.requested().sampleRateHz << '\n'
+        << "MonitoringEnabled: " << realtime_.monitoring() << '\n'
+        << "MonitoringSafetyTripped: " << realtime_.monitoringSafetyTripped() << '\n'
+        << "PlaybackState: " << playbackStateText(music.state) << '\n'
+        << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
+        << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
+        << "InputRMS: " << sig.rms << '\n'
+        << "InputPitchHz: " << analysis.pitchHz << '\n'
+        << "InputPitchEpoch: " << pitchEpoch_ << '\n'
+        << "InputPitchHistory: " << pitchFrames.str() << '\n';
+    if (playbackOnly) return out.str();
+    const auto rt = realtime_.snapshot();
+    const auto micGap = realtime_.micGapTimeline();
+    const auto backend = session_.backendSnapshot();
+    const auto graph = graphInfo_.snapshot();
+    const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
+    const auto net = network_.diagnostics();
+    const auto fullTrace = network_.diagnosticPacketTrace().status();
     const auto stageFrames = [this](LatencyRegistry::Stage id) {
         const auto stage = latency_.get(id);
         return static_cast<std::uint64_t>(stage.algorithmicFrames) + stage.currentFillFrames;
@@ -547,9 +561,7 @@ std::string AudioService::diagnostics() {
     const auto cause = std::ranges::find_if(causeCases, [](const auto& item) {
         return item.first;
     });
-    std::ostringstream out;
-    out << "MonotonicTicks: " << observedAt << '\n'
-        << realtime_.diagnosticRoomInputReport()
+    out << realtime_.diagnosticRoomInputReport()
         << "ServiceState: " << serviceStateName(state_) << '\n'
         << "ServiceInstanceId: " << instanceId_ << '\n'
         << "SessionState: " << sessionStateName(session_.state()) << '\n'
@@ -563,7 +575,6 @@ std::string AudioService::diagnostics() {
         << (session_.requested().outputDeviceId.empty() ? "system-default"
                                                         : session_.requested().outputDeviceId)
         << '\n'
-        << "RequestedSampleRate: " << session_.requested().sampleRateHz << '\n'
         << "SelectedSampleRate: " << session_.selected().sampleRateHz << '\n'
         << "SelectedPeriodFrames: " << session_.selected().periodFrames << '\n'
         << "RequestedPeriodFrames: " << session_.requested().periodFrames << '\n'
@@ -578,7 +589,6 @@ std::string AudioService::diagnostics() {
         << "PeriodMismatchReason: " << mismatchName << '\n'
         << "InputPeriodMismatchReason: " << inputMismatchName << '\n'
         << "RuntimeInputSampleRate: " << session_.runtime().inputSampleRateHz << '\n'
-        << "RuntimeOutputSampleRate: " << session_.runtime().outputSampleRateHz << '\n'
         << "RuntimeInputPeriodFrames: " << session_.runtime().inputPeriodFrames << '\n'
         << "RuntimeOutputPeriodFrames: " << session_.runtime().outputPeriodFrames << '\n'
         << "RuntimeInputEndpointBufferFrames: " << session_.runtime().inputEndpointBufferFrames
@@ -694,8 +704,6 @@ std::string AudioService::diagnostics() {
         << "MicMonitoringAgeP99Us: " << rt.micMonitoringAgeP99Us << '\n'
         << "MicMonitoringAgeMinUs: " << rt.micMonitoringAgeMinUs << '\n'
         << "MicMonitoringAgeMaxUs: " << rt.micMonitoringAgeMaxUs << '\n'
-        << "MonitoringEnabled: " << realtime_.monitoring() << '\n'
-        << "MonitoringSafetyTripped: " << realtime_.monitoringSafetyTripped() << '\n'
         << "MonitoringSafetyTripFrame: " << realtime_.monitoringSafetyTripFrame() << '\n'
         << "MonitoringSafetyInputPeak: " << realtime_.monitoringSafetyInputPeak() << '\n'
         << "StaleCallbacks: " << rt.staleCallbacks << '\n'
@@ -732,9 +740,6 @@ std::string AudioService::diagnostics() {
         << "PresentationJumpMaxNs: " << rt.presentationJumpMaxNs << '\n'
         << "XRuns: " << backend.xruns << '\n'
         << "DeadlineMisses: " << backend.deadlineMisses << '\n'
-        << "PlaybackState: " << playbackStateText(music.state) << '\n'
-        << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
-        << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
         << "RoomClockObservationFrames: " << network_.roomTimelineFrame(observedAt, 0) << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "MusicUnderruns: " << music.underruns << '\n'
@@ -744,10 +749,6 @@ std::string AudioService::diagnostics() {
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'
         << "InputPeak: " << sig.peak << '\n'
-        << "InputRMS: " << sig.rms << '\n'
-        << "InputPitchHz: " << analysis.pitchHz << '\n'
-        << "InputPitchEpoch: " << pitchEpoch_ << '\n'
-        << "InputPitchHistory: " << pitchFrames.str() << '\n'
         << "InputClipping: " << sig.clipping << '\n'
         << "NetworkSendQueueFill: " << net.sendQueueFillFrames << '\n'
         << "NetworkReceiveQueueFill: " << net.receiveQueueFillFrames << '\n'
@@ -788,9 +789,7 @@ std::string AudioService::diagnostics() {
         << "AcousticLastMeasuredUs: " << realtime_.lastAcousticLatency().hiddenLatencyNs / 1'000
         << '\n'
         << "AcousticLastConfidence: " << realtime_.lastAcousticLatency().confidence << '\n'
-        << "AcousticPassiveUs: " << realtime_.passiveLatency().hiddenLatencyNs / 1'000 << '\n'
-        << "AcousticPassiveAccepted: " << realtime_.passiveLatency().accepted << '\n'
-        << "AcousticPassiveAttempts: " << realtime_.passiveLatency().attempts << '\n'
+        << "AcousticPassiveUs: 0\nAcousticPassiveAccepted: 0\nAcousticPassiveAttempts: 0\n"
         << "CaptureAgeUs: " << realtime_.captureAgeNs() / 1'000 << '\n'
         << "LOCAL LATENCY BUDGET\n"
         << "LocalObservedMonitoringMs: " << observedLatencyMs << '\n'

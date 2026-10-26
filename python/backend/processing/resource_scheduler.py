@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from backend.ai.domain import AiProviderDescriptor
@@ -117,14 +117,21 @@ class ProcessingResourceScheduler:
         usable_vram = _usable_vram(
             runtime.free_vram_bytes, runtime.vram_bytes, self._budget.max_vram_fraction
         )
-        execution = select_execution_context(
-            compute_mode,
-            _compute_requirements(descriptors, request.vram_bytes),
-            ComputeAvailability(runtime.cuda_available, usable_vram),
-            request.cpu_threads,
-        )
         with self._lock:
-            self._validate(request, runtime.available_ram_bytes, usable_vram, execution)
+            execution = select_execution_context(
+                compute_mode,
+                _compute_requirements(descriptors, request.vram_bytes),
+                ComputeAvailability(
+                    runtime.cuda_available,
+                    max(0, usable_vram - self._reserved_vram) if usable_vram is not None else None,
+                ),
+                request.cpu_threads,
+            )
+            if execution.device is ComputeDevice.CPU:
+                request = replace(request, vram_bytes=0)
+            self._validate(
+                request, runtime.available_ram_bytes, runtime.total_ram_bytes, usable_vram, execution
+            )
             self._reserved_cpu += request.cpu_threads
             self._reserved_ram += request.ram_bytes
             self._reserved_vram += request.vram_bytes
@@ -155,9 +162,14 @@ class ProcessingResourceScheduler:
         self,
         request: ResourceRequest,
         available_ram: int | None,
+        total_ram: int | None,
         usable_vram: int | None,
         execution: ExecutionContext,
     ) -> None:
+        if total_ram is not None and request.ram_bytes + self._budget.min_free_ram_bytes > total_ram:
+            raise DependencyError(
+                "InsufficientRam", "The selected AI models need more RAM than this computer has"
+            )
         if self._reserved_cpu + request.cpu_threads > self._budget.cpu_threads:
             raise DependencyError(
                 "ResourceBudgetExceeded", "CPU processing budget is currently exhausted"
@@ -180,7 +192,9 @@ def _compute_requirements(
     descriptors: tuple[AiProviderDescriptor, ...], vram_bytes: int
 ) -> ComputeRequirements:
     return ComputeRequirements(
-        requires_cuda=vram_bytes > 0,
+        requires_cuda=any(
+            item.required_resources.get("requiresCuda") is True for item in descriptors
+        ),
         supports_cuda=any(
             item.required_resources.get("supportsCuda") is True for item in descriptors
         ),

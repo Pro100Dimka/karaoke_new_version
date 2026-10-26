@@ -1,6 +1,5 @@
-import type { AudioServiceClient, DesktopClient, PythonClient } from "../../contracts/clients";
-import type { KaraokeNoteScore, PlaybackSnapshot, SongDto, ThemeName } from "../../contracts/models";
-import type { KeyboardLightingPreferences } from "../../shared/preferences/preferences";
+import type { AudioServiceClient, PythonClient } from "../../contracts/clients";
+import type { KaraokeNoteScore, PlaybackSnapshot, SongDto } from "../../contracts/models";
 
 export type KaraokeAudioPort = Pick<AudioServiceClient,
   "capabilities" | "prepareSong" | "setPlaybackRate" | "setPitchShift" |
@@ -36,11 +35,4 @@ export interface PlaybackAdjustment {
 export interface RecordingStatus {
   recording: boolean;
   recordingId?: string;
-}
-
-export type KaraokeScenePort = Pick<DesktopClient, "sceneVideoUrl">;
-
-export interface KaraokeLightingPort {
-  apply(preferences: KeyboardLightingPreferences, theme: ThemeName,
-    positionSeconds?: number): Promise<void>;
 }

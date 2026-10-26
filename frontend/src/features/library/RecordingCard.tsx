@@ -1,3 +1,4 @@
+import { desktopClient as files } from "../../services/desktopClient";
 import { useRef, useState } from "react";
 import { Card, IconButton, MessageBar, ProgressBar, SegmentedControl, SplitButton, TextField, Typography } from "@neo-ui-kit/react";
 import type { RecordingAnalysisProgress } from "../../contracts/clients";
@@ -5,7 +6,6 @@ import type { MessageKey } from "../../i18n/messages";
 import { analysisStageLabel } from "./analysisPresentation";
 import type { RecordingDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useLibraryFiles } from "../../app/LibraryProvider";
 import performanceArtUrl from "./assets/performance-art.svg";
 import { RecordingPlayer } from "./RecordingPlayer";
 import { recordingStatusLabels } from "./songMetadataPresentation";
@@ -93,7 +93,6 @@ export const RecordingCard = ({
   onCancelAnalysis?(jobId: string): void;
 }) => {
   const t = useText();
-  const files = useLibraryFiles();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
   const task = progress[selected.id];

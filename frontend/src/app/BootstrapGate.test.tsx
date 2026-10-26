@@ -24,6 +24,9 @@ vi.mock("./DialogProvider", () => ({ useAsk: () => vi.fn(async () => null) }));
 vi.mock("./NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../services/audioClient", () => ({
   audioClient: {
+    setMixer: vi.fn(async () => undefined),
+    setDspParameter: vi.fn(async () => undefined),
+    setDspEnabled: vi.fn(async () => undefined),
     setPreferredConfiguration: vi.fn(),
     setAcousticLatency: vi.fn(async () => undefined),
     rememberAcousticLatencies: vi.fn(async () => false),
@@ -33,13 +36,6 @@ vi.mock("../services/audioClient", () => ({
     })),
     listDevices: mocks.listDevices,
   },
-}));
-vi.mock("./KaraokeProvider", () => ({
-  useKaraokeAudio: () => ({
-    setMixer: vi.fn(async () => undefined),
-    setDspParameter: vi.fn(async () => undefined),
-    setDspEnabled: vi.fn(async () => undefined),
-  }),
 }));
 vi.mock("../services/desktopClient", () => ({
   desktopClient: { appReady: mocks.appReady },

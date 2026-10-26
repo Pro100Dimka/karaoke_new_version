@@ -1,6 +1,6 @@
+import { keyboardLightingClient } from "../../services/keyboardLightingClient";
 import { useEffect } from "react";
 import type { ThemeName } from "../../contracts/models";
-import { useKaraokeLighting } from "../../app/KaraokeProvider";
 import type { KeyboardLightingPreferences } from "../../shared/preferences/preferences";
 
 export const useKeyboardLighting = (
@@ -9,7 +9,6 @@ export const useKeyboardLighting = (
   positionSeconds: number,
   playing: boolean,
 ): void => {
-  const keyboardLightingClient = useKaraokeLighting();
   const frame = Math.floor(positionSeconds * 2) / 2;
 
   useEffect(() => {

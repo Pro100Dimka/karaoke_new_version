@@ -1,3 +1,4 @@
+import { desktopClient as files } from "../../services/desktopClient";
 import { useEffect, useRef, useState } from "react";
 import {
   Button,
@@ -16,7 +17,6 @@ import type {
 } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
-import { useLibraryFiles } from "../../app/LibraryProvider";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { formatBytes } from "../../shared/utils/format";
 import { isSupportedAudio } from "./importModel";
@@ -51,7 +51,6 @@ export const AddSongModal = ({
   onClose,
   onImport,
 }: AddSongModalProps) => {
-  const files = useLibraryFiles();
   const t = useText();
   const [file, setFile] = useState<FileState>({ kind: "none" });
   const [progress, setProgress] = useState<ImportProgress | null>(null);

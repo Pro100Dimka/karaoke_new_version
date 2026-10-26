@@ -4,6 +4,7 @@ import {
   type ReactNode,
 } from "react";
 import type { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
+import type { ConsolePlacement } from "./KaraokeConsole";
 import {
   useFloatingPanel,
   useMeasuredPanelSize,
@@ -21,6 +22,7 @@ interface ConsoleFrameProps {
   shown: boolean;
   label: string;
   children: ReactNode;
+  dock?: ConsolePlacement;
 }
 
 /**
@@ -34,6 +36,7 @@ export const ConsoleFrame = ({
   shown,
   label,
   children,
+  dock = "free",
 }: ConsoleFrameProps) => {
   const frameRef = useRef<HTMLElement>(null);
   const { height } = useMeasuredPanelSize(frameRef, { width, height: consoleDesignHeight });
@@ -47,7 +50,7 @@ export const ConsoleFrame = ({
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   const style =
-    !panel.detached && floating.layout
+    !panel.detached && dock === "free" && floating.layout
       ? {
           position: "fixed" as const,
           left: floating.layout.left,
@@ -62,11 +65,12 @@ export const ConsoleFrame = ({
       aria-label={label}
       data-hidden={!shown || undefined}
       aria-hidden={!shown}
+      data-dock={panel.detached ? undefined : dock}
       ref={frameRef}
       style={style}
-      onPointerDown={panel.detached ? undefined : floating.beginMove}
-      onPointerMove={panel.detached ? undefined : floating.handleMove}
-      onPointerUp={panel.detached ? undefined : floating.handleUp}
+      onPointerDown={panel.detached || dock !== "free" ? undefined : floating.beginMove}
+      onPointerMove={panel.detached || dock !== "free" ? undefined : floating.handleMove}
+      onPointerUp={panel.detached || dock !== "free" ? undefined : floating.handleUp}
     >
       {children}
     </aside>

@@ -106,7 +106,7 @@ def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
 
 @router.get("", response_model=SettingsDto)
 def get_settings(app: ContainerDep) -> SettingsDto:
-    return _settings(app.system.settings.execute())
+    return _settings(app.system.settings())
 
 
 def _kaggle_account_token(app: ApplicationContainer) -> str:
@@ -116,7 +116,7 @@ def _kaggle_account_token(app: ApplicationContainer) -> str:
     )
     if account_token:
         return account_token
-    legacy_token = (app.system.settings.execute().kaggle_token or "").strip()
+    legacy_token = (app.system.settings().kaggle_token or "").strip()
     if legacy_token:
         store.save("KAGGLE_API_TOKEN", legacy_token)
     return legacy_token
@@ -160,7 +160,7 @@ def verify_environment_setting(key: str) -> EnvironmentEntryDto:
 
 @router.post("/kaggle/verify", response_model=ConfigurationValidationDto)
 def verify_kaggle_settings(app: ContainerDep) -> ConfigurationValidationDto:
-    settings = app.system.settings.execute()
+    settings = app.system.settings()
     try:
         KaggleAiProvider(lambda: settings).validate_configuration()
     except DomainError as error:
@@ -193,7 +193,7 @@ def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
 
 
 def _deploy_kaggle_notebook(app: ApplicationContainer) -> KaggleActionDto:
-    current = app.system.settings.execute()
+    current = app.system.settings()
     token = (
         current.kaggle_token
         if current.kaggle_url and current.kaggle_token
@@ -221,7 +221,7 @@ def _deploy_kaggle_notebook(app: ApplicationContainer) -> KaggleActionDto:
 
 @router.patch("", response_model=SettingsDto)
 def update_settings(body: UpdateSettingsDto, app: ContainerDep) -> SettingsDto:
-    current = app.system.settings.execute()
+    current = app.system.settings()
     if (
         body.processing_backend is ProcessingBackend.LOCAL
         and current.processing_backend is ProcessingBackend.KAGGLE

@@ -1,6 +1,6 @@
+import { audioClient as preview } from "../../services/audioClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordingDto } from "../../contracts/models";
-import { useRecordingPreview } from "../../app/LibraryProvider";
 
 const pollMilliseconds = 100;
 
@@ -9,7 +9,6 @@ const pollMilliseconds = 100;
  * this one notices the lost ownership and falls back to idle.
  */
 export const useRecordingPlayback = (recording: RecordingDto) => {
-  const preview = useRecordingPreview();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const owns = useRef(false);

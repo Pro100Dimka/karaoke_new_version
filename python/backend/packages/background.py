@@ -65,7 +65,7 @@ class StartPackageImport:
         decision: PackageImportDecision,
         idempotency_key: str | None,
     ) -> Job:
-        request_hash = _request_hash(self._hasher.hash_file(path), decision)
+        request_hash = _request_hash(self._hasher(path), decision)
         repeated = self._repeat(idempotency_key, request_hash)
         if repeated:
             return repeated

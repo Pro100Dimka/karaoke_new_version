@@ -38,6 +38,7 @@ export const useKaraokeShortcuts = (
       )
         return;
       if (keyBelongsToControl(event.target, event.key)) return;
+      if (host.document.querySelector("dialog[open], [role='menu']")) return;
       const {
         session: s,
         durationSeconds: duration,
@@ -86,10 +87,14 @@ export const useKaraokeShortcuts = (
         "=": canPractise ? () => tempo(tempoStep) : undefined,
         Escape: exit,
       };
-      const action =
-        actions[event.key.length === 1 ? event.key.toLowerCase() : event.key];
+      // Physical keys keep working with Ukrainian and Russian keyboard layouts.
+      const key = ({ KeyK: "k", KeyM: "m", KeyN: "n", KeyT: "t", BracketLeft: "[",
+        BracketRight: "]", Minus: "-", Equal: "+", Space: " " } as Record<string, string>)[event.code]
+        ?? (event.key.length === 1 ? event.key.toLowerCase() : event.key);
+      const action = actions[key];
       if (!action) return;
       event.preventDefault();
+      if (event.repeat && [" ", "k", "m", "n", "t", "Escape"].includes(key)) return;
       action();
     };
     host.addEventListener("keydown", handler);

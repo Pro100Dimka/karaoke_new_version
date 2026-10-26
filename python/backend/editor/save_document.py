@@ -61,7 +61,9 @@ class SaveEditorDocument:
         self._projects.write_working_text(
             working, Path("manifest.json"), encode_manifest(updated_manifest)
         )
-        self._validator.validate_working(updated_manifest, working, require_ready=True)
+        self._validator.validate_working(
+            updated_manifest, working, require_ready=True, reuse_audio=True
+        )
         entry = self._journal.begin(
             RecoveryOperation.PROJECT_PUBLISH,
             {"songId": song_id, "revision": new_revision, "working": str(working)},

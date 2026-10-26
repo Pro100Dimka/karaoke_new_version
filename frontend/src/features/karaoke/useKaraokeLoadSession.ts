@@ -1,11 +1,12 @@
+import { editorApi } from "../editor/editorApi";
+import { audioClient } from "../../services/audioClient";
+import { pythonClient } from "../../services/pythonClient";
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "../../app/ServicesContext";
 import type {
   AudioCapabilities,
   MixerChannelGains,
 } from "../../contracts/models";
-import { useKaraokeAudio, useKaraokeBackend } from "../../app/KaraokeProvider";
-import { useEditorRepository } from "../../app/EditorProvider";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import type { SongPreferences } from "../../application/library/songPreferences";
 import type { KaraokeLoad } from "../../application/karaoke/karaokeLoader";
@@ -22,9 +23,6 @@ export const useKaraokeLoadSession = (
   onFailure: (error: unknown) => void,
   onRestart: () => void = () => undefined,
 ) => {
-  const audioClient = useKaraokeAudio();
-  const pythonClient = useKaraokeBackend();
-  const editorApi = useEditorRepository();
   const { pythonEpoch } = useServices();
   const preparedSession = useRef("");
   const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });

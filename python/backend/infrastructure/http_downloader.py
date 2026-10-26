@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import threading
+import time
+from collections.abc import Callable
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -19,9 +21,11 @@ class HttpDownloader:
         timeout_seconds: float,
         max_bytes: int,
         cancel: threading.Event,
+        progress: Callable[[int], None] | None = None,
     ) -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         downloaded = 0
+        reported_at = 0.0
         try:
             with (
                 urllib.request.urlopen(url, timeout=timeout_seconds) as response,
@@ -36,6 +40,10 @@ class HttpDownloader:
                             "DownloadTooLarge", "Download exceeded declared size limit", 400
                         )
                     stream.write(chunk)
+                    now = time.monotonic()
+                    if progress and now - reported_at >= 0.2:
+                        progress(downloaded)
+                        reported_at = now
         except urllib.error.HTTPError as exc:
             raise DependencyError(
                 "ModelDownloadFailed", "Model server returned an HTTP error", status=exc.code
@@ -44,4 +52,6 @@ class HttpDownloader:
             raise DependencyError(
                 "ModelDownloadFailed", "Model download network request failed"
             ) from exc
+        if progress:
+            progress(downloaded)
         return downloaded

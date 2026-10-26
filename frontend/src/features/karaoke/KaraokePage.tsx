@@ -329,7 +329,11 @@ export const KaraokeScreen = ({
     />
   );
   return place(
-    <main className="karaokePage">
+    <main className="karaokePage" onClick={(event) => {
+      if (!introFinished || !session.interactive || event.button !== 0) return;
+      if ((event.target as Element).closest("button, a, input, select, textarea, [role='slider'], .pianoRoll, .karaokeConsole, .karaokeTop")) return;
+      void session.togglePlay();
+    }}>
       {introduction}
       {scene}
       <KaraokeHeader

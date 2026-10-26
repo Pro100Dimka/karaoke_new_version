@@ -1,3 +1,5 @@
+import { bridgedHttp } from "../../services/desktopBridge";
+import { libraryChanged } from "../../services/backendEvents";
 import type { SongDto } from "../../contracts/models";
 import type { EditorDocument } from "../../application/editor/editorModel";
 
@@ -137,4 +139,10 @@ export const createEditorApi = (
     });
     return (result as { revision: number }).revision;
   },
+});
+
+export const editorApi = createEditorApi(async (request) => {
+  const result = await bridgedHttp("pythonRequest", request, "Editor backend request failed");
+  if (request.method !== "GET") libraryChanged();
+  return result;
 });

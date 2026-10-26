@@ -1,21 +1,19 @@
+import { pythonClient as catalog } from "../../services/pythonClient";
+import { libraryChanged, onLibraryChange } from "../../services/backendEvents";
 import type { ImportMetadata, ImportOptions, SongPatch } from "../../contracts/clients";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
-import { useLibraryCatalog, useLibraryJobEvents } from "../../app/LibraryProvider";
 import { useServices } from "../../app/ServicesContext";
+import { useApp } from "../../app/AppContext";
 
 export type LibrarySongsState =
   | { status: "loading" }
   | { status: "ready"; songs: readonly SongDto[] }
   | { status: "error" };
 
-const activeStatuses = new Set<SongDto["status"]>(["queued", "processing"]);
-const activeRefreshMilliseconds = 1200;
-
 export const useLibrarySongs = () => {
-  const catalog = useLibraryCatalog();
-  const events = useLibraryJobEvents();
   const { pythonEpoch } = useServices();
+  const { jobs } = useApp("jobs");
   const [state, setState] = useState<LibrarySongsState>({ status: "loading" });
   const generation = useRef(0);
 
@@ -43,7 +41,7 @@ export const useLibrarySongs = () => {
     }
   }, [catalog]);
 
-  const reload = useCallback(() => load(false), [load]);
+  const reload = useCallback(() => { libraryChanged(); return load(false); }, [load]);
   const refresh = useCallback(() => load(true), [load]);
   const replaceSong = (saved: SongDto) => {
     generation.current += 1;
@@ -61,29 +59,30 @@ export const useLibrarySongs = () => {
 
   // A backend reconnect invalidates everything held from before the outage.
   useEffect(() => {
+    libraryChanged();
     void load(false);
     return () => {
       generation.current += 1;
     };
   }, [load, pythonEpoch]);
 
-  // The backend pushes every job change; the list is re-read then, at most once per interval. Without
-  // pushed events (plain browser) it is polled while songs are being processed, as before.
-  const hasActiveJobs =
-    state.status === "ready" &&
-    state.songs.some((song) => activeStatuses.has(song.status));
   useEffect(
-    () => events.subscribe(() => void load(true), activeRefreshMilliseconds),
-    [load, events],
+    () => onLibraryChange(() => void load(true)),
+    [load],
   );
+  // The shared jobs view supplies progress without rereading every song. State transitions also
+  // invalidate the catalog when the event stream is unavailable.
+  const jobStates = jobs.map((job) => `${job.id}:${job.state}`).join("|");
+  const previousJobs = useRef(jobStates);
   useEffect(() => {
-    if (!hasActiveJobs || events.available()) return;
-    const timer = window.setInterval(
-      () => void load(true),
-      activeRefreshMilliseconds,
-    );
+    if (previousJobs.current === jobStates) return;
+    previousJobs.current = jobStates;
+    libraryChanged();
+  }, [jobStates]);
+  useEffect(() => {
+    const timer = window.setInterval(() => void load(true), 15_000);
     return () => window.clearInterval(timer);
-  }, [hasActiveJobs, load, events]);
+  }, [load]);
 
   const importSong = async (
     path: string,
@@ -193,8 +192,20 @@ export const useLibrarySongs = () => {
     await refresh();
   };
 
+  const activeJobs = new Map(jobs.filter((job) =>
+    ["queued", "processing", "cancelling"].includes(job.state),
+  ).map((job) => [job.songId, job]));
+  const visibleState: LibrarySongsState = state.status === "ready" ? {
+    ...state,
+    songs: state.songs.map((song) => {
+      const job = activeJobs.get(song.id);
+      return job ? { ...song, jobId: job.id, stage: job.stage, progress: job.progress,
+        status: job.state === "queued" ? "queued" : "processing" } : song;
+    }),
+  } : state;
+
   return {
-    state,
+    state: visibleState,
     reload,
     refresh,
     importSong,

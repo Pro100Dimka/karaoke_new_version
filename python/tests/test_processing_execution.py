@@ -125,7 +125,7 @@ def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyP
         settings_schema_version=1, compute_mode=ComputeMode.CUDA, cpu_threads=4
     )
     settings = Mock()
-    settings.execute.side_effect = [first, changed, changed]
+    settings.side_effect = [first, changed, changed]
     song = Mock(status=SongStatus.READY, song_id="song-1")
     pipeline = Mock()
     pipeline.resource_size.return_value = 42
@@ -141,7 +141,7 @@ def test_melody_reprocess_uses_one_settings_snapshot(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(action, "_start", lambda *args: expected_job)
 
     assert action.execute("song-1", idempotency_key=None, correlation_id=None) is expected_job
-    settings.execute.assert_called_once_with()
+    settings.assert_called_once_with()
     resolver.execute.assert_called_once_with(AiCapability.PITCH, "preferred")
     resources.claim_provider.assert_called_once_with(
         provider, 42, ComputeMode.CPU, cpu_threads=2, additional_providers=()
@@ -159,7 +159,7 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
         processing_backend=ProcessingBackend.KAGGLE,
     )
     settings = Mock()
-    settings.execute.return_value = current
+    settings.return_value = current
     persistence = Mock()
     persistence.repeated_job.return_value = None
     persistence.load_song.return_value = Mock(status=SongStatus.READY, song_id="song-1")

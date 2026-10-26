@@ -117,7 +117,7 @@ describe("useInputMonitoring", () => {
               state: "ready",
               positionSeconds: 0,
               durationSeconds: 0,
-              recording: false,
+
               monitoring: true,
               inputLevel: 0,
             });

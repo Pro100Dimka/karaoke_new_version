@@ -12,10 +12,10 @@ vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => mocks.notify,
 }));
-vi.mock("../../app/EditorProvider", () => ({
-  useEditorRepository: () => ({ reset: mocks.reset }),
+vi.mock("../editor/editorApi", () => ({
+  editorApi: { reset: mocks.reset },
 }));
-vi.mock("../../app/LibraryProvider", () => ({ useLibraryCatalog: () => ({}) }));
+vi.mock("../../services/pythonClient", () => ({ pythonClient: {} }));
 vi.mock("../../i18n/useText", () => ({
   useText: () => (key: string, params?: Record<string, string | number>) =>
     params ? `${key}:${JSON.stringify(params)}` : key,

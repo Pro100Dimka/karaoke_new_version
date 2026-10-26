@@ -12,8 +12,9 @@ export const keyBelongsToControl = (
     getAttribute?(name: string): string | null;
   } | null;
   const tag = element?.tagName ?? "";
+  if ((target as Element | null)?.closest?.("[contenteditable='true']")) return true;
   if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return true;
   const role = element?.getAttribute?.("role");
-  if (role === "slider" || role === "listbox" || role === "option") return true;
+  if (["slider", "listbox", "option"].includes(role ?? "")) return true;
   return tag === "BUTTON" && key === " ";
 };

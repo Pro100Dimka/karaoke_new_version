@@ -13,11 +13,6 @@ class RecordingTarget:
     file_path: Path
 
 
-class AllocateRecordingTarget:
-    def __init__(self, storage: RecordingStorage, ids: IdGenerator) -> None:
-        self._storage = storage
-        self._ids = ids
-
-    def execute(self) -> RecordingTarget:
-        recording_id = self._ids.new()
-        return RecordingTarget(recording_id, self._storage.allocate_target(recording_id, ".wav"))
+def allocate_recording_target(storage: RecordingStorage, ids: IdGenerator) -> RecordingTarget:
+    recording_id = ids.new()
+    return RecordingTarget(recording_id, storage.allocate_target(recording_id, ".wav"))

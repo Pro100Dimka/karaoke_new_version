@@ -1,5 +1,6 @@
-import { Card } from "@neo-ui-kit/react";
-import { useEffect, useMemo, useState } from "react";
+import { Card, IconButton, Menu, tr } from "@neo-ui-kit/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { readText, storageKey, writeText } from "../../../shared/storage/localStore";
 import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
@@ -23,6 +24,10 @@ import { useVoiceEffects } from "./useVoiceEffects";
 // The console is 90vw wide and short, like the console strip on the karaoke screen. Panels are laid out in pixels,
 // so the share of the window is turned into pixels and followed as the window is resized.
 const consoleWidthShare = 0.9;
+const consolePlacements = { top: "Горизонтально сверху", bottom: "Горизонтально снизу",
+  left: "Вертикально слева", right: "Вертикально справа", free: "Свободное размещение" };
+export type ConsolePlacement = keyof typeof consolePlacements;
+const dockKey = storageKey("consoleDock");
 
 const useViewportShare = (share: number): number => {
   const host = useHostWindow();
@@ -76,6 +81,12 @@ export const KaraokeConsole = ({
   );
   // The console is dragged anywhere by its surface, and past the window's edge into a window.
   const placement = useStoredPanelLayout("karaokeConsole");
+  const [dock, setDock] = useState<ConsolePlacement>(() => {
+    const saved = readText(dockKey);
+    return saved && saved in consolePlacements ? saved as ConsolePlacement : placement.layout ? "free" : "bottom";
+  });
+  const menuAnchor = useRef<HTMLButtonElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const panel = useDetachedPanel(
     "karaokeConsole",
     t("karaokeConsole"),
@@ -101,6 +112,7 @@ export const KaraokeConsole = ({
       <ConsoleFrame
         panel={panel}
         placement={placement}
+        dock={dock}
         width={consoleWidth}
         shown={shown}
         label={t("karaokeConsole")}
@@ -125,6 +137,14 @@ export const KaraokeConsole = ({
               onStop={() => void session.finishPerformance()}
             />
             <DetachButton panel={panel} />
+            <IconButton ref={menuAnchor} icon="more" label={tr("Расположение консоли")}
+              onClick={() => setMenuOpen(true)} />
+            <Menu anchorRef={menuAnchor} open={menuOpen} onOpenChange={setMenuOpen}
+              label={tr("Расположение консоли")} items={Object.entries(consolePlacements).map(([id, label]) => ({
+                id, label: tr(label), icon: dock === id ? "check" : undefined,
+                disabled: panel.detached,
+                onSelect: () => { setDock(id as ConsolePlacement); writeText(dockKey, id); },
+              }))} />
             <MasterVolume
               value={session.gains.master}
               onChange={(value) => void session.changeGain("master", value)}

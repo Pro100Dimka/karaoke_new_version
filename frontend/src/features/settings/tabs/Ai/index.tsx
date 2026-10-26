@@ -137,6 +137,7 @@ export const AiSettings = () => {
                 free={ai.free}
                 onDownload={(model) => void ai.download(model)}
                 onCancel={(jobId) => void ai.cancel(jobId)}
+                onDelete={(model) => void ai.remove(model)}
               />
             ))}
           </div>

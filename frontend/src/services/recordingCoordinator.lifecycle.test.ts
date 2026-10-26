@@ -182,7 +182,7 @@ describe("recording lifecycle", () => {
   it("does not turn a successful recording command into an error because diagnostics failed", async () => {
     const { recordingCoordinator: coordinator, audioRequest } = await setup();
     audioRequest.mockImplementation(async (request) => {
-      if (request.command === "GetDiagnostics")
+      if (["GetDiagnostics", "GetPlaybackSnapshot"].includes(request.command))
         throw new Error("diagnostics unavailable");
       return { status: 0, text: responseText(request.command) };
     });

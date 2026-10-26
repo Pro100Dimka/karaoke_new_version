@@ -297,7 +297,6 @@ export const audioClient: AudioServiceClient = {
     await command("Stop");
     // A stopped song stays loaded otherwise, and its open files keep Windows from deleting or moving it.
     await command("UnloadSong");
-    audioState.recording = false;
     audioState.reconfiguration.song = null;
     audioState.reconfiguration.schedule = undefined;
     return snapshot("finished");
@@ -360,18 +359,6 @@ export const audioClient: AudioServiceClient = {
   async setDspEnabled(enabled) {
     audioState.dspEnabled = enabled;
     await command("SetDspEnabled", { enabled });
-  },
-
-  async startRecording() {
-    audioState.recording = true;
-    await command("StartRecording");
-    return snapshot();
-  },
-
-  async stopRecording() {
-    await command("StopRecording");
-    audioState.recording = false;
-    return snapshot();
   },
 
   ...createAudioPlayers({

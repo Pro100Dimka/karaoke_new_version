@@ -5,7 +5,6 @@ import sys
 from collections.abc import Mapping
 from pathlib import Path
 
-from backend.ai_worker.speech import align, prepare_accelerator, transcribe
 from backend.serialization import dumps, loads_list, loads_object
 
 
@@ -33,6 +32,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> Mapping[str, object]:
+    if args.action in {"prepare-accelerator", "transcribe", "align"}:
+        from backend.ai_worker.speech import align, prepare_accelerator, transcribe
+
     if args.action == "prepare-accelerator":
         return prepare_accelerator()
     if args.action == "separate":

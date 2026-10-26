@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from "react";
-import { Card, IconButton, Menu, Typography } from "@neo-ui-kit/react";
+import { Card, Checkbox, IconButton, Menu, Typography, tr } from "@neo-ui-kit/react";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
@@ -64,11 +64,13 @@ export const SongCard = memo(
     handlers,
     roomSelection,
     playbackDisabled = false,
+    selection,
   }: {
     song: SongDto;
     handlers: SongCardHandlers;
     roomSelection?: { role: string; selected: boolean };
     playbackDisabled?: boolean;
+    selection?: { checked: boolean; disabled: boolean; toggle(): void };
   }) {
     const t = useText();
     const menuAnchor = useRef<HTMLButtonElement>(null);
@@ -113,6 +115,8 @@ export const SongCard = memo(
         )}
         <div className="songCardContent">
           <header className="songCardHead">
+            {selection && <Checkbox checked={selection.checked} disabled={selection.disabled}
+              label={tr("Выбрать {name}", { name: song.title })} onValueChange={selection.toggle} />}
             <div className="songCardTitle">
               <Typography as="h3" variant="h3" truncate>
                 {song.title}
@@ -202,6 +206,7 @@ export const SongCard = memo(
     previous.song === next.song &&
     previous.handlers === next.handlers &&
     previous.playbackDisabled === next.playbackDisabled &&
+    previous.selection === next.selection &&
     previous.roomSelection?.role === next.roomSelection?.role &&
     previous.roomSelection?.selected === next.roomSelection?.selected,
 );

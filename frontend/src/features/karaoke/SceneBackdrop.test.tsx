@@ -6,9 +6,6 @@ import { SceneBackdrop } from "./SceneBackdrop";
 vi.mock("../../services/desktopClient", () => ({
   desktopClient: { sceneVideoUrl: vi.fn().mockResolvedValue(null) },
 }));
-vi.mock("../../app/KaraokeProvider", () => ({
-  useKaraokeScene: () => desktopClient,
-}));
 
 afterEach(() => {
   cleanup();

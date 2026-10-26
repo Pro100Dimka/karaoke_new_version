@@ -1,3 +1,4 @@
+import { desktopClient as files } from "../../services/desktopClient";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import {
@@ -17,7 +18,6 @@ import { routes } from "../../shared/routes";
 import type { SongDto, SongLanguage } from "../../contracts/models";
 import type { SongPatch } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
-import { useLibraryFiles } from "../../app/LibraryProvider";
 import { songStatusPresentation } from "./songPresentation";
 import {
   loadSongPreferences,
@@ -73,7 +73,6 @@ const SongSettingsForm = ({
 }: { song: SongDto } & Omit<Props, "song">) => {
   const navigate = useNavigate();
   const t = useText();
-  const files = useLibraryFiles();
   const status = songStatusPresentation[song.status];
   const coverState = t(
     song.artworkUrl && song.coverState === "Fallback"

@@ -1,3 +1,4 @@
+import { pythonClient as catalog } from "../../services/pythonClient";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -8,7 +9,6 @@ import {
 } from "@neo-ui-kit/react";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { formatBytes } from "../../shared/utils/format";
 import { ProcessingJobCard } from "./ProcessingJobCard";
 import {
@@ -62,7 +62,6 @@ const clearGroups = {
 
 /** Real free space of the data disk, read once when the queue opens. */
 const useDisk = (open: boolean): Disk => {
-  const catalog = useLibraryCatalog();
   const [disk, setDisk] = useState<Disk>(null);
   useEffect(() => {
     if (!open) return;

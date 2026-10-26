@@ -1,3 +1,5 @@
+import type { PlaybackAdjustment, RecordingStatus } from "../application/karaoke/KaraokePorts";
+import { command as audio } from "./audioSession";
 import { desktopBridge } from "./desktopBridge";
 import type { KaraokeNoteScore, SongDto } from "../contracts/models";
 
@@ -5,12 +7,6 @@ interface RecordingTarget {
   recordingId: string;
   filePath: string;
 }
-export interface PlaybackAdjustment {
-  sourceSeconds: number;
-  playbackRate: number;
-  keyShift: number;
-}
-
 interface TimedPlaybackAdjustment extends PlaybackAdjustment {
   elapsedSeconds: number;
 }
@@ -75,10 +71,6 @@ let active: {
   nativeResult?: NativeRecordingResult;
 } | null = null;
 
-interface RecordingStatus {
-  recording: boolean;
-  recordingId?: string;
-}
 let flight: { key: string; promise: Promise<RecordingStatus> } | null = null;
 let pendingTransitions = 0;
 const transition = (
@@ -105,16 +97,6 @@ const python = async <T>(request: PythonBridgeRequest): Promise<T> => {
   const response = await desktopBridge().pythonRequest(request);
   if (!response.ok) throw new Error("Python backend request failed");
   return response.body as T;
-};
-
-const audio = async (
-  command: string,
-  args?: AudioBridgeRequest["args"],
-): Promise<string> => {
-  const response = await desktopBridge().audioRequest({ command, args });
-  if (response.status !== 0)
-    throw new Error(response.text || `AudioService command failed: ${command}`);
-  return response.text;
 };
 
 const discardTarget = async (target: RecordingTarget): Promise<void> => {

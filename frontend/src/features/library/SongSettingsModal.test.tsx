@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppProvider } from "../../app/AppContext";
-import { LibraryProvider } from "../../app/LibraryProvider";
 import type { SongDto } from "../../contracts/models";
 import { SongSettingsModal } from "./SongSettingsModal";
 
@@ -26,7 +25,7 @@ const renderSettings = (
   render(
     <MemoryRouter>
       <AppProvider>
-        <LibraryProvider>
+        <>
           <SongSettingsModal
             song={song}
             onClose={vi.fn()}
@@ -35,7 +34,7 @@ const renderSettings = (
             onOpenFolder={vi.fn()}
             onDelete={vi.fn()}
           />
-        </LibraryProvider>
+        </>
       </AppProvider>
     </MemoryRouter>,
   );

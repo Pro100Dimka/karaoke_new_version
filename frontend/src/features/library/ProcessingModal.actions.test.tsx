@@ -1,3 +1,4 @@
+import { AppProvider } from "../../app/AppContext";
 import {
   cleanup,
   fireEvent,
@@ -10,13 +11,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
-import { LibraryProvider } from "../../app/LibraryProvider";
 import { DialogProvider } from "../../app/DialogProvider";
 import { clearStorage } from "../../shared/storage/localStore";
 
 const recovery = vi.hoisted(() => ({ reset: vi.fn(), notify: vi.fn() }));
-vi.mock("../../app/EditorProvider", () => ({
-  useEditorRepository: () => ({ reset: recovery.reset }),
+vi.mock("../editor/editorApi", () => ({
+  editorApi: { reset: recovery.reset },
 }));
 vi.mock("../../app/NotificationsProvider", () => ({
   useNotify: () => recovery.notify,
@@ -69,7 +69,7 @@ it("never retries or resets a failed existing song", async () => {
     },
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[existing]}
@@ -78,7 +78,7 @@ it("never retries or resets a failed existing song", async () => {
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const card = (await screen.findByText("Artist — Existing song")).closest(
     "li",
@@ -105,18 +105,18 @@ it("disables starting completed songs from the processing queue while the PC is 
     onPlay,
   };
   const view = render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal {...props} playbackDisabled />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const play = await screen.findByRole("button", { name: "play" });
   expect(play).toBeDisabled();
   fireEvent.click(play);
   expect(onPlay).not.toHaveBeenCalled();
   view.rerender(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal {...props} />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   expect(screen.getByRole("button", { name: "play" })).toBeEnabled();
 });
@@ -135,7 +135,7 @@ it("keeps baseline recovery out of the queue after a manual-edit conflict", asyn
     },
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[existing]}
@@ -144,7 +144,7 @@ it("keeps baseline recovery out of the queue after a manual-edit conflict", asyn
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const card = (await screen.findByText("Artist — Edited song")).closest("li")!;
   expect(
@@ -165,7 +165,7 @@ it.each(["ManualLyricsConflict", "ProcessFailure"])(
     ]);
     recovery.reset.mockReset().mockResolvedValue(2);
     render(
-      <LibraryProvider>
+      <AppProvider>
         <DialogProvider>
           <ProcessingModal
             open
@@ -176,7 +176,7 @@ it.each(["ManualLyricsConflict", "ProcessFailure"])(
             onPlay={vi.fn()}
           />
         </DialogProvider>
-      </LibraryProvider>,
+      </AppProvider>,
     );
     const card = (await screen.findByText("Artist — Edited song")).closest(
       "li",
@@ -202,7 +202,7 @@ it("keeps a failed lyric job visible without a restart control", async () => {
     },
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[existing]}
@@ -211,7 +211,7 @@ it("keeps a failed lyric job visible without a restart control", async () => {
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const card = (await screen.findByText("Artist — Existing song")).closest(
     "li",
@@ -239,7 +239,7 @@ it("connects every processing queue control to an action", async () => {
   const onCancel = vi.fn().mockResolvedValue(undefined);
 
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={songs}
@@ -249,7 +249,7 @@ it("connects every processing queue control to an action", async () => {
         onPlay={onPlay}
       />
       ,
-    </LibraryProvider>,
+    </AppProvider>,
   );
 
   const doneCard = (await screen.findByText("Artist — Done song")).closest(
@@ -350,7 +350,7 @@ it.each([
     );
     const onCancel = vi.fn();
     render(
-      <LibraryProvider>
+      <AppProvider>
         <ProcessingModal
           open
           songs={songs}
@@ -359,7 +359,7 @@ it.each([
           onOpenFolder={vi.fn()}
           onPlay={vi.fn()}
         />
-      </LibraryProvider>,
+      </AppProvider>,
     );
     await screen.findByText("Artist — completed");
     fireEvent.click(
@@ -404,7 +404,7 @@ it("shows pipeline steps without the redundant overall progress bar or percentag
     },
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[existing]}
@@ -413,7 +413,7 @@ it("shows pipeline steps without the redundant overall progress bar or percentag
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const card = (await screen.findByText("Artist — Active song")).closest("li")!;
   expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
@@ -431,7 +431,7 @@ it("shows all pipeline steps and marks the actual current step", async () => {
     },
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[song("active", "Steps")]}
@@ -440,7 +440,7 @@ it("shows all pipeline steps and marks the actual current step", async () => {
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   const card = (await screen.findByText("Artist — Steps")).closest("li")!;
   const steps = within(card).getByRole("list", {
@@ -460,7 +460,7 @@ it("uses the kit split button for clearing completed jobs and choosing another g
     job("done", "done", "completed"),
   ]);
   render(
-    <LibraryProvider>
+    <AppProvider>
       <ProcessingModal
         open
         songs={[song("done", "Done")]}
@@ -469,7 +469,7 @@ it("uses the kit split button for clearing completed jobs and choosing another g
         onOpenFolder={vi.fn()}
         onPlay={vi.fn()}
       />
-    </LibraryProvider>,
+    </AppProvider>,
   );
   await screen.findByText("Artist — Done");
   const clear = screen.getByRole("button", { name: "processingClear" });

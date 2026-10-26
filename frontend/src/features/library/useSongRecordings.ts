@@ -1,3 +1,4 @@
+import { pythonClient as catalog } from "../../services/pythonClient";
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { useAsk } from "../../app/DialogProvider";
@@ -13,7 +14,6 @@ import type {
 } from "../../contracts/clients";
 import { useText } from "../../i18n/useText";
 import type { MessageKey } from "../../i18n/messages";
-import { useLibraryCatalog } from "../../app/LibraryProvider";
 import { useGuardedAction } from "./useGuardedAction";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 
@@ -28,7 +28,6 @@ export const useSongRecordings = (
   const notify = useNotify();
   const t = useText();
   const guarded = useGuardedAction();
-  const catalog = useLibraryCatalog();
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);

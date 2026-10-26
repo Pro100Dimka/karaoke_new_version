@@ -1,6 +1,6 @@
+import { audioClient } from "../../services/audioClient";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import type { SongDto } from "../../contracts/models";
-import { useKaraokeAudio } from "../../app/KaraokeProvider";
 import { recoverKaraokeAudio } from "../../application/karaoke/KaraokeRecovery";
 
 const recoveryPollMilliseconds = 1000;
@@ -23,7 +23,6 @@ export const useAudioRecovery = ({
   key,
   onRecovered,
 }: AudioRecoveryOptions): void => {
-  const audioClient = useKaraokeAudio();
   const inFlight = useRef(false);
   useEffect(() => {
     if (!recovering) return;

@@ -191,6 +191,8 @@ export class PerformanceTracker {
   private noteById = new Map<string, ShowNote>();
   private progress = new Map<string, NoteProgress>();
   private archived: { note: ShowNote; progress: NoteProgress }[] = [];
+  private cachedScore?: KaraokeNoteScore;
+  private cachedHitNotes?: ReadonlySet<string>;
   private rhythmUnion = 0;
   private rhythmIntersection = 0;
   private vocalActivity: readonly (readonly [number, number])[] | undefined;
@@ -217,6 +219,8 @@ export class PerformanceTracker {
 
   load(notes: readonly ShowNote[], phrases: readonly ShowPhrase[], resetPerformance = true,
     vocalActivity?: readonly (readonly [number, number])[]): void {
+    this.cachedScore = undefined;
+    this.cachedHitNotes = undefined;
     this.vocalActivity = vocalActivity;
     this.notes = [...notes].sort((a, b) => a.start - b.start);
     this.phrases = phrases.filter((phrase) => phrase.noteIds.length > 0);
@@ -231,16 +235,17 @@ export class PerformanceTracker {
   }
 
   get hitNoteIds(): ReadonlySet<string> {
-    return new Set(this.notes.filter((note) => noteHitReached(this.progress.get(note.id)?.matched ?? 0, assessedNoteDuration(note, this.progress.get(note.id)))).map((note) => note.id));
+    return this.cachedHitNotes ??= new Set(this.notes.filter((note) => noteHitReached(this.progress.get(note.id)?.matched ?? 0, assessedNoteDuration(note, this.progress.get(note.id)))).map((note) => note.id));
   }
 
   get noteScore(): KaraokeNoteScore {
+    if (this.cachedScore) return this.cachedScore;
     const seen = [...this.archived, ...this.measuredNotes()];
     const sum = (value: (progress: NoteProgress) => number) => seen.reduce((total, { progress }) => total + value(progress), 0);
     const voiced = sum((progress) => progress.voiced);
     const evaluated = sum((progress) => progress.evaluated);
     const mean = voiced > 0 ? sum((progress) => progress.deviationSum) / voiced : 0;
-    return {
+    return this.cachedScore = {
       version: 3,
       expectedPitchSeconds: evaluated + sum((progress) => progress.uncertain),
       assessedPitchSeconds: evaluated,
@@ -269,6 +274,8 @@ export class PerformanceTracker {
     const elapsed = position - previous;
     this.lastPosition = position;
     if (elapsed <= 0) return [];
+    this.cachedScore = undefined;
+    this.cachedHitNotes = undefined;
     const events: PerformanceEvent[] = [];
 
     const end = position + (sampleDuration ?? 0) / 2;
@@ -383,6 +390,8 @@ export class PerformanceTracker {
   }
 
   private restart(position: number | undefined, keepScores = true): void {
+    this.cachedScore = undefined;
+    this.cachedHitNotes = undefined;
     this.archived = keepScores ? [...this.archived, ...this.measuredNotes()] : [];
     if (!keepScores) {
       this.rhythmUnion = 0;

@@ -30,7 +30,7 @@ def function(source: str, signature: str) -> str:
 
 SUPPORT = r'''
 #include "diagnostics/LatencyRegistry.hpp"
-#include "diagnostics/SongCalibrationPolicy.hpp"
+__CALIBRATION_ORIGIN__
 #include <cmath>
 #include <map>
 #include <optional>
@@ -179,6 +179,7 @@ class OptionalAcousticTests(unittest.TestCase):
         if not cxx_compiler.available():
             self.skipTest('C++20 compiler required; not a passed native build')
         service = (ROOT / 'src/app/AudioService.cpp').read_text()
+        header = (ROOT / 'src/app/AudioService.hpp').read_text()
         commands = (ROOT / 'src/app/AudioServiceCommands.cpp').read_text()
         methods = '\n'.join(function(service, signature) for signature in (
             'void AudioService::applyRememberedCalibration()',
@@ -191,6 +192,7 @@ class OptionalAcousticTests(unittest.TestCase):
         preamble_start = commands.index('    if (!realtime_.acousticCalibrationValid() && !calibrationChangeBlocked())')
         preamble_end = commands.index('    if (request.protocolVersion', preamble_start)
         program = (SUPPORT.replace('__METHODS__',methods)
+                   .replace('__CALIBRATION_ORIGIN__', function(header, 'enum class CalibrationOrigin') + ';')
                    .replace('__CASES__',commands[begin:end]+commands[measure_start:measure_end])
                    .replace('__PREAMBLE__',commands[preamble_start:preamble_end]))
         with tempfile.TemporaryDirectory() as directory:

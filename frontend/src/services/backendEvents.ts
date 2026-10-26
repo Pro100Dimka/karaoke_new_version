@@ -5,6 +5,24 @@
 export const backendEventsAvailable = (): boolean =>
   typeof window.desktop?.onBackendEvent === "function";
 
+const libraryListeners = new Set<() => void>();
+export const libraryChanged = (): void => {
+  libraryListeners.forEach((listener) => listener());
+};
+
+/** Progress changes only the jobs view; terminal jobs can change the catalog. */
+export const onLibraryChange = (listener: () => void): (() => void) => {
+  libraryListeners.add(listener);
+  const unsubscribe = window.desktop?.onBackendEvent?.((raw) => {
+    const event = raw as { type?: string; data?: { type?: string; state?: string } } | null;
+    if (event?.type === "connected" || (event?.type === "job.changed" &&
+        ["SongImport", "SongProcessing", "PackageImport", "LibraryReconciliation"].includes(event.data?.type ?? "") &&
+        ["Queued", "Succeeded", "Failed", "Cancelled", "Interrupted"].includes(event.data?.state ?? "")))
+      listener();
+  });
+  return () => { libraryListeners.delete(listener); unsubscribe?.(); };
+};
+
 /**
  * Calls `listener` with the job id of every job change, and with null after every (re)connection of the
  * stream: changes made while it was down are lost, so the caller refreshes whatever it shows.

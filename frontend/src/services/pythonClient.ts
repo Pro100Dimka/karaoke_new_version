@@ -8,9 +8,10 @@ import type {
   KaggleActionDto,
   HistoryPageDto,
   ProcessingJobDto,
+  SongDto,
 } from "../contracts/models";
 
-import { nextJobChange } from "./backendEvents";
+import { libraryChanged, nextJobChange, onLibraryChange } from "./backendEvents";
 import { bridgedHttp } from "./desktopBridge";
 import {
   jobProgress,
@@ -34,17 +35,25 @@ import {
   type SongPage,
 } from "./pythonMappers";
 
-const request = <T>(
+const request = async <T>(
   method: PythonBridgeRequest["method"],
   path: string,
   body?: unknown,
   headers?: Record<string, string>,
-): Promise<T> =>
-  bridgedHttp<T>(
+): Promise<T> => {
+  const result = await bridgedHttp<T>(
     "pythonRequest",
     { method, path, body, headers },
     "Python backend request failed",
   );
+  if (method !== "GET" && path.startsWith("/songs")) libraryChanged();
+  return result;
+};
+
+let catalogVersion = 0;
+let watchingCatalog = false;
+let catalogSnapshot: { songs: readonly SongDto[]; expires: number } | undefined;
+let catalogRead: Promise<readonly SongDto[]> | undefined;
 
 interface JobWait {
   /** Names the work in errors: "<label> failed", "<label> timed out". */
@@ -77,7 +86,10 @@ const waitForJob = async (
     const changed = nextJobChange(jobId, wait.pollMilliseconds ?? 250);
     const current = await request<BackendJob>("GET", path);
     wait.onPoll?.(current);
-    if (current.state === "Succeeded") return current;
+    if (current.state === "Succeeded") {
+      libraryChanged();
+      return current;
+    }
     if (["Failed", "Cancelled", "Interrupted"].includes(current.state))
       throw (
         wait.failure?.(current) ??
@@ -122,6 +134,7 @@ const waitForPackageReport = async (
 };
 
 export const pythonClient: PythonClient = {
+  freeStorageBytes: () => request<number>("GET", "/storage/free"),
   async health() {
     const [health, version] = await Promise.all([
       request<{ ok: boolean; instanceId?: string }>("GET", "/health/ready"),
@@ -139,39 +152,31 @@ export const pythonClient: PythonClient = {
   },
 
   async listSongs() {
-    const songs: BackendSong[] = [];
-    let cursor: string | null = null;
-    do {
-      const requestPath: string = `/songs?limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
-      const page: SongPage = await request<SongPage>("GET", requestPath);
-      songs.push(...page.items);
-      cursor = page.nextCursor;
-    } while (cursor);
+    // One cache for library/room consumers, with pushed invalidation and a slow safety refresh.
+    if (!watchingCatalog) {
+      watchingCatalog = true;
+      onLibraryChange(() => { catalogVersion += 1; catalogSnapshot = undefined; });
+    }
+    if (catalogSnapshot && catalogSnapshot.expires > Date.now()) return catalogSnapshot.songs;
+    if (catalogRead) return catalogRead;
+    const read = async (): Promise<readonly SongDto[]> => {
+      const version = catalogVersion;
+      const songs: BackendSong[] = [];
+      let cursor: string | null = null;
+      do {
+        const requestPath: string = `/songs?limit=200${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`;
+        const page: SongPage = await request<SongPage>("GET", requestPath);
+        songs.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor);
 
-    const jobs = await request<JobPage>("GET", "/jobs?limit=200").catch(() => ({
-      items: [],
-      limit: 200,
-      offset: 0,
-    }));
-    const activeJobs = new Map(
-      jobs.items
-        .filter((job) =>
-          ["Queued", "Running", "Cancelling"].includes(job.state),
-        )
-        .map((job) => [job.entityId, job]),
-    );
-    return songs.map((value) => {
-      const song = mapSong(value);
-      const job = activeJobs.get(song.id);
-      return job
-        ? {
-            ...song,
-            jobId: job.jobId,
-            stage: job.stage ?? undefined,
-            progress: jobProgress(job),
-          }
-        : song;
-    });
+      if (version !== catalogVersion) return read();
+      const mapped = songs.map(mapSong);
+      catalogSnapshot = { songs: mapped, expires: Date.now() + 15_000 };
+      return mapped;
+    };
+    catalogRead = read().finally(() => { catalogRead = undefined; });
+    return catalogRead;
   },
 
   async getSong(songId) {
@@ -477,6 +482,10 @@ export const pythonClient: PythonClient = {
               ),
       }),
     );
+  },
+
+  async deleteModel(model) {
+    await request("DELETE", `/models/${encodeURIComponent(model.id)}/${encodeURIComponent(model.version)}`);
   },
 
   async getJob(jobId) {

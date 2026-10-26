@@ -1,3 +1,6 @@
+import { audioClient } from "../../services/audioClient";
+import { pythonClient } from "../../services/pythonClient";
+import { editorApi } from "./editorApi";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAsk } from "../../app/DialogProvider";
 import { useCloseGuard } from "../../app/CloseGuards";
@@ -5,7 +8,6 @@ import { useNotify } from "../../app/NotificationsProvider";
 import type { ProjectCompatibility } from "../../contracts/clients";
 import type { SongDto } from "../../contracts/models";
 import { useText } from "../../i18n/useText";
-import { useEditorAudio, useEditorBackend, useEditorRepository } from "../../app/EditorProvider";
 import { toAppError } from "../../shared/errors";
 import { clearDraft, loadDraft, saveDraft } from "./editorDraft";
 import {
@@ -33,9 +35,6 @@ export type EditorLoad =
 const draftDelayMilliseconds = 600;
 
 export const useEditorSession = (songId: string) => {
-  const audioClient = useEditorAudio();
-  const pythonClient = useEditorBackend();
-  const editorApi = useEditorRepository();
   const ask = useAsk();
   const notify = useNotify();
   const t = useText();

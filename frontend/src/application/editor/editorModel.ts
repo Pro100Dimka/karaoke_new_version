@@ -221,6 +221,8 @@ export const documentEnd = (
   Math.max(songSeconds, ...document.words.map((word) => word.end), 10);
 
 // ---- undo / redo ----
+const historyLimit = 100;
+
 export interface EditorHistory {
   past: readonly EditorDocument[];
   present: EditorDocument;
@@ -239,7 +241,7 @@ export const pushHistory = (
 ): EditorHistory =>
   next === history.present
     ? history
-    : { past: [...history.past, history.present], present: next, future: [] };
+    : { past: [...history.past.slice(-(historyLimit - 1)), history.present], present: next, future: [] };
 
 export const undoHistory = (history: EditorHistory): EditorHistory => {
   const previous = history.past.at(-1);
@@ -256,7 +258,7 @@ export const redoHistory = (history: EditorHistory): EditorHistory => {
   const next = history.future[0];
   return next
     ? {
-        past: [...history.past, history.present],
+        past: [...history.past.slice(-(historyLimit - 1)), history.present],
         present: next,
         future: history.future.slice(1),
       }

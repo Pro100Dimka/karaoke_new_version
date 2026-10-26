@@ -1,7 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { audioClient } from "../../services/audioClient";
-import { EditorProvider } from "../../app/EditorProvider";
 import { resolveKaraokeLoad } from "../../application/karaoke/karaokeLoader";
 import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { pythonClient } from "../../services/pythonClient";
@@ -14,7 +13,7 @@ vi.mock("../../services/pythonClient", () => ({
 
 vi.mock("../../application/karaoke/karaokeLoader", () => ({ resolveKaraokeLoad: vi.fn() }));
 const editorApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
-vi.mock("../editor/editorApi", () => ({ createEditorApi: () => editorApi }));
+vi.mock("../editor/editorApi", () => ({ editorApi }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
     capabilities: vi.fn(),
@@ -24,10 +23,6 @@ vi.mock("../../services/audioClient", () => ({
     setMixer: vi.fn(),
   },
   getAudioSnapshot: vi.fn(),
-}));
-vi.mock("../../app/KaraokeProvider", () => ({
-  useKaraokeAudio: () => audioClient,
-  useKaraokeBackend: () => pythonClient,
 }));
 
 describe("karaoke load session", () => {
@@ -66,7 +61,6 @@ describe("karaoke load session", () => {
         vi.fn(),
         restart,
       ),
-      { wrapper: EditorProvider },
     );
     await waitFor(() => expect(prepared).toHaveBeenCalledOnce());
     vi.mocked(pythonClient.getSong).mockResolvedValue({
@@ -107,7 +101,6 @@ describe("karaoke load session", () => {
         prepared,
         vi.fn(),
       ),
-      { wrapper: EditorProvider },
     );
     await waitFor(() => expect(editorApi.load).toHaveBeenCalledOnce());
     unmount();
@@ -147,7 +140,6 @@ describe("karaoke load session", () => {
         prepared,
         vi.fn(),
       ),
-      { wrapper: EditorProvider },
     );
 
     await waitFor(() => expect(result.current.load.kind).toBe("ready"));

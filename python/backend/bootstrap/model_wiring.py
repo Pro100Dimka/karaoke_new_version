@@ -4,9 +4,8 @@ from backend.bootstrap.container import ModelCases
 from backend.bootstrap.wiring import ProcessingWiring, RuntimeWiring
 from backend.infrastructure.http_downloader import HttpDownloader
 from backend.infrastructure.local_storage import LocalModelStorage
-from backend.models.commands import DeclareModel, DownloadModel, SelectModel
+from backend.models.commands import DeclareModel, DeleteModel, DownloadModel, SelectModel
 from backend.models.policy import ModelDownloadPolicy
-from backend.models.queries import ListModels
 
 
 def build_model_cases(
@@ -27,6 +26,6 @@ def build_model_cases(
     return ModelCases(
         DeclareModel(runtime.database, runtime.clock, storage, runtime.hasher),
         SelectModel(runtime.database),
-        ListModels(runtime.database),
         download,
+        DeleteModel(runtime.database, processing.jobs, storage, runtime.clock),
     )

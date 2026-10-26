@@ -1,5 +1,5 @@
+import { audioClient } from "../../services/audioClient";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useEditorAudio } from "../../app/EditorProvider";
 
 const pollMilliseconds = 100;
 
@@ -7,7 +7,6 @@ export const useEditorPreview = (
   audioReady: boolean,
   onFailure: () => void,
 ) => {
-  const audioClient = useEditorAudio();
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const playingRef = useRef(playing);

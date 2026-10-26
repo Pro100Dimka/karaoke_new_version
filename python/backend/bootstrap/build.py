@@ -26,7 +26,8 @@ from backend.infrastructure.clock import UtcClock
 from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.ffmpeg_audio import FfmpegAudioValidator
-from backend.infrastructure.file_hasher import Sha256FileHasher
+from backend.infrastructure.hashing import sha256_file
+from backend.songs.ports import FileHasher
 from backend.infrastructure.ids import UuidGenerator
 from backend.infrastructure.audd_recognition import (
     AuddRecognitionProvider,
@@ -65,7 +66,7 @@ from backend.recovery.recover_transactions import RecoverTransactions
 from backend.recovery.reconcile_songs import ReconcileInterruptedSongs
 from backend.recovery.startup_recovery import RecoverySummary, StartupRecovery
 from backend.infrastructure.artwork_cache import ArtworkCache
-from backend.settings.queries import GetSettings
+from backend.settings.queries import get_settings, SettingsReader
 
 
 def build_container(
@@ -112,7 +113,7 @@ def _processing_wiring(
         if database is None:
             raise ValueError("Database is required for configured AI providers")
         providers = configured_ai_providers(
-            config, processes, lambda: GetSettings(database).execute()
+            config, processes, lambda: get_settings(database)
         )
     registry = AiProviderRegistry(providers)
     return ProcessingWiring(
@@ -139,7 +140,7 @@ def _build_locked(
     storage = _initialized_storage(config, clock)
     with ExitStack() as startup:
         database = _open_database(config, startup)
-        processes, hasher = ProcessRunner(), Sha256FileHasher()
+        processes, hasher = ProcessRunner(), sha256_file
         project = _project_wiring(config, database, processes, clock, ids, hasher)
         events = EventStream(clock)
         executor = _start_executor(config, startup)
@@ -189,7 +190,7 @@ def _project_wiring(
     processes: ProcessRunner,
     clock: UtcClock,
     ids: UuidGenerator,
-    hasher: Sha256FileHasher,
+    hasher: FileHasher,
 ) -> ProjectWiring:
     projects = LocalProjectStorage(config.roots)
     songs = LocalSongStorage(config.roots)
@@ -272,7 +273,7 @@ def _assemble_container(
     instance_lock: BackendInstanceLock,
     executor: BoundedJobExecutor,
     recovery: RecoverySummary,
-    settings: GetSettings,
+    settings: SettingsReader,
 ) -> ApplicationContainer:
     recognition = _recognition(runtime, recognition_provider)
     songs = build_song_cases(runtime, project, processing, recognition, catalog_lookup)
@@ -306,7 +307,7 @@ def _system_cases(
     processing: ProcessingWiring,
     lifecycle: BackendLifecycle,
     executor: BoundedJobExecutor,
-    settings: GetSettings,
+    settings: SettingsReader,
 ) -> SystemCases:
     reconcile = ReconcileLibrary(
         runtime.database, project.projects, project.validator, project.songs, runtime.clock

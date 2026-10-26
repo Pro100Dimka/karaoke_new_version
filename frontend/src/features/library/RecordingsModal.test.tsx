@@ -4,7 +4,7 @@ import type { RecordingDto, SongDto } from "../../contracts/models";
 import { RecordingsModal } from "./RecordingsModal";
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string, values?: { count?: number }) => values?.count === undefined ? key : `${key}:${values.count}` }));
-vi.mock("../../app/LibraryProvider", () => ({ useLibraryFiles: () => ({ revealInExplorer: vi.fn() }) }));
+vi.mock("../../services/desktopClient", () => ({ desktopClient: { revealInExplorer: vi.fn() } }));
 vi.mock("./RecordingPlayer", () => ({ RecordingPlayer: ({ recording }: { recording: RecordingDto }) => <div data-testid="playing-version">{recording.id}</div> }));
 afterEach(cleanup);
 

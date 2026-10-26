@@ -38,12 +38,23 @@ CloseApplications=yes
 RestartApplications=no
 SetupIconFile={#AppIcon}
 
-[Languages]
-Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
-Name: "english"; MessagesFile: "compiler:Default.isl"
+[CustomMessages]
+en.Models=Download models for song processing (about 3 GB)
+ru.Models=Скачать модели для обработки песен (около 3 ГБ)
+uk.Models=Завантажити моделі для обробки пісень (близько 3 ГБ)
+en.DownloadTitle=Downloading AI models
+ru.DownloadTitle=Загрузка AI-моделей
+uk.DownloadTitle=Завантаження AI-моделей
+en.DownloadHint=Models are verified before use. You can also download them later in Settings.
+ru.DownloadHint=Файлы проверяются перед использованием. Модели также можно скачать позже в настройках.
+uk.DownloadHint=Файли перевіряються перед використанням. Моделі також можна завантажити пізніше в налаштуваннях.
+en.DownloadFailed=The models could not be downloaded. Retry, or go back and deselect model download to continue without them.
+ru.DownloadFailed=Не удалось скачать модели. Повторите попытку или вернитесь назад и снимите флажок загрузки моделей.
+uk.DownloadFailed=Не вдалося завантажити моделі. Повторіть спробу або поверніться назад і зніміть прапорець завантаження моделей.
 
 [Tasks]
 Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Ярлыки:"; Flags: unchecked
+Name: "models"; Description: "{cm:Models}"; Flags: unchecked
 
 [Files]
 Source: "{#AppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -91,8 +102,9 @@ Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Fla
 Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
 
 [UninstallDelete]
-; The CUDA build of PyTorch fetched for this computer (about 2.7 GB); songs and settings stay.
-Type: filesandordirs; Name: "{userappdata}\AD Voice\gpu-runtime"
+; Only this application's profile; never remove a shared install directory recursively.
+Type: filesandordirs; Name: "{userappdata}\AD Voice"
+Type: dirifempty; Name: "{app}"
 
 [Code]
 const
@@ -108,6 +120,7 @@ const
 
 var
   DownloadPage: TDownloadWizardPage;
+  ModelDownloadPage: TDownloadWizardPage;
   GpuChecked: Boolean;
   GpuPresent: Boolean;
 
@@ -153,13 +166,46 @@ procedure InitializeWizard;
 begin
   DownloadPage := CreateDownloadPage('Ускорение для видеокарты NVIDIA',
     'Скачиваю его один раз (около 2,5 ГБ), чтобы песни обрабатывались на видеокарте.', nil);
+  ModelDownloadPage := CreateDownloadPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'), nil);
 end;
+
+function VerifiedModel(const Target, Checksum: string): Boolean;
+begin
+  Result := False;
+  if FileExists(ExpandConstant(Target)) then
+    Result := CompareText(GetSHA256OfFile(ExpandConstant(Target)), Checksum) = 0;
+end;
+
+procedure KeepModel(const Name, RelativeDir: string);
+var
+  Source, Target: string;
+begin
+  Source := ExpandConstant('{tmp}\' + Name);
+  if not FileExists(Source) then Exit;
+  Target := ExpandConstant('{userappdata}\AD Voice\backend-data\models\' + RelativeDir);
+  if not ForceDirectories(Target) then RaiseException('Cannot create model directory: ' + Target);
+  Target := Target + '\model.bin';
+  if not FileCopy(Source, Target, False) then RaiseException('Cannot save model: ' + Target);
+  DeleteFile(Source);
+end;
+
+#include AppCatalog
+
+[Code]
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
-  if (CurPageID <> wpReady) or not NeedsGpuRuntime then
-    Exit;
+  if CurPageID <> wpReady then Exit;
+  if WizardIsTaskSelected('models') then
+    try
+      DownloadModels;
+    except
+      MsgBox(CustomMessage('DownloadFailed') + #13#10 + GetExceptionMessage, mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  if not NeedsGpuRuntime then Exit;
   DownloadPage.Clear;
   DownloadPage.Add(TorchUrl, TorchFile, TorchSha256);
   DownloadPage.Add(TorchaudioUrl, TorchaudioFile, TorchaudioSha256);
@@ -186,6 +232,40 @@ begin
   for I := 1 to ParamCount do
     if CompareText(ParamStr(I), '/NORELAUNCH') = 0 then
       Result := False;
+end;
+
+procedure DeleteStorageRoot(const Folder: string);
+var
+  Root: string;
+  Marker: AnsiString;
+  Names: TArrayOfString;
+  I: Integer;
+begin
+  Root := RemoveBackslash(ExpandFileName(Trim(Folder)));
+  if (Root = '') or (Length(Root) <= 3) then Exit;
+  if not LoadStringFromFile(Root + '\.ad-voice-data', Marker) then Exit;
+  if Marker <> 'ADVoice.App' then Exit;
+  Names := ['songs', 'models', 'cache', 'recordings', 'temp', 'quarantine', 'logs', 'recovery'];
+  for I := 0 to GetArrayLength(Names) - 1 do
+    if DirExists(Root + '\' + Names[I]) then
+      if not DelTree(Root + '\' + Names[I], True, True, True) then
+        Log('Could not remove data: ' + Root + '\' + Names[I]);
+  DeleteFile(Root + '\app.db');
+  DeleteFile(Root + '\app.db-wal');
+  DeleteFile(Root + '\app.db-shm');
+  DeleteFile(Root + '\.ad-voice-data');
+  RemoveDir(Root);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Roots: TArrayOfString;
+  I: Integer;
+begin
+  if CurUninstallStep <> usUninstall then Exit;
+  if LoadStringsFromFile(ExpandConstant('{userappdata}\AD Voice\storage-roots.txt'), Roots) then
+    for I := 0 to GetArrayLength(Roots) - 1 do
+      DeleteStorageRoot(Roots[I]);
 end;
 
 const

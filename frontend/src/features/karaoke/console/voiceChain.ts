@@ -1,6 +1,6 @@
+import { audioClient as audio } from "../../../services/audioClient";
 import { useEffect } from "react";
 import { useApp } from "../../../app/AppContext";
-import { useKaraokeAudio } from "../../../app/KaraokeProvider";
 import type { VoiceChainAudioPort } from "../../../application/karaoke/KaraokePorts";
 import {
   noiseReduction,
@@ -49,7 +49,6 @@ export const applyVoiceChain = async ({
 
 /** Keeps AudioService on the stored voice settings for the whole app, not only inside karaoke. */
 export const useVoiceChain = (): void => {
-  const audio = useKaraokeAudio();
   const { preferences } = useApp("preferences");
   const { voiceGain, karaokeEffects, noiseSuppression } = preferences;
   useEffect(() => {

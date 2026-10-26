@@ -11,8 +11,8 @@ export type SettingsAudioPort = Pick<AudioServiceClient,
   "diagnosticsDump" | "health">;
 
 export type SettingsBackendPort = Pick<PythonClient,
-  "listModels" | "diagnostics" | "getAiProcessingSettings" | "getJob" |
-  "downloadModel" | "cancelJob" | "updateAiProcessingSettings" |
+  "listModels" | "diagnostics" | "freeStorageBytes" | "getAiProcessingSettings" | "getJob" |
+  "downloadModel" | "deleteModel" | "cancelJob" | "updateAiProcessingSettings" |
   "clearCache" | "clearTemporaryFiles" | "history" | "listSongs" |
   "listEnvironmentSettings" | "updateEnvironmentSetting" |
   "verifyEnvironmentSetting" | "verifyKaggleSettings" | "loginKaggle" |

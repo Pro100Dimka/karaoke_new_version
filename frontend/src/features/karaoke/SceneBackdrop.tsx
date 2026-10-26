@@ -1,6 +1,6 @@
+import { desktopClient } from "../../services/desktopClient";
 import { useEffect, useRef, useState } from "react";
 import type { ThemeName } from "../../contracts/models";
-import { useKaraokeScene } from "../../app/KaraokeProvider";
 import { sceneBackgrounds } from "./sceneBackgrounds";
 import { useBackdropCover } from "../../app/backdrop/backdropCoverage";
 
@@ -38,7 +38,6 @@ export const SceneBackdrop = ({
   playing,
   rate,
 }: SceneBackdropProps) => {
-  const desktopClient = useKaraokeScene();
   useBackdropCover(sceneBackgrounds[theme]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failedUrl, setFailedUrl] = useState("");

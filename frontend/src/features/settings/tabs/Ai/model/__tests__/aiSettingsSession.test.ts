@@ -30,10 +30,11 @@ const setup = () => {
   vi.useFakeTimers();
   const backend = {
     downloadModel: vi.fn().mockResolvedValue(job("processing")),
+    deleteModel: vi.fn().mockResolvedValue(undefined),
     getJob: vi.fn().mockResolvedValue(job("completed", 1)),
     cancelJob: vi.fn().mockResolvedValue(undefined),
     listModels: vi.fn().mockResolvedValue([]),
-    diagnostics: vi.fn().mockResolvedValue({ storage: { free: 1000 } }),
+    freeStorageBytes: vi.fn().mockResolvedValue(1000),
     getAiProcessingSettings: vi
       .fn()
       .mockResolvedValue({ processingBackend: "Local" }),

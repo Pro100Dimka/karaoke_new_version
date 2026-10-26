@@ -79,7 +79,7 @@ class DeclareModel:
                     and existing.size == size
                 ):
                     return ModelState.READY, candidate
-                if self._hasher.hash_file(candidate) == checksum:
+                if self._hasher(candidate) == checksum:
                     return ModelState.READY, candidate
         except OSError:
             pass
@@ -115,6 +115,28 @@ class EnsureRequiredModels:
                 "Required AI models are not installed and verified",
                 models=[f"{item.model_id}:{item.version}" for item in missing],
             )
+
+
+class DeleteModel:
+    def __init__(
+        self, uow: UnitOfWorkFactory, jobs: ProcessingJobManager,
+        storage: ModelStorage, clock: Clock,
+    ) -> None:
+        self._uow, self._jobs, self._storage, self._clock = uow, jobs, storage, clock
+
+    def execute(self, model_id: str, version: str) -> None:
+        def remove() -> None:
+            with self._uow.create() as transaction:
+                model = transaction.models.get(model_id, version)
+                if model is None:
+                    raise NotFoundError("ModelMissing", "AI model was not found")
+                self._storage.delete(self._storage.final_path(model_id, version))
+                transaction.models.add_or_update(replace(
+                    model, state=ModelState.MISSING, local_path=None,
+                    selected=False, updated_at=self._clock.now(),
+                ))
+                transaction.commit()
+        self._jobs.run_when_idle(remove)
 
 
 class DownloadModel:
@@ -158,18 +180,21 @@ class DownloadModel:
         completed = False
         try:
             self._set_state(model, ModelState.DOWNLOADING)
-            context.progress("Download", 0.0, 0.1)
+            context.progress("Download", 0.0, 0.0)
             size = self._downloader.download(
                 model.download_url or "",
                 temporary,
                 timeout_seconds=self._policy.timeout_seconds,
                 max_bytes=model.size,
                 cancel=context.cancel,
+                progress=lambda received: context.progress(
+                    "Download", received / max(1, model.size), 0.95 * received / max(1, model.size)
+                ),
             )
             context.ensure_not_cancelled()
-            self._verify(model, temporary, size)
             self._set_state(model, ModelState.VERIFYING)
-            context.progress("Verify", 1.0, 0.8)
+            context.progress("Verify", 0.0, 0.95)
+            self._verify(model, temporary, size)
             context.ensure_not_cancelled()
             self._storage.publish(temporary, final)
             ready = replace(
@@ -204,7 +229,7 @@ class DownloadModel:
             raise DependencyError(
                 "ModelDownloadFailed", "Downloaded model size does not match manifest"
             )
-        if self._hasher.hash_file(path) != model.checksum:
+        if self._hasher(path) != model.checksum:
             raise DependencyError("ModelDownloadFailed", "Downloaded model checksum is invalid")
 
     def _set_state(self, model: AiModel, state: ModelState) -> None:

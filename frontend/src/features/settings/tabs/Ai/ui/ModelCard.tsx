@@ -4,6 +4,7 @@ import {
   ProgressBar,
   StatusIndicator,
   Typography,
+  tr,
 } from "@neo-ui-kit/react";
 import type {
   ModelDto,
@@ -41,6 +42,7 @@ export const ModelCard = ({
   free,
   onDownload,
   onCancel,
+  onDelete,
 }: {
   model: ModelDto;
   job?: ProcessingJobDto;
@@ -48,6 +50,7 @@ export const ModelCard = ({
   free: number | null;
   onDownload(model: ModelDto): void;
   onCancel(jobId: string): void;
+  onDelete(model: ModelDto): void;
 }) => {
   const t = useText();
   const activeJob = isJobActive(job) ? job : undefined;
@@ -82,7 +85,11 @@ export const ModelCard = ({
           {model.state === "failed" ? t("retry") : t("download")}
         </Button>
       );
-    return null;
+    return model.state === "ready" ? (
+      <Button size="sm" variant="ghost" icon="trash" disabled={busy} onClick={() => onDelete(model)}>
+        {tr("Удалить модель")}
+      </Button>
+    ) : null;
   };
 
   return (
@@ -109,7 +116,7 @@ export const ModelCard = ({
         )}
         {busy && (
           <ProgressBar
-            label={t("modelDownloading")}
+            label={activeJob?.stage === "Verify" ? tr("Проверка скачанного файла…") : t("modelDownloading")}
             indeterminate={!activeJob}
             value={activeJob?.progress ?? 0}
           />

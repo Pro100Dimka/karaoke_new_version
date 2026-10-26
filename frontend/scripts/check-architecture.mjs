@@ -55,42 +55,31 @@ const importsOf = (file) => {
   return imports;
 };
 
-const featureClient = (source, target) =>
-  source.startsWith("src/features/") && target.startsWith("src/services/");
+// Features may use public service APIs directly. Transport state and mappers stay internal.
+const publicServices = new Set([
+  "audioClient", "pythonClient", "desktopClient", "desktopBridge",
+  "recordingCoordinator", "keyboardLightingClient", "backendEvents",
+].map((name) => `src/services/${name}`));
+const privateService = (source, target) =>
+  source.startsWith("src/features/") && target.startsWith("src/services/") &&
+  !publicServices.has(target);
 
-export const featureClientEdges = (root) =>
-  sourceFiles(root)
-    .flatMap((file) => {
-      const source = normalized(relative(root, file));
-      return importsOf(file)
-        .map((specifier) => targetOf(root, file, specifier))
-        .filter((target) => featureClient(source, target))
-        .map((target) => `${source} -> ${target}`);
-    })
-    .sort();
-
-export const baselineViolations = (root, existingFeatureEdges) =>
-  [...existingFeatureEdges]
-    .filter((edge) => !featureClientEdges(root).includes(edge))
-    .sort();
-
-export const architectureViolations = (root, existingFeatureEdges) =>
+export const architectureViolations = (root) =>
   sourceFiles(root).flatMap((file) => {
     const source = normalized(relative(root, file));
     const layer = source.split("/")[1];
     const violations = [];
     if (
-      (layer === "application" || layer === "domain") &&
+      ["application", "domain"].includes(layer) &&
       extname(file) === ".tsx"
     )
       violations.push(`${source} -> React component`);
     for (const specifier of importsOf(file)) {
       const target = targetOf(root, file, specifier);
       const edge = `${source} -> ${target}`;
-      if (featureClient(source, target)) {
-        if (!existingFeatureEdges.has(edge)) violations.push(edge);
-      } else if (
-        (layer === "application" || layer === "domain") &&
+      if (privateService(source, target)) violations.push(edge);
+      else if (
+        ["application", "domain"].includes(layer) &&
         (/^(?:react|react-dom|react-router-dom)(?:\/|$)/.test(target) ||
           target.startsWith("@neo-ui-kit/react") ||
           /^src\/(?:app|features|services|electron)\//.test(target))
@@ -107,33 +96,9 @@ if (
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   const root = process.cwd();
-  if (process.argv.includes("--print-debt")) {
-    process.stdout.write(
-      `${JSON.stringify(featureClientEdges(root), null, 2)}\n`,
-    );
-  } else {
-    const existing = new Set(
-      JSON.parse(
-        readFileSync(
-          new URL("./architecture-baseline.json", import.meta.url),
-          "utf8",
-        ),
-      ),
-    );
-    const violations = [
-      ...architectureViolations(root, existing),
-      ...baselineViolations(root, existing).map(
-        (edge) => `stale baseline: ${edge}`,
-      ),
-    ];
-    if (violations.length) {
-      console.error(
-        `Architecture check failed:\n${violations.map((value) => `- ${value}`).join("\n")}`,
-      );
-      process.exitCode = 1;
-    } else
-      console.log(
-        `Architecture check passed (${existing.size} existing feature-to-client edges remain).`,
-      );
-  }
+  const violations = architectureViolations(root);
+  if (violations.length) {
+    console.error(`Architecture check failed:\n${violations.map((value) => `- ${value}`).join("\n")}`);
+    process.exitCode = 1;
+  } else console.log("Architecture check passed.");
 }

@@ -4,10 +4,7 @@ import type { PlaybackSnapshot } from "../../contracts/models";
 import { usePositionPolling } from "./usePositionPolling";
 
 const { getAudioSnapshot } = vi.hoisted(() => ({ getAudioSnapshot: vi.fn() }));
-vi.mock("../../services/audioClient", () => ({ getAudioSnapshot }));
-vi.mock("../../app/KaraokeProvider", () => ({
-  useKaraokeAudio: () => ({ snapshot: getAudioSnapshot }),
-}));
+vi.mock("../../services/audioClient", () => ({ audioClient: { snapshot: getAudioSnapshot } }));
 
 const snapshot = (
   positionSeconds: number,
@@ -17,7 +14,7 @@ const snapshot = (
   state,
   positionSeconds,
   durationSeconds: 200,
-  recording: false,
+
   monitoring: false,
   inputLevel: 0,
 });

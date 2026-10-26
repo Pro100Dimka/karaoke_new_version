@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -75,5 +76,4 @@ class SongStorage(Protocol):
     def size(self, path: Path) -> int: ...
 
 
-class FileHasher(Protocol):
-    def hash_file(self, path: Path) -> str: ...
+FileHasher = Callable[[Path], str]

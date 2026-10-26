@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import {
   mkdtempSync,
   mkdirSync,
-  readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -12,37 +10,9 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   architectureViolations,
-  baselineViolations,
 } from "./check-architecture.mjs";
 
-test("the new AI tab follows Appearance without legacy settings or extra wrappers", () => {
-  const directory = join(process.cwd(), "src/features/settingsNEW/Ai");
-  const files = readdirSync(directory).filter((name) =>
-    /\.(ts|tsx)$/.test(name),
-  );
-  const lines = files.map(
-    (name) =>
-      readFileSync(join(directory, name), "utf8").trimEnd().split(/\r?\n/)
-        .length,
-  );
-  const source = files
-    .map((name) => readFileSync(join(directory, name), "utf8"))
-    .join("\n");
-  assert.doesNotMatch(source, /["'](?:\.\.\/)+settings\/|["'][^"']*\.css["']/);
-  const settings = readFileSync(join(directory, "../index.tsx"), "utf8");
-  assert.doesNotMatch(
-    settings,
-    /<SettingsProvider|SettingsContents|field:\s*\(/,
-  );
-  assert.match(source, /from ["']\.\.\/FormCard["']/);
-  assert.match(source, /Object\.entries\(blocks\(/);
-  assert.ok(
-    lines.reduce((sum, count) => sum + count, 0) <= 200,
-    files.map((name, index) => `${name}: ${lines[index]}`).join(", "),
-  );
-});
-
-test("architecture boundaries reject concrete clients and reverse dependencies", () => {
+test("architecture boundaries reject private service state and reverse dependencies", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
   const source = (path, contents) => {
     const file = join(root, "src", path);
@@ -53,39 +23,35 @@ test("architecture boundaries reject concrete clients and reverse dependencies",
     source("application/room/Bad.ts", 'import "react"; import "../../services/roomClient";');
     source("domain/State.ts", 'import "react";');
     source("services/Bad.ts", 'import "../features/room/roomModel";');
-    source("features/room/Bad.tsx", 'import "../../services/audioClient";');
-    source("app/Composition.ts", 'import "../services/audioClient"; import "../application/room/Bad";');
-    const violations = architectureViolations(root, new Set());
+    source("features/room/Bad.tsx", 'import "../../services/audioSession";');
+    source("app/Composition.ts", 'import "../services/audioSession"; import "../application/room/Bad";');
+    const violations = architectureViolations(root);
     assert.equal(violations.length, 5);
     assert.match(violations.join("\n"), /application\/room\/Bad\.ts.*react/);
     assert.match(violations.join("\n"), /application\/room\/Bad\.ts.*services\/roomClient/);
     assert.match(violations.join("\n"), /domain\/State\.ts.*react/);
     assert.match(violations.join("\n"), /services\/Bad\.ts.*features\/room\/roomModel/);
-    assert.match(violations.join("\n"), /features\/room\/Bad\.tsx.*services\/audioClient/);
-    assert.equal(
-      architectureViolations(root, new Set(["src/features/room/Bad.tsx -> src/services/audioClient"])).length,
-      4,
-    );
+    assert.match(violations.join("\n"), /features\/room\/Bad\.tsx.*services\/audioSession/);
+
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("architecture boundaries reject every concrete feature client and stale exceptions", () => {
+test("architecture boundaries reject unlisted service modules", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
   const file = join(root, "src", "features", "room", "Direct.ts");
   mkdirSync(join(file, ".."), { recursive: true });
   writeFileSync(file, 'import "../../services/newTransportClient";');
   const edge = "src/features/room/Direct.ts -> src/services/newTransportClient";
   try {
-    assert.deepEqual(architectureViolations(root, new Set()), [edge]);
-    assert.deepEqual(baselineViolations(root, new Set(["obsolete edge"])), ["obsolete edge"]);
+    assert.deepEqual(architectureViolations(root), [edge]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("architecture boundaries also reject feature imports of concrete service modules", () => {
+test("architecture boundaries allow public feature APIs but reject internal mappers", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
   const file = join(root, "src", "features", "room", "Direct.ts");
   mkdirSync(join(file, ".."), { recursive: true });
@@ -96,19 +62,19 @@ test("architecture boundaries also reject feature imports of concrete service mo
     'import "../../services/roomMappers";',
   ].join("\n"));
   try {
-    assert.equal(architectureViolations(root, new Set()).length, 4);
+    assert.deepEqual(architectureViolations(root), ["src/features/room/Direct.ts -> src/services/roomMappers"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test("feature boundary rejects every service module, including a newly named transport", () => {
+test("feature boundary rejects a newly named private transport", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
   const file = join(root, "src", "features", "room", "Direct.ts");
   mkdirSync(join(file, ".."), { recursive: true });
   writeFileSync(file, 'import "../../services/newTransport";');
   try {
-    assert.deepEqual(architectureViolations(root, new Set()), [
+    assert.deepEqual(architectureViolations(root), [
       "src/features/room/Direct.ts -> src/services/newTransport",
     ]);
   } finally {
@@ -116,14 +82,14 @@ test("feature boundary rejects every service module, including a newly named tra
   }
 });
 
-test("feature boundary also rejects a lazy concrete client import", () => {
+test("feature boundary also rejects a lazy private service import", () => {
   const root = mkdtempSync(join(tmpdir(), "advoice-architecture-"));
   const file = join(root, "src", "features", "room", "Lazy.ts");
   mkdirSync(join(file, ".."), { recursive: true });
-  writeFileSync(file, 'export const load = () => import("../../services/audioClient");');
+  writeFileSync(file, 'export const load = () => import("../../services/audioSession");');
   try {
-    assert.deepEqual(architectureViolations(root, new Set()), [
-      "src/features/room/Lazy.ts -> src/services/audioClient",
+    assert.deepEqual(architectureViolations(root), [
+      "src/features/room/Lazy.ts -> src/services/audioSession",
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });

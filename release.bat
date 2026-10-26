@@ -148,8 +148,10 @@ if errorlevel 1 goto :fail
 rem Signing comes last: any later change to a binary would invalidate its signature.
 call "%ROOT%scripts\sign-release.bat" "%APP_DIR%\AD Voice.exe" "%RESOURCES%\audio-service\AudioService.exe" "%RESOURCES%\audio-service\NativeVoiceRelay.exe"
 if errorlevel 1 goto :fail
+"%PYTHON_EXE%" -B "%ROOT%installer\generate_config.py" "%CACHE%\installer-catalog.iss"
+if errorlevel 1 goto :fail
 if exist "%SETUP%" del /q "%SETUP%"
-"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\ad-voice.ico" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
+"%ISCC%" "/DAppSource=%APP_DIR%" "/DOutputDir=%RELEASE%" "/DAppVersion=%APP_VERSION%" "/DAppIcon=%CACHE%\ad-voice.ico" "/DAppCatalog=%CACHE%\installer-catalog.iss" "/DLzmaThreads=%LZMA_THREADS%" "/DLzmaDictionaryKb=%LZMA_DICTIONARY_KB%" "%ROOT%installer\ad-voice.iss"
 if not "%errorlevel%"=="0" goto :fail
 if not exist "%SETUP%" goto :fail
 call "%ROOT%scripts\sign-release.bat" "%SETUP%"

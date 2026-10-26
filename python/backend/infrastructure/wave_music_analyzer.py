@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-import array
+import math
 import wave
 from pathlib import Path
+
+import numpy as np
 
 from backend.domain_errors import DependencyError
 from backend.processing.algorithms import MusicMetadata
@@ -31,13 +33,16 @@ def _envelope(path: Path) -> tuple[list[float], int]:
         width = stream.getsampwidth()
         if width != 2:
             raise wave.Error("Music analyzer expects 16-bit PCM")
-        samples = array.array("h", stream.readframes(stream.getnframes()))
-    block = max(1, sample_rate * channels // _FRAME_RATE)
-    values = [
-        sum(abs(sample) for sample in samples[index : index + block]) / block
-        for index in range(0, len(samples), block)
-        if samples[index : index + block]
-    ]
+        block = max(1, sample_rate * channels // _FRAME_RATE)
+        # Keep block boundaries identical to the original sample-based envelope,
+        # including the final partial block's full-block divisor.
+        frames = block // math.gcd(block, channels) * 1024
+        values: list[float] = []
+        while raw := stream.readframes(frames):
+            samples = np.abs(np.frombuffer(raw, dtype="<i2").astype(np.int32))
+            values.extend(
+                (np.add.reduceat(samples, np.arange(0, len(samples), block)) / block).tolist()
+            )
     return values, _FRAME_RATE
 
 

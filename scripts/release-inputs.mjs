@@ -43,6 +43,7 @@ const byMetadata = (target) => {
   at("frontend", "dist"),
   at("frontend", "dist-electron"),
   at("frontend", "package.json"),
+  at("frontend", "src", "i18n", "languages.json"),
   at("frontend", "electron", "splash.html"),
   at("frontend", "scripts", "stamp-exe-icon.mjs"),
   at("frontend", "scripts", "harden-electron.mjs"),

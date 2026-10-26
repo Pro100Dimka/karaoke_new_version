@@ -1,6 +1,7 @@
-import { Icon, IconButton, Popover, Slider } from "@neo-ui-kit/react";
+import { Icon, IconButton, Popover, Slider, tr } from "@neo-ui-kit/react";
+import { useNavigate } from "react-router-dom";
+import { routes } from "../shared/routes";
 import { useRef, useState } from "react";
-// import SettingsModal from "../features/settingsNEW";
 import { useText } from "../i18n/useText";
 import { useApp } from "./AppContext";
 import { useRadio } from "./RadioContext";
@@ -9,6 +10,7 @@ import { useRadioTrack } from "./desktop/shellBus";
 /** The radio and settings buttons in the lower corner; the radio's volume opens on hover. */
 export const FloatingControls = () => {
   const t = useText();
+  const navigate = useNavigate();
   const radio = useRadio();
   const track = useRadioTrack();
   const { openSettings } = useApp("actions");
@@ -71,7 +73,8 @@ export const FloatingControls = () => {
         </Popover>
       </div>
       {el}
-      {/* <SettingsModal /> */}
+      <IconButton round size="lg" className="floatingButton" icon="info"
+        label={tr("Инструкция")} onClick={() => navigate(routes.help)} />
     </aside>
   );
 };

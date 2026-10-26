@@ -18,6 +18,7 @@ import type { RoomVoiceCoordinator } from "../application/room/RoomVoiceCoordina
 import { applyAppFonts } from "../shared/preferences/appFonts";
 import type {
   Language,
+  ProcessingJobDto,
   RoomStateDto,
   SettingsTab,
   ThemeName,
@@ -25,7 +26,7 @@ import type {
 import { audioClient } from "../services/audioClient";
 import { desktopClient } from "../services/desktopClient";
 import { pythonClient } from "../services/pythonClient";
-import { refreshOnJobChanges } from "../services/backendEvents";
+import { backendEventsAvailable, refreshOnJobChanges } from "../services/backendEvents";
 import { roomClient } from "../services/roomClient";
 import { participantId } from "../services/roomMappers";
 import { rememberRoomProjectCopy, roomProjectCopy } from "../services/roomProjectCopies";
@@ -64,7 +65,10 @@ type AppSlices = {
   room: Pick<AppContextValue, "room">;
   actions: Pick<AppContextValue, "setTheme" | "setLanguage" | "openSettings" | "updatePreferences">;
   processing: Pick<AppContextValue, "localProcessing">;
+  jobs: { jobs: readonly ProcessingJobDto[]; failed: boolean };
 };
+const ProcessingContext = createContext<AppSlices["processing"] | null>(null);
+const JobsContext = createContext<AppSlices["jobs"] | null>(null);
 const AppContext = createContext<AppContextValue | null>(null);
 const LanguageContext = createContext<AppSlices["language"] | null>(null);
 const ThemeContext = createContext<AppSlices["theme"] | null>(null);
@@ -80,7 +84,8 @@ const contexts = {
   preferences: PreferencesContext,
   room: RoomContext,
   actions: ActionsContext,
-  processing: AppContext,
+  processing: ProcessingContext,
+  jobs: JobsContext,
 };
 
 // Kept apart from the app context: opening or closing the dialog must not redraw every screen that reads the app
@@ -91,30 +96,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [preferences, setPreferences] = useState<Preferences>(loadPreferences);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("appearance");
-  const [localProcessing, setLocalProcessing] = useState(false);
+  const [jobState, setJobState] = useState<AppSlices["jobs"]>({ jobs: [], failed: false });
+  const localProcessing = jobState.jobs.some((job) =>
+    job.type === "SongProcessing" && job.processingBackend === "Local" &&
+    ["queued", "processing", "cancelling"].includes(job.state));
+  const processing = useMemo(() => ({ localProcessing }), [localProcessing]);
   useEffect(() => {
     let active = true;
-    let generation = 0;
+    let inFlight = false;
+    let refreshPending = false;
     const refresh = async () => {
-      const request = ++generation;
+      if (!active) return;
+      if (inFlight) {
+        refreshPending = true;
+        return;
+      }
+      inFlight = true;
+      refreshPending = false;
       try {
         const jobs = await pythonClient.listJobs();
-        if (active && request === generation)
-          setLocalProcessing(
-            jobs.some(
-              (job) =>
-                job.type === "SongProcessing" &&
-                job.processingBackend === "Local" &&
-                ["queued", "processing", "cancelling"].includes(job.state),
-            ),
-          );
+        if (active) setJobState({ jobs, failed: false });
       } catch {
-        // Keep the last known lock during an outage; reconnect refreshes the jobs.
+        // Keep the last known jobs and lock during an outage.
+        if (active)
+          setJobState((previous) => ({ ...previous, failed: true }));
+      } finally {
+        inFlight = false;
+        // Events during a slow request require one fresh read, without discarding every reply.
+        if (active && refreshPending) void refresh();
       }
     };
     void refresh();
     const unsubscribe = refreshOnJobChanges(() => void refresh(), 250);
-    const timer = window.setInterval(() => void refresh(), 5000);
+    const timer = window.setInterval(() => void refresh(), backendEventsAvailable() ? 5000 : 1000);
     return () => {
       active = false;
       unsubscribe();
@@ -251,7 +265,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               <RoomContext.Provider value={roomValue}>
                 <ActionsContext.Provider value={actionsValue}>
                   <SettingsDialogContext.Provider value={dialog}>
-                    {children}
+                    <ProcessingContext.Provider value={processing}>
+                      <JobsContext.Provider value={jobState}>{children}</JobsContext.Provider>
+                    </ProcessingContext.Provider>
                   </SettingsDialogContext.Provider>
                 </ActionsContext.Provider>
               </RoomContext.Provider>
