@@ -151,7 +151,11 @@ export const DesktopShellBridge = () => {
             onBattery.set(command.onBattery === true);
             break;
           case "updateReady":
-            if (typeof command.version === "string") updateReady.set(command.version);
+            if (typeof command.version === "string") {
+              updateDownload.set(null);
+              updateAvailable.set(null);
+              updateReady.set(command.version);
+            }
             break;
           case "updateAvailable":
             if (typeof command.version === "string") updateAvailable.set(command.version);

@@ -1,9 +1,8 @@
-import { Button, MessageBar } from "@neo-ui-kit/react";
+import { Button, MessageBar, ProgressBar, tr } from "@neo-ui-kit/react";
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { routes } from "../shared/routes";
 import { useNotify } from "./NotificationsProvider";
-import { useText } from "../i18n/useText";
 import { desktopClient } from "../services/desktopClient";
 import {
   updateDownload,
@@ -12,74 +11,63 @@ import {
   useUpdateReady,
 } from "./desktop/shellBus";
 import { useServices } from "./ServicesContext";
+import { useApp } from "./AppContext";
 
 const notices = [
   {
     service: "python",
     kind: "unavailable",
-    message: "pythonReconnecting",
+    message: "Python Backend недоступен. Переподключение… Действия библиотеки отключены до его возврата.",
     tone: "error",
   },
   {
     service: "python",
     kind: "incompatible",
-    message: "pythonIncompatible",
+    message: "Протокол Python Backend несовместим",
     tone: "error",
   },
   {
     service: "audio",
     kind: "unavailable",
-    message: "audioServiceUnavailable",
+    message: "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
     tone: "warning",
   },
   {
     service: "audio",
     kind: "incompatible",
-    message: "audioIncompatible",
+    message: "Протокол AudioService несовместим",
     tone: "error",
   },
 ] as const;
 
-/**
- * With updates off, a newer version is offered in the Library at start-up: "Install" downloads it
- * (with its progress here), installs it and opens the new version; "Dismiss" hides it until the
- * next start.
- */
-const useOfferedUpdate = () => {
-  const version = useUpdateAvailable();
+/** Non-blocking service notices and update progress on every screen. */
+export const ServiceBanner = () => {
+  useApp("language");
+  const services = useServices();
+  const update = useUpdateReady();
+  const available = useUpdateAvailable();
   const download = useUpdateDownload();
   const { pathname } = useLocation();
   const notify = useNotify();
-  const t = useText();
   const [dismissed, setDismissed] = useState(false);
-  const [requested, setRequested] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const downloading = typeof download === "number";
+  const version = update ?? available;
+  const downloadLabel = downloading && version
+    ? tr("Скачивание A&D Voice {version} — {percent}%", { version, percent: download })
+    : undefined;
+
   useEffect(() => {
     if (download !== "failed") return;
-    setRequested(false);
+    setInstalling(false);
     updateDownload.set(null);
-    notify(t("updateInstallFailed"), "error");
-  }, [download, notify, t]);
-  const downloading = requested && download !== "failed";
-  return {
-    version,
-    shown: Boolean(version) && !dismissed && (pathname === routes.library || downloading),
-    downloading,
-    percent: downloading && typeof download === "number" ? download : null,
-    dismiss: () => setDismissed(true),
-    install: () => {
-      setRequested(true);
-      void desktopClient.installUpdate().then((started) => started || setRequested(false));
-    },
-  };
-};
+    notify(tr("Не удалось скачать обновление. Попробуйте позже."), "error");
+  }, [download, notify]);
 
-/** Non-blocking, per-subsystem notices so one failed service is not presented as an app-wide crash. */
-export const ServiceBanner = () => {
-  const services = useServices();
-  const t = useText();
-  const update = useUpdateReady();
-  const [installing, setInstalling] = useState(false);
-  const offer = useOfferedUpdate();
+  const install = () => {
+    setInstalling(true);
+    void desktopClient.installUpdate().then((started) => started || setInstalling(false));
+  };
 
   return (
     <div className="serviceBanners">
@@ -87,53 +75,43 @@ export const ServiceBanner = () => {
         .filter(({ service, kind }) => services[service].kind === kind)
         .map(({ service, message, tone }) => (
           <MessageBar key={service} tone={tone}>
-            {t(message)}
+            {tr(message)}
           </MessageBar>
         ))}
-      {update && (
+      {version && (downloading || update || (!dismissed && pathname === routes.library)) && (
         <MessageBar
           tone="info"
           action={
-            <Button
-              size="sm"
-              variant="primary"
-              icon="refresh"
-              loading={installing}
-              onClick={() => {
-                setInstalling(true);
-                void desktopClient.installUpdate().then((started) => started || setInstalling(false));
-              }}
-            >
-              {t("restartToUpdate")}
-            </Button>
+            !downloading && (
+              <>
+                {!update && (
+                  <Button size="sm" variant="ghost" disabled={installing} onClick={() => setDismissed(true)}>
+                    {tr("Отклонить")}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={update ? "refresh" : "download"}
+                  loading={installing}
+                  onClick={install}
+                >
+                  {update ? tr("Обновить сейчас") : tr("Установить")}
+                </Button>
+              </>
+            )
           }
         >
-          {t("updateDownloaded", { version: update })}
-        </MessageBar>
-      )}
-      {offer.shown && (
-        <MessageBar
-          tone="info"
-          action={
-            <>
-              <Button size="sm" variant="ghost" disabled={offer.downloading} onClick={offer.dismiss}>
-                {t("updateDismiss")}
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                icon="download"
-                loading={offer.downloading}
-                onClick={offer.install}
-              >
-                {t("updateInstall")}
-              </Button>
-            </>
-          }
-        >
-          {offer.percent === null
-            ? t("updateAvailable", { version: offer.version ?? "" })
-            : t("updateDownloadingPercent", { percent: offer.percent })}
+          {downloading ? (
+            <div style={{ display: "grid", gap: "0.375rem" }}>
+              <span>{downloadLabel}</span>
+              <ProgressBar value={download} max={100} label={downloadLabel} />
+            </div>
+          ) : update ? (
+            tr("A&D Voice {version} скачано и установится при следующем запуске", { version })
+          ) : (
+            tr("Доступно обновление A&D Voice {version}", { version })
+          )}
         </MessageBar>
       )}
     </div>

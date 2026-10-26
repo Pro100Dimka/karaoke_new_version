@@ -93,13 +93,13 @@ export const radioTrack = createStore<{ title: string; artist?: string } | null>
 export const useRadioTrack = (): { title: string; artist?: string } | null =>
   useSyncExternalStore(radioTrack.subscribe, radioTrack.get, radioTrack.get);
 
-/** With updates off: the newer version the Library offers; null when there is none. */
+/** A newer version offered or downloading; null when there is none or it is ready. */
 export const updateAvailable = createStore<string | null>(null);
 
 export const useUpdateAvailable = (): string | null =>
   useSyncExternalStore(updateAvailable.subscribe, updateAvailable.get, updateAvailable.get);
 
-/** The offered update's download after "Install": 0..100, "failed", or null before it starts. */
+/** Automatic or manual update download: 0..100, "failed", or null while inactive. */
 export const updateDownload = createStore<number | "failed" | null>(null);
 
 export const useUpdateDownload = (): number | "failed" | null =>
