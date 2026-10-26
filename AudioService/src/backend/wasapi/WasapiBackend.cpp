@@ -1797,7 +1797,7 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
                     nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
                 if (timer) {
                     LARGE_INTEGER due{};
-                    due.QuadPart = -periodHns / 2;
+                    due.QuadPart = -periodHns * 7 / 10;
                     if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
                         HANDLE events[]{impl_->stopEvent, timer};
                         WaitForMultipleObjects(2, events, FALSE, 100);
