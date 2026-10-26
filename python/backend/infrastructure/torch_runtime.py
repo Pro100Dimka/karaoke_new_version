@@ -119,14 +119,16 @@ def unpack(wheels: list[Path], destination: Path) -> None:
             archive.extractall(destination)
 
 
-def install_gpu(target: Path) -> None:
+def install_gpu(target: Path, *, verified_wheels: list[Path] | None = None) -> None:
     """Downloads and unpacks the CUDA build into `target`, which counts only once complete."""
     if (target / COMPLETE_MARKER).is_file():
         return
     cache = target.parent / "downloads"
     partial = target.with_name(target.name + ".partial")
     _remove(partial)
-    wheels = [download(wheel, cache) for wheel in GPU_WHEELS]
+    wheels = verified_wheels if verified_wheels is not None else [
+        download(wheel, cache) for wheel in GPU_WHEELS
+    ]
     unpack(wheels, partial)
     (partial / COMPLETE_MARKER).write_text(TORCH_VERSION, encoding="utf-8")
     _remove(target)

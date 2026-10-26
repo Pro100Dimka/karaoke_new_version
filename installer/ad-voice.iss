@@ -50,12 +50,6 @@ uk.DesktopIcon=Створити ярлик на робочому столі
 en.Shortcuts=Shortcuts:
 ru.Shortcuts=Ярлыки:
 uk.Shortcuts=Ярлики:
-en.GpuTitle=NVIDIA GPU acceleration
-ru.GpuTitle=Ускорение для видеокарты NVIDIA
-uk.GpuTitle=Прискорення для відеокарти NVIDIA
-en.GpuHint=Downloading once (about 2.5 GB) to process songs on your GPU.
-ru.GpuHint=Однократная загрузка (около 2,5 ГБ) для обработки песен на видеокарте.
-uk.GpuHint=Одноразове завантаження (близько 2,5 ГБ) для обробки пісень на відеокарті.
 en.GpuPreparing=Preparing NVIDIA GPU acceleration…
 ru.GpuPreparing=Подготовка ускорения для видеокарты NVIDIA…
 uk.GpuPreparing=Підготовка прискорення для відеокарти NVIDIA…
@@ -65,15 +59,27 @@ uk.LaunchApp=Запустити A&D Voice
 en.Models=Download models for song processing (about 3 GB)
 ru.Models=Скачать модели для обработки песен (около 3 ГБ)
 uk.Models=Завантажити моделі для обробки пісень (близько 3 ГБ)
-en.DownloadTitle=Downloading AI models
-ru.DownloadTitle=Загрузка AI-моделей
-uk.DownloadTitle=Завантаження AI-моделей
-en.DownloadHint=Models are verified before use. You can also download them later in Settings.
-ru.DownloadHint=Файлы проверяются перед использованием. Модели также можно скачать позже в настройках.
-uk.DownloadHint=Файли перевіряються перед використанням. Моделі також можна завантажити пізніше в налаштуваннях.
-en.DownloadFailed=The models could not be downloaded. Retry, or go back and deselect model download to continue without them.
-ru.DownloadFailed=Не удалось скачать модели. Повторите попытку или вернитесь назад и снимите флажок загрузки моделей.
-uk.DownloadFailed=Не вдалося завантажити моделі. Повторіть спробу або поверніться назад і зніміть прапорець завантаження моделей.
+en.DownloadTitle=Downloading AI components
+ru.DownloadTitle=Загрузка компонентов AI
+uk.DownloadTitle=Завантаження компонентів AI
+en.DownloadHint=Up to 3 downloads at once. NVIDIA acceleration adds about 2.5 GB.
+ru.DownloadHint=До 3 загрузок одновременно. NVIDIA: дополнительно около 2,5 ГБ.
+uk.DownloadHint=До 3 завантажень одночасно. NVIDIA: додатково близько 2,5 ГБ.
+en.DownloadFailed=Some AI components could not be prepared. Retry, or cancel to finish installation without them. They can be downloaded later in the app.
+ru.DownloadFailed=Не удалось подготовить часть компонентов AI. Повторите попытку или нажмите «Отмена», чтобы завершить установку без них. Их можно загрузить позже в программе.
+uk.DownloadFailed=Не вдалося підготувати частину компонентів AI. Повторіть спробу або натисніть «Скасувати», щоб завершити встановлення без них. Їх можна завантажити пізніше в програмі.
+en.DownloadProgress=%1 / %2 MiB; files ready: %3 / %4
+ru.DownloadProgress=%1 / %2 МиБ; готово файлов: %3 / %4
+uk.DownloadProgress=%1 / %2 МіБ; готово файлів: %3 / %4
+en.DownloadVerifying=Downloading and checking files…
+ru.DownloadVerifying=Загрузка и проверка файлов…
+uk.DownloadVerifying=Завантаження та перевірка файлів…
+en.DownloadSkip=Download later
+ru.DownloadSkip=Загрузить позже
+uk.DownloadSkip=Завантажити пізніше
+en.DownloadStopping=Stopping downloads…
+ru.DownloadStopping=Остановка загрузок…
+uk.DownloadStopping=Зупинка завантажень…
 en.CloseBeforeUninstall=Close A&D Voice and wait for processing and recordings to finish before uninstalling.
 ru.CloseBeforeUninstall=Закройте A&D Voice и дождитесь завершения обработки и записей перед удалением.
 uk.CloseBeforeUninstall=Закрийте A&D Voice і дочекайтеся завершення обробки та записів перед видаленням.
@@ -121,10 +127,6 @@ Root: HKA; Subkey: "Software\Classes\.m4a\OpenWithProgids"; ValueType: string; V
 Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; ValueName: "ADVoice.Audio"; ValueData: ""; Flags: uninsdeletevalue
 
 [Run]
-; The CUDA build of PyTorch on an NVIDIA computer, so the first song is already processed on the GPU:
-; unpacked from the wheels the download page fetched. A silent update (installed by the app before
-; it opens) skips this so the app opens at once; the app then fetches it in the background itself.
-Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "{cm:GpuPreparing}"; Flags: runhidden waituntilterminated; Check: UnpackGpuRuntime
 Filename: "{app}\AD Voice.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 ; An update installed silently by the app (electron/AutoUpdate.ts) opens the new version; one run
 ; with /NORELAUNCH leaves it closed.
@@ -138,19 +140,14 @@ Type: dirifempty; Name: "{app}"
 
 [Code]
 const
-  { Must match GPU_WHEELS in python/backend/infrastructure/torch_runtime.py (a test checks it). }
+  { Must match the runtime directory used by electron/GpuRuntime.ts. }
   GpuRuntimeDir = '{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130';
-  GpuDownloadsDir = '{userappdata}\AD Voice\gpu-runtime\downloads';
-  TorchUrl = 'https://download.pytorch.org/whl/cu130/torch-2.11.0%2Bcu130-cp313-cp313-win_amd64.whl';
-  TorchFile = 'torch-2.11.0+cu130-cp313-cp313-win_amd64.whl';
-  TorchSha256 = '339801f2163698a53c7fb3c91883e7f44331d22c34d45acfbce4eff71f2332fa';
-  TorchaudioUrl = 'https://download.pytorch.org/whl/cu130/torchaudio-2.11.0%2Bcu130-cp313-cp313-win_amd64.whl';
-  TorchaudioFile = 'torchaudio-2.11.0+cu130-cp313-cp313-win_amd64.whl';
-  TorchaudioSha256 = 'ce09a7b144b7982b46c8fe399cf5f91d43dda571e9d6ddba67e928567551f614';
 
 var
-  DownloadPage: TDownloadWizardPage;
-  ModelDownloadPage: TDownloadWizardPage;
+  DownloadPage: TOutputProgressWizardPage;
+  DownloadAbort: TNewButton;
+  DownloadCancelFile, DownloadError: string;
+  DownloadsCancelled: Boolean;
   GpuChecked: Boolean;
   GpuPresent: Boolean;
   RemainingData: string;
@@ -176,82 +173,110 @@ begin
   Result := (not FileExists(ExpandConstant(GpuRuntimeDir + '\.complete'))) and HasNvidiaGpu;
 end;
 
-{ An interactive setup unpacks the CUDA build; a silent update leaves it to the app. }
-function UnpackGpuRuntime: Boolean;
+procedure SkipDownloads(Sender: TObject);
 begin
-  Result := (not WizardSilent) and NeedsGpuRuntime;
-end;
-
-{ Keeps a downloaded wheel where torch_runtime.py looks for verified downloads before fetching. }
-procedure KeepDownload(const Name: string);
-var
-  Source, Target: string;
-begin
-  Source := ExpandConstant('{tmp}\' + Name);
-  Target := ExpandConstant(GpuDownloadsDir);
-  ForceDirectories(Target);
-  if not RenameFile(Source, Target + '\' + Name) then
-    FileCopy(Source, Target + '\' + Name, False);
+  if SaveStringToFile(DownloadCancelFile, 'cancel', False) then
+  begin
+    DownloadsCancelled := True;
+    DownloadAbort.Enabled := False;
+    DownloadPage.SetText(CustomMessage('DownloadStopping'), '');
+  end;
 end;
 
 procedure InitializeWizard;
 begin
-  DownloadPage := CreateDownloadPage(CustomMessage('GpuTitle'), CustomMessage('GpuHint'), nil);
-  ModelDownloadPage := CreateDownloadPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'), nil);
+  DownloadCancelFile := ExpandConstant('{tmp}\ai-downloads.cancel');
+  DownloadPage := CreateOutputProgressPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'));
+  DownloadAbort := TNewButton.Create(DownloadPage);
+  DownloadAbort.Parent := DownloadPage.Surface;
+  DownloadAbort.Caption := CustomMessage('DownloadSkip');
+  DownloadAbort.Width := ScaleX(160);
+  DownloadAbort.Height := WizardForm.CancelButton.Height;
+  DownloadAbort.Left := DownloadPage.SurfaceWidth - DownloadAbort.Width;
+  DownloadAbort.Top := DownloadPage.ProgressBar.Top + DownloadPage.ProgressBar.Height + ScaleY(16);
+  DownloadAbort.OnClick := @SkipDownloads;
 end;
 
-function VerifiedModel(const Target, Checksum: string): Boolean;
-begin
-  Result := False;
-  if FileExists(ExpandConstant(Target)) then
-    Result := CompareText(GetSHA256OfFile(ExpandConstant(Target)), Checksum) = 0;
-end;
-
-procedure KeepModel(const Name, RelativeDir: string);
+procedure DownloadOutput(const S: String; const Error, FirstLine: Boolean);
 var
-  Source, Target: string;
+  Parts: TArrayOfString;
+  Total, Position: Integer;
+  Caption, TotalText: String;
 begin
-  Source := ExpandConstant('{tmp}\' + Name);
-  if not FileExists(Source) then Exit;
-  Target := ExpandConstant('{userappdata}\AD Voice\backend-data\models\' + RelativeDir);
-  if not ForceDirectories(Target) then RaiseException('Cannot create model directory: ' + Target);
-  Target := Target + '\model.bin';
-  if not FileCopy(Source, Target, False) then RaiseException('Cannot save model: ' + Target);
-  DeleteFile(Source);
+  Parts := StringSplit(S, ['|'], stAll);
+  if Error or (GetArrayLength(Parts) <> 6) or (Parts[0] <> 'PROGRESS') then
+  begin
+    Log(S);
+    DownloadError := S;
+    Exit;
+  end;
+  if DownloadsCancelled then Exit;
+  Total := StrToIntDef(Parts[2], 0);
+  TotalText := Parts[2];
+  if Total = 0 then TotalText := '?';
+  Caption := CustomMessage('DownloadTitle');
+  if Parts[5] = 'VERIFY' then Caption := CustomMessage('DownloadVerifying');
+  if Parts[5] = 'GPU' then Caption := CustomMessage('GpuPreparing');
+  DownloadAbort.Enabled := Parts[5] <> 'GPU';
+  DownloadPage.SetText(Caption,
+    FmtMessage(CustomMessage('DownloadProgress'), [Parts[1], TotalText, Parts[3], Parts[4]]));
+  if (Total = 0) or (Parts[5] = 'GPU') then
+  begin
+    DownloadPage.SetProgress(0, 100);
+    DownloadPage.ProgressBar.Style := npbstMarquee
+  end
+  else
+  begin
+    DownloadPage.ProgressBar.Style := npbstNormal;
+    Position := StrToIntDef(Parts[1], 0) * 100 div Total;
+    if Parts[3] = Parts[4] then Position := 100
+    else if Position >= 100 then Position := 99;
+    DownloadPage.SetProgress(Position, 100);
+  end;
 end;
 
 #include AppCatalog
 
 [Code]
 
-function NextButtonClick(CurPageID: Integer): Boolean;
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Params: string;
+  Code: Integer;
 begin
-  Result := True;
-  if CurPageID <> wpReady then Exit;
-  if WizardIsTaskSelected('models') then
-    try
-      DownloadModels;
-    except
-      MsgBox(CustomMessage('DownloadFailed') + #13#10 + GetExceptionMessage, mbError, MB_OK);
-      Result := False;
-      Exit;
-    end;
-  if not NeedsGpuRuntime then Exit;
-  DownloadPage.Clear;
-  DownloadPage.Add(TorchUrl, TorchFile, TorchSha256);
-  DownloadPage.Add(TorchaudioUrl, TorchaudioFile, TorchaudioSha256);
+  { Installed Python runs the shared queue before the app opens. Silent updates never wait for AI files. }
+  if (CurStep <> ssPostInstall) or WizardSilent then Exit;
+  if not (WizardIsTaskSelected('models') or NeedsGpuRuntime) then Exit;
+  Params := '-E -B -u -m backend.infrastructure.installer_downloads ' +
+    AddQuotes(ExpandConstant('{userappdata}\AD Voice')) +
+    ' --cancel-file ' + AddQuotes(DownloadCancelFile);
+  if WizardIsTaskSelected('models') then Params := Params + ' --models';
+  if NeedsGpuRuntime then Params := Params + ' --gpu ' + AddQuotes(ExpandConstant(GpuRuntimeDir));
   DownloadPage.Show;
   try
-    try
-      DownloadPage.Download;
-      KeepDownload(TorchFile);
-      KeepDownload(TorchaudioFile);
-    except
-      { No connection, a cancelled or broken download: setup goes on, the app fetches it later. }
-      Log('GPU runtime download skipped: ' + GetExceptionMessage);
-    end;
+    repeat
+      DeleteFile(DownloadCancelFile);
+      DownloadsCancelled := False;
+      DownloadAbort.Enabled := True;
+      DownloadError := '';
+      DownloadPage.SetText(CustomMessage('DownloadVerifying'), '');
+      DownloadPage.SetProgress(0, 100);
+      DownloadPage.ProgressBar.Style := npbstMarquee;
+      Code := -1;
+      try
+        if not ExecAndLogOutput(ExpandConstant('{app}\resources\python-runtime\python.exe'),
+          Params, ExpandConstant('{app}\resources\python-app'), SW_SHOWNORMAL,
+          ewWaitUntilTerminated, Code, @DownloadOutput) then
+          DownloadError := SysErrorMessage(Code);
+      except
+        DownloadError := GetExceptionMessage;
+      end;
+      if (Code = 0) or (Code = 2) then Break;
+    until MsgBox(CustomMessage('DownloadFailed') + #13#10 + DownloadError,
+      mbError, MB_RETRYCANCEL) <> IDRETRY;
   finally
     DownloadPage.Hide;
+    DeleteFile(DownloadCancelFile);
   end;
 end;
 

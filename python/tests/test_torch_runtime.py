@@ -124,9 +124,12 @@ def test_the_installer_downloads_the_same_gpu_build() -> None:
     script = (Path(__file__).resolve().parents[2] / "installer" / "ad-voice.iss").read_text(
         encoding="utf-8"
     )
-    for wheel in torch_runtime.GPU_WHEELS:
-        assert f"'{wheel.url}'" in script
-        assert f"'{wheel.file_name}'" in script
-        assert f"'{wheel.sha256}'" in script
+    downloader = (Path(__file__).resolve().parents[1] / "backend/infrastructure/installer_downloads.py").read_text(
+        encoding="utf-8"
+    )
+    assert "backend.infrastructure.installer_downloads" in script
+    assert "from backend.infrastructure.torch_runtime import COMPLETE_MARKER, GPU_WHEELS, install_gpu" in downloader
+    assert "for wheel in GPU_WHEELS" in downloader
+    assert "wheel.sha256" in downloader
     target = rf"gpu-runtime\torch-{torch_runtime.TORCH_VERSION}-cu130"
-    assert script.count(target) == 2
+    assert script.count(target) == 1
