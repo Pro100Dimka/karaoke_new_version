@@ -11,7 +11,7 @@ from backend.analysis.domain import AnalysisResult
 from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
-from backend.recordings.domain import Recording
+from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.register_recording import RegisterRecordingRequest
 
 router = APIRouter(prefix="/recordings")
@@ -21,6 +21,11 @@ ContainerDep = Annotated[ApplicationContainer, Depends(container)]
 class RecordingTargetDto(ApiModel):
     recording_id: str
     file_path: str
+
+
+class RecordingContextDto(ApiModel):
+    song_id: str | None = Field(default=None, max_length=64)
+    song_revision: int | None = Field(default=None, ge=1)
 
 
 class RegisterRecordingDto(ApiModel):
@@ -79,9 +84,17 @@ class AnalysisDto(ApiModel):
 
 
 @router.post("/target", response_model=RecordingTargetDto)
-def allocate_target(app: ContainerDep) -> RecordingTargetDto:
-    target = app.recordings.allocate()
+def allocate_target(app: ContainerDep, body: RecordingContextDto | None = None) -> RecordingTargetDto:
+    target = app.recordings.allocate(
+        body.song_id if body else None, body.song_revision if body else None,
+    )
     return RecordingTargetDto(recording_id=target.recording_id, file_path=str(target.file_path))
+
+
+@router.post("/{recording_id}/recover", status_code=204)
+def recover_recording(recording_id: str, app: ContainerDep) -> Response:
+    app.recordings.reconcile.execute(validate_recording_id(recording_id))
+    return Response(status_code=204)
 
 
 @router.post("", response_model=RecordingDto, status_code=201)

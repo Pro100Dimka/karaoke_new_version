@@ -41,7 +41,7 @@ _ALLOWED_TRANSITIONS: Mapping[JobState, frozenset[JobState]] = MappingProxyType(
         JobState.RUNNING: frozenset(
             {JobState.CANCELLING, JobState.SUCCEEDED, JobState.FAILED, JobState.INTERRUPTED}
         ),
-        JobState.CANCELLING: frozenset({JobState.CANCELLED, JobState.FAILED, JobState.INTERRUPTED}),
+        JobState.CANCELLING: frozenset({JobState.CANCELLED, JobState.SUCCEEDED, JobState.FAILED, JobState.INTERRUPTED}),
         JobState.INTERRUPTED: frozenset({JobState.QUEUED, JobState.CANCELLED, JobState.FAILED}),
         JobState.CANCELLED: frozenset(),
         JobState.SUCCEEDED: frozenset(),

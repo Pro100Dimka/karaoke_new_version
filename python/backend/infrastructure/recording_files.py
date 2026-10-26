@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from pathlib import Path
-from io import BytesIO
 import os
 import shutil
-import wave
+import struct
+from typing import BinaryIO
+import soundfile as sf
 
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.paths import ensure_within
 from backend.recordings.domain import Recording, validate_recording_id
+from backend.recordings.ports import RecordingFileMetadata
 from backend.serialization import dumps, loads_object
 from backend.storage.domain import StorageRoots
 
@@ -19,16 +21,16 @@ def _recording_directory(root: Path, recording_id: str) -> Path:
 
 
 def _empty_native_wav(path: Path) -> bool:
-    # Only the canonical, finalized empty WAV emitted by AudioService is disposable.
-    with path.open("rb") as stream:
+    # Accept only an empty native WAV, with no active writer holding it open.
+    with (_open_stopped_recording(path) if os.name == "nt" else path.open("rb")) as stream:
         header = stream.read(45)
-    if len(header) != 44 or header[4:8] != (36).to_bytes(4, "little"):
-        return False
-    try:
-        with wave.open(BytesIO(header), "rb") as stream:
-            return stream.getnframes() == 0
-    except (wave.Error, EOFError):
-        return False
+    if not header:
+        return True
+    return (len(header) == 44 and header[:4] == b"RIFF" and header[8:16] == b"WAVEfmt "
+            and header[16:20] == struct.pack("<I", 16) and header[36:40] == b"data"
+            and struct.unpack_from("<H", header, 20)[0] in {1, 3}
+            and struct.unpack_from("<I", header, 4)[0] in {0, 36}
+            and header[40:44] == bytes(4))
 
 
 class LocalRecordingStorage:
@@ -52,14 +54,20 @@ class LocalRecordingStorage:
             target = directory / "recording.wav"
             if target.resolve() != target:
                 raise DomainError("InvalidRecording", "Recording file cannot be an alias", 400)
-            if any(child != target for child in directory.iterdir()) or (
-                target.exists() and not _empty_native_wav(target)
+            descriptor = directory / "recording-recovery.json"
+            backing = directory / "recording.wav.backing.wav"
+            children = tuple(directory.iterdir())
+            if any(child not in {target, backing, descriptor} for child in children) or any(
+                file.exists() and (file.resolve() != file or not _empty_native_wav(file))
+                for file in (target, backing)
             ):
                 raise ConflictError(
                     "RecordingNotEmpty",
                     "Unregistered recording contains data; keep it for recovery",
                 )
             target.unlink(missing_ok=True)
+            backing.unlink(missing_ok=True)
+            descriptor.unlink(missing_ok=True)
             directory.rmdir()
             return True
         except OSError as exc:
@@ -96,7 +104,7 @@ class LocalRecordingStorage:
         return tuple(self._root.glob("*/recording-recovery.json"))
 
     def quarantine(self, recording_id: str, file_path: Path) -> Path:
-        source = self.validate_owned_file(file_path)
+        source = ensure_within(file_path, self._root)
         if source.parent != _recording_directory(self._root, recording_id):
             raise DomainError("InvalidRecording", "Recording belongs to another directory", 400)
         target = self.quarantine_path(recording_id, source)
@@ -129,6 +137,65 @@ class LocalRecordingStorage:
                 "RecordingRecoveryInvalid", "Recording recovery descriptor is invalid", 400
             ) from exc
 
+    def recover_file(self, path: Path) -> RecordingFileMetadata:
+        path = self.validate_owned_file(path)
+        # Exclusive access is essential: Python can restart while native capture is still alive.
+        with _open_stopped_recording(path) as stream:
+            header = stream.read(44)
+            if (len(header) != 44 or header[:4] != b"RIFF" or header[8:16] != b"WAVEfmt "
+                    or header[36:40] != b"data" or struct.unpack_from("<I", header, 16)[0] != 16):
+                # Balancing may have already published a finalized WAV with additional chunks.
+                stream.seek(0)
+                try:
+                    info = sf.info(stream)
+                except (OSError, RuntimeError) as error:
+                    raise DomainError("InvalidRecording", "Unsupported recording header", 400) from error
+                if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
+                    raise DomainError("InvalidRecording", "No recoverable recording frames", 400)
+                return RecordingFileMetadata(info.frames / info.samplerate, info.samplerate, info.channels)
+            encoding, channels, rate, byte_rate, block, bits = struct.unpack_from("<HHIIHH", header, 20)
+            if (encoding not in {1, 3} or channels < 1 or rate < 1 or bits not in {16, 32}
+                    or block != channels * bits // 8 or byte_rate != rate * block
+                    or (encoding == 3 and bits != 32)):
+                raise DomainError("InvalidRecording", "Invalid native recording format", 400)
+            size = os.fstat(stream.fileno()).st_size - 44
+            complete_bytes = size - size % block
+            if complete_bytes <= 0 or complete_bytes > 0xFFFFFFFF - 36:
+                raise DomainError("InvalidRecording", "No recoverable recording frames", 400)
+            # Keep the captured bytes intact; only repair the two RIFF lengths.
+            for offset, value in ((4, 36 + complete_bytes), (40, complete_bytes)):
+                stream.seek(offset)
+                stream.write(struct.pack("<I", value))
+            stream.flush()
+            os.fsync(stream.fileno())
+            return RecordingFileMetadata(complete_bytes / block / rate, rate, channels)
+
+
+def _open_stopped_recording(path: Path) -> BinaryIO:
+    if os.name != "nt":
+        # Desktop capture is Windows-only; do not repair a potentially live foreign capture.
+        raise OSError("Recording recovery requires exclusive Windows file access")
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CreateFileW.argtypes = (
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
+        wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+    )
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
+    handle = kernel.CreateFileW(str(path), 0xC0000000, 0, None, 3, 0x80, None)
+    if handle == wintypes.HANDLE(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        fd = msvcrt.open_osfhandle(handle, os.O_RDWR | os.O_BINARY | os.O_NOINHERIT)
+    except OSError:
+        kernel.CloseHandle(handle)
+        raise
+    return os.fdopen(fd, "r+b")
+
 
 def _payload(recording: Recording) -> dict[str, object]:
     return {
@@ -142,4 +209,5 @@ def _payload(recording: Recording) -> dict[str, object]:
         "songRevision": recording.song_revision,
         "gaps": list(recording.gaps),
         "sessionMetadata": dict(recording.session_metadata or {}),
+        "displayName": recording.display_name,
     }

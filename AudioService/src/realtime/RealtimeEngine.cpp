@@ -75,7 +75,8 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     clockBridge_.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames,
                          plan.outputChannels * 2U, plan.inputSampleRateHz);
     clocks_.prepare(plan.inputSampleRateHz, plan.internalSampleRateHz);
-    dsp_.prepare(plan.inputSampleRateHz, plan.maximumBlockFrames, plan.outputChannels);
+    dsp_.prepare(plan.inputSampleRateHz, plan.maximumBlockFrames, plan.outputChannels,
+                 plan.minimizePitchDelay);
     media_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U);
     network_.prepare(plan.internalSampleRateHz, plan.outputChannels, plan.internalSampleRateHz / 2U,
                      std::max(1U, plan.internalSampleRateHz / VoicePacketsPerSecond), generation,

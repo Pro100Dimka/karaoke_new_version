@@ -4,10 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Mapping, Sequence
 from dataclasses import replace
+import logging
 
-from backend.domain_errors import DomainError
+from backend.domain_errors import ConflictError, DomainError
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
 from backend.recordings.ports import RecordingStorage
+
+logger = logging.getLogger(__name__)
 
 
 class ReconcileRecordings:
@@ -15,16 +18,28 @@ class ReconcileRecordings:
         self._storage = storage
         self._register = register
 
-    def execute(self) -> tuple[str, ...]:
+    def execute(self, recording_id: str | None = None) -> tuple[str, ...]:
         recovered: list[str] = []
         for descriptor in self._storage.recovery_descriptors():
+            if recording_id is not None and descriptor.parent.name != recording_id:
+                continue
             try:
                 request = _request(self._storage.read_recovery_descriptor(descriptor))
+                try:
+                    if self._storage.discard_empty_target(request.recording_id):
+                        continue
+                except ConflictError:
+                    pass
+                metadata = self._storage.recover_file(request.file_path)
                 recording = self._register.execute(
-                    replace(request, file_status="RecoveredIncomplete")
+                    replace(request, duration=metadata.duration, sample_rate=metadata.sample_rate,
+                            channels=metadata.channels, file_status="RecoveredIncomplete")
                 )
                 recovered.append(recording.recording_id)
-            except (DomainError, ValueError, TypeError, KeyError):
+            except (DomainError, OSError, ValueError, TypeError, KeyError) as error:
+                if recording_id is not None:
+                    raise
+                logger.info("Recording recovery deferred: %s: %s", descriptor, error)
                 continue
         return tuple(recovered)
 
@@ -41,6 +56,7 @@ def _request(data: dict[str, object]) -> RegisterRecordingRequest:
         song_revision=_optional_integer(data.get("songRevision")),
         gaps=_gaps(data.get("gaps")),
         session_metadata=_mapping(data.get("sessionMetadata")),
+        display_name=_optional_text(data.get("displayName")),
     )
 
 

@@ -148,7 +148,8 @@ export const RecordingCard = ({
             onClick={() => onAnalyze(selected)} items={[{ id: "recalculate", label: t("recordingReanalyze"),
               onSelect: () => onAnalyze(selected, true) }]} /> : <IconButton
             icon="levels"
-            label={t("recordingAnalyze")}
+            label={t(selected.fileStatus === "RecoveredIncomplete" ? "errorRecordingTimingUnavailable" : "recordingAnalyze")}
+            disabled={selected.fileStatus === "RecoveredIncomplete"}
             onClick={() => onAnalyze(selected)}
           />}
           <IconButton

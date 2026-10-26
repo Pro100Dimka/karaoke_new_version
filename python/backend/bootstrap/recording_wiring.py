@@ -16,6 +16,7 @@ from backend.recordings.allocate_target import allocate_recording_target
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
+from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.start_studio_master import PublishStudioMaster, StartStudioMaster
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recordings.update_recording import UpdateRecordingName
@@ -42,6 +43,7 @@ def build_recording_cases(
         analysis,
         ListRecordingAnalyses(runtime.database),
         studio_master,
+        ReconcileRecordings(storage, register),
     )
 
 

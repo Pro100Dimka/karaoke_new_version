@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from backend.infrastructure.sql_time import as_utc
-from backend.infrastructure.orm import RecordingRow
+from backend.infrastructure.orm import AnalysisRow, RecordingRow
 from backend.serialization import dumps, loads_list, loads_optional_object
 from backend.recordings.domain import Recording
 
@@ -70,6 +70,7 @@ class SqlRecordingRepository:
         row.file_status = recording.file_status
 
     def delete(self, recording_id: str) -> None:
+        self._session.execute(delete(AnalysisRow).where(AnalysisRow.recording_id == recording_id))
         row = self._session.scalar(
             select(RecordingRow).where(RecordingRow.recording_id == recording_id)
         )

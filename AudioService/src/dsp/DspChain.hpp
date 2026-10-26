@@ -9,7 +9,8 @@
 
 class DspChain {
   public:
-    void prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames, std::uint32_t channels);
+    void prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames, std::uint32_t channels,
+                 bool minimizePitchDelay = false);
     void reset() noexcept;
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept;
     void setEnabled(bool enabled) noexcept {

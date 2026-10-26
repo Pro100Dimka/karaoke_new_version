@@ -141,7 +141,8 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
             independent,
             static_cast<std::uint32_t>(bridgeCapacity),
             ClockBridge::recommendedTargetFrames(static_cast<std::uint32_t>(bridgeCapacity),
-                                                 runtime.inputSampleRateHz)};
+                                                 runtime.inputSampleRateHz),
+            requested_.backend == BackendKind::WasapiShared && !requested_.exclusiveInput};
 }
 
 RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {

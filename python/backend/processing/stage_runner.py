@@ -24,6 +24,7 @@ class StageRunner:
         progress: float,
     ) -> _T:
         context.ensure_not_cancelled()
+        context.progress(name, 0.0, 0.0)
         started = self._timer.seconds()
         value = action()
         duration = max(0.0, self._timer.seconds() - started)

@@ -54,31 +54,26 @@ class RegisterRecording:
         validate_recording_id(request.recording_id)
         existing = self._existing(request.recording_id)
         if existing:
+            self._storage.remove_recovery_descriptor(request.recording_id)
             return existing
         path = self._storage.validate_owned_file(request.file_path)
         metadata = self._inspector.inspect(path)
         self._validate_metadata(request, metadata.duration, metadata.sample_rate, metadata.channels)
         self._validate_song_revision(request)
-        if self._balance is not None and request.song_id and request.song_revision is not None:
+        recording = Recording(
+            request.recording_id, path, request.duration, request.sample_rate, request.channels,
+            request.created_at, request.song_id, request.song_revision, tuple(request.gaps),
+            request.session_metadata, request.display_name, request.file_status,
+        )
+        # Keep the timing metadata if balancing or database registration is interrupted.
+        self._storage.write_recovery_descriptor(recording)
+        if (request.file_status == "Ready" and self._balance is not None
+                and request.song_id and request.song_revision is not None):
             self._balance(path, request.song_id, request.song_revision)
             metadata = self._inspector.inspect(path)
             self._validate_metadata(
                 request, metadata.duration, metadata.sample_rate, metadata.channels
             )
-        recording = Recording(
-            request.recording_id,
-            path,
-            request.duration,
-            request.sample_rate,
-            request.channels,
-            request.created_at,
-            request.song_id,
-            request.song_revision,
-            tuple(request.gaps),
-            request.session_metadata,
-            request.display_name,
-            request.file_status,
-        )
         self._persist(recording, request.idempotency_key, _request_hash(request))
         self._storage.remove_recovery_descriptor(recording.recording_id)
         return recording
@@ -92,9 +87,13 @@ class RegisterRecording:
             return
         with self._uow.create() as transaction:
             song = transaction.songs.get(request.song_id)
+            revision = (transaction.projects.get(request.song_id, request.song_revision)
+                        if request.song_revision is not None else None)
         if song is None:
             raise NotFoundError("SongNotFound", "Recording references an unknown song")
-        if request.song_revision is not None and request.song_revision != song.active_revision:
+        if request.song_revision is not None and request.song_revision != song.active_revision and (
+            request.file_status != "RecoveredIncomplete" or revision is None
+        ):
             raise ConflictError(
                 "RevisionConflict", "Recording references a non-active song revision"
             )

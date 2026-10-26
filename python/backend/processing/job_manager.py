@@ -91,11 +91,15 @@ class ProcessingJobManager:
             raise NotFoundError("JobNotFound", "Background job was not found", jobId=job_id)
         return job
 
-    def run_when_idle(self, action: Callable[[], None]) -> None:
-        """Keep model removal atomic with submission; cancelled workers may still own files."""
+    def run_when_idle(
+        self, action: Callable[[], None], *, busy_error: ConflictError | None = None,
+    ) -> None:
+        """Keep removal atomic with submission; cancelled workers may still own files."""
         with self._state_lock:
             if self._executor.stats().get("activeOrQueued", 0):
-                raise ConflictError("ModelsInUse", "Wait for background jobs to finish before deleting models")
+                raise busy_error or ConflictError(
+                    "ModelsInUse", "Wait for background jobs to finish before deleting models"
+                )
             action()
 
     def list(self, *, limit: int, offset: int, job_type: JobType | None = None) -> Sequence[Job]:
@@ -195,10 +199,13 @@ class ProcessingJobManager:
     ) -> None:
         with self._state_lock:
             job = self.get(job_id)
-            if cancel.is_set() or job.state is JobState.CANCELLING:
+            # Publication is atomic and finishes before cancellation. A committed revision is usable.
+            published = (job.job_type is JobType.SONG_PROCESSING and report is not None
+                         and isinstance(report.get("revision"), int))
+            if not published and (cancel.is_set() or job.state is JobState.CANCELLING):
                 self._cancel_running(job_id)
                 return
-            if job.state is not JobState.RUNNING:
+            if job.state not in {JobState.RUNNING, JobState.CANCELLING}:
                 # Startup recovery (or a newer run) already settled this job, for example as
                 # Interrupted after a backend restart: a late result must not resurrect it.
                 logger.info(

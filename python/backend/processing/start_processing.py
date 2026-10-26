@@ -108,7 +108,6 @@ class StartProcessing:
         self._operations.claim(song_id, SongOperation.PROCESSING)
         submitted = False
         try:
-            song = self._preparation.execute(song)
             settings = self._settings()
             providers = self._preflight.execute(settings)
             compute_mode = (
@@ -213,7 +212,7 @@ class StartProcessing:
             status = self._persistence.load_song(song_id).status
         except NotFoundError:
             return
-        if cancelled or status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
+        if status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
             final_status = SongStatus.CANCELLED if cancelled else SongStatus.FAILED
             self._persistence.set_status_if_present(song_id, final_status)
 
@@ -231,6 +230,11 @@ class StartProcessing:
             song = self._load_processable(song_id, allow_queued=True)
             self._persistence.set_status(song_id, SongStatus.PROCESSING)
             self._persistence.record_started(song_id)
+            context.progress("Recognition", 0.0, 0.0)
+            context.ensure_not_cancelled()
+            # Network metadata lookup belongs to the visible, cancellable job.
+            song = self._preparation.execute(self._persistence.load_song(song_id))
+            context.ensure_not_cancelled()
             report = self._process_with_clip(
                 song,
                 ProcessingOptions(mode=mode, online_lyrics=online_lyrics),

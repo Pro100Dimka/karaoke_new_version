@@ -3,7 +3,7 @@
 #include <algorithm>
 
 void DspChain::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
-                       std::uint32_t channels) {
+                       std::uint32_t channels, bool minimizePitchDelay) {
     highPass_.prepare(sampleRateHz, maxFrames, channels);
     equalizer_.prepare(sampleRateHz, maxFrames, channels);
     compressor_.prepare(sampleRateHz, maxFrames, channels);
@@ -11,6 +11,7 @@ void DspChain::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
     noise_.prepare(sampleRateHz, maxFrames, channels);
     reverb_.prepare(sampleRateHz, maxFrames, channels);
     delay_.prepare(sampleRateHz, maxFrames, channels);
+    pitch_.setShortDelay(minimizePitchDelay);
     pitch_.prepare(sampleRateHz, maxFrames, channels);
 }
 void DspChain::reset() noexcept {

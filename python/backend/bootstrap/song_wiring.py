@@ -13,6 +13,7 @@ from backend.infrastructure.ffmpeg_audio import FfmpegAudioNormalizer, FfmpegAud
 from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
 from backend.infrastructure.job_executor import ThreadConcurrentRunner
 from backend.infrastructure.processing_cache import LocalProcessingCache
+from backend.infrastructure.recording_files import LocalRecordingStorage
 from backend.infrastructure.sidecar_lyrics import LocalSidecarLyricsReader
 from backend.infrastructure.wave_music_analyzer import WaveMusicAnalyzer
 from backend.infrastructure.youtube_clip import YoutubeClipDownloader
@@ -69,6 +70,8 @@ def build_song_cases(
             project.journal,
             runtime.clock,
             runtime.ids,
+            LocalRecordingStorage(runtime.config.roots),
+            processing.jobs,
         ),
         start,
         melody,

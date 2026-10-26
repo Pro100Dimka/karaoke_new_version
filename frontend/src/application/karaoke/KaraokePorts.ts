@@ -15,6 +15,7 @@ export type KaraokeBackendPort = Pick<PythonClient,
   "getSong" | "projectCompatibility" | "freeStorageBytes">;
 
 export interface KaraokeRecordingPort {
+  interrupt(): void;
   elapsedSeconds(): number;
   hasPendingTake(): boolean;
   start(song: SongDto, adjustment: PlaybackAdjustment): Promise<RecordingStatus>;

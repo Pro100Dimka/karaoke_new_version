@@ -176,8 +176,8 @@ const desktopApi = {
     ipcRenderer.invoke(ipcChannels.installAsio4All),
   relaunchApp: (): Promise<void> => ipcRenderer.invoke(ipcChannels.relaunchApp),
 
-  confirmClose: (): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.confirmClose),
+  confirmClose: (allowed = true): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.confirmClose, allowed),
 
   onCloseRequested: (listener: () => void): (() => void) => {
     const handler = (): void => listener();

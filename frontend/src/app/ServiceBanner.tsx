@@ -58,6 +58,7 @@ export const ServiceBanner = () => {
     : undefined;
 
   useEffect(() => {
+    if (download === null) setInstalling(false);
     if (download !== "failed") return;
     setInstalling(false);
     updateDownload.set(null);
@@ -66,7 +67,10 @@ export const ServiceBanner = () => {
 
   const install = () => {
     setInstalling(true);
-    void desktopClient.installUpdate().then((started) => started || setInstalling(false));
+    void desktopClient.installUpdate()
+      .then((started) => started || setInstalling(false))
+      .catch(() => updateDownload.set("failed"))
+      .finally(() => setInstalling(false));
   };
 
   return (

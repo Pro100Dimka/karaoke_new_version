@@ -179,12 +179,13 @@ export const startAutoUpdate = ({
   installFailed = () => undefined,
 }: UpdaterOptions) => {
   if (!app.isPackaged)
-    return { beforeLaunch: async () => false, install: () => false, stop: () => undefined, scheduleChecks: () => undefined };
+    return { beforeLaunch: async () => false, install: () => false, cancelInstall: () => undefined, stop: () => undefined, scheduleChecks: () => undefined };
   const updates = directory ?? path.join(app.getPath("userData"), "updates");
   let downloaded: ReleaseInstaller | null = null;
   // The newer release is also available for a manual retry after a download failure.
   let offered: ReleaseInstaller | null = null;
   let checking = false;
+  let installOnQuit: (() => void) | undefined;
   const failed = (error: unknown) =>
     log("warning", `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
 
@@ -268,7 +269,9 @@ export const startAutoUpdate = ({
      */
     install(): boolean {
       const exitAndInstall = (file: string) => {
-        app.once("will-quit", () => runInstaller(file));
+        if (installOnQuit) app.removeListener("will-quit", installOnQuit);
+        installOnQuit = () => runInstaller(file);
+        app.once("will-quit", installOnQuit);
         quit();
       };
       const installer = downloaded ?? offered;
@@ -279,6 +282,7 @@ export const startAutoUpdate = ({
         .then((file) => {
           if (!file) throw new Error("size or SHA-256 does not match the release");
           downloaded = installer;
+          ready(installer.version);
           exitAndInstall(file);
         })
         .catch((error: unknown) => {
@@ -289,6 +293,11 @@ export const startAutoUpdate = ({
           checking = false;
         });
       return true;
+    },
+    cancelInstall(): void {
+      if (installOnQuit) app.removeListener("will-quit", installOnQuit);
+      installOnQuit = undefined;
+      if (downloaded) ready(downloaded.version);
     },
     stop(): void {
       clearTimeout(first);

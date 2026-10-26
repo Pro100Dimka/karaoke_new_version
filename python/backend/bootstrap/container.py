@@ -31,6 +31,7 @@ from backend.recordings.allocate_target import RecordingTarget
 from backend.recordings.delete_recording import DeleteRecording
 from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
+from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.update_recording import UpdateRecordingName
 from backend.recordings.start_studio_master import StartStudioMaster
 from backend.recovery.background import StartLibraryReconciliation
@@ -74,7 +75,7 @@ class PackageCases:
 
 @dataclass(frozen=True, slots=True)
 class RecordingCases:
-    allocate: Callable[[], RecordingTarget]
+    allocate: Callable[[str | None, int | None], RecordingTarget]
     register: RegisterRecording
     get: GetRecording
     list: ListRecordings
@@ -83,6 +84,7 @@ class RecordingCases:
     start_analysis: StartRecordingAnalysis
     list_analyses: ListRecordingAnalyses
     start_studio_master: StartStudioMaster
+    reconcile: ReconcileRecordings
 
 
 @dataclass(frozen=True, slots=True)

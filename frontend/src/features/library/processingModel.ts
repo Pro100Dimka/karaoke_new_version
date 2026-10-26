@@ -34,11 +34,9 @@ export const processingTitle = (job: ProcessingJobDto, song?: SongDto): string |
 };
 
 export const isActive = (job: ProcessingJobDto) =>
-  job.state === "processing" || job.state === "cancelling";
+  ["processing", "cancelling"].includes(job.state);
 export const isRetryable = (job: ProcessingJobDto) =>
-  job.state === "failed" ||
-  job.state === "interrupted" ||
-  job.state === "cancelled";
+  ["failed", "interrupted", "cancelled"].includes(job.state);
 
 /** How long a finished job ran, as m:ss. */
 export const processingDuration = (
@@ -62,6 +60,7 @@ export const phases = [
   "processingPhasePublish",
 ] as const satisfies readonly MessageKey[];
 const stagePhase: Readonly<Record<string, number>> = {
+  Recognition: 0,
   DecodeNormalize: 0,
   MusicAnalysis: 0,
   StemSeparation: 1,

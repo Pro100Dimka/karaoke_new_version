@@ -31,15 +31,19 @@ export const CloseGuardsProvider = ({ children }: { children: ReactNode }) => {
         if (running.current) return;
         running.current = true;
         void (async () => {
+          let allowed = false;
           try {
             for (const guard of [...guards.current]) {
               if (!(await guard())) return;
             }
-            await desktopClient.confirmClose();
+            allowed = true;
+          } catch (error) {
+            console.error("Cannot finish work before closing", error);
           } finally {
             running.current = false;
+            await desktopClient.confirmClose(allowed);
           }
-        })();
+        })().catch((error) => console.error("Cannot report close decision", error));
       }),
     [],
   );

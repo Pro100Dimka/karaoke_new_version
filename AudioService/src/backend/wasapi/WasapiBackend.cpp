@@ -491,6 +491,8 @@ struct WasapiBackend::Impl {
     WAVEFORMATEX* outputFormat{nullptr};
     HANDLE captureEvent{nullptr}, renderEvent{nullptr}, stopEvent{nullptr};
     HANDLE captureDeadline{nullptr};
+    HANDLE renderStartedEvent{nullptr};
+    std::atomic<MonotonicTicks> startupRenderAt{0};
     MonotonicTicks lastCaptureAt{0};
     std::thread thread;
     std::atomic<bool> running{false};
@@ -536,6 +538,7 @@ struct WasapiBackend::Impl {
     bool skipDuplexWait{false}; // diagnostic A/B only; process-local environment switch
     bool renderImmediate{false}; // diagnostic A/B only: write shared periods right at the event
     MonotonicTicks renderWorkPeakNs{0}; // audio thread: slowly decaying peak of one render write
+    MonotonicTicks renderedCaptureAt{0}; // latest capture already consumed by a render write
     WasapiPcm::RecentMeasurements renderJitWaitSamples;
     // Wall-time measurements, not CPU running time. JIT wait-only excludes capture work;
     // overshoot includes both scheduling delay and a capture batch crossing the target.
@@ -613,6 +616,10 @@ struct WasapiBackend::Impl {
         if (captureDeadline) {
             CloseHandle(captureDeadline);
             captureDeadline = nullptr;
+        }
+        if (renderStartedEvent) {
+            CloseHandle(renderStartedEvent);
+            renderStartedEvent = nullptr;
         }
     }
     void prepareDiagnosticCapture() {
@@ -789,6 +796,7 @@ struct WasapiBackend::Impl {
         audioThreadId.store(0, std::memory_order_relaxed);
         renderJitLateEvents.store(0, std::memory_order_relaxed);
         renderWorkPeakNs = 0;
+        renderedCaptureAt = 0;
         lastCaptureEventAt = lastRenderEventAt = 0;
         lastWakeObservedAt = lastCaptureEventObservedAt = lastEmptyCaptureProbeAt = 0;
         lastCapturePacketsThisWake = lastCaptureFramesThisWake = 0;
@@ -1049,6 +1057,8 @@ struct WasapiBackend::Impl {
         captureEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         renderEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         stopEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (mode == WasapiMode::Shared)
+            renderStartedEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
         if (!captureEvent || !renderEvent || !stopEvent)
             throw std::runtime_error("WASAPI event creation failed");
         check(outputClient->SetEventHandle(renderEvent), "render event registration failed");
@@ -1225,10 +1235,10 @@ struct WasapiBackend::Impl {
         }
     }
     // Shared mode: holds the write of a freed period until shortly before the engine takes it
-    // (see WasapiPcm::justInTimeRenderAt), serving microphone packets meanwhile so they still
-    // reach this period. An engine pass earlier than predicted ends the wait at once. Returns
-    // whether it waited.
-    bool waitForSharedEnginePass() noexcept {
+    // (see WasapiPcm::justInTimeRenderAt), serving microphone packets meanwhile. Once no newer
+    // packet is expected before the deadline, submit immediately. Returns whether the shared
+    // schedule handled this write, including a deadline that requires immediate submission.
+    bool scheduleSharedRender() noexcept {
         if (mode != WasapiMode::Shared || renderImmediate || !captureDeadline)
             return false;
         const auto periodNs = static_cast<MonotonicTicks>(runtime.outputPeriodFrames) *
@@ -1239,7 +1249,11 @@ struct WasapiBackend::Impl {
                                           lastRenderEventGapUs, sharedQueue.periods,
                                           renderWorkPeakNs);
         if (target <= waitedAt)
-            return false;
+            return true;
+        const auto inputPeriodNs = static_cast<MonotonicTicks>(runtime.inputPeriodFrames) *
+                                   1'000'000'000LL / runtime.inputSampleRateHz;
+        if (lastCaptureAt > renderedCaptureAt && lastCaptureAt + inputPeriodNs >= target)
+            return true;
         LARGE_INTEGER due{};
         due.QuadPart = -std::max<LONGLONG>(1, (target - waitedAt) / 100);
         if (!SetWaitableTimer(captureDeadline, &due, 0, nullptr, nullptr, FALSE))
@@ -1271,7 +1285,12 @@ struct WasapiBackend::Impl {
                     CancelWaitableTimer(captureDeadline);
                     break;
                 }
+                const auto previousCaptureAt = lastCaptureAt;
                 processCapture();
+                if (lastCaptureAt != previousCaptureAt && lastCaptureAt + inputPeriodNs >= target) {
+                    CancelWaitableTimer(captureDeadline);
+                    break;
+                }
                 continue;
             }
             if (result == WAIT_OBJECT_0 + 3) {
@@ -1315,18 +1334,18 @@ struct WasapiBackend::Impl {
         if (pad >= queueFrames)
             return;
         lastDuplexWaitUs = 0;
-        const auto waitedForEngine = waitForSharedEnginePass();
+        const auto scheduledForEngine = scheduleSharedRender();
         if (!running.load(std::memory_order_acquire) ||
             WaitForSingleObject(stopEvent, 0) == WAIT_OBJECT_0)
             return;
-        if (waitedForEngine) {
+        if (scheduledForEngine) {
             if (!streamSucceeded(outputClient->GetCurrentPadding(&pad)))
                 return;
             padding.store(pad, std::memory_order_relaxed);
             if (pad >= queueFrames)
                 return;
         }
-        if (captureDeadline && !skipDuplexWait && !waitedForEngine) {
+        if (captureDeadline && !skipDuplexWait && !scheduledForEngine) {
             // Duplex events can arrive in either order. Give the matching capture event up to
             // one quarter of the shorter negotiated period, then render even if capture stalls.
             // This is an interruptible event wait before acquiring any PCM buffer, not a sleep
@@ -1458,6 +1477,7 @@ struct WasapiBackend::Impl {
             renderWorkPeakNs = std::max(submittedAt - renderStartedAt,
                                         renderWorkPeakNs - renderWorkPeakNs / 64);
             submittedRenderFrames += available;
+            renderedCaptureAt = lastCaptureAt;
             if (mode == WasapiMode::Shared) {
                 const auto before = queueFrames;
                 const auto recovered = silentRenderFrames >=
@@ -1550,6 +1570,8 @@ struct WasapiBackend::Impl {
         audioThreadId.store(GetCurrentThreadId(), std::memory_order_relaxed);
         DWORD taskIndex = 0;
         HANDLE task = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
+        if (task && mode == WasapiMode::Shared)
+            (void)AvSetMmThreadPriority(task, AVRT_PRIORITY_CRITICAL);
         mmcss.store(task != nullptr, std::memory_order_relaxed);
         HANDLE handles[3]{stopEvent, captureEvent, renderEvent};
         const auto period = std::chrono::duration<double>(
@@ -1590,8 +1612,17 @@ struct WasapiBackend::Impl {
                 lastCaptureEventObservedAt = eventAt;
                 noteGap(lastCaptureEventAt, captureEventGapSamples, lastCaptureEventGapUs);
             }
-            if (renderReady)
+            if (renderReady) {
                 noteGap(lastRenderEventAt, renderEventGapSamples, lastRenderEventGapUs);
+                const auto periodUs = static_cast<std::uint64_t>(runtime.outputPeriodFrames) *
+                                      1'000'000 / runtime.outputSampleRateHz;
+                if (renderStartedEvent && startupRenderAt.load(std::memory_order_relaxed) == 0 &&
+                    lastRenderEventGapUs >= periodUs * 3 / 4 &&
+                    lastRenderEventGapUs <= periodUs * 5 / 4) {
+                    startupRenderAt.store(eventAt, std::memory_order_release);
+                    SetEvent(renderStartedEvent);
+                }
+            }
             // An available capture packet may precede its event. Drain it before filling this
             // render period, otherwise monitoring waits an unnecessary whole engine period.
             // Capture work is bounded by the endpoint capacity, so render cannot be starved.
@@ -1778,6 +1809,10 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
     impl_->callback = &callback;
     impl_->generation = generation;
     impl_->lastCaptureAt = 0;
+    impl_->renderedCaptureAt = 0;
+    impl_->startupRenderAt.store(0, std::memory_order_relaxed);
+    if (impl_->renderStartedEvent)
+        ResetEvent(impl_->renderStartedEvent);
     ResetEvent(impl_->stopEvent);
     try {
         impl_->prefillRender();
@@ -1789,15 +1824,28 @@ void WasapiBackend::start(IAudioCallback& callback, GenerationId generation) {
             impl_->runtime.inputSampleRateHz == impl_->runtime.outputSampleRateHz) {
             const auto periodHns = framesToHns(impl_->runtime.outputPeriodFrames,
                                                impl_->runtime.outputSampleRateHz);
-            // Separate equal shared capture/render periods at startup so a fresh microphone
-            // packet can reach the just-in-time render write. Short periods cannot leave the
-            // existing 3 ms render margin plus scheduling headroom. Sleep is too imprecise here.
+            // Anchor capture startup to an observed engine pass, not the Start() call.
+            // Leave scheduling headroom before the write deadline, including on shorter periods.
             if (periodHns >= 80'000) {
+                MonotonicTicks engineAt = 0;
+                if (impl_->renderStartedEvent) {
+                    HANDLE events[]{impl_->stopEvent, impl_->renderStartedEvent};
+                    if (WaitForMultipleObjects(2, events, FALSE, 100) == WAIT_OBJECT_0 + 1)
+                        engineAt = impl_->startupRenderAt.load(std::memory_order_acquire);
+                }
                 const auto timer = CreateWaitableTimerExW(
                     nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
                 if (timer) {
                     LARGE_INTEGER due{};
-                    due.QuadPart = -periodHns * 7 / 10;
+                    due.QuadPart = -std::min(periodHns * 7 / 10, periodHns - 30'000);
+                    if (engineAt != 0) {
+                        const auto periodNs = periodHns * 100;
+                        auto target = engineAt - due.QuadPart * 100;
+                        const auto now = monotonicTicksNow();
+                        if (target <= now)
+                            target += ((now - target) / periodNs + 1) * periodNs;
+                        due.QuadPart = -std::max<LONGLONG>(1, (target - now) / 100);
+                    }
                     if (SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE)) {
                         HANDLE events[]{impl_->stopEvent, timer};
                         WaitForMultipleObjects(2, events, FALSE, 100);

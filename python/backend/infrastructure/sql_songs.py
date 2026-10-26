@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from sqlalchemy import asc, desc, func, or_, select
+from sqlalchemy import asc, delete, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from backend.infrastructure.sql_time import as_utc
-from backend.infrastructure.orm import SongRow
+from backend.infrastructure.orm import AnalysisRow, ProjectRevisionRow, RecordingRow, SongRow
 from backend.serialization import dumps, loads_object
 from backend.text_normalization import normalize_search
 from backend.songs.domain import (
@@ -114,6 +114,8 @@ class SqlSongRepository:
         _apply(row, song)
 
     def delete(self, song_id: str) -> None:
+        for model in (AnalysisRow, RecordingRow, ProjectRevisionRow):
+            self._session.execute(delete(model).where(model.song_id == song_id))
         row = self._session.scalar(select(SongRow).where(SongRow.song_id == song_id))
         if row:
             self._session.delete(row)

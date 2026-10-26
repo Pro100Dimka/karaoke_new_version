@@ -117,7 +117,7 @@ interface DesktopApi {
   openMicrophonePrivacy(): Promise<void>;
   installAsio4All(): Promise<void>;
   relaunchApp(): Promise<void>;
-  confirmClose(): Promise<void>;
+  confirmClose(allowed?: boolean): Promise<void>;
   onCloseRequested(listener: () => void): () => void;
   onWindowState(listener: (state: WindowState) => void): () => void;
   /** Tells the room server this app's name and room; sent over the friends socket only when they change. */

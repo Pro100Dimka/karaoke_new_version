@@ -5,8 +5,9 @@ from collections.abc import Callable
 from pathlib import Path
 from threading import Event
 from typing import Protocol
+import logging
 
-from backend.domain_errors import NotFoundError
+from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.processing.ports import ConcurrentRunner
 from backend.projects.content_lock import KeyedLockManager
@@ -89,7 +90,20 @@ class PrepareSong:
         return self._recognition.execute(song)
 
     def run_with_clip(self, song: Song, process: Callable[[], None], cancel: Event) -> None:
-        def download_clip() -> None:
-            self._clip.execute(song, cancel)
+        clip_cancel = Event()
 
-        self._concurrency.run_concurrently(process, download_clip)
+        def process_song() -> None:
+            try:
+                process()
+            finally:
+                # A missing optional clip must never hold a finished song or its AI lease.
+                clip_cancel.set()
+
+        def download_clip() -> None:
+            try:
+                if not clip_cancel.is_set() and not cancel.is_set():
+                    self._clip.execute(song, clip_cancel)
+            except (OSError, DomainError):
+                logging.getLogger(__name__).warning("Optional song clip is unavailable", exc_info=True)
+
+        self._concurrency.run_concurrently(process_song, download_clip)

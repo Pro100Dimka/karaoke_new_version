@@ -246,8 +246,13 @@ std::uint32_t PitchShiftProcessor::latencyFrames() const noexcept {
     const auto amount = std::clamp(autoTuneAmount_.load(std::memory_order_relaxed), 0.0F, 1.0F);
     if (std::abs(semitones_.load(std::memory_order_relaxed)) < 0.001F && amount < 0.001F)
         return 0U;
+    const auto window = pitchWindowFrames(amount);
+    // Nominal delay of the two crossfading taps; their grain width is unchanged.
+    return shortDelay_ ? 1U + (window + 1U) / 2U : window;
+}
+std::uint32_t PitchShiftProcessor::pitchWindowFrames(float autoTuneAmount) const noexcept {
     return static_cast<std::uint32_t>(
-        std::round(static_cast<float>(windowFrames_) * (1.0F - 0.75F * amount)));
+        std::round(static_cast<float>(windowFrames_) * (1.0F - 0.75F * autoTuneAmount)));
 }
 float PitchShiftProcessor::readDelay(std::uint32_t channel, double delayFrames) const noexcept {
     if (capacityFrames_ == 0)
@@ -369,7 +374,11 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
     // lengthen the retune time so the same control can still be used more gently.
     const auto retuneSeconds = 0.050F - 0.0499F * amount;
     const auto smoothing = 1.0F - std::exp(-1.0F / (retuneSeconds * sampleRateHz_));
-    const auto pitchWindowFrames = static_cast<double>(latencyFrames());
+    const auto window =
+        static_cast<double>(shortDelay_ ? pitchWindowFrames(amount) : latencyFrames());
+    // Each sample is written before the taps are read. One frame of lookbehind keeps both
+    // interpolation samples causal; a whole extra grain window only delays the voice.
+    const auto minimumDelay = shortDelay_ ? 1.0 : window;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         const auto writeIndexFrame = static_cast<std::uint32_t>(writeFrame_ % capacityFrames_);
         for (std::uint32_t ch = 0; ch < channels_; ++ch)
@@ -380,13 +389,13 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
                 ? targetSemitones
                 : currentSemitones_ + (targetSemitones - currentSemitones_) * smoothing;
         const auto pitchRatio = std::pow(2.0, static_cast<double>(currentSemitones_) / 12.0);
-        phase_ += (1.0 - pitchRatio) / pitchWindowFrames;
+        phase_ += (1.0 - pitchRatio) / window;
         phase_ -= std::floor(phase_);
         const auto phaseB = phase_ + 0.5 >= 1.0 ? phase_ - 0.5 : phase_ + 0.5;
         const auto gainA = 0.5 - 0.5 * std::cos(2.0 * static_cast<double>(Pi) * phase_);
         const auto gainB = 1.0 - gainA;
-        const auto delayA = pitchWindowFrames * phase_ + pitchWindowFrames;
-        const auto delayB = pitchWindowFrames * phaseB + pitchWindowFrames;
+        const auto delayA = window * phase_ + minimumDelay;
+        const auto delayB = window * phaseB + minimumDelay;
         for (std::uint32_t ch = 0; ch < channels_; ++ch) {
             samples[static_cast<std::size_t>(frame) * channels_ + ch] =
                 readDelay(ch, delayA) * static_cast<float>(gainA) +

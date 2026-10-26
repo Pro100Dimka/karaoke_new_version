@@ -200,6 +200,7 @@ struct FinalSessionPlan {
     bool independentClocks{false};
     std::uint32_t clockBridgeCapacityFrames{0};
     std::uint32_t clockBridgeTargetFrames{0};
+    bool minimizePitchDelay{false};
 };
 
 struct BackendAudioBuffer {

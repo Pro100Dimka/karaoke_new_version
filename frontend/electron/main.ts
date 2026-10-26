@@ -144,7 +144,12 @@ registerDesktopIpc({
   window: () => mainWindow,
   storageRoot,
   reveal: revealMainWindow,
-  confirmClose: () => {
+  confirmClose: (allowed) => {
+    if (!allowed) {
+      quitting = false;
+      updater.cancelInstall();
+      return;
+    }
     closeConfirmed = true;
     mainWindow?.close();
   },

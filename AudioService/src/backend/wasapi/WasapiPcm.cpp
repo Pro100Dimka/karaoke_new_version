@@ -51,7 +51,7 @@ MonotonicTicks justInTimeRenderAt(MonotonicTicks lastRenderEventAt, MonotonicTic
                                   std::uint32_t queuePeriods,
                                   MonotonicTicks renderWorkPeakNs) noexcept {
     // Scheduling and engine jitter on top of the app's own measured render work.
-    constexpr MonotonicTicks SafetyNs = 3'000'000;
+    constexpr MonotonicTicks SafetyNs = 1'500'000;
     // Never closer than this to the predicted pass, whatever the measured work.
     constexpr MonotonicTicks MinimumLeadNs = 1'000'000;
     if (queuePeriods != 1 || lastRenderEventAt <= 0 || periodNs <= 0 || now < lastRenderEventAt)

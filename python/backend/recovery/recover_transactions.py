@@ -75,6 +75,22 @@ class RecoverTransactions:
                 self._songs.finalize_quarantine(quarantine)
         elif quarantine.exists():
             self._songs.restore_quarantine(song_id, quarantine)
+        recordings = entry.data.get("recordings", [])
+        if not isinstance(recordings, list):
+            raise ValueError("Recovery recordings must be a list")
+        for item in recordings:
+            if not isinstance(item, dict):
+                raise ValueError("Invalid recording recovery entry")
+            recording_id, file_path = item.get("recordingId"), item.get("filePath")
+            if not isinstance(recording_id, str) or not isinstance(file_path, str):
+                raise ValueError("Invalid recording recovery path")
+            path = Path(file_path)
+            pending = self._recordings.quarantine_path(recording_id, path)
+            if pending.parent.exists():
+                if song is None:
+                    self._recordings.finalize_quarantine(pending)
+                else:
+                    self._recordings.restore_quarantine(pending, path)
         return True
 
     def _recording_import(self, entry: RecoveryEntry) -> bool:

@@ -187,6 +187,10 @@ class DelayProcessor final : public IAudioProcessor {
 
 class PitchShiftProcessor final : public IAudioProcessor {
   public:
+    // Session configuration: set before starting audio callbacks.
+    void setShortDelay(bool enabled) noexcept {
+        shortDelay_ = enabled;
+    }
     void setSemitones(float semitones) noexcept {
         semitones_.store(semitones, std::memory_order_relaxed);
     }
@@ -200,6 +204,7 @@ class PitchShiftProcessor final : public IAudioProcessor {
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept override;
 
   private:
+    [[nodiscard]] std::uint32_t pitchWindowFrames(float autoTuneAmount) const noexcept;
     [[nodiscard]] float readDelay(std::uint32_t channel, double delayFrames) const noexcept;
     void analyzePitch(std::span<const float> interleaved, std::uint32_t frames) noexcept;
     [[nodiscard]] float detectedCorrection() noexcept;
@@ -207,6 +212,7 @@ class PitchShiftProcessor final : public IAudioProcessor {
     std::uint32_t channels_{0};
     std::uint32_t windowFrames_{0};
     std::uint32_t capacityFrames_{0};
+    bool shortDelay_{false};
     std::uint64_t writeFrame_{0};
     double phase_{0.0};
     float currentSemitones_{0.0F};

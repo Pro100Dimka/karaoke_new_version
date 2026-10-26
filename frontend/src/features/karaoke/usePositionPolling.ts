@@ -30,6 +30,7 @@ export const usePositionPolling = (
   // request issued by this hook instance, not just the current effect run's own closure.
   const latestSequence = useRef(0);
   const inFlight = useRef(false);
+  const lastPoll = useRef(0);
   const callbacks = useRef(options);
   callbacks.current = options;
   const { enabled } = options;
@@ -39,6 +40,9 @@ export const usePositionPolling = (
     // Keep slow IPC from accumulating polls or starving replies behind ever-newer requests.
     const timer = window.setInterval(() => {
       if (inFlight.current || !callbacks.current.isPollable()) return;
+      const now = performance.now();
+      if (!callbacks.current.isPlaying() && now - lastPoll.current < 500) return;
+      lastPoll.current = now;
       inFlight.current = true;
       const sequence = ++latestSequence.current;
       void audio.snapshot()
@@ -65,6 +69,7 @@ export const usePositionPolling = (
 
   const invalidate = useCallback(() => {
     latestSequence.current += 1;
+    lastPoll.current = 0;
   }, []);
 
   return { invalidate };

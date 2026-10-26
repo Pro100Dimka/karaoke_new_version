@@ -266,11 +266,12 @@ export const useKaraokeSession = (
   const onLost = useCallback(() => {
     playbackGeneration.current++;
     recordingWork.invalidate();
+    recordingCoordinator.interrupt();
     setRecording((current) =>
       ["starting", "recording"].includes(current) ? "failed" : current,
     );
     dispatch({ type: "AUDIO_LOST" });
-  }, [recordingWork]);
+  }, [recordingWork, recordingCoordinator]);
   const onFinished = useCallback(
     () => void finishPerformance(),
     [finishPerformance],

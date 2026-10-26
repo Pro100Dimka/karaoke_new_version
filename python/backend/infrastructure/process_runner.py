@@ -7,6 +7,7 @@ import subprocess
 import sys
 import threading
 import time
+from queue import Empty, Full, Queue
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
@@ -254,6 +255,38 @@ class LineProcess:
         self._stderr = process.stderr
         self._stderr_thread = threading.Thread(target=self._forward_stderr, daemon=True)
         self._stderr_thread.start()
+        self._commands: Queue[str] = Queue(maxsize=1)
+        self._stdin_thread = threading.Thread(target=self._write_stdin, daemon=True)
+        self._stdin_thread.start()
+        self._replies: Queue[str | None] = Queue(maxsize=16)
+        self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
+        self._stdout_thread.start()
+
+    def _write_stdin(self) -> None:
+        while self._process.poll() is None:
+            try:
+                line = self._commands.get(timeout=0.5)
+            except Empty:
+                continue
+            try:
+                self._stdin.write(f"{line}\n")
+                self._stdin.flush()
+            except (OSError, ValueError):
+                self.kill()
+                return
+
+    def _read_stdout(self) -> None:
+        try:
+            while line := self._stdout.readline(1024 * 1024):
+                if not line.endswith("\n"):
+                    self.kill()
+                    break
+                self._replies.put_nowait(line.rstrip("\r\n"))
+        except (OSError, ValueError, Full):
+            self.kill()
+        finally:
+            with suppress(Full):
+                self._replies.put_nowait(None)
 
     def _forward_stderr(self) -> None:
         logger = logging.getLogger("native_voice_relay")
@@ -277,11 +310,23 @@ class LineProcess:
         return cls(process)
 
     def write_line(self, line: str) -> None:
-        self._stdin.write(f"{line}\n")
-        self._stdin.flush()
+        if self._process.poll() is not None:
+            raise OSError("Native voice relay has exited")
+        try:
+            self._commands.put(line, timeout=5.0)
+        except Full as error:
+            self.kill()
+            raise OSError("Native voice relay command timed out") from error
 
     def read_line(self) -> str:
-        return self._stdout.readline().rstrip("\r\n")
+        try:
+            reply = self._replies.get(timeout=5.0)
+        except Empty as error:
+            self.kill()
+            raise RuntimeError("Native voice relay response timed out") from error
+        if reply is None:
+            raise RuntimeError("Native voice relay closed its control pipe")
+        return reply
 
     def stop(self, timeout_seconds: float) -> None:
         """Waits for a child that was asked to exit, and kills it if it does not."""
@@ -291,6 +336,10 @@ class LineProcess:
             self._process.kill()
             self._process.wait(timeout=timeout_seconds)
         self._stderr_thread.join(timeout=timeout_seconds)
+        self._stdout_thread.join(timeout=timeout_seconds)
+        self._stdin_thread.join(timeout=timeout_seconds)
+        for stream in (self._stdin, self._stdout, self._stderr):
+            stream.close()
 
     def kill(self) -> None:
         self._process.kill()

@@ -181,6 +181,8 @@ class StartRecordingAnalysis:
 
     def _inputs(self, recording_id: str) -> tuple[Recording, str, int]:
         recording = self._recording(recording_id)
+        if recording.file_status == "RecoveredIncomplete":
+            raise DomainError("RecordingTimingUnavailable", "Interrupted recording has no verified timing", 409)
         if recording.song_id is None or recording.song_revision is None:
             raise DomainError(
                 "AnalysisFailed", "Recording is not associated with a song revision", 409
