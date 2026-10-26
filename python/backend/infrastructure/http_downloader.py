@@ -10,6 +10,7 @@ from pathlib import Path
 from backend.domain_errors import DependencyError, DomainError
 
 _CHUNK_SIZE = 1024 * 1024
+_READ_TIMEOUT_SECONDS = 5.0
 
 
 class HttpDownloader:
@@ -27,11 +28,15 @@ class HttpDownloader:
         downloaded = 0
         reported_at = 0.0
         try:
+            if cancel.is_set():
+                raise DomainError("DownloadCancelled", "Model download was cancelled", 499)
             with (
-                urllib.request.urlopen(url, timeout=timeout_seconds) as response,
+                urllib.request.urlopen(url, timeout=min(timeout_seconds, _READ_TIMEOUT_SECONDS)) as response,
                 target.open("wb") as stream,
             ):
-                while chunk := response.read(_CHUNK_SIZE):
+                # read1 returns the available bytes instead of waiting to fill a megabyte.
+                # A stalled read is bounded so cancellation also releases its worker.
+                while chunk := response.read1(_CHUNK_SIZE):
                     if cancel.is_set():
                         raise DomainError("DownloadCancelled", "Model download was cancelled", 499)
                     downloaded += len(chunk)
@@ -48,7 +53,9 @@ class HttpDownloader:
             raise DependencyError(
                 "ModelDownloadFailed", "Model server returned an HTTP error", status=exc.code
             ) from exc
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if cancel.is_set():
+                raise DomainError("DownloadCancelled", "Model download was cancelled", 499) from exc
             raise DependencyError(
                 "ModelDownloadFailed", "Model download network request failed"
             ) from exc

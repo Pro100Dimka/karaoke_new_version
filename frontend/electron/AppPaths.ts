@@ -15,6 +15,10 @@ export const pythonRoot = (): string =>
 const storageRootFile = (): string => path.join(app.getPath("userData"), "storage-root.txt");
 
 const rememberStorageRoot = (folder: string): string => {
+  // Claim only an empty root, before Python creates its log and lock files.
+  fs.mkdirSync(folder, { recursive: true });
+  if (fs.readdirSync(folder).length === 0)
+    fs.writeFileSync(path.join(folder, ".ad-voice-data"), "ADVoice.App.v2", { flag: "wx" });
   if (!app.isPackaged) return folder;
   const file = path.join(app.getPath("userData"), "storage-roots.txt");
   const roots = fs.existsSync(file) ? fs.readFileSync(file, "utf8").split(/\r?\n/).filter(Boolean) : [];

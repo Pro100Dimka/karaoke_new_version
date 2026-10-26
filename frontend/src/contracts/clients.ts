@@ -126,7 +126,7 @@ export interface ImportProgress {
   progress: number;
 }
 export interface ImportOptions {
-  signal: AbortSignal;
+  signal?: AbortSignal;
   onProgress(value: ImportProgress): void;
 }
 
@@ -205,7 +205,7 @@ export interface PythonClient {
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
-  freeStorageBytes(): Promise<number>;
+  freeStorageBytes(area?: "data" | "models"): Promise<number>;
   /** Newest first; `types` limits the page (and its total) to those event kinds. */
   history(limit: number, offset: number, types?: readonly string[]): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;

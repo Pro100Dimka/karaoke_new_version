@@ -26,6 +26,8 @@ from backend.infrastructure.orm import (
 from backend.infrastructure.paths import ensure_within
 from backend.projects.fingerprint import manifest_fingerprint
 from backend.projects.manifest_codec import decode_manifest, encode_manifest
+from backend.recovery.domain import RecoveryEntry, RecoveryOperation
+from backend.recovery.ports import RecoveryJournal
 from backend.serialization import dumps, loads_value
 from backend.songs.domain import CoverState, Language, SongStatus, SourceState
 from backend.storage.domain import StorageRoots
@@ -52,10 +54,12 @@ class SqlLibraryStorage:
     """Portable library rows and media, merged without replacing the recipient's data."""
 
     def __init__(
-        self, database: Database, roots: StorageRoots, storage: StorageSystem, margin: int
+        self, database: Database, roots: StorageRoots, storage: StorageSystem, margin: int,
+        journal: RecoveryJournal,
     ) -> None:
         self._database, self._roots = database, roots
         self._storage, self._margin = storage, margin
+        self._journal = journal
 
     def export_path(self, job_id: str) -> Path:
         return self._roots.app / "exports" / f"library-{portable_component(job_id)}.advoice.zip"
@@ -136,15 +140,16 @@ class SqlLibraryStorage:
         rows = _validated_rows(data)
         self._validate_identities(rows)
         self._validate_paths(rows)
-        files = self._validate_files(rows, workspace)
+        self._validate_files(rows, workspace)
         published: list[Path] = []
+        entries: list[RecoveryEntry] = []
         committed = False
         try:
             with self._database.engine.begin() as connection:
                 selected = self._selected_rows(rows, connection)
                 self._local_paths(selected)
                 self._source_references(selected, workspace)
-                self._publish_files(selected, workspace, files, published)
+                self._publish_files(selected, workspace, published, entries)
                 for name, records in selected.items():
                     if records:
                         connection.execute(_TABLES[name].insert(), records)
@@ -154,6 +159,8 @@ class SqlLibraryStorage:
         finally:
             if not committed:
                 self._rollback(published)
+            for entry in entries:
+                self._journal.complete(entry.transaction_id)
 
     def _validate_identities(self, rows: LibraryRows) -> None:
         songs = _identities(rows["songs"], "song_id")
@@ -179,22 +186,24 @@ class SqlLibraryStorage:
 
     def _validate_paths(self, rows: LibraryRows) -> None:
         for name, fields in _PATHS.items():
+            identity_field = {"songs": "song_id", "recordings": "recording_id"}[name]
             for row in rows[name]:
                 for field in fields:
                     if not row[field]:
                         continue
                     path = portable_relative_path(str(row[field]))
-                    expected = (
-                        ("songs", str(row["song_id"])) if name == "songs" else ("recordings",)
-                    )
+                    expected = (name, str(row[identity_field]))
                     if path.parts[: len(expected)] != expected:
                         raise ValueError("File path is outside its library item")
+                    if name == "recordings" and len(path.parts) != 3:
+                        raise ValueError("Recording file must be inside its own directory")
 
-    def _validate_files(self, rows: LibraryRows, workspace: Path) -> list[Path]:
+    def _validate_files(self, rows: LibraryRows, workspace: Path) -> None:
         songs = {str(row["song_id"]) for row in rows["songs"]}
         recording_paths = [PurePosixPath(str(row["file_path"])) for row in rows["recordings"]]
         files = [
-            path for path in workspace.rglob("*") if path.is_file() and path.name != "library.json"
+            path for path in workspace.rglob("*")
+            if path.is_file() and path != workspace / "library.json"
         ]
         for source in files:
             path = PurePosixPath(source.relative_to(workspace).as_posix())
@@ -205,7 +214,8 @@ class SqlLibraryStorage:
             )
             if not song_file and not recording_file:
                 raise ValueError("Archive contains a file outside its library items")
-        return files
+        if any(not (workspace / path).is_file() for path in recording_paths):
+            raise ValueError("Recording file is missing from the archive")
 
     def _added_songs(self, rows: LibraryRows, connection: Connection) -> set[object]:
         existing = {
@@ -258,34 +268,30 @@ class SqlLibraryStorage:
                 self._relocate_json(row, portable=False)
 
     def _publish_files(
-        self, selected: LibraryRows, workspace: Path, files: list[Path], published: list[Path]
+        self, selected: LibraryRows, workspace: Path, published: list[Path],
+        entries: list[RecoveryEntry],
     ) -> None:
-        for row in selected["songs"]:
-            song_id = str(row["song_id"])
-            source = workspace / "songs" / song_id
-            if source.exists():
-                self._publish(source, self._roots.songs / song_id, published)
-        bases = [
-            PurePosixPath(Path(str(row["file_path"])).relative_to(self._roots.app).as_posix())
-            for row in selected["recordings"]
-        ]
-        for source in files:
-            relative = PurePosixPath(source.relative_to(workspace).as_posix())
-            if source.exists() and any(
-                relative.parent == base.parent and relative.name.startswith(base.stem)
-                for base in bases
-            ):
-                self._publish(source, self._roots.app / relative, published)
-
-    def _publish(self, source: Path, target: Path, published: list[Path]) -> None:
-        target = ensure_within(target, self._roots.app)
-        if target.exists():
-            raise ConflictError(
-                "PackageConflict", "Library files already exist at the import target"
-            )
-        target.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(source, target)
-        published.append(target)
+        groups = (
+            ("songs", "song_id", "songId", RecoveryOperation.IMPORT_SONG),
+            ("recordings", "recording_id", "recordingId", RecoveryOperation.RECORDING_REGISTER),
+        )
+        for folder, field, key, operation in groups:
+            for row in selected[folder]:
+                identity = str(row[field])
+                source = workspace / folder / identity
+                target = ensure_within(self._roots.app / folder / identity, self._roots.app)
+                if target.exists():
+                    raise ConflictError("PackageConflict", "Library files already exist at the import target")
+                if not source.is_dir():
+                    raise ValueError("Library item directory is missing from the archive")
+                data: dict[str, object] = {key: identity}
+                if folder == "recordings":
+                    data["filePath"] = row["file_path"]
+                # Persist intent before moving bytes; startup can undo an uncommitted import.
+                entries.append(self._journal.begin(operation, data))
+                target.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(source, target)
+                published.append(target)
 
     @staticmethod
     def _rollback(published: list[Path]) -> None:

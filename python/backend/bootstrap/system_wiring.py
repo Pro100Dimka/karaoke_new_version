@@ -51,7 +51,9 @@ def build_system_cases(
         StartLibraryReconciliation(processing.jobs, reconcile),
         processing.storage.clear_cache,
         partial(processing.storage.cleanup_temp, 3600),
-        partial(processing.storage.free_bytes, runtime.config.roots.app),
+        lambda area: processing.storage.free_bytes(
+            {"data": runtime.config.roots.app, "models": runtime.config.roots.models}[area]
+        ),
     )
 
 

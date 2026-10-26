@@ -3,7 +3,7 @@ from __future__ import annotations
 import queue
 from datetime import datetime
 from collections.abc import Iterator
-from typing import Annotated, Mapping
+from typing import Annotated, Literal, Mapping
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
@@ -24,8 +24,8 @@ ContainerDep = Annotated[ApplicationContainer, Depends(container)]
 
 
 @router.get("/storage/free")
-def free_storage_bytes(app: ContainerDep) -> int:
-    return app.system.free_storage_bytes()
+def free_storage_bytes(app: ContainerDep, area: Literal["data", "models"] = "data") -> int:
+    return app.system.free_storage_bytes(area)
 
 
 class HealthDto(ApiModel):

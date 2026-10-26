@@ -11,6 +11,7 @@ from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
 from backend.models.domain import AiModel
+from backend.models.policy import ModelDownloadPolicy
 
 router = APIRouter(prefix="/models")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
@@ -31,6 +32,7 @@ class ModelDto(ApiModel):
     purpose: AiCapability
     version: str
     size: int
+    required_disk_bytes: int
     checksum: str
     state: str
     selected: bool
@@ -85,6 +87,7 @@ def _model(model: AiModel) -> ModelDto:
         purpose=model.purpose,
         version=model.version,
         size=model.size,
+        required_disk_bytes=ModelDownloadPolicy().required_disk_bytes(model.size),
         checksum=model.checksum,
         state=model.state.value,
         selected=model.selected,

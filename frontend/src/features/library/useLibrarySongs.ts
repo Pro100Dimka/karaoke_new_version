@@ -113,10 +113,10 @@ export const useLibrarySongs = () => {
       const song = await catalog.importSong(
         path,
         metadata,
-        options && {
+        {
           ...options,
           onProgress: (value) => {
-            options.onProgress(value);
+            options?.onProgress(value);
             setState((current) =>
               current.status === "ready"
                 ? {

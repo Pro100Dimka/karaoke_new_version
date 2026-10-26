@@ -177,6 +177,13 @@ class ProcessingResourceScheduler:
         if available_ram is not None:
             required = self._reserved_ram + request.ram_bytes + self._budget.min_free_ram_bytes
             if required > available_ram:
+                if not self._reserved_cpu:
+                    raise DependencyError(
+                        "InsufficientRam",
+                        "Not enough free RAM to start processing. Close other applications and retry.",
+                        requiredBytes=required,
+                        availableBytes=available_ram,
+                    )
                 raise DependencyError(
                     "ResourceBudgetExceeded", "RAM processing budget is currently exhausted"
                 )

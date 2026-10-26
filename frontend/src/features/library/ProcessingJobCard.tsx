@@ -24,8 +24,6 @@ import {
 import { errorMessageKey } from "../../shared/errors";
 
 export interface JobActions {
-  canMove(direction: -1 | 1): boolean;
-  onMove(direction: -1 | 1): void;
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;
@@ -35,11 +33,6 @@ export interface JobActions {
   motionPaused: boolean;
   onToggleMotion(): void;
 }
-
-const queueMoves = [
-  { direction: -1, icon: "up", label: "processingMoveUp" },
-  { direction: 1, icon: "down", label: "processingMoveDown" },
-] as const;
 
 /** One job of the queue: song, state, progress and phase, the actions its state allows, and a menu for the rest. */
 export const ProcessingJobCard = ({
@@ -182,16 +175,6 @@ export const ProcessingJobCard = ({
               onClick={actions.onStop}
             />
           )}
-          {job.state === "queued" &&
-            queueMoves.map(({ direction, icon, label }) => (
-              <IconButton
-                key={direction}
-                icon={icon}
-                label={t(label)}
-                disabled={!actions.canMove(direction)}
-                onClick={() => actions.onMove(direction)}
-              />
-            ))}
           <IconButton
             ref={menuAnchor}
             variant="ghost"

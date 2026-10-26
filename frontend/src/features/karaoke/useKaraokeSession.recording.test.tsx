@@ -43,7 +43,7 @@ vi.mock("../../i18n/useText", async (importOriginal) => ({
   useText: () => (key: string) => key,
 }));
 vi.mock("../../services/pythonClient", () => ({
-  pythonClient: { diagnostics: vi.fn() },
+  pythonClient: { freeStorageBytes: vi.fn() },
 }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
@@ -104,7 +104,7 @@ const startSession = async () => {
   act(() => {
     void hook.result.current.togglePlay();
   });
-  await waitFor(() => expect(pythonClient.diagnostics).toHaveBeenCalled());
+  await waitFor(() => expect(pythonClient.freeStorageBytes).toHaveBeenCalled());
   return hook;
 };
 
@@ -129,17 +129,15 @@ describe("karaoke recording ownership", () => {
       recording: false,
       recordingId: "take",
     });
-    vi.mocked(pythonClient.diagnostics).mockResolvedValue({
-      storage: { free: 1e9 },
-    } as never);
+    vi.mocked(pythonClient.freeStorageBytes).mockResolvedValue(1e9);
   });
   afterEach(() => cleanup());
 
   it("keeps the song at its starting position while disk preflight is pending", async () => {
     let release: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValueOnce(
+    vi.mocked(pythonClient.freeStorageBytes).mockReturnValueOnce(
       new Promise((resolve) => {
-        release = () => resolve({ storage: { free: 1e9 } } as never);
+        release = () => resolve(1e9);
       }),
     );
     const { result } = await startSession();
@@ -223,7 +221,7 @@ describe("karaoke recording ownership", () => {
     "does not play after recording %s fails",
     async (stage) => {
       if (stage === "disk")
-        vi.mocked(pythonClient.diagnostics).mockRejectedValueOnce(
+        vi.mocked(pythonClient.freeStorageBytes).mockRejectedValueOnce(
           new Error("disk unavailable"),
         );
       else
@@ -239,9 +237,9 @@ describe("karaoke recording ownership", () => {
 
   it("does not duplicate pending recording preflight after repeated Play clicks", async () => {
     let release: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+    vi.mocked(pythonClient.freeStorageBytes).mockReturnValue(
       new Promise((resolve) => {
-        release = () => resolve({ storage: { free: 1e9 } } as never);
+        release = () => resolve(1e9);
       }),
     );
     const { result } = await startSession();
@@ -250,7 +248,7 @@ describe("karaoke recording ownership", () => {
       void result.current.togglePlay();
     });
     try {
-      expect(pythonClient.diagnostics).toHaveBeenCalledOnce();
+      expect(pythonClient.freeStorageBytes).toHaveBeenCalledOnce();
     } finally {
       await act(async () => {
         release?.();
@@ -515,9 +513,9 @@ describe("karaoke recording ownership", () => {
 
   it("cannot start recording after Stop overtakes disk preflight", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+    vi.mocked(pythonClient.freeStorageBytes).mockReturnValue(
       new Promise((resolve) => {
-        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+        finishPreflight = () => resolve(1e9);
       }),
     );
     const { result } = await startSession();
@@ -531,9 +529,9 @@ describe("karaoke recording ownership", () => {
 
   it("invalidates pending recording preflight when the audio device is lost", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+    vi.mocked(pythonClient.freeStorageBytes).mockReturnValue(
       new Promise((resolve) => {
-        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+        finishPreflight = () => resolve(1e9);
       }),
     );
     const { result } = await startSession();
@@ -584,9 +582,9 @@ describe("karaoke recording ownership", () => {
 
   it("does not record after its route unmounts while disk preflight is pending", async () => {
     let finishPreflight: (() => void) | undefined;
-    vi.mocked(pythonClient.diagnostics).mockReturnValue(
+    vi.mocked(pythonClient.freeStorageBytes).mockReturnValue(
       new Promise((resolve) => {
-        finishPreflight = () => resolve({ storage: { free: 1e9 } } as never);
+        finishPreflight = () => resolve(1e9);
       }),
     );
     const { unmount } = await startSession();

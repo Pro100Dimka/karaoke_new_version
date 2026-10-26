@@ -35,10 +35,11 @@ const release = {
   ],
 };
 
-it("installs before launch even when the download outlasts the first background check", async () => {
+it("launches while the update downloads in the background and installs the cached update next time", async () => {
   vi.useFakeTimers({ toFake: ["setTimeout", "setInterval"] });
   const directory = await mkdtemp(path.join(tmpdir(), "updates-"));
   roots.push(directory);
+  mocks.spawn.mockClear();
   let finishDownload!: () => void;
   const slow = new Promise<void>((resolve) => (finishDownload = resolve));
   const fetchImpl = vi.fn(async (url: string) => {
@@ -53,21 +54,24 @@ it("installs before launch even when the download outlasts the first background 
     });
     return new Response(body);
   });
+  const ready = vi.fn();
   const updater = startAutoUpdate({
-    ready: vi.fn(),
+    ready,
     log: vi.fn(),
     quit: vi.fn(),
     fetchImpl: fetchImpl as unknown as typeof fetch,
     directory,
   });
 
-  const launching = updater.beforeLaunch(() => undefined);
-  // The download is still running when the app has been up for 30 seconds.
+  expect(await updater.beforeLaunch(() => undefined)).toBe(false);
+  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(mocks.spawn).not.toHaveBeenCalled();
+  // A slow background download must not prevent the already running app from opening.
   await vi.advanceTimersByTimeAsync(31_000);
-  expect(fetchImpl).toHaveBeenCalledTimes(2); // the release and the installer, nothing else
+  expect(fetchImpl).toHaveBeenCalledTimes(3);
   finishDownload();
-
-  expect(await launching).toBe(true);
+  await vi.waitFor(() => expect(ready).toHaveBeenCalledWith("1.1.5"));
+  expect(await updater.beforeLaunch(() => undefined)).toBe(true);
   expect(mocks.spawn).toHaveBeenCalledWith(
     path.join(directory, "AD-Voice-Setup-1.1.5.exe"),
     expect.arrayContaining(["/VERYSILENT"]),

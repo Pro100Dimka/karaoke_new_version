@@ -65,6 +65,7 @@ def _library_archive(
             runtime.config.roots,
             processing.storage,
             runtime.config.resources.min_free_disk_bytes,
+            project.journal,
         ),
         ZipPackageArchive(policy),
         PackageSecurityValidator(policy),

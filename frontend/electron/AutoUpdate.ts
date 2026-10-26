@@ -46,11 +46,12 @@ export const installerFromRelease = (release: unknown, currentVersion: string): 
   // Only GitHub's own download hosts: a tampered response cannot point the updater elsewhere.
   if (url.protocol !== "https:" || !["github.com", "objects.githubusercontent.com"].includes(url.hostname)) return undefined;
   const digest = typeof asset.digest === "string" ? /^sha256:([0-9a-f]{64})$/i.exec(asset.digest)?.[1] : undefined;
+  if (!digest) return undefined;
   return {
     version: tag.replace(/^v/i, ""),
     url: url.toString(),
     size: asset.size,
-    ...(digest ? { sha256: digest.toLowerCase() } : {}),
+    sha256: digest.toLowerCase(),
   };
 };
 
@@ -90,7 +91,7 @@ const latestInstaller = async (fetchImpl: typeof fetch, timeoutMilliseconds: num
 
 /**
  * The installer as a verified file in `directory`: one downloaded earlier is reused when its
- * recorded SHA-256 and size still match the release, otherwise it is downloaded (older ones go).
+ * actual SHA-256 and size still match the release, otherwise it is downloaded (older ones go).
  * Null when the download fails or does not match the release.
  */
 export const fetchInstaller = async (
@@ -98,15 +99,21 @@ export const fetchInstaller = async (
   installer: ReleaseInstaller,
   directory: string,
   onPercent: (percent: number) => void = () => undefined,
+  downloadMissing = true,
 ): Promise<string | null> => {
+  const expected = installer.sha256?.toLowerCase();
+  if (!expected || !/^[0-9a-f]{64}$/.test(expected)) return null;
   const file = path.join(directory, `AD-Voice-Setup-${installer.version}.exe`);
-  const record = `${file}.sha256`;
-  const expected = installer.sha256 ?? `size:${installer.size}`;
   try {
-    if (fs.statSync(file).size === installer.size && fs.readFileSync(record, "utf8") === expected) return file;
+    if (fs.statSync(file).size === installer.size) {
+      const hash = createHash("sha256");
+      for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
+      if (hash.digest("hex") === expected) return file;
+    }
   } catch {
     // Not downloaded yet.
   }
+  if (!downloadMissing) return null;
   fs.mkdirSync(directory, { recursive: true });
   // Older installers go; one still held open (the antivirus scanning it) is simply left for later.
   for (const name of fs.readdirSync(directory))
@@ -134,12 +141,11 @@ export const fetchInstaller = async (
     },
     fs.createWriteStream(`${file}.part`),
   );
-  if (size !== installer.size || (installer.sha256 && hash.digest("hex") !== installer.sha256)) {
+  if (size !== installer.size || hash.digest("hex") !== expected) {
     fs.rmSync(`${file}.part`, { force: true });
     return null;
   }
   fs.renameSync(`${file}.part`, file);
-  fs.writeFileSync(record, expected);
   return file;
 };
 
@@ -156,9 +162,9 @@ const runInstaller = (file: string): void => {
 
 /**
  * Updates from GitHub Releases, as in Discord: before the app opens it checks for a newer version
- * and, when there is one, downloads it (with progress on the start-up screen), installs it
- * silently and opens the new version. While the app runs it fetches newer versions ahead, so the
- * next start only installs. Without a connection the app simply opens. Every installer is checked
+ * and installs it only if the verified installer is already on disk. While the app runs it fetches
+ * newer versions ahead, so a slow download never holds the start-up screen. Without a connection
+ * the app simply opens. Every installer is checked
  * against the release's size and SHA-256. Only the installed app updates itself.
  */
 export const startAutoUpdate = ({
@@ -175,7 +181,7 @@ export const startAutoUpdate = ({
   if (!app.isPackaged)
     return { beforeLaunch: async () => false, install: () => false, stop: () => undefined, scheduleChecks: () => undefined };
   const updates = directory ?? path.join(app.getPath("userData"), "updates");
-  let downloaded: { version: string; file: string } | null = null;
+  let downloaded: ReleaseInstaller | null = null;
   // With updates off: the newer release found, installed only when the user chooses to.
   let offered: ReleaseInstaller | null = null;
   let checking = false;
@@ -198,7 +204,7 @@ export const startAutoUpdate = ({
       if (!automatic()) return offer(installer);
       const file = await fetchInstaller(fetchImpl, installer, updates);
       if (!file) return log("warning", `Update ${installer.version} discarded: size or SHA-256 does not match the release`);
-      downloaded = { version: installer.version, file };
+      downloaded = installer;
       log("info", `Update ${installer.version} downloaded and verified`);
       ready(installer.version);
     } catch (error) {
@@ -222,7 +228,7 @@ export const startAutoUpdate = ({
 
   return {
     /**
-     * Before the app opens: installs a newer version (downloading it first if needed) and reports
+     * Before the app opens: installs an already downloaded newer version and reports
      * true once the installer has taken over; false opens the app as usual.
      */
     async beforeLaunch(progress: (state: LaunchUpdateState) => void): Promise<boolean> {
@@ -237,9 +243,7 @@ export const startAutoUpdate = ({
           return false;
         }
         const { version } = installer;
-        const file = await fetchInstaller(fetchImpl, installer, updates, (percent) =>
-          progress({ phase: "downloading", version, percent }),
-        );
+        const file = await fetchInstaller(fetchImpl, installer, updates, undefined, false);
         if (!file) return false;
         progress({ phase: "installing", version });
         log("info", `Installing update ${version} before start`);
@@ -262,17 +266,13 @@ export const startAutoUpdate = ({
         app.once("will-quit", () => runInstaller(file));
         quit();
       };
-      if (downloaded) {
-        exitAndInstall(downloaded.file);
-        return true;
-      }
-      const installer = offered;
+      const installer = downloaded ?? offered;
       if (!installer || checking) return false;
       checking = true;
       void fetchInstaller(fetchImpl, installer, updates, downloadProgress)
         .then((file) => {
           if (!file) throw new Error("size or SHA-256 does not match the release");
-          downloaded = { version: installer.version, file };
+          downloaded = installer;
           exitAndInstall(file);
         })
         .catch((error: unknown) => {

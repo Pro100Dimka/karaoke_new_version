@@ -4,7 +4,7 @@ import { useAiSettings } from "../useAiSettings";
 
 const makeBackend = () => ({
   listModels: vi.fn().mockResolvedValue([]),
-  diagnostics: vi.fn().mockResolvedValue({ storage: { free: 1000 } }),
+  freeStorageBytes: vi.fn().mockResolvedValue(1000),
   getAiProcessingSettings: vi
     .fn()
     .mockResolvedValue({ processingBackend: "Local" }),
@@ -57,9 +57,9 @@ afterEach(() => {
 });
 
 describe("AI settings consistency", () => {
-  it("does not hide models or the folder when diagnostics fails", async () => {
+  it("does not hide models or the folder when the free-space query fails", async () => {
     dependencies.backend.listModels.mockResolvedValue([{ id: "model" }]);
-    dependencies.backend.diagnostics.mockRejectedValue(
+    dependencies.backend.freeStorageBytes.mockRejectedValue(
       new Error("diagnostics unavailable"),
     );
     const { result } = renderHook(useAiSettings);

@@ -127,7 +127,7 @@ export const createAiSettingsSession = (
   const refreshModels = () =>
     Promise.all([
       readModels(),
-      read("free", () => backend.freeStorageBytes()),
+      read("free", () => backend.freeStorageBytes("models")),
     ]);
   const readBackend = () =>
     snapshot.savingBackend

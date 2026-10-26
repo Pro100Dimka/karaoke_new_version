@@ -105,7 +105,7 @@ it("keeps cleared jobs hidden after reopening and fresh backend results, while s
     progress: 22,
   }));
   const list = vi.spyOn(pythonClient, "listJobs").mockResolvedValue(jobs);
-  const first = renderHook(() => useProcessingQueue(true), {
+  const first = renderHook(() => useProcessingQueue(), {
     wrapper: AppProvider,
   });
   await waitFor(() => expect(first.result.current.visible).toHaveLength(4));
@@ -122,7 +122,7 @@ it("keeps cleared jobs hidden after reopening and fresh backend results, while s
     ...jobs.map((job) => ({ ...job, state: "completed" as const })),
     fresh,
   ]);
-  const reopened = renderHook(() => useProcessingQueue(true), {
+  const reopened = renderHook(() => useProcessingQueue(), {
     wrapper: AppProvider,
   });
   await waitFor(() => expect(reopened.result.current.ordered).toEqual([fresh]));
@@ -184,7 +184,7 @@ it.each(["reply", "failure"])(
           }),
       )
       .mockResolvedValue([completed]);
-    const { result } = renderHook(() => useProcessingQueue(true), {
+    const { result } = renderHook(() => useProcessingQueue(), {
       wrapper: AppProvider,
     });
     await act(async () => {

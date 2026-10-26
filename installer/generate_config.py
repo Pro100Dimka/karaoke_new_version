@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
-from backend.ai.catalog import CATALOG  # noqa: E402
+from backend.ai.catalog import CATALOG
 
 LANGUAGE_FILES = {"en": "Default.isl", "ru": "Languages\\Russian.isl", "uk": "Languages\\Ukrainian.isl"}
 

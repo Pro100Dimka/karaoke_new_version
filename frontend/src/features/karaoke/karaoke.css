@@ -117,6 +117,10 @@ html[data-tv-screen] body {
      z-index), would otherwise swallow every click meant for the roll beneath it in that whole region. */
   pointer-events: none;
 }
+.karaokePage:has(.karaokeConsolePanel[data-dock="left"]:not([data-hidden])) .stage { margin-left: min(376px, 44vw); }
+.karaokePage:has(.karaokeConsolePanel[data-dock="right"]:not([data-hidden])) .stage { margin-right: min(376px, 44vw); }
+.karaokePage[data-paused] :is(.stage, .pianoRoll) *,
+.karaokePage[data-paused] .karaokeConsoleCard::before { animation-play-state: paused; }
 
 /* The lyrics (Neo UI's KaraokeLyrics) cover the stage without taking its clicks. */
 .lyrics.ad-karaoke-lyrics {

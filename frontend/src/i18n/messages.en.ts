@@ -431,6 +431,8 @@ export const en = {
   errorInsufficientDisk:
     "Insufficient disk space. Open Storage settings to free space.",
   errorStorageUnavailable: "Storage is unavailable.",
+  errorInsufficientRam: "Not enough free RAM for processing. Close other applications and try again.",
+  errorModelsInUse: "Wait for background jobs to finish before deleting a model.",
   errorMissingModels:
     "Required AI models are missing. Download them in Settings → AI / Processing.",
   errorProcessingRunning: "This song is already being processed.",

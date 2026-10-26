@@ -67,12 +67,47 @@ export const TitleBar = () => {
   const t = useText();
   const { fullscreen } = useWindowState();
   const [moving, setMoving] = useState(false);
-  const grab = useRef<{ x: number; y: number; ratio: number; offsetY: number; moving: boolean } | null>(null);
-  const finishDrag = () => {
-    if (grab.current?.moving) void desktopClient.dragWindow("end");
-    grab.current = null;
-    setMoving(false);
-  };
+  useLayoutEffect(() => {
+    let grab: { x: number; y: number; ratio: number; offsetY: number; moving: boolean } | null = null;
+    const finish = () => {
+      if (grab?.moving) void desktopClient.dragWindow("end");
+      grab = null;
+      setMoving(false);
+    };
+    const down = (event: PointerEvent) => {
+      const target = event.target as Element;
+      const header = target.closest(".titleBar, .titleBarControls, [data-window-drag], dialog.ad-dialog > header");
+      if (event.button !== 0 || !header || target.closest("button, a, input, textarea, select, label, [role='button'], [role='slider'], [contenteditable='true']")) return;
+      header.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      grab = { x: event.screenX, y: event.screenY, ratio: event.clientX / window.innerWidth,
+        offsetY: Math.max(0, event.clientY), moving: false };
+    };
+    const move = (event: PointerEvent) => {
+      if (!grab) return;
+      if (!grab.moving) {
+        if (Math.hypot(event.screenX - grab.x, event.screenY - grab.y) < 5) return;
+        grab.moving = true;
+        setMoving(true);
+        void desktopClient.dragWindow("start", grab.ratio, grab.offsetY, event.screenX, event.screenY);
+      } else void desktopClient.dragWindow("move", undefined, undefined, event.screenX, event.screenY);
+    };
+    const doubleClick = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (target.closest(".titleBar, .titleBarControls, [data-window-drag], dialog.ad-dialog > header") &&
+          !target.closest("button, a, input, textarea, select, label")) void desktopClient.toggleMaximize();
+    };
+    // Native capture follows the DOM, including headers rendered through React portals.
+    const events = new AbortController();
+    const options = { capture: true, signal: events.signal };
+    document.addEventListener("pointerdown", down, options);
+    document.addEventListener("pointermove", move, options);
+    document.addEventListener("pointerup", finish, options);
+    document.addEventListener("pointercancel", finish, options);
+    document.addEventListener("lostpointercapture", finish, options);
+    document.addEventListener("dblclick", doubleClick, options);
+    return () => { events.abort(); finish(); };
+  }, []);
   const modal = useTopModal();
   const controlsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -112,28 +147,6 @@ export const TitleBar = () => {
   return (
     <header
       className={fullscreen || moving ? "titleBar titleBarFullscreen" : "titleBar"}
-      onPointerDown={(event) => {
-        if (event.button !== 0 || (event.target as Element).closest("button")) return;
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        grab.current = { x: event.screenX, y: event.screenY, ratio: event.clientX / window.innerWidth,
-          offsetY: Math.min(80, Math.max(0, event.clientY)), moving: false };
-      }}
-      onPointerMove={(event) => {
-        const anchor = grab.current;
-        if (!anchor) return;
-        if (!anchor.moving) {
-          if (Math.hypot(event.screenX - anchor.x, event.screenY - anchor.y) < 5) return;
-          anchor.moving = true;
-          setMoving(true);
-          void desktopClient.dragWindow("start", anchor.ratio, anchor.offsetY, event.screenX, event.screenY);
-        } else void desktopClient.dragWindow("move", undefined, undefined, event.screenX, event.screenY);
-      }}
-      onDoubleClick={(event) => {
-        if (!(event.target as Element).closest("button")) void desktopClient.toggleMaximize();
-      }}
-      onPointerUp={finishDrag}
-      onPointerCancel={finishDrag}
-      onLostPointerCapture={finishDrag}
     >
       <div id={titleBarLeadingId} className="titleBarLeading" />
       {modal ? createPortal(controls, modal) : controls}

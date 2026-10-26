@@ -455,7 +455,7 @@ export const LibraryPage = () => {
         />
         {visibleSongs.length > 0 ? (
           <>
-          <Stack direction="row" gap={2} wrap>
+          <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
             <Button icon="check" disabled={deleting} onClick={() => { setSelecting(!selecting); setSelected(new Set()); }}>
               {selecting ? t("cancel") : tr("Выбрать несколько")}
             </Button>

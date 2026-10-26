@@ -58,8 +58,7 @@ export const ModelCard = ({
   const downloadable = ["not-installed", "failed", "update-available"].includes(
     model.state,
   );
-  // Payload, temporary copy and a 10% margin.
-  const required = Math.ceil(model.sizeBytes * 2.1);
+  const required = model.requiredDiskBytes;
   const insufficient = free !== null && free < required;
   const action = () => {
     if (activeJob)

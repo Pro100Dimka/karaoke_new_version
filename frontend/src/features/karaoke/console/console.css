@@ -37,6 +37,18 @@
 .karaokeConsolePanel[data-dock="top"][data-hidden] { transform: translateY(-110%); }
 .karaokeConsolePanel[data-dock="left"][data-hidden] { transform: translateX(-110%); }
 .karaokeConsolePanel[data-dock="right"][data-hidden] { transform: translateX(110%); }
+.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) .consoleTopRow {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) :is(.songStrip, .transport) {
+  grid-column: 1 / -1;
+}
+.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) .songStrip {
+  grid-template-columns: 1fr auto;
+}
+.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) :is(.songStripTitle, .songStrip > .ad-waveform) {
+  grid-column: 1 / -1;
+}
 
 .karaokeConsoleCard.ad-card {
   display: grid;

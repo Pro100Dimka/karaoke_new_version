@@ -21,12 +21,13 @@ const chapters = [
 ] as const satisfies readonly { id: string; icon: string; title: MessageKey; paragraphs: readonly MessageKey[]; image?: string }[];
 
 export const HelpPage = () => {
+  useApp("language");
   const navigate = useNavigate();
   const { openSettings } = useApp("actions");
   const [active, setActive] = useState<(typeof chapters)[number]>(chapters[0]);
   return (
     <main className="helpPage">
-      <header className="helpHeader">
+      <header className="helpHeader" data-window-drag>
         <Button icon="back" onClick={() => navigate(routes.library)}>{tr(ru.library)}</Button>
         <h1>{tr(ru.helpTitle)}</h1>
       </header>

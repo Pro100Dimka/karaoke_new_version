@@ -26,7 +26,7 @@ export const LibraryHeader = ({
   const t = useText();
   const { preferences } = useApp("preferences");
   return (
-    <header className="libraryHero">
+    <header className="libraryHero" data-window-drag>
       <div className="identity">
         <Sparkles count={12} className="identityMark">
           <ImageShine

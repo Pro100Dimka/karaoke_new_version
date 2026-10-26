@@ -96,6 +96,7 @@ describe("pythonClient contract", () => {
     purpose: "ASR",
     version: "1",
     sizeBytes: 100,
+    requiredDiskBytes: 268435656,
     state: "not-installed",
     selected: true,
   } as const;

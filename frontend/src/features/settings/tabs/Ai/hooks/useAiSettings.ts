@@ -7,6 +7,7 @@ import type {
   ProcessingJobDto,
 } from "../../../../../contracts/models";
 import { useText } from "../../../../../i18n/useText";
+import { errorMessageKey, toAppError } from "../../../../../shared/errors";
 import {
   useSettingsBackend,
   useSettingsDesktop,
@@ -42,7 +43,8 @@ export const useAiSettings = () => {
     ...Object.values(state.downloadErrors),
   ];
   const reportError = (error: unknown) => {
-    notify(messageOf(error, t("settingsApplyFailed")), "error");
+    const key = errorMessageKey(toAppError(error));
+    notify(key ? t(key) : messageOf(error, t("settingsApplyFailed")), "error");
   };
 
   return {

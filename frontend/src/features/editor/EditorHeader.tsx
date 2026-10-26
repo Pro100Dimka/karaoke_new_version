@@ -49,7 +49,7 @@ export const EditorHeader = ({
   );
 
   return (
-    <header className="editorHeader">
+    <header className="editorHeader" data-window-drag>
       {slot ? createPortal(back, slot) : back}
       <Planet className="editorPlanet" />
       <div className="editorTitle">

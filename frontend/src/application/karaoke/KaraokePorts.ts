@@ -12,7 +12,7 @@ export type VoiceChainAudioPort = Pick<AudioServiceClient,
   "setMixer" | "setDspParameter" | "setDspEnabled">;
 
 export type KaraokeBackendPort = Pick<PythonClient,
-  "getSong" | "projectCompatibility" | "diagnostics">;
+  "getSong" | "projectCompatibility" | "freeStorageBytes">;
 
 export interface KaraokeRecordingPort {
   elapsedSeconds(): number;

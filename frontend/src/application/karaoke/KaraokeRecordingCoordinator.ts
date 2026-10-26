@@ -17,7 +17,7 @@ export class KaraokeRecordingCoordinator {
   private generation = 0;
 
   constructor(
-    private readonly backend: Pick<KaraokeBackendPort, "diagnostics">,
+    private readonly backend: Pick<KaraokeBackendPort, "freeStorageBytes">,
     private readonly recording: KaraokeRecordingPort,
     private readonly audio: Pick<KaraokeAudioPort, "stop">,
   ) {}
@@ -28,7 +28,7 @@ export class KaraokeRecordingCoordinator {
   async start(song: SongDto, adjustment: PlaybackAdjustment): Promise<RecordingStart> {
     const generation = this.generation;
     try {
-      const free = (await this.backend.diagnostics()).storage.free;
+      const free = await this.backend.freeStorageBytes();
       if (!this.isCurrent(generation)) return { kind: "cancelled" };
       if (free < minimumRecordingBytes)
         return { kind: "insufficientDisk", free, generation };

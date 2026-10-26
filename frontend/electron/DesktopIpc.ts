@@ -51,7 +51,7 @@ const registerWindowControls = ({ trustedIpc, window, reveal, confirmClose }: De
     if (phase === "end" || !current) { drag = undefined; return; }
     if (phase === "start") {
       if (typeof ratio !== "number" || !Number.isFinite(ratio) || ratio < 0 || ratio > 1 ||
-          typeof y !== "number" || !Number.isFinite(y) || y < 0 || y > 80) return;
+          typeof y !== "number" || !Number.isFinite(y) || y < 0 || y > current.getBounds().height) return;
       const bounds = current.getNormalBounds();
       drag = { x: Math.round(bounds.width * ratio), y: Math.round(y) };
       if (current.isFullScreen()) current.setFullScreen(false);
@@ -61,7 +61,7 @@ const registerWindowControls = ({ trustedIpc, window, reveal, confirmClose }: De
     const cursor = typeof x === "number" && Number.isFinite(x) && Math.abs(x) < 100000 &&
       typeof screenY === "number" && Number.isFinite(screenY) && Math.abs(screenY) < 100000
       ? { x, y: screenY } : screen.getCursorScreenPoint();
-    current.setPosition(cursor.x - drag.x, cursor.y - drag.y);
+    current.setPosition(Math.round(cursor.x - drag.x), Math.round(cursor.y - drag.y));
   });
   trustedIpc.handle(ipcChannels.toggleMaximize, () => {
     const current = window();

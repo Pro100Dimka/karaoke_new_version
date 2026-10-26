@@ -38,7 +38,30 @@ CloseApplications=yes
 RestartApplications=no
 SetupIconFile={#AppIcon}
 
+[Messages]
+en.ConfirmUninstall=Remove %1, including all processed songs, recordings, models and application settings? This cannot be undone.
+ru.ConfirmUninstall=Удалить %1 вместе со всеми обработанными песнями, записями, моделями и настройками? Это действие нельзя отменить.
+uk.ConfirmUninstall=Видалити %1 разом з усіма обробленими піснями, записами, моделями й налаштуваннями? Цю дію неможливо скасувати.
+
 [CustomMessages]
+en.DesktopIcon=Create a desktop shortcut
+ru.DesktopIcon=Создать ярлык на рабочем столе
+uk.DesktopIcon=Створити ярлик на робочому столі
+en.Shortcuts=Shortcuts:
+ru.Shortcuts=Ярлыки:
+uk.Shortcuts=Ярлики:
+en.GpuTitle=NVIDIA GPU acceleration
+ru.GpuTitle=Ускорение для видеокарты NVIDIA
+uk.GpuTitle=Прискорення для відеокарти NVIDIA
+en.GpuHint=Downloading once (about 2.5 GB) to process songs on your GPU.
+ru.GpuHint=Однократная загрузка (около 2,5 ГБ) для обработки песен на видеокарте.
+uk.GpuHint=Одноразове завантаження (близько 2,5 ГБ) для обробки пісень на відеокарті.
+en.GpuPreparing=Preparing NVIDIA GPU acceleration…
+ru.GpuPreparing=Подготовка ускорения для видеокарты NVIDIA…
+uk.GpuPreparing=Підготовка прискорення для відеокарти NVIDIA…
+en.LaunchApp=Launch A&D Voice
+ru.LaunchApp=Запустить A&D Voice
+uk.LaunchApp=Запустити A&D Voice
 en.Models=Download models for song processing (about 3 GB)
 ru.Models=Скачать модели для обработки песен (около 3 ГБ)
 uk.Models=Завантажити моделі для обробки пісень (близько 3 ГБ)
@@ -51,9 +74,15 @@ uk.DownloadHint=Файли перевіряються перед викорис�
 en.DownloadFailed=The models could not be downloaded. Retry, or go back and deselect model download to continue without them.
 ru.DownloadFailed=Не удалось скачать модели. Повторите попытку или вернитесь назад и снимите флажок загрузки моделей.
 uk.DownloadFailed=Не вдалося завантажити моделі. Повторіть спробу або поверніться назад і зніміть прапорець завантаження моделей.
+en.CloseBeforeUninstall=Close A&D Voice and wait for processing and recordings to finish before uninstalling.
+ru.CloseBeforeUninstall=Закройте A&D Voice и дождитесь завершения обработки и записей перед удалением.
+uk.CloseBeforeUninstall=Закрийте A&D Voice і дочекайтеся завершення обробки та записів перед видаленням.
+en.DataNotRemoved=These folders were kept because files are in use or exclusive ownership could not be verified. Review their contents before deleting application data; they may contain your other files:
+ru.DataNotRemoved=Эти папки сохранены: файлы заняты либо не удалось подтвердить, что всё содержимое принадлежит приложению. Перед удалением данных приложения проверьте содержимое — здесь могут быть другие ваши файлы:
+uk.DataNotRemoved=Ці папки збережено: файли зайняті або не вдалося підтвердити, що весь вміст належить застосунку. Перед видаленням даних застосунку перевірте вміст — тут можуть бути інші ваші файли:
 
 [Tasks]
-Name: "desktopicon"; Description: "Создать ярлык на рабочем столе"; GroupDescription: "Ярлыки:"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
 Name: "models"; Description: "{cm:Models}"; Flags: unchecked
 
 [Files]
@@ -95,15 +124,16 @@ Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; V
 ; The CUDA build of PyTorch on an NVIDIA computer, so the first song is already processed on the GPU:
 ; unpacked from the wheels the download page fetched. A silent update (installed by the app before
 ; it opens) skips this so the app opens at once; the app then fetches it in the background itself.
-Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "Подготовка ускорения для видеокарты NVIDIA…"; Flags: runhidden waituntilterminated; Check: UnpackGpuRuntime
-Filename: "{app}\AD Voice.exe"; Description: "Запустить A&D Voice"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\resources\python-runtime\python.exe"; Parameters: "-E -m backend.infrastructure.torch_runtime install-gpu ""{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130"""; WorkingDir: "{app}\resources\python-app"; StatusMsg: "{cm:GpuPreparing}"; Flags: runhidden waituntilterminated; Check: UnpackGpuRuntime
+Filename: "{app}\AD Voice.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 ; An update installed silently by the app (electron/AutoUpdate.ts) opens the new version; one run
 ; with /NORELAUNCH leaves it closed.
 Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
 
 [UninstallDelete]
 ; Only this application's profile; never remove a shared install directory recursively.
-Type: filesandordirs; Name: "{userappdata}\AD Voice"
+Type: filesandordirs; Name: "{app}\resources"
+Type: filesandordirs; Name: "{app}\locales"
 Type: dirifempty; Name: "{app}"
 
 [Code]
@@ -123,6 +153,8 @@ var
   ModelDownloadPage: TDownloadWizardPage;
   GpuChecked: Boolean;
   GpuPresent: Boolean;
+  RemainingData: string;
+  CheckedRoots: string;
 
 { An NVIDIA GPU with its driver: nvidia-smi lists it. }
 function HasNvidiaGpu: Boolean;
@@ -164,8 +196,7 @@ end;
 
 procedure InitializeWizard;
 begin
-  DownloadPage := CreateDownloadPage('Ускорение для видеокарты NVIDIA',
-    'Скачиваю его один раз (около 2,5 ГБ), чтобы песни обрабатывались на видеокарте.', nil);
+  DownloadPage := CreateDownloadPage(CustomMessage('GpuTitle'), CustomMessage('GpuHint'), nil);
   ModelDownloadPage := CreateDownloadPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'), nil);
 end;
 
@@ -234,25 +265,80 @@ begin
       Result := False;
 end;
 
+function InitializeUninstall: Boolean;
+var
+  Locator, Services, Processes, Process: Variant;
+  Targets: TArrayOfString;
+  I, J: Integer;
+begin
+  Result := False;
+  try
+    Locator := CreateOleObject('WbemScripting.SWbemLocator');
+    Services := Locator.ConnectServer('.', 'root\CIMV2');
+    Processes := Services.ExecQuery('SELECT ExecutablePath FROM Win32_Process');
+    Targets := [ExpandConstant('{app}\AD Voice.exe'),
+      ExpandConstant('{app}\resources\python-runtime\python.exe'),
+      ExpandConstant('{app}\resources\audio-service\AudioService.exe')];
+    for I := 0 to Processes.Count - 1 do
+    begin
+      Process := Processes.ItemIndex(I);
+      if not VarIsNull(Process.ExecutablePath) then
+        for J := 0 to GetArrayLength(Targets) - 1 do
+          if CompareText(Process.ExecutablePath, Targets[J]) = 0 then
+          begin
+            MsgBox(CustomMessage('CloseBeforeUninstall'), mbError, MB_OK);
+            Exit;
+          end;
+    end;
+    Result := True;
+  except
+    MsgBox(CustomMessage('CloseBeforeUninstall') + #13#10 + GetExceptionMessage, mbError, MB_OK);
+  end;
+end;
+
 procedure DeleteStorageRoot(const Folder: string);
 var
   Root: string;
   Marker: AnsiString;
   Names: TArrayOfString;
   I: Integer;
+  Removed: Boolean;
 begin
   Root := RemoveBackslash(ExpandFileName(Trim(Folder)));
   if (Root = '') or (Length(Root) <= 3) then Exit;
-  if not LoadStringFromFile(Root + '\.ad-voice-data', Marker) then Exit;
-  if Marker <> 'ADVoice.App' then Exit;
-  Names := ['songs', 'models', 'cache', 'recordings', 'temp', 'quarantine', 'logs', 'recovery'];
+  if not DirExists(Root) then Exit;
+  if Pos(#10 + Lowercase(Root) + #10, CheckedRoots) > 0 then Exit;
+  CheckedRoots := CheckedRoots + #10 + Lowercase(Root) + #10;
+  { The fixed application profile is private. Custom roots need proof they started empty;
+    the old marker was also written into folders containing unrelated user data. }
+  if CompareText(Root, ExpandConstant('{userappdata}\AD Voice\backend-data')) <> 0 then
+    if not LoadStringFromFile(Root + '\.ad-voice-data', Marker) or (Marker <> 'ADVoice.App.v2') then
+    begin
+      RemainingData := RemainingData + #13#10 + Root;
+      Exit;
+    end;
+  { A live backend holds this file open. Do not touch its library. }
+  if FileExists(Root + '\backend.lock.guard') then
+    if not DeleteFile(Root + '\backend.lock.guard') then
+    begin
+      RemainingData := RemainingData + #13#10 + Root;
+      Exit;
+    end;
+  Removed := True;
+  Names := ['songs', 'models', 'cache', 'recordings', 'temp', 'quarantine', 'logs', 'recovery', 'environment', 'backups', 'exports'];
   for I := 0 to GetArrayLength(Names) - 1 do
     if DirExists(Root + '\' + Names[I]) then
       if not DelTree(Root + '\' + Names[I], True, True, True) then
-        Log('Could not remove data: ' + Root + '\' + Names[I]);
-  DeleteFile(Root + '\app.db');
-  DeleteFile(Root + '\app.db-wal');
-  DeleteFile(Root + '\app.db-shm');
+        Removed := False;
+  Names := ['app.db', 'app.db-wal', 'app.db-shm', 'backend.lock'];
+  for I := 0 to GetArrayLength(Names) - 1 do
+    if FileExists(Root + '\' + Names[I]) then
+      if not DeleteFile(Root + '\' + Names[I]) then Removed := False;
+  if not Removed then
+  begin
+    RemainingData := RemainingData + #13#10 + Root;
+    Exit;
+  end;
   DeleteFile(Root + '\.ad-voice-data');
   RemoveDir(Root);
 end;
@@ -260,12 +346,23 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Roots: TArrayOfString;
+  Profile: string;
   I: Integer;
 begin
-  if CurUninstallStep <> usUninstall then Exit;
-  if LoadStringsFromFile(ExpandConstant('{userappdata}\AD Voice\storage-roots.txt'), Roots) then
-    for I := 0 to GetArrayLength(Roots) - 1 do
-      DeleteStorageRoot(Roots[I]);
+  if CurUninstallStep = usUninstall then
+  begin
+    Profile := ExpandConstant('{userappdata}\AD Voice');
+    if LoadStringsFromFile(Profile + '\storage-roots.txt', Roots) then
+      for I := 0 to GetArrayLength(Roots) - 1 do DeleteStorageRoot(Roots[I]);
+    if LoadStringsFromFile(Profile + '\storage-root.txt', Roots) then
+      for I := 0 to GetArrayLength(Roots) - 1 do DeleteStorageRoot(Roots[I]);
+    DeleteStorageRoot(Profile + '\backend-data');
+    if RemainingData = '' then
+      if DirExists(Profile) then
+        if not DelTree(Profile, True, True, True) then RemainingData := Profile;
+  end;
+  if (CurUninstallStep = usPostUninstall) and (RemainingData <> '') then
+    MsgBox(CustomMessage('DataNotRemoved') + #13#10 + RemainingData, mbError, MB_OK);
 end;
 
 const

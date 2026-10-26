@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.ports import ProjectStorage
 from backend.recovery.domain import RecoveryEntry, RecoveryOperation
 from backend.recovery.ports import RecoveryJournal
+from backend.recordings.ports import RecordingStorage
 from backend.songs.ports import SongStorage
 
 
@@ -14,11 +17,13 @@ class RecoverTransactions:
         projects: ProjectStorage,
         songs: SongStorage,
         journal: RecoveryJournal,
+        recordings: RecordingStorage,
     ) -> None:
         self._uow = uow
         self._projects = projects
         self._songs = songs
         self._journal = journal
+        self._recordings = recordings
 
     def execute(self) -> int:
         recovered = 0
@@ -35,6 +40,8 @@ class RecoverTransactions:
             return self._song_import(entry)
         if entry.operation is RecoveryOperation.SONG_DELETE:
             return self._song_delete(entry)
+        if entry.operation is RecoveryOperation.RECORDING_REGISTER:
+            return self._recording_import(entry)
         return False
 
     def _project_publication(self, entry: RecoveryEntry) -> bool:
@@ -53,8 +60,8 @@ class RecoverTransactions:
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
         if song is None:
-            quarantine = self._songs.quarantine(song_id)
-            if quarantine:
+            quarantine = self._songs.quarantine(song_id) or self._songs.quarantine_path(song_id)
+            if quarantine.exists():
                 self._songs.finalize_quarantine(quarantine)
         return True
 
@@ -68,6 +75,19 @@ class RecoverTransactions:
                 self._songs.finalize_quarantine(quarantine)
         elif quarantine.exists():
             self._songs.restore_quarantine(song_id, quarantine)
+        return True
+
+    def _recording_import(self, entry: RecoveryEntry) -> bool:
+        recording_id = _text(entry, "recordingId")
+        path = Path(_text(entry, "filePath"))
+        with self._uow.create() as transaction:
+            recording = transaction.recordings.get(recording_id)
+        if recording is None:
+            quarantine = self._recordings.quarantine_path(recording_id, path)
+            if path.exists():
+                quarantine = self._recordings.quarantine(recording_id, path)
+            if quarantine.parent.exists():
+                self._recordings.finalize_quarantine(quarantine)
         return True
 
 

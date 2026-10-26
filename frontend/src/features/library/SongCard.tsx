@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from "react";
-import { Card, Checkbox, IconButton, Menu, Typography, tr } from "@neo-ui-kit/react";
+import { Card, Checkbox, IconButton, Menu, ProgressBar, Typography, tr } from "@neo-ui-kit/react";
 import type { SongDto } from "../../contracts/models";
 import type { MessageKey } from "../../i18n/messages";
 import { useText } from "../../i18n/useText";
@@ -196,6 +196,9 @@ export const SongCard = memo(
             )}
             {song.status === "processing" && (
               <ProcessingSignal progress={song.progress ?? 0} song={song} />
+            )}
+            {song.status === "importing" && (
+              <ProgressBar value={song.progress ?? 0} label={t("importing")} />
             )}
           </div>
         </div>

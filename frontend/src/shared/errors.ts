@@ -24,6 +24,8 @@ const knownCodes = {
   UnsupportedMedia: "errorUnsupportedMedia",
   SourceMissing: "errorSourceMissing",
   InsufficientDiskSpace: "errorInsufficientDisk",
+  InsufficientRam: "errorInsufficientRam",
+  ModelsInUse: "errorModelsInUse",
   StorageUnavailable: "errorStorageUnavailable",
   MissingRequiredModels: "errorMissingModels",
   ProcessingAlreadyRunning: "errorProcessingRunning",

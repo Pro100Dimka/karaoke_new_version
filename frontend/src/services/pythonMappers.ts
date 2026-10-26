@@ -235,6 +235,7 @@ export interface BackendModel {
   purpose: string;
   version: string;
   size: number;
+  requiredDiskBytes: number;
   state: string;
   selected: boolean;
 }

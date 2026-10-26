@@ -18,17 +18,23 @@ class LocalStorageSystem:
         self._clock = clock
 
     def initialize(self) -> None:
+        # The instance lock is acquired before storage initialization. Only an otherwise
+        # empty root proves that these directories were created for this application.
+        fresh = not self._roots.app.exists() or all(
+            child.name in {"backend.lock", "backend.lock.guard"}
+            for child in self._roots.app.iterdir()
+        )
         for path in self._roots.directories():
             try:
                 path.mkdir(parents=True, exist_ok=True)
-                probe = path / ".write-probe"
-                probe.write_bytes(b"")
-                probe.unlink()
+                with tempfile.TemporaryFile(dir=path):
+                    pass
             except OSError as exc:
                 raise DependencyError(
                     "StorageUnavailable", "Storage root is not writable", path=str(path)
                 ) from exc
-        (self._roots.app / ".ad-voice-data").write_text("ADVoice.App", encoding="utf-8")
+        if fresh:
+            (self._roots.app / ".ad-voice-data").write_text("ADVoice.App.v2", encoding="utf-8")
 
     def free_bytes(self, path: Path) -> int:
         existing = path

@@ -333,6 +333,7 @@ export interface ModelDto {
   purpose: string;
   version: string;
   sizeBytes: number;
+  requiredDiskBytes: number;
   state: ModelState;
   selected: boolean;
 }

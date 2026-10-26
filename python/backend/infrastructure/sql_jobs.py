@@ -90,7 +90,7 @@ class SqlJobRepository:
         return int(self._session.scalar(query) or 0)
 
     def mark_running_interrupted(self) -> int:
-        states = (JobState.RUNNING.value, JobState.CANCELLING.value)
+        states = (JobState.QUEUED.value, JobState.RUNNING.value, JobState.CANCELLING.value)
         result = self._session.execute(
             update(JobRow).where(JobRow.state.in_(states)).values(state=JobState.INTERRUPTED.value)
         )

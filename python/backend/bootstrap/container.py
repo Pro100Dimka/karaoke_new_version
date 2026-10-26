@@ -104,7 +104,7 @@ class SystemCases:
     reconcile: StartLibraryReconciliation
     clear_cache: Callable[[], int]
     remove_temp: Callable[[], int]
-    free_storage_bytes: Callable[[], int]
+    free_storage_bytes: Callable[[str], int]
 
 
 @dataclass(slots=True)

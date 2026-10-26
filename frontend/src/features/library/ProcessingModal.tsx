@@ -97,7 +97,7 @@ export const ProcessingModal = ({
   playbackDisabled,
 }: Props) => {
   const t = useText();
-  const queue = useProcessingQueue(open, focusSongId);
+  const queue = useProcessingQueue(focusSongId);
   const disk = useDisk(open);
   const [notice, setNotice] = useState<Notice>();
   const [motionPaused, setMotionPaused] = useState(false);
@@ -195,8 +195,6 @@ export const ProcessingModal = ({
                 song={songOf(job)}
                 index={index}
                 actions={{
-                  canMove: (direction) => queue.canMove(job.id, direction),
-                  onMove: (direction) => queue.move(job.id, direction),
                   onOpenFolder,
                   onPlay,
                   playbackDisabled,

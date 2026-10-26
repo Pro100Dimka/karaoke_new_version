@@ -13,7 +13,7 @@ const mixerChannels = ["music", "mic", "reference", "melody", "master"] as const
 interface Preparation {
   songId: string;
   gains: MixerChannelGains;
-  backend: KaraokeBackendPort;
+  backend: Pick<KaraokeBackendPort, "getSong" | "projectCompatibility">;
   repository: Pick<EditorRepository, "load">;
   audio: Pick<KaraokeAudioPort,
     "capabilities" | "prepareSong" | "setPlaybackRate" | "setPitchShift" | "setMixer">;

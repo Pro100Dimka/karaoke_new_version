@@ -250,6 +250,7 @@ def _startup_recovery(
         project.projects,
         project.songs,
         project.journal,
+        recordings,
     )
     return StartupRecovery(
         processing.jobs,

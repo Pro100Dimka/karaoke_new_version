@@ -134,7 +134,7 @@ const waitForPackageReport = async (
 };
 
 export const pythonClient: PythonClient = {
-  freeStorageBytes: () => request<number>("GET", "/storage/free"),
+  freeStorageBytes: (area = "data") => request<number>("GET", `/storage/free?area=${area}`),
   async health() {
     const [health, version] = await Promise.all([
       request<{ ok: boolean; instanceId?: string }>("GET", "/health/ready"),
@@ -415,6 +415,7 @@ export const pythonClient: PythonClient = {
       purpose: model.purpose,
       version: model.version,
       sizeBytes: model.size,
+      requiredDiskBytes: model.requiredDiskBytes,
       state: modelState(model.state),
       selected: model.selected,
     }));

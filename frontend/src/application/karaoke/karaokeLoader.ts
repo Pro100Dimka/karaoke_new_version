@@ -26,7 +26,7 @@ export interface ResolvedKaraoke {
 /** Song identity, processing state and project compatibility must all pass before an audio session is prepared. */
 export const resolveKaraokeLoad = async (
   songId: string,
-  pythonClient: KaraokeBackendPort,
+  pythonClient: Pick<KaraokeBackendPort, "getSong" | "projectCompatibility">,
 ): Promise<ResolvedKaraoke> => {
   let song: SongDto;
   try {

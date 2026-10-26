@@ -241,7 +241,7 @@ def test_cancelled_model_download_does_not_fail_or_publish_uncommitted_weights(
         def __exit__(self, *args):
             pass
 
-        def read(self, size):
+        def read1(self, size):
             self.reads += 1
             if self.reads == 1:
                 return payload[:8]

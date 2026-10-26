@@ -83,6 +83,7 @@ export const LibraryBackdrop = ({
   listening?: boolean;
 }) => {
   const spectrum = useBackdropSpectrum(listening);
+  console.log(spectrum);
   const battery = useOnBattery();
   return (
     <QuantumBackground
