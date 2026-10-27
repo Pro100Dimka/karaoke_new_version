@@ -409,7 +409,7 @@ export const pythonClient: PythonClient = {
   },
 
   async listModels() {
-    const models = await request<BackendModel[]>("GET", "/models");
+    const models = await request<BackendModel[]>("GET", "/models?catalog_only=true");
     return models.map((model) => ({
       id: model.modelId,
       purpose: model.purpose,

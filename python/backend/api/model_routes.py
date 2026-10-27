@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from pydantic import Field
 
 from backend.ai.domain import AiCapability
+from backend.ai.catalog import CATALOG
 from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
@@ -41,9 +42,16 @@ class ModelDto(ApiModel):
 
 
 @router.get("", response_model=list[ModelDto])
-def list_models(app: ContainerDep, purpose: AiCapability | None = None) -> list[ModelDto]:
+def list_models(
+    app: ContainerDep, purpose: AiCapability | None = None, catalog_only: bool = False,
+) -> list[ModelDto]:
+    current = {(spec.model_id, spec.version) for spec in CATALOG}
     with app.database.create() as transaction:
-        return [_model(item) for item in transaction.models.list(purpose)]
+        return [
+            _model(item)
+            for item in transaction.models.list(purpose)
+            if not catalog_only or (item.model_id, item.version) in current
+        ]
 
 
 @router.put("/{model_id}/{version}", response_model=ModelDto)
