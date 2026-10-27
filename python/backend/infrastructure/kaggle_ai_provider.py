@@ -27,6 +27,7 @@ from backend.ai.domain import (
 )
 from backend.ai.ports import AiProvider
 from backend.domain_errors import ConflictError, DependencyError, DomainError
+from backend.infrastructure.kaggle_notebook_automation import KaggleNotebookAutomation
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
@@ -40,6 +41,16 @@ _HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_POLL_SECONDS = 5
+_CLIENT_ERRORS = (
+    AppError,
+    AuthenticationError,
+    GradioValidationError,
+    SerializationSetupError,
+    httpx.HTTPError,
+    OSError,
+    RuntimeError,
+    ValueError,
+)
 
 
 def _room_server_base_url() -> str:
@@ -69,6 +80,7 @@ class KaggleAiProvider(AiProvider):
         ).rstrip("/")
         self._discovery_transport = discovery_transport
         self._start_notebook = start_notebook
+        self._notebook = KaggleNotebookAutomation()
         self._descriptor = AiProviderDescriptor(
             provider_id=_PROVIDER_ID,
             version="1",
@@ -95,24 +107,19 @@ class KaggleAiProvider(AiProvider):
     def shutdown(self) -> None:
         """Ask an available notebook to end its Kaggle session without starting it."""
         try:
-            token = self._settings().kaggle_token or ""
-            url = self._discover_url(token) if token else None
-            if not url:
+            settings = self._settings()
+            token = settings.kaggle_token or ""
+            url = (self._discover_url(token) or settings.kaggle_url) if token else None
+            if not url or not is_secure_kaggle_url(url):
                 return
-            client = self._connect(url, token)
+            client = Client(
+                url,
+                auth=("advoice", token),
+                verbose=False,
+                httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
+            )
             client.predict(api_name="/shutdown")
-        except (
-            AttributeError,
-            AppError,
-            AuthenticationError,
-            DependencyError,
-            GradioValidationError,
-            SerializationSetupError,
-            httpx.HTTPError,
-            OSError,
-            RuntimeError,
-            ValueError,
-        ):
+        except (AttributeError, DependencyError, *_CLIENT_ERRORS):
             pass
         finally:
             with self._lock:
@@ -200,16 +207,7 @@ class KaggleAiProvider(AiProvider):
         except DomainError:
             _ensure_not_cancelled(cancel)
             raise
-        except (
-            AppError,
-            AuthenticationError,
-            GradioValidationError,
-            SerializationSetupError,
-            httpx.HTTPError,
-            OSError,
-            RuntimeError,
-            ValueError,
-        ) as exc:
+        except _CLIENT_ERRORS as exc:
             _ensure_not_cancelled(cancel)
             raise self._invocation_error(exc) from exc
 
@@ -299,8 +297,9 @@ class KaggleAiProvider(AiProvider):
             _ensure_not_cancelled(cancel)
             try:
                 return self._available_client(settings, token)
-            except DependencyError:
-                pass
+            except DependencyError as error:
+                if error.code == "KaggleProtocolMismatch":
+                    self.shutdown()
             assert self._start_notebook is not None
             self._start_notebook(cancel)
             deadline = time.monotonic() + _STARTUP_TIMEOUT_SECONDS
@@ -358,16 +357,7 @@ class KaggleAiProvider(AiProvider):
             )
         except DependencyError:
             raise
-        except (
-            AppError,
-            AuthenticationError,
-            GradioValidationError,
-            SerializationSetupError,
-            httpx.HTTPError,
-            OSError,
-            RuntimeError,
-            ValueError,
-        ) as exc:
+        except _CLIENT_ERRORS as exc:
             raise DependencyError(
                 "KaggleUnavailable", "Could not connect to the Kaggle notebook"
             ) from exc
@@ -383,13 +373,11 @@ class KaggleAiProvider(AiProvider):
         generation = health.get("sessionGeneration")
         if (
             health.get("protocolVersion") != _PROTOCOL_VERSION
+            or health.get("workerRevision") != self._notebook.revision
             or not isinstance(generation, str)
             or not generation
         ):
-            raise DependencyError(
-                "KaggleProtocolMismatch",
-                "The Kaggle notebook version does not match this application",
-            )
+            raise DependencyError("KaggleProtocolMismatch", "Kaggle worker does not match this app")
         return generation
 
     @staticmethod

@@ -122,6 +122,8 @@ if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service 
 copy /y "%RELEASE_ENV%" "%RESOURCES%\python-app\.env" >nul || goto :fail
 robocopy "%ROOT%kaggle" "%RESOURCES%\kaggle" ad_voice_p100.ipynb ad_voice_server.py README.md /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
+"%PYTHON_EXE%" -B "%ROOT%kaggle\build_notebook.py" "%RESOURCES%\kaggle\ad_voice_p100.ipynb"
+if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\audio-service" >nul 2>&1
 cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
 if errorlevel 1 goto :fail

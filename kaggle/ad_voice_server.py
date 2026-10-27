@@ -41,6 +41,7 @@ from backend.ai_worker.speech import (
 TTL_SECONDS = 6 * 60 * 60
 IDLE_SHUTDOWN_SECONDS = 5 * 60
 PROTOCOL_VERSION = 7
+WORKER_REVISION = os.environ.get("AD_VOICE_KAGGLE_REVISION", "")
 SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
@@ -253,6 +254,7 @@ def pitch_song(session_id: str) -> dict:
 def health() -> dict:
     return {
         "protocolVersion": PROTOCOL_VERSION,
+        "workerRevision": WORKER_REVISION,
         "sessionGeneration": SESSION_GENERATION,
         "cuda": torch.cuda.is_available(),
         "gpu": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,

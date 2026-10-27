@@ -8,6 +8,7 @@ import threading
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cached_property
 from pathlib import Path
 
 from backend.domain_errors import DependencyError
@@ -107,11 +108,22 @@ class KaggleNotebookAutomation:
             raise DependencyError("KaggleAccountInvalid", "Kaggle account name is invalid")
         return username
 
-    def _notebook(self, token: str, discovery_url: str) -> dict[str, object]:
+    @cached_property
+    def revision(self) -> str:
+        metadata = self._template().get("metadata")
+        revision = metadata.get("ad_voice_revision") if isinstance(metadata, dict) else None
+        if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{64}", revision):
+            raise DependencyError("KaggleNotebookInvalid", "Kaggle worker revision is missing")
+        return revision
+
+    def _template(self) -> dict[str, object]:
         source = self._assets_root / "ad_voice_p100.ipynb"
         if not source.is_file():
             raise DependencyError("KaggleNotebookMissing", "Kaggle notebook template is missing")
-        notebook = loads_object(source.read_text(encoding="utf-8"))
+        return loads_object(source.read_text(encoding="utf-8"))
+
+    def _notebook(self, token: str, discovery_url: str) -> dict[str, object]:
+        notebook = self._template()
         cells = notebook.get("cells")
         if not isinstance(cells, list) or len(cells) < 2 or not isinstance(cells[1], dict):
             raise DependencyError("KaggleNotebookInvalid", "Kaggle notebook template is invalid")

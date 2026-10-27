@@ -342,7 +342,11 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
         def predict(self, *, api_name):
             assert api_name == "/health"
             probes.append(tuple(state.values()))
-            return {"protocolVersion": 7, "sessionGeneration": state["generation"]}
+            return {
+                "protocolVersion": 7,
+                "workerRevision": kaggle_provider_module.KaggleNotebookAutomation().revision,
+                "sessionGeneration": state["generation"],
+            }
 
         def submit(self, *args, api_name):
             calls.append((api_name, args))
@@ -577,7 +581,11 @@ def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_worke
 
         def predict(self, *, api_name: str) -> dict[str, int | str]:
             assert api_name == "/health"
-            return {"protocolVersion": protocol_version, "sessionGeneration": "worker-test"}
+            return {
+                "protocolVersion": protocol_version,
+                "workerRevision": kaggle_provider_module.KaggleNotebookAutomation().revision,
+                "sessionGeneration": "worker-test",
+            }
 
     monkeypatch.setattr(kaggle_provider_module, "Client", ClientStub)
     provider = KaggleAiProvider(
