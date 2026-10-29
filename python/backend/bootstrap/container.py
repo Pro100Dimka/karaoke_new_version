@@ -42,7 +42,7 @@ from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, GetSongWaveform, ListSongs
-from backend.songs.update_song import UpdateSong
+from backend.songs.update_song import MarkSongPlayed, UpdateSong
 from backend.storage.domain import StorageRoots
 
 
@@ -63,6 +63,7 @@ class SongCases:
     reset_editor: ResetEditorDocument
     compatibility: GetProjectCompatibility
     migrate_project: MigrateProject
+    mark_played: MarkSongPlayed
 
 
 @dataclass(frozen=True, slots=True)

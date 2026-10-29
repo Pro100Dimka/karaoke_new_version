@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -56,3 +56,5 @@ class SeparatedAudio:
     instrumental: Path
     reference_vocal: Path
     rhythm: tuple[tuple[float, float], ...] = ()
+    raw_vocal: Path | None = None
+    preparation: Mapping[str, object] = field(default_factory=dict)

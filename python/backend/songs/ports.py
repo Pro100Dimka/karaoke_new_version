@@ -2,16 +2,42 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol, Sequence
 
-from backend.songs.domain import Song, SongStatus
+from backend.songs.domain import Language, Song, SongStatus
+
+
+@dataclass(frozen=True, slots=True)
+class SongFilters:
+    statuses: tuple[SongStatus, ...] | None = None
+    language: Language | None = None
+    duration: str = "all"
+    artwork: str = "all"
+
+
+@dataclass(frozen=True, slots=True)
+class SongSummary:
+    total: int
+    ready: int
+    languages: Sequence[Language]
 
 
 @dataclass(frozen=True, slots=True)
 class SongPage:
     items: Sequence[Song]
     next_cursor: str | None
+    total: int = 0
+
+
+SongSortValue = str | float | datetime
+
+
+@dataclass(frozen=True, slots=True)
+class SongSearchPage:
+    items: Sequence[Song]
+    next_key: tuple[SongSortValue, str] | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,9 +71,20 @@ class SongRepository(Protocol):
         descending: bool,
         limit: int,
         offset: int,
+        filters: SongFilters | None = None,
     ) -> Sequence[Song]: ...
 
-    def count(self, *, search: str | None, status: SongStatus | None) -> int: ...
+    def count(
+        self, *, search: str | None, status: SongStatus | None, filters: SongFilters | None = None
+    ) -> int: ...
+
+    def search(
+        self, *, search: str | None, status: SongStatus | None, sort: str,
+        descending: bool, limit: int, after: tuple[SongSortValue, str] | None,
+        filters: SongFilters | None = None,
+    ) -> SongSearchPage: ...
+
+    def summary(self) -> SongSummary: ...
 
 
 class MediaInspector(Protocol):

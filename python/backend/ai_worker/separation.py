@@ -15,6 +15,7 @@ from backend.ai.catalog import SEPARATION_MODEL
 from backend.ai_worker.audio_io import write_wav
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import cpu_threads, device
+from backend.ai_worker.vocal_preparation import prepare_vocal
 from backend.serialization import JsonValue
 
 _OVERLAP = 0.25
@@ -62,10 +63,15 @@ def separate(audio: Path, output: Path) -> dict[str, JsonValue]:
     vocal_path, instrumental_path = output / "vocals.wav", output / "instrumental.wav"
     write_wav(vocal_path, vocals.cpu().numpy(), model.samplerate)
     write_wav(instrumental_path, instrumental.cpu().numpy(), model.samplerate)
+    rhythm = _rhythm(sources, model.sources, model.samplerate)
+    del model, sources, vocals, instrumental
+    prepared, preparation = prepare_vocal(audio, vocal_path, target)
     return {
         "instrumental": str(instrumental_path),
-        "referenceVocal": str(vocal_path),
-        "rhythm": _rhythm(sources, model.sources, model.samplerate),
+        "referenceVocal": str(prepared),
+        "rawVocal": str(vocal_path),
+        "preparation": preparation,
+        "rhythm": rhythm,
     }
 
 

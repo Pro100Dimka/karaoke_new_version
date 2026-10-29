@@ -244,10 +244,17 @@ def with_sung_ends(
         harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
     )
     step = _VOICE_HOP / _VOICE_RATE
+    audible = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
-        continued = continued_frames(voiced, harmonics, (word.start, word.end, limit), step)
+        continued = continued_frames(
+            voiced,
+            harmonics,
+            (word.start, word.end, limit),
+            step,
+            audible if word.score > 0 else None,
+        )
         frame = min(int(word.end / step), len(voiced) - 1)
         while frame + 1 < len(continued) and continued[frame] and (frame + 1) * step < limit:
             frame += 1
@@ -258,12 +265,8 @@ def with_sung_ends(
             end = max(silence, word.start + _MINIMUM_WORD_SECONDS)
             letters = _clamped_letters(word.letters, 0.0, word.start, end)
         result.append(
-            AlignedWord(
-                word.text,
-                word.start,
-                round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3),
-                letters,
-                word.score,
+            replace(
+                word, end=round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3), letters=letters
             )
         )
     return result
@@ -384,9 +387,9 @@ def align_guided(
                 first = round(pause / step)
                 sounding = np.flatnonzero(voiced[first : round(reference[0].end / step)])
                 entry = float((first + sounding[0]) * step) if len(sounding) else pause
-                if window.heard_start < entry < window.end:
-                    # A line entry inside a long pause cannot belong to the preceding
-                    # vowel. Refit its phonemes at the voice returning after that pause.
+                if window.heard_start - _ONSET_SEARCH_BEFORE_SECONDS <= entry < window.end:
+                    # Coarse recognition may trail the voice returning after a pause.
+                    # Refit there instead of keeping phonemes on the preceding vowel.
                     window = replace(window, start=max(window.start, entry))
         guided = _align_window(scores, frame_seconds, chunk, window)
         candidates = [

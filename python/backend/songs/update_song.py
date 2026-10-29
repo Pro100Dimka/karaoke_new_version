@@ -4,7 +4,8 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from backend.domain_errors import NotFoundError
-from backend.runtime import Clock
+from backend.history.domain import HistoryEvent
+from backend.runtime import Clock, IdGenerator
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import CoverState, Language, MetadataSource, Song
 from backend.songs.ports import SongStorage
@@ -16,6 +17,20 @@ class UpdateSongRequest:
     artist: str | None = None
     language: Language | None = None
     cover_path: Path | None = None
+
+
+class MarkSongPlayed:
+    def __init__(self, uow: UnitOfWorkFactory, clock: Clock, ids: IdGenerator) -> None:
+        self._uow, self._clock, self._ids = uow, clock, ids
+
+    def execute(self, song_id: str) -> None:
+        with self._uow.create() as transaction:
+            if transaction.songs.get(song_id) is None:
+                raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
+            transaction.history.add(
+                HistoryEvent(self._ids.new(), "SongPlayed", self._clock.now(), "Song", song_id)
+            )
+            transaction.commit()
 
 
 class UpdateSong:

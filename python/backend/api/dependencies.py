@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from fastapi import Request
+from starlette.requests import HTTPConnection
 
 
-def container(request: Request) -> object:
+def container(request: HTTPConnection) -> object:
     return request.app.state.container

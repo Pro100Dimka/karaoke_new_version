@@ -12,11 +12,12 @@ from whisper.audio import CHUNK_LENGTH
 
 from backend.ai_worker.ctc import AlignedWord, Window, _PREFERENCE
 from backend.ai_worker.timing import _runs
-from backend.ai_worker.word_guidance import _key, phrase_window, recognized_phrase
+from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
 from backend.lyrics.phrases import _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
+HeardWord = tuple[str, float, float]
 
 
 def independent_words(
@@ -70,8 +71,8 @@ def serialize(segments: Iterable[Segment], offset: float = 0.0) -> dict[str, obj
     return {"text": "".join(str(item["text"]) for item in serialized), "segments": serialized}
 
 
-def heard_words(result: Mapping[str, object]) -> list[tuple[str, float, float]]:
-    heard: list[tuple[str, float, float]] = []
+def heard_words(result: Mapping[str, object]) -> list[HeardWord]:
+    heard: list[HeardWord] = []
     segments = result.get("segments")
     for segment in segments if isinstance(segments, list) else []:
         words = segment.get("words") if isinstance(segment, dict) else None
@@ -80,6 +81,65 @@ def heard_words(result: Mapping[str, object]) -> list[tuple[str, float, float]]:
             if key:
                 heard.append((key, float(word["start"]), float(word["end"])))
     return heard
+
+
+def heard_timings(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[AlignedWord] | None = None,
+    *,
+    minimum_block: int = 1,
+) -> dict[int, tuple[float, float]]:
+    return {
+        block.a + offset: (heard[block.b + offset][1], heard[block.b + offset][2])
+        for block in _matching_blocks(words, heard, whole)
+        if block.size >= minimum_block
+        for offset in range(block.size)
+    }
+
+
+def independent_timings(
+    words: list[str], views: Sequence[list[tuple[str, float, float]]], timed: Sequence[AlignedWord]
+) -> dict[int, tuple[float, float]]:
+    """Keep complementary unprompted views, matched to the final acoustic positions."""
+    matches = [heard_timings(words, view, timed) for view in views]
+    return {
+        index: min(
+            (match[index] for match in matches if index in match),
+            key=lambda interval: abs(timed[index].start - interval[0]),
+        )
+        for index in set().union(*(match.keys() for match in matches))
+    }
+
+
+def recover_leading_words(
+    lyrics: str,
+    whole: Sequence[AlignedWord],
+    heard: list[tuple[str, float, float]],
+    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
+) -> list[tuple[str, float, float]]:
+    """Recheck a missed entry when three acoustic cores precede the full-song ASR."""
+    prefix = whole[:3]
+    if (
+        len(prefix) < 3
+        or not heard
+        or any(word.score < 0.3 for word in prefix)
+        or prefix[-1].end + _MARGIN >= heard[0][1]
+    ):
+        return heard
+    start = max(0.0, prefix[0].start - _MARGIN)
+    end = min(start + CHUNK_LENGTH, heard[0][2] + _MARGIN)
+    try:
+        results = recognize([(start, end, None)]).get("contexts", [])
+    except (FileNotFoundError, OSError, RuntimeError, ValueError):
+        return heard
+    local = heard_words(results[0]) if isinstance(results, list) and results else []
+    if [word for word, _, _ in local[:3]] != [_key(word.text) for word in prefix]:
+        return heard
+    combined = [*local, *(word for word in heard if word[1] >= end)]
+    return (
+        combined if phrase_coverage(lyrics, combined) >= phrase_coverage(lyrics, heard) else heard
+    )
 
 
 def context_windows(
@@ -233,6 +293,9 @@ def _word_payload(
 ) -> dict[str, float | str | list[float] | list[str]]:
     reasons = {
         "ApproximateAlignment": word.score <= 0.0,
+        "RecognizedWord": heard_timing is not None
+        and heard_timing[0] < heard_timing[1]
+        and heard_timing[0] - _MARGIN <= word.start <= heard_timing[1] + _MARGIN,
         "AsrCtcBoundaryDisagreement": heard_timing is not None
         and max(abs(word.start - heard_timing[0]), abs(word.end - heard_timing[1])) > _MARGIN,
     }

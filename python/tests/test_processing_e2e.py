@@ -18,6 +18,111 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+@pytest.mark.parametrize("extra_supported", [False, True])
+def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quiet_originals(
+    extra_supported,
+):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult, _with_completed_repeats
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart\nkeep my heart\nI am alone"
+    found = _with_completed_repeats(
+        LyricsDiscoveryResult(baseline, "Sidecar", ()),
+        "keep my heart keep my heart keep my heart I am alone",
+        Event(),
+    )
+    assert found.lyrics != baseline
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.5 if i < (9 if extra_supported else 6) else 0.02)
+        for i, text in enumerate(found.lyrics.split())
+    )
+    verified = _verified_repeats(found, words)
+    assert verified.lyrics == (found.lyrics if extra_supported else baseline)
+    if not extra_supported:
+        assert "UnverifiedExtraRepeats" in verified.warnings
+        assert verified.unverified_repeat_lyrics == found.lyrics
+
+
+def test_unsupported_outro_tails_do_not_discard_a_supported_repeated_chorus():
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart\nreach the shore\nquiet ending"
+    chorus = "keep my heart\nreach the shore"
+    candidate = f"{baseline}\n{chorus}\nshore\nshore"
+    found = LyricsDiscoveryResult(
+        candidate, "Sidecar", ("LyricsRepeatsRecovered",), repeat_baseline=baseline
+    )
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.02 if text in ["quiet", "ending"] or i >= 14 else 0.8)
+        for i, text in enumerate(candidate.split())
+    )
+
+    verified = _verified_repeats(found, words)
+
+    assert verified.lyrics == f"{baseline}\n{chorus}"
+    assert verified.unverified_repeat_lyrics == candidate
+    assert "UnverifiedExtraRepeats" in verified.warnings
+    assert "LyricsRepeatsRecovered" in verified.warnings
+
+
+def test_a_weak_repeated_occurrence_does_not_certify_an_extra_copy():
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart"
+    candidate = "\n".join([baseline] * 3)
+    found = LyricsDiscoveryResult(candidate, "Sidecar", (), repeat_baseline=baseline)
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.02 if i < 3 else 0.8)
+        for i, text in enumerate(candidate.split())
+    )
+
+    assert _verified_repeats(found, words).lyrics.splitlines() == [baseline, baseline]
+
+
+@pytest.mark.parametrize("score", [0.02, 0.0])
+def test_independently_recognized_repeat_is_not_removed_solely_for_weak_ctc(score):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart"
+    candidate = "\n".join([baseline] * 2)
+    found = LyricsDiscoveryResult(candidate, "Sidecar", (), repeat_baseline=baseline)
+    words = tuple(
+        WordTiming(
+            text,
+            i,
+            i + 0.5,
+            score,
+            diagnostics=("RecognizedWord",) + (("ApproximateAlignment",) if not score else ()),
+        )
+        for i, text in enumerate(candidate.split())
+    )
+
+    assert _verified_repeats(found, words).lyrics == candidate
+
+
+def test_a_recognized_tail_does_not_certify_an_unheard_repeat_prefix():
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart"
+    candidate = "\n".join([baseline] * 2)
+    found = LyricsDiscoveryResult(candidate, "Sidecar", (), repeat_baseline=baseline)
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.02 if i == 3 else 0.8)
+        for i, text in enumerate(candidate.split())
+    )
+
+    assert _verified_repeats(found, words).lyrics == baseline
+
+
 def test_failed_clip_download_keeps_discovered_url_for_retry(tmp_path, monkeypatch) -> None:
     source = tmp_path / "SadSvit - Небо.wav"
     write_wav(source)
@@ -50,7 +155,7 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
 
         assert job["state"] == "Succeeded", job
         assert job["overallProgress"] == 1.0
-        assert job["report"]["algorithmVersion"] == "pipeline-3"
+        assert job["report"]["algorithmVersion"] == "pipeline-12"
         assert job["report"]["processingBackend"] == "Local"
         assert job["report"]["songTitle"] == song["title"]
         assert job["report"]["songArtist"] == song["artist"]
@@ -60,6 +165,94 @@ def test_full_processing_flow_publishes_ready_revision(tmp_path: Path) -> None:
         editor = client.get(f"/songs/{song['songId']}/editor")
         assert editor.status_code == 200, editor.text
         assert editor.json()["document"]["words"][0]["notes"]
+
+
+@pytest.mark.parametrize("operation", ["melody", "lyrics"])
+@pytest.mark.parametrize("prepared", [False, True])
+def test_analysis_audio_survives_playback_gain_export_and_repeat_processing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, operation: str, prepared: bool
+) -> None:
+    import hashlib
+
+    source = tmp_path / "voice.wav"
+    write_wav(source)
+    original_source = source.read_bytes()
+    provider = FakeAiProvider()
+    raw_bytes = []
+    preparation = {"algorithmVersion": "adaptive-bleed-1", "parameters": {"minimumGain": 0.2}}
+    if prepared:
+        import soundfile as sf
+        from types import SimpleNamespace
+
+        separate = provider.separate
+
+        def prepare(*args, **kwargs):
+            stems = separate(*args, **kwargs)
+            raw_bytes.append(stems.reference_vocal.read_bytes())
+            samples, rate = sf.read(stems.reference_vocal)
+            target = stems.reference_vocal.with_name("prepared.wav")
+            sf.write(target, samples * 0.8, rate, subtype="PCM_24")
+            return SimpleNamespace(
+                instrumental=stems.instrumental,
+                reference_vocal=target,
+                rhythm=stems.rhythm,
+                raw_vocal=stems.reference_vocal,
+                preparation=preparation,
+            )
+
+        monkeypatch.setattr(provider, "separate", prepare)
+    inputs = {name: [] for name in ("transcribe", "align", "pitch", "instrumental")}
+    for name in ("transcribe", "align", "pitch"):
+        method = getattr(provider, name)
+
+        def observe(vocal, *args, _name=name, _method=method, **kwargs):
+            inputs[_name].append(vocal.read_bytes())
+            if _name == "align":
+                inputs["instrumental"].append(kwargs["instrumental"].read_bytes())
+            return _method(vocal, *args, **kwargs)
+
+        monkeypatch.setattr(provider, name, observe)
+
+    with app_client(tmp_path / "first", ai_providers=(provider,)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        exported = client.post(f"/packages/export/{song['songId']}")
+        package = wait_for_job(client, exported.json()["jobId"])
+        assert package["state"] == "Succeeded", package
+
+    root = tmp_path / "reopened"
+    with app_client(root, ai_providers=(provider,)) as client:
+        imported = client.post("/packages/import", json={"path": package["report"]["path"]})
+        assert wait_for_job(client, imported.json()["jobId"])["state"] == "Succeeded"
+        for _ in range(2):
+            started = client.post(f"/songs/{song['songId']}/processing/{operation}")
+            job = wait_for_job(client, started.json()["jobId"])
+            assert job["state"] == "Succeeded", job
+        for name in ("transcribe", "align", "pitch"):
+            assert all(audio == inputs["pitch"][0] for audio in inputs[name]), name
+        assert all(audio == inputs["instrumental"][0] for audio in inputs["instrumental"])
+        revision = root / "songs" / song["songId"] / "revisions" / str(job["report"]["revision"])
+        manifest = json.loads((revision / "manifest.json").read_text(encoding="utf-8"))
+        artifacts = {item["logicalName"]: item for item in manifest["artifacts"]}
+        if prepared:
+            assert (revision / artifacts["rawVocal"]["relativePath"]).read_bytes() == raw_bytes[0]
+            assert manifest["provenance"]["vocalPreparation"] == preparation
+            assert manifest["provenance"]["analysisPreparation"] == "adaptive-bleed-1"
+        for name, observed in (
+            ("analysisVocal", "pitch"),
+            ("analysisInstrumental", "instrumental"),
+        ):
+            saved = (revision / artifacts[name]["relativePath"]).read_bytes()
+            assert saved == inputs[observed][0]
+            assert artifacts[name]["checksum"] == hashlib.sha256(saved).hexdigest()
+        assert (revision / artifacts["referenceVocal"]["relativePath"]).read_bytes() != inputs[
+            "pitch"
+        ][0]
+    assert source.read_bytes() == original_source
 
 
 def test_reprocessing_an_older_active_revision_preserves_all_saved_revisions(
@@ -367,7 +560,7 @@ def test_melody_reprocess_uses_existing_artifacts_and_only_pitch_provider(tmp_pa
         job = wait_for_job(client, started.json()["jobId"])
 
         assert job["state"] == "Succeeded", job
-        assert job["report"]["algorithmVersion"] == "melody-2"
+        assert job["report"]["algorithmVersion"] == "melody-5"
         stage_names = {item["stage"] for item in job["report"]["stages"]}
         assert "PitchAnalysis" in stage_names
         assert "StemSeparation" not in stage_names
@@ -496,8 +689,12 @@ def test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_langu
         for _ in range(2):
             started = client.post(f"/songs/{song['songId']}/processing/lyrics")
             assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
-        expected = LyricLineTiming(0.2 if saved == "catalog" else 0.05, "ла")
-        assert calls[1:] == [(Language.RUSSIAN, (expected,))] * 2
+        expected = (LyricLineTiming(0.2, "ла"),) if saved == "catalog" else ()
+        assert calls[1:] == [(Language.RUSSIAN, expected)] * 2
+        published = root / "songs" / song["songId"] / "revisions" / "4" / "manifest.json"
+        provenance = json.loads(published.read_text(encoding="utf-8"))["provenance"]
+        assert provenance["lyricsSource"] == "catalog"
+        assert provenance["lyricsSourceText"] == "ла"
 
 
 class _RemoteTimingProvider(_RealignmentProvider):
@@ -633,7 +830,7 @@ def test_existing_project_can_realign_words_without_original_and_preserve_rollba
         assert client.post(path, headers=headers).json()["jobId"] == started.json()["jobId"]
         job = wait_for_job(client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
-        assert job["report"]["algorithmVersion"] == "lyrics-3"
+        assert job["report"]["algorithmVersion"] == "lyrics-10"
         assert job["report"]["timingOperation"] == "lyrics"
         stages = {item["stage"] for item in job["report"]["stages"]}
         assert "ForcedAlignment" in stages

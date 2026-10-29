@@ -27,10 +27,11 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
         return lyrics
     original = [keys.index(_lyrics_key(line)) for line in lines]
     heard = [_lyrics_key(word) for word in transcript.split() if _lyrics_key(word)]
-    matches = _performed_lines(keys, heard, set(zip(original, original[1:])), cancel)
+    tails = _tails(lyrics)
+    matches = _repeat_entries(keys, heard, set(zip(original, original[1:])), tails, cancel)
     # A catalogue's standalone prefix can steal the last reply ("дозволиш" / "дозволиш мені").
     # Retain the full heard suffix when it supplies repeated complete answers.
-    stop, tails = len(matches), _tails(lyrics)
+    stop = len(matches)
     while stop and any(
         tail.startswith(key) and tail != key
         for key in [keys[matches[stop - 1][0]]]
@@ -49,6 +50,25 @@ def _complete_repeats(lyrics: str, transcript: str, cancel: threading.Event) -> 
         else "\n".join(written[keys[index]] for index in merged)
     )
     return _repeat_ending(completed, heard[matches[-1][2] :] if matches else [], cancel)
+
+
+def _repeat_entries(
+    keys: list[str],
+    heard: list[str],
+    following: set[tuple[int, int]],
+    tails: dict[str, str],
+    cancel: threading.Event,
+) -> tuple[tuple[int, int, int], ...]:
+    choices = [*keys, *(key for key in tails if key not in keys)]
+    matches = _performed_lines(choices, heard, following, cancel)
+    tail_counts = Counter(index for index, _, _ in matches if index >= len(keys))
+    # One incomplete ASR line cannot establish a chopped outro. Require the same
+    # independently matched tail twice before letting tails displace full phrases.
+    return (
+        tuple(match for match in matches if match[0] < len(keys))
+        if any(count >= 2 for count in tail_counts.values())
+        else _performed_lines(keys, heard, following, cancel)
+    )
 
 
 def _repeat_ending(lyrics: str, heard: list[str], cancel: threading.Event) -> str:
@@ -84,8 +104,19 @@ def _line_variants(keys: Sequence[str]) -> set[tuple[int, int]]:
         (a, b)
         for a, left in enumerate(keys)
         for b, right in enumerate(keys)
-        if left == right or (right in left and 2 * len(right) > len(left))
+        if left == right
+        or (right in left and 2 * len(right) > len(left))
+        or _short_insertion_variant(left, right)
     }
+
+
+def _short_insertion_variant(left: str, right: str) -> bool:
+    short, long = sorted((left, right), key=len)
+    gap = len(long) - len(short)
+    if len(short) < 24 or not 0 < gap <= 3:
+        return False
+    prefix = next((i for i, pair in enumerate(zip(short, long)) if pair[0] != pair[1]), len(short))
+    return short[prefix:] == long[prefix + gap :]
 
 
 def _variant_transitions(

@@ -3,7 +3,8 @@ from __future__ import annotations
 import librosa
 import numpy as np
 from faster_whisper.vad import get_vad_model
-from scipy.ndimage import median_filter, uniform_filter1d
+from scipy.ndimage import maximum_filter1d, median_filter, minimum_filter1d, uniform_filter1d
+from scipy.signal import get_window
 from scipy.spatial.distance import cdist
 
 _ACTIVITY_DB = 30.0
@@ -19,6 +20,41 @@ _ONSET_SEPARATION_SECONDS = 0.2
 # The rise stays near its peak for as long as the silence is still inside the lookback; the entry itself is
 # the first moment of that plateau.
 _ONSET_PLATEAU_DB = 3.0
+
+
+def _protected_frames(
+    power: np.ndarray,
+    times: np.ndarray,
+    rate: int,
+    speech: np.ndarray | None,
+    voice_power: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    window = get_window("hann", 4096)
+    window_correlation = np.fft.irfft(abs(np.fft.rfft(window)) ** 2)
+    window_correlation /= window_correlation[0]
+    low, high = round(rate / 1100), min(2048, round(rate / 65))
+    correlation = np.fft.irfft(power, axis=0)
+    periodicity = np.max(
+        correlation[low:high]
+        / (np.maximum(correlation[0], 1e-20) * window_correlation[low:high, None]),
+        axis=0,
+    )
+    probability = (
+        np.interp(times, np.arange(len(speech)) * 512 / 16000, speech)
+        if speech is not None and len(speech)
+        else np.zeros(len(times))
+    )
+    # Retained upper harmonics corroborate a noisy voice even when the estimator
+    # loses its weak fundamental. Attenuating that fundamental can shift pitch an octave.
+    retained = np.minimum(power, voice_power).sum(axis=0) / np.maximum(power.sum(axis=0), 1e-20)
+    supported = (periodicity > 0.5) & (retained > 0.5)
+    protected: np.ndarray = maximum_filter1d(
+        (periodicity > 0.9) | (probability > 0.3) | supported, round(0.3 * rate / 512) | 1
+    )
+    # Only sustained, independently retained singing permits frequency-local cleanup.
+    # Unvoiced consonants/whispers and an estimator that loses the voice still abstain.
+    voiced = minimum_filter1d((periodicity > 0.7) & (retained > 0.6), round(0.1 * rate / 512) | 1)
+    return protected, voiced
 
 
 def _levels(samples: np.ndarray, hop: int) -> tuple[np.ndarray, float]:
@@ -155,6 +191,7 @@ def continued_frames(
     evidence: tuple[np.ndarray, np.ndarray] | None,
     bounds: tuple[float, float, float],
     step: float,
+    audible: np.ndarray | None = None,
 ) -> np.ndarray:
     """Reject a different periodic source after a word, retaining uncertain and matching frames.
 
@@ -175,6 +212,13 @@ def continued_frames(
     distance = cdist(envelope[first:stop], reference).min(axis=1)
     matching = (distance <= radius) | (periodicity[first:stop] < 0.5)
     result = active.copy()
+    if audible is not None and np.mean(active[first:last]) < 0.5:
+        # A filtered/scaled copy in the backing is not evidence that this singer stopped.
+        # Distrust a reference that rejects most of the recognized core; retain only its
+        # reliable harmonic continuation. A reference supporting the core keeps its veto.
+        result[first:stop] |= (
+            audible[first:stop] & (distance <= radius) & (periodicity[first:stop] >= 0.5)
+        )
     result[first:stop] &= matching
     return _bridged(result, round(_BRIDGED_GAP_SECONDS / step))
 

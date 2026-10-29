@@ -136,7 +136,8 @@ def test_processing_manifest_records_reproducible_provider_and_model_identity(
 
     manifest_path = root / "songs" / song_id / "revisions" / str(revision) / "manifest.json"
     manifest = decode_manifest(manifest_path.read_text(encoding="utf-8"))
-    assert manifest.provenance["algorithmVersion"] == "pipeline-3"
+    assert manifest.provenance["algorithmVersion"] == "pipeline-12"
+    assert manifest.provenance["modelAudioPreparation"] == "phase-safe-mono-2"
     providers = manifest.provenance["providers"]
     assert isinstance(providers, dict)
     for details in providers.values():

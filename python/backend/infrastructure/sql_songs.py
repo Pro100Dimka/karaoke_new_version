@@ -3,11 +3,18 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from sqlalchemy import asc, delete, desc, func, or_, select
+from sqlalchemy import Select, String, and_, asc, case, cast, delete, desc, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement
 
 from backend.infrastructure.sql_time import as_utc
-from backend.infrastructure.orm import AnalysisRow, ProjectRevisionRow, RecordingRow, SongRow
+from backend.infrastructure.orm import (
+    AnalysisRow,
+    HistoryRow,
+    ProjectRevisionRow,
+    RecordingRow,
+    SongRow,
+)
 from backend.serialization import dumps, loads_object
 from backend.text_normalization import normalize_search
 from backend.songs.domain import (
@@ -18,6 +25,44 @@ from backend.songs.domain import (
     SongStatus,
     SourceState,
 )
+from backend.songs.ports import SongFilters, SongSearchPage, SongSortValue, SongSummary
+
+
+def _conditions(
+    search: str | None, status: SongStatus | None, filters: SongFilters | None
+) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = []
+    if search:
+        text = normalize_search(search)
+        columns = (
+            SongRow.title_normalized,
+            SongRow.artist_normalized,
+            SongRow.original_filename_normalized,
+        )
+        conditions.append(or_(*(column.contains(text, autoescape=True) for column in columns)))
+    if status:
+        conditions.append(SongRow.status == status.value)
+    if filters:
+        if filters.statuses is not None:
+            conditions.append(SongRow.status.in_([item.value for item in filters.statuses]))
+        if filters.language:
+            conditions.append(SongRow.language == filters.language.value)
+        duration = func.coalesce(SongRow.duration, 0)
+        durations = {
+            "short": duration < 180,
+            "medium": duration.between(180, 300),
+            "long": duration > 300,
+        }
+        if filters.duration in durations:
+            conditions.append(durations[filters.duration])
+        has_artwork = or_(
+            func.coalesce(SongRow.cover_path, "") != "",
+            func.coalesce(SongRow.artwork_url, "") != "",
+        )
+        artwork = {"with": has_artwork, "without": ~has_artwork}
+        if filters.artwork in artwork:
+            conditions.append(artwork[filters.artwork])
+    return conditions
 
 
 def _to_domain(row: SongRow) -> Song:
@@ -129,42 +174,83 @@ class SqlSongRepository:
         descending: bool,
         limit: int,
         offset: int,
+        filters: SongFilters | None = None,
     ) -> Sequence[Song]:
+        last_played = (
+            select(func.max(HistoryRow.created_at))
+            .where(HistoryRow.event_type == "SongPlayed", HistoryRow.entity_id == SongRow.song_id)
+            .correlate(SongRow)
+            .scalar_subquery()
+        )
         columns = {
             "title": SongRow.title_normalized,
             "artist": SongRow.artist_normalized,
             "createdAt": SongRow.created_at,
             "updatedAt": SongRow.updated_at,
             "status": SongRow.status,
+            "duration": func.coalesce(SongRow.duration, 0),
+            "bpm": func.coalesce(SongRow.detected_bpm, -1),
+            "played": last_played,
         }
         column = columns.get(sort, SongRow.title_normalized)
         order = desc(column) if descending else asc(column)
-        query = select(SongRow)
-        if search:
-            pattern = f"%{normalize_search(search)}%"
-            query = query.where(
-                or_(
-                    SongRow.title_normalized.like(pattern),
-                    SongRow.artist_normalized.like(pattern),
-                    SongRow.original_filename_normalized.like(pattern),
-                )
-            )
-        if status:
-            query = query.where(SongRow.status == status.value)
+        query = select(SongRow).where(*_conditions(search, status, filters))
         query = query.order_by(order, asc(SongRow.song_id)).limit(limit).offset(offset)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
 
-    def count(self, *, search: str | None, status: SongStatus | None) -> int:
-        query = select(func.count()).select_from(SongRow)
-        if search:
-            pattern = f"%{normalize_search(search)}%"
-            query = query.where(
-                or_(
-                    SongRow.title_normalized.like(pattern),
-                    SongRow.artist_normalized.like(pattern),
-                    SongRow.original_filename_normalized.like(pattern),
-                )
-            )
-        if status:
-            query = query.where(SongRow.status == status.value)
+    def count(
+        self, *, search: str | None, status: SongStatus | None, filters: SongFilters | None = None
+    ) -> int:
+        query = (
+            select(func.count()).select_from(SongRow).where(*_conditions(search, status, filters))
+        )
         return int(self._session.scalar(query) or 0)
+
+    def search(
+        self, *, search: str | None, status: SongStatus | None, sort: str,
+        descending: bool, limit: int, after: tuple[SongSortValue, str] | None,
+        filters: SongFilters | None = None,
+    ) -> SongSearchPage:
+        played = (
+            select(HistoryRow.entity_id.label("song_id"),
+                   func.max(HistoryRow.created_at).label("last_played"))
+            .where(HistoryRow.event_type == "SongPlayed")
+            .group_by(HistoryRow.entity_id).subquery()
+        )
+        columns = {
+            "title": SongRow.title_normalized,
+            "artist": SongRow.artist_normalized,
+            "createdAt": SongRow.created_at,
+            "updatedAt": SongRow.updated_at,
+            "duration": func.coalesce(SongRow.duration, 0),
+            "bpm": func.coalesce(SongRow.detected_bpm, -1),
+            "played": func.coalesce(cast(played.c.last_played, String), ""),
+        }
+        column = columns[sort]
+        query: Select[tuple[SongRow, SongSortValue]] = select(SongRow, column.label("sort_value"))
+        if sort == "played":
+            query = query.outerjoin(played, played.c.song_id == SongRow.song_id)
+        query = query.where(*_conditions(search, status, filters))
+        if after is not None:
+            value, song_id = after
+            comparison = column < value if descending else column > value
+            query = query.where(or_(comparison, and_(column == value, SongRow.song_id > song_id)))
+        query = query.order_by(desc(column) if descending else asc(column), SongRow.song_id)
+        rows = self._session.execute(query.limit(limit + 1)).all()
+        visible = rows[:limit]
+        next_key = (visible[-1][1], visible[-1][0].song_id) if len(rows) > limit else None
+        return SongSearchPage([_to_domain(row[0]) for row in visible], next_key)
+
+    def summary(self) -> SongSummary:
+        total, ready = self._session.execute(
+            select(
+                func.count(SongRow.id),
+                func.coalesce(
+                    func.sum(case((SongRow.status == SongStatus.READY.value, 1), else_=0)), 0
+                ),
+            )
+        ).one()
+        languages = self._session.scalars(
+            select(SongRow.language).distinct().order_by(SongRow.language)
+        )
+        return SongSummary(total, ready, [Language(value) for value in languages])

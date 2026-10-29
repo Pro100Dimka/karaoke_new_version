@@ -13,7 +13,9 @@ from backend.version import PROJECT_FORMAT_VERSION
 _READY_ARTIFACTS = frozenset({"instrumental", "referenceVocal", "lyricsSync"})
 # Melody is validated as audio when present, but left out of _READY_ARTIFACTS: revisions published
 # before this artifact existed must keep validating as ready without it.
-_AUDIO_ARTIFACTS = frozenset({"instrumental", "referenceVocal", "melody"})
+_AUDIO_ARTIFACTS = frozenset(
+    {"instrumental", "referenceVocal", "melody", "analysisVocal", "analysisInstrumental", "rawVocal"}
+)
 
 
 class ProjectValidator:

@@ -357,7 +357,7 @@ void RecordingEngine::observeVoicePeak(float peak) noexcept {
 }
 
 void RecordingEngine::finalize(std::uint64_t writtenFrames) {
-    constexpr float VoicePeakCeiling = 0.12589254F; // -18 dBFS; never boost a quiet take/noise.
+    constexpr float VoicePeakCeiling = 0.70794578F; // -3 dBFS; never boost a quiet take/noise.
     const auto peak = voicePeak_.load(std::memory_order_relaxed);
     const auto gain = peak > VoicePeakCeiling ? VoicePeakCeiling / peak : 1.0F;
     // One constant gain for the complete performance retains its chosen voice/backing balance.

@@ -14,6 +14,7 @@ def alignment_warnings(words: Sequence[WordTiming]) -> tuple[str, ...]:
         f"AlignmentDiagnostic:wordIndex={index};{reason}"
         for index, word in enumerate(words)
         for reason in word.diagnostics
+        if reason != "RecognizedWord"
     )
 
 

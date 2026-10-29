@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import math
 from dataclasses import dataclass
+from datetime import datetime
 
 from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import Song, SongStatus
-from backend.songs.ports import MediaInspector, SongPage
+from backend.serialization import dumps, loads_object
+from backend.songs.ports import MediaInspector, SongFilters, SongPage, SongSortValue, SongSummary
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +21,7 @@ class ListSongsQuery:
     descending: bool = False
     limit: int = 50
     cursor: str | None = None
+    filters: SongFilters | None = None
 
 
 class GetSong:
@@ -60,11 +65,67 @@ class ListSongs:
                 descending=query.descending,
                 limit=query.limit,
                 offset=offset,
+                filters=query.filters,
             )
-            total = transaction.songs.count(search=query.search, status=query.status)
+            total = transaction.songs.count(
+                search=query.search, status=query.status, filters=query.filters
+            )
         next_offset = offset + len(items)
         next_cursor = _encode_cursor(next_offset) if next_offset < total else None
-        return SongPage(items, next_cursor)
+        return SongPage(items, next_cursor, total)
+
+    def summary(self) -> SongSummary:
+        with self._uow.create() as transaction:
+            return transaction.songs.summary()
+
+    def search(self, query: ListSongsQuery) -> SongPage:
+        if not 1 <= query.limit <= self._max_limit:
+            raise DomainError("InvalidPageLimit", "Page limit is outside the allowed range", 400)
+        signature = hashlib.sha256(dumps({
+            "search": query.search, "status": query.status, "sort": query.sort,
+            "descending": query.descending, "filters": query.filters,
+        }).encode()).hexdigest()[:16]
+        after, total = _decode_search_cursor(query.cursor, signature, query.sort)
+        with self._uow.create() as transaction:
+            page = transaction.songs.search(
+                search=query.search, status=query.status, sort=query.sort,
+                descending=query.descending, limit=query.limit, after=after, filters=query.filters,
+            )
+            if total is None:
+                total = transaction.songs.count(
+                    search=query.search, status=query.status, filters=query.filters,
+                )
+        cursor = None
+        if page.next_key is not None:
+            value, song_id = page.next_key
+            cursor = base64.urlsafe_b64encode(dumps({
+                "value": value, "songId": song_id, "total": total, "query": signature,
+            }).encode()).decode()
+        return SongPage(page.items, cursor, total)
+
+
+def _decode_search_cursor(
+    cursor: str | None, signature: str, sort: str,
+) -> tuple[tuple[SongSortValue, str] | None, int | None]:
+    if cursor is None:
+        return None, None
+    try:
+        data = loads_object(base64.b64decode(cursor, altchars=b"-_", validate=True).decode())
+        value, song_id, total = data["value"], data["songId"], data["total"]
+        if data["query"] != signature or not isinstance(song_id, str) or not song_id:
+            raise ValueError("Cursor does not match this search")
+        if type(total) is not int or total < 0:
+            raise ValueError("Invalid cursor count")
+        if sort in ("createdAt", "updatedAt"):
+            value = datetime.fromisoformat(value)
+        elif sort in ("duration", "bpm"):
+            if type(value) not in (int, float) or not math.isfinite(value):
+                raise ValueError("Invalid cursor number")
+        elif not isinstance(value, str):
+            raise ValueError("Invalid cursor text")
+        return (value, song_id), total
+    except (ValueError, TypeError, KeyError, UnicodeError) as exc:
+        raise DomainError("InvalidCursor", "Pagination cursor is invalid for this search", 400) from exc
 
 
 def _encode_cursor(offset: int) -> str:

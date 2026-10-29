@@ -139,10 +139,10 @@ def _build_locked(
     clock, ids, lifecycle = UtcClock(), UuidGenerator(), BackendLifecycle()
     storage = _initialized_storage(config, clock)
     with ExitStack() as startup:
-        database = _open_database(config, startup)
+        events = EventStream(clock)
+        database = _open_database(config, startup, events)
         processes, hasher = ProcessRunner(), sha256_file
         project = _project_wiring(config, database, processes, clock, ids, hasher)
-        events = EventStream(clock)
         executor = _start_executor(config, startup)
         jobs = ProcessingJobManager(database, executor, clock, ids, events)
         processing = _processing_wiring(
@@ -176,8 +176,8 @@ def _initialized_storage(config: BackendConfig, clock: UtcClock) -> LocalStorage
     return storage
 
 
-def _open_database(config: BackendConfig, startup: ExitStack) -> Database:
-    database = Database(config.roots.database)
+def _open_database(config: BackendConfig, startup: ExitStack, events: EventStream) -> Database:
+    database = Database(config.roots.database, events)
     startup.callback(database.dispose)
     DatabaseMigrator().migrate(database.engine)
     database.validate()

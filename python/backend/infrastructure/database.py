@@ -12,6 +12,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.domain_errors import DependencyError
+from backend.events import EventPublisher
+from backend.infrastructure.orm import HistoryRow, SongRow
 from backend.infrastructure.sql_analysis import SqlAnalysisRepository
 from backend.infrastructure.sql_history import SqlHistoryRepository
 from backend.infrastructure.sql_idempotency import SqlIdempotencyRepository
@@ -27,8 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, events: EventPublisher | None = None) -> None:
         self.path = path
+        self._events = events
         self._engine = create_engine(
             f"sqlite:///{path}",
             connect_args={"check_same_thread": False},
@@ -42,7 +45,7 @@ class Database:
         return self._engine
 
     def create(self) -> "SqlUnitOfWork":
-        return SqlUnitOfWork(self._sessions())
+        return SqlUnitOfWork(self._sessions(), self._events)
 
     def validate(self) -> None:
         try:
@@ -60,8 +63,13 @@ class Database:
 
 
 class SqlUnitOfWork(UnitOfWork):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, events: EventPublisher | None = None) -> None:
         self._session = session
+        self._events = events
+        self._changed: set[str] = set()
+        self._deleted: set[str] = set()
+        self._played: set[str] = set()
+        event.listen(session, "after_flush", self._track_songs)
         self.songs = SqlSongRepository(session)
         self.projects = SqlProjectRevisionRepository(session)
         self.jobs = SqlJobRepository(session)
@@ -99,12 +107,32 @@ class SqlUnitOfWork(UnitOfWork):
         try:
             self._session.commit()
         except SQLAlchemyError as exc:
-            self._session.rollback()
+            self.rollback()
             logger.exception("Database transaction failed")
             raise DependencyError("DatabaseWriteFailed", "Database transaction failed") from exc
+        if self._events and (self._changed or self._deleted or self._played):
+            self._events.publish("library.changed", {
+                "songIds": sorted(self._changed - self._deleted),
+                "deletedIds": sorted(self._deleted), "playedIds": sorted(self._played),
+            })
+        self._clear_changes()
+
+    def _track_songs(self, session: Session, _context: object) -> None:
+        self._changed.update(row.song_id for row in session.new | session.dirty
+                             if isinstance(row, SongRow))
+        self._deleted.update(row.song_id for row in session.deleted if isinstance(row, SongRow))
+        self._played.update(row.entity_id for row in session.new
+                            if isinstance(row, HistoryRow) and row.event_type == "SongPlayed"
+                            and row.entity_id is not None)
+
+    def _clear_changes(self) -> None:
+        self._changed.clear()
+        self._deleted.clear()
+        self._played.clear()
 
     def rollback(self) -> None:
         self._session.rollback()
+        self._clear_changes()
 
 
 def _configure_sqlite(connection: sqlite3.Connection, _record: object) -> None:

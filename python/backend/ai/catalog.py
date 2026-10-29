@@ -31,6 +31,43 @@ SEPARATION_MODEL = ModelSpec(
     download_url="https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/955717e8-8726e21a.th",
 )
 
+# Independent original-mix evidence for conservative vocal bleed suppression.
+VOCAL_PREPARATION_MODEL = ModelSpec(
+    model_id="mel-band-roformer-vocals",
+    purpose=AiCapability.SEPARATION,
+    version="87201f4d",
+    size=913_106_900,
+    checksum="87201f4d31afb5bc79993230fc49446918425574db48c01c405e44f365c7559e",
+    download_url="https://huggingface.co/KimberleyJSN/melbandroformer/resolve/main/MelBandRoformer.ckpt",
+)
+
+# Vocal reflection estimate, evaluated independently for each original channel.
+REVERBERATION_MODEL = ModelSpec(
+    model_id="mel-band-roformer-dereverb",
+    purpose=AiCapability.SEPARATION,
+    version="f099ee71",
+    size=913_097_978,
+    checksum="f099ee717eb57fb0ad5eb0e7c9ad6787c36168140b61ce2b158b90c2c4ecee79",
+    download_url=(
+        "https://huggingface.co/anvuew/dereverb_mel_band_roformer/resolve/"
+        "cef05ad2b5b3145ea5c149d3ad5d1f8439b34d06/"
+        "dereverb_mel_band_roformer_mono_anvuew_sdr_20.4029.ckpt"
+    ),
+)
+
+# Frame-wise breath evidence, gated by independent speech/harmonic protection.
+BREATH_MODEL = ModelSpec(
+    model_id="respiro-en",
+    purpose=AiCapability.SEPARATION,
+    version="1f4a9b96",
+    size=35_377_347,
+    checksum="1f4a9b96f96645c480bf0e07b1e18cd68878ac0b4bb5dc920ad93f9b17df858a",
+    download_url=(
+        "https://raw.githubusercontent.com/ydqmkkx/Respiro-en/"
+        "70e01c60c2f582c41092730680f2894ab24d6467/respiro-en.pt"
+    ),
+)
+
 # Whisper large-v3-turbo (multilingual): coverage of sung phrases and word timestamps.
 SPEECH_MODEL = ModelSpec(
     model_id="whisper-large-v3-turbo",
@@ -54,4 +91,11 @@ ALIGNMENT_MODEL = ModelSpec(
     download_url="https://dl.fbaipublicfiles.com/mms/torchaudio/ctc_alignment_mling_uroman/model.pt",
 )
 
-CATALOG: tuple[ModelSpec, ...] = (SEPARATION_MODEL, SPEECH_MODEL, ALIGNMENT_MODEL)
+CATALOG: tuple[ModelSpec, ...] = (
+    SEPARATION_MODEL,
+    VOCAL_PREPARATION_MODEL,
+    REVERBERATION_MODEL,
+    BREATH_MODEL,
+    SPEECH_MODEL,
+    ALIGNMENT_MODEL,
+)

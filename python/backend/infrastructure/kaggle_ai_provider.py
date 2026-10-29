@@ -6,6 +6,7 @@ import shutil
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import CancelledError
 from pathlib import Path
 
 import httpx
@@ -28,6 +29,7 @@ from backend.ai.domain import (
 from backend.ai.ports import AiProvider
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.kaggle_notebook_automation import KaggleNotebookAutomation
+from backend.infrastructure.hashing import sha256_file
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
@@ -36,7 +38,7 @@ from backend.settings.domain import BackendSettings, ProcessingBackend, is_secur
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
-_PROTOCOL_VERSION = 7
+_PROTOCOL_VERSION = 8
 _HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_TIMEOUT_SECONDS = 15 * 60
@@ -92,7 +94,7 @@ class KaggleAiProvider(AiProvider):
         self._lock = threading.Lock()
         self._startup_lock = threading.Lock()
         self._session_lock = threading.Lock()
-        self._sessions: dict[Path, tuple[str, Path | None]] = {}
+        self._sessions: dict[Path, tuple[str, Path | None, str, str | None]] = {}
         self._clients: dict[tuple[str, str], Client] = {}
         self._session_generation: tuple[str, str, str] | None = None
 
@@ -119,7 +121,7 @@ class KaggleAiProvider(AiProvider):
                 httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
             )
             client.predict(api_name="/shutdown")
-        except (AttributeError, DependencyError, *_CLIENT_ERRORS):
+        except (AttributeError, CancelledError, DependencyError, *_CLIENT_ERRORS):
             pass
         finally:
             with self._lock:
@@ -131,19 +133,26 @@ class KaggleAiProvider(AiProvider):
         self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> SeparatedAudio:
         result = self._invoke("/separate", cancel, self._handle_file(audio))
-        if not isinstance(result, (tuple, list)) or len(result) not in {3, 4}:
+        if not isinstance(result, (tuple, list)) or len(result) != 6:
             raise self._invalid("Separation response is malformed")
         workdir.mkdir(parents=True, exist_ok=True)
-        instrumental, vocal = workdir / "instrumental.wav", workdir / "vocals.wav"
+        instrumental, vocal = workdir / "instrumental.wav", workdir / "prepared-vocals.wav"
         self._restore_stem(result[0], instrumental)
         self._restore_stem(result[1], vocal)
+        raw = workdir / "vocals.wav"
+        self._restore_stem(result[4], raw)
+        preparation = self._json_result(result[5])
         session_id = str(result[2]).strip()
         if not session_id:
             raise self._invalid("Separation response has no remote session id")
         with self._lock:
-            self._sessions[vocal.resolve()] = (session_id, instrumental.resolve())
-        rhythm = decode_rhythm(result[3]) if len(result) == 4 else ()
-        return SeparatedAudio(instrumental, vocal, rhythm)
+            self._sessions[vocal.resolve()] = (
+                session_id,
+                instrumental.resolve(),
+                sha256_file(vocal),
+                sha256_file(instrumental),
+            )
+        return SeparatedAudio(instrumental, vocal, decode_rhythm(result[3]), raw, preparation)
 
     def transcribe(
         self,
@@ -398,19 +407,21 @@ class KaggleAiProvider(AiProvider):
         try:
             _ensure_not_cancelled(cancel)
             self._client(cancel=cancel)
-            backing = instrumental.resolve() if instrumental is not None else None
             with self._lock:
                 session = self._sessions.get(vocal.resolve())
-            if session is None or (backing is not None and session[1] != backing):
+            backing = instrumental or (session[1] if session else None)
+            backing = backing.resolve() if backing else None
+            identity = (backing, sha256_file(vocal), sha256_file(backing) if backing else None)
+            if session is None or session[1:] != identity:
                 uploaded = self._invoke(
                     "/prepare_vocal",
                     cancel,
                     self._handle_file(vocal),
-                    self._handle_file(instrumental) if instrumental else None,
+                    self._handle_file(backing) if backing else None,
                 )
                 if not isinstance(uploaded, str) or not uploaded.strip():
                     raise self._invalid("Vocal upload response has no remote session id")
-                session = (uploaded.strip(), backing)
+                session = (uploaded.strip(), *identity)
                 with self._lock:
                     self._sessions[vocal.resolve()] = session
             return session[0]
@@ -433,8 +444,8 @@ class KaggleAiProvider(AiProvider):
         if source.suffix.casefold() != ".flac":
             shutil.copyfile(source, destination)
             return
-        samples, sample_rate = sf.read(source, dtype="int16", always_2d=True)
-        sf.write(destination, samples, sample_rate, format="WAV", subtype="PCM_16")
+        samples, sample_rate = sf.read(source, dtype="float32", always_2d=True)
+        sf.write(destination, samples, sample_rate, format="WAV", subtype="PCM_24")
 
     @staticmethod
     def _json_result(value: object) -> Mapping[str, object]:

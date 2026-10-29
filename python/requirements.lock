@@ -9,7 +9,9 @@ anyio==4.15.1
 audioop-lts==0.2.2; python_version >= "3.13"
 attrs==26.1.0
 av==18.1.0
+beartype==0.18.5
 bleach==6.4.0
+BS-RoFormer==0.3.1
 certifi==2026.7.22
 cffi==2.1.1
 charset-normalizer==3.5.1
@@ -94,6 +96,7 @@ regex==2026.9.10
 requests==2.34.2
 resampy==0.4.3
 rpds-py==2026.6.3
+rotary-embedding-torch==0.6.5
 ruff==0.16.8
 safetensors==0.8.0
 scikit-learn==1.9.1

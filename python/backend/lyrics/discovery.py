@@ -49,6 +49,9 @@ class LyricsDiscoveryResult:
     warnings: tuple[str, ...]
     timing_hints: tuple[LyricLineTiming, ...] = ()
     alternatives: tuple[LyricsCandidate, ...] = ()
+    repeat_baseline: str = ""
+    repeat_baseline_hints: tuple[LyricLineTiming, ...] = ()
+    unverified_repeat_lyrics: str = ""
 
 
 class LyricsDiscovery:
@@ -363,10 +366,14 @@ def _best_catalog_version(
     distances: dict[LyricsCandidate, float],
     transcripts: Sequence[str],
 ) -> LyricsCandidate:
+    coverage = {item: _performed_coverage(item.lyrics, transcripts) for item in candidates}
+    best = max(coverage.values())
+    # A few accidental matches cannot distinguish versions more reliably than the
+    # recognizer's own unmatched words. Within that uncertainty, use recording duration.
+    uncertainty = sum(len(heard.split()) for heard in transcripts) - best
     return min(
-        candidates,
+        (item for item in candidates if best - coverage[item] <= uncertainty),
         key=lambda item: (
-            -_performed_coverage(item.lyrics, transcripts),
             distances[item],
             -len(item.lyrics.split()),
         ),
@@ -396,6 +403,10 @@ def _with_completed_repeats(
         else replace(
             found,
             lyrics=completed,
+            repeat_baseline=found.repeat_baseline or found.lyrics,
+            repeat_baseline_hints=(
+                found.repeat_baseline_hints if found.repeat_baseline else found.timing_hints
+            ),
             timing_hints=tuple(
                 hint
                 for hint in found.timing_hints

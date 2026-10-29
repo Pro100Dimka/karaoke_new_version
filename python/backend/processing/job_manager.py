@@ -278,6 +278,7 @@ class ProcessingJobManager:
             "job.changed",
             {
                 "jobId": job.job_id,
+                "entityId": job.entity_id,
                 "type": job.job_type.value,
                 "state": job.state.value,
                 "stage": job.stage,

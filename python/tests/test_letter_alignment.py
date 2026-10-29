@@ -26,6 +26,24 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize(
+    "heard,expected",
+    [
+        ((10.1, 10.5), True),
+        ((9.0, 10.5), True),
+        ((30.0, 30.5), False),
+        ((10.2, 10.2), False),
+        (None, False),
+    ],
+)
+def test_weak_ctc_keeps_independent_recognition_support_only_at_the_same_word(heard, expected):
+    from backend.ai_worker.recognition import _word_payload
+
+    payload = _word_payload(AlignedWord("shore", 10.0, 10.6, (), 0.02), heard)
+
+    assert ("RecognizedWord" in payload["diagnostics"]) is expected
+
+
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
 def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings(
     monkeypatch, target
@@ -205,6 +223,66 @@ def test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings(
 
     assert result["words"][0]["start"] == pytest.approx(1.0, abs=0.1)
     assert len(calls) == 1, "the identical vocal/backing evidence must be reused within the job"
+
+
+@pytest.mark.parametrize(
+    "score,local_text",
+    [(0.8, "carry our voices"), (0.02, "carry our voices"), (0.8, "unrelated invented words")],
+)
+def test_alignment_recovers_a_leading_phrase_before_a_late_full_song_asr_anchor(
+    monkeypatch, score, local_text
+):
+    from backend.ai_worker import speech
+    from backend.ai_worker.ctc import Window
+
+    words = [
+        AlignedWord(word, start, start + 0.3, (), score)
+        for word, start in zip("carry our voices".split(), [10.4, 10.8, 11.2])
+    ]
+    heard = [
+        (word, 28.5 + i * 0.1, 28.6 + i * 0.1) for i, word in enumerate("carry our voices".split())
+    ]
+    recovered = [
+        (word, 10.4 + i * 0.4, 10.7 + i * 0.4) for i, word in enumerate(local_text.split())
+    ]
+    observed = []
+    samples = np.zeros(32 * _RATE, np.float32)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(
+        speech,
+        "_accelerated_guidance",
+        lambda *_, **__: {
+            "contexts": [
+                {
+                    "segments": [
+                        {"words": [{"word": w, "start": a, "end": b} for w, a, b in recovered]}
+                    ]
+                }
+            ]
+        },
+    )
+
+    def windows(_lyrics, _hints, recognized, *_):
+        observed.extend(recognized)
+        return [Window(0, 3, 0, 32)]
+
+    monkeypatch.setattr(speech, "_alignment_windows", windows)
+    monkeypatch.setattr(
+        speech, "contextual_guidance", lambda _w, windows, _whole, times, *_: (windows, times)
+    )
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **__: words)
+    monkeypatch.setattr(speech, "singing_frames", lambda *_: np.zeros(3200, bool))
+    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.zeros(3200, bool))
+    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech, "with_voice_onsets", lambda values, *_: values)
+    monkeypatch.setattr(speech, "with_sung_ends", lambda values, *_: values)
+
+    speech.align(Path("voice.wav"), "carry our voices", "English")
+
+    assert observed == (recovered if score > 0.3 and local_text == "carry our voices" else heard)
 
 
 @pytest.mark.parametrize("refinements, fail_first", [(0, False), (2, False), (2, True)])
@@ -534,6 +612,7 @@ def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkey
     from backend.ai_worker import speech
 
     selected = []
+    samples = np.ones(160, dtype=np.float32)
     expected = speech.whisper._ALIGNMENT_HEADS[
         speech.SPEECH_MODEL.model_id.removeprefix("whisper-")
     ]
@@ -552,9 +631,11 @@ def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkey
 
         def transcribe(self, *_args, **_kwargs):
             assert selected == [expected], "local weights need the named model's timing metadata"
+            assert _args[0] is samples, "native fallback must use the shared model audio input"
             return {"text": "recognized", "segments": []}
 
     monkeypatch.setattr(speech, "device", lambda: target)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
     monkeypatch.setattr(speech, "model_file", lambda _: Path("verified-model.bin"))
     monkeypatch.setattr(speech.whisper, "load_model", lambda *_a, **_kw: NativeModel())
 
@@ -774,6 +855,57 @@ def test_quiet_independent_voice_survives_backing_dominated_spectral_power(
     assert stretched[0].end == pytest.approx(4.0, abs=0.15)
 
 
+@pytest.mark.parametrize("filter_kind", ["lowpass", "highpass"])
+@pytest.mark.parametrize("scale,shift", [(0.9, 0), (-0.9, 0), (0.3, 0.02), (1.2, -0.02)])
+def test_a_voice_copy_in_the_backing_cannot_truncate_a_quiet_held_word(
+    monkeypatch, filter_kind, scale, shift
+):
+    from backend.ai_worker import timing
+    from scipy.signal import butter, sosfilt
+
+    # No positive VAD evidence: this tests acoustic continuation, not a speech-model stub's accuracy.
+    monkeypatch.setattr(
+        timing,
+        "get_vad_model",
+        lambda: lambda samples: np.zeros((1, len(samples) // 512), dtype=np.float32),
+    )
+    time = np.arange(5 * _RATE) / _RATE
+    phase = 2 * np.pi * np.cumsum(150 + 3 * np.sin(time * 30)) / _RATE
+    voice = 0.2 * (np.sin(phase) + 0.4 * np.sin(2 * phase) + 0.2 * np.sin(3 * phase))
+    voice *= (time >= 1) & (time < 4)
+    samples = (voice * 0.06).astype(np.float32)
+    copy = sosfilt(butter(1, 1200, btype=filter_kind, fs=_RATE, output="sos"), voice)
+    backing = (
+        np.roll(copy, round(shift * _RATE)) * scale + 0.2 * np.sin(2 * np.pi * 79 * time)
+    ).astype(np.float32)
+    original = samples.copy()
+    word = AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)
+
+    stretched = with_sung_ends([word], samples, instrumental=backing)[0]
+
+    assert stretched.end == pytest.approx(4.0, abs=0.15)
+    assert stretched.start == word.start
+    assert stretched.letters == word.letters
+    np.testing.assert_array_equal(samples, original)
+
+
+def test_an_unaligned_word_cannot_override_the_reference_veto(monkeypatch):
+    from backend.ai_worker import timing
+
+    monkeypatch.setattr(
+        timing,
+        "get_vad_model",
+        lambda: lambda samples: np.zeros((1, len(samples) // 512), dtype=np.float32),
+    )
+    time = np.arange(5 * _RATE) / _RATE
+    voice = (np.sin(2 * np.pi * 220 * time) * ((time >= 1) & (time < 4))).astype(np.float32)
+    word = AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.0)
+
+    result = with_sung_ends([word], voice * 0.06, instrumental=voice * 0.9)
+
+    assert result[0].end == word.end, "an unaligned fallback is not evidence of a sung core"
+
+
 def test_a_word_never_stretches_into_the_next_one() -> None:
     words = [AlignedWord("а", 1.0, 1.2, (1.0,)), AlignedWord("б", 2.0, 2.2, (2.0,))]
 
@@ -974,6 +1106,64 @@ def test_speech_alignment_reports_supported_score_instead_of_perfect_confidence(
     assert result["words"][0]["confidence"] == score
 
 
+@pytest.mark.parametrize("independent", [False, True])
+def test_prompted_context_cannot_certify_an_independently_recognized_word(
+    monkeypatch: pytest.MonkeyPatch, independent: bool
+) -> None:
+    from backend.ai_worker import speech
+
+    samples = _signal([(1.0, 2.0)], 3.0)
+    words = [AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3), 0.02)]
+    heard = [("stay", 1.0, 2.0)] if independent else []
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("scores", 0.02, heard))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "with_word_guidance", lambda *_args, **_kwargs: words)
+    monkeypatch.setattr(
+        speech,
+        "contextual_guidance",
+        lambda _words, windows, *_: (windows, {0: (1.0, 2.0)}),
+    )
+
+    word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
+
+    assert ("RecognizedWord" in word["diagnostics"]) is independent
+
+
+@pytest.mark.parametrize("other_start", [1.0, 30.0])
+def test_alignment_keeps_independent_support_from_the_other_audio_view(
+    monkeypatch: pytest.MonkeyPatch, other_start: float
+) -> None:
+    from backend.ai_worker import speech
+
+    samples = _signal([(1.0, 3.0)], 4.0)
+    words = [
+        AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3), 0.02),
+        AlignedWord("here", 2.0, 3.0, (2.0, 2.1, 2.2, 2.3), 0.8),
+    ]
+    primary = {"segments": [{"words": [{"word": "here", "start": 2.0, "end": 3.0}]}]}
+    other = {
+        "segments": [{"words": [{"word": "stay", "start": other_start, "end": other_start + 1}]}]
+    }
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "emission", lambda *_: ("scores", 0.02))
+    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "with_word_guidance", lambda *_args, **_kwargs: words)
+    monkeypatch.setattr(
+        speech,
+        "contextual_guidance",
+        lambda _words, windows, _whole, timings, *_: (windows, timings),
+    )
+
+    result = speech.align(
+        Path("vocal.wav"), "stay here", "English", recognition={**primary, "alternatives": [other]}
+    )
+
+    assert ("RecognizedWord" in result["words"][0]["diagnostics"]) is (other_start == 1.0)
+
+
 def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_scores(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -991,7 +1181,7 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
     word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
 
     assert word["confidence"] == 0.8
-    assert word["diagnostics"] == ["AsrCtcBoundaryDisagreement"]
+    assert word["diagnostics"] == ["RecognizedWord", "AsrCtcBoundaryDisagreement"]
     assert word["end"] > 11.0, "diagnostic evidence must not silently cap the word at ASR's end"
 
 
@@ -1201,6 +1391,7 @@ def test_native_alignment_recognition_disables_sampling_fallback(monkeypatch):
         to=lambda _target: model,
     )
     monkeypatch.setattr(speech, "device", lambda: "cuda")
+    monkeypatch.setattr(speech, "read_mono", lambda *_: np.ones(160, dtype=np.float32))
     monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
     monkeypatch.setattr(speech.whisper, "load_model", lambda *args, **kwargs: model)
 
@@ -1404,6 +1595,37 @@ def test_a_unique_recognized_word_cannot_cross_the_surrounding_phrase_anchors():
     _unique_anchors(words, heard, blocks, expanded)
 
     assert len(blocks) == 2, "a later ASR occurrence cannot anchor an earlier gap"
+
+
+@pytest.mark.parametrize("heard_start", [7.8, 8.0, 8.2])
+@pytest.mark.parametrize("crosses_pause", [False, True])
+def test_returning_voice_can_precede_its_coarse_recognized_entry(
+    monkeypatch, heard_start, crosses_pause
+):
+    from backend.ai_worker import ctc
+
+    reference = AlignedWord("again", 1.6, 8.7 if crosses_pause else 1.9, (), 0.04)
+    voiced = np.zeros(1000, dtype=bool)
+    voiced[100:200] = voiced[800:950] = True
+    monkeypatch.setattr(
+        ctc,
+        "_align_window",
+        lambda _scores, _step, chunk, window: [
+            AlignedWord(chunk[0], window.start + 0.02, 8.7, (), 0.03)
+        ],
+    )
+
+    result = ctc.align_guided(
+        None,
+        0.02,
+        ["again"],
+        [ctc.Window(0, 1, 7.3, 9.5, heard_start)],
+        {0: heard_start},
+        voiced,
+        [reference],
+    )
+
+    assert result[0].start == pytest.approx(8.02 if crosses_pause else 1.6)
 
 
 def test_local_boundary_improvement_is_not_diluted_by_unchanged_words():
@@ -2164,6 +2386,20 @@ def test_a_catalog_timing_made_for_another_release_is_moved_onto_this_recording(
     assert [item["start"] for item in shifted] == pytest.approx(
         [index * 4 + 2.5 for index in range(10)]
     )
+
+
+@pytest.mark.parametrize("tempo", [0.7, 1.3])
+def test_catalog_timings_with_tempo_drift_do_not_constrain_this_recording(tempo: float) -> None:
+    from backend.ai_worker.speech import _shifted_hints
+
+    words = "a b c d e f g h i j".split()
+    hints = [{"start": float(index * 4), "text": word} for index, word in enumerate(words)]
+    whole = [
+        AlignedWord(word, index * 4 * tempo + 2.5, index * 4 * tempo + 3.0, (), 0.8)
+        for index, word in enumerate(words)
+    ]
+
+    assert _shifted_hints(words, hints, whole) == []
 
 
 def test_catalog_timings_that_already_fit_are_left_alone() -> None:

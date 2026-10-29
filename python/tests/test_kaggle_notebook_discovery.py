@@ -59,6 +59,38 @@ def test_kaggle_worker_stops_after_five_idle_minutes_and_supports_explicit_shutd
     assert "with _activity.track():" in source
 
 
+@pytest.mark.parametrize("reason", ["explicit", "idle"])
+def test_shutdown_returns_control_to_the_notebook_instead_of_killing_its_kernel(tmp_path, reason):
+    import subprocess
+    import sys
+
+    source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
+    functions = [
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name in {"_terminate", "shutdown", "_stop_when_idle", "_keep_endpoint_published"}
+    ]
+    trigger = {
+        "explicit": "assert shutdown() == {'stopping': True}",
+        "idle": "threading.Timer(0.01, _stop_when_idle).start()",
+    }[reason]
+    script = tmp_path / "notebook_shutdown.py"
+    script.write_text(
+        "import os, threading, time\nfrom types import SimpleNamespace\n"
+        "_stop = threading.Event()\n"
+        "_activity = SimpleNamespace(wait_until_expired=lambda: None)\n"
+        "_publish_endpoint = lambda *args: None\n"
+        + ast.unparse(ast.Module(body=functions, type_ignores=[]))
+        + f"\n{trigger}\n_keep_endpoint_published('https://example.test', 'test-token')\n"
+        "print('Notebook cell completed')\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run([sys.executable, str(script)], capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode()
+    assert b"Notebook cell completed" in result.stdout
+
+
 def test_server_registers_existing_vocal_in_a_ttl_managed_session_without_separation(tmp_path):
     import os
     import shutil
@@ -107,7 +139,7 @@ def test_server_registers_existing_vocal_in_a_ttl_managed_session_without_separa
     assert len(session_id) == 32 and all(
         character in "0123456789abcdef" for character in session_id
     )
-    assert (directory / "separation" / "vocals.wav").read_bytes() == vocal.read_bytes()
+    assert (directory / "separation" / "prepared-vocals.wav").read_bytes() == vocal.read_bytes()
     assert (directory / "separation" / "instrumental.wav").read_bytes() == backing.read_bytes()
     assert not stale.exists()
     os.utime(directory, (0, 0))
@@ -145,7 +177,7 @@ def test_server_alignment_receives_the_uploaded_backing_when_available(tmp_path,
     exec(compile(ast.Module(body=[function], type_ignores=[]), "server-align", "exec"), namespace)
     namespace["align_song"]("session", "hello", "English", "[]")
     align.assert_called_once_with(
-        separation / "vocals.wav",
+        separation / "prepared-vocals.wav",
         "hello",
         "English",
         [],
@@ -174,9 +206,11 @@ def test_server_health_identifies_its_process_generation():
     namespace = {
         "uuid": uuid,
         "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)),
+        "WORKER_REVISION": "verified-worker-revision",
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server-health", "exec"), namespace)
     first = namespace["health"]()["sessionGeneration"]
     assert len(first) == 32
-    assert namespace["health"]()["protocolVersion"] == 7
+    assert namespace["health"]()["protocolVersion"] == 8
+    assert namespace["health"]()["workerRevision"] == "verified-worker-revision"
     assert namespace["health"]()["sessionGeneration"] == first

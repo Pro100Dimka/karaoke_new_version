@@ -128,6 +128,25 @@ def test_separation_preserves_isolated_rhythm(tmp_path):
     assert result.rhythm == ((0.5, 1), (1, 0.6))
 
 
+def test_separation_preserves_raw_vocal_and_preparation_provenance(tmp_path):
+    from backend.serialization import dumps
+
+    paths = {
+        name: tmp_path / f"{name}.wav" for name in ("instrumental", "referenceVocal", "rawVocal")
+    }
+    for path in paths.values():
+        path.write_bytes(b"stem")
+    report = {"algorithmVersion": "adaptive-bleed-1", "parameters": {"minimumGain": 0.2}}
+    provider = _provider(
+        dumps({**{key: str(path) for key, path in paths.items()}, "preparation": report}).encode()
+    )
+    result = provider.separate(
+        tmp_path / "source.wav", tmp_path, threading.Event(), execution=EXECUTION
+    )
+    assert result.raw_vocal == paths["rawVocal"]
+    assert result.preparation == report
+
+
 def test_transcript_must_be_a_string() -> None:
     provider = _provider(b'{"text": 5}')
     with pytest.raises(DependencyError) as error:

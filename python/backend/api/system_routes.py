@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import asyncio
 import queue
 from datetime import datetime
 from collections.abc import Iterator
 from typing import Annotated, Literal, Mapping
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
 from backend.api.base_dto import ApiModel
@@ -172,6 +173,36 @@ def reconcile(app: ContainerDep) -> JobDto:
 @router.get("/events")
 def events(app: ContainerDep) -> StreamingResponse:
     return StreamingResponse(_events(app), media_type="text/event-stream")
+
+
+@router.websocket("/events/socket")
+async def event_socket(websocket: WebSocket, app: ContainerDep) -> None:
+    async with app.events.subscribe_async() as subscriber:
+        await websocket.accept()
+
+        async def send() -> None:
+            while True:
+                event = await subscriber.get()
+                await websocket.send_text(dumps({
+                    "type": event.event_type, "createdAt": event.created_at,
+                    "data": dict(event.data),
+                }))
+
+        async def receive() -> None:
+            while True:
+                await websocket.receive_text()
+
+        tasks = [asyncio.create_task(send()), asyncio.create_task(receive())]
+        try:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                task.result()
+        except WebSocketDisconnect:
+            pass
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
 def _events(app: ApplicationContainer) -> Iterator[str]:

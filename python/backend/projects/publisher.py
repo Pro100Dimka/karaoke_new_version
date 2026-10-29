@@ -28,6 +28,18 @@ from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import FileHasher
 from backend.version import PROJECT_FORMAT_VERSION
 
+_AUDIO_PATHS = {
+    name: Path("audio") / filename
+    for name, filename in {
+        "instrumental": "instrumental.wav",
+        "referenceVocal": "reference-vocal.wav",
+        "melody": "melody.wav",
+        "analysisVocal": "analysis-vocal.wav",
+        "analysisInstrumental": "analysis-instrumental.wav",
+        "rawVocal": "raw-vocal.wav",
+    }.items()
+}
+
 
 class ProjectPublisher:
     def __init__(
@@ -60,6 +72,8 @@ class ProjectPublisher:
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
         lineage_id: str,
+        *,
+        analysis_audio: Mapping[str, Path] | None = None,
     ) -> int:
         self._ensure_generated_baseline(song_id, expected_revision)
         revision = expected_revision + 1
@@ -68,9 +82,12 @@ class ProjectPublisher:
         manifest, working = self._stage_generated(
             song_id,
             revision,
-            instrumental,
-            reference_vocal,
-            melody,
+            {
+                "instrumental": instrumental,
+                "referenceVocal": reference_vocal,
+                "melody": melody,
+                **(analysis_audio or {}),
+            },
             lyrics,
             provenance,
         )
@@ -103,26 +120,22 @@ class ProjectPublisher:
         self,
         song_id: str,
         revision: int,
-        instrumental: Path,
-        reference_vocal: Path,
-        melody: Path,
+        audio: Mapping[str, Path],
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
     ) -> tuple[ProjectManifest, Path]:
         lyrics_text = encode_document(lyrics)
-        manifest = self._manifest(
+        manifest = ProjectManifest(
+            PROJECT_FORMAT_VERSION,
             song_id,
             revision,
-            instrumental,
-            reference_vocal,
-            melody,
-            lyrics_text,
+            self._artifacts(audio, lyrics_text),
             provenance,
         )
         working = self._storage.stage_revision(
             song_id,
             revision,
-            self._audio_files(instrumental, reference_vocal, melody),
+            {_AUDIO_PATHS[name]: path for name, path in audio.items()},
             self._text_files(lyrics_text, manifest),
         )
         self._validator.validate_working(manifest, working, require_ready=True)
@@ -196,45 +209,20 @@ class ProjectPublisher:
             HistoryEvent(self._ids.new(), "ProcessingSucceeded", now, "Song", song.song_id)
         )
 
-    def _manifest(
-        self,
-        song_id: str,
-        revision: int,
-        instrumental: Path,
-        reference_vocal: Path,
-        melody: Path,
-        lyrics_text: str,
-        provenance: Mapping[str, object],
-    ) -> ProjectManifest:
-        artifacts = self._artifacts(instrumental, reference_vocal, melody, lyrics_text)
-        return ProjectManifest(PROJECT_FORMAT_VERSION, song_id, revision, artifacts, provenance)
-
     def _artifacts(
         self,
-        instrumental: Path,
-        reference_vocal: Path,
-        melody: Path,
+        audio: Mapping[str, Path],
         lyrics_text: str,
     ) -> tuple[ProjectArtifact, ...]:
-        return (
+        return tuple(
             ProjectArtifact(
-                "instrumental",
-                Path("audio/instrumental.wav"),
+                name,
+                _AUDIO_PATHS[name],
                 ArtifactCategory.PORTABLE,
-                self._hasher(instrumental),
-            ),
-            ProjectArtifact(
-                "referenceVocal",
-                Path("audio/reference-vocal.wav"),
-                ArtifactCategory.PORTABLE,
-                self._hasher(reference_vocal),
-            ),
-            ProjectArtifact(
-                "melody",
-                Path("audio/melody.wav"),
-                ArtifactCategory.PORTABLE,
-                self._hasher(melody),
-            ),
+                self._hasher(path),
+            )
+            for name, path in audio.items()
+        ) + (
             ProjectArtifact(
                 "lyricsSync",
                 Path("lyricsSync.json"),
@@ -248,14 +236,6 @@ class ProjectPublisher:
                 _text_hash(lyrics_text),
             ),
         )
-
-    @staticmethod
-    def _audio_files(instrumental: Path, reference_vocal: Path, melody: Path) -> dict[Path, Path]:
-        return {
-            Path("audio/instrumental.wav"): instrumental,
-            Path("audio/reference-vocal.wav"): reference_vocal,
-            Path("audio/melody.wav"): melody,
-        }
 
     @staticmethod
     def _text_files(lyrics_text: str, manifest: ProjectManifest) -> dict[Path, str]:

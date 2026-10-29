@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import replace
 
 from backend.processing.audio_pipeline import (
     PrepareProcessingAudio,
@@ -26,7 +25,7 @@ from backend.runtime import IdGenerator
 from backend.songs.domain import Song
 from backend.storage.ports import WorkStorage
 
-_ALGORITHM_VERSION = "pipeline-3"
+_ALGORITHM_VERSION = "pipeline-12"
 
 
 class PipelineOrchestrator:
@@ -66,12 +65,6 @@ class PipelineOrchestrator:
                 song, prepared, providers, options, context, reports, execution
             )
             melody = self._render_melody(built, workspace, context, reports)
-            instrumental, reference = attenuate_playback_stems(
-                (prepared.instrumental, prepared.reference_vocal),
-                workspace / "playback",
-                context.cancel,
-            )
-            prepared = replace(prepared, instrumental=instrumental, reference_vocal=reference)
             revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
         finally:
@@ -103,17 +96,11 @@ class PipelineOrchestrator:
         context: JobContext,
         reports: list[StageReport],
     ) -> int:
-        provenance = {
-            "algorithmVersion": _ALGORITHM_VERSION,
-            "playbackPeakDbfs": -18,
-            "providers": _provider_provenance(providers),
-            "lyricsSource": built.discovery.source,
-            "lyricsSourceText": built.discovery.lyrics,
-            "lyricsTimingHints": [
-                {"start": hint.start, "text": hint.text} for hint in built.discovery.timing_hints
-            ],
-            "warnings": list(built.warnings),
-        }
+        instrumental, reference = attenuate_playback_stems(
+            (prepared.instrumental, prepared.reference_vocal),
+            melody.parent / "playback",
+            context.cancel,
+        )
         return self._stages.run(
             "ProjectValidationPublication",
             CancellationPolicy.FINISH_BEFORE_CANCEL,
@@ -122,12 +109,17 @@ class PipelineOrchestrator:
             lambda: self._publisher.publish_generated(
                 song.song_id,
                 song.active_revision,
-                prepared.instrumental,
-                prepared.reference_vocal,
+                instrumental,
+                reference,
                 melody,
                 built.document,
-                provenance,
+                _provenance(built, providers, prepared),
                 self._ids.new(),
+                analysis_audio={
+                    "analysisVocal": prepared.reference_vocal,
+                    "analysisInstrumental": prepared.instrumental,
+                    **({"rawVocal": prepared.raw_vocal} if prepared.raw_vocal else {}),
+                },
             ),
             progress=1.0,
         )
@@ -153,6 +145,26 @@ class PipelineOrchestrator:
             warnings=built.warnings,
             algorithm_version=_ALGORITHM_VERSION,
         )
+
+
+def _provenance(
+    built: BuiltDocument, providers: ProcessingProviders, prepared: PreparedAudio
+) -> dict[str, object]:
+    return {
+        "algorithmVersion": _ALGORITHM_VERSION,
+        "playbackPeakDbfs": -18,
+        "analysisPreparation": prepared.preparation.get("algorithmVersion", "raw-stems-1"),
+        "vocalPreparation": dict(prepared.preparation),
+        "modelAudioPreparation": "phase-safe-mono-2",
+        "providers": _provider_provenance(providers),
+        "lyricsSource": built.discovery.source,
+        "lyricsSourceText": built.discovery.lyrics,
+        "unverifiedRepeatLyrics": built.discovery.unverified_repeat_lyrics,
+        "lyricsTimingHints": [
+            {"start": hint.start, "text": hint.text} for hint in built.discovery.timing_hints
+        ],
+        "warnings": list(built.warnings),
+    }
 
 
 def _provider_provenance(

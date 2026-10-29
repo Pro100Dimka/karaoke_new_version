@@ -30,7 +30,7 @@ from backend.runtime import IdGenerator
 from backend.songs.domain import Song
 from backend.storage.ports import WorkStorage
 
-_ALGORITHM_VERSION = "melody-2"
+_ALGORITHM_VERSION = "melody-5"
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,22 +72,8 @@ class MelodyPipeline:
 
     def _timing_hints(self, song: Song, document: LyricsDocument) -> tuple[LyricLineTiming, ...]:
         manifest = self._projects.load_manifest(song.song_id, song.active_revision)
-        hints = decode_timing_hints(manifest.provenance.get("lyricsTimingHints"), document.duration)
-        if hints:
-            return hints
-        # Legacy projects retain their established phrase entries as soft search priors,
-        # never as verified word ends. New projects retain the independent catalogue cues.
-        result: list[LyricLineTiming] = []
-        cursor = 0
-        for line in document.lyrics.splitlines():
-            words = line.split()
-            if not words:
-                continue
-            if [word.text for word in document.words[cursor : cursor + len(words)]] != words:
-                return ()
-            result.append(LyricLineTiming(document.words[cursor].start, line))
-            cursor += len(words)
-        return tuple(result) if cursor == len(document.words) else ()
+        # Saved model output is not an independent prior for its own recalculation.
+        return decode_timing_hints(manifest.provenance.get("lyricsTimingHints"), document.duration)
 
     def resource_size(self, inputs: MelodyInputs) -> int:
         return self._projects.portable_revision_size(
@@ -159,19 +145,29 @@ class MelodyPipeline:
                 *warnings,
                 *((execution.fallback_reason,) if execution.fallback_reason else ()),
             ),
-            algorithm_version="lyrics-3" if alignment else _ALGORITHM_VERSION,
+            algorithm_version="lyrics-10" if alignment else _ALGORITHM_VERSION,
             timing_operation="lyrics" if alignment else "melody",
             processing_backend=provider_backend(provider).value,
         )
 
     def _audio_paths(self, song: Song) -> tuple[Path, Path]:
-        instrumental = self._projects.artifact_path(
-            song.song_id, song.active_revision, "instrumental"
+        analysis = self._analysis_audio(song)
+        return (
+            analysis.get("analysisInstrumental")
+            or self._projects.artifact_path(song.song_id, song.active_revision, "instrumental"),
+            analysis.get("analysisVocal")
+            or self._projects.artifact_path(song.song_id, song.active_revision, "referenceVocal"),
         )
-        reference = self._projects.artifact_path(
-            song.song_id, song.active_revision, "referenceVocal"
-        )
-        return instrumental, reference
+
+    def _analysis_audio(self, song: Song) -> dict[str, Path]:
+        manifest = self._projects.load_manifest(song.song_id, song.active_revision)
+        return {
+            item.logical_name: self._projects.artifact_path(
+                song.song_id, song.active_revision, item.logical_name
+            )
+            for item in manifest.artifacts
+            if item.logical_name in {"analysisVocal", "analysisInstrumental", "rawVocal"}
+        }
 
     def _melody_document(
         self,
@@ -199,6 +195,10 @@ class MelodyPipeline:
                 f"ExistingWordTimingUnverified:sourceRevision={inputs.song.active_revision}",
             )
         stable = self._stable_pitch(provider, reference, context, reports, execution)
+        if not {"analysisVocal", "analysisInstrumental"}.issubset(
+            self._analysis_audio(inputs.song)
+        ):
+            warnings += ("LegacyAnalysisAudioUnavailable:fullReprocessingRequired",)
         return self._construct(
             document, words, stable, context, reports
         ), warnings + pitch_warnings(stable)
@@ -317,6 +317,7 @@ class MelodyPipeline:
                 document,
                 self._provenance(inputs, provider, alignment, warnings),
                 self._ids.new(),
+                analysis_audio=self._analysis_audio(inputs.song),
             ),
             progress=1.0,
         )
@@ -328,8 +329,9 @@ class MelodyPipeline:
         alignment: AiProvider | None,
         warnings: tuple[str, ...],
     ) -> dict[str, object]:
+        previous = self._projects.load_manifest(inputs.song.song_id, inputs.song.active_revision)
         return {
-            "algorithmVersion": "lyrics-3" if alignment else _ALGORITHM_VERSION,
+            "algorithmVersion": "lyrics-10" if alignment else _ALGORITHM_VERSION,
             "providers": {
                 name: provider_provenance(item.descriptor)
                 for name, item in (("pitch", provider), ("alignment", alignment))
@@ -337,7 +339,20 @@ class MelodyPipeline:
             },
             "sourceRevision": inputs.song.active_revision,
             "playbackPeakDbfs": -18,
+            "modelAudioPreparation": "phase-safe-mono-2",
             "lyricsSource": "ExistingProjectText",
+            **{
+                key: value
+                for key, value in previous.provenance.items()
+                if key
+                in {
+                    "analysisPreparation",
+                    "vocalPreparation",
+                    "lyricsSource",
+                    "lyricsSourceText",
+                    "unverifiedRepeatLyrics",
+                }
+            },
             "lyricsTimingHints": [
                 {"start": hint.start, "text": hint.text} for hint in inputs.timing_hints
             ],

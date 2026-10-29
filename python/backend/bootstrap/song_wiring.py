@@ -39,7 +39,7 @@ from backend.songs.delete_song import DeleteSong
 from backend.songs.import_song import ImportSong
 from backend.songs.start_import import StartSongImport
 from backend.songs.queries import GetSong, GetSongWaveform, ListSongs
-from backend.songs.update_song import UpdateSong
+from backend.songs.update_song import MarkSongPlayed, UpdateSong
 from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
 from backend.songs.refresh_recognition import RefreshSongRecognition
 from backend.songs.prepare_clip import PrepareSong, PrepareSongClip
@@ -81,6 +81,7 @@ def build_song_cases(
         ResetEditorDocument(project.projects, save_editor),
         GetProjectCompatibility(project.projects),
         _project_migration(runtime, project),
+        MarkSongPlayed(runtime.database, runtime.clock, runtime.ids),
     )
 
 

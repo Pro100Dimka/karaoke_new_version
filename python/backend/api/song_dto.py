@@ -38,6 +38,16 @@ class SongPageDto(ApiModel):
     next_cursor: str | None
 
 
+class SongSearchPageDto(SongPageDto):
+    total: int
+
+
+class SongSummaryDto(ApiModel):
+    total: int
+    ready: int
+    languages: list[Language]
+
+
 class ImportSongDto(ApiModel):
     source_path: str = Field(min_length=1, max_length=4096)
     title: str | None = Field(default=None, max_length=300)

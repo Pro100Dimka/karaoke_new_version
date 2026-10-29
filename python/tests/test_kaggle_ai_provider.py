@@ -10,6 +10,7 @@ import pytest
 
 import backend.infrastructure.kaggle_ai_provider as kaggle_provider_module
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+from backend.infrastructure.hashing import sha256_file
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.settings.domain import BackendSettings, ProcessingBackend
@@ -40,7 +41,7 @@ class _Client:
     def submit(self, *args: object, api_name: str) -> _Job:
         self.calls.append((api_name, args))
         values: dict[str, object] = {
-            "/separate": (str(self.instrumental), str(self.vocal), "a1b2"),
+            "/separate": (str(self.instrumental), str(self.vocal), "a1b2", [], str(self.vocal), {}),
             "/prepare_vocal": "b2c3",
             "/transcribe": "hello",
             "/align": {
@@ -248,7 +249,9 @@ def test_remote_separation_returns_the_isolated_rhythm_on_the_same_timeline(tmp_
     class RhythmClient(_Client):
         def submit(self, *args, api_name):
             assert api_name == "/separate"
-            return _Job((str(instrumental), str(vocal), "session", [[0.5, 1], [1.2, 0.6]]))
+            return _Job(
+                (str(instrumental), str(vocal), "session", [[0.5, 1], [1.2, 0.6]], str(vocal), {})
+            )
 
     result = _Provider(RhythmClient(instrumental, vocal)).separate(
         tmp_path / "source.wav",
@@ -257,6 +260,39 @@ def test_remote_separation_returns_the_isolated_rhythm_on_the_same_timeline(tmp_
         execution=ExecutionContext(ComputeDevice.CPU, 1),
     )
     assert result.rhythm == ((0.5, 1), (1.2, 0.6))
+
+
+def test_remote_preparation_preserves_raw_and_binds_models_to_prepared_audio(tmp_path):
+    instrumental, vocal, raw = [
+        tmp_path / name for name in ("backing.wav", "prepared.wav", "raw.wav")
+    ]
+    for path in (instrumental, vocal, raw):
+        path.write_bytes(path.name.encode())
+    report = {"algorithmVersion": "adaptive-bleed-1", "parameters": {"minimumGain": 0.2}}
+
+    class PreparedClient(_Client):
+        def submit(self, *args, api_name):
+            if api_name == "/separate":
+                self.calls.append((api_name, args))
+                return _Job(
+                    (str(instrumental), str(vocal), "prepared-session", [], str(raw), report)
+                )
+            return super().submit(*args, api_name=api_name)
+
+    client = PreparedClient(instrumental, vocal)
+    provider = _Provider(client)
+    execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
+    result = provider.separate(
+        tmp_path / "source.wav", tmp_path / "output", cancel, execution=execution
+    )
+    assert result.raw_vocal.read_bytes() == raw.read_bytes()
+    assert result.reference_vocal.read_bytes() == vocal.read_bytes()
+    assert result.preparation == report
+    provider.transcribe(result.reference_vocal, Language.ENGLISH, cancel, execution=execution)
+    provider.align(result.reference_vocal, "hello", Language.ENGLISH, cancel, execution=execution)
+    provider.pitch(result.reference_vocal, cancel, execution=execution)
+    assert [name for name, _ in client.calls] == ["/separate", "/transcribe", "/align", "/pitch"]
+    assert all(args[0] == "prepared-session" for _, args in client.calls[1:])
 
 
 def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_path: Path) -> None:
@@ -276,10 +312,58 @@ def test_existing_vocal_is_uploaded_once_and_reused_for_alignment_and_pitch(tmp_
     assert vocal.read_bytes() == b"existing project vocal"
 
 
+@pytest.mark.parametrize("changed", ["vocal", "backing"])
+def test_cached_remote_audio_is_reuploaded_when_content_changes_at_the_same_path(tmp_path, changed):
+    vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
+    for path in (vocal, backing):
+        path.write_bytes(b"original audio")
+    client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
+    provider.align(
+        vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing
+    )
+    provider.pitch(vocal, cancel, execution=execution)
+    {"vocal": vocal, "backing": backing}[changed].write_bytes(b"modified audio")
+    provider.pitch(vocal, cancel, execution=execution)
+    provider.align(
+        vocal, "hello", Language.ENGLISH, cancel, execution=execution, instrumental=backing
+    )
+    uploads = [args for name, args in client.calls if name == "/prepare_vocal"]
+    assert uploads == [(str(vocal), str(backing))] * 2
+
+
+def test_kaggle_stem_transport_preserves_quiet_pcm24_samples(tmp_path):
+    import ast
+
+    server = Path(__file__).parents[2] / "kaggle" / "ad_voice_server.py"
+    compress = next(
+        node
+        for node in ast.parse(server.read_text(encoding="utf-8")).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_compress_stem"
+    )
+    namespace = {"Path": Path, "sf": sf}
+    exec(compile(ast.Module(body=[compress], type_ignores=[]), str(server), "exec"), namespace)
+    source, restored = tmp_path / "original.wav", tmp_path / "restored.wav"
+    voice = 1e-5 * np.sin(np.arange(4800) * 2 * np.pi * 220 / 48000)
+    sf.write(source, np.stack((voice, -voice), axis=1), 48000, subtype="PCM_24")
+    original = source.read_bytes()
+
+    KaggleAiProvider._restore_stem(namespace["_compress_stem"](source), restored)
+
+    assert sf.info(restored).subtype == "PCM_24"
+    np.testing.assert_array_equal(
+        sf.read(restored, dtype="float32")[0], sf.read(source, dtype="float32")[0]
+    )
+    assert source.read_bytes() == original
+
+
 def test_existing_vocal_and_backing_are_uploaded_once_for_alignment_then_pitch(
     tmp_path: Path,
 ) -> None:
     vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
+    for path in (vocal, backing):
+        path.write_bytes(b"audio")
     client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
@@ -294,6 +378,8 @@ def test_existing_vocal_and_backing_are_uploaded_once_for_alignment_then_pitch(
 
 def test_vocal_only_cached_session_is_upgraded_when_alignment_needs_backing(tmp_path: Path) -> None:
     vocal, backing = tmp_path / "vocals.wav", tmp_path / "instrumental.wav"
+    for path in (vocal, backing):
+        path.write_bytes(b"audio")
     client = _Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     execution, cancel = ExecutionContext(ComputeDevice.CPU, 1), threading.Event()
@@ -343,7 +429,7 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
             assert api_name == "/health"
             probes.append(tuple(state.values()))
             return {
-                "protocolVersion": 7,
+                "protocolVersion": 8,
                 "workerRevision": kaggle_provider_module.KaggleNotebookAutomation().revision,
                 "sessionGeneration": state["generation"],
             }
@@ -369,6 +455,7 @@ def test_vocal_session_cache_is_bound_to_the_live_notebook(tmp_path, monkeypatch
     )
     monkeypatch.setattr(provider, "_handle_file", str)
     vocal = tmp_path / "vocal.wav"
+    vocal.write_bytes(b"voice")
     provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
     state[change] = {
         "generation": "second",
@@ -404,7 +491,15 @@ def test_expired_vocal_session_is_reuploaded_at_most_once(tmp_path, expires_twic
     provider = _Provider(client)
     vocal = tmp_path / "vocal.wav"
     backing = tmp_path / "instrumental.wav" if operation == "align" else None
-    provider._sessions[vocal.resolve()] = ("expired", backing)
+    vocal.write_bytes(b"voice")
+    if backing:
+        backing.write_bytes(b"backing")
+    provider._sessions[vocal.resolve()] = (
+        "expired",
+        backing,
+        sha256_file(vocal),
+        sha256_file(backing) if backing else None,
+    )
 
     def invoke():
         if operation == "align":
@@ -439,8 +534,32 @@ def test_shutdown_discards_cached_vocal_sessions(tmp_path):
         lambda: BackendSettings(2),
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
-    provider._sessions[tmp_path / "vocal.wav"] = ("expired", None)
+    provider._sessions[tmp_path / "vocal.wav"] = ("expired", None, "old-checksum", None)
     provider.shutdown()
+    assert provider._sessions == {}
+
+
+def test_shutdown_accepts_a_closed_response_stream_and_discards_sessions(tmp_path, monkeypatch):
+    from concurrent.futures import CancelledError
+    from types import SimpleNamespace
+
+    def shutdown(*, api_name):
+        assert api_name == "/shutdown"
+        raise CancelledError()
+
+    monkeypatch.setattr(
+        kaggle_provider_module, "Client", lambda *a, **kw: SimpleNamespace(predict=shutdown)
+    )
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(
+            2, kaggle_url="https://example.gradio.live", kaggle_token="test-token"
+        ),
+        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
+    )
+    provider._sessions[tmp_path / "vocal.wav"] = ("expired", None, "old-checksum", None)
+
+    provider.shutdown()
+
     assert provider._sessions == {}
 
 
@@ -455,7 +574,8 @@ def test_unrelated_remote_errors_do_not_reupload_the_vocal(tmp_path):
     client = FailedClient(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
     provider = _Provider(client)
     vocal = tmp_path / "vocal.wav"
-    provider._sessions[vocal.resolve()] = ("cached", None)
+    vocal.write_bytes(b"voice")
+    provider._sessions[vocal.resolve()] = ("cached", None, sha256_file(vocal), None)
     with pytest.raises(DependencyError) as error:
         provider.pitch(vocal, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 1))
     assert error.value.code == "KaggleUnavailable"
@@ -568,7 +688,7 @@ def test_kaggle_credentials_require_https_or_exact_supported_loopback(url, allow
         assert connections == []
 
 
-@pytest.mark.parametrize("protocol_version", [4, 5, 6, 7])
+@pytest.mark.parametrize("protocol_version", [4, 5, 6, 7, 8])
 def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_workers(
     monkeypatch,
     protocol_version,
@@ -600,7 +720,7 @@ def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_worke
         discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
     )
 
-    if protocol_version != 7:
+    if protocol_version != 8:
         with pytest.raises(DependencyError) as error:
             provider.validate_configuration()
         assert error.value.code == "KaggleProtocolMismatch"

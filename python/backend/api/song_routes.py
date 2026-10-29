@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import MappingProxyType
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -8,12 +9,14 @@ from fastapi.responses import FileResponse
 
 from backend.api.dependencies import container
 from backend.api.song_dto import ImportSongDto, SongDto, SongPageDto, UpdateSongDto, song_dto
+from backend.api.song_dto import SongSearchPageDto, SongSummaryDto
 from backend.bootstrap.container import ApplicationContainer
 from backend.domain_errors import NotFoundError
-from backend.songs.domain import CoverState, Song
+from backend.songs.domain import CoverState, Language, Song
 from backend.songs.domain import SongStatus
 from backend.songs.import_song import ImportSongRequest
 from backend.songs.queries import ListSongsQuery
+from backend.songs.ports import SongFilters
 from backend.songs.update_song import UpdateSongRequest
 from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
 from backend.api.system_routes import JobDto, _job
@@ -75,9 +78,72 @@ def list_songs(
     )
 
 
+@router.get("/summary", response_model=SongSummaryDto)
+def song_summary(app: ContainerDep) -> SongSummaryDto:
+    summary = app.songs.list_songs.summary()
+    return SongSummaryDto(
+        total=summary.total, ready=summary.ready, languages=list(summary.languages)
+    )
+
+
+_SEARCH_STATUSES: MappingProxyType[str, tuple[SongStatus, ...]] = MappingProxyType(
+    {
+        "ready": (SongStatus.READY,),
+        "importing": (),
+        "processing": (SongStatus.PROCESSING, SongStatus.CANCELLING),
+        "queued": (SongStatus.QUEUED,),
+        "not-processed": (SongStatus.IMPORTED, SongStatus.CANCELLED),
+        "failed": (SongStatus.FAILED, SongStatus.SOURCE_MISSING),
+        "invalid": (SongStatus.PROJECT_INVALID,),
+    }
+)
+
+
+@router.get("/search", response_model=SongSearchPageDto)
+def search_songs(
+    request: Request,
+    app: ContainerDep,
+    search: str | None = Query(default=None, max_length=300),
+    status: str = Query(
+        default="all",
+        pattern="^(all|ready|importing|processing|queued|not-processed|failed|invalid)$",
+    ),
+    sort: str = Query(
+        default="createdAt", pattern="^(title|artist|createdAt|played|duration|bpm)$"
+    ),
+    descending: bool = True,
+    language: Language | None = None,
+    duration: str = Query(default="all", pattern="^(all|short|medium|long)$"),
+    artwork: str = Query(default="all", pattern="^(all|with|without)$"),
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: str | None = None,
+) -> SongSearchPageDto:
+    page = app.songs.list_songs.search(
+        ListSongsQuery(
+            search=search,
+            sort=sort,
+            descending=descending,
+            limit=limit,
+            cursor=cursor,
+            filters=SongFilters(_SEARCH_STATUSES.get(status), language, duration, artwork),
+        )
+    )
+    return SongSearchPageDto(
+        items=[_song_dto(item, request) for item in page.items],
+        next_cursor=page.next_cursor,
+        total=page.total,
+    )
+
+
 @router.get("/{song_id}", response_model=SongDto)
 def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
     return _song_dto(app.songs.get_song.execute(song_id), request)
+
+
+@router.post("/{song_id}/played", status_code=204)
+def mark_song_played(song_id: str, app: ContainerDep) -> Response:
+    app.songs.mark_played.execute(song_id)
+    return Response(status_code=204)
 
 
 @router.get("/{song_id}/cover", name="song_cover")

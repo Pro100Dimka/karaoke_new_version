@@ -40,13 +40,14 @@ from backend.ai_worker.speech import (
 
 TTL_SECONDS = 6 * 60 * 60
 IDLE_SHUTDOWN_SECONDS = 5 * 60
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 WORKER_REVISION = os.environ.get("AD_VOICE_KAGGLE_REVISION", "")
 SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
 ).rstrip("/")
 _lock = threading.Lock()
+_stop = threading.Event()
 _pitch_workers = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ad-voice-pitch")
 _pitch_jobs: dict[str, Future[dict]] = {}
 
@@ -95,7 +96,7 @@ def _track_activity(operation):
 
 
 def _terminate() -> None:
-    os._exit(0)
+    _stop.set()
 
 
 def _stop_when_idle() -> None:
@@ -150,13 +151,13 @@ def _publish_endpoint(share_url: str, token: str) -> None:
 
 
 def _keep_endpoint_published(share_url: str, token: str) -> None:
-    while True:
+    while not _stop.is_set():
         try:
             _publish_endpoint(share_url, token)
             print(f"Desktop discovery updated: {share_url}")
         except Exception as error:
             print(f"Desktop discovery retry: {error}")
-        time.sleep(30)
+        _stop.wait(30)
 
 
 def _cleanup() -> None:
@@ -193,14 +194,14 @@ def prepare_vocal(upload: str, instrumental_upload: str | None = None) -> str:
     session_id, directory = _new_session()
     separation = directory / "separation"
     separation.mkdir()
-    shutil.copyfile(upload, separation / "vocals.wav")
+    shutil.copyfile(upload, separation / "prepared-vocals.wav")
     if instrumental_upload is not None:
         shutil.copyfile(instrumental_upload, separation / "instrumental.wav")
     return session_id
 
 
 @_track_activity
-def separate_song(upload: str) -> tuple[str, str, str, object]:
+def separate_song(upload: str) -> tuple[str, str, str, object, str, object]:
     session_id, directory = _new_session()
     source = directory / Path(upload).name
     shutil.copyfile(upload, source)
@@ -215,20 +216,22 @@ def separate_song(upload: str) -> tuple[str, str, str, object]:
         _compress_stem(vocal),
         session_id,
         result.get("rhythm", []),
+        _compress_stem(Path(str(result["rawVocal"]))),
+        result["preparation"],
     )
 
 
 def _compress_stem(source: Path) -> str:
     """Use lossless FLAC over the public tunnel, keeping PCM WAV inside the project."""
     destination = source.with_suffix(".flac")
-    samples, sample_rate = sf.read(source, dtype="int16", always_2d=True)
-    sf.write(destination, samples, sample_rate, format="FLAC", subtype="PCM_16")
+    samples, sample_rate = sf.read(source, dtype="float32", always_2d=True)
+    sf.write(destination, samples, sample_rate, format="FLAC", subtype="PCM_24")
     return str(destination)
 
 
 @_track_activity
 def transcribe_song(session_id: str, language: str, start_seconds: float = 0.0) -> str:
-    vocal = _session(session_id) / "separation" / "vocals.wav"
+    vocal = _session(session_id) / "separation" / "prepared-vocals.wav"
     return str(transcribe(vocal, language, start_seconds=start_seconds)["text"])
 
 
@@ -237,13 +240,13 @@ def align_song(session_id: str, lyrics: str, language: str, timing_hints: str) -
     separation = _session(session_id) / "separation"
     instrumental = separation / "instrumental.wav"
     hints = json.loads(timing_hints) if timing_hints else []
-    return align(separation / "vocals.wav", lyrics, language, hints,
+    return align(separation / "prepared-vocals.wav", lyrics, language, hints,
                  instrumental=instrumental if instrumental.is_file() else None)
 
 
 @_track_activity
 def pitch_song(session_id: str) -> dict:
-    vocal = _session(session_id) / "separation" / "vocals.wav"
+    vocal = _session(session_id) / "separation" / "prepared-vocals.wav"
     with _lock:
         job = _pitch_jobs.get(session_id)
     if job is not None:
@@ -282,6 +285,8 @@ def main() -> None:
             lyrics = gr.Textbox()
             hints = gr.Textbox()
             json_output = gr.JSON()
+            raw_vocal = gr.File()
+            preparation = gr.JSON()
         gr.Button(visible=False).click(
             health,
             None,
@@ -306,7 +311,7 @@ def main() -> None:
         gr.Button(visible=False).click(
             separate_song,
             upload,
-            [instrumental, vocal, session_id, json_output],
+            [instrumental, vocal, session_id, json_output, raw_vocal, preparation],
             api_name="separate",
             concurrency_limit=1,
         )
@@ -341,7 +346,11 @@ def main() -> None:
     if not share_url:
         raise RuntimeError("Gradio did not create a public share URL")
     threading.Thread(target=_stop_when_idle, daemon=True).start()
-    _keep_endpoint_published(share_url.rstrip("/"), token)
+    try:
+        _keep_endpoint_published(share_url.rstrip("/"), token)
+    finally:
+        app.close()
+        _pitch_workers.shutdown(wait=True, cancel_futures=True)
 
 
 if __name__ == "__main__":

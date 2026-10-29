@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections.abc import Mapping
 from pathlib import Path
 import threading
 
@@ -59,6 +60,8 @@ class PreparedAudio:
     instrumental: Path
     reference_vocal: Path
     rhythm: tuple[tuple[float, float], ...] = ()
+    raw_vocal: Path | None = None
+    preparation: Mapping[str, object] = field(default_factory=dict)
 
 
 class PrepareProcessingAudio:
@@ -96,7 +99,13 @@ class PrepareProcessingAudio:
             execution,
         )
         return PreparedAudio(
-            cache_hit, music, separated.instrumental, separated.reference_vocal, separated.rhythm
+            cache_hit,
+            music,
+            separated.instrumental,
+            separated.reference_vocal,
+            separated.rhythm,
+            separated.raw_vocal,
+            separated.preparation,
         )
 
     def _normalize_audio(

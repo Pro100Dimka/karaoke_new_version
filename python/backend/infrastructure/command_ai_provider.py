@@ -51,7 +51,17 @@ class CommandAiProvider:
         vocal = ensure_within(Path(_text(payload, "referenceVocal")), workdir)
         if not instrumental.is_file() or not vocal.is_file():
             raise DependencyError("AiProviderInvalidOutput", "Separation output files are missing")
-        return SeparatedAudio(instrumental, vocal, decode_rhythm(payload.get("rhythm", [])))
+        raw = (
+            ensure_within(Path(_text(payload, "rawVocal")), workdir)
+            if "rawVocal" in payload
+            else None
+        )
+        preparation = payload.get("preparation", {})
+        if (raw is not None and not raw.is_file()) or not isinstance(preparation, dict):
+            raise DependencyError("AiProviderInvalidOutput", "Vocal preparation output is invalid")
+        return SeparatedAudio(
+            instrumental, vocal, decode_rhythm(payload.get("rhythm", [])), raw, preparation
+        )
 
     def transcribe(
         self,
