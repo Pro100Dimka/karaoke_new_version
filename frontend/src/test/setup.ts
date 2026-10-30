@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 // jsdom omits native pointer capture and SVG path measurement used by window dragging and motion.
 if (!("setPointerCapture" in HTMLElement.prototype))
-  HTMLElement.prototype.setPointerCapture = () => undefined;
+  Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { value: () => undefined });
 if (!("getTotalLength" in SVGElement.prototype))
   Object.defineProperty(SVGElement.prototype, "getTotalLength", { value: () => 100 });
 

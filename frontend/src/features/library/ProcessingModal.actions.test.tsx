@@ -29,7 +29,7 @@ vi.mock("@neo-ui-kit/react", async (importOriginal) => ({
 }));
 
 beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function () {
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
     return this.classList.contains("processingScroll") ? 2000 : 150;
   });
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(1000);

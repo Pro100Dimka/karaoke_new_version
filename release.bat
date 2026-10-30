@@ -17,6 +17,11 @@ set "SETUP=%RELEASE%\AD-Voice-Setup.exe"
 set "PYTHON_EXE=%PYTHON%\.venv\Scripts\python.exe"
 set "RELEASE_ENV=%PYTHON%\.env.example"
 set "PRIVATE_RELEASE=0"
+set "SKIP_TESTS=0"
+if /i "%~1"=="--skip-tests" (
+  set "SKIP_TESTS=1"
+  shift /1
+)
 if "%~1"=="" goto :release_env_selected
 if /i not "%~1"=="--private-env" goto :release_usage
 if "%~2"=="" goto :release_usage
@@ -25,7 +30,7 @@ for %%E in ("%~2") do set "RELEASE_ENV=%%~fE"
 set "PRIVATE_RELEASE=1"
 goto :release_env_selected
 :release_usage
-echo Usage: release.bat [--private-env path-to-env-file]
+echo Usage: release.bat [--skip-tests] [--private-env path-to-env-file]
 goto :fail
 :release_env_selected
 if not exist "%RELEASE_ENV%" (
@@ -138,8 +143,12 @@ if errorlevel 1 goto :fail
 copy /y "%CACHE%\ad-voice.ico" "%RESOURCES%\theme-icons\app.ico" >nul || goto :fail
 
 echo [4/4] Building the Windows Setup.exe...
-"%RESOURCES%\python-runtime\python.exe" -B -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
-if not "%errorlevel%"=="0" goto :fail
+if "%SKIP_TESTS%"=="0" (
+  "%RESOURCES%\python-runtime\python.exe" -B -I "%ROOT%installer\verify_runtime.py" "%RESOURCES%"
+  if errorlevel 1 goto :fail
+) else (
+  echo [verify] Runtime tests skipped.
+)
 for /f "delims=" %%V in ('node.exe -p "require('./frontend/package.json').version"') do set "APP_VERSION=%%V"
 if not defined APP_VERSION set "APP_VERSION=1.0.0"
 node.exe "%FRONTEND%\scripts\stamp-exe-icon.mjs" "%APP_DIR%\AD Voice.exe" "%CACHE%\ad-voice.ico" "%APP_VERSION%"
