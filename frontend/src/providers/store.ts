@@ -4,7 +4,7 @@ import type { PendingDialog } from "./dialog";
 import type { ServiceStatus } from "../app/serviceStatus";
 import { setLocale } from "@neo-ui-kit/react";
 import { makeAutoObservable, observable, observableRef } from "mobx";
-import type { Language, SettingsTab, ThemeName, RoomStateDto } from "../contracts/models";
+import type { Language, SettingsTab, ThemeName, RoomStateDto, SongDto } from "../contracts/models";
 import { loadPreferences, savePreferences, type Preferences } from "../shared/preferences/preferences";
 import { appThemes } from './theme/variants';
 import type { SocialInbox } from '../contracts/social';
@@ -13,12 +13,21 @@ import type { LibraryViewFilters } from '../pages/library/hero/search-field';
 class Store {
   get currentTheme() { return appThemes[this.preferences.theme]; }
   preferences = loadPreferences();
+  libraryDialogs = observable.object({
+    addOpen: false,
+    droppedPath: "",
+    settingsSong: null as SongDto | null,
+    recordingsSong: null as SongDto | null,
+    analysisRecordId: null as string | null,
+    processingOpen: false,
+    focusSongId: undefined as string | undefined,
+  }, { settingsSong: observableRef, recordingsSong: observableRef });
   // Remembers the page across navigation, without persisting it or subscribing renders to scroll changes.
-  library: { query: string; filters: LibraryViewFilters; scrollTop: number } = {
+  library = observable.object({
     query: "",
-    filters: { status: "all", language: "all", duration: "all", artwork: "all" },
+    filters: { status: "all", language: "all", duration: "all", artwork: "all" } as LibraryViewFilters,
     scrollTop: 0,
-  };
+  }, { scrollTop: false });
   online = observable.object({ room: null as RoomStateDto | null }, { room: observableRef });
   application = {
     localProcessing: false,

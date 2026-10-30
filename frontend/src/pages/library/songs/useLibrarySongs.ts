@@ -1,8 +1,9 @@
+import { importSong as importCatalogSong } from "../../../api/api-service";
 import { store } from "../../../providers/store";
 import { pythonClient as catalog } from "../../../services/pythonClient";
 import { libraryChanged, onLibraryChange } from "../../../services/backendEvents";
 import type { ImportMetadata, ImportOptions, SongPatch } from "../../../contracts/clients";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import type { SongDto, SongSearch } from "../../../contracts/models";
 
@@ -13,6 +14,8 @@ export type LibrarySongsState =
   | { status: "ready"; songs: readonly SongDto[] }
   | { status: "error" };
 
+const emptyImports: readonly SongDto[] = [];
+
 type SongPage = Awaited<ReturnType<typeof catalog.searchSongs>>;
 
 export const useLibrarySongs = (filter?: SongSearch) => {
@@ -20,7 +23,7 @@ export const useLibrarySongs = (filter?: SongSearch) => {
   const { jobs } = useJobs();
   const client = useQueryClient();
   const queryKey = useMemo(() => ["songs", pythonEpoch, filter ?? null], [pythonEpoch, filter]);
-  const [imports, setImports] = useState<readonly SongDto[]>([]);
+  const { data: imports = emptyImports } = useQuery<readonly SongDto[]>({ queryKey: ["song-imports"], enabled: false });
   const query = useInfiniteQuery({
     queryKey,
     initialPageParam: null as string | null,
@@ -70,53 +73,8 @@ export const useLibrarySongs = (filter?: SongSearch) => {
     libraryChanged();
   }, [jobStates]);
 
-  const importSong = async (
-    path: string,
-    metadata?: ImportMetadata,
-    options?: ImportOptions,
-  ) => {
-    const placeholderId = `import:${crypto.randomUUID()}`;
-    const placeholder: SongDto = {
-      id: placeholderId,
-      title: path.split(/[\\/]/).pop() ?? path,
-      artist: "",
-      language: "Auto",
-      status: "importing",
-      progress: 0,
-      stage: "Queued",
-      durationSeconds: 0,
-      createdAt: new Date().toISOString(),
-      coverState: "Fallback",
-      activeRevision: 0,
-      projectFormatVersion: 1,
-    };
-    setImports((current) => [placeholder, ...current]);
-    try {
-      const song = await catalog.importSong(
-        path,
-        metadata,
-        {
-          ...options,
-          onProgress: (value) => {
-            options?.onProgress(value);
-            setImports((current) => current.map((item) => item.id === placeholderId
-              ? { ...item, progress: value.progress, stage: value.stage, jobId: value.jobId }
-              : item));
-          },
-        },
-      );
-      await client.cancelQueries({ queryKey });
-      client.setQueryData<InfiniteData<SongPage>>(queryKey, (data) => data && ({ ...data,
-        pages: data.pages.map((page, index) => ({ ...page, items: [
-          ...(index === 0 ? [song] : []), ...page.items.filter((item) => item.id !== song.id),
-        ] })) }));
-      setImports((current) => current.filter((item) => item.id !== placeholderId));
-      await refresh();
-      return song;
-    } finally {
-      setImports((current) => current.filter((item) => item.id !== placeholderId));
-    }
-  };
+  const importSong = (path: string, metadata?: ImportMetadata, options?: ImportOptions) =>
+    importCatalogSong(client, path, metadata, options);
 
   const processSong = async (song: SongDto, mode?: "lyrics") => {
     await catalog.processSong(song.id, mode);

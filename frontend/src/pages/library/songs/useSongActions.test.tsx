@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SongDto } from "../../../contracts/models";
 import { useSongActions } from "./useSongActions";
+import { store } from "../../../providers/store";
+import { runInAction } from "mobx";
 
 const mocks = vi.hoisted(() => ({
   ask: vi.fn(),
@@ -30,6 +32,31 @@ const song: SongDto = {
   createdAt: "2026-10-20",
   coverState: "Fallback",
 };
+
+it.each([false, true])("preserves launch mode after the curtain, rehearsal=%s", (rehearsal) => {
+  vi.useFakeTimers();
+  const previous = store.playback.launch;
+  const returned = store.playback.returned;
+  try {
+    const navigate = vi.fn();
+    const roomLibrary = { room: null, canChangeView: true, publishView: vi.fn(),
+      selectSong: vi.fn(), setCollaborativeControl: vi.fn(), songSelection: () => undefined };
+    const { result, unmount } = renderHook(() => useSongActions(
+      { processSong: vi.fn(), refresh: vi.fn(), deleteSong: vi.fn() }, vi.fn(),
+      { songs: [song], roomLibrary, navigate },
+    ));
+    act(() => result.current.playSong(song, rehearsal));
+    expect(result.current.launching).toBe(true);
+    expect(navigate).not.toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(400));
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("/karaoke/song");
+    expect(store.playback.launch).toEqual({ songId: song.id, mode: rehearsal ? "Rehearsal" : "AutoStart" });
+    unmount();
+  } finally {
+    runInAction(() => { store.playback.launch = previous; store.playback.returned = returned; });
+    vi.useRealTimers();
+  }
+});
 
 describe("confirmed baseline reset and lyric reprocessing", () => {
   it.each([

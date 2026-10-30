@@ -22,7 +22,18 @@ export const DetachedPanel = ({
     if (element && content && !panel.container && content.parentNode !== element) element.append(content);
   }, [content, panel.container]);
   useLayoutEffect(() => {
-    if (content && panel.container) panel.container.append(content);
+    if (!content) return;
+    if (panel.container) panel.container.append(content);
+    for (const canvas of content.querySelectorAll("canvas")) {
+      if (!canvas.width || !canvas.height) continue;
+      const context = canvas.getContext("2d");
+      if (!context) continue;
+      context.save();
+      context.resetTransform();
+      context.globalCompositeOperation = "copy";
+      context.drawImage(canvas, 0, 0);
+      context.restore();
+    }
   }, [content, panel.container]);
   return content ? <><div ref={home} />{createPortal(children, content)}</>
     : panel.container ? createPortal(children, panel.container) : <>{children}</>;

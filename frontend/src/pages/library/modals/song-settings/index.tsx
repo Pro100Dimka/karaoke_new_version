@@ -1,10 +1,17 @@
+import { observer } from "mobx-react-lite";
+import { runInAction } from "mobx";
+import { useQueryClient } from "@tanstack/react-query";
+import { store } from "../../../../providers/store";
+import { pythonClient } from "../../../../services/pythonClient";
+import { refreshSongs } from "../../../../api/api-service";
+import { useSongActions } from "../../songs/useSongActions";
+import { useGuardedAction } from "../../songs/useGuardedAction";
 import { desktopClient as files } from "../../../../services/desktopClient";
 import { useRouter, Button, Dialog, Grid, IconButton, KeyValueList, MessageBar, NumberField, Select, SplitButton, TextField, useForm, tr, useLocale } from "@neo-ui-kit/react";
 import { useState } from "react";
 
 import { routes } from "../../../../shared/routes";
 import type { SongDto, SongLanguage } from "../../../../contracts/models";
-import type { SongPatch } from "../../../../contracts/clients";
 import { ru } from "../../../../i18n/messages.ru";
 import { songStatusPresentation } from "../../songs/songPresentation";
 import {
@@ -17,15 +24,6 @@ import {
   detectedSongMetadata,
   languageLabels,
 } from "../../songs/songMetadataPresentation";
-
-interface Props {
-  song: SongDto | null;
-  onClose(): void;
-  onSave(song: SongDto, patch: SongPatch): Promise<void>;
-  onRemoveCover(song: SongDto): Promise<void>;
-  onOpenFolder(song: SongDto): void;
-  onDelete(song: SongDto): void;
-}
 
 const ranges = [
   "auto",
@@ -51,14 +49,20 @@ const practiceSpeedOptions = practiceSpeeds.map((speed) => ({
   label: `${speed.toFixed(2)}×`,
 }));
 
-const SongSettingsForm = ({
-  song,
-  onClose,
-  onSave,
-  onRemoveCover,
-  onOpenFolder,
-  onDelete,
-}: { song: SongDto } & Omit<Props, "song">) => {
+const SongSettingsForm = ({ song }: { song: SongDto }) => {
+  const client = useQueryClient();
+  const guarded = useGuardedAction();
+  const onClose = () => runInAction(() => { store.libraryDialogs.settingsSong = null; });
+  const { confirmDelete } = useSongActions({
+    processSong: async (target, mode) => { await pythonClient.processSong(target.id, mode); await refreshSongs(client); },
+    refresh: () => refreshSongs(client),
+    deleteSong: async target => { await pythonClient.deleteSong(target.id); await refreshSongs(client); },
+  }, onClose);
+  const onRemoveCover = (target: SongDto) => guarded(async () => {
+    const saved = await pythonClient.removeSongCover(target.id);
+    runInAction(() => { store.libraryDialogs.settingsSong = saved; });
+    await refreshSongs(client);
+  });
   const { navigate } = useRouter();
   useLocale();
   const status = songStatusPresentation[song.status];
@@ -85,12 +89,14 @@ const SongSettingsForm = ({
       try {
         const { title, artist, language, coverPath, ...local } = values;
         saveSongPreferences(song.id, local);
-        await onSave(song, {
+        await pythonClient.updateSong(song.id, {
           title: title.trim() || undefined,
           artist: artist.trim() || undefined,
           language,
           coverPath: coverPath || undefined,
         });
+        await refreshSongs(client);
+        onClose();
       } catch (error) {
         setFailure(error instanceof Error ? error.message : String(error));
       }
@@ -230,7 +236,7 @@ const SongSettingsForm = ({
             size="sm"
             icon="folder"
             label={tr(ru.openFolder)}
-            onClick={() => onOpenFolder(song)}
+            onClick={() => void files.revealProject(song.id, song.activeRevision)}
             items={[
               ...(song.detectedBpm !== undefined || song.detectedKey
                 ? [
@@ -260,7 +266,7 @@ const SongSettingsForm = ({
                 icon: "trash",
                 danger: true,
                 disabled: busy,
-                onSelect: () => onDelete(song),
+                onSelect: () => void confirmDelete(song),
               },
             ]}
           >
@@ -280,7 +286,7 @@ const SongSettingsForm = ({
   );
 };
 
-export const SongSettingsModal = ({ song, ...rest }: Props) => {
-  if (!song) return null;
-  return <SongSettingsForm key={song.id} song={song} {...rest} />;
-};
+export const SongSettingsModal = observer(() => {
+  const song = store.libraryDialogs.settingsSong;
+  return song && <SongSettingsForm key={song.id} song={song} />;
+});

@@ -164,13 +164,13 @@ describe("useLibrarySongs", () => {
       signal: new AbortController().signal, onProgress: vi.fn(),
     }); });
     await act(() => result.current.refresh());
-    expect(result.current.state).toMatchObject({ status: "ready", songs: [
+    await waitFor(() => expect(result.current.state).toMatchObject({ status: "ready", songs: [
       { status: "importing", jobId: "pending-import", stage: "Hashing", progress: 0.2 }, existing,
-    ] });
+    ] }));
 
     vi.mocked(pythonClient.listSongs).mockResolvedValue([song("Imported"), existing]);
     await act(async () => { finish(song("Imported")); await importing; });
-    expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported"), existing] });
+    await waitFor(() => expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported"), existing] }));
   });
 
   it("replaces an imported placeholder with the saved song even if the list refresh fails", async () => {
@@ -181,7 +181,7 @@ describe("useLibrarySongs", () => {
     await waitFor(() => expect(result.current.state.status).toBe("ready"));
 
     await act(() => result.current.importSong("D:/Music/imported.wav"));
-    expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported")] });
+    await waitFor(() => expect(result.current.state).toEqual({ status: "ready", songs: [song("Imported")] }));
   });
 
   it("removes a confirmed deletion even when its follow-up list refresh fails", async () => {

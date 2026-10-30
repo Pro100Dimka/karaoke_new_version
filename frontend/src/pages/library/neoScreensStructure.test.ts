@@ -22,6 +22,16 @@ const sources = import.meta.glob(
 const read = (path: string) => sources[path] ?? "";
 
 describe("library and room screens built on Neo UI", () => {
+  it("composes the page separately from the song list", () => {
+    const page = read("./index.tsx");
+    const songs = read("./songs/index.tsx");
+    expect(page).toContain("<LibraryHeader");
+    expect(page).toContain("<LibrarySongs");
+    expect(page).toContain("<RecordingsModal");
+    expect(songs).not.toContain("<RecordingsModal");
+    expect(songs).not.toContain("<LibraryHeader");
+    expect(songs).toContain("<VirtualGrid");
+  });
   it("take every control and icon from Neo UI", () => {
     for (const [path, text] of Object.entries(sources).filter(([path]) =>
       path.endsWith(".tsx"),

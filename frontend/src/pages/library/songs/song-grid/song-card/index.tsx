@@ -1,3 +1,11 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { runInAction } from "mobx";
+import { store } from "../../../../../providers/store";
+import { pythonClient } from "../../../../../services/pythonClient";
+import { desktopClient } from "../../../../../services/desktopClient";
+import { refreshSongs } from "../../../../../api/api-service";
+import { useSongActions } from "../../useSongActions";
+import { useGuardedAction } from "../../useGuardedAction";
 import {
   Card,
   Checkbox,
@@ -20,18 +28,6 @@ import {
   type SongActionId,
 } from "../../songPresentation";
 import { ProcessingSignal } from "./processing-signal";
-
-export type SongCardHandlers = Record<
-  | "onPlay"
-  | "onCancel"
-  | "onDetails"
-  | "onSettings"
-  | "onRecordings"
-  | "onOpenFolder"
-  | "onDelete"
-  | "onViewError",
-  (song: SongDto) => void
-> & { onRehearse?(song: SongDto): void };
 
 const actionMeta = {
   play: { label: "play", icon: "play" },
@@ -69,35 +65,49 @@ const primaryIcon = (
 export const SongCard = memo(
   function SongCard({
     song,
-    handlers,
+    onPlay,
     roomSelection,
     playbackDisabled = false,
     selection,
   }: {
     song: SongDto;
-    handlers: SongCardHandlers;
+    onPlay(song: SongDto, rehearsal?: boolean): void;
     roomSelection?: { role: string; selected: boolean };
     playbackDisabled?: boolean;
     selection?: { checked: boolean; disabled: boolean; toggle(): void };
   }) {
     useLocale();
+    const client = useQueryClient();
+    const guarded = useGuardedAction();
+    const { confirmDelete, showError } = useSongActions({
+      processSong: async (target, mode) => { await pythonClient.processSong(target.id, mode); await refreshSongs(client); },
+      refresh: () => refreshSongs(client),
+      deleteSong: async target => { await pythonClient.deleteSong(target.id); await refreshSongs(client); },
+    }, () => {});
     const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
     const presentation = songStatusPresentation[song.status];
     const allowed = new Set<SongActionId>(
       song.roomOwnerId ? ["play"] : presentation.actions,
     );
     const run = (id: SongActionId): void => {
-      const map = {
-        play: handlers.onPlay,
-        cancelQueued: handlers.onCancel,
-        processingDetails: handlers.onDetails,
-        recordings: handlers.onRecordings,
-        settings: handlers.onSettings,
-        folder: handlers.onOpenFolder,
-        viewError: handlers.onViewError,
-        delete: handlers.onDelete,
-      } as const satisfies Record<SongActionId, (song: SongDto) => void>;
-      map[id](song);
+      const actions = {
+        play: () => onPlay(song),
+        cancelQueued: () => void guarded(async () => {
+          if (!song.jobId) return;
+          await pythonClient.cancelProcessing(song.jobId);
+          await refreshSongs(client);
+        }),
+        processingDetails: () => runInAction(() => {
+          store.libraryDialogs.focusSongId = song.id;
+          store.libraryDialogs.processingOpen = true;
+        }),
+        recordings: () => runInAction(() => { store.libraryDialogs.recordingsSong = song; }),
+        settings: () => runInAction(() => { store.libraryDialogs.settingsSong = song; }),
+        folder: () => void desktopClient.revealProject(song.id, song.activeRevision),
+        viewError: () => void showError(song),
+        delete: () => void confirmDelete(song),
+      } satisfies Record<SongActionId, () => void>;
+      actions[id]();
     };
     const primary: SongActionId | null =
       presentation.primaryAction === "none"
@@ -191,7 +201,7 @@ export const SongCard = memo(
                   onClick={() => run(id)}
                 />
               ))}
-              {handlers.onRehearse &&
+              {
                 !roomSelection &&
                 song.status === "ready" && (
                   <IconButton
@@ -202,7 +212,7 @@ export const SongCard = memo(
                     style={{ flexShrink: 0 }}
                     label={tr(ru["recordingRehearsal"])}
                     disabled={playbackDisabled}
-                    onClick={() => handlers.onRehearse?.(song)}
+                    onClick={() => onPlay(song, true)}
                   />
                 )}
               {song.status === "processing" && (
@@ -222,7 +232,7 @@ export const SongCard = memo(
   },
   (previous, next) =>
     previous.song === next.song &&
-    previous.handlers === next.handlers &&
+    previous.onPlay === next.onPlay &&
     previous.playbackDisabled === next.playbackDisabled &&
     previous.selection === next.selection &&
     previous.roomSelection?.role === next.roomSelection?.role &&

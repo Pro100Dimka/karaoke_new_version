@@ -1,7 +1,9 @@
+import { store } from "../../../../providers/store";
+import { runInAction } from "mobx";
 import { QueryProvider } from "../../../../test/QueryProvider";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { TestRouter } from "../../../../test/QueryProvider";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { SongDto } from "../../../../contracts/models";
 import { SongSettingsModal } from "./index";
@@ -23,18 +25,12 @@ const renderSettings = (
     projectFormatVersion: 1,
     ...overrides,
   };
+  runInAction(() => { store.libraryDialogs.settingsSong = song; });
   render(
     <TestRouter>
       <QueryProvider application>
         <>
-          <SongSettingsModal
-            song={song}
-            onClose={vi.fn()}
-            onSave={vi.fn()}
-            onRemoveCover={vi.fn()}
-            onOpenFolder={vi.fn()}
-            onDelete={vi.fn()}
-          />
+          <SongSettingsModal />
         </>
       </QueryProvider>
     </TestRouter>,

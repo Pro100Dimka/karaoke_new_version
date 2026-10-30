@@ -1,3 +1,7 @@
+import { runInAction } from "mobx";
+import { store } from "../../../../providers/store";
+const importer = vi.hoisted(() => ({ handleImport: vi.fn() }));
+vi.mock("./useLibraryImport", () => ({ useLibraryImport: () => importer }));
 import { QueryProvider } from "../../../../test/QueryProvider";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,19 +20,18 @@ vi.mock("../../../../services/desktopClient", () => ({
   },
 }));
 
-const open = (onImport: AddSongModalImport) =>
-  render(
+const open = (onImport: AddSongModalImport) => {
+  importer.handleImport.mockImplementation(onImport);
+  runInAction(() => { store.libraryDialogs.addOpen = true; store.libraryDialogs.droppedPath = "C:/music/song.mp3"; });
+  return render(
     <QueryProvider application>
       <>
-      <AddSongModal
-        open
-        initialPath="C:/music/song.mp3"
-        onClose={() => undefined}
-        onImport={onImport}
-      />
+      <AddSongModal />
       </>
     </QueryProvider>,
   );
+
+};
 
 describe("AddSongModal", () => {
   beforeEach(() => vi.clearAllMocks());

@@ -1,3 +1,13 @@
+import { useRef, useState } from "react";
+import { store } from "../../../providers/store";
+import type { KaraokeTv } from "../../../features/karaoke/tv/karaokeTv";
+import { roomSongPlayIntent } from "../../../features/room/roomSongIntent";
+import { routes } from "../../../shared/routes";
+import { markPlayed } from "./lastPlayed";
+import type { useRoomLibrary } from "./useRoomLibrary";
+
+export const curtainMilliseconds = 400;
+
 import { tr, useLocale } from "@neo-ui-kit/react";
 import { pythonClient as catalog } from "../../../services/pythonClient";
 import { editorApi as repository } from "../../../pages/editor/editorApi";
@@ -17,7 +27,17 @@ interface SongOperations {
 export const useSongActions = (
   { processSong, refresh, deleteSong }: SongOperations,
   onDeleted: () => void,
+  playback?: {
+    songs: readonly SongDto[];
+    roomLibrary: ReturnType<typeof useRoomLibrary>;
+    navigate(path: string): void;
+    tv?: KaraokeTv | null;
+  },
 ) => {
+  const [launching, setLaunching] = useState(false);
+  const processing = useRef(store.application.localProcessing);
+  processing.current = store.application.localProcessing;
+  const tv = playback?.tv;
   const notify = useNotify();
   useLocale();
   const guarded = useGuardedAction();
@@ -92,5 +112,60 @@ export const useSongActions = (
     });
   };
 
-  return { startProcessing, resetAndReprocess, confirmDelete, showError };
+  // While someone sings on the TV a chosen song waits its turn there, or replaces the current one.
+  const playOnTv = async (song: SongDto, rehearsal = false) => {
+    if (!tv) return;
+    const current = playback?.songs.find((item) => item.id === tv.songId);
+    if (song.id === tv.songId) return;
+    const choice = await ask({
+      title: tr(ru.tvBusyTitle),
+      body: tr(ru.tvBusyBody, {
+        current: current?.title ?? "…",
+        title: song.title,
+      }),
+      actions: [
+        { id: "cancel", label: tr(ru.cancel) },
+        { id: "next", label: tr(ru.tvQueueNext) },
+        { id: "now", label: tr(ru.tvReplaceNow), appearance: "primary" },
+      ],
+    });
+    if (processing.current || !["next", "now"].includes(choice ?? "")) return;
+    markPlayed(song.id);
+    tv.play(
+      { id: song.id, title: song.title, artist: song.artist, rehearsal },
+      choice === "next" ? "next" : "now",
+    );
+    if (choice === "next")
+      notify(tr(ru.tvQueued, { title: song.title }), "success");
+  };
+
+  const playSong = (song: SongDto, rehearsal = false) => {
+    if (processing.current) return;
+    if (tv?.active) {
+      void playOnTv(song, rehearsal);
+      return;
+    }
+    if (!playback) return;
+    const { roomLibrary, navigate } = playback;
+    const intent = roomSongPlayIntent(roomLibrary.room);
+    if (intent === "select-room") {
+      void roomLibrary.selectSong(song);
+      return;
+    }
+    if (intent === "wait-for-host") {
+      notify(tr(ru.errorRoomPermission), "warning");
+      return;
+    }
+    markPlayed(song.id);
+    setLaunching(true);
+    window.setTimeout(() => {
+      if (processing.current) setLaunching(false);
+      else {
+        store.prepareKaraoke(song.id, rehearsal ? "Rehearsal" : "AutoStart");
+        navigate(routes.karaoke(song.id));
+      }
+    }, curtainMilliseconds);
+  };
+
+  return { startProcessing, resetAndReprocess, confirmDelete, showError, playSong, launching };
 };

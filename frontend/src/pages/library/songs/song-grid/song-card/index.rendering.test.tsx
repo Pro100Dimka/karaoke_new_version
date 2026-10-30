@@ -1,7 +1,9 @@
+import { QueryProvider } from "../../../../../test/QueryProvider";
+import { store } from "../../../../../providers/store";
 import { ru } from "../../../../../i18n/messages.ru";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { SongCard, type SongCardHandlers } from "./index";
+import { SongCard } from "./index";
 import type { SongDto } from "../../../../../contracts/models";
 
 const state = vi.hoisted(() => ({
@@ -14,16 +16,6 @@ vi.mock("../../SongStatusBadge", () => ({ SongStatusBadge: () => null }));
 
 it("shows a still cover without an equalizer or pointer tilt", () => {
   const noop = () => {};
-  const handlers: SongCardHandlers = {
-    onPlay: noop,
-    onCancel: noop,
-    onDetails: noop,
-    onSettings: noop,
-    onRecordings: noop,
-    onOpenFolder: noop,
-    onDelete: noop,
-    onViewError: noop,
-  };
   const view = render(
     <SongCard
       song={
@@ -35,8 +27,8 @@ it("shows a still cover without an equalizer or pointer tilt", () => {
           artworkUrl: "https://example.com/cover.jpg",
         } as SongDto
       }
-      handlers={handlers}
-    />,
+      onPlay={noop}
+    />, { wrapper: QueryProvider },
   );
   expect(view.container.querySelector("img")).toHaveAttribute(
     "src",
@@ -48,16 +40,6 @@ it("shows a still cover without an equalizer or pointer tilt", () => {
 
 it("skips parent updates when the song and room selection stay unchanged", () => {
   const noop = () => {};
-  const handlers: SongCardHandlers = {
-    onPlay: noop,
-    onCancel: noop,
-    onDetails: noop,
-    onSettings: noop,
-    onRecordings: noop,
-    onOpenFolder: noop,
-    onDelete: noop,
-    onViewError: noop,
-  };
   const song = {
     id: "song",
     title: "Song",
@@ -67,15 +49,15 @@ it("skips parent updates when the song and room selection stay unchanged", () =>
   const view = render(
     <SongCard
       song={song}
-      handlers={handlers}
+      onPlay={noop}
       roomSelection={{ role: "host", selected: false }}
-    />,
+    />, { wrapper: QueryProvider },
   );
   const calls = state.translate.mock.calls.length;
   view.rerender(
     <SongCard
       song={song}
-      handlers={handlers}
+      onPlay={noop}
       roomSelection={{ role: "host", selected: false }}
     />,
   );
@@ -83,7 +65,7 @@ it("skips parent updates when the song and room selection stay unchanged", () =>
   view.rerender(
     <SongCard
       song={song}
-      handlers={handlers}
+      onPlay={noop}
       roomSelection={{ role: "participant", selected: true }}
     />,
   );
@@ -92,28 +74,15 @@ it("skips parent updates when the song and room selection stay unchanged", () =>
 
 it("disables karaoke and rehearsal on every ready card during local processing", () => {
   const play = vi.fn();
-  const handlers = Object.fromEntries(
-    [
-      "onPlay",
-      "onRehearse",
-      "onCancel",
-      "onDetails",
-      "onSettings",
-      "onRecordings",
-      "onOpenFolder",
-      "onDelete",
-      "onViewError",
-    ].map((key) => [key, play]),
-  ) as unknown as SongCardHandlers;
   const song = {
     id: "ready",
     title: "Ready",
     artist: "A",
     status: "ready",
   } as SongDto;
-  const view = render(<SongCard song={song} handlers={handlers} />);
+  const view = render(<SongCard song={song} onPlay={play} />, { wrapper: QueryProvider });
   expect(screen.getByRole("button", { name: ru.play })).toBeEnabled();
-  view.rerender(<SongCard song={song} handlers={handlers} playbackDisabled />);
+  view.rerender(<SongCard song={song} onPlay={play} playbackDisabled />);
   const button = screen.getByRole("button", { name: ru.play });
   expect(button).toBeDisabled();
   fireEvent.click(button);
@@ -124,18 +93,16 @@ it("disables karaoke and rehearsal on every ready card during local processing",
   expect(rehearsal).toBeDisabled();
   fireEvent.click(rehearsal);
   expect(play).not.toHaveBeenCalled();
-  view.rerender(<SongCard song={song} handlers={handlers} />);
+  view.rerender(<SongCard song={song} onPlay={play} />);
   expect(screen.getByRole("button", { name: ru.play })).toBeEnabled();
 });
 
 
 it("exposes the prototype action row without the legacy overflow menu", () => {
-  const onSettings = vi.fn();
   const noop = () => {};
   render(<SongCard song={{ id: "song", title: "Song", artist: "Artist", status: "ready" } as SongDto}
-    handlers={{ onPlay: noop, onCancel: noop, onDetails: noop, onSettings,
-      onRecordings: noop, onOpenFolder: noop, onDelete: noop, onViewError: noop }} />);
+    onPlay={noop} />, { wrapper: QueryProvider });
   expect(screen.queryByRole("button", { name: ru.moreActions })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: ru.songSettings }));
-  expect(onSettings).toHaveBeenCalledOnce();
+  expect(store.libraryDialogs.settingsSong?.id).toBe("song");
 });

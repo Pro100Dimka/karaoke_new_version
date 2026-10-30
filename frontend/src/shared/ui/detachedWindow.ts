@@ -121,14 +121,22 @@ export const carryWindow = (
   // Measured from where the window was asked to open: a window just opened may not report it yet.
   const grabX = pointer.screenX - opened.left;
   const grabY = pointer.screenY - opened.top;
+  const hosts = onReenter ? [window, panel] : [window];
   const end = () => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", end);
-    window.removeEventListener("pointercancel", end);
+    for (const host of hosts) {
+      host.removeEventListener("pointermove", move);
+      host.removeEventListener("pointerup", end);
+      host.removeEventListener("pointercancel", cancel);
+    }
+  };
+  const cancel = (event: PointerEvent) => {
+    if (!onReenter || event.pointerType !== "mouse" || event.buttons === 0) end();
   };
   const move = (event: PointerEvent) => {
     // A release the app's window did not hear (e.g. over another program) still ends the drag.
     if (event.buttons === 0 || panel.closed) return end();
+    if (onReenter && event.currentTarget === panel && !panel.document.body.hasPointerCapture(event.pointerId))
+      panel.document.body.setPointerCapture(event.pointerId);
     const left = event.screenX - grabX;
     const top = event.screenY - grabY;
     const inside = onReenter && pointInApp(left, top);
@@ -139,7 +147,9 @@ export const carryWindow = (
     }
     panel.moveTo(left, top);
   };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", end);
-  window.addEventListener("pointercancel", end);
+  for (const host of hosts) {
+    host.addEventListener("pointermove", move);
+    host.addEventListener("pointerup", end);
+    host.addEventListener("pointercancel", cancel);
+  }
 };

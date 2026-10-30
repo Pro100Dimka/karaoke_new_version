@@ -29,7 +29,7 @@ vi.mock("../../../providers/notifications", () => ({
 }));
 vi.mock("../../../providers/dialog", () => ({ ask: ports.ask }));
 
-vi.mock("../../../providers/store", () => ({ store: { get playback() { return { returned: ports.locationState }; } } }));
+vi.mock("../../../providers/store", () => ({ store: { libraryDialogs: { recordingsSong: null, analysisRecordId: null }, get playback() { return { returned: ports.locationState }; } } }));
 
 const first = { id: "first", title: "First" } as SongDto;
 const second = { id: "second", title: "Second" } as SongDto;

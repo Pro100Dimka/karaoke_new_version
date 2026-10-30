@@ -1,3 +1,7 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { desktopClient } from "../../../../services/desktopClient";
+import { refreshSongs } from "../../../../api/api-service";
+import { useGuardedAction } from "../../songs/useGuardedAction";
 import { pythonClient as catalog } from "../../../../services/pythonClient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -19,8 +23,6 @@ interface Props {
   songs: readonly SongDto[];
   focusSongId?: string;
   onClose(): void;
-  onCancel(jobId: string): Promise<void>;
-  onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;
 }
@@ -86,12 +88,17 @@ export const ProcessingModal = ({
   songs,
   focusSongId,
   onClose,
-  onCancel,
-  onOpenFolder,
   onPlay,
   playbackDisabled,
 }: Props) => {
   useLocale();
+  const client = useQueryClient();
+  const guarded = useGuardedAction();
+  const onCancel = (jobId: string) => guarded(async () => {
+    await catalog.cancelProcessing(jobId);
+    await refreshSongs(client);
+  });
+  const onOpenFolder = (song: SongDto) => void desktopClient.revealProject(song.id, song.activeRevision);
   const queue = useProcessingQueue(focusSongId);
   const disk = useDisk(open);
   const [notice, setNotice] = useState<Notice>();

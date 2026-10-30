@@ -46,8 +46,8 @@ it("shows free disk space and application size without inventing disk capacity",
         open
         songs={[]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,

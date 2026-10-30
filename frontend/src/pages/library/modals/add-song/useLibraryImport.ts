@@ -1,39 +1,37 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { runInAction } from "mobx";
+import { store } from "../../../../providers/store";
+import { importSong, refreshSongs } from "../../../../api/api-service";
+import { pythonClient } from "../../../../services/pythonClient";
 import { tr, useLocale } from "@neo-ui-kit/react";
 import { desktopClient as libraryFiles } from "../../../../services/desktopClient";
 import { useState, type DragEvent } from "react";
 import { useNotify } from "../../../../providers/notifications";
 import type { ImportMetadata, ImportOptions } from "../../../../contracts/clients";
-import type { SongDto } from "../../../../contracts/models";
 import { ru } from "../../../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../../../shared/errors";
 import { importOneByOne } from "./batchImport";
 import { dragLeavesBoundary } from "./fileDrag";
-import type { useGuardedAction } from "../../songs/useGuardedAction";
+import { useGuardedAction } from "../../songs/useGuardedAction";
 
-interface LibraryImportOptions {
-  importSong: (path: string, metadata: ImportMetadata, options?: ImportOptions) => Promise<SongDto>;
-  startProcessing: (song: SongDto) => Promise<unknown>;
-  guarded: ReturnType<typeof useGuardedAction>;
-  backendReady: boolean;
-}
-
-/** Adding songs: picked or dropped files are imported and queued for processing. */
-export const useLibraryImport = ({
-  importSong,
-  startProcessing,
-  guarded,
-  backendReady,
-}: LibraryImportOptions) => {
+/** Picked and dropped files share import progress in the query cache. */
+export const useLibraryImport = () => {
+  const client = useQueryClient();
+  const guarded = useGuardedAction();
+  const backendReady = store.application.services.python.kind === "ready";
   useLocale();
   const notify = useNotify();
-  const [addOpen, setAddOpen] = useState(false);
-  const [droppedPath, setDroppedPath] = useState("");
   const [dragging, setDragging] = useState(false);
 
   const importAndProcess = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
-    const song = await importSong(path, metadata, options);
+    const song = await importSong(client, path, metadata, options);
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
-    void startProcessing(song);
+    void guarded(async () => {
+      if (song.status !== "not-processed") return;
+      await pythonClient.processSong(song.id);
+      await refreshSongs(client);
+      notify(tr(ru.processingStarted), "info");
+    });
   };
 
   const handleImport = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
@@ -77,8 +75,10 @@ export const useLibraryImport = ({
       void guarded(() => importMany(files.map((file) => libraryFiles.pathForFile(file))));
       return;
     }
-    setDroppedPath(libraryFiles.pathForFile(first));
-    setAddOpen(true);
+    runInAction(() => {
+      store.libraryDialogs.droppedPath = libraryFiles.pathForFile(first);
+      store.libraryDialogs.addOpen = true;
+    });
   };
 
   const dropTarget = {
@@ -99,6 +99,5 @@ export const useLibraryImport = ({
     handleImport,
     /** Files opened with the app ("Open with" in Explorer) are added like several dropped files. */
     importFiles: (paths: readonly string[]) => (paths.length ? guarded(() => importMany(paths)) : undefined),
-    addDialog: { open: addOpen, initialPath: droppedPath, onClose: () => setAddOpen(false) },
   };
 };

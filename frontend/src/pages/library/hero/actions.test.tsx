@@ -10,24 +10,11 @@ const renderActions = (roomRole?: "host" | "participant") => {
   render(
     <QueryProvider application>
       <LibraryActions
-        query=""
-        filters={{
-          status: "all",
-          language: "all",
-          duration: "all",
-          artwork: "all",
-          sort: "recent",
-          direction: "desc",
-        }}
-        activeJobs={0}
         roomRole={roomRole}
         collaborativeControl={false}
         onCollaborativeControlChange={onCollaborativeControlChange}
-        onQueryChange={vi.fn()}
-        onFiltersApply={onFiltersApply}
+        onViewChange={onFiltersApply}
         onOpenRoom={vi.fn()}
-        onOpenProcessing={vi.fn()}
-        onAddSong={vi.fn()}
       />
     </QueryProvider>,
   );

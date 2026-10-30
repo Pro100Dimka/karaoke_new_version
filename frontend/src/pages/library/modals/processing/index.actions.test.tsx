@@ -1,3 +1,4 @@
+import { desktopClient } from "../../../../services/desktopClient";
 import { ru } from "../../../../i18n/messages.ru";
 import { QueryProvider } from "../../../../test/QueryProvider";
 
@@ -88,8 +89,8 @@ it("never retries or resets a failed existing song", async () => {
         open
         songs={[existing]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,
@@ -154,8 +155,8 @@ it("keeps baseline recovery out of the queue after a manual-edit conflict", asyn
         open
         songs={[existing]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,
@@ -186,8 +187,8 @@ it.each(["ManualLyricsConflict", "ProcessFailure"])(
             open
             songs={[existing]}
             onClose={vi.fn()}
-            onCancel={vi.fn()}
-            onOpenFolder={vi.fn()}
+
+
             onPlay={vi.fn()}
           />
         </>
@@ -222,8 +223,8 @@ it("keeps a failed lyric job visible without a restart control", async () => {
         open
         songs={[existing]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,
@@ -249,9 +250,9 @@ it("connects every processing queue control to an action", async () => {
     job("job-failed", "failed", "failed"),
     job("job-active", "active", "processing"),
   ]);
-  const onOpenFolder = vi.fn();
+  const onOpenFolder = vi.spyOn(desktopClient, "revealProject").mockResolvedValue(undefined);
   const onPlay = vi.fn();
-  const onCancel = vi.fn().mockResolvedValue(undefined);
+  const onCancel = vi.spyOn(pythonClient, "cancelProcessing").mockResolvedValue(undefined);
 
   render(
     <QueryProvider application>
@@ -259,8 +260,8 @@ it("connects every processing queue control to an action", async () => {
         open
         songs={songs}
         onClose={vi.fn()}
-        onCancel={onCancel}
-        onOpenFolder={onOpenFolder}
+
+
         onPlay={onPlay}
       />
       ,
@@ -275,7 +276,7 @@ it("connects every processing queue control to an action", async () => {
   );
   fireEvent.click(screen.getByRole("menuitem", { name: "Открыть папку" }));
   fireEvent.click(within(doneCard).getByRole("button", { name: "Запустить караоке" }));
-  expect(onOpenFolder).toHaveBeenCalledWith(songs[0]);
+  expect(onOpenFolder).toHaveBeenCalledWith(songs[0]?.id, songs[0]?.activeRevision);
   expect(onPlay).toHaveBeenCalledWith(songs[0]);
 
   const activeCard = screen.getByText("Artist — Active song").closest("li")!;
@@ -361,15 +362,15 @@ it.each([
     vi.spyOn(pythonClient, "listJobs").mockResolvedValue(
       states.map((state) => job(`job-${state}`, state, state)),
     );
-    const onCancel = vi.fn();
+    const onCancel = vi.spyOn(pythonClient, "cancelProcessing").mockResolvedValue(undefined);
     render(
       <QueryProvider application>
         <ProcessingModal
           open
           songs={songs}
           onClose={vi.fn()}
-          onCancel={onCancel}
-          onOpenFolder={vi.fn()}
+
+
           onPlay={vi.fn()}
         />
       </QueryProvider>,
@@ -422,8 +423,8 @@ it("shows pipeline steps without the redundant overall progress bar or percentag
         open
         songs={[existing]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,
@@ -449,8 +450,8 @@ it("shows all pipeline steps and marks the actual current step", async () => {
         open
         songs={[song("active", "Steps")]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,
@@ -478,8 +479,8 @@ it("uses the kit split button for clearing completed jobs and choosing another g
         open
         songs={[song("done", "Done")]}
         onClose={vi.fn()}
-        onCancel={vi.fn()}
-        onOpenFolder={vi.fn()}
+
+
         onPlay={vi.fn()}
       />
     </QueryProvider>,

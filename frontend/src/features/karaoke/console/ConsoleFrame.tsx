@@ -54,7 +54,7 @@ export const ConsoleFrame = ({
   const host = useHostWindow();
   const frameRef = useRef<HTMLElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const grab = useRef<{ x: number; y: number; pointerId: number } | null>(null);
+  const grab = useRef<{ x: number; y: number; pointerId: number; detaching?: boolean } | null>(null);
   const { height } = useMeasuredPanelSize(surfaceRef, { width, height: consoleDesignHeight }, true, "layout");
   const readViewport = () => ({
     width: host.innerWidth,
@@ -87,11 +87,11 @@ export const ConsoleFrame = ({
   };
   const move = (event: ReactPointerEvent<HTMLElement>) => {
     const held = grab.current;
-    if (held?.pointerId === event.pointerId) {
+    if (held?.pointerId === event.pointerId && !held.detaching) {
       const left = event.clientX - held.x;
       const top = event.clientY - held.y;
       if (left < 0 || top < 0 || left + size.width > host.innerWidth || top + size.height > host.innerHeight) {
-        grab.current = null;
+        held.detaching = true;
         panel.detach({ ...size, left: event.screenX - held.x, top: event.screenY - held.y }, event);
         return;
       }
@@ -100,7 +100,7 @@ export const ConsoleFrame = ({
   };
   // Restoring the saved placement resets the floating hook; resume once its size is settled.
   useLayoutEffect(() => {
-    if (panel.detached) { floating.handleCancel(); return; }
+    if (panel.detached) { grab.current = null; floating.handleCancel(); return; }
     const pointer = panel.heldPointer.current;
     const frame = frameRef.current;
     if (panel.detached || !pointer || !frame || surfaceRef.current?.offsetHeight !== height) return;
@@ -114,7 +114,7 @@ export const ConsoleFrame = ({
   });
   const center = (viewport.width - size.width) / 2;
   const bottom = viewport.height - size.height - 8;
-  const position = floating.layout
+  const position = floating.layout && (dock === "free" || grab.current || panel.heldPointer.current)
     ? grab.current || panel.heldPointer.current ? floating.layout : {
       left: Math.max(8, Math.min(viewport.width - size.width - 8, floating.layout.left)),
       top: Math.max(viewport.top, Math.min(bottom, floating.layout.top)),

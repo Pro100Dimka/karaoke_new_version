@@ -1,25 +1,17 @@
+import { observer } from "mobx-react-lite";
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshSongs } from "../../../../api/api-service";
+import { useSongRecordings } from "../../songs/useSongRecordings";
+import { PerformanceAnalysisModal } from "../analysis";
 import { ru } from "../../../../i18n/messages.ru";
 import { useMemo, useState } from "react";
 import { Dialog, Icon, Planet, SegmentedControl, Typography, tr, useLocale } from "@neo-ui-kit/react";
 import type { RecordingDto, SongDto } from "../../../../contracts/models";
-import type { RecordingAnalysisProgress } from "../../../../contracts/clients";
-import type { MessageKey } from "../../../../i18n/messages";
 import { formatBytes } from "../../../../shared/utils/format";
 import { RecordingCard } from "./RecordingCard";
 import { defaultTakeName, numberTakes } from "./takeNames";
 import "./recordings.css";
 
-interface Props {
-  song: SongDto | null;
-  recordings: readonly RecordingDto[];
-  onClose(): void;
-  onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
-  progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
-  failures?: Readonly<Record<string, MessageKey>>;
-  onCancelAnalysis?(jobId: string): void;
-  onDelete(recording: RecordingDto): void;
-  onRename(recording: RecordingDto, name: string): void;
-}
 type View = "list" | "grid";
 
 /** "Performances" written by hand in the corner of the header. */
@@ -47,17 +39,12 @@ const PerformancesSignature = () => (
 );
 
 /** A song's takes: listen, rename, analyze, reveal or delete each, as a list or a grid. */
-export const RecordingsModal = ({
-  song,
-  recordings,
-  onClose,
-  onAnalyze,
-  onDelete,
-  onRename,
-  progress,
-  failures,
-  onCancelAnalysis,
-}: Props) => {
+export const RecordingsModal = observer(({ songs, ready }: { songs: readonly SongDto[]; ready: boolean }) => {
+  const client = useQueryClient();
+  const actions = useSongRecordings(songs, ready, () => { void refreshSongs(client); });
+  const { song, recordings, close: onClose, analyze: onAnalyze, remove: onDelete,
+    rename: onRename, analysisProgress: progress, analysisFailures: failures,
+    cancelAnalysis: onCancelAnalysis } = actions;
   useLocale();
   const [view, setView] = useState<View>("list");
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
@@ -79,14 +66,13 @@ export const RecordingsModal = ({
     (sum, recording) => sum + recording.sizeBytes,
     0,
   );
-  if (!song) return null;
   const nameOf = (recording: RecordingDto) =>
     recording.displayName ||
     (recording.sourceRecordingId ? tr(ru.studioMasterTitle) :
       defaultTakeName( numbers.get(recording.id) ?? 1, recording.createdAt));
 
-  return (
-    <Dialog
+  return (<>
+    {song && <Dialog
       open
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -166,6 +152,13 @@ export const RecordingsModal = ({
           </Typography>
         </footer>
       </div>
-    </Dialog>
-  );
-};
+    </Dialog>}
+    <PerformanceAnalysisModal analysis={actions.analysis} song={actions.analysisSong}
+      recordingId={actions.analysisRecordId ?? undefined}
+      pending={actions.analysisRecordId ? progress[actions.analysisRecordId] : undefined}
+      failure={actions.analysisRecordId ? failures[actions.analysisRecordId] : undefined}
+      onCancelAnalysis={onCancelAnalysis} recordings={recordings} onDelete={onDelete}
+      onCreateStudioMaster={recording => void actions.createStudioMaster(recording)}
+      studioMaster={actions.studioMaster} onClose={actions.closeAnalysis} />
+  </>);
+});

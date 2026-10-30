@@ -1,3 +1,4 @@
+import { reaction, runInAction } from "mobx";
 import { tr, useLocale } from "@neo-ui-kit/react";
 import { pythonClient as catalog } from "../../../services/pythonClient";
 import { useEffect, useRef, useState } from "react";
@@ -262,6 +263,18 @@ export const useSongRecordings = (
         if (request === requests.current.master) setStudioMaster(null);
       }
     }, "studioMasterFailed");
+
+  useEffect(() => {
+    runInAction(() => { store.libraryDialogs.analysisRecordId = analysisRecordId; });
+    return () => runInAction(() => { store.libraryDialogs.analysisRecordId = null; });
+  }, [analysisRecordId]);
+  const openLatest = useRef(open);
+  useEffect(() => { openLatest.current = open; });
+  useEffect(() => reaction(() => store.libraryDialogs.recordingsSong, requested => {
+    if (!requested) return;
+    runInAction(() => { store.libraryDialogs.recordingsSong = null; });
+    void openLatest.current(requested);
+  }, { fireImmediately: true }), []);
 
   return {
     song,

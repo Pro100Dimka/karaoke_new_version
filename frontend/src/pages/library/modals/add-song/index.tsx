@@ -1,9 +1,11 @@
+import { observer } from "mobx-react-lite";
+import { runInAction } from "mobx";
+import { store } from "../../../../providers/store";
+import { useLibraryImport } from "./useLibraryImport";
 import { desktopClient as files } from "../../../../services/desktopClient";
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, FilePicker, MessageBar, ProgressBar, Stack, Typography, useForm, tr, useLocale } from "@neo-ui-kit/react";
 import type {
-  ImportMetadata,
-  ImportOptions,
   ImportProgress,
 } from "../../../../contracts/clients";
 import type { MessageKey } from "../../../../i18n/messages";
@@ -11,17 +13,6 @@ import { ru } from "../../../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../../../shared/errors";
 import { formatBytes } from "../../../../shared/utils/format";
 import { isSupportedAudio } from "./importModel";
-
-interface AddSongModalProps {
-  open: boolean;
-  initialPath?: string;
-  onClose(): void;
-  onImport(
-    path: string,
-    metadata: ImportMetadata,
-    options: ImportOptions,
-  ): Promise<void>;
-}
 
 type FileState =
   | { kind: "none" }
@@ -36,12 +27,10 @@ const fileErrors = {
 } as const satisfies Record<FileState["kind"], MessageKey | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
-export const AddSongModal = ({
-  open,
-  initialPath = "",
-  onClose,
-  onImport,
-}: AddSongModalProps) => {
+export const AddSongModal = observer(() => {
+  const { addOpen: open, droppedPath: initialPath } = store.libraryDialogs;
+  const onClose = () => runInAction(() => { store.libraryDialogs.addOpen = false; });
+  const { handleImport: onImport } = useLibraryImport();
   useLocale();
   const [file, setFile] = useState<FileState>({ kind: "none" });
   const [progress, setProgress] = useState<ImportProgress | null>(null);
@@ -189,4 +178,4 @@ export const AddSongModal = ({
       </form>
     </Dialog>
   );
-};
+});
