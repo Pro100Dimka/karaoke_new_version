@@ -399,3 +399,13 @@ export interface BackendDiagnosticsDto {
   projectFormat: number;
   storage: StorageUsageDto;
 }
+
+export interface SongSearch {
+  query: string;
+  status: SongStatus | "all";
+  language: SongLanguage | "all";
+  duration: "all" | "short" | "medium" | "long";
+  artwork: "all" | "with" | "without";
+  sort: "recent" | "title" | "artist" | "played" | "duration" | "bpm";
+  direction: "asc" | "desc";
+}

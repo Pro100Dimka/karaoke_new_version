@@ -1,11 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from collections import Counter
+from concurrent.futures import Future, TimeoutError
+from contextlib import nullcontext
+import threading
+from pathlib import Path
 
-from backend.ai.domain import PitchPoint, WordTiming
-from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult, lyrics_language
+from backend.ai.domain import PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.ports import AlignmentReuseProvider, StreamingTranscriber
+from backend.lyrics.discovery import (
+    LyricsDiscovery,
+    LyricsDiscoveryResult,
+    PreparedLyrics,
+    lyrics_ending_start,
+    lyrics_language,
+)
 from backend.lyrics.domain import LyricsDocument
 from backend.lyrics.phrases import _lyrics_key
 from backend.processing.algorithms import construct_document, stabilize_pitch
@@ -26,6 +37,18 @@ class BuiltDocument:
     document: LyricsDocument
     discovery: LyricsDiscoveryResult
     warnings: tuple[str, ...]
+
+
+def _await_vocal(
+    separated: Future[SeparatedAudio], context: JobContext, stopped: threading.Event
+) -> Path | None:
+    while not stopped.is_set():
+        context.ensure_not_cancelled()
+        try:
+            return separated.result(timeout=0.1).reference_vocal
+        except TimeoutError:
+            continue
+    return None
 
 
 def _word_support(word: WordTiming) -> bool:
@@ -110,11 +133,15 @@ class BuildProcessingDocument:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
+        *,
+        prepared_lyrics: PreparedLyrics | None = None,
     ) -> BuiltDocument:
         align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
         align_execution = replace(execution, cpu_threads=align_threads)
         pitch_execution = replace(execution, cpu_threads=pitch_threads)
-        discovery = self._discover(song, prepared, providers, options, context, reports, execution)
+        discovery = self._discover(
+            song, prepared, providers, options, context, reports, execution, prepared_lyrics
+        )
         parallel = not discovery.timing_hints or execution.device is ComputeDevice.CUDA
         if not parallel:
             align_execution = pitch_execution = execution
@@ -130,9 +157,16 @@ class BuildProcessingDocument:
 
         def run_align() -> None:
             nonlocal words, discovery
-            discovery, words = self._align(
-                song, prepared, discovery, providers, context, reports, align_execution
+            alignment = providers.alignment
+            reuse = (
+                alignment.reuse_alignment(prepared.reference_vocal.parent, context.cancel)
+                if discovery.repeat_baseline and isinstance(alignment, AlignmentReuseProvider)
+                else nullcontext()
             )
+            with reuse:
+                discovery, words = self._align(
+                    song, prepared, discovery, providers, context, reports, align_execution
+                )
 
         self._run_stages(execution, run_align, run_pitch, parallel=parallel)
         reports.extend(pitch_reports)
@@ -143,6 +177,59 @@ class BuildProcessingDocument:
             + pitch_warnings(stable)
         )
         return BuiltDocument(replace(document, rhythm=prepared.rhythm), discovery, warnings)
+
+    def find_lyrics(
+        self,
+        song: Song,
+        options: ProcessingOptions,
+        context: JobContext,
+        reports: list[StageReport],
+    ) -> PreparedLyrics:
+        return self._stages.run(
+            "LyricsDiscovery",
+            CancellationPolicy.INTERRUPTIBLE,
+            reports,
+            context,
+            lambda: self._discovery.lookup(song, context.cancel, options.online_lyrics),
+            progress=0.03,
+        )
+
+    def recognize_lyrics(
+        self,
+        song: Song,
+        source: PreparedLyrics,
+        original: Path,
+        separated: Future[SeparatedAudio],
+        asr: StreamingTranscriber,
+        context: JobContext,
+        reports: list[StageReport],
+        execution: ExecutionContext,
+    ) -> PreparedLyrics:
+        ending = lyrics_ending_start(song, source.found)
+        language = lyrics_language(song, source.found.lyrics if source.found else "")
+
+        def requests(stopped: threading.Event) -> Iterator[tuple[Path, float]]:
+            if stopped.is_set():
+                return
+            yield original, 0.0
+            vocal = _await_vocal(separated, context, stopped)
+            if vocal is None:
+                return
+            yield vocal, 0.0
+            if ending is not None:
+                yield vocal, ending
+
+        results = self._stages.run(
+            "LyricsDiscovery",
+            CancellationPolicy.INTERRUPTIBLE,
+            reports,
+            context,
+            lambda: asr.transcribe_stream(
+                requests, 2 + int(ending is not None), language, context.cancel, execution=execution
+            ),
+            progress=0.60,
+        )
+        return replace(source, transcripts=(results[1], results[0], *results[2:]))
 
     def _run_stages(
         self, execution: ExecutionContext, *stages: Callable[[], None], parallel: bool
@@ -162,6 +249,7 @@ class BuildProcessingDocument:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
+        prepared_lyrics: PreparedLyrics | None = None,
     ) -> LyricsDiscoveryResult:
         return self._stages.run(
             "LyricsDiscovery",
@@ -175,6 +263,7 @@ class BuildProcessingDocument:
                 context.cancel,
                 online_enabled=options.online_lyrics,
                 execution=execution,
+                prepared=prepared_lyrics,
             ),
             progress=0.60,
         )

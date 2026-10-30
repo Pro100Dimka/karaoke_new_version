@@ -32,6 +32,9 @@ LZMANumBlockThreads={#LzmaThreads}
 LZMADictionarySize={#LzmaDictionaryKb}
 WizardStyle=modern
 PrivilegesRequired=lowest
+; Per-user profiles may already be redirected to another drive by a user-created junction.
+RedirectionGuard=no
+SetupMutex=ADVoice.Setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=yes
@@ -83,6 +86,10 @@ uk.DownloadStopping=Зупинка завантажень…
 en.CloseBeforeUninstall=Close A&D Voice and wait for processing and recordings to finish before uninstalling.
 ru.CloseBeforeUninstall=Закройте A&D Voice и дождитесь завершения обработки и записей перед удалением.
 uk.CloseBeforeUninstall=Закрийте A&D Voice і дочекайтеся завершення обробки та записів перед видаленням.
+
+en.CloseBeforeInstall=Close A&D Voice and wait for its processes to exit before updating. No files have been replaced. Close the application, then retry.
+ru.CloseBeforeInstall=Закройте A&D Voice и дождитесь завершения её процессов перед обновлением. Файлы ещё не заменены. Закройте программу и повторите попытку.
+uk.CloseBeforeInstall=Закрийте A&D Voice і дочекайтеся завершення її процесів перед оновленням. Файли ще не замінено. Закрийте програму та повторіть спробу.
 en.DataNotRemoved=These folders were kept because files are in use or exclusive ownership could not be verified. Review their contents before deleting application data; they may contain your other files:
 ru.DataNotRemoved=Эти папки сохранены: файлы заняты либо не удалось подтвердить, что всё содержимое принадлежит приложению. Перед удалением данных приложения проверьте содержимое — здесь могут быть другие ваши файлы:
 uk.DataNotRemoved=Ці папки збережено: файли зайняті або не вдалося підтвердити, що весь вміст належить застосунку. Перед видаленням даних застосунку перевірте вміст — тут можуть бути інші ваші файли:
@@ -422,19 +429,21 @@ begin
       Result := False;
 end;
 
-function InitializeUninstall: Boolean;
+function RequireClosedApplication(const Message: String): String;
 var
   Locator, Services, Processes, Process: Variant;
   Targets: TArrayOfString;
   I, J: Integer;
 begin
-  Result := False;
+  Result := Message;
   try
     Locator := CreateOleObject('WbemScripting.SWbemLocator');
     Services := Locator.ConnectServer('.', 'root\CIMV2');
     Processes := Services.ExecQuery('SELECT ExecutablePath FROM Win32_Process');
     Targets := [ExpandConstant('{app}\AD Voice.exe'),
       ExpandConstant('{app}\resources\python-runtime\python.exe'),
+      ExpandConstant('{app}\resources\python-runtime\pythonw.exe'),
+      ExpandConstant('{app}\resources\audio-service\NativeVoiceRelay.exe'),
       ExpandConstant('{app}\resources\audio-service\AudioService.exe')];
     for I := 0 to Processes.Count - 1 do
     begin
@@ -443,14 +452,28 @@ begin
         for J := 0 to GetArrayLength(Targets) - 1 do
           if CompareText(Process.ExecutablePath, Targets[J]) = 0 then
           begin
-            MsgBox(CustomMessage('CloseBeforeUninstall'), mbError, MB_OK);
+            Log('Application process still running: ' + Process.ExecutablePath);
             Exit;
           end;
     end;
-    Result := True;
+    Result := '';
   except
-    MsgBox(CustomMessage('CloseBeforeUninstall') + #13#10 + GetExceptionMessage, mbError, MB_OK);
+    Result := Message + #13#10 + GetExceptionMessage;
   end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := RequireClosedApplication(CustomMessage('CloseBeforeInstall'));
+end;
+
+function InitializeUninstall: Boolean;
+var
+  Error: String;
+begin
+  Error := RequireClosedApplication(CustomMessage('CloseBeforeUninstall'));
+  Result := Error = '';
+  if not Result then MsgBox(Error, mbError, MB_OK);
 end;
 
 procedure DeleteStorageRoot(const Folder: string);

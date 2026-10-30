@@ -3,7 +3,7 @@ from __future__ import annotations
 import difflib
 import threading
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from functools import partial
 from pathlib import Path
 
@@ -20,13 +20,20 @@ from backend.ai_worker.ctc import (
     align_guided,
     align_words,
     emission,
+    frame_stride_samples,
     _model as alignment_model,
     ordered,
     with_sung_ends,
     with_voice_onsets,
 )
 from backend.ai_worker.paths import model_directory, model_file
-from backend.ai_worker.runtime import WHISPER_LANGUAGES, cached_encoder, cpu_threads, device
+from backend.ai_worker.runtime import (
+    AlignmentReuse,
+    WHISPER_LANGUAGES,
+    cached_encoder,
+    cpu_threads,
+    device,
+)
 from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
 from backend.ai_worker.recognition import (
     HeardWord,
@@ -114,34 +121,55 @@ def _accelerated_guidance(
     *,
     threads: int | None = None,
     model_cache: list[whisper.Whisper] | None = None,
+    reuse: AlignmentReuse | None = None,
 ) -> Mapping[str, object]:
     """Use the native decoder: converted decoding omitted whole sung repeats in real recordings."""
-    target = device()
     torch.set_num_threads(threads or cpu_threads())
-    model = model_cache.pop() if model_cache else _speech_model(target)
     samples = vocal if isinstance(vocal, np.ndarray) else read_mono(vocal, _SAMPLE_RATE)
+    models = model_cache if model_cache is not None else []
     results = []
     for start, end, vocabulary in contexts or [(0.0, 0.0, prompt)]:
-        with cached_encoder(model.encoder):
-            result = model.transcribe(
-                samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)]
-                if contexts
-                else samples,
-                language=WHISPER_LANGUAGES.get(language),
-                word_timestamps=True,
-                initial_prompt=vocabulary,
-                condition_on_previous_text=False,
-                fp16=target == "cuda",
-                temperature=0.0,
+        audio = (
+            samples[int(start * _SAMPLE_RATE) : int(end * _SAMPLE_RATE)] if contexts else samples
+        )
+        calculate = partial(_decode_context, audio, language, vocabulary, start, models, reuse)
+        result = (
+            calculate()
+            if reuse is None
+            else reuse.context(
+                b"context:" + repr((language, vocabulary, start)).encode() + audio.tobytes(),
+                calculate,
             )
-        for segment in result.get("segments", []):
-            for item in [segment, *segment.get("words", [])]:
-                for key in ("start", "end"):
-                    item[key] += start
+        )
         results.append(result)
-    if model_cache is not None:
-        model_cache.append(model)
     return {"contexts": results} if contexts else results[0]
+
+
+def _decode_context(
+    audio: np.ndarray,
+    language: str,
+    prompt: str | None,
+    start: float,
+    models: list[whisper.Whisper],
+    reuse: AlignmentReuse | None,
+) -> Mapping[str, object]:
+    model = models.pop() if models else _speech_model(device())
+    with cached_encoder(model.encoder, reuse=reuse):
+        result = model.transcribe(
+            audio,
+            language=WHISPER_LANGUAGES.get(language),
+            word_timestamps=True,
+            initial_prompt=prompt,
+            condition_on_previous_text=False,
+            fp16=device() == "cuda",
+            temperature=0.0,
+        )
+    for segment in result.get("segments", []):
+        for item in [segment, *segment.get("words", [])]:
+            for key in ("start", "end"):
+                item[key] += start
+    models.append(model)
+    return dict(result)
 
 
 def _guidance(
@@ -193,7 +221,7 @@ def transcribe(
 
 
 def transcribe_many(
-    requests: Sequence[tuple[Path, float]], language: str
+    requests: Iterable[tuple[Path, float]], language: str
 ) -> dict[str, list[dict[str, object]]]:
     models: list[whisper.Whisper] = []
     return {
@@ -251,6 +279,7 @@ def _alignment_evidence(
     instrumental: np.ndarray | None = None,
     recognition: Mapping[str, object] | None = None,
     independent_views: list[list[tuple[str, float, float]]] | None = None,
+    reuse: AlignmentReuse | None = None,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
     """Independent recognition precedes CTC; the native models do not compete for memory."""
     threads = cpu_threads()
@@ -271,7 +300,12 @@ def _alignment_evidence(
         ),
     )
     torch.set_num_threads(threads)
-    scores, frame_seconds = emission(samples)
+    if reuse is None:
+        scores, frame_seconds = emission(samples)
+    else:
+        # The frame grid is fixed by MMS; only the audio-dependent scores are reused.
+        scores = reuse.tensor(b"ctc:" + samples.tobytes(), lambda: emission(samples)[0])
+        frame_seconds = frame_stride_samples() / _SAMPLE_RATE
     alignment_model.cache_clear()
     return scores, frame_seconds, heard
 
@@ -508,14 +542,24 @@ def align(
     timing_hints: Sequence[Mapping[str, object]] = (),
     instrumental: Path | None = None,
     recognition: Mapping[str, object] | None = None,
+    *,
+    reuse: AlignmentReuse | None = None,
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
     audio, words = read_mono(vocal, _SAMPLE_RATE), lyrics.split()
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
-    scores, step, heard = _alignment_evidence(
-        vocal, audio, language, lyrics, backing, recognition, views := list[list[HeardWord]]()
+    evidence = partial(
+        _alignment_evidence,
+        vocal,
+        audio,
+        language,
+        lyrics,
+        backing,
+        recognition,
+        views := list[list[HeardWord]](),
     )
+    scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
     whole = align_words(scores, step, words)
-    recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[])
+    recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
     heard = recover_leading_words(lyrics, whole, heard, recognize)
     windows = _alignment_windows(lyrics, timing_hints, heard, whole, audio)
     windows, supported = contextual_guidance(

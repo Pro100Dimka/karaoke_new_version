@@ -1,31 +1,35 @@
-import { Form, useForm } from "@neo-ui-kit/react";
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
+import { QueryProvider } from "../../test/QueryProvider";
+import { Form } from "@neo-ui-kit/react";
 import { render, screen, waitFor } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
-import { MemoryRouter } from "react-router-dom";
+import { useEffect } from "react";
+import { TestRouter } from "../../test/QueryProvider";
 import { expect, it, vi } from "vitest";
-import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
+import { roomSession } from "../../providers/application";
 import type { RoomStateDto } from "../../contracts/models";
 import { audioClient } from "../../services/audioClient";
 import { clearStorage } from "../../shared/storage/localStore";
 import { useVoiceChain } from "../karaoke/console/voiceChain";
-import { SettingsProvider } from "../../app/SettingsProvider";
-import { AudioMonitoring } from "../settings/tabs/Audio/ui/AudioMonitoring";
+import AudioPanel from "../../pages/library/modals/settings/audio";
+import useSettingsForm from "../../pages/library/modals/settings/form";
 import { RoomDock } from "./RoomDock";
-vi.mock("../../app/SocialProvider", () => {
+vi.mock("../../providers/social", () => {
   const offline = { type: "offline" };
   const directory = { people: vi.fn(async () => []) };
   return {
-    useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
+    friendRelations: { befriend: vi.fn(async () => undefined) },
     useSocial: () => offline,
     useSocialDirectory: () => directory,
   };
 });
 
-vi.mock("../../app/DialogProvider", () => ({ useAsk: () => vi.fn() }));
-vi.mock("../../app/NotificationsProvider", () => ({
+vi.mock("../../providers/radio", () => ({ useRadio: () => ({ canControl: true }) }));
+vi.mock("../../providers/dialog", () => ({ ask: vi.fn() }));
+vi.mock("../../providers/notifications", () => ({
   useNotify: () => vi.fn(),
 }));
-vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
+
 vi.mock("../../services/roomClient", () => ({
   roomClient: { roomControl: vi.fn(), setRoomReadiness: vi.fn() },
 }));
@@ -34,6 +38,10 @@ vi.mock("../../services/desktopClient", () => ({
 }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
+    runtimeConfiguration: vi.fn(async () => ({ backend: "WASAPI Shared", sampleRate: 48000,
+      periodFrames: 480, endpointBufferFrames: 480, estimatedLatencyMs: 10 })),
+    listDevices: vi.fn(async () => []),
+    capabilities: vi.fn(async () => ({ microphone: "missing" })),
     setMixer: vi.fn(async () => undefined),
     setDspParameter: vi.fn(async () => undefined),
     setDspEnabled: vi.fn(async () => undefined),
@@ -72,39 +80,38 @@ const room = {
 } as unknown as RoomStateDto;
 
 const InRoom = () => {
-  const session = useRoomSession();
+  const session = roomSession;
   useEffect(() => session.setSnapshot(room), [session]);
   return null;
 };
 
 const RoomSwitch = ({ inRoom, voiceGain }: { inRoom: boolean; voiceGain: number }) => {
-  const session = useRoomSession();
-  const { updatePreferences } = useApp("preferences");
+  const session = roomSession;
+  const { updatePreferences } = store;
   useEffect(() => updatePreferences({ voiceGain }), [voiceGain, updatePreferences]);
   useEffect(() => session.setSnapshot(inRoom ? room : null), [inRoom, session]);
   return null;
 };
 
-const VoiceChain = () => {
+const VoiceChain = observer(() => {
   useVoiceChain();
   return null;
-};
+});
 
-const SettingsForm = ({ children }: { children: ReactNode }) => {
-  const { preferences } = useApp();
-  const form = useForm({ initialValues: { ...preferences } });
-  return <Form form={form}>{children}</Form>;
-};
+const SettingsForm = observer(() => {
+  const form = useSettingsForm("audio");
+  return <Form form={form}><AudioPanel form={form} language="ru" /></Form>;
+});
 
 it.each([0.68, 4])("keeps the stored microphone gain %s when joining and leaving a room", async (voiceGain) => {
   clearStorage();
   const tree = (inRoom: boolean) => (
-    <MemoryRouter>
-      <AppProvider>
+    <TestRouter>
+      <QueryProvider application>
         <RoomSwitch inRoom={inRoom} voiceGain={voiceGain} />
         <VoiceChain />
-      </AppProvider>
-    </MemoryRouter>
+      </QueryProvider>
+    </TestRouter>
   );
   const view = render(tree(true));
   await waitFor(() =>
@@ -125,29 +132,13 @@ it.each([0.68, 4])("keeps the stored microphone gain %s when joining and leaving
 it("never shows a knob for your own microphone in the room, whatever the settings hold", async () => {
   clearStorage();
   render(
-    <MemoryRouter>
-      <AppProvider>
+    <TestRouter>
+      <QueryProvider application>
         <InRoom />
-        <SettingsForm>
-          <SettingsProvider>
-            <AudioMonitoring
-              runtime={{
-                backend: "WASAPI Shared",
-                sampleRate: 48000,
-                periodFrames: 480,
-                endpointBufferFrames: 480,
-                estimatedLatencyMs: 10,
-              }}
-              audioAvailable
-              microphoneIssue={false}
-              latencyControls={null}
-              deviceControls={null}
-            />
-          </SettingsProvider>
-        </SettingsForm>
+        <SettingsForm />
         <RoomDock />
-      </AppProvider>
-    </MemoryRouter>,
+      </QueryProvider>
+    </TestRouter>,
   );
   expect(
     await screen.findByRole("slider", { name: "microphoneKnob" }),

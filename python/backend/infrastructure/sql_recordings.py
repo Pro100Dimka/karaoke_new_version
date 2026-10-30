@@ -10,6 +10,7 @@ from backend.infrastructure.sql_time import as_utc
 from backend.infrastructure.orm import AnalysisRow, RecordingRow
 from backend.serialization import dumps, loads_list, loads_optional_object
 from backend.recordings.domain import Recording
+from backend.recordings.ports import RecordingFileMetadata
 
 
 def _to_domain(row: RecordingRow) -> Recording:
@@ -68,6 +69,17 @@ class SqlRecordingRepository:
             raise KeyError(recording.recording_id)
         row.display_name = recording.display_name
         row.file_status = recording.file_status
+
+    def update_file(self, recording_id: str, path: Path, metadata: RecordingFileMetadata) -> None:
+        row = self._session.scalar(
+            select(RecordingRow).where(RecordingRow.recording_id == recording_id)
+        )
+        if row is None:
+            raise KeyError(recording_id)
+        row.file_path = str(path)
+        row.duration = metadata.duration
+        row.sample_rate = metadata.sample_rate
+        row.channels = metadata.channels
 
     def delete(self, recording_id: str) -> None:
         self._session.execute(delete(AnalysisRow).where(AnalysisRow.recording_id == recording_id))

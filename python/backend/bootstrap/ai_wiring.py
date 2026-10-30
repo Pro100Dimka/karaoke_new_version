@@ -134,6 +134,7 @@ def _command_provider(
         descriptor,
         command,
         processes,
+        resource_budget=config.resources,
     )
 
 

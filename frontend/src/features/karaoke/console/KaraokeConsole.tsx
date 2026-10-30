@@ -1,16 +1,14 @@
-import { Card, IconButton, Menu, tr } from "@neo-ui-kit/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Card, IconButton, tr, useLocale } from "@neo-ui-kit/react";
+import { useCallback, useMemo, useState } from "react";
 import { readText, storageKey, writeText } from "../../../shared/storage/localStore";
 import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { SongDto } from "../../../contracts/models";
-import { useText } from "../../../i18n/useText";
+import { ru } from "../../../i18n/messages.ru";
 import { DetachButton, DetachedPanel } from "../../../shared/ui/DetachedPanel";
-import { useHostWindow } from "../../../shared/ui/hostWindow";
 import { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import { useStoredPanelLayout } from "../../../shared/ui/useFloatingPanel";
 import type { useKaraokeSession } from "../useKaraokeSession";
 import { ConsoleFrame, consoleDesignHeight } from "./ConsoleFrame";
-import { EffectPresets } from "./EffectPresets";
 import { MasterVolume } from "./MasterVolume";
 import { MixerPanel } from "./MixerPanel";
 import { PracticeParameters } from "./PracticeParameters";
@@ -21,25 +19,12 @@ import { musicalKeyLabel } from "./musicalKey";
 import type { NoteRange } from "./noteRange";
 import { useVoiceEffects } from "./useVoiceEffects";
 
-// The console is 90vw wide and short, like the console strip on the karaoke screen. Panels are laid out in pixels,
-// so the share of the window is turned into pixels and followed as the window is resized.
-const consoleWidthShare = 0.9;
+// Keep each orientation's layout fixed; ConsoleFrame fits the whole surface to its window.
+const consoleWidths = { horizontal: 1144, vertical: 276 };
 const consolePlacements = { top: "Горизонтально сверху", bottom: "Горизонтально снизу",
   left: "Вертикально слева", right: "Вертикально справа", free: "Свободное размещение" };
 export type ConsolePlacement = keyof typeof consolePlacements;
 const dockKey = storageKey("consoleDock");
-
-const useViewportShare = (share: number): number => {
-  const host = useHostWindow();
-  const [width, setWidth] = useState(() => Math.round(host.innerWidth * share));
-  useEffect(() => {
-    const follow = () => setWidth(Math.round(host.innerWidth * share));
-    follow();
-    host.addEventListener("resize", follow);
-    return () => host.removeEventListener("resize", follow);
-  }, [share, host]);
-  return width;
-};
 
 type KaraokeSession = ReturnType<typeof useKaraokeSession>;
 
@@ -56,7 +41,7 @@ interface KaraokeConsoleProps {
 
 /**
  * The karaoke control surface. Top row: song strip, transport, master volume and scene layers.
- * Lower row: song channels, voice effects, practice parameters and effect presets.
+ * Lower row: song channels, practice parameters and voice effects with preset selection.
  */
 export const KaraokeConsole = ({
   song,
@@ -72,29 +57,35 @@ export const KaraokeConsole = ({
     session.effectValues,
     session.setEffectValues,
   );
-  const t = useText();
-  const consoleWidth = useViewportShare(consoleWidthShare);
+  useLocale();
+  const placement = useStoredPanelLayout("karaokeConsole");
+  const [dock, setDock] = useState<ConsolePlacement>(() => {
+    const saved = readText(dockKey);
+    return saved && saved in consolePlacements ? saved as ConsolePlacement : placement.layout ? "free" : "bottom";
+  });
+  const [vertical, setVertical] = useState(() => ["left", "right"].includes(dock) ||
+    (dock === "free" && !!placement.layout && placement.layout.height > placement.layout.width));
+  const consoleWidth = consoleWidths[vertical ? "vertical" : "horizontal"];
+  const changeDock = (next: ConsolePlacement) => {
+    setDock(next);
+    writeText(dockKey, next);
+    if (next !== "free") setVertical(["left", "right"].includes(next));
+  };
   // The size its own window opens with; the window then fits itself to the console's content.
   const consolePanelSize = useMemo(
     () => ({ width: consoleWidth, height: consoleDesignHeight }),
     [consoleWidth],
   );
   // The console is dragged anywhere by its surface, and past the window's edge into a window.
-  const placement = useStoredPanelLayout("karaokeConsole");
-  const [dock, setDock] = useState<ConsolePlacement>(() => {
-    const saved = readText(dockKey);
-    return saved && saved in consolePlacements ? saved as ConsolePlacement : placement.layout ? "free" : "bottom";
-  });
-  const menuAnchor = useRef<HTMLButtonElement>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const [presetsOpen, setPresetsOpen] = useState(false);
   const panel = useDetachedPanel(
     "karaokeConsole",
-    t("karaokeConsole"),
+    tr(ru.karaokeConsole),
     consolePanelSize,
-    placement.save,
+    (layout) => { placement.save(layout); changeDock("free"); },
   );
   // In a window of its own the console is always shown; auto-hide belongs to the karaoke screen.
-  const shown = visible || panel.detached;
+  const shown = visible || panel.detached || presetsOpen;
   const locked = !session.interactive || session.practiceLocked;
   const seekLocked = !session.interactive;
   const keyLabel = useMemo(
@@ -108,18 +99,38 @@ export const KaraokeConsole = ({
   );
 
   const changeMaster = useCallback((value: number) => { void session.changeGain("master", value); }, [session.changeGain]);
+  const mixerProps = {
+    gains: session.gains,
+    effects: effects.values,
+    onEffectChange: effects.change,
+    monitoring: session.monitoring,
+    microphoneAvailable,
+    onGainChange: session.changeGain,
+    onToggleMonitoring: session.toggleMonitoring,
+    selectedPreset: effects.preset,
+    presetsOpen,
+    onPresetsOpenChange: setPresetsOpen,
+    onPresetSelect: effects.applyPreset,
+  };
 
   return (
-    <DetachedPanel panel={panel}>
+    <DetachedPanel panel={panel} keepMounted>
       <ConsoleFrame
         panel={panel}
         placement={placement}
         dock={dock}
+        vertical={vertical}
+        onFloat={() => changeDock("free")}
         width={consoleWidth}
         shown={shown}
-        label={t("karaokeConsole")}
+        label={tr(ru.karaokeConsole)}
       >
         <Card border shell padding="sm" className="karaokeConsoleCard">
+          {Object.entries(consolePlacements).filter(([id]) => id !== "free" && (panel.detached || id !== dock)).map(([id, label]) => (
+            <IconButton key={id} className="consoleDockButton" data-edge={id}
+              size="xs" round icon="back" label={tr(label)} aria-pressed={dock === id && !panel.detached}
+              onClick={() => { changeDock(id as ConsolePlacement); panel.attach(); }} />
+          ))}
           <div className="consoleTopRow">
             <SongStrip
               song={song}
@@ -138,30 +149,14 @@ export const KaraokeConsole = ({
               onTogglePlay={() => void session.togglePlay()}
               onStop={() => void session.finishPerformance()}
             />
-            <DetachButton panel={panel} />
-            <IconButton ref={menuAnchor} icon="more" label={tr("Расположение консоли")}
-              onClick={() => setMenuOpen(true)} />
-            <Menu anchorRef={menuAnchor} open={menuOpen} onOpenChange={setMenuOpen}
-              label={tr("Расположение консоли")} items={Object.entries(consolePlacements).map(([id, label]) => ({
-                id, label: tr(label), icon: dock === id ? "check" : undefined,
-                disabled: panel.detached,
-                onSelect: () => { setDock(id as ConsolePlacement); writeText(dockKey, id); },
-              }))} />
+            <DetachButton panel={panel} size="xs" />
             <MasterVolume
               value={session.gains.master}
               onChange={changeMaster}
             />
           </div>
           <div className="consolePanels">
-            <MixerPanel
-              gains={session.gains}
-              effects={effects.values}
-              onEffectChange={effects.change}
-              monitoring={session.monitoring}
-              microphoneAvailable={microphoneAvailable}
-              onGainChange={session.changeGain}
-              onToggleMonitoring={session.toggleMonitoring}
-            />
+            <MixerPanel section="song" {...mixerProps} />
             <PracticeParameters
               speed={session.speed}
               baseBpm={session.document?.bpm}
@@ -180,11 +175,7 @@ export const KaraokeConsole = ({
               onSpeedChange={session.changeSpeed}
               onKeyChange={session.changeKey}
             />
-            <EffectPresets
-              selected={effects.preset}
-              microphoneAvailable={microphoneAvailable}
-              onSelect={effects.applyPreset}
-            />
+            <MixerPanel section="voice" {...mixerProps} />
           </div>
         </Card>
       </ConsoleFrame>

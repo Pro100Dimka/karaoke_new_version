@@ -5,24 +5,6 @@
   color: var(--ad-text);
 }
 
-/* The kit supplies only the animated layer here; the theme picture lives on .appTheme. */
-.libraryBackdrop.ad-quantum-background {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  height: 100%;
-  border-radius: 0;
-  pointer-events: none;
-  /* The kit's post-processing leaves dark particle edges; a light overlay preserves the theme picture. */
-  mix-blend-mode: screen;
-}
-/* Under any open window the scene is not drawn at all: display:none stops its frames (the scene
-   pauses when it leaves the viewport) while the iframe stays alive, so closing resumes it at once.
-   Otherwise the GPU re-renders a full-screen post-processed scene under every dialog. */
-:root:has(dialog[open]) .libraryBackdrop {
-  display: none;
-}
-
 .titleBar {
   position: fixed;
   top: 0;
@@ -92,8 +74,8 @@
 }
 .floatingControls {
   position: fixed;
-  right: var(--ad-space-6);
-  bottom: var(--ad-space-6);
+  right: 1vw;
+  bottom: 1vh;
   z-index: var(--ad-z-floating);
   display: flex;
   gap: var(--ad-space-3);
@@ -139,8 +121,7 @@
   gap: var(--ad-space-3);
   min-width: 14rem;
 }
-.bootstrapState,
-.fatalError {
+.bootstrapState {
   display: grid;
   place-items: center;
   height: 100%;
@@ -149,14 +130,4 @@
 .serviceBanners {
   position: relative;
   z-index: var(--ad-z-floating);
-}
-.toastLayer {
-  position: fixed;
-  right: 1rem;
-  bottom: 5.25rem;
-  z-index: var(--ad-z-toast);
-  display: grid;
-  gap: 0.5rem;
-  width: min(26rem, calc(100vw - 2rem));
-  pointer-events: none;
 }

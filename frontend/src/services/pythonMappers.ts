@@ -1,6 +1,5 @@
 import type {
   AnalysisDto,
-  ModelDto,
   ProcessingJobDto,
   RecordingDto,
   SongDto,
@@ -230,16 +229,6 @@ export const mapAnalysis = (analysis: BackendAnalysis): AnalysisDto => {
   };
 };
 
-export interface BackendModel {
-  modelId: string;
-  purpose: string;
-  version: string;
-  size: number;
-  requiredDiskBytes: number;
-  state: string;
-  selected: boolean;
-}
-
 export interface BackendHistoryPage {
   items: {
     eventId: string;
@@ -251,17 +240,6 @@ export interface BackendHistoryPage {
   }[];
   total: number;
 }
-
-const modelStates = new Map<string, ModelDto["state"]>([
-  ["ready", "ready"],
-  ["downloading", "downloading"],
-  ["verifying", "downloading"],
-  ["failed", "failed"],
-  ["modelupdateavailable", "update-available"],
-]);
-
-export const modelState = (value: string): ModelDto["state"] =>
-  mapped(modelStates, value, "not-installed");
 
 /** Any non-null object, arrays included: backend payloads read field by field. */
 const isObject = (value: unknown): value is Record<string, unknown> =>

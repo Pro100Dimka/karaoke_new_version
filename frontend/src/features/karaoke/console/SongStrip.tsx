@@ -1,7 +1,7 @@
 import { memo } from "react";
-import { Equalizer, Icon, Typography, Waveform } from "@neo-ui-kit/react";
+import { Equalizer, Icon, Typography, Waveform, tr, useLocale } from "@neo-ui-kit/react";
 import type { SongDto } from "../../../contracts/models";
-import { useText } from "../../../i18n/useText";
+import { ru } from "../../../i18n/messages.ru";
 import { formatTime } from "../../../shared/utils/format";
 import { useWaveformPeaks } from "../../../shared/hooks/useWaveformPeaks";
 
@@ -23,7 +23,7 @@ export const SongStrip = memo(({
   playing,
   onSeek,
 }: SongStripProps) => {
-  const t = useText();
+  useLocale();
   const peaks = useWaveformPeaks(song.id, song.activeRevision);
   return (
     <div className="songStrip">
@@ -38,16 +38,16 @@ export const SongStrip = memo(({
           {song.artist}
         </Typography>
       </div>
-      <Typography variant="caption">{formatTime(position)}</Typography>
+      <Typography className="songStripElapsed" variant="caption">{formatTime(position)}</Typography>
       <Waveform
         points={peaks ?? []}
         position={position}
         duration={duration}
         disabled={locked}
-        label={t("songPosition")}
+        label={tr(ru.songPosition)}
         onSeek={onSeek}
       />
-      <Typography variant="caption">{formatTime(duration)}</Typography>
+      <Typography className="songStripDuration" variant="caption">{formatTime(duration)}</Typography>
     </div>
   );
 });

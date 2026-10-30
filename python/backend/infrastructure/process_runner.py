@@ -11,13 +11,14 @@ from queue import Empty, Full, Queue
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Callable, Mapping, Protocol, Sequence
+from typing import IO, Callable, Iterable, Mapping, Protocol, Sequence
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.windows_child_job import WindowsChildJob
 
 # Provider JSON and diagnostics are control data, not streaming PCM. Bound their combined retention.
 MAX_PROCESS_OUTPUT_BYTES = 256 * 1024 * 1024
+ProcessInput = bytes | Callable[[threading.Event], Iterable[bytes]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,15 +37,20 @@ class ProcessRunner:
         cwd: Path | None = None,
         environment: Mapping[str, str] | None = None,
         cancel: threading.Event | None = None,
-        input_data: bytes | None = None,
+        input_data: ProcessInput | None = None,
+        cpu_fraction: float | None = None,
     ) -> ProcessResult:
         if cancel and cancel.is_set():
             raise DomainError("ProcessCancelled", "External process was cancelled", 499)
+        if cpu_fraction is not None and sys.platform != "win32":
+            raise DependencyError(
+                "ProcessCpuLimitUnavailable", "Process CPU limits are unavailable"
+            )
         process = None
         job = None
         pipes = None
         try:
-            job = WindowsChildJob() if sys.platform == "win32" else None
+            job = WindowsChildJob(cpu_fraction=cpu_fraction) if sys.platform == "win32" else None
             process = self._start(command, cwd, environment, job is not None)
             if job:
                 job.attach_and_resume(process.pid)
@@ -61,13 +67,17 @@ class ProcessRunner:
             if job:
                 job.close()
             if process is not None:
-                self._terminate_tree(process)
-                if pipes is not None:
-                    pipes.join()
-                for stream in (process.stdin, process.stdout, process.stderr):
-                    if stream:
-                        with suppress(OSError):
-                            stream.close()
+                self._cleanup_process(process, pipes)
+
+    @staticmethod
+    def _cleanup_process(process: subprocess.Popen[bytes], pipes: _ProcessIo | None) -> None:
+        ProcessRunner._terminate_tree(process)
+        if pipes is not None:
+            pipes.join()
+        for stream in (process.stdin, process.stdout, process.stderr):
+            if stream:
+                with suppress(OSError):
+                    stream.close()
 
     @staticmethod
     def _start(
@@ -116,6 +126,7 @@ class ProcessRunner:
                 process.wait(timeout=min(0.1, remaining))
             except subprocess.TimeoutExpired:
                 continue
+            pipes.stop_input()
             if pipes.finished.wait(timeout=min(0.1, remaining)):
                 stdout, stderr = pipes.output()
                 return ProcessResult(process.returncode, stdout, stderr)
@@ -139,10 +150,13 @@ class ProcessRunner:
 class _ProcessIo:
     """Owns bounded pipe readers and an optional writer until the process tree is reaped."""
 
-    def __init__(self, process: subprocess.Popen[bytes], limit: int, data: bytes | None) -> None:
+    def __init__(
+        self, process: subprocess.Popen[bytes], limit: int, data: ProcessInput | None
+    ) -> None:
         self._process = process
         self._limit = limit
         self._data = data
+        self._input_stop = threading.Event()
         self._stdout = bytearray()
         self._stderr = bytearray()
         self._bytes = 0
@@ -195,18 +209,23 @@ class _ProcessIo:
                 output.extend(chunk)
 
     def _write(self, stream: IO[bytes]) -> None:
-        data = memoryview(self._data or b"")
-        offset = 0
         try:
-            while offset < len(data):
-                written = os.write(stream.fileno(), data[offset : offset + 65536])
-                if written <= 0:
-                    raise OSError("External process input pipe made no progress")
-                offset += written
+            chunks = self._data(self._input_stop) if callable(self._data) else (self._data or b"",)
+            for chunk in chunks:
+                data = memoryview(chunk)
+                offset = 0
+                while offset < len(data):
+                    written = os.write(stream.fileno(), data[offset : offset + 65536])
+                    if written <= 0:
+                        raise OSError("External process input pipe made no progress")
+                    offset += written
         except BrokenPipeError:
             pass  # The child may intentionally exit without consuming all input.
         finally:
             stream.close()
+
+    def stop_input(self) -> None:
+        self._input_stop.set()
 
     def raise_if_failed(self) -> None:
         with self._mutex:
@@ -220,6 +239,7 @@ class _ProcessIo:
 
     def join(self) -> None:
         # The owner closes its job/process group before joining, so inherited pipe handles close too.
+        self.stop_input()
         for thread in self._threads:
             if thread.ident is not None:
                 thread.join()

@@ -54,6 +54,24 @@ class LyricsDiscoveryResult:
     unverified_repeat_lyrics: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedLyrics:
+    found: LyricsDiscoveryResult | None
+    warnings: tuple[str, ...]
+    transcripts: tuple[str, ...] | None = None
+
+
+def lyrics_ending_start(song: Song, found: LyricsDiscoveryResult | None) -> float | None:
+    return (
+        song.duration - 48
+        if found is not None
+        and found.source != "ASR"
+        and song.duration is not None
+        and song.duration > 48
+        else None
+    )
+
+
 class LyricsDiscovery:
     def __init__(
         self,
@@ -77,7 +95,21 @@ class LyricsDiscovery:
         *,
         online_enabled: bool,
         execution: ExecutionContext,
+        prepared: PreparedLyrics | None = None,
     ) -> LyricsDiscoveryResult:
+        source = prepared if prepared is not None else self.lookup(song, cancel, online_enabled)
+        return self._performed(
+            song,
+            reference_vocal,
+            asr,
+            cancel,
+            source.found,
+            source.warnings,
+            execution,
+            source.transcripts,
+        )
+
+    def lookup(self, song: Song, cancel: threading.Event, online_enabled: bool) -> PreparedLyrics:
         local = self._local(song)
         warnings: list[str] = []
         previous = self._previous(song, warnings) if local is None else None
@@ -96,7 +128,7 @@ class LyricsDiscovery:
                     for hint in found.timing_hints
                 ),
             )
-        return self._performed(song, reference_vocal, asr, cancel, found, warnings, execution)
+        return PreparedLyrics(found, tuple(warnings))
 
     def _performed(
         self,
@@ -107,10 +139,13 @@ class LyricsDiscovery:
         found: LyricsDiscoveryResult | None,
         warnings: Sequence[str],
         execution: ExecutionContext,
+        prefetched: Sequence[str] | None = None,
     ) -> LyricsDiscoveryResult:
         # Separation can remove a sung entry. Recognize both views independently;
         # reconciliation counts occurrences, rather than concatenating their transcripts.
-        recognized, ending = self._transcripts(song, reference_vocal, asr, cancel, found, execution)
+        recognized, ending = self._transcripts(
+            song, reference_vocal, asr, cancel, found, execution, prefetched
+        )
         language = lyrics_language(song, found.lyrics if found else "")
         transcripts = [
             clean_lyrics(lyrics, language.value if found else lyrics_language(song, lyrics).value)
@@ -134,22 +169,20 @@ class LyricsDiscovery:
         cancel: threading.Event,
         found: LyricsDiscoveryResult | None,
         execution: ExecutionContext,
+        prefetched: Sequence[str] | None = None,
     ) -> tuple[Sequence[str], tuple[Language, str] | None]:
         sources = [reference_vocal]
         if found and song.source_path and song.source_path.is_file():
             sources.append(song.source_path)
         sources = list(dict.fromkeys(sources))
         language = lyrics_language(song, found.lyrics if found else "")
+        ending = lyrics_ending_start(song, found)
+        if prefetched is not None:
+            return prefetched[: len(sources)], (
+                (language, prefetched[-1]) if ending is not None else None
+            )
         if isinstance(asr, BatchTranscriber):
             requests = [(source, 0.0) for source in sources]
-            ending = (
-                song.duration - 48
-                if found is not None
-                and found.source != "ASR"
-                and song.duration is not None
-                and song.duration > 48
-                else None
-            )
             if ending is not None:
                 requests.append((reference_vocal, ending))
             transcripts = asr.transcribe_many(requests, language, cancel, execution=execution)

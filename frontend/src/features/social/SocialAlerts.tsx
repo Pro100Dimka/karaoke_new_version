@@ -1,18 +1,18 @@
+import { friendRelations } from "../../providers/social";
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { playNotificationSound } from "../../app/NotificationsProvider";
-import { Button, Card, Stack, Typography } from "@neo-ui-kit/react";
-import { useApp } from "../../app/AppContext";
-import {
-  useFriendRelations,
-  useRoomInvitations,
-} from "../../app/SocialProvider";
+import { playNotificationSound } from "../../providers/notifications";
+import { Button, Card, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
+
+import { useRoomInvitations } from "../../providers/social";
 import type {
   OnlineInbox,
   SocialInbox,
   SocialInvite,
   SocialPerson,
 } from "../../contracts/social";
-import { useText } from "../../i18n/useText";
+import { ru } from "../../i18n/messages.ru";
 import { PersonAvatar } from "./PersonAvatar";
 import { useSocialAction } from "./useSocialAction";
 
@@ -48,11 +48,12 @@ const Alert = ({
  * Friend requests and room invitations waiting for an answer, in a corner of every screen. A
  * request put off with "Later" stays in the Friends window; an invitation expires with its room.
  */
-const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
-  const t = useText();
-  const { room, preferences } = useApp();
+const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
+  useLocale();
+  const { preferences } = store;
+  const { room } = store.online;
   const invitations = useRoomInvitations();
-  const friends = useFriendRelations();
+  const friends = friendRelations;
   const [later, setLater] = useState<ReadonlySet<string>>(new Set());
   const { busy, run } = useSocialAction();
   const acceptInvite = (invite: SocialInvite) =>
@@ -97,7 +98,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={invite.inviteId}
           person={invite.sender}
-          text={t("roomInviteAlert", { name: invite.sender.displayName })}
+          text={tr(ru.roomInviteAlert, { name: invite.sender.displayName })}
           actions={
             <>
               <Button
@@ -107,7 +108,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 disabled={busy}
                 onClick={() => void acceptInvite(invite)}
               >
-                {t("acceptAction")}
+                {tr(ru.acceptAction)}
               </Button>
               <Button
                 size="sm"
@@ -117,7 +118,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                   void run(() => invitations.decline(invite.inviteId))
                 }
               >
-                {t("declineAction")}
+                {tr(ru.declineAction)}
               </Button>
             </>
           }
@@ -127,7 +128,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={`join:${request.person.accountId}:${request.roomId}`}
           person={request.person}
-          text={t("joinRequested", { name: request.person.displayName })}
+          text={tr(ru.joinRequested, { name: request.person.displayName })}
           actions={
             <Button
               size="sm"
@@ -142,7 +143,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                   );
               }}
             >
-              {t("acceptAction")}
+              {tr(ru.acceptAction)}
             </Button>
           }
         />
@@ -151,7 +152,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={person.accountId}
           person={person}
-          text={t("friendRequestAlert", { name: person.displayName })}
+          text={tr(ru.friendRequestAlert, { name: person.displayName })}
           actions={
             <>
               <Button
@@ -161,7 +162,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                 disabled={busy}
                 onClick={() => void run(() => friends.accept(person.accountId))}
               >
-                {t("acceptAction")}
+                {tr(ru.acceptAction)}
               </Button>
               <Button
                 size="sm"
@@ -171,7 +172,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                   void run(() => friends.decline(person.accountId))
                 }
               >
-                {t("declineAction")}
+                {tr(ru.declineAction)}
               </Button>
               <Button
                 size="sm"
@@ -182,7 +183,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
                   setLater((current) => new Set(current).add(person.accountId))
                 }
               >
-                {t("laterAction")}
+                {tr(ru.laterAction)}
               </Button>
             </>
           }
@@ -190,7 +191,7 @@ const OnlineSocialAlerts = ({ inbox }: { inbox: OnlineInbox }) => {
       ))}
     </div>
   );
-};
+});
 
 export const SocialAlerts = ({ inbox }: { inbox: SocialInbox }) =>
   inbox.type === "inbox" ? <OnlineSocialAlerts inbox={inbox} /> : null;

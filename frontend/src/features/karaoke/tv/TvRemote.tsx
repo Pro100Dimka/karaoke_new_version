@@ -1,6 +1,6 @@
-import { Button, Card, Icon, IconButton } from "@neo-ui-kit/react";
+import { Button, Card, Icon, IconButton, tr, useLocale } from "@neo-ui-kit/react";
 import { useNowPlaying } from "../../../app/desktop/shellBus";
-import { useText } from "../../../i18n/useText";
+import { ru } from "../../../i18n/messages.ru";
 import { useKaraokeTv } from "./karaokeTv";
 import "./tv.css";
 
@@ -11,38 +11,38 @@ import "./tv.css";
 export const TvRemote = () => {
   const tv = useKaraokeTv();
   const playing = useNowPlaying();
-  const t = useText();
+  useLocale();
   if (!tv?.active) return null;
   const [next] = tv.queue;
   const later = tv.queue.length - 1;
   return (
-    <Card border shell padding="sm" className="tvRemote" role="region" aria-label={t("tvRemote")}>
+    <Card border shell padding="sm" className="tvRemote" role="region" aria-label={tr(ru.tvRemote)}>
       <span className="tvRemoteIcon">
         <Icon name="window" />
       </span>
       <div className="tvRemoteSong">
-        <span className="tvRemoteLabel">{t("tvNowPlaying")}</span>
+        <span className="tvRemoteLabel">{tr(ru.tvNowPlaying)}</span>
         <strong className="tvRemoteTitle">
-          {playing ? [playing.title, playing.artist].filter(Boolean).join(" — ") : t("loadingSong")}
+          {playing ? [playing.title, playing.artist].filter(Boolean).join(" — ") : tr(ru.loadingSong)}
         </strong>
         {next && (
           <span className="tvRemoteNext">
             {later > 0
-              ? t("tvNextMany", { title: next.title, count: later })
-              : t("tvNext", { title: next.title })}
+              ? tr(ru.tvNextMany, { title: next.title, count: later })
+              : tr(ru.tvNext, { title: next.title })}
           </span>
         )}
       </div>
       <IconButton
         round
         icon={playing?.playing ? "pause" : "play"}
-        label={t(playing?.playing ? "pause" : "tvPlay")}
+        label={tr(ru[playing?.playing ? "pause" : "tvPlay"])}
         disabled={!playing}
         onClick={() => playing?.togglePlayback()}
       />
-      <IconButton round icon="stop" label={t("tvStop")} onClick={tv.stop} />
+      <IconButton round icon="stop" label={tr(ru.tvStop)} onClick={tv.stop} />
       <Button size="sm" icon="back" onClick={tv.bringBack}>
-        {t("tvBringBack")}
+        {tr(ru.tvBringBack)}
       </Button>
     </Card>
   );

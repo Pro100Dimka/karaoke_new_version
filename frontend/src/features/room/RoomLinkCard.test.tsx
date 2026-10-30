@@ -7,11 +7,11 @@ const roomTiming = vi.hoisted(() => vi.fn());
 const setMonitoring = vi.hoisted(() => vi.fn());
 const monitoringStatus = vi.hoisted(() => vi.fn());
 const notify = vi.hoisted(() => vi.fn());
-vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => notify }));
+vi.mock("../../providers/notifications", () => ({ useNotify: () => notify }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: { roomTiming, setMonitoring, monitoringEnabled: () => false },
 }));
-vi.mock("../../app/AppContext", () => {
+vi.mock("../../providers/application", () => {
   const voice = {
     monitoringEnabled: () => false,
     setMonitoring,
@@ -25,11 +25,7 @@ vi.mock("../../app/AppContext", () => {
   };
   return { useRoomVoice: () => voice };
 });
-vi.mock("../../i18n/useText", async (importOriginal) => ({
-  ...await importOriginal<typeof import("../../i18n/useText")>(),
-  useText: () => (key: string, values?: Record<string, unknown>) =>
-    values ? `${key}:${Object.values(values).join(",")}` : key,
-}));
+
 
 beforeEach(() => monitoringStatus.mockResolvedValue({ monitoring: false, monitoringSafetyTripped: false }));
 afterEach(() => vi.clearAllMocks());
@@ -46,9 +42,9 @@ it("keeps the real room delay while voices pause instead of jumping to the rough
   roomTiming.mockResolvedValueOnce(timing(82)).mockResolvedValue(timing(0));
   vi.useFakeTimers({ shouldAdvanceTime: true });
   render(<RoomLinkCard />);
-  expect(await screen.findByText("millisecondsValue:82")).toBeInTheDocument();
+  expect(await screen.findByText("82 мс")).toBeInTheDocument();
   await vi.advanceTimersByTimeAsync(2_100);
-  expect(screen.getByText("millisecondsValue:82")).toBeInTheDocument();
+  expect(screen.getByText("82 мс")).toBeInTheDocument();
   expect(screen.queryByText("millisecondsValue:16")).not.toBeInTheDocument();
   vi.useRealTimers();
 });
@@ -64,7 +60,7 @@ it("turns monitoring on and off from its switch", async () => {
   });
   setMonitoring.mockResolvedValue({ monitoring: true });
   render(<RoomLinkCard />);
-  const toggle = await screen.findByRole("switch", { name: "monitoring" });
+  const toggle = await screen.findByRole("switch", { name: "Мониторинг" });
   expect(toggle).not.toBeChecked();
   fireEvent.click(toggle);
   await vi.waitFor(() => expect(toggle).toBeChecked());
@@ -78,7 +74,7 @@ it("reports an emergency monitoring disconnect while the room link is open", asy
   });
   monitoringStatus.mockResolvedValue({ monitoring: false, monitoringSafetyTripped: true });
   render(<RoomLinkCard />);
-  await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("monitoringSafetyStopped", "error"));
+  await vi.waitFor(() => expect(notify).toHaveBeenCalledWith("Мониторинг микрофона отключён: входной сигнал долго оставался слишком громким. Уменьшите громкость колонок или используйте наушники перед повторным включением.", "error"));
 });
 
 it("shows the reason when monitoring is blocked before playback", async () => {
@@ -86,7 +82,7 @@ it("shows the reason when monitoring is blocked before playback", async () => {
     estimatedVoiceLatencyMs: 16, voiceDelayMs: 20, followMs: 0, remotes: {} });
   setMonitoring.mockRejectedValue(new Error(unverifiedAsioMonitoring));
   render(<RoomLinkCard />);
-  fireEvent.click(await screen.findByRole("switch", { name: "monitoring" }));
+  fireEvent.click(await screen.findByRole("switch", { name: "Мониторинг" }));
   await vi.waitFor(() => expect(notify).toHaveBeenCalledWith(
-    "monitoringAsio4AllBlocked", "error"));
+    "Мониторинг заблокирован: вход ASIO4ALL не подтверждён и может вызвать громкий свист. Для прослушивания нужны наушники и WASAPI Shared.", "error"));
 });

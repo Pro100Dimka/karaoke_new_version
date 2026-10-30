@@ -4,10 +4,11 @@ import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
+from math import ceil
 
 from backend.ai.domain import AiProviderDescriptor
-from backend.ai.ports import AiProvider
-from backend.diagnostics.ports import RuntimeProbe
+from backend.ai.ports import AiProvider, StreamingTranscriber
+from backend.diagnostics.ports import RuntimeDiagnostics, RuntimeProbe
 from backend.domain_errors import DependencyError
 from backend.models.domain import ComputeMode
 from backend.processing.compute_policy import (
@@ -82,7 +83,14 @@ class ProcessingResourceScheduler:
             providers.alignment.descriptor,
             providers.pitch.descriptor,
         )
-        return self._claim(descriptors, source_bytes, compute_mode, cpu_threads)
+        return self._claim(
+            descriptors,
+            source_bytes,
+            compute_mode,
+            cpu_threads,
+            allow_original_overlap=providers.asr.descriptor.provider_id == "local-torch"
+            and isinstance(providers.asr, StreamingTranscriber),
+        )
 
     def claim_provider(
         self,
@@ -102,13 +110,13 @@ class ProcessingResourceScheduler:
         source_bytes: int,
         compute_mode: ComputeMode,
         cpu_threads: int | None,
+        *,
+        allow_original_overlap: bool = False,
     ) -> ResourceLease:
-        threads = (
-            self._budget.cpu_threads
-            if cpu_threads is None
-            else max(1, min(cpu_threads, self._budget.cpu_threads))
+        threads = self._budget.cpu_threads if cpu_threads is None else cpu_threads
+        request = self._request(
+            descriptors, source_bytes, max(1, min(threads, self._budget.cpu_threads))
         )
-        request = self._request(descriptors, source_bytes, threads)
         self._storage.require_free(
             self._disk_root,
             self._budget.min_free_disk_bytes + request.disk_bytes,
@@ -129,13 +137,45 @@ class ProcessingResourceScheduler:
             )
             if execution.device is ComputeDevice.CPU:
                 request = replace(request, vram_bytes=0)
-            self._validate(
-                request, runtime.available_ram_bytes, runtime.total_ram_bytes, usable_vram, execution
-            )
+            if allow_original_overlap:
+                request, execution = self._original_overlap(request, execution, runtime)
+            self._validate(request, runtime, usable_vram, execution)
             self._reserved_cpu += request.cpu_threads
             self._reserved_ram += request.ram_bytes
             self._reserved_vram += request.vram_bytes
         return ResourceLease(self, request, execution)
+
+    def _original_overlap(
+        self, request: ResourceRequest, execution: ExecutionContext, runtime: RuntimeDiagnostics
+    ) -> tuple[ResourceRequest, ExecutionContext]:
+        if not (
+            execution.device is ComputeDevice.CUDA
+            and runtime.cpu_limit_supported
+            and runtime.vram_is_current
+            and request.cpu_threads > 1
+            and request.ram_bytes > 0
+            and request.vram_bytes > 0
+            and runtime.available_ram_bytes is not None
+            and runtime.free_vram_bytes is not None
+            and runtime.vram_bytes is not None
+        ):
+            return request, execution
+        parallel_vram = max(
+            0,
+            runtime.free_vram_bytes
+            - ceil(runtime.vram_bytes * (1 - self._budget.max_vram_fraction)),
+        )
+        ram_needed = self._reserved_ram + 2 * request.ram_bytes + self._budget.min_free_ram_bytes
+        vram_needed = self._reserved_vram + 2 * request.vram_bytes
+        if ram_needed > runtime.available_ram_bytes or vram_needed > parallel_vram:
+            return request, execution
+        return (
+            replace(request, ram_bytes=2 * request.ram_bytes, vram_bytes=2 * request.vram_bytes),
+            replace(
+                execution,
+                parallel_cpu_fraction=min(1.0, request.cpu_threads / max(1, runtime.cpu_count)),
+            ),
+        )
 
     def release(self, request: ResourceRequest) -> None:
         with self._lock:
@@ -161,12 +201,15 @@ class ProcessingResourceScheduler:
     def _validate(
         self,
         request: ResourceRequest,
-        available_ram: int | None,
-        total_ram: int | None,
+        runtime: RuntimeDiagnostics,
         usable_vram: int | None,
         execution: ExecutionContext,
     ) -> None:
-        if total_ram is not None and request.ram_bytes + self._budget.min_free_ram_bytes > total_ram:
+        available_ram, total_ram = runtime.available_ram_bytes, runtime.total_ram_bytes
+        if (
+            total_ram is not None
+            and request.ram_bytes + self._budget.min_free_ram_bytes > total_ram
+        ):
             raise DependencyError(
                 "InsufficientRam", "The selected AI models need more RAM than this computer has"
             )

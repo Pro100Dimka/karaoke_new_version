@@ -1,0 +1,46 @@
+/* The library page: identity and headline numbers, the toolbar, then the songs as a grid of
+   Neo UI cards. Only layout and the song card's own scene live here. */
+.dropOverlay {
+  position: absolute;
+  inset: 0.75rem;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border: 0.125rem dashed var(--ad-primary);
+  border-radius: var(--ad-radius-lg, 1rem);
+  background: rgb(0 0 0 / 0.45);
+  font-size: 1.25rem;
+  pointer-events: none;
+}
+.sceneCurtain {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ad-z-system) - 1);
+  background: #000;
+  animation: scene-curtain-in 0.4s var(--ad-ease-standard) both;
+  pointer-events: all;
+}
+@keyframes scene-curtain-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Adding a song: one big picker, the file's facts, progress and the two actions. */
+
+.addSongForm,
+.songSettingsForm {
+  display: grid;
+  gap: var(--ad-space-4);
+}
+.addSongActions,
+.songSettingsActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ad-space-2);
+}
+
+
+
+.songSettingsCover { inline-size: min(100%, 18rem); max-block-size: 15rem; object-fit: contain; border-radius: var(--ad-radius); }

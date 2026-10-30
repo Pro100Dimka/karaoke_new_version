@@ -44,6 +44,40 @@ def test_complete_output_and_input_survive_chunked_pipe_io():
     assert result.exit_code == 0 and result.stdout == data[::-1] and result.stderr == data
 
 
+def test_deferred_input_stops_when_the_child_finishes_before_later_chunks():
+    stopped = threading.Event()
+
+    def chunks(stop):
+        yield b"first\n"
+        assert stop.wait(2), "an exited child must release its waiting input producer"
+        stopped.set()
+
+    result = ProcessRunner().run(
+        [sys.executable, "-c", "import sys; print(sys.stdin.buffer.readline().decode().strip())"],
+        timeout_seconds=3,
+        input_data=chunks,
+    )
+    assert result.exit_code == 0 and result.stdout.strip() == b"first"
+    assert stopped.is_set()
+
+
+def test_timeout_releases_a_deferred_input_producer():
+    stopped = threading.Event()
+
+    def chunks(stop):
+        yield b"first\n"
+        assert stop.wait(2), "a timed-out child must release its input producer"
+        stopped.set()
+
+    with pytest.raises(DependencyError, match="timed out"):
+        ProcessRunner().run(
+            [sys.executable, "-c", "import threading; threading.Event().wait(10)"],
+            timeout_seconds=0.1,
+            input_data=chunks,
+        )
+    assert stopped.is_set()
+
+
 def test_partial_pipe_worker_startup_reaps_started_workers(monkeypatch):
     original = threading.Thread.start
     started = 0

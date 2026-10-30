@@ -1,26 +1,27 @@
-import { Icon, IconButton, Popover, Slider, tr } from "@neo-ui-kit/react";
-import { useNavigate } from "react-router-dom";
+import { observer } from "mobx-react-lite";
+import { Icon, IconButton, Popover, Slider, tr, useLocale, useRouter } from "@neo-ui-kit/react";
+
 import { routes } from "../shared/routes";
 import { useRef, useState } from "react";
-import { useText } from "../i18n/useText";
-import { useApp } from "./AppContext";
-import { useRadio } from "./RadioContext";
+import { ru } from "../i18n/messages.ru";
+import { store } from "../providers/store";
+import { toggleRadio, setRadioVolume } from "../providers/radio";
 import { useRadioTrack } from "./desktop/shellBus";
 
 /** The radio and settings buttons in the lower corner; the radio's volume opens on hover. */
-export const FloatingControls = () => {
-  const t = useText();
-  const navigate = useNavigate();
-  const radio = useRadio();
+export const FloatingControls = observer(() => {
+  useLocale();
+  const { navigate } = useRouter();
+  const radio = store.radio;
   const track = useRadioTrack();
-  const { openSettings } = useApp("actions");
+  const { openSettings } = store;
   const el = (
     <IconButton
       round
       size="lg"
-      className="floatingButton"
+      variant="ghost"
       icon="settings"
-      label={t("settings")}
+      label={tr(ru.settings)}
       onClick={() => openSettings()}
     />
   );
@@ -28,7 +29,7 @@ export const FloatingControls = () => {
   const [volumeOpen, setVolumeOpen] = useState(false);
 
   return (
-    <aside className="floatingControls" aria-label={t("settings")}>
+    <aside className="floatingControls" aria-label={tr(ru.settings)}>
       <div
         onMouseEnter={() => radio.enabled && setVolumeOpen(true)}
         onMouseLeave={() => setVolumeOpen(false)}
@@ -37,13 +38,12 @@ export const FloatingControls = () => {
           ref={radioAnchor}
           round
           size="lg"
-          className="floatingButton"
           icon="radio"
-          label={t("radio")}
+          label={tr(ru.radio)}
           aria-pressed={radio.enabled}
-          variant={radio.enabled ? "primary" : "secondary"}
+          variant={radio.enabled ? "primary" : "ghost"}
           disabled={!radio.canControl}
-          onClick={radio.toggle}
+          onClick={toggleRadio}
         />
         <Popover
           open={volumeOpen}
@@ -51,7 +51,7 @@ export const FloatingControls = () => {
           anchorRef={radioAnchor}
           align="end"
           autoFocus={false}
-          label={t("radioVolume")}
+          label={tr(ru.radioVolume)}
           className="radioPopover"
         >
           {track && (
@@ -63,18 +63,18 @@ export const FloatingControls = () => {
           <div className="radioVolume">
             <Icon name="volume" />
             <Slider
-              label={t("radioVolume")}
+              label={tr(ru.radioVolume)}
               min={0}
               max={100}
               value={radio.volume}
-              onValueChange={radio.setVolume}
+              onValueChange={setRadioVolume}
             />
           </div>
         </Popover>
       </div>
       {el}
-      <IconButton round size="lg" className="floatingButton" icon="info"
+      <IconButton round size="lg" variant="ghost" icon="info"
         label={tr("Инструкция")} onClick={() => navigate(routes.help)} />
     </aside>
   );
-};
+});

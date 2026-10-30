@@ -43,8 +43,14 @@ class _ThreadEntry(ctypes.Structure):
     ]
 
 
+class _CpuRate(ctypes.Structure):
+    _fields_ = [("flags", wintypes.DWORD), ("rate", wintypes.DWORD)]
+
+
 class WindowsChildJob:
-    def __init__(self) -> None:
+    def __init__(self, *, cpu_fraction: float | None = None) -> None:
+        if cpu_fraction is not None and not 0 < cpu_fraction <= 1:
+            raise ValueError("cpu_fraction must be in (0, 1]")
         self._api = ctypes.WinDLL("kernel32", use_last_error=True)
         signatures = {
             "CreateJobObjectW": ([ctypes.c_void_p, wintypes.LPCWSTR], wintypes.HANDLE),
@@ -71,6 +77,18 @@ class WindowsChildJob:
         limits.basic.flags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE; no breakaway allowed.
         if not self._api.SetInformationJobObject(
             self._handle, 9, ctypes.byref(limits), ctypes.sizeof(limits)
+        ):
+            error = ctypes.WinError()
+            self.close()
+            raise error
+        if cpu_fraction is not None:
+            self._limit_cpu(cpu_fraction)
+
+    def _limit_cpu(self, fraction: float) -> None:
+        # ENABLE | HARD_CAP; numerical thread settings remain independent of the CPU quota.
+        rate = _CpuRate(0x1 | 0x4, max(1, int(fraction * 10000)))
+        if not self._api.SetInformationJobObject(
+            self._handle, 15, ctypes.byref(rate), ctypes.sizeof(rate)
         ):
             error = ctypes.WinError()
             self.close()

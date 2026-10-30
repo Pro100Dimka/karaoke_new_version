@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from collections.abc import Callable
 from pathlib import Path
 import threading
 
@@ -19,6 +20,8 @@ from backend.processing.stage_runner import StageRunner
 from backend.projects.ports import AudioFileValidator
 from backend.songs.domain import Song
 from backend.domain_errors import DomainError
+
+SeparationOperation = Callable[[ExecutionContext], SeparatedAudio]
 
 
 def attenuate_playback_stems(
@@ -84,16 +87,19 @@ class PrepareProcessingAudio:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
+        *,
+        during_separation: Callable[[SeparationOperation], SeparatedAudio] | None = None,
     ) -> PreparedAudio:
         normalized, cache_hit = self._normalize_audio(song, workspace, context, reports)
         music = self._analyze_music(normalized, context, reports)
-        separated = self._separate(
-            normalized,
-            workspace,
-            providers,
-            context,
-            reports,
-            execution,
+
+        def separate(stage_execution: ExecutionContext) -> SeparatedAudio:
+            return self._separate(
+                normalized, workspace, providers, context, reports, stage_execution
+            )
+
+        separated = (
+            separate(execution) if during_separation is None else during_separation(separate)
         )
         return PreparedAudio(
             cache_hit, music, separated.instrumental, separated.reference_vocal, separated.rhythm

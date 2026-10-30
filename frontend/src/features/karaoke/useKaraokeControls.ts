@@ -1,3 +1,6 @@
+import { store } from "../../providers/store";
+import { useLocale } from "@neo-ui-kit/react";
+import { monitoringErrorText } from "../../shared/errors";
 import { audioClient } from "../../services/audioClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
 import { canControlRoom } from "../../application/room/roomModel";
@@ -8,10 +11,9 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
-import { useApp, useRoomPlayback } from "../../app/AppContext";
+import { useRoomPlayback } from "../../providers/application";
 import type { MixerChannelGains } from "../../contracts/models";
-import { useNotify } from "../../app/NotificationsProvider";
-import { monitoringErrorText, useText } from "../../i18n/useText";
+import { useNotify } from "../../providers/notifications";
 import { sharedStateOf } from "../../application/room/roomModel";
 import type { Preferences } from "../../shared/preferences/preferences";
 
@@ -52,8 +54,9 @@ export const useKaraokeControls = ({
   setMonitoring,
 }: KaraokeControlsOptions) => {
   const notify = useNotify();
-  const t = useText();
-  const { preferences, updatePreferences, room } = useApp();
+  useLocale();
+  const { preferences, updatePreferences } = store;
+  const { room } = store.online;
   const roomPlayback = useRoomPlayback();
 
   const publishPracticeParameters = useCallback(
@@ -135,14 +138,14 @@ export const useKaraokeControls = ({
     const snapshot = await audioClient
       .setMonitoring(!monitoring)
       .catch((error: unknown) => {
-        notify(monitoringErrorText(error, t), "error");
+        notify(monitoringErrorText(error), "error");
         return null;
       });
     if (snapshot) {
       setMonitoring(snapshot.monitoring);
       updatePreferences({ karaokeMonitoring: snapshot.monitoring });
     }
-  }, [microphoneReady, monitoring, notify, setMonitoring, t, updatePreferences]);
+  }, [microphoneReady, monitoring, notify, setMonitoring, updatePreferences]);
 
   // Restore once per prepared session; subsequent changes belong to the monitoring switch.
   useEffect(() => {

@@ -1,7 +1,8 @@
+import { QueryProvider } from "../../test/QueryProvider";
 import { act, renderHook } from "@testing-library/react";
 import { useRef, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { AppProvider } from "../../app/AppContext";
+
 import {
   loadPreferences,
   type PianoRollLayout,
@@ -10,7 +11,7 @@ import { usePianoRollLayout } from "./usePianoRollLayout";
 import { clearStorage } from "../../shared/storage/localStore";
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <AppProvider>{children}</AppProvider>
+  <QueryProvider application>{children}</QueryProvider>
 );
 
 const fakeEvent = (clientX: number, clientY = 0) =>

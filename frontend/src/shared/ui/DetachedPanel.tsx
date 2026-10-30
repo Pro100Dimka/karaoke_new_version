@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useText } from "../../i18n/useText";
-import { IconButton } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
 import type { useDetachedPanel } from "./useDetachedPanel";
 import "./detached-panel.css";
 
@@ -11,11 +11,22 @@ type DetachedPanelState = ReturnType<typeof useDetachedPanel>;
 export const DetachedPanel = ({
   panel,
   children,
+  keepMounted = false,
 }: {
   panel: DetachedPanelState;
   children: ReactNode;
-}) =>
-  panel.container ? createPortal(children, panel.container) : <>{children}</>;
+  keepMounted?: boolean;
+}) => {
+  const [content] = useState(() => keepMounted ? document.createElement("div") : null);
+  const home = useCallback((element: HTMLDivElement | null) => {
+    if (element && content && !panel.container && content.parentNode !== element) element.append(content);
+  }, [content, panel.container]);
+  useLayoutEffect(() => {
+    if (content && panel.container) panel.container.append(content);
+  }, [content, panel.container]);
+  return content ? <><div ref={home} />{createPortal(children, content)}</>
+    : panel.container ? createPortal(children, panel.container) : <>{children}</>;
+};
 
 /**
  * Brings a panel that was dragged out into a window of its own back into the app. Panels leave the
@@ -28,13 +39,13 @@ export const DetachButton = ({
   panel: DetachedPanelState;
   size?: "xs" | "sm";
 }) => {
-  const t = useText();
+  useLocale();
   if (!panel.detached) return null;
   return (
     <IconButton
       size={size}
       icon="window"
-      label={t("panelAttach")}
+      label={tr(ru.panelAttach)}
       onClick={panel.attach}
     />
   );

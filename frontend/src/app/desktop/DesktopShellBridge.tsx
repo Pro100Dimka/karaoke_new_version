@@ -1,11 +1,14 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
+import { tr, useLocale, useRouter } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useText } from "../../i18n/useText";
+
 import { desktopClient } from "../../services/desktopClient";
 import { routes } from "../../shared/routes";
-import { useApp, useRoomVoice } from "../AppContext";
-import { useNotify } from "../NotificationsProvider";
-import { useRadio } from "../RadioContext";
+import { useRoomVoice } from "../../providers/application";
+import { useNotify } from "../../providers/notifications";
+import { toggleRadio, setRadioStation } from "../../providers/radio";
 import { radioStations } from "../radioStations";
 import {
   libraryCommands,
@@ -41,20 +44,19 @@ const isCommand = (value: unknown): value is { type: string } & Record<string, u
  * Discord) and carries out what the desktop asks (taskbar buttons, tray, jump list, invitation
  * links, the mute hotkey, files opened with the app, power changes). Renders nothing.
  */
-export const DesktopShellBridge = () => {
-  const t = useText();
+export const DesktopShellBridge = observer(() => {
+  useLocale();
   const notify = useNotify();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { navigate, pathname } = useRouter();
   const screen = screenOf(pathname);
   const playing = useNowPlaying();
   // A song on the TV is shown and driven from the taskbar and tray while the laptop is in the Library.
   const onTv = useKaraokeOnTv();
   const singing = screen === "karaoke" || onTv;
-  const radio = useRadio();
-  const { room } = useApp("room");
-  const { language } = useApp("language");
-  const { preferences } = useApp("preferences");
+  const radio = store.radio;
+  const { room } = store.online;
+  const { preferences } = store;
+  const { language } = preferences;
   const voice = useRoomVoice();
   const toggles = useMicrophoneToggles();
   // The microphone's switch lives in AudioService; it is re-read on changes and checked now and then
@@ -100,18 +102,18 @@ export const DesktopShellBridge = () => {
   }, [status]);
 
   // Commands read the latest values through a ref: the subscription stays put while they change.
-  const latest = useRef({ screen, radio, voice, navigate, notify, t });
-  latest.current = { screen, radio, voice, navigate, notify, t };
+  const latest = useRef({ screen, radio, voice, navigate, notify });
+  latest.current = { screen, radio, voice, navigate, notify };
   useEffect(
     () =>
       desktopClient.onShellCommand((command) => {
         if (!isCommand(command)) return;
-        const { screen, radio, voice, navigate, notify, t } = latest.current;
+        const { screen, radio, voice, navigate, notify } = latest.current;
         // Library work never pulls a singer out of a song: it waits until they are back in the Library.
         const forLibrary = (next: LibraryCommand) => {
           libraryCommands.push(next);
           if (screen === "library") return;
-          if (screen === "karaoke" || screen === "editor") notify(t("desktopActionWaitsForLibrary"), "info");
+          if (screen === "karaoke" || screen === "editor") notify(tr(ru.desktopActionWaitsForLibrary), "info");
           else navigate(routes.library);
         };
         switch (command.type) {
@@ -119,12 +121,12 @@ export const DesktopShellBridge = () => {
             nowPlaying.get()?.togglePlayback();
             break;
           case "toggleRadio":
-            radio.toggle();
+            toggleRadio();
             break;
           case "nextStation": {
             const index = radioStations.findIndex((item) => item.id === radio.stationId);
             const next = radioStations[(index + 1) % radioStations.length];
-            if (next) radio.setStation(next.id);
+            if (next) setRadioStation(next.id);
             break;
           }
           case "addSong":
@@ -182,4 +184,4 @@ export const DesktopShellBridge = () => {
     [],
   );
   return null;
-};
+});

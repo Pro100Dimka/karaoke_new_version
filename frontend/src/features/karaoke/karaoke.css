@@ -189,16 +189,6 @@ html[data-tv-screen] body {
 .pianoRollLane.ad-melody-roll {
   min-height: 0;
 }
-.pianoRollVoiceStatus {
-  position: absolute;
-  z-index: 4;
-  top: var(--ad-space-1);
-  left: 12%;
-  color: #ffce78;
-  font-size: 0.75rem;
-  text-shadow: 0 0.0625rem 0.25rem #000;
-  pointer-events: none;
-}
 
 /* The console's slot at the bottom of the karaoke screen, with the no-microphone note above it. */
 .karaokeConsole {

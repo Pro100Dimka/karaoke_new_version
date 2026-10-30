@@ -9,9 +9,7 @@ import {
 
 const { spectrum } = vi.hoisted(() => ({ spectrum: vi.fn() }));
 vi.mock("../../services/audioClient", () => ({ audioClient: { spectrum } }));
-vi.mock("../ServicesContext", () => ({
-  useServices: () => ({ audio: { kind: "ready" } }),
-}));
+vi.mock("../../providers/store", () => ({ store: { application: { services: { audio: { kind: "ready" } } } } }));
 
 beforeEach(() => {
   vi.useFakeTimers();

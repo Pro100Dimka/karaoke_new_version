@@ -19,15 +19,15 @@ vi.mock("../services/audioClient", () => ({
     measureAcousticLatency: mocks.measure,
   },
 }));
-vi.mock("./AppContext", () => ({
+vi.mock("../providers/application", () => ({
   useApp: () => ({
     preferences: { acousticLatencyMs: mocks.stored },
     updatePreferences: mocks.updatePreferences,
   }),
 }));
-vi.mock("./DialogProvider", () => ({ useAsk: () => mocks.ask }));
-vi.mock("./NotificationsProvider", () => ({ useNotify: () => mocks.notify }));
-vi.mock("../i18n/useText", () => ({ useText: () => (key: string) => key }));
+vi.mock("../providers/dialog", () => ({ ask: mocks.ask }));
+vi.mock("../providers/notifications", () => ({ useNotify: () => mocks.notify }));
+
 
 const path = "WASAPI Shared,{mic},{out},48000,48000,480,480,1056,1056";
 const state = (overrides: Partial<AcousticCalibrationState>): AcousticCalibrationState => ({
@@ -107,3 +107,8 @@ it("preserves a profile on another device when no estimate exists for the open p
   expect(mocks.ask).not.toHaveBeenCalled();
   expect(mocks.measure).not.toHaveBeenCalled();
 });
+
+vi.mock("../providers/store", () => ({ store: {
+  get preferences() { return { acousticLatencyMs: mocks.stored }; },
+  get updatePreferences() { return mocks.updatePreferences; }
+} }));

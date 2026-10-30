@@ -18,6 +18,99 @@ from tests.helpers import import_song, wait_for_job
 from tests.test_resource_scheduler import FakeRuntimeProbe
 
 
+@pytest.mark.parametrize("failure", [None, "separation", "recognition"])
+def test_original_recognition_overlaps_separation_and_uses_the_catalogue_language(
+    tmp_path, monkeypatch, failure
+):
+    import threading
+    from dataclasses import replace
+    from backend.lyrics.ports import LyricsCandidate
+    from backend.songs.domain import Language
+    from tests.fakes import FakeLyricsProvider
+    from backend.domain_errors import DependencyError
+
+    first = threading.Event()
+
+    class StreamingProvider(FakeAiProvider):
+        def __init__(self):
+            super().__init__(
+                "local-torch",
+                {"supportsCuda": True, "ramBytes": 1024**2, "vramBytes": 1024**2},
+            )
+            self.executions = {}
+            self.requests = []
+
+        def separate(self, *args, execution, **options):
+            self.executions["separate"] = execution
+            assert first.wait(2), "recognition must start before separation finishes"
+            if failure == "separation":
+                raise DependencyError("SeparationFailed", "separation failed")
+            return super().separate(*args, execution=execution, **options)
+
+        def transcribe_stream(self, requests, count, language, cancel, *, execution):
+            self.executions["recognition"] = execution
+            assert language is Language.UKRAINIAN
+            assert count == 2
+            for audio, start in requests(threading.Event()):
+                assert audio.is_file()
+                self.requests.append((audio, start))
+                first.set()
+                if failure == "recognition":
+                    raise DependencyError("RecognitionFailed", "recognition failed")
+            return ("Привіт світ", "Привіт світ")
+
+        def transcribe(self, *args, **options):
+            raise AssertionError("Prepared recognition must not run again")
+
+    runtime = replace(
+        FakeRuntimeProbe(
+            available_ram=16 * 1024**3,
+            cuda=True,
+            total_vram=8 * 1024**3,
+            free_vram=7 * 1024**3,
+        ).inspect(),
+        cpu_limit_supported=True,
+        vram_is_current=True,
+        total_ram_bytes=32 * 1024**3,
+    )
+    monkeypatch.setattr(SystemRuntimeProbe, "inspect", lambda self: runtime)
+    monkeypatch.setattr(SystemRuntimeProbe, "warm_up", lambda self: None)
+    provider = StreamingProvider()
+    lyrics = FakeLyricsProvider([])
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(
+        tmp_path / "runtime", ai_providers=(provider,), lyrics_providers=(lyrics,)
+    ) as client:
+        assert (
+            client.patch("/settings", json={"computeMode": "CUDA", "cpuThreads": 4}).status_code
+            == 200
+        )
+        song = import_song(client, source)
+        lyrics.outcomes.append(
+            [LyricsCandidate("Привіт світ", song["title"], song["artist"], None, "fixed-lyrics")]
+        )
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Auto", "onlineLyrics": True}
+        )
+        job = wait_for_job(client, started.json()["jobId"])
+        resources = client.app.state.container.songs.start_processing._resources
+        assert (resources._reserved_cpu, resources._reserved_ram, resources._reserved_vram) == (
+            0,
+            0,
+            0,
+        )
+        if failure is not None:
+            assert job["state"] == "Failed", job
+            assert client.get(f"/songs/{song['songId']}").json()["activeRevision"] == 1
+            return
+        assert job["state"] == "Succeeded", job
+        assert len(provider.requests) == 2 and lyrics.outcomes == []
+        assert {item.numeric_cpu_threads for item in provider.executions.values()} == {4}
+        assert sum(item.cpu_threads for item in provider.executions.values()) == 4
+        assert sum(item.cpu_fraction for item in provider.executions.values()) == pytest.approx(0.5)
+
+
 class ExecutionTrackingProvider(FakeAiProvider):
     def __init__(self):
         super().__init__(required_resources={"supportsCuda": True, "cpuThreads": 8})
@@ -46,6 +139,66 @@ class ExecutionTrackingProvider(FakeAiProvider):
     def pitch(self, *args, **kwargs):
         self.executions["pitch"] = kwargs.get("execution")
         return super().pitch(*args, **kwargs)
+
+
+@pytest.mark.parametrize("repeats", [False, True])
+def test_failed_job_removes_alignment_intermediates_and_releases_the_provider(
+    tmp_path, monkeypatch, repeats
+):
+    import threading
+    from types import SimpleNamespace
+    from backend.infrastructure.command_ai_provider import CommandAiProvider
+    from backend.infrastructure.local_storage import LocalWorkStorage
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.compute_policy import ExecutionContext
+    from backend.processing.document_pipeline import BuildProcessingDocument
+    from backend.processing.orchestrator import PipelineOrchestrator
+    from backend.processing.policies import ResourceBudget
+    from backend.processing.preflight import ProcessingProviders
+
+    provider = CommandAiProvider(
+        FakeAiProvider("local-torch").descriptor,
+        ["worker"],
+        Mock(),
+        resource_budget=ResourceBudget(),
+    )
+    document = BuildProcessingDocument(Mock(), Mock(), Mock())
+    pipeline = PipelineOrchestrator(
+        Mock(), document, Mock(), Mock(), LocalWorkStorage(tmp_path), Mock(), Mock()
+    )
+    cancel = threading.Event()
+
+    def fail(*_):
+        assert bool(provider._alignment_workspaces) == repeats
+        if repeats:
+            directory = provider._alignment_workspaces[cancel]
+            directory.mkdir()
+            (directory / "features.pt").write_bytes(b"temporary features")
+        raise RuntimeError("cancelled")
+
+    monkeypatch.setattr(document, "_align", fail)
+    monkeypatch.setattr(
+        document,
+        "_discover",
+        lambda *_: LyricsDiscoveryResult(
+            "one", "catalogue", (), repeat_baseline="one" if repeats else ""
+        ),
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "_prepare",
+        lambda *args: (SimpleNamespace(reference_vocal=args[3] / "vocal.wav"), None),
+    )
+    with pytest.raises(RuntimeError, match="cancelled"):
+        pipeline.run(
+            SimpleNamespace(song_id="one"),
+            Mock(),
+            ProcessingProviders(provider, provider, provider, provider),
+            SimpleNamespace(cancel=cancel),
+            ExecutionContext(ComputeDevice.CPU, 1),
+        )
+    assert provider._alignment_workspaces == {}
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget(monkeypatch):

@@ -1,13 +1,36 @@
 from __future__ import annotations
 
 import threading
+from contextlib import AbstractContextManager
 from pathlib import Path
-from typing import Protocol, Sequence, runtime_checkable
+from typing import Callable, Iterable, Protocol, Sequence, runtime_checkable
 
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
 from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
+
+TranscriptionSource = Callable[[threading.Event], Iterable[tuple[Path, float]]]
+
+
+@runtime_checkable
+class AlignmentReuseProvider(Protocol):
+    def reuse_alignment(
+        self, workdir: Path, cancel: threading.Event
+    ) -> AbstractContextManager[None]: ...
+
+
+@runtime_checkable
+class StreamingTranscriber(Protocol):
+    def transcribe_stream(
+        self,
+        requests: TranscriptionSource,
+        request_count: int,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]: ...
 
 
 @runtime_checkable

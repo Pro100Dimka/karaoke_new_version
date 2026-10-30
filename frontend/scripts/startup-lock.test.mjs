@@ -32,6 +32,8 @@ const runSteps = async (args, options = {}) => {
   const context = {
     path,
     createHash,
+    loadEnvFile: () => {},
+    mkdirSync: () => {},
     existsSync: (file) => !options.missingModules || !String(file).endsWith("node_modules"),
     readFileSync: (file) => {
       if (String(file).includes(".ad-voice-")) return stamp;
@@ -241,5 +243,27 @@ test("the launcher transfers and releases only its own running marker", () => {
   } finally {
     releaseRunningApp(project, process.pid);
     rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test("multi launcher keeps normal storage and prevents dotenv from restoring it for the guest", () => {
+  const source = readFileSync(new URL("launch-multi.mjs", import.meta.url), "utf8")
+    .replace(/^import[^\n]+\r?\n/gm, "")
+    .replaceAll("import.meta.url", JSON.stringify(import.meta.url));
+  for (const isolated of [false, true]) {
+    const calls = [];
+    const normalData = "E:/Library";
+    runInNewContext(source, {
+      URL, join, fileURLToPath: () => "D:/App/frontend", existsSync: () => true,
+      loadEnvFile: () => {},
+      process: { env: { AD_VOICE_DATA: normalData, AD_VOICE_MULTI_E2E: isolated ? "1" : "0" }, stdout: { write() {} } },
+      spawn: (_command, _args, options) => {
+        calls.push(options.env);
+        return { pid: 123, unref() {} };
+      },
+    });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0].AD_VOICE_DATA, isolated ? "" : normalData);
+    assert.equal(calls[1].AD_VOICE_DATA, "");
   }
 });

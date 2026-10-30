@@ -1,14 +1,7 @@
-import {
-  Card,
-  Grid,
-  IconButton,
-  NumberField,
-  Stack,
-  Typography,
-} from "@neo-ui-kit/react";
+import { Card, Grid, IconButton, NumberField, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
 import { memo, useEffect, useState, type ReactNode } from "react";
 import type { MessageKey } from "../../../i18n/messages";
-import { useText } from "../../../i18n/useText";
+import { ru } from "../../../i18n/messages.ru";
 import { ConsoleSection } from "./ConsoleSection";
 import { DisplayToggles } from "./DisplayToggles";
 import { rangeLabel, type NoteRange } from "./noteRange";
@@ -33,20 +26,21 @@ interface Metric {
 }
 
 const MetricCard = ({ metric }: { metric: Metric }) => {
-  const t = useText();
+  useLocale();
   const step = (action: StepAction | undefined) =>
     action && (
       <IconButton
         size="xs"
         round
         icon={action.icon}
-        label={t(action.label)}
+        label={tr(ru[action.label])}
         disabled={action.disabled}
         onClick={action.run}
       />
     );
   return (
     <Card
+      className={`consoleMetric consoleMetric-${metric.id}`}
       material="glass"
       padding="sm"
       style={{
@@ -58,7 +52,7 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
       }}
     >
       <Typography variant="caption" tone="muted">
-        {t(metric.label)}
+        {tr(ru[metric.label])}
       </Typography>
       <Stack direction="row" gap={2} align="center" justify="center">
         {step(metric.previous)}
@@ -111,7 +105,7 @@ const TempoField = ({
   locked: boolean;
   onChange(value: number): void;
 }) => {
-  const t = useText();
+  useLocale();
   const [draft, setDraft] = useState<number | "">(tempoBpm ?? "");
   useEffect(() => setDraft(tempoBpm ?? ""), [tempoBpm]);
   const minimum =
@@ -135,9 +129,9 @@ const TempoField = ({
 
   return (
     <NumberField
-      size="sm"
+      size="xs"
       className="tempoField"
-      aria-label={t("practiceSpeed")}
+      aria-label={tr(ru.practiceSpeed)}
       controls={false}
       value={draft}
       min={minimum}
@@ -178,7 +172,7 @@ export const PracticeParameters = memo(({
   setShowLyrics,
   setAutoHideConsole,
 }: PracticeParametersProps) => {
-  const t = useText();
+  useLocale();
   const validBaseBpm =
     typeof baseBpm === "number" && Number.isFinite(baseBpm) && baseBpm > 0
       ? baseBpm
@@ -219,26 +213,21 @@ export const PracticeParameters = memo(({
   ];
 
   return (
-    <ConsoleSection icon="settings" title={t("consoleParameters")}>
-      <Grid columns={3} gap={1}>
+    <ConsoleSection icon="settings" title={tr(ru.consoleParameters)}>
+      <Grid className="consoleParameters" columns={3} gap={1}>
         {metrics.map((metric) => (
           <MetricCard key={metric.id} metric={metric} />
         ))}
-        <Grid
-          span={{ base: "full" }}
-          style={{ justifyContent: "space-between" }}
-        >
-          <DisplayToggles
-            showNotes={showNotes}
-            showLyrics={showLyrics}
-            autoHide={autoHideConsole}
-            hasNotes={hasNotes}
-            hasLyrics={hasLyrics}
-            onShowNotes={setShowNotes}
-            onShowLyrics={setShowLyrics}
-            onAutoHide={setAutoHideConsole}
-          />
-        </Grid>
+        <DisplayToggles
+          showNotes={showNotes}
+          showLyrics={showLyrics}
+          autoHide={autoHideConsole}
+          hasNotes={hasNotes}
+          hasLyrics={hasLyrics}
+          onShowNotes={setShowNotes}
+          onShowLyrics={setShowLyrics}
+          onAutoHide={setAutoHideConsole}
+        />
       </Grid>
     </ConsoleSection>
   );

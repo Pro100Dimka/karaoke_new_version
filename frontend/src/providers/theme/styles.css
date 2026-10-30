@@ -1,0 +1,16 @@
+.main-theme {
+  background: var(--app-background) center / cover fixed no-repeat;
+  --ad-font-family-heading: var(
+    --app-font-heading,
+    var(--ad-font-family-melodix)
+  );
+  --ad-font-family-sans: var(
+    --app-font-text,
+    'Segoe UI Variable',
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
+  font-family: var(--ad-font-family-sans);
+  color: var(--ad-text);
+}

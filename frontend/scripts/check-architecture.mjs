@@ -58,7 +58,7 @@ const importsOf = (file) => {
 // Features may use public service APIs directly. Transport state and mappers stay internal.
 const publicServices = new Set([
   "audioClient", "pythonClient", "desktopClient", "desktopBridge",
-  "recordingCoordinator", "keyboardLightingClient", "backendEvents",
+  "recordingCoordinator", "keyboardLightingClient", "backendEvents", "socialClient",
 ].map((name) => `src/services/${name}`));
 const privateService = (source, target) =>
   source.startsWith("src/features/") && target.startsWith("src/services/") &&

@@ -26,6 +26,109 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_alignment_reuse_preserves_encoder_results_and_invalidates_changed_audio(tmp_path):
+    import torch
+    from backend.ai_worker.runtime import AlignmentReuse, cached_encoder
+
+    calls = []
+
+    class Encoder(torch.nn.Module):
+        def forward(self, audio):
+            calls.append(1)
+            return audio * 2
+
+    reuse = AlignmentReuse(tmp_path, 0)
+    audio = torch.arange(12, dtype=torch.float32).reshape(1, 3, 4)
+    for _ in range(2):
+        encoder = Encoder()
+        with torch.no_grad(), cached_encoder(encoder, reuse=reuse):
+            torch.testing.assert_close(encoder(audio), audio * 2, rtol=0, atol=0)
+    assert len(calls) == 1
+    encoder = Encoder()
+    with torch.no_grad(), cached_encoder(encoder, reuse=reuse):
+        torch.testing.assert_close(encoder(audio + 1), (audio + 1) * 2)
+    assert len(calls) == 2
+
+
+def test_alignment_reuse_keeps_context_options_and_absolute_times(tmp_path, monkeypatch):
+    import torch
+    from backend.ai_worker import speech
+    from backend.ai_worker.runtime import AlignmentReuse
+
+    decoded, encoded = [], []
+
+    class Encoder(torch.nn.Module):
+        def forward(self, audio):
+            encoded.append(1)
+            return audio.clone()
+
+    class Model:
+        def __init__(self):
+            self.encoder = Encoder()
+
+        def transcribe(self, audio, **options):
+            self.encoder(torch.from_numpy(audio))
+            decoded.append(options["initial_prompt"])
+            return {"text": options["initial_prompt"], "segments": [{"start": 0.0, "end": 0.5}]}
+
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech, "_speech_model", lambda *_: Model())
+    audio = np.ones(3 * _RATE, dtype=np.float32)
+    reuse = AlignmentReuse(tmp_path, 0)
+    requests = [(1.0, 2.0, "first"), (1.0, 2.0, "changed prompt")]
+    with torch.no_grad():
+        for _ in range(2):
+            result = speech._accelerated_guidance(audio, "English", None, requests, reuse=reuse)
+            assert [value["segments"][0]["start"] for value in result["contexts"]] == [1.0, 1.0]
+    assert decoded == ["first", "changed prompt"]
+    assert len(encoded) == 1
+
+
+def test_alignment_reuse_recalculates_with_low_disk_space(tmp_path, monkeypatch):
+    import torch
+    from types import SimpleNamespace
+    from backend.ai_worker import runtime
+
+    monkeypatch.setattr(runtime.shutil, "disk_usage", lambda *_: SimpleNamespace(free=10))
+    reuse = runtime.AlignmentReuse(tmp_path, 10)
+    calls = []
+    for _ in range(2):
+        value = reuse.tensor(b"same input", lambda: calls.append(1) or torch.ones(3))
+        assert torch.equal(value, torch.ones(3))
+    assert len(calls) == 2
+
+
+def test_alignment_reuse_keeps_lyric_evidence_independent_of_reused_audio(tmp_path, monkeypatch):
+    import torch
+    from backend.ai_worker import speech
+    from backend.ai_worker.runtime import AlignmentReuse
+
+    emitted, selected = [], []
+    audio = np.ones(_RATE, dtype=np.float32)
+    monkeypatch.setattr(speech, "cpu_threads", lambda: 1)
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda *_: None)
+    monkeypatch.setattr(speech, "independent_words", lambda *_: [[("one", 0, 1)], [("two", 0, 1)]])
+    monkeypatch.setattr(speech, "phrase_coverage", lambda text, view: int(text == view[0][0]))
+    monkeypatch.setattr(
+        speech,
+        "emission",
+        lambda samples: (
+            emitted.append(samples.copy()) or torch.from_numpy(samples.copy())[None],
+            0.02,
+        ),
+    )
+    reuse = AlignmentReuse(tmp_path, 0)
+    for text, samples in [("one", audio), ("two", audio), ("two", audio + 1)]:
+        scores, step, heard = speech._alignment_evidence(
+            Path("vocal.wav"), samples, "English", text, reuse=reuse
+        )
+        torch.testing.assert_close(scores, torch.from_numpy(samples)[None], rtol=0, atol=0)
+        assert step == 0.02
+        selected.append(heard[0][0])
+    assert selected == ["one", "two", "two"]
+    assert len(emitted) == 2
+
+
 def test_grouped_transcription_loads_once_and_releases_the_model_between_groups(monkeypatch):
     import weakref
     from backend.ai_worker import speech

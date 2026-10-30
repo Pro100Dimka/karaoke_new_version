@@ -1,5 +1,5 @@
+import { store } from "../../providers/store";
 import type { RefObject } from "react";
-import { useApp } from "../../app/AppContext";
 import {
   useFloatingPanel,
   type PanelLayout,
@@ -16,7 +16,7 @@ export const usePianoRollLayout = (
   frameRef: RefObject<HTMLDivElement | null>,
   onTearOff?: (screenBounds: PanelLayout, pointer: ScreenPoint) => void,
 ) => {
-  const { preferences, updatePreferences } = useApp("preferences");
+  const { preferences, updatePreferences } = store;
   return useFloatingPanel(frameRef, {
     layout: preferences.pianoRollLayout,
     onLayoutChange: (pianoRollLayout) => updatePreferences({ pianoRollLayout }),

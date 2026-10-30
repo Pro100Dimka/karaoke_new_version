@@ -1,12 +1,13 @@
+import { QueryProvider } from "../../../test/QueryProvider";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppProvider } from "../../../app/AppContext";
+
 import { Transport } from "./Transport";
 
 describe("Transport room readiness", () => {
   it("disables every transport action while another participant is still preparing", () => {
     render(
-      <AppProvider>
+      <QueryProvider application>
         <Transport
           state={{ kind: "playing" }}
           position={12}
@@ -16,7 +17,7 @@ describe("Transport room readiness", () => {
           onTogglePlay={vi.fn()}
           onStop={vi.fn()}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
 
     for (const button of screen.getAllByRole("button"))

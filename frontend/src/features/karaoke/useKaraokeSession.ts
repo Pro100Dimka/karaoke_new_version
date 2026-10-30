@@ -1,3 +1,6 @@
+import { tr, useLocale } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import { store } from "../../providers/store";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
@@ -9,17 +12,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { useApp, useRoomPlayback } from "../../app/AppContext";
-import { useAsk } from "../../app/DialogProvider";
-import { useCloseGuard } from "../../app/CloseGuards";
-import { useNotify } from "../../app/NotificationsProvider";
+import { useRoomPlayback } from "../../providers/application";
+import { ask } from "../../providers/dialog";
+import { useCloseGuard } from "../../providers/close-guards";
+import { useNotify } from "../../providers/notifications";
 import type {
   AppError,
   MixerChannelGains,
   PlaybackSnapshot,
   SongDto,
 } from "../../contracts/models";
-import { useText } from "../../i18n/useText";
 import { KaraokeRecordingCoordinator } from "../../application/karaoke/KaraokeRecordingCoordinator";
 import type { KaraokeNoteScore } from "../../contracts/models";
 import { toAppError } from "../../shared/errors";
@@ -63,11 +65,12 @@ export const useKaraokeSession = (
     audioClient,
   );
   const recordingWork = recordingWorkRef.current;
-  const { preferences, updatePreferences, openSettings, room } = useApp();
+  const { preferences, updatePreferences } = store;
+  const { room } = store.online;
+  const { openSettings } = store;
   const roomPlayback = useRoomPlayback();
-  const ask = useAsk();
   const notify = useNotify();
-  const t = useText();
+  const locale = useLocale();
 
   const [state, dispatch] = useReducer(reduceKaraoke, {
     kind: "preparing",
@@ -186,16 +189,16 @@ export const useKaraokeSession = (
     const result = await recordingWork.finish();
     if (result.recordingId) {
       setRecordingId(result.recordingId);
-      notify(t("recordingSaved"), "success");
+      notify(tr(ru.recordingSaved), "success");
     }
     if (!result.saved) {
       setRecording("failed");
-      notify(t("recordingFailed"), "error");
+      notify(tr(ru.recordingFailed), "error");
     }
     setRecording((current) => (current === "failed" ? current : "idle"));
     dispatch({ type: "FINISH" });
     return result.saved;
-  }, [notify, t, recordingWork]);
+  }, [notify, recordingWork]);
   const finishLocalWorkRef = useRef(finishLocalWork);
   finishLocalWorkRef.current = finishLocalWork;
   const finishLocalPerformanceRef = useRef<() => Promise<boolean>>(undefined);
@@ -256,12 +259,12 @@ export const useKaraokeSession = (
       setMonitoring(snapshot.monitoring);
       if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
         monitoringWarningShown.current = true;
-        notify(t("monitoringSafetyStopped"), "error");
+        notify(tr(ru.monitoringSafetyStopped), "error");
       } else if (!snapshot.monitoringSafetyTripped) {
         monitoringWarningShown.current = false;
       }
     },
-    [notify, t],
+    [notify, locale],
   );
   const onLost = useCallback(() => {
     playbackGeneration.current++;
@@ -369,7 +372,7 @@ export const useKaraokeSession = (
     recordingRef.current = result.kind === "started" ? "recording" : "failed";
     if (result.kind === "insufficientDisk") {
       setRecording("failed");
-      const choice = await askInsufficientDisk(ask, t, result.free);
+      const choice = await askInsufficientDisk(ask, result.free);
       if (recordingWork.isCurrent(result.generation) && choice === "storage")
         openSettings("advanced");
       return false;
@@ -377,10 +380,10 @@ export const useKaraokeSession = (
     if (result.kind === "started") setRecording("recording");
     else {
       setRecording("failed");
-      notify(t("recordingFailed"), "error");
+      notify(tr(ru.recordingFailed), "error");
     }
     return result.kind === "started";
-  }, [ask, notify, openSettings, t, recordingWork]);
+  }, [ask, notify, openSettings, recordingWork]);
 
   const playPending = useRef(false);
   const togglePlay = useCallback(async () => {

@@ -1,6 +1,7 @@
+import { QueryProvider } from "../../test/QueryProvider";
 import { act, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppProvider } from "../../app/AppContext";
+
 import type { SongDto } from "../../contracts/models";
 import { KaraokeIntro } from "./KaraokeIntro";
 
@@ -12,14 +13,14 @@ describe("KaraokeIntro readiness", () => {
     const onStart = vi.fn();
     const onDone = vi.fn();
     const view = render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeIntro
           song={song}
           ready={false}
           onStart={onStart}
           onDone={onDone}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
 
     act(() => vi.advanceTimersByTime(10_000));
@@ -27,9 +28,9 @@ describe("KaraokeIntro readiness", () => {
     expect(onDone).not.toHaveBeenCalled();
 
     view.rerender(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeIntro song={song} ready onStart={onStart} onDone={onDone} />
-      </AppProvider>,
+      </QueryProvider>,
     );
     act(() => vi.advanceTimersByTime(2_400));
     expect(onStart).toHaveBeenCalledOnce();

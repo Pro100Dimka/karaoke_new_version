@@ -17,6 +17,8 @@ import type {
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
   SongDto,
+  SongSearch,
+  SongLanguage,
 } from "./models";
 
 export type RoomReadiness =
@@ -143,6 +145,8 @@ export interface PythonClient {
     instanceId?: string;
   }>;
   listSongs(): Promise<readonly SongDto[]>;
+  searchSongs(filter: SongSearch, cursor: string | null): Promise<{ items: readonly SongDto[]; nextCursor: string | null }>;
+  songSummary(): Promise<{ total: number; ready: number; languages: readonly SongLanguage[] }>;
   getSong(songId: string): Promise<SongDto>;
   importSong(
     path: string,
@@ -170,6 +174,7 @@ export interface PythonClient {
   deleteSong(songId: string): Promise<void>;
   retryRecordingPreparation(recordingId: string): Promise<RecordingDto>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
+  getRecording(recordingId: string): Promise<RecordingDto>;
   analyzeRecording(recordingId: string, onProgress?: (progress: RecordingAnalysisProgress) => void): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
   renameRecording(
@@ -181,8 +186,6 @@ export interface PythonClient {
     recordingId: string,
     onProgress?: (progress: StudioMasterProgress) => void,
   ): Promise<RecordingDto>;
-  listModels(): Promise<readonly ModelDto[]>;
-  deleteModel(model: ModelDto): Promise<void>;
   getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
   updateAiProcessingSettings(value: {
     processingBackend: "Local" | "Kaggle";

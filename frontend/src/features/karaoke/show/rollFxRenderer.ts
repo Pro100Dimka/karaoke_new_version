@@ -512,30 +512,24 @@ export class RollFxRenderer {
     if (!state.playing) return;
     if (!observation?.audioActive) return;
     const certain = reliablePitchHz(observation.pitchHz, observation.confidence) !== undefined;
+    if (!certain || midi === undefined) return;
     const markerY = Math.max(margin + 10, Math.min(margin + this.lane.height - 10, y));
-    context.strokeStyle = rgba(certain ? "white" : "gold", 0.95);
+    context.strokeStyle = rgba("white", 0.95);
     context.fillStyle = context.strokeStyle;
     context.lineWidth = 2;
+    context.setLineDash([]);
     context.beginPath();
-    if (midi !== undefined && !visible) {
+    if (!visible) {
       const direction = Math.sign(boundedMidi - midi);
       context.moveTo(x - 6, markerY - direction * 4);
       context.lineTo(x, markerY + direction * 4);
       context.lineTo(x + 6, markerY - direction * 4);
     } else {
-      context.setLineDash(certain ? [] : [3, 3]);
       context.arc(x, markerY, 6, 0, Math.PI * 2);
-      if (certain) context.fill();
+      context.fill();
     }
     context.stroke();
-    context.setLineDash([]);
-    if (midi === undefined) {
-      context.font = "10px sans-serif";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText("?", x, markerY);
-    }
-    if (!visible || !certain) return;
+    if (!visible) return;
     const radius = Math.max(15, geometry.row * 1.25);
     const accuracy = live?.deviation === undefined ? 0 : live.accuracy;
     if (accuracy > 0.2) {

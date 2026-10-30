@@ -1,5 +1,6 @@
 import { act, render } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { TestRouter } from "../../test/QueryProvider";
+import { useRouter } from "@neo-ui-kit/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { desktopClient } from "../../services/desktopClient";
 import { DesktopShellBridge } from "./DesktopShellBridge";
@@ -24,15 +25,13 @@ const state = vi.hoisted(() => ({
   notify: vi.fn(),
   listener: null as null | ((command: unknown) => void),
 }));
-vi.mock("../RadioContext", () => ({ useRadio: () => state.radio }));
-vi.mock("../NotificationsProvider", () => ({ useNotify: () => state.notify }));
-vi.mock("../AppContext", () => ({
+vi.mock("../../providers/radio", () => ({ toggleRadio: () => state.radio.toggle(), setRadioStation: state.radio.setStation, setRadioVolume: state.radio.setVolume }));
+vi.mock("../../providers/notifications", () => ({ useNotify: () => state.notify }));
+vi.mock("../../providers/application", () => ({
   useApp: (slice: string) =>
     slice === "room"
       ? { room: state.room }
-      : slice === "language"
-        ? { language: "ru" }
-        : { preferences: { discordPresence: true } },
+      : { preferences: { language: "ru", discordPresence: true } },
   useRoomVoice: () =>
     state.room ? { microphoneEnabled: () => state.micEnabled, setMicrophoneEnabled: state.setMicrophoneEnabled } : null,
 }));
@@ -48,17 +47,15 @@ vi.mock("../../services/desktopClient", () => ({
 
 let path = "";
 const Where = () => {
-  path = useLocation().pathname;
+  path = useRouter().pathname;
   return null;
 };
 const renderAt = (route: string) =>
   render(
-    <MemoryRouter initialEntries={[route]}>
+    <TestRouter initialEntries={[route]}>
       <DesktopShellBridge />
-      <Routes>
-        <Route path="*" element={<Where />} />
-      </Routes>
-    </MemoryRouter>,
+      <Where />
+    </TestRouter>,
   );
 const send = (command: unknown) => act(() => state.listener?.(command));
 const lastStatus = () => vi.mocked(desktopClient.reportShellStatus).mock.lastCall?.[0] as Record<string, unknown>;
@@ -153,4 +150,12 @@ describe("DesktopShellBridge", () => {
     expect(path).toBe("/");
     unsubscribe();
   });
+});
+
+vi.mock("../../providers/store", async original => {
+  const actual = await original<typeof import("../../providers/store")>();
+  return { store: { ...actual.store,
+    get online() { return { room: state.room }; },
+    get radio() { return state.radio; },
+  } };
 });

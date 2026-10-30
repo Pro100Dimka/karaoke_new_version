@@ -40,7 +40,7 @@ export const fitWindowToPanel = (
 };
 
 /** Where a point of the screen lies inside the app's own window, or undefined when outside it. */
-const pointInApp = (
+export const pointInApp = (
   screenX: number,
   screenY: number,
 ): { x: number; y: number } | undefined => {
@@ -109,14 +109,14 @@ export const moveWindowBySurface = (
  * A panel just torn off the app's window is still held: its new window follows the pointer until
  * the button is released, so one drag carries the panel out of the app and on to where it goes.
  * The app's window keeps the pointer while the button is held, so it hears the whole drag.
- * Releasing it stays a window wherever it lands: over a maximised app every point is "in the app",
- * so docking on release would snap it straight back. It returns by its button, or by dragging the
- * window onto the app afterwards (see moveWindowBySurface).
+ * A caller can return it during the same drag once the whole panel is back inside the app.
+ * Otherwise it stays a window until its next drag (see moveWindowBySurface).
  */
 export const carryWindow = (
   panel: Window,
   opened: PanelLayout,
   pointer: ScreenPoint,
+  onReenter?: (layout: PanelLayout, pointer: PointerEvent) => void,
 ): void => {
   // Measured from where the window was asked to open: a window just opened may not report it yet.
   const grabX = pointer.screenX - opened.left;
@@ -129,7 +129,15 @@ export const carryWindow = (
   const move = (event: PointerEvent) => {
     // A release the app's window did not hear (e.g. over another program) still ends the drag.
     if (event.buttons === 0 || panel.closed) return end();
-    panel.moveTo(event.screenX - grabX, event.screenY - grabY);
+    const left = event.screenX - grabX;
+    const top = event.screenY - grabY;
+    const inside = onReenter && pointInApp(left, top);
+    if (inside && pointInApp(left + opened.width, top + opened.height)) {
+      end();
+      onReenter?.({ left: inside.x, top: inside.y, width: opened.width, height: opened.height }, event);
+      return;
+    }
+    panel.moveTo(left, top);
   };
   window.addEventListener("pointermove", move);
   window.addEventListener("pointerup", end);

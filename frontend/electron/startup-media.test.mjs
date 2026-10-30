@@ -63,7 +63,9 @@ test("packaged Electron launches its bundled backend and media tools", () => {
 
 test("development and installed apps use isolated profiles and service endpoints", () => {
   assert.match(main, /configureRuntimeIdentity\(app\)/);
-  assert.match(identity, /app\.setPath\("userData"/);
+  assert.match(identity, /\["userData", userData\]/);
+  assert.match(identity, /for \(const \[name, folder\] of runtimePaths\)/);
+  assert.match(identity, /app\.setPath\(name, folder\)/);
   assert.match(identity, /AD Voice Dev/);
   assert.match(identity, /AD_VOICE_PROFILE/);
   assert.match(identity, /AD_VOICE_PORT\s*\?\?=\s*"0"/);

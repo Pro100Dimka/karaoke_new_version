@@ -1,47 +1,49 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
+import { tr, useLocale, useRouter } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useApp, useRoomRuntime, useRoomSession } from "../../app/AppContext";
-import { useNotify, playNotificationSound } from "../../app/NotificationsProvider";
-import { useServices } from "../../app/ServicesContext";
+
+import { roomSession, getRoomRuntime } from "../../providers/application";
+import { useNotify, playNotificationSound } from "../../providers/notifications";
+
 import chimeUrlJoin from "../../assets/sounds/room-join.mp3";
 import chimeUrlLeave from "../../assets/sounds/room-leave.mp3";
 import type { RoomChimeKind } from "../../application/room/roomChime";
 import type { MessageKey } from "../../i18n/messages";
-import { useText } from "../../i18n/useText";
 import { routes } from "../../shared/routes";
 
 const chimeUrls = { join: chimeUrlJoin, leave: chimeUrlLeave } satisfies
   Record<RoomChimeKind, string>;
 
 /** Adapts room application events to navigation, notices, and the scene curtain. */
-export const RoomSync = () => {
-  const runtime = useRoomRuntime();
-  const { preferences } = useApp("preferences");
-  const { room } = useApp("room");
+export const RoomSync = observer(() => {
+  const runtime = getRoomRuntime();
+  const { preferences } = store;
+  const { room } = store.online;
   const lastRoom = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (room?.code && room.code !== lastRoom.current) playNotificationSound("success");
     lastRoom.current = room?.code;
   }, [room?.code]);
-  const roomSession = useRoomSession();
-  const { python } = useServices();
+  const { python } = store.application.services;
   const notify = useNotify();
-  const t = useText();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
+  useLocale();
+  const { navigate, pathname } = useRouter();
   const [launching, setLaunching] = useState(false);
-  const latest = useRef({ pathname, notify, t, navigate });
-  latest.current = { pathname, notify, t, navigate };
+  const latest = useRef({ pathname, notify, navigate });
+  latest.current = { pathname, notify, navigate };
 
   useEffect(() => {
     runtime.attach({
       pathname: () => latest.current.pathname,
-      navigate: (songId) => latest.current.navigate(routes.karaoke(songId), {
-        state: { mode: "RoomPrepared" },
-      }),
+      navigate: (songId) => {
+        store.prepareKaraoke(songId, "RoomPrepared");
+        latest.current.navigate(routes.karaoke(songId));
+      },
       curtain: setLaunching,
       notify: (key, tone, params) =>
-        latest.current.notify(latest.current.t(key as MessageKey, params), tone,
+        latest.current.notify(tr(ru[key as MessageKey], params), tone,
           { silent: key === "participantJoined" || key === "participantLeft" }),
       chime: (kind) => {
         void new Audio(chimeUrls[kind]).play().catch(() => undefined);
@@ -58,4 +60,4 @@ export const RoomSync = () => {
     [runtime, preferences.audio.backend]);
 
   return launching ? <div className="roomSceneCurtain" aria-hidden /> : null;
-};
+});

@@ -1,6 +1,4 @@
-import type { AudioServiceClient, DesktopClient, PythonClient } from "../../contracts/clients";
-import type { ThemeName } from "../../contracts/models";
-import type { KeyboardLightingPreferences } from "../../shared/preferences/preferences";
+import type { AudioServiceClient, PythonClient } from "../../contracts/clients";
 
 export type SettingsAudioPort = Pick<AudioServiceClient,
   "runtimeConfiguration" | "listDevices" | "capabilities" |
@@ -11,24 +9,5 @@ export type SettingsAudioPort = Pick<AudioServiceClient,
   "diagnosticsDump" | "health">;
 
 export type SettingsBackendPort = Pick<PythonClient,
-  "listModels" | "diagnostics" | "freeStorageBytes" | "getAiProcessingSettings" | "getJob" |
-  "downloadModel" | "deleteModel" | "cancelJob" | "updateAiProcessingSettings" |
-  "clearCache" | "clearTemporaryFiles" | "history" | "listSongs" |
   "listEnvironmentSettings" | "updateEnvironmentSetting" |
-  "verifyEnvironmentSetting" | "verifyKaggleSettings" | "loginKaggle" |
-  "deployKaggle" | "listJobs" | "exportLibrary" | "importLibrary">;
-
-export type SettingsDesktopPort = Pick<DesktopClient,
-  "getStorageRoot" | "pickStorageFolder" | "setStorageRoot" | "pathForFile" |
-  "copyText" | "saveTextFile" | "installAsio4All" | "relaunchApp" |
-  "openMicrophonePrivacy" | "keyboardLightingCapabilities" | "revealInExplorer">;
-
-export type SettingsLightingPort = {
-  capabilities(): Promise<KeyboardLightingCapabilities>;
-  apply(preferences: KeyboardLightingPreferences, theme: ThemeName,
-    positionSeconds?: number): Promise<void>;
-};
-
-export type SettingsJobEventsPort = {
-  next(jobId: string, pollMilliseconds: number): Promise<void>;
-};
+  "verifyEnvironmentSetting" | "verifyKaggleSettings" | "loginKaggle" | "deployKaggle" | "getAiProcessingSettings">;

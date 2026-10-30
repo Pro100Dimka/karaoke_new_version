@@ -1,7 +1,10 @@
-import { useApp, useRoomSession } from "./AppContext";
-import { useCloseGuard } from "./CloseGuards";
-import { useAsk } from "./DialogProvider";
-import { useText } from "../i18n/useText";
+import { observer } from "mobx-react-lite";
+import { store } from "../providers/store";
+import { tr, useLocale } from "@neo-ui-kit/react";
+import { roomSession } from "../providers/application";
+import { useCloseGuard } from "../providers/close-guards";
+import { ask } from "../providers/dialog";
+import { ru } from "../i18n/messages.ru";
 import { audioClient } from "../services/audioClient";
 import { pythonClient } from "../services/pythonClient";
 
@@ -13,22 +16,20 @@ const sleep = (milliseconds: number) =>
   new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 
 /** Application-level close policy: processing, room and audio session are settled before the window closes. */
-export const AppCloseFlow = () => {
-  const { room } = useApp("room");
-  const roomSession = useRoomSession();
-  const ask = useAsk();
-  const t = useText();
+export const AppCloseFlow = observer(() => {
+  const { room } = store.online;
+  useLocale();
 
   useCloseGuard(async () => {
     const jobs = await pythonClient.listJobs().catch(() => []);
     const active = jobs.filter((job) => activeStates.has(job.state));
     if (active.length > 0) {
       const choice = await ask({
-        title: t("closeWithProcessingTitle"),
-        body: t("closeWithProcessingBody", { count: active.length }),
+        title: tr(ru.closeWithProcessingTitle),
+        body: tr(ru.closeWithProcessingBody, { count: active.length }),
         actions: [
-          { id: "keep", label: t("keepOpen") },
-          { id: "exit", label: t("cancelJobsAndExit"), appearance: "primary" },
+          { id: "keep", label: tr(ru.keepOpen) },
+          { id: "exit", label: tr(ru.cancelJobsAndExit), appearance: "primary" },
         ],
       });
       if (choice !== "exit") return false;
@@ -54,4 +55,4 @@ export const AppCloseFlow = () => {
   });
 
   return null;
-};
+});

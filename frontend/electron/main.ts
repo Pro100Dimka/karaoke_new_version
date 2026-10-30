@@ -34,6 +34,19 @@ import { createTaskbarIntegration } from "./TaskbarIntegration";
 import { createTrayRadio } from "./TrayRadio";
 import { configureNotificationIdentity } from "./NotificationIdentity";
 
+const startupFailed: Readonly<Record<string, string>> = {
+  ru: "Не удалось запустить приложение.",
+  uk: "Не вдалося запустити застосунок.",
+};
+
+const showStartupError = (error: unknown): void => {
+  console.error("Application startup failed", error);
+  const locale = app.isReady() ? app.getLocale().slice(0, 2) : "en";
+  const headline = startupFailed[locale] ?? "The application could not start.";
+  const detail = error instanceof Error ? error.message : String(error);
+  dialog.showErrorBox("A&D Voice", `${headline}\n\n${detail}`);
+};
+
 if (!app.isPackaged) {
   try {
     loadEnvFile(path.join(app.getAppPath(), ".env.local"));
@@ -42,7 +55,15 @@ if (!app.isPackaged) {
   }
 }
 applyGpuSwitches(app.commandLine);
-configureRuntimeIdentity(app);
+try {
+  configureRuntimeIdentity(app);
+} catch (error) {
+  try {
+    showStartupError(error);
+  } finally {
+    app.exit(1);
+  }
+}
 // Notifications say "A&D Voice" (not "Electron") with the app's icon; each profile has its own id.
 configureNotificationIdentity(app, themeIconPath(readSavedTheme()));
 
@@ -177,11 +198,6 @@ app.on("second-instance", (_event, argv) => {
   mainWindow.focus();
 });
 
-const startupFailed: Readonly<Record<string, string>> = {
-  ru: "Не удалось запустить приложение.",
-  uk: "Не вдалося запустити застосунок.",
-};
-
 app
   .whenReady()
   .then(async () => {
@@ -232,11 +248,7 @@ app
   })
   .catch((error: unknown) => {
     // Without this a failed start left an invisible process: no splash, no window, no message.
-    console.error("Application startup failed", error);
-    const headline =
-      startupFailed[app.getLocale().slice(0, 2)] ?? "The application could not start.";
-    const detail = error instanceof Error ? error.message : String(error);
-    dialog.showErrorBox("A&D Voice", `${headline}\n\n${detail}`);
+    showStartupError(error);
     closeSplash();
     app.quit();
   });

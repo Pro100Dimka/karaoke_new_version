@@ -1,19 +1,22 @@
 from __future__ import annotations
 
 import threading
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Iterator, Mapping, Sequence
 
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
+from backend.ai.ports import TranscriptionSource
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.hashing import sha256_file
-from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.process_runner import ProcessInput, ProcessRunner
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
+from backend.processing.policies import ResourceBudget
 
 _RecognitionKey = tuple[threading.Event, Path, Language, str, str]
 
@@ -26,6 +29,7 @@ class CommandAiProvider:
         runner: ProcessRunner,
         *,
         timeout_seconds: float = 1800,
+        resource_budget: ResourceBudget | None = None,
     ) -> None:
         self._descriptor = descriptor
         self._command = tuple(command)
@@ -33,10 +37,25 @@ class CommandAiProvider:
         self._timeout = timeout_seconds
         self._recognitions: dict[_RecognitionKey, dict[str, JsonValue]] = {}
         self._recognition_lock = threading.Lock()
+        self._budget = resource_budget
+        self._alignment_workspaces: dict[threading.Event, Path] = {}
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
         return self._descriptor
+
+    @contextmanager
+    def reuse_alignment(self, workdir: Path, cancel: threading.Event) -> Iterator[None]:
+        if self._descriptor.provider_id != "local-torch" or self._budget is None:
+            yield
+            return
+        with self._recognition_lock:
+            self._alignment_workspaces[cancel] = workdir / "alignment-reuse"
+        try:
+            yield
+        finally:
+            with self._recognition_lock:
+                self._alignment_workspaces.pop(cancel)
 
     def separate(
         self, audio: Path, workdir: Path, cancel: threading.Event, *, execution: ExecutionContext
@@ -118,6 +137,47 @@ class CommandAiProvider:
             raise DependencyError("AiProviderInvalidOutput", "Transcription group is malformed")
         return tuple(self._transcript(value, key) for value, key in zip(values, keys, strict=True))
 
+    def transcribe_stream(
+        self,
+        requests: TranscriptionSource,
+        request_count: int,
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]:
+        if request_count < 0:
+            raise ValueError("request_count must be nonnegative")
+        if not request_count:
+            return ()
+        keys: list[_RecognitionKey | None] = []
+
+        def chunks(stopped: threading.Event) -> Iterator[bytes]:
+            for audio, start in requests(stopped):
+                keys.append(
+                    self._recognition_key(audio, language, cancel, execution) if not start else None
+                )
+                yield (
+                    dumps({"requests": [{"input": str(audio), "startSeconds": start}]}) + "\n"
+                ).encode("utf-8")
+
+        payload = self._invoke(
+            "transcribe-many",
+            ["--language", language.value, "--stream-input"],
+            cancel,
+            execution=execution,
+            input_data=chunks,
+            timeout_seconds=self._timeout * request_count,
+        )
+        values = payload.get("transcriptions")
+        if (
+            not isinstance(values, list)
+            or len(values) != request_count
+            or len(keys) != request_count
+        ):
+            raise DependencyError("AiProviderInvalidOutput", "Transcription stream is malformed")
+        return tuple(self._transcript(value, key) for value, key in zip(values, keys, strict=True))
+
     def _transcript(self, payload: JsonValue, key: _RecognitionKey | None) -> str:
         if not isinstance(payload, dict):
             raise DependencyError("AiProviderInvalidOutput", "Transcription response is malformed")
@@ -168,6 +228,7 @@ class CommandAiProvider:
         instrumental: Path | None = None,
     ) -> Sequence[WordTiming]:
         arguments = ["--input", str(vocal), "--language", language.value, "--lyrics", lyrics]
+        arguments.extend(self._alignment_arguments(vocal, cancel))
         if instrumental is not None:
             arguments.extend(["--instrumental", str(instrumental)])
         if timing_hints:
@@ -192,6 +253,18 @@ class CommandAiProvider:
             raise DependencyError("AiProviderInvalidOutput", "Alignment response is malformed")
         return tuple(_word(value) for value in values)
 
+    def _alignment_arguments(self, vocal: Path, cancel: threading.Event) -> list[str]:
+        with self._recognition_lock:
+            workspace = self._alignment_workspaces.get(cancel)
+        if workspace is None or self._budget is None:
+            return []
+        return [
+            "--reuse-directory",
+            str(workspace / sha256_file(vocal)),
+            "--reuse-reserve",
+            str(self._budget.min_free_disk_bytes),
+        ]
+
     def pitch(
         self, vocal: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> Sequence[PitchPoint]:
@@ -208,7 +281,7 @@ class CommandAiProvider:
         cancel: threading.Event,
         *,
         execution: ExecutionContext,
-        input_data: bytes | None = None,
+        input_data: ProcessInput | None = None,
         timeout_seconds: float | None = None,
     ) -> dict[str, JsonValue]:
         try:
@@ -217,10 +290,8 @@ class CommandAiProvider:
                 timeout_seconds=self._timeout if timeout_seconds is None else timeout_seconds,
                 cancel=cancel,
                 input_data=input_data,
-                environment={
-                    **_thread_environment(execution.cpu_threads),
-                    "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
-                },
+                environment=_execution_environment(execution),
+                cpu_fraction=execution.cpu_fraction,
             )
         except DomainError as error:
             if error.code != "ProcessCancelled":
@@ -241,14 +312,19 @@ class CommandAiProvider:
             ) from exc
 
 
-def _thread_environment(threads: int) -> Mapping[str, str]:
-    value = str(threads)
-    return {
+def _execution_environment(execution: ExecutionContext) -> Mapping[str, str]:
+    threads = execution.numeric_cpu_threads
+    value = str(execution.cpu_threads if threads is None else threads)
+    environment = {
         "OMP_NUM_THREADS": value,
         "MKL_NUM_THREADS": value,
         "OPENBLAS_NUM_THREADS": value,
         "NUMEXPR_NUM_THREADS": value,
+        "AD_VOICE_COMPUTE_DEVICE": execution.device.value.lower(),
     }
+    if execution.cpu_fraction is not None:
+        environment.update(KMP_BLOCKTIME="0", OMP_WAIT_POLICY="PASSIVE")
+    return environment
 
 
 def _word(value: JsonValue) -> WordTiming:

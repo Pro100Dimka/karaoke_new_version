@@ -19,6 +19,9 @@ class ExecutionContext:
     device: ComputeDevice
     cpu_threads: int
     fallback_reason: str | None = None
+    parallel_cpu_fraction: float | None = None
+    numeric_cpu_threads: int | None = None
+    cpu_fraction: float | None = None
 
 
 @dataclass(frozen=True, slots=True)

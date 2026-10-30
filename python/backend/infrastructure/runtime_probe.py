@@ -14,6 +14,7 @@ from backend.diagnostics.ports import RuntimeDiagnostics, RuntimeProbe
 from backend.infrastructure.job_executor import run_in_background
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.windows_child_job import WindowsChildJob
 from backend.serialization import loads_optional_object
 
 logger = logging.getLogger(__name__)
@@ -112,9 +113,11 @@ class SystemRuntimeProbe:
 
     def _diagnostics(self, torch: _TorchFacts | None) -> RuntimeDiagnostics:
         total_vram, free_vram = (None, None)
+        current_memory = None
         if torch and torch.cuda:
             # Free VRAM changes between jobs, so it is read fresh, without a CUDA context here.
-            total_vram, free_vram = _gpu_memory(self._processes, torch.gpu) or (
+            current_memory = _gpu_memory(self._processes, torch.gpu)
+            total_vram, free_vram = current_memory or (
                 torch.total_vram,
                 torch.free_vram,
             )
@@ -131,7 +134,20 @@ class SystemRuntimeProbe:
             vram_bytes=total_vram,
             free_vram_bytes=free_vram,
             ffmpeg_version=self._ffmpeg_version,
+            cpu_limit_supported=self._cpu_limit_supported,
+            vram_is_current=current_memory is not None,
         )
+
+    @cached_property
+    def _cpu_limit_supported(self) -> bool:
+        if sys.platform != "win32":
+            return False
+        try:
+            job = WindowsChildJob(cpu_fraction=1.0)
+        except OSError:
+            return False
+        job.close()
+        return True
 
     @cached_property
     def _ffmpeg_version(self) -> str | None:

@@ -15,7 +15,7 @@ const monitoringPreference = vi.hoisted(() => ({
   microphoneReady: true,
 }));
 const monitoringWarning = vi.hoisted(() => vi.fn());
-vi.mock("../../app/AppContext", () => ({
+vi.mock("../../providers/application", () => ({
   useRoomPlayback: () => null,
   useApp: () => ({
     room: roomState.room,
@@ -33,15 +33,12 @@ vi.mock("../../app/AppContext", () => ({
     openSettings: vi.fn(),
   }),
 }));
-vi.mock("../../app/DialogProvider", () => ({ useAsk: () => dialogs.ask }));
-vi.mock("../../app/CloseGuards", () => ({ useCloseGuard: vi.fn() }));
-vi.mock("../../app/NotificationsProvider", () => ({
+vi.mock("../../providers/dialog", () => ({ ask: dialogs.ask }));
+vi.mock("../../providers/close-guards", () => ({ useCloseGuard: vi.fn() }));
+vi.mock("../../providers/notifications", () => ({
   useNotify: () => monitoringWarning,
 }));
-vi.mock("../../i18n/useText", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../i18n/useText")>()),
-  useText: () => (key: string) => key,
-}));
+
 vi.mock("../../services/pythonClient", () => ({
   pythonClient: { freeStorageBytes: vi.fn() },
 }));
@@ -461,7 +458,7 @@ describe("karaoke recording ownership", () => {
     });
     expect(monitoringWarning).toHaveBeenCalledTimes(1);
     expect(monitoringWarning).toHaveBeenCalledWith(
-      "monitoringSafetyStopped",
+      "Мониторинг микрофона отключён: входной сигнал долго оставался слишком громким. Уменьшите громкость колонок или используйте наушники перед повторным включением.",
       "error",
     );
     rerender();
@@ -596,3 +593,19 @@ describe("karaoke recording ownership", () => {
     expect(recordingCoordinator.start).not.toHaveBeenCalled();
   });
 });
+
+vi.mock("../../providers/store", () => ({ store: {
+  get online() { return { room: roomState.room }; },
+  get preferences() { return {
+      musicGain: 0.42,
+      voiceGain: 0.53,
+      referenceGain: 0.64,
+      melodyGain: 0.75,
+      masterGain: 0.86,
+      karaokeMonitoring: monitoringPreference.enabled,
+      keyboardLighting: false,
+      theme: "dark",
+    }; },
+  get updatePreferences() { return vi.fn(); },
+  get openSettings() { return vi.fn(); }
+} }));

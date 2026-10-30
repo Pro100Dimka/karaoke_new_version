@@ -18,15 +18,15 @@ const mocks = vi.hoisted(() => ({
   sound: vi.fn(),
 }));
 
-vi.mock("../../app/AppContext", () => ({
+vi.mock("../../providers/application", () => ({
   useApp: () => ({
     room: mocks.room,
     setRoom: mocks.setRoom,
     preferences: { displayName: "Boris" },
   }),
-  useRoomSession: () => ({ join: mocks.enterRoom, leave: mocks.leaveRoom }),
+  roomSession: { join: mocks.enterRoom, leave: mocks.leaveRoom },
 }));
-vi.mock("../../app/SocialProvider", async () => {
+vi.mock("../../providers/social", async () => {
   const { RoomInvitationCoordinator } = await import("../../application/social/RoomInvitationCoordinator");
   const { FriendRelationsCoordinator } = await import("../../application/social/FriendRelationsCoordinator");
   const invitations = new RoomInvitationCoordinator({
@@ -41,17 +41,14 @@ vi.mock("../../app/SocialProvider", async () => {
     requestFriend: vi.fn(), cancelRequest: vi.fn(), removeFriend: vi.fn(),
   }, { copyText: vi.fn(async () => undefined) });
   return { useRoomInvitations: () => invitations,
-    useFriendRelations: () => friends, useSocial: () => ({ type: "offline" }),
+    friendRelations: friends, useSocial: () => ({ type: "offline" }),
     useSocialDirectory: () => ({ avatar: vi.fn() }) };
 });
-vi.mock("../../app/NotificationsProvider", () => ({
+vi.mock("../../providers/notifications", () => ({
   useNotify: () => mocks.notify,
   playNotificationSound: mocks.sound,
 }));
-vi.mock("../../i18n/useText", () => ({
-  useText: () => (key: string, params?: Record<string, string>) =>
-    params?.name ? `${key}:${params.name}` : key,
-}));
+
 vi.mock("../../services/socialClient", () => ({
   socialClient: {
     acceptInvite: mocks.acceptInvite,
@@ -122,7 +119,7 @@ it("an accepted invitation leaves the current room and enters the friend's", asy
     />,
   );
 
-  fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
+  fireEvent.click(screen.getByRole("button", { name: "Принять" }));
 
   await waitFor(() => expect(mocks.enterRoom).toHaveBeenCalled());
   expect(mocks.acceptInvite).toHaveBeenCalledWith("i1");
@@ -136,11 +133,11 @@ it("a friend request put off for later leaves the corner but can still be answer
       inbox={inbox({ friendRequests: [{ ...anna, relation: "Incoming" }] })}
     />,
   );
-  expect(screen.getByText("friendRequestAlert:Anna")).toBeInTheDocument();
+  expect(screen.getByText("Anna хочет добавить вас в друзья")).toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "laterAction" }));
+  fireEvent.click(screen.getByRole("button", { name: "Позже" }));
 
-  expect(screen.queryByText("friendRequestAlert:Anna")).not.toBeInTheDocument();
+  expect(screen.queryByText("Anna хочет добавить вас в друзья")).not.toBeInTheDocument();
   expect(mocks.declineFriend).not.toHaveBeenCalled();
 });
 
@@ -154,8 +151,8 @@ it("lets the host approve a room join request instead of sending another invitat
     />,
   );
 
-  expect(screen.getByText("joinRequested:Anna")).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "acceptAction" }));
+  expect(screen.getByText("Anna хочет подключиться к вашей комнате")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Принять" }));
 
   await waitFor(() =>
     expect(mocks.approveJoinRequest).toHaveBeenCalledWith("anna", "room-a"),
@@ -190,3 +187,9 @@ it("enters the requested room as soon as its host approves the join request", as
   );
   expect(mocks.clearRequestedRoom).toHaveBeenCalledWith("room-a");
 });
+
+vi.mock("../../providers/store", () => ({ store: {
+  get online() { return { room: mocks.room }; },
+  inbox: { type: "offline" },
+  get preferences() { return { displayName: "Boris" }; }
+} }));

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { audioClient, getAudioSnapshot } from "./audioClient";
-import { audioOptions } from "../features/settings/tabs/Audio/model/audioOptions";
+import { audioOptions } from "../pages/library/modals/settings/audio/audioOptions";
 import { waitForReady } from "./audioSession";
 
 const installBridge = (
@@ -617,7 +617,6 @@ describe("audioClient contract", () => {
     const capabilities = await audioClient.configurationCapabilities(configuration);
     const runtime = await audioClient.applyConfiguration(configuration);
     const options = audioOptions({
-      t: ((key: string) => key) as never,
       values: { ...configuration, bufferFrames: 0 },
       runtime,
       configurationCapabilities: capabilities,

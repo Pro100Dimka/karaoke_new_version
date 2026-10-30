@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { titleBarLeadingId } from "../../app/TitleBar";
-import { useText } from "../../i18n/useText";
-import { IconButton } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */
@@ -19,7 +19,7 @@ export const KaraokeHeader = ({
   inline = false,
   onBack,
 }: KaraokeHeaderProps) => {
-  const t = useText();
+  useLocale();
 
   const header = (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
@@ -28,7 +28,7 @@ export const KaraokeHeader = ({
           round
           icon="back"
           size="lg"
-          label={t("library")}
+          label={tr(ru.library)}
           onClick={onBack}
         />
         {consoleToggle && (
@@ -36,7 +36,7 @@ export const KaraokeHeader = ({
             round
             size="lg"
             icon={consoleToggle.visible ? "down" : "up"}
-            label={t(consoleToggle.visible ? "hideConsole" : "showConsole")}
+            label={tr(ru[consoleToggle.visible ? "hideConsole" : "showConsole"])}
             onClick={consoleToggle.onToggle}
           />
         )}

@@ -1,19 +1,9 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
 import { useEffect, useState } from "react";
-import {
-  Avatar,
-  Beacon,
-  Button,
-  Card,
-  Dialog,
-  Icon,
-  MessageBar,
-  NeonWaves,
-  Stack,
-  TextField,
-  Typography,
-} from "@neo-ui-kit/react";
-import { useApp, useRoomSession } from "../../app/AppContext";
-import { useText } from "../../i18n/useText";
+import { Avatar, Beacon, Button, Card, Dialog, Icon, MessageBar, NeonWaves, Stack, TextField, Typography, tr, useLocale } from "@neo-ui-kit/react";
+import { roomSession } from "../../providers/application";
+import { ru } from "../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import "./room-entry.css";
 
@@ -23,7 +13,7 @@ type Busy = "create" | "join" | null;
  * Singing together in one step: your name on top, then two choices side by side. Creating opens a
  * room at once; a pasted code (or Enter) joins it at once.
  */
-export const RoomModal = ({
+export const RoomModal = observer(({
   open,
   onClose,
   invitationCode,
@@ -33,9 +23,8 @@ export const RoomModal = ({
   /** A code from an invitation link: shown ready to join, the singer only confirms their name. */
   invitationCode?: string;
 }) => {
-  const { preferences, updatePreferences } = useApp();
-  const roomSession = useRoomSession();
-  const t = useText();
+  const { preferences, updatePreferences } = store;
+  useLocale();
   const [name, setName] = useState(preferences.displayName);
   const [code, setCode] = useState(invitationCode ?? "");
   useEffect(() => {
@@ -49,9 +38,9 @@ export const RoomModal = ({
   const enter = async (roomCode?: string) => {
     const trimmed = name.trim();
     setFailure(undefined);
-    setNameError(trimmed ? undefined : t("fieldRequired"));
+    setNameError(trimmed ? undefined : tr(ru.fieldRequired));
     if (roomCode !== undefined)
-      setCodeError(roomCode.trim() ? undefined : t("fieldRequired"));
+      setCodeError(roomCode.trim() ? undefined : tr(ru.fieldRequired));
     if (!trimmed || (roomCode !== undefined && !roomCode.trim())) return;
     setBusy(roomCode === undefined ? "create" : "join");
     try {
@@ -60,7 +49,7 @@ export const RoomModal = ({
       onClose();
     } catch (error) {
       setFailure(
-        t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+        tr(ru[errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"]),
       );
     } finally {
       setBusy(null);
@@ -76,9 +65,9 @@ export const RoomModal = ({
       className="roomEntryDialog"
       width="wide"
       icon="users"
-      title={t("roomTitle")}
-      description={t("roomIntro")}
-      closeLabel={t("closeDialog")}
+      title={tr(ru.roomTitle)}
+      description={tr(ru.roomIntro)}
+      closeLabel={tr(ru.closeDialog)}
       cancelLabel={false}
       confirmLabel={false}
       art={
@@ -96,7 +85,7 @@ export const RoomModal = ({
           <TextField
             className="roomEntryName"
             name="name"
-            label={t("displayName")}
+            label={tr(ru.displayName)}
             required
             clearable
             autoComplete="name"
@@ -121,10 +110,10 @@ export const RoomModal = ({
                 <Icon name="users" surface="tile" size={28} />
               </Beacon>
               <Typography as="h3" variant="title">
-                {t("createRoom")}
+                {tr(ru.createRoom)}
               </Typography>
               <Typography variant="body-sm" tone="muted">
-                {t("createAndInvite")}
+                {tr(ru.createAndInvite)}
               </Typography>
               <Button
                 variant="primary"
@@ -133,7 +122,7 @@ export const RoomModal = ({
                 disabled={busy === "join"}
                 onClick={() => void enter()}
               >
-                {t("createRoom")}
+                {tr(ru.createRoom)}
               </Button>
             </Card>
           </div>
@@ -147,7 +136,7 @@ export const RoomModal = ({
             >
               <Icon name="key" surface="tile" size={28} />
               <Typography as="h3" variant="title">
-                {t("joinByCode")}
+                {tr(ru.joinByCode)}
               </Typography>
               <form
                 className="roomEntryJoin"
@@ -160,13 +149,13 @@ export const RoomModal = ({
                 <TextField
                   className="roomEntryCode"
                   name="code"
-                  label={t("roomCode")}
+                  label={tr(ru.roomCode)}
                   required
                   autoComplete="off"
-                  placeholder={t("roomCodePlaceholder")}
+                  placeholder={tr(ru.roomCodePlaceholder)}
                   value={code}
                   error={codeError}
-                  description={t("roomCodePasteHint")}
+                  description={tr(ru.roomCodePasteHint)}
                   onValueChange={(value) => {
                     setCode(value);
                     setCodeError(undefined);
@@ -187,7 +176,7 @@ export const RoomModal = ({
                   loading={busy === "join"}
                   disabled={busy === "create"}
                 >
-                  {t("joinRoom")}
+                  {tr(ru.joinRoom)}
                 </Button>
               </form>
             </Card>
@@ -198,4 +187,4 @@ export const RoomModal = ({
       </div>
     </Dialog>
   );
-};
+});

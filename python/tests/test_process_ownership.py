@@ -14,6 +14,28 @@ from backend.infrastructure.process_runner import LineProcess
 from backend.infrastructure.process_runner import ProcessRunner
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows CPU rate control")
+def test_child_job_applies_a_cpu_limit_without_changing_worker_threads():
+    from backend.infrastructure.windows_child_job import WindowsChildJob
+
+    job = WindowsChildJob(cpu_fraction=0.25)
+    try:
+        information = (wintypes.DWORD * 2)()
+        query = job._api.QueryInformationJobObject
+        query.argtypes = [
+            wintypes.HANDLE,
+            ctypes.c_int,
+            ctypes.c_void_p,
+            wintypes.DWORD,
+            ctypes.c_void_p,
+        ]
+        query.restype = wintypes.BOOL
+        assert query(job._handle, 15, ctypes.byref(information), ctypes.sizeof(information), None)
+        assert tuple(information) == (0x1 | 0x4, 2500)
+    finally:
+        job.close()
+
+
 def _wait_for_windows_exit(pid):
     api = ctypes.WinDLL("kernel32", use_last_error=True)
     api.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)

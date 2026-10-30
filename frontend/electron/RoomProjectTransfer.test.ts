@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import * as fs from "node:fs";
 import { Readable } from "node:stream";
 import { createServer } from "node:http";
@@ -37,7 +37,7 @@ afterEach(async () => {
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
   );
 });
-const setup = async () => {
+const setup = async (dataRoot = (root: string) => root) => {
   const root = await mkdtemp(join(tmpdir(), "room-transfer-test-"));
   roots.push(root);
   const handlers = new Map<
@@ -48,7 +48,7 @@ const setup = async () => {
     send: vi.fn(),
     isDestroyed: () => false,
   });
-  registerRoomProjectTransferHandlers("https://example.org", () => root, {
+  registerRoomProjectTransferHandlers("https://example.org", () => dataRoot(root), {
     handle: (channel, listener) => {
       handlers.set(channel, listener);
     },
@@ -365,4 +365,22 @@ it("gives up a transfer when no data moves for a minute", async () => {
   expect(settled).toBe(false);
   await vi.advanceTimersByTimeAsync(2_000);
   expect((await download).message).toMatch(/stalled/);
+});
+
+it("accepts a canonical archive path when the library root is a junction", async () => {
+  const { call, project } = await setup((root) => join(root, "alias"));
+  const root = roots.at(-1)!;
+  const actual = join(root, "actual");
+  await mkdir(actual);
+  await symlink(actual, join(root, "alias"), "junction");
+  const file = join(actual, "project.zip");
+  await writeFile(file, "archive");
+  vi.stubGlobal("fetch", vi.fn(async (_url, options) => {
+    for await (const _chunk of options.body) { /* Consume the upload stream. */ }
+    return new Response(null, { status: 201 });
+  }));
+  await expect(call(ipcChannels.uploadRoomProject, { ...project, path: file })).resolves.toBeUndefined();
+  const outside = join(root, "outside.zip");
+  await writeFile(outside, "private");
+  await expect(call(ipcChannels.uploadRoomProject, { ...project, path: outside })).rejects.toThrow("outside");
 });

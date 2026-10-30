@@ -18,6 +18,7 @@ from backend.infrastructure.database import Database
 from backend.infrastructure.event_stream import EventStream
 from backend.infrastructure.instance_lock import BackendInstanceLock
 from backend.infrastructure.job_executor import BoundedJobExecutor
+from backend.infrastructure.recording_archive import RecordingArchive
 from backend.models.commands import DeclareModel, DeleteModel, DownloadModel, SelectModel
 from backend.packages.background import StartPackageExport, StartPackageImport
 from backend.packages.inspect_package import InspectPackage
@@ -85,6 +86,7 @@ class RecordingCases:
     list_analyses: ListRecordingAnalyses
     start_studio_master: StartStudioMaster
     reconcile: ReconcileRecordings
+    archive: RecordingArchive | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +132,8 @@ class ApplicationContainer:
         self.lifecycle.stopping()
         self.executor.stop_accepting()
         try:
+            if self.recordings.archive:
+                self.recordings.archive.stop()
             self.executor.shutdown()
         finally:
             try:

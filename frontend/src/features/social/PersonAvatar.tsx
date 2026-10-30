@@ -1,3 +1,4 @@
+import { observer } from "mobx-react-lite";
 import { Avatar } from "@neo-ui-kit/react";
 import type { SocialPresence } from "../../contracts/social";
 import { usePersonPhoto } from "./usePersonPhoto";
@@ -12,7 +13,7 @@ const presenceDot = {
  * A person's photo, or their initial when they have none (or it cannot be loaded). A presence dot
  * shows whether they have the app open.
  */
-export const PersonAvatar = ({
+export const PersonAvatar = observer(({
   accountId,
   avatarVersion,
   name,
@@ -34,4 +35,4 @@ export const PersonAvatar = ({
       presence={presence && presenceDot[presence]}
     />
   );
-};
+});

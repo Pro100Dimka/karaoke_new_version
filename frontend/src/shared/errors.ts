@@ -1,3 +1,6 @@
+import { tr } from "@neo-ui-kit/react";
+import { ru } from "../i18n/messages.ru";
+import { unverifiedAsioMonitoring } from "../contracts/models";
 import type { AppError } from "../contracts/models";
 import type { MessageKey } from "../i18n/messages";
 
@@ -51,3 +54,8 @@ const knownCodes = {
 
 export const errorMessageKey = (error: AppError): MessageKey | null =>
   (knownCodes as Record<string, MessageKey>)[error.code] ?? null;
+
+export const monitoringErrorText = (error: unknown): string =>
+  error instanceof Error && error.message === unverifiedAsioMonitoring
+    ? tr(ru.monitoringAsio4AllBlocked)
+    : error instanceof Error ? error.message : String(error);

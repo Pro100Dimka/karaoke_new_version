@@ -84,6 +84,13 @@ def _model() -> torch.nn.Module:
     return model.to(device()).eval()
 
 
+def frame_stride_samples() -> int:
+    return prod(
+        stride
+        for _, _, stride in MMS_FA._params["extractor_conv_layer_config"]  # noqa: SLF001
+    )
+
+
 def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     """Log-probabilities of the model's characters for every frame (16 kHz audio in), and the seconds one frame lasts.
 
@@ -97,10 +104,7 @@ def emission(samples: np.ndarray) -> tuple[torch.Tensor, float]:
     # Valid convolutions omit their final incomplete receptive field; input length / output count is
     # therefore not the frame stride. Using that ratio both drops frames at chunk seams and gradually
     # stretches the concatenated time axis. All chunks use the extractor's fixed sample stride.
-    frame_samples = prod(
-        stride
-        for _, _, stride in MMS_FA._params["extractor_conv_layer_config"]  # noqa: SLF001
-    )
+    frame_samples = frame_stride_samples()
     with torch.inference_mode():
         for start in range(0, len(audio), chunk):
             begin, end = max(0, start - context), min(len(audio), start + chunk + context)

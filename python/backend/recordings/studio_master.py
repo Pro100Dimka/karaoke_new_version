@@ -123,6 +123,7 @@ class FfmpegStudioMasterRenderer:
         performance_mix: Path,
         exact_stems: bool = False,
         process_voice: bool = False,
+        match_recording_loudness: bool = False,
         adjustments: Sequence[Mapping[str, object]] = (),
         progress: Callable[[str, float, float], None] | None = None,
     ) -> StudioMasterBalance:
@@ -316,7 +317,7 @@ class FfmpegStudioMasterRenderer:
             graph = "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
             # A unity-gain original needs no preliminary loudness scan if its samples cannot
             # clip. Always meter the encoded file; intersample overshoots still trigger attenuation.
-            unity_candidate = not process_voice and peak_bound < 0.95
+            unity_candidate = not process_voice and not match_recording_loudness and peak_bound < 0.95
             measured = None
             ceiling = -1.0 if process_voice else -3.0
             target_lufs, gain = 0.0, 0.0
@@ -327,6 +328,15 @@ class FfmpegStudioMasterRenderer:
                 if measured is None or not all(math.isfinite(value) for value in measured.values()):
                     raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
                 target_lufs = -14.0 if process_voice else measured["input_i"]
+                if match_recording_loudness:
+                    recording_analysis = self._mix(
+                        performance_mix, performance_mix, "[0:a]" + loudnorm_filter(lra=11) + "[out]",
+                        ["-f", "null", "-"], cancel, quiet=False,
+                    )
+                    recording_levels = parse_loudness(recording_analysis.stderr)
+                    if recording_levels is None or not math.isfinite(recording_levels["input_i"]):
+                        raise DependencyError("StudioMasterFailed", "Recording loudness could not be measured")
+                    target_lufs = min(measured["input_i"], recording_levels["input_i"])
                 gain = min(target_lufs - measured["input_i"], ceiling - 0.05 - measured["input_tp"])
                 if process_voice and np.count_nonzero(reliable) * _PROFILE_SECONDS < 3:
                     gain = min(gain, 0.0)

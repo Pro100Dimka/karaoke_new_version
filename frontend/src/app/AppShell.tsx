@@ -1,23 +1,27 @@
-import { useEffect } from "react";
-import { refreshMotion } from "@neo-ui-kit/react";
-import { Outlet, useLocation } from "react-router-dom";
+import { observer } from "mobx-react-lite";
+import { store } from "../providers/store";
+import { useEffect, type ReactNode } from "react";
+import { refreshMotion, useRouter } from "@neo-ui-kit/react";
+
 import { KaraokeHost } from "../features/karaoke/KaraokeHost";
 import { useKaraokeTv } from "../features/karaoke/tv/karaokeTv";
 import { TvRemote } from "../features/karaoke/tv/TvRemote";
 import { RoomDock } from "../features/room/RoomDock";
 import { RoomSync } from "../features/room/RoomSync";
-import SettingsModal from "../features/settings";
+import SettingsModal from "../pages/library/modals/settings";
 import { desktopClient } from "../services/desktopClient";
 import { routes } from "../shared/routes";
 import "./app.css";
 import { AppCloseFlow } from "./AppCloseFlow";
-import { useApp, useSettingsDialog } from "./AppContext";
-import { LibraryBackdrop } from "./backdrop/LibraryBackdrop";
+
+import { LibraryBackdrop } from "../pages/library/background";
 import { publishSpectrum } from "./backdrop/spectrumEvents";
 import { useSpectrumFeed } from "./backdrop/useSpectrumFeed";
 import { DesktopShellBridge } from "./desktop/DesktopShellBridge";
 import { FloatingControls } from "./FloatingControls";
-import { RadioProvider } from "./RadioContext";
+import { subscribeRadio } from "../providers/radio";
+import { runInAction } from "mobx";
+import { useNotify } from "../providers/notifications";
 import { ServiceBanner } from "./ServiceBanner";
 import { StartupRecovery } from "./StartupRecovery";
 import { TitleBar } from "./TitleBar";
@@ -26,38 +30,43 @@ import { useAppOnScreen } from "./useAppOnScreen";
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith("/karaoke/");
 
-const RouteSurface = ({
-  animateBackground,
+const RouteSurface = observer(({
+  animateBackground, children,
 }: {
+  children?: ReactNode;
   animateBackground: boolean;
 }) => {
-  const { settingsOpen } = useSettingsDialog();
+  const { settingsOpen } = store;
   useEffect(refreshMotion, [settingsOpen]);
   return (
     <>
       {/* Hears the radio and the microphone through AudioService's spectrum. It stays mounted under
           Settings: re-creating the WebGL scene on close would recompile its shaders. */}
-      {animateBackground && <LibraryBackdrop listening={!settingsOpen} />}
+      {animateBackground && <LibraryBackdrop paused={settingsOpen} />}
       <div
         className="routeSurface"
         data-ad-offscreen={settingsOpen ? "" : undefined}
       >
         <ServiceBanner />
-        <Outlet />
+        {children}
       </div>
     </>
   );
-};
+});
 
-const Shell = () => {
-  const { pathname } = useLocation();
+const Shell = observer(({ children }: { children?: ReactNode }) => {
+  const { pathname } = useRouter();
   // While Karaoke plays on the TV the laptop shows the Library, but it is not the Library's turn to
   // make sound or light: the radio is off and the backdrop rests.
   const onTv = useKaraokeTv()?.active === true;
   const isLibrary = pathname === routes.library;
   const libraryActive = isLibrary && !onTv;
-  const { preferences } = useApp("preferences");
-  const { localProcessing } = useApp("processing");
+  useEffect(() => { if (!isLibrary) store.returnFromKaraoke(null); }, [isLibrary]);
+  const notify = useNotify();
+  useEffect(() => { runInAction(() => { store.radio.libraryActive = libraryActive; }); }, [libraryActive]);
+  useEffect(() => subscribeRadio(notify), [notify]);
+  const { preferences } = store;
+  const { localProcessing } = store.application;
   const onScreen = useAppOnScreen();
   const karaoke = isKaraoke(pathname) || onTv;
   useSpectrumFeed(
@@ -96,7 +105,6 @@ const Shell = () => {
   }, [pathname]);
 
   return (
-    <RadioProvider libraryActive={libraryActive}>
       <div className="app">
         <DesktopShellBridge />
         <TitleBar />
@@ -107,7 +115,7 @@ const Shell = () => {
             !preferences.reducedMotion &&
             !localProcessing
           }
-        />
+        >{children}</RouteSurface>
         {isLibrary && <FloatingControls />}
         {isLibrary && onTv && <TvRemote />}
         <AppCloseFlow />
@@ -116,12 +124,11 @@ const Shell = () => {
         <RoomDock />
         <SettingsModal />
       </div>
-    </RadioProvider>
   );
-};
+});
 
-export const AppShell = () => (
+export const AppShell = ({ children }: { children?: ReactNode }) => (
   <KaraokeHost>
-    <Shell />
+    <Shell>{children}</Shell>
   </KaraokeHost>
 );

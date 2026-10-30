@@ -1,20 +1,21 @@
+import { tr, useLocale } from "@neo-ui-kit/react";
+import { ru } from "../i18n/messages.ru";
 import { useEffect, useRef } from "react";
 import { audioClient } from "../services/audioClient";
-import { useText } from "../i18n/useText";
-import { useNotify } from "./NotificationsProvider";
+import { useNotify } from "../providers/notifications";
 
 /** A short, unobtrusive note when "minimum microphone latency" could not take effect. */
 export const useLowLatencyMicrophoneNotice = (): void => {
   const notify = useNotify();
-  const t = useText();
-  const tools = useRef({ notify, t });
-  tools.current = { notify, t };
+  useLocale();
+  const tools = useRef({ notify });
+  tools.current = { notify };
   useEffect(
     () =>
       audioClient.onLowLatencyMicrophoneFallback(({ microphoneAvailable }) =>
         tools.current.notify(
-          tools.current.t(
-            microphoneAvailable ? "lowLatencyMicrophoneFallback" : "microphoneHeldByAnotherApp",
+          tr(
+            ru[microphoneAvailable ? "lowLatencyMicrophoneFallback" : "microphoneHeldByAnotherApp"],
           ),
           microphoneAvailable ? "info" : "warning",
         ),

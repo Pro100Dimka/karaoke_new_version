@@ -1,9 +1,10 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KaraokeLyrics, MelodyRoll, resizeEdges } from "@neo-ui-kit/react";
+import { KaraokeLyrics, MelodyRoll, resizeEdges, tr, useLocale } from "@neo-ui-kit/react";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
-import { useText } from "../../i18n/useText";
-import { useApp } from "../../app/AppContext";
+import { ru } from "../../i18n/messages.ru";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import type { VocalRange } from "../../application/library/songPreferences";
 import type { StageLayers } from "./displayModes";
@@ -49,7 +50,7 @@ const rollLead = 0.25;
 // The piano roll's window starts at the size of the roll on the karaoke screen.
 const pianoPanelSize = { width: 920, height: 220 };
 
-const PianoRoll = ({
+const PianoRoll = observer(({
   document,
   position,
   vocalRange,
@@ -59,6 +60,7 @@ const PianoRoll = ({
   pitchFrame,
   capturedPitch,
   show,
+  hitNoteIds,
   hidden,
   opacity,
   playing,
@@ -72,11 +74,12 @@ const PianoRoll = ({
   pitchFrame?: PitchFrame;
   capturedPitch: boolean;
   show: ShowEngine;
+  hitNoteIds: ReadonlySet<string>;
   hidden: boolean;
   opacity: number;
   playing: boolean;
 }) => {
-  const t = useText();
+  useLocale();
   const [span, setSpan] = useState(windowSeconds);
   const notes = useMemo(
     () =>
@@ -95,7 +98,7 @@ const PianoRoll = ({
     [notes, shownWordIds],
   );
   const frameRef = useRef<HTMLDivElement>(null);
-  const panel = useDetachedPanel("pianoRoll", t("pianoRoll"), pianoPanelSize);
+  const panel = useDetachedPanel("pianoRoll", tr(ru.pianoRoll), pianoPanelSize);
   const { layout, active, beginMove, beginResize, handleMove, handleUp } =
     usePianoRollLayout(frameRef, (bounds, pointer) =>
       panel.detach(bounds, pointer),
@@ -110,17 +113,10 @@ const PianoRoll = ({
     ? targetPitchAt(activeNote, voicePosition)
     : undefined;
   const liveMidi = pitchHzToMidi(observedPitch);
-  const audioActive = pitchFrame?.audioActive ?? (liveMidi !== undefined);
-  const pitchStatus = ([
-    ["pitchAboveRange", liveMidi !== undefined && liveMidi > range.max],
-    ["pitchBelowRange", liveMidi !== undefined && liveMidi < range.min],
-    ["pitchUncertain", measuredPitch === undefined],
-  ] as const).find(([, active]) => active)?.[0];
   const accuracy = pitchAccuracy(measuredPitch, targetPitch);
   const onTarget = Boolean(
     targetPitch !== undefined && pitchMatchesTarget(measuredPitch, targetPitch),
   );
-  const hitNoteIds = show.hitNoteIds;
   const frameStyle =
     layout && !panel.detached
       ? {
@@ -149,7 +145,7 @@ const PianoRoll = ({
           <>
             <MelodyRoll
               className="pianoRollLane"
-              label={t("pianoRoll")}
+              label={tr(ru.pianoRoll)}
               notes={inLine}
               position={position}
               minPitch={range.min}
@@ -175,11 +171,6 @@ const PianoRoll = ({
             />
           </>
         )}
-        {playing && !hidden && audioActive && pitchStatus && (
-          <span className="pianoRollVoiceStatus" role="status">
-            {t(pitchStatus)}
-          </span>
-        )}
         <span
           className="pianoRollDetach"
           onPointerDown={(event) => event.stopPropagation()}
@@ -200,7 +191,7 @@ const PianoRoll = ({
       </div>
     </DetachedPanel>
   );
-};
+});
 
 /** The two lines on screen: the one being sung fills word by word and breathes with the drums; the next waits below. */
 const Lyrics = ({
@@ -214,7 +205,7 @@ const Lyrics = ({
   phase: LineDisplayPhase;
   reducedMotion: boolean;
 }) => {
-  const t = useText();
+  useLocale();
   const [current, next] = shown;
   // Preview on "1"; saved word times keep the text unfilled until singing starts.
   const { countdown } = phase;
@@ -231,7 +222,7 @@ const Lyrics = ({
         <p
           className="lyricsCountdown"
           role="timer"
-          aria-label={t("introCountdown", { seconds: countdown })}
+          aria-label={tr(ru.introCountdown, { seconds: countdown })}
         >
           <span key={countdown}>{countdown}</span>
         </p>
@@ -249,7 +240,7 @@ const Lyrics = ({
   );
 };
 
-export const KaraokeStage = ({
+export const KaraokeStage = observer(({
   songTitle,
   position: polledPosition,
   playing,
@@ -262,9 +253,9 @@ export const KaraokeStage = ({
   pitchFrames,
   onNoteScoreChange,
 }: KaraokeStageProps) => {
-  const t = useText();
+  useLocale();
   const position = useSmoothPosition(polledPosition, playing, rate);
-  const { preferences } = useApp("preferences");
+  const { preferences } = store;
   const showLyrics = layers.showLyrics && document !== null;
   const showPiano = layers.showNotes && document !== null;
   const instrumental = document === null || document.words.length === 0;
@@ -311,10 +302,12 @@ export const KaraokeStage = ({
     playing,
     settings: showSettings,
   });
-  // The engine effects above consume this frame before its score is published.
-  // Publishing does not require another render of the lyrics and melody roll.
+  const [hitNoteIds, setHitNoteIds] = useState(show.hitNoteIds);
+  // Publish new hits after the engine consumes this frame, including the final paused frame.
   useEffect(() => {
     onNoteScoreChange?.(show.noteScore);
+    const hits = show.hitNoteIds;
+    setHitNoteIds((current) => current.size === hits.size && [...hits].every((id) => current.has(id)) ? current : hits);
   });
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
@@ -348,6 +341,7 @@ export const KaraokeStage = ({
           pitchFrame={pitchFrames?.at(-1)}
           capturedPitch={pitchFrames !== undefined}
           show={show}
+          hitNoteIds={hitNoteIds}
           hidden={lines.length > 0 && phase.kind !== "text"}
           opacity={phase.opacity ?? 1}
         />
@@ -365,10 +359,10 @@ export const KaraokeStage = ({
         )}
         {(instrumental || minimal) && (
           <p className="instrumentalMode">
-            {instrumental ? t("instrumentalMode") : songTitle}
+            {instrumental ? tr(ru.instrumentalMode) : songTitle}
           </p>
         )}
       </section>
     </>
   );
-};
+});

@@ -6,14 +6,14 @@ import { useKaraokeLoadSession } from "./useKaraokeLoadSession";
 import { pythonClient } from "../../services/pythonClient";
 
 const services = vi.hoisted(() => ({ pythonEpoch: 0 }));
-vi.mock("../../app/ServicesContext", () => ({ useServices: () => services }));
+vi.mock("../../providers/store", () => ({ store: { application: { services } } }));
 vi.mock("../../services/pythonClient", () => ({
   pythonClient: { getSong: vi.fn() },
 }));
 
 vi.mock("../../application/karaoke/karaokeLoader", () => ({ resolveKaraokeLoad: vi.fn() }));
 const editorApi = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
-vi.mock("../editor/editorApi", () => ({ editorApi }));
+vi.mock("../../pages/editor/editorApi", () => ({ editorApi }));
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
     capabilities: vi.fn(),

@@ -1,80 +1,133 @@
-/* Page frame only: colours, type and scrollbars come from the Neo UI theme (app/NeoTheme). */
-:root {
-  --title: 2.625rem;
-}
-
+:root { --title: 2.625rem; }
 * {
   box-sizing: border-box;
 }
 
 html {
-  background: var(--ad-neutral-950);
-  color: var(--ad-text);
-  font-family: var(--app-font-text, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
+  background: #000;
+  color-scheme: dark;
   user-select: none;
 }
 
-input,
-textarea,
-[contenteditable="true"],
-pre,
-code {
-  user-select: text;
+body,
+#root {
+  background: inherit;
 }
 
 html,
 body,
-#root {
+#root,
+.main-theme {
   width: 100%;
   height: 100%;
   margin: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-:root[data-reduced-motion="true"] *,
-:root[data-reduced-motion="true"] *::before,
-:root[data-reduced-motion="true"] *::after {
-  animation-duration: 0.001ms;
-  animation-iteration-count: 1;
-  scroll-behavior: auto;
-  transition: none;
+.library-import-picker > small:not([data-picked]) {
+  display: none;
 }
 
-/* Neo UI tab strips still scroll in a narrow window, but the active tab's travelling glint must not
-   flash a scrollbar under them. */
-.ad-tabs {
-  scrollbar-width: none;
+.library-import-picker > .ad-button {
+  width: 100%;
 }
 
-/* A Neo UI card's edge (its rings and the travelling lights with their ~3.5rem glow) is decoration:
-   with layout containment its overflow is ink overflow only, so it still glows past the card but no
-   longer stretches the list, dialog or page around it into a scroll range. Without this every
-   scroll container grew and shrank as a light passed its last card's lower or outer edge.
-   (CSS Containment 2, layout containment: overflow is treated as ink overflow.) The overlay is
-   already absolutely positioned and stacked, so containment changes nothing else about it. */
-.ad-border {
-  contain: layout;
+.settingsBody
+  .ad-form-field
+  > :is(
+    .ad-rotary-knob,
+    .ad-switch,
+    .ad-checkbox,
+    .ad-file-picker[data-variant='avatar']
+  ) {
+  justify-self: center;
 }
 
-/* One theme picture covers the entire application, including its title bar and startup state. */
-.appTheme {
+.settingsBody .ad-form-field > .ad-button {
+  display: flex;
+  width: fit-content;
+  margin-inline: auto;
+}
+
+/* The control's translated aria-description includes these instructions. */
+.settingsBody .ad-rotary-knob > .ad-sr-only {
+  display: none;
+}
+
+::view-transition {
+  background: #000;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  animation: route-fade-out 200ms ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: route-fade-out 200ms ease-out 200ms reverse both;
+}
+
+@keyframes route-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.karaoke-page {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  isolation: isolate;
+  overflow: hidden;
+  background: #000;
+}
+
+.karaoke-background,
+.karaoke-background video {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: var(--app-background) center / cover fixed no-repeat;
 }
 
-/* The faces chosen in Appearance (shared/preferences/appFonts), by default the library's musical Melodix for titles and
-   Segoe UI for everything else. */
-:root .appTheme {
-  --ad-font-family-heading: var(
-    --app-font-heading,
-    var(--ad-font-family-melodix)
-  );
-  --ad-font-family-sans: var(
-    --app-font-text,
-    "Segoe UI Variable",
-    "Segoe UI",
-    system-ui,
-    sans-serif
-  );
+.karaoke-background {
+  border: 0;
+  padding: 0;
+  background: #000;
+  cursor: pointer;
 }
+
+.karaoke-background:focus-visible {
+  outline: 2px solid var(--ad-primary);
+  outline-offset: -2px;
+}
+
+.karaoke-background video {
+  display: block;
+  object-fit: cover;
+  opacity: 0;
+  pointer-events: none;
+  transition-property: opacity;
+  transition-timing-function: ease;
+}
+
+.karaoke-background video[data-visible='true'] {
+  opacity: 1;
+}
+
+.karaoke-background video[data-active='true'],
+.karaoke-content {
+  z-index: 1;
+}
+
+.karaoke-content {
+  position: relative;
+}
+
+input, textarea, [contenteditable="true"], pre, code { user-select: text; }

@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 let shownByDesktop = true;
 
-const subscribe = (listener: () => void): (() => void) => {
+export const subscribeAppVisibility = (listener: () => void): (() => void) => {
   const fromDesktop = window.desktop?.onAppVisibility?.((onScreen) => {
     shownByDesktop = onScreen;
     listener();
@@ -14,7 +14,7 @@ const subscribe = (listener: () => void): (() => void) => {
   };
 };
 
-const snapshot = (): boolean =>
+export const appVisibility = (): boolean =>
   window.desktop?.onAppVisibility ? shownByDesktop : !document.hidden;
 
 /**
@@ -23,4 +23,4 @@ const snapshot = (): boolean =>
  * Decoration that nobody can see stops drawing while this is false.
  */
 export const useAppOnScreen = (): boolean =>
-  useSyncExternalStore(subscribe, snapshot, () => true);
+  useSyncExternalStore(subscribeAppVisibility, appVisibility, () => true);

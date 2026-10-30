@@ -55,7 +55,8 @@ const profiles =
 
 for (const profile of profiles) {
   const env = { ...process.env };
-  delete env.AD_VOICE_DATA;
+  // An empty override prevents Electron from restoring the shared path from .env.local.
+  env.AD_VOICE_DATA = profile === interactiveProfiles[0] ? process.env.AD_VOICE_DATA ?? "" : "";
   delete env.VITE_DEV_SERVER_URL;
   delete env.ELECTRON_RUN_AS_NODE;
   Object.assign(env, {

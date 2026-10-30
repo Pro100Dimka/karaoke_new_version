@@ -19,7 +19,6 @@ import {
   mapJob,
   mapRecording,
   mapSong,
-  modelState,
   numberAt,
   objectAt,
   optionalString,
@@ -27,7 +26,6 @@ import {
   type BackendHistoryPage,
   type BackendJob,
   type BackendJobRef,
-  type BackendModel,
   type BackendRecording,
   type BackendSong,
   type JobPage,
@@ -52,8 +50,6 @@ const request = async <T>(
 
 let catalogVersion = 0;
 let watchingCatalog = false;
-let catalogSnapshot: { songs: readonly SongDto[]; expires: number } | undefined;
-let catalogRead: Promise<readonly SongDto[]> | undefined;
 
 interface JobWait {
   /** Names the work in errors: "<label> failed", "<label> timed out". */
@@ -152,13 +148,11 @@ export const pythonClient: PythonClient = {
   },
 
   async listSongs() {
-    // One cache for library/room consumers, with pushed invalidation and a slow safety refresh.
+    // Restart a paged read if the catalog changes between pages.
     if (!watchingCatalog) {
       watchingCatalog = true;
-      onLibraryChange(() => { catalogVersion += 1; catalogSnapshot = undefined; });
+      onLibraryChange(() => { catalogVersion += 1; });
     }
-    if (catalogSnapshot && catalogSnapshot.expires > Date.now()) return catalogSnapshot.songs;
-    if (catalogRead) return catalogRead;
     const read = async (): Promise<readonly SongDto[]> => {
       const version = catalogVersion;
       const songs: BackendSong[] = [];
@@ -171,12 +165,26 @@ export const pythonClient: PythonClient = {
       } while (cursor);
 
       if (version !== catalogVersion) return read();
-      const mapped = songs.map(mapSong);
-      catalogSnapshot = { songs: mapped, expires: Date.now() + 15_000 };
-      return mapped;
+      return songs.map(mapSong);
     };
-    catalogRead = read().finally(() => { catalogRead = undefined; });
-    return catalogRead;
+    return read();
+  },
+
+  async searchSongs(filter, cursor) {
+    const params = new URLSearchParams({
+      search: filter.query, status: filter.status,
+      sort: filter.sort === "recent" ? "createdAt" : filter.sort,
+      descending: String(filter.direction === "desc"),
+      duration: filter.duration, artwork: filter.artwork, limit: "50",
+    });
+    if (filter.language !== "all") params.set("language", filter.language);
+    if (cursor) params.set("cursor", cursor);
+    const page = await request<SongPage>("GET", `/songs/search?${params}`);
+    return { items: page.items.map(mapSong), nextCursor: page.nextCursor };
+  },
+
+  songSummary() {
+    return request("GET", "/songs/summary");
   },
 
   async getSong(songId) {
@@ -322,6 +330,10 @@ export const pythonClient: PythonClient = {
     return mapRecording(await request<BackendRecording>("POST", `/recordings/${encodeURIComponent(recordingId)}/prepare`));
   },
 
+  async getRecording(recordingId) {
+    return mapRecording(await request<BackendRecording>("GET", `/recordings/${encodeURIComponent(recordingId)}`));
+  },
+
   async listRecordings(songId) {
     const page = await request<RecordingPage>(
       "GET",
@@ -412,19 +424,6 @@ export const pythonClient: PythonClient = {
     );
   },
 
-  async listModels() {
-    const models = await request<BackendModel[]>("GET", "/models?catalog_only=true");
-    return models.map((model) => ({
-      id: model.modelId,
-      purpose: model.purpose,
-      version: model.version,
-      sizeBytes: model.size,
-      requiredDiskBytes: model.requiredDiskBytes,
-      state: modelState(model.state),
-      selected: model.selected,
-    }));
-  },
-
   async getAiProcessingSettings(): Promise<AiProcessingSettingsDto> {
     return request<AiProcessingSettingsDto>("GET", "/settings");
   },
@@ -487,10 +486,6 @@ export const pythonClient: PythonClient = {
               ),
       }),
     );
-  },
-
-  async deleteModel(model) {
-    await request("DELETE", `/models/${encodeURIComponent(model.id)}/${encodeURIComponent(model.version)}`);
   },
 
   async getJob(jobId) {

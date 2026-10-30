@@ -170,6 +170,9 @@ def _build_locked(
             recovery,
             validated_settings(database),
         )
+        if container.recordings.archive:
+            container.recordings.archive.start()
+            startup.callback(container.recordings.archive.stop)
         startup.pop_all()
         return container
 

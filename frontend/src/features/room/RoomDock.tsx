@@ -1,17 +1,13 @@
+import { store } from "../../providers/store";
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
-import {
-  useApp,
-  useRoomMembership,
-  useRoomRuntime,
-  useRoomSession,
-} from "../../app/AppContext";
-import { useAsk } from "../../app/DialogProvider";
-import { useNotify } from "../../app/NotificationsProvider";
+import { useRouter, Button, tr, useLocale } from "@neo-ui-kit/react";
+import { useRoomMembership, roomSession, getRoomRuntime } from "../../providers/application";
+import { ask } from "../../providers/dialog";
+import { useNotify } from "../../providers/notifications";
 import type { ParticipantDto } from "../../contracts/models";
-import { useText } from "../../i18n/useText";
+import { ru } from "../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../shared/errors";
-import { Button } from "@neo-ui-kit/react";
+
 import "./room-dock.css";
 import { RoomHeadCard } from "./RoomHeadCard";
 import { RoomLinkCard } from "./RoomLinkCard";
@@ -29,14 +25,12 @@ import { useRoomPeople } from "../social/useRoomPeople";
 const roomPanelSize = { width: 555, height: 660 };
 
 export const RoomDock = () => {
-  const { room } = useApp("room");
-  const roomSession = useRoomSession();
+  const { room } = store.online;
   const membership = useRoomMembership();
-  const runtime = useRoomRuntime();
-  const { pathname } = useLocation();
-  const ask = useAsk();
+  const runtime = getRoomRuntime();
+  const { pathname } = useRouter();
   const notify = useNotify();
-  const t = useText();
+  useLocale();
   const [collapsed, setCollapsed] = useState(false);
   const [copied, setCopied] = useState(false);
   const [selectedSongArtwork, setSelectedSongArtwork] = useState<{
@@ -82,7 +76,7 @@ export const RoomDock = () => {
   const placement = useStoredPanelLayout("room");
   const panel = useDetachedPanel(
     "room",
-    t("onlineRoom"),
+    tr(ru.onlineRoom),
     roomPanelSize,
     placement.save,
   );
@@ -99,7 +93,7 @@ export const RoomDock = () => {
 
   const failure = (error: unknown) =>
     notify(
-      t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+      tr(ru[errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"]),
       "error",
     );
 
@@ -112,12 +106,12 @@ export const RoomDock = () => {
     const others = room.participants.filter((person) => !person.self).length;
     if (isHost && others > 0) {
       const choice = await ask({
-        title: t("hostLeavingTitle"),
-        body: t("hostLeavingBody"),
+        title: tr(ru.hostLeavingTitle),
+        body: tr(ru.hostLeavingBody),
         actions: [
-          { id: "cancel", label: t("cancel") },
-          { id: "transfer", label: t("transferHost"), appearance: "primary" },
-          { id: "close", label: t("closeRoom"), appearance: "secondary" },
+          { id: "cancel", label: tr(ru.cancel) },
+          { id: "transfer", label: tr(ru.transferHost), appearance: "primary" },
+          { id: "close", label: tr(ru.closeRoom), appearance: "secondary" },
         ],
       });
       if (choice === "cancel" || choice === null) return;
@@ -148,14 +142,14 @@ export const RoomDock = () => {
 
   const removeParticipant = async (participant: ParticipantDto) => {
     const choice = await ask({
-      title: t("removeParticipantTitle"),
-      body: t("removeParticipantBody", { name: participant.name }),
+      title: tr(ru.removeParticipantTitle),
+      body: tr(ru.removeParticipantBody, { name: participant.name }),
       tone: "warning",
       actions: [
-        { id: "cancel", label: t("cancel") },
+        { id: "cancel", label: tr(ru.cancel) },
         {
           id: "remove",
-          label: t("removeParticipant", { name: participant.name }),
+          label: tr(ru.removeParticipant, { name: participant.name }),
           appearance: "primary",
         },
       ],
@@ -176,7 +170,7 @@ export const RoomDock = () => {
     }
   };
 
-  const collapseLabel = t(collapsed ? "expandRoom" : "collapseRoom");
+  const collapseLabel = tr(ru[collapsed ? "expandRoom" : "collapseRoom"]);
 
   if (collapsed && !panel.detached) {
     return (
@@ -203,7 +197,7 @@ export const RoomDock = () => {
     <DetachedPanel panel={panel}>
       <aside
         className="roomDock"
-        aria-label={t("onlineRoom")}
+        aria-label={tr(ru.onlineRoom)}
         ref={frameRef}
         style={
           !panel.detached && floating.layout
@@ -237,7 +231,7 @@ export const RoomDock = () => {
             onLeave: () => void handleLeave(),
           }}
         />
-        <ul className="roomPeople" aria-label={t("participants")}>
+        <ul className="roomPeople" aria-label={tr(ru.participants)}>
           {room.participants.map((participant) => (
             <RoomPersonCard
               key={participant.id}

@@ -1,0 +1,109 @@
+import { Button, Icon, IconButton, TextField, tr, useLocale } from "@neo-ui-kit/react";
+import { useRef } from "react";
+import { ru } from "../../../../../i18n/messages.ru";
+import { desktopClient as desktop } from "../../../../../services/desktopClient";
+import {
+  effectiveState,
+  isSecret,
+  type DisplayEntry,
+  type DisplayState,
+} from "./environmentModel";
+import { fieldUi, messageKeyFor } from "./environmentPresentation";
+
+const stateIcon: Record<DisplayState, string> = {
+  valid: "ok",
+  unverified: "check",
+  invalid: "warning",
+  empty: "minus",
+  checking: "processing",
+};
+
+/**
+ * One ENV value. The state mark at the end says how it stands; only an invalid value spells out
+ * its problem under the field. Secrets are write-only: a saved one can be replaced or removed, never
+ * read back. File paths are picked with the system dialog.
+ */
+export const EnvironmentField = ({
+  entry,
+  onChange,
+  onSave,
+}: {
+  entry: DisplayEntry;
+  onChange(value: string): void;
+  onSave(value: string): void;
+}) => {
+  useLocale();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const meta = fieldUi[entry.key];
+  const state = effectiveState(entry);
+  const messageKey = messageKeyFor(entry);
+  const message =
+    entry.errorMessage !== undefined
+      ? (entry.errorMessage ?? tr(ru.settingsApplyFailed))
+      : messageKey
+        ? tr(ru[messageKey])
+        : entry.message;
+  const pick = (file: File | undefined) => {
+    const path = file && desktop.pathForFile(file);
+    if (path) onSave(path);
+  };
+  const secret = isSecret(entry);
+  const savedSecret = secret && entry.configured && !entry.value;
+
+  return (
+    <div className="environmentField" data-span={meta?.span ?? 12}>
+      <TextField
+        label={meta ? tr(ru[meta.label]) : entry.key}
+        title={entry.key}
+        value={entry.value}
+        onValueChange={onChange}
+        type={secret ? "password" : undefined}
+        autoComplete={secret ? "off" : undefined}
+        placeholder={savedSecret ? tr(ru.environmentSecretSaved) : undefined}
+        error={state === "invalid" ? message : undefined}
+        endAdornment={
+          <>
+            {savedSecret && (
+              <IconButton
+                size="xs"
+                variant="ghost"
+                icon="trash"
+                label={tr(ru.environmentRemoveSecret)}
+                onClick={() => onSave("")}
+              />
+            )}
+            {entry.kind === "file" && (
+              <Button
+                size="xs"
+                variant="ghost"
+                icon="folder"
+                onClick={() => fileInput.current?.click()}
+              >
+                {tr(ru.selectFile)}
+              </Button>
+            )}
+            <span
+              className="environmentStatus"
+              data-state={state}
+              role="img"
+              aria-label={message}
+              title={message}
+            >
+              <Icon name={stateIcon[state]} />
+            </span>
+          </>
+        }
+      />
+      {entry.kind === "file" && (
+        <input
+          ref={fileInput}
+          type="file"
+          hidden
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(event) => pick(event.currentTarget.files?.[0])}
+        />
+      )}
+    </div>
+  );
+};

@@ -1,8 +1,9 @@
-import { Button, RotaryKnob, Stack } from "@neo-ui-kit/react";
+import { friendRelations } from "../../providers/social";
+import { Button, RotaryKnob, Stack, tr, useLocale } from "@neo-ui-kit/react";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
-import { useText } from "../../i18n/useText";
-import { useFriendRelations } from "../../app/SocialProvider";
+import { ru } from "../../i18n/messages.ru";
+
 import { useSocialAction } from "../social/useSocialAction";
 import {
   participantEffectKnobs,
@@ -33,16 +34,16 @@ export const RoomPersonMenu = ({
   onTransferHost(): void;
   onRemove(): void;
 }) => {
-  const t = useText();
+  useLocale();
   const { busy, run } = useSocialAction();
-  const friends = useFriendRelations();
+  const friends = friendRelations;
   const incoming = person?.relation === "Incoming";
   const befriend = person && (person.relation === "None" || incoming);
   const addFriend = () =>
     person &&
     void run(
       () => friends.befriend(person),
-      t(incoming ? "friendAdded" : "friendRequestSent", {
+      tr(ru[incoming ? "friendAdded" : "friendRequestSent"], {
         name: person.displayName,
       }),
     );
@@ -59,7 +60,7 @@ export const RoomPersonMenu = ({
               key={effect.id}
               size="xs"
               showLabel
-              label={t(effect.label)}
+              label={tr(ru[effect.label])}
               min={effect.min}
               max={effect.max}
               step={effect.step}
@@ -76,13 +77,13 @@ export const RoomPersonMenu = ({
         <Stack gap={2}>
           {befriend && (
             <Button size="sm" icon="person" disabled={busy} onClick={addFriend}>
-              {t(incoming ? "acceptAction" : "addFriend")}
+              {tr(ru[incoming ? "acceptAction" : "addFriend"])}
             </Button>
           )}
           {manage && (
             <>
               <Button size="sm" icon="crown" onClick={onTransferHost}>
-                {t("transferHostAction", { name: participant.name })}
+                {tr(ru.transferHostAction, { name: participant.name })}
               </Button>
               <Button
                 size="sm"
@@ -90,7 +91,7 @@ export const RoomPersonMenu = ({
                 icon="leave"
                 onClick={onRemove}
               >
-                {t("removeParticipant", { name: participant.name })}
+                {tr(ru.removeParticipant, { name: participant.name })}
               </Button>
             </>
           )}

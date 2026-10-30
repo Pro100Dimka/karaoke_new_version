@@ -1,17 +1,7 @@
-import {
-  Button,
-  Card,
-  Icon,
-  IconButton,
-  Menu,
-  ProgressBar,
-  Stack,
-  Typography,
-  type MenuItemData,
-} from "@neo-ui-kit/react";
+import { Button, Card, Icon, IconButton, Menu, ProgressBar, Stack, Typography, type MenuItemData, tr, useLocale } from "@neo-ui-kit/react";
 import { useRef, useState } from "react";
 import type { RoomStateDto } from "../../contracts/models";
-import { useText } from "../../i18n/useText";
+import { ru } from "../../i18n/messages.ru";
 import { useTransferEta } from "./useTransferEta";
 
 // The code is shown as its first four groups; copying gives all of it.
@@ -39,7 +29,7 @@ const TransferNote = ({
   actions: RoomHeadActions;
   failure?: "local" | "remote";
 }) => {
-  const t = useText();
+  useLocale();
   const minutes = useTransferEta(
     room.transferId ?? room.songId,
     room.transferProgress,
@@ -48,13 +38,13 @@ const TransferNote = ({
     return (
       <Typography
         role="status"
-        aria-label={t("roomReconnecting")}
+        aria-label={tr(ru.roomReconnecting)}
         variant="caption"
         tone="warning"
         className="roomHeadNote"
       >
         <Icon name="signal" />
-        {t("roomReconnecting")}
+        {tr(ru.roomReconnecting)}
       </Typography>
     );
   if (failure) {
@@ -63,7 +53,7 @@ const TransferNote = ({
     return (
       <div className="roomHeadNote">
         <Typography role="alert" variant="caption" tone="warning">
-          {t(conflict ? "roomProjectConflict" : failureMessage[failure])}
+          {tr(ru[conflict ? "roomProjectConflict" : failureMessage[failure]])}
         </Typography>
         {failure === "local" && <Button
           size="xs"
@@ -72,7 +62,7 @@ const TransferNote = ({
             conflict ? actions.onReplaceProject : actions.onRetryTransfer
           }
         >
-          {t(conflict ? "roomReplaceProject" : "retryTransfer")}
+          {tr(ru[conflict ? "roomReplaceProject" : "retryTransfer"])}
         </Button>}
       </div>
     );
@@ -86,8 +76,8 @@ const TransferNote = ({
   return (
     <Typography variant="caption" tone="muted">
       {minutes <= 1
-        ? t("transferRemainingSoon")
-        : t("transferRemaining", { minutes })}
+        ? tr(ru.transferRemainingSoon)
+        : tr(ru.transferRemaining, { minutes })}
     </Typography>
   );
 };
@@ -102,7 +92,7 @@ export const RoomHeadCard = ({
   artwork?: { title: string; url: string };
   actions: RoomHeadActions;
 }) => {
-  const t = useText();
+  useLocale();
   const menuAnchor = useRef<HTMLButtonElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const failed = room.participants.filter((person) => person.connected && person.readiness === "failed");
@@ -115,7 +105,7 @@ export const RoomHeadCard = ({
       ? [
           {
             id: "cancel",
-            label: t("cancelTransfer"),
+            label: tr(ru.cancelTransfer),
             icon: "close",
             onSelect: actions.onCancelTransfer,
           },
@@ -129,7 +119,7 @@ export const RoomHeadCard = ({
       padding="sm"
       className="roomHead"
       data-art={artwork ? "" : undefined}
-      aria-label={t("onlineRoom")}
+      aria-label={tr(ru.onlineRoom)}
     >
       {artwork && (
         <img className="roomArt" src={artwork.url} alt={artwork.title} />
@@ -143,19 +133,19 @@ export const RoomHeadCard = ({
             size="xs"
             variant="ghost"
             icon={actions.copied ? "check" : "copy"}
-            label={t(actions.copied ? "copied" : "copyCode")}
+            label={tr(ru[actions.copied ? "copied" : "copyCode"])}
             onClick={actions.onCopy}
           />
         </div>
         {transferring || failure ? (
           <Typography variant="caption" tone="muted" truncate>
-            {t("transferLabel")}
+            {tr(ru.transferLabel)}
           </Typography>
         ) : null}
         {transferring && (
           <div className="roomProgressRow">
             <ProgressBar
-              label={t("projectTransfer", { progress })}
+              label={tr(ru.projectTransfer, { progress })}
               value={progress}
             />
             <Typography variant="caption" weight="semibold">
@@ -171,7 +161,7 @@ export const RoomHeadCard = ({
           size="sm"
           variant="ghost"
           icon="more"
-          label={t("roomActions")}
+          label={tr(ru.roomActions)}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}
@@ -196,13 +186,13 @@ export const RoomHeadCard = ({
           {
             show: !actions.detached,
             icon: "minus",
-            label: t("collapseRoom"),
+            label: tr(ru.collapseRoom),
             onClick: actions.onCollapse,
           },
           {
             show: true,
             icon: "close",
-            label: t("leaveRoom"),
+            label: tr(ru.leaveRoom),
             onClick: actions.onLeave,
           },
         ]

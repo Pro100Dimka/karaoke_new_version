@@ -1,15 +1,15 @@
+import { socialClient } from "../../services/socialClient";
+import { store } from "../../providers/store";
 import { useEffect, useState } from "react";
-import { useApp } from "../../app/AppContext";
-import { useSocial, useSocialDirectory } from "../../app/SocialProvider";
+
 
 /** A person's photo as a data URL, or undefined while it loads, when they have none or it fails. */
 export const usePersonPhoto = (
   accountId: string | undefined,
   avatarVersion: number,
 ): string | undefined => {
-  const { preferences } = useApp("preferences");
-  const inbox = useSocial();
-  const directory = useSocialDirectory();
+  const { preferences } = store;
+  const inbox = store.inbox;
   const savedPhoto =
     inbox.type === "inbox" && accountId === inbox.me.accountId
       ? preferences.profilePhoto || undefined
@@ -20,13 +20,13 @@ export const usePersonPhoto = (
     if (savedPhoto) return;
     if (!accountId || avatarVersion === 0) return;
     let active = true;
-    directory.avatar(accountId, avatarVersion).then(
+    socialClient.avatar(accountId, avatarVersion).then(
       (url) => active && setPhoto(url),
       () => undefined,
     );
     return () => {
       active = false;
     };
-  }, [accountId, avatarVersion, savedPhoto, directory]);
+  }, [accountId, avatarVersion, savedPhoto]);
   return photo;
 };

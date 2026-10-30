@@ -8,13 +8,9 @@ const mocks = vi.hoisted(() => ({
   avatar: vi.fn(),
 }));
 
-vi.mock("../../app/AppContext", () => ({
+vi.mock("../../providers/application", () => ({
   useApp: () => ({ preferences: { profilePhoto: mocks.photo } }),
 }));
-vi.mock("../../app/SocialProvider", () => {
-  const directory = { avatar: mocks.avatar };
-  return { useSocial: () => mocks.inbox, useSocialDirectory: () => directory };
-});
 vi.mock("../../services/socialClient", () => ({
   socialClient: { avatar: mocks.avatar },
 }));
@@ -37,3 +33,8 @@ it("still loads another person's photo from the social server", async () => {
   );
   expect(mocks.avatar).toHaveBeenCalledWith("friend", 4);
 });
+
+vi.mock("../../providers/store", () => ({ store: {
+  get inbox() { return mocks.inbox; },
+  get preferences() { return { profilePhoto: mocks.photo }; }
+} }));

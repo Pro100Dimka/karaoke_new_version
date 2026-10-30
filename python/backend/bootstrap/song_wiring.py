@@ -240,7 +240,8 @@ def _processing_pipeline(
         FfmpegAudioValidator(runtime.processes),
         runner,
     )
-    document = BuildProcessingDocument(discovery, runner, ThreadConcurrentRunner())
+    concurrency = ThreadConcurrentRunner()
+    document = BuildProcessingDocument(discovery, runner, concurrency)
     return PipelineOrchestrator(
         audio,
         document,
@@ -249,4 +250,5 @@ def _processing_pipeline(
         processing.workspaces,
         runner,
         runtime.ids,
+        concurrency=concurrency,
     )

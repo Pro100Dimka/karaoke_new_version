@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from contextlib import ExitStack
+from collections.abc import Callable
 import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
@@ -31,6 +32,7 @@ class StartRecordingAnalysis:
         hasher: FileHasher,
         clock: Clock,
         ids: IdGenerator,
+        on_completed: Callable[[str], None] | None = None,
     ) -> None:
         self._uow = uow
         self._jobs = jobs
@@ -39,6 +41,7 @@ class StartRecordingAnalysis:
         self._hasher = hasher
         self._clock = clock
         self._ids = ids
+        self._on_completed = on_completed
         self._submission_lock = threading.RLock()
         self._active: dict[str, Job] = {}
 
@@ -72,7 +75,7 @@ class StartRecordingAnalysis:
                 admit=None
                 if live is not None
                 else lambda cancel: admission.enter_context(
-                    self._pitch.admit(recording.file_path, cancel)
+                    self._pitch.admit(self._recording(recording_id).file_path, cancel)
                 ),
             )
         except DomainError as exc:
@@ -102,6 +105,8 @@ class StartRecordingAnalysis:
             self._save(done)
             settled = True
             self._record_history(done)
+            if self._on_completed:
+                self._on_completed(done.recording_id)
             return {"analysisId": analysis_id, "state": done.state.value}
         except DomainError as exc:
             self._fail(running, exc.code, exc.message)

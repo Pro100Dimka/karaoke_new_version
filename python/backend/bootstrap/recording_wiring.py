@@ -8,6 +8,7 @@ from backend.ai.provider_resolver import ResolveAiProvider
 from backend.bootstrap.container import RecordingCases
 from backend.bootstrap.wiring import ProcessingWiring, ProjectWiring, RuntimeWiring
 from backend.infrastructure.recording_files import LocalRecordingStorage
+from backend.infrastructure.recording_archive import RecordingArchive
 from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.infrastructure.wave_pitch import VocalPitchExtractor
 from backend.models.commands import EnsureRequiredModels
@@ -30,8 +31,12 @@ def build_recording_cases(
     storage: LocalRecordingStorage,
     register: RegisterRecording,
 ) -> RecordingCases:
+    archive = RecordingArchive(
+        runtime.config.roots.recordings, runtime.database, runtime.processes,
+        ListRecordingAnalyses(runtime.database).execute, processing.jobs.run_when_idle,
+    )
     analysis, studio_master = _analysis_and_mastering(
-        runtime, project, processing, storage, register
+        runtime, project, processing, storage, register, archive
     )
     return RecordingCases(
         partial(allocate_recording_target, storage, runtime.ids),
@@ -44,6 +49,7 @@ def build_recording_cases(
         ListRecordingAnalyses(runtime.database),
         studio_master,
         ReconcileRecordings(storage, register),
+        archive,
     )
 
 
@@ -53,6 +59,7 @@ def _analysis_and_mastering(
     processing: ProcessingWiring,
     storage: LocalRecordingStorage,
     register: RegisterRecording,
+    archive: RecordingArchive,
 ) -> tuple[StartRecordingAnalysis, StartStudioMaster]:
     inspector = WaveRecordingInspector()
     publisher = PublishStudioMaster(storage, inspector, register, runtime.clock, runtime.ids)
@@ -69,6 +76,7 @@ def _analysis_and_mastering(
         runtime.hasher,
         runtime.clock,
         runtime.ids,
+        archive.request,
     )
     return analysis, StartStudioMaster(
         runtime.database,
@@ -80,4 +88,5 @@ def _analysis_and_mastering(
         processing.workspaces,
         FfmpegStudioMasterRenderer(runtime.processes),
         publisher,
+        archive.request,
     )

@@ -17,6 +17,32 @@ from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 EXECUTION = ExecutionContext(ComputeDevice.CPU, 1)
 
 
+def test_streaming_worker_reads_utf8_requests_only_as_they_are_needed(monkeypatch):
+    import io
+    from backend.ai_worker import __main__ as cli
+    from backend.serialization import dumps
+
+    requests = [
+        {"requests": [{"input": "оригинал.mp3", "startSeconds": 0}]},
+        {"requests": [{"input": "голос.wav", "startSeconds": 48}]},
+    ]
+    raw = "\n".join(dumps(item) for item in requests).encode("utf-8")
+    stream = io.TextIOWrapper(io.BytesIO(raw), encoding="cp1251")
+    monkeypatch.setattr(cli.sys, "stdin", stream)
+
+    def transcribe(items, language):
+        items = iter(items)
+        assert next(items) == (Path("оригинал.mp3"), 0)
+        assert stream.buffer.tell() < len(raw), "the original must start before the next input"
+        assert list(items) == [(Path("голос.wav"), 48)]
+        assert language == "Russian"
+        return {"transcriptions": []}
+
+    monkeypatch.setattr(cli, "transcribe_many", transcribe)
+    args = cli._parser().parse_args(["transcribe-many", "--stream-input", "--language", "Russian"])
+    assert cli._run(args) == {"transcriptions": []}
+
+
 def test_worker_recognition_input_uses_utf8_even_with_a_windows_text_encoding(monkeypatch):
     import io
     from backend.ai_worker import __main__ as cli
@@ -54,6 +80,86 @@ def _provider(stdout: bytes, exit_code: int = 0, *, provider_id="scripted") -> C
         required_resources={},
     )
     return CommandAiProvider(descriptor, ["worker"], _ScriptedRunner(stdout, exit_code))
+
+
+def test_alignment_reuse_is_scoped_to_the_job_and_invalidates_changed_audio(tmp_path):
+    from backend.processing.policies import ResourceBudget
+
+    runner = _ScriptedRunner(b'{"words": []}')
+    provider = CommandAiProvider(
+        _provider(b"", provider_id="local-torch").descriptor,
+        ["worker"],
+        runner,
+        resource_budget=ResourceBudget(min_free_disk_bytes=1234),
+    )
+    audio = tmp_path / "vocal.wav"
+    audio.write_bytes(b"original")
+    cancel = threading.Event()
+    with pytest.raises(RuntimeError, match="cancelled"):
+        with provider.reuse_alignment(tmp_path / "job", cancel):
+            provider.align(audio, "one", Language.ENGLISH, cancel, execution=EXECUTION)
+            first = runner.command[runner.command.index("--reuse-directory") + 1]
+            assert runner.command[runner.command.index("--reuse-reserve") + 1] == "1234"
+            provider.align(audio, "two", Language.ENGLISH, cancel, execution=EXECUTION)
+            assert runner.command[runner.command.index("--reuse-directory") + 1] == first
+            provider.align(audio, "two", Language.ENGLISH, threading.Event(), execution=EXECUTION)
+            assert "--reuse-directory" not in runner.command
+            audio.write_bytes(b"changed")
+            provider.align(audio, "two", Language.ENGLISH, cancel, execution=EXECUTION)
+            assert runner.command[runner.command.index("--reuse-directory") + 1] != first
+            raise RuntimeError("cancelled")
+    provider.align(audio, "two", Language.ENGLISH, cancel, execution=EXECUTION)
+    assert "--reuse-directory" not in runner.command
+
+
+def test_deferred_transcription_keeps_one_worker_and_both_alignment_views(tmp_path, monkeypatch):
+    from backend.serialization import dumps, loads_object
+
+    original = tmp_path / "original.mp3"
+    vocal = tmp_path / "vocal.wav"
+    original.write_bytes(b"original")
+    evidence = [{"text": name, "segments": []} for name in ["original", "vocal", "ending"]]
+    provider = _provider(b"", provider_id="local-torch")
+    cancel = threading.Event()
+    first_received = threading.Event()
+    received = []
+    calls = []
+
+    def requests(stop):
+        assert not vocal.exists()
+        yield original, 0.0
+        assert first_received.is_set()
+        assert not stop.is_set()
+        vocal.write_bytes(b"vocal")
+        yield vocal, 0.0
+        yield vocal, 48.0
+
+    def run(command, **options):
+        calls.append(command)
+        for chunk in options["input_data"](threading.Event()):
+            received.extend(loads_object(chunk.decode("utf-8"))["requests"])
+            first_received.set()
+        assert options["timeout_seconds"] == 3 * provider._timeout
+        return ProcessResult(0, dumps({"transcriptions": evidence}).encode(), b"")
+
+    previous = provider._runner.run
+    monkeypatch.setattr(provider._runner, "run", run)
+    assert provider.transcribe_stream(
+        requests, 3, Language.ENGLISH, cancel, execution=EXECUTION
+    ) == ("original", "vocal", "ending")
+    assert len(calls) == 1 and "--stream-input" in calls[0]
+    assert received == [
+        {"input": str(original), "startSeconds": 0.0},
+        {"input": str(vocal), "startSeconds": 0.0},
+        {"input": str(vocal), "startSeconds": 48.0},
+    ]
+    monkeypatch.setattr(provider._runner, "run", previous)
+    provider._runner._result = ProcessResult(0, b'{"words": []}', b"")
+    provider.align(vocal, "vocal", Language.ENGLISH, cancel, execution=EXECUTION)
+    assert loads_object(provider._runner.options["input_data"].decode()) == {
+        **evidence[1],
+        "alternatives": [evidence[0]],
+    }
 
 
 def test_local_transcription_group_retains_independent_views_for_alignment(tmp_path):

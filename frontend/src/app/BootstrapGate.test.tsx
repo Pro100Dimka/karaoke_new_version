@@ -12,16 +12,14 @@ const mocks = vi.hoisted(() => ({
   listDevices: vi.fn(async () => [] as { id: string; name: string; backend: string }[]),
 }));
 
-vi.mock("./ServicesContext", () => ({
-  useServices: () => ({ python: mocks.python, probe: vi.fn() }),
-}));
-vi.mock("./AppContext", () => ({
+
+vi.mock("../providers/application", () => ({
   useApp: () => ({ preferences: { audio: mocks.audio, acousticLatencyMs: {} },
     updatePreferences: mocks.updatePreferences }),
 }));
-vi.mock("../i18n/useText", () => ({ useText: () => (key: string) => key }));
-vi.mock("./DialogProvider", () => ({ useAsk: () => vi.fn(async () => null) }));
-vi.mock("./NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
+
+vi.mock("../providers/dialog", () => ({ ask: vi.fn(async () => null) }));
+vi.mock("../providers/notifications", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../services/audioClient", () => ({
   audioClient: {
     setMixer: vi.fn(async () => undefined),
@@ -87,3 +85,9 @@ describe("BootstrapGate", () => {
     expect(mocks.appReady).toHaveBeenCalledOnce();
   });
 });
+
+vi.mock("../providers/store", () => ({ store: {
+  get application() { return { services: { python: mocks.python, probe: vi.fn() } }; },
+  get preferences() { return { audio: mocks.audio, acousticLatencyMs: {} }; },
+  get updatePreferences() { return mocks.updatePreferences; }
+} }));

@@ -6,9 +6,9 @@ import { afterEach } from "vitest";
 afterEach(cleanup);
 
 // jsdom omits native pointer capture and SVG path measurement used by window dragging and motion.
-if (!("setPointerCapture" in HTMLElement.prototype))
-  Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { value: () => undefined });
-if (!("getTotalLength" in SVGElement.prototype))
+if (typeof HTMLElement !== "undefined" && !("setPointerCapture" in HTMLElement.prototype))
+  Object.defineProperty(HTMLElement.prototype, "setPointerCapture", { value: () => undefined, writable: true, configurable: true });
+if (typeof SVGElement !== "undefined" && !("getTotalLength" in SVGElement.prototype))
   Object.defineProperty(SVGElement.prototype, "getTotalLength", { value: () => 100 });
 
 // jsdom has no canvas: drawing layers see no 2D context and simply stay idle instead of logging "not implemented".

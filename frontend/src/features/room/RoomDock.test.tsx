@@ -1,3 +1,4 @@
+import { ru } from "../../i18n/messages.ru";
 import {
   fireEvent,
   render,
@@ -5,7 +6,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { TestRouter } from "../../test/QueryProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { RoomDock } from "./RoomDock";
 import { roomTransferFailure } from "../../application/room/roomProjectDownload";
@@ -35,7 +36,7 @@ const mocks = vi.hoisted(() => ({
   personPhoto: undefined as string | undefined,
 }));
 
-vi.mock("../../app/AppContext", () => {
+vi.mock("../../providers/application", () => {
   const voice = {
     microphoneEnabled: () => true,
     participantMuted: () => false,
@@ -60,10 +61,10 @@ vi.mock("../../app/AppContext", () => {
     },
   };
   return {
-    useRoomSession: () => ({
+    roomSession: {
       close: mocks.closeSession,
       leave: mocks.leaveSession,
-    }),
+    },
     useRoomVoice: () => voice,
     useRoomMembership: () => ({
       copyInvite: vi.fn(async () => undefined),
@@ -71,7 +72,7 @@ vi.mock("../../app/AppContext", () => {
       removeParticipant: (id: string) => mocks.removeParticipant("ROOM42", id),
       checkTiming: () => mocks.startSyncCheck("ROOM42"),
     }),
-    useRoomRuntime: () => ({
+    getRoomRuntime: () => ({
       getProject: () => ({
         selectedArtwork: async () => undefined,
         retry: () => mocks.setRoomReadiness("ROOM42", "MissingSong"),
@@ -101,23 +102,20 @@ vi.mock("../../app/AppContext", () => {
     }),
   };
 });
-vi.mock("../../app/DialogProvider", () => ({ useAsk: () => mocks.ask }));
-vi.mock("../../app/SocialProvider", () => {
+vi.mock("../../providers/dialog", () => ({ ask: mocks.ask }));
+vi.mock("../../providers/social", () => {
   const offline = { type: "offline" };
   const directory = { people: vi.fn(async () => []) };
   return {
-    useFriendRelations: () => ({ befriend: vi.fn(async () => undefined) }),
+    friendRelations: { befriend: vi.fn(async () => undefined) },
     useSocial: () => offline,
     useSocialDirectory: () => directory,
   };
 });
-vi.mock("../../app/NotificationsProvider", () => ({
+vi.mock("../../providers/notifications", () => ({
   useNotify: () => vi.fn(),
 }));
-vi.mock("../../i18n/useText", () => ({
-  useText: () => (key: string) =>
-    (({ roomStart: "Запустить" }) as Record<string, string>)[key] ?? key,
-}));
+
 vi.mock("../../services/pythonClient", () => ({
   pythonClient: { listSongs: mocks.listSongs },
 }));
@@ -185,7 +183,7 @@ describe("RoomDock", () => {
     const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
       .mockReturnValue({ left: 100, top: 100, width: 300, height: 240, right: 400, bottom: 340, x: 100, y: 100, toJSON: () => ({}) });
     try {
-      const view = render(<MemoryRouter><RoomDock /></MemoryRouter>);
+      const view = render(<TestRouter><RoomDock /></TestRouter>);
       const panel = view.container.querySelector(".roomDock") as HTMLElement;
       fireEvent(panel, new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 150, clientY: 150 }));
       fireEvent(panel, new MouseEvent("pointermove", { bubbles: true, clientX: 150, clientY: 700 }));
@@ -210,12 +208,12 @@ describe("RoomDock", () => {
     };
     mocks.setRoomReadiness.mockResolvedValue(roomState);
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "retryTransfer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку" }));
     await waitFor(() =>
       expect(mocks.setRoomReadiness).toHaveBeenCalledWith(
         "ROOM42",
@@ -249,16 +247,16 @@ describe("RoomDock", () => {
       };
       mocks.setRoomReadiness.mockResolvedValue(roomState);
       render(
-        <MemoryRouter>
+        <TestRouter>
           <RoomDock />
-        </MemoryRouter>,
+        </TestRouter>,
       );
       expect(screen.getByRole("alert")).toHaveTextContent(
-        self ? "roomProjectTransferFailed" : "roomParticipantTransferFailed",
+        self ? "Не удалось подготовить проект. Повторите загрузку." : "Участник не смог подготовить проект. Он может повторить загрузку.",
       );
       expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
       if (self) {
-        fireEvent.click(screen.getByRole("button", { name: "retryTransfer" }));
+        fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку" }));
         await waitFor(() =>
           expect(mocks.setRoomReadiness).toHaveBeenCalledWith(
             "ROOM42",
@@ -267,7 +265,7 @@ describe("RoomDock", () => {
         );
       } else
         expect(
-          screen.queryByRole("button", { name: "retryTransfer" }),
+          screen.queryByRole("button", { name: "Повторить загрузку" }),
         ).not.toBeInTheDocument();
     },
   );
@@ -288,26 +286,26 @@ describe("RoomDock", () => {
     };
     mocks.setRoomReadiness.mockResolvedValue(roomState);
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
-    expect(screen.getByText("roomProjectConflict")).toBeInTheDocument();
+    expect(screen.getByText("У вас другая версия этой песни. Ваша копия сохранена.")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "retryTransfer" }),
+      screen.queryByRole("button", { name: "Повторить загрузку" }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "roomReplaceProject" }));
+    fireEvent.click(screen.getByRole("button", { name: "Заменить версией хоста" }));
     await waitFor(() => expect(mocks.replaceProject).toHaveBeenCalledOnce());
   });
   it("shows room project transfer progress while another participant prepares the selected song", () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(
-      screen.getByRole("progressbar", { name: "projectTransfer" }),
+      screen.getByRole("progressbar", { name: "Передача проекта · 70%" }),
     ).toHaveAttribute("aria-valuenow", "70");
   });
 
@@ -324,14 +322,14 @@ describe("RoomDock", () => {
       transferTotalBytes: 1000,
     };
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(screen.getByText("25%")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "roomActions" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "cancelTransfer" }));
+    fireEvent.click(screen.getByRole("button", { name: "Действия комнаты" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Отменить загрузку" }));
     await waitFor(() =>
       expect(mocks.cancelRoomProjectTransfer).toHaveBeenCalledWith(
         "transfer-1",
@@ -350,39 +348,39 @@ describe("RoomDock", () => {
     };
 
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(
-      screen.getByRole("status", { name: "roomReconnecting" }),
+      screen.getByRole("status", { name: "Восстановление связи с комнатой…" }),
     ).toBeInTheDocument();
   });
 
   it("puts leave and collapse on the frame without redundant synchronization or detach actions", async () => {
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(
-      screen.getByRole("button", { name: "leaveRoom" }),
+      screen.getByRole("button", { name: "Выйти из комнаты" }),
     ).toBeInTheDocument();
     // The room latency is on screen without any click; the menu only starts the audible check.
     await waitFor(() =>
-      expect(screen.getByText("roomLatencyLabel")).toBeInTheDocument(),
+      expect(screen.getByText(/^Задержка/)).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("status", { name: "roomSyncResult" }),
+      screen.getByRole("status", { name: "Оценка задержки голосов" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "collapseRoom" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "roomActions" })).not.toBeInTheDocument();
-    expect(screen.queryByText("roomCheckSync")).not.toBeInTheDocument();
-    expect(screen.queryByText("roomDetach")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "collapseRoom" }));
-    expect(screen.getByRole("button", { name: "expandRoom" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Свернуть комнату" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Действия комнаты" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Проверить синхронизацию")).not.toBeInTheDocument();
+    expect(screen.queryByText("В отдельное окно")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Свернуть комнату" }));
+    expect(screen.getByRole("button", { name: "Развернуть комнату" })).toBeInTheDocument();
   });
 
   it("keeps the host's actions for a participant behind that participant's sliders button", async () => {
@@ -421,35 +419,35 @@ describe("RoomDock", () => {
       participants: [participants[0]],
     });
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     expect(
-      screen.queryByRole("button", { name: "transferHostAction" }),
+      screen.queryByRole("button", { name: "Сделать Guest хостом" }),
     ).not.toBeInTheDocument();
     const guest = screen
       .getByText("Guest")
       .closest(".participant") as HTMLElement;
     fireEvent.click(
-      within(guest).getByRole("button", { name: "participantEffects" }),
+      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "transferHostAction" }));
+    fireEvent.click(screen.getByRole("button", { name: "Сделать Guest хостом" }));
     await waitFor(() =>
       expect(mocks.transferHost).toHaveBeenCalledWith("ROOM42", "guest"),
     );
     mocks.ask.mockResolvedValueOnce("remove");
     fireEvent.click(
-      within(guest).getByRole("button", { name: "participantEffects" }),
+      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "removeParticipant" }));
+    fireEvent.click(screen.getByRole("button", { name: "Исключить Guest" }));
     await waitFor(() =>
       expect(mocks.removeParticipant).toHaveBeenCalledWith("ROOM42", "guest"),
     );
 
     mocks.ask.mockResolvedValueOnce("close");
-    fireEvent.click(screen.getByRole("button", { name: "leaveRoom" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выйти из комнаты" }));
     await waitFor(() => expect(mocks.closeSession).toHaveBeenCalledOnce());
   });
 
@@ -483,39 +481,39 @@ describe("RoomDock", () => {
       ],
     };
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     const guest = screen
       .getByText("Guest")
       .closest(".participant") as HTMLElement;
     typeKnob(
-      within(guest).getByRole("slider", { name: "participantVolume" }),
+      within(guest).getByRole("slider", { name: "Громкость: Guest" }),
       "35",
     );
     expect(mocks.setParticipantVolume).toHaveBeenCalledWith("guest", 0.35);
     fireEvent.click(
-      within(guest).getByRole("button", { name: "participantEffects" }),
+      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
     );
     for (const name of [
-      "effectReverb",
-      "effectEcho",
-      "noiseSuppression",
-      "participantOctave",
-      "effectAutoTune",
+      ru.effectReverb,
+      ru.effectEcho,
+      ru.noiseSuppression,
+      ru.participantOctave,
+      ru.effectAutoTune,
     ])
       expect(
         screen.getByRole("slider", { name }).closest(".ad-rotary-knob"),
       ).not.toBeNull();
     expect(
-      screen.queryByRole("slider", { name: "participantDelay" }),
+      screen.queryByRole("slider", { name: "Задержка" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("slider", { name: "participantOctave" }),
+      screen.getByRole("slider", { name: "Октава" }),
     ).toHaveAttribute("aria-valuetext", "0");
-    typeKnob(screen.getByRole("slider", { name: "effectReverb" }), "60");
+    typeKnob(screen.getByRole("slider", { name: "Реверб" }), "60");
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith(
         "guest",
@@ -523,7 +521,7 @@ describe("RoomDock", () => {
         0.6,
       ),
     );
-    typeKnob(screen.getByRole("slider", { name: "effectAutoTune" }), "75");
+    typeKnob(screen.getByRole("slider", { name: "Автотюн" }), "75");
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith(
         "guest",
@@ -553,21 +551,21 @@ describe("RoomDock", () => {
       ],
     };
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
     // Your own microphone level stays in settings; the card controls other singers' levels.
     expect(
-      screen.queryByRole("slider", { name: "mixerMicrophone" }),
+      screen.queryByRole("slider", { name: "Мик" }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("slider", { name: "participantVolume" }),
+      screen.queryByRole("slider", { name: /^Громкость:/ }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "participantEffects" }));
-    typeKnob(screen.getByRole("slider", { name: "effectReverb" }), "40");
+    fireEvent.click(screen.getByRole("button", { name: /Эффекты:/ }));
+    typeKnob(screen.getByRole("slider", { name: "Реверб" }), "40");
     expect(mocks.updatePreferences).toHaveBeenLastCalledWith({
       karaokeEffects: { echo: 0, reverb: 0.4, delay: 0.24, autoTune: 0 },
     });
@@ -604,21 +602,21 @@ describe("RoomDock", () => {
       ],
     };
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "muteMicrophone" }));
+    fireEvent.click(screen.getByRole("button", { name: "Выключить мой микрофон" }));
     await waitFor(() =>
       expect(mocks.setMicrophoneEnabled).toHaveBeenCalledWith(false),
     );
     expect(
-      await screen.findByRole("button", { name: "unmuteMicrophone" }),
+      await screen.findByRole("button", { name: "Включить мой микрофон" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
       screen.getAllByRole("button", {
-        name: /muteMicrophone|muteParticipant/i,
+        name: /мой микрофон|Выключить звук/i,
       }),
     ).toHaveLength(1);
     expect(mocks.setParticipantMuted).not.toHaveBeenCalled();
@@ -655,15 +653,15 @@ describe("RoomDock", () => {
       ],
     };
     render(
-      <MemoryRouter>
+      <TestRouter>
         <RoomDock />
-      </MemoryRouter>,
+      </TestRouter>,
     );
     const guest = screen
       .getByText("Guest")
       .closest(".participant") as HTMLElement;
     const knob = within(guest).getByRole("slider", {
-      name: "participantVolume",
+      name: "Громкость: Guest",
     });
     expect(knob).toHaveAttribute("aria-valuemax", "2");
     // A short 16 px drag now covers a fifth of the turn, 100 % → 140 %.
@@ -706,3 +704,24 @@ describe("RoomDock", () => {
     expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(1.4);
   });
 });
+
+vi.mock("../../providers/store", () => ({ store: {
+  get online() { return { room: roomState ?? {
+        code: "ROOM42",
+        hostId: "host",
+        role: "host",
+        songId: "song-1",
+        revision: 1,
+        transferProgress: 70,
+        playbackLocked: false,
+        participants: [],
+      } }; },
+  inbox: { type: "offline" },
+  get preferences() { return {
+        theme: "dark",
+        voiceGain: 0.68,
+        noiseSuppression: 0,
+        karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
+      }; },
+  get updatePreferences() { return mocks.updatePreferences; }
+} }));

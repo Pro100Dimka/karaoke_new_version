@@ -1,3 +1,5 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
 import {
   useCallback,
   useEffect,
@@ -6,14 +8,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { matchPath, useLocation, useNavigate } from "react-router-dom";
-import { useApp } from "../../app/AppContext";
+import { useRouter } from "@neo-ui-kit/react";
+
 import { karaokeOnTv, useDisplayCount } from "../../app/desktop/shellBus";
-import { routePatterns, routes } from "../../shared/routes";
+import { routes } from "../../shared/routes";
 import {
   KaraokeScreen,
   KaraokeSlotContext,
-  parseKaraokeMode,
   type KaraokeScreenControls,
 } from "./KaraokePage";
 import {
@@ -37,10 +38,9 @@ interface TvPlayback {
  * place; on the TV it is drawn there while the laptop shows the Library. The TV plays a queue: at
  * the end of a song the next one starts there, and the finished take's analysis opens on the laptop.
  */
-export const KaraokeHost = ({ children }: { children: ReactNode }) => {
-  const { pathname, state } = useLocation();
-  const navigate = useNavigate();
-  const { room } = useApp("room");
+export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
+  const { pathname, params, navigate } = useRouter();
+  const { room } = store.online;
   const displays = useDisplayCount();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [tv, setTv] = useState<TvPlayback | null>(null);
@@ -52,8 +52,9 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
   tvRef.current = tv;
   const controls = useRef<KaraokeScreenControls | null>(null);
 
-  const routeSongId = matchPath(routePatterns.karaoke, pathname)?.params.songId;
-  const routeMode = parseKaraokeMode(state);
+  const routeSongId = pathname.startsWith("/karaoke/") ? params.songId : undefined;
+  const launch = store.playback.launch;
+  const routeMode = launch && launch.songId === routeSongId ? launch.mode : "Normal";
   const route = useRef({ songId: routeSongId, mode: routeMode });
   route.current = { songId: routeSongId, mode: routeMode };
 
@@ -72,7 +73,8 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
     if (!current) return;
     // Navigation is a React transition: retain the session until the karaoke route commits.
     // The pathname effect closes the TV afterwards, without an empty Library render in between.
-    navigate(routes.karaoke(current.songId), { state: { mode: current.mode } });
+    store.prepareKaraoke(current.songId, current.mode);
+    navigate(routes.karaoke(current.songId));
   }, [navigate]);
   bringBackRef.current = bringBack;
 
@@ -102,8 +104,10 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
           queue: rest,
         });
       else endTv();
-      if (analysis)
-        navigate(routes.library, { state: analysis, replace: true });
+      if (analysis) {
+        store.returnFromKaraoke(analysis);
+        navigate(routes.library, true);
+      }
     },
     [endTv, navigate],
   );
@@ -111,14 +115,13 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!ending) return;
     const timer = window.setTimeout(() => {
-      navigate(routes.library, {
-        state: {
+      store.returnFromKaraoke({
           performanceReturn: true,
           ...(ending.takeId
             ? { analysisSongId: ending.songId, analysisFor: ending.takeId }
             : {}),
-        },
       });
+      navigate(routes.library);
       setEnding(null);
     }, room ? 400 : 0);
     return () => window.clearTimeout(timer);
@@ -202,4 +205,4 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
       </KaraokeSlotContext.Provider>
     </KaraokeTvContext.Provider>
   );
-};
+});

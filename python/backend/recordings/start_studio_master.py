@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from backend.ai.domain import AiCapability
 from backend.ai.provider_resolver import ResolveAiProvider
@@ -36,6 +36,7 @@ class StartStudioMaster:
         workspaces: LocalWorkStorage,
         renderer: FfmpegStudioMasterRenderer,
         publisher: "PublishStudioMaster",
+        on_completed: Callable[[str], None] | None = None,
     ) -> None:
         self._uow = uow
         self._jobs = jobs
@@ -46,6 +47,7 @@ class StartStudioMaster:
         self._workspaces = workspaces
         self._renderer = renderer
         self._publisher = publisher
+        self._on_completed = on_completed
 
     def execute(self, recording_id: str) -> Job:
         recording = self._recording(recording_id)
@@ -69,6 +71,7 @@ class StartStudioMaster:
         recording: Recording,
         context: JobContext,
     ) -> dict[str, object]:
+        recording = self._recording(recording.recording_id)
         workspace = self._workspaces.allocate(f"studio-{recording.recording_id}")
         try:
             context.ensure_not_cancelled()
@@ -112,12 +115,15 @@ class StartStudioMaster:
                 performance_mix=recording.file_path,
                 exact_stems=exact_stems,
                 process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
+                match_recording_loudness=True,
                 adjustments=adjustments,
                 progress=context.progress,
             )
             context.ensure_not_cancelled()
             context.progress("PublishingStudioMaster", 1.0, 0.92)
             master = self._publisher.execute(recording, temporary, balance.payload())
+            if self._on_completed:
+                self._on_completed(master.recording_id)
             return {"recordingId": master.recording_id, "balance": balance.payload()}
         finally:
             self._workspaces.cleanup(workspace)

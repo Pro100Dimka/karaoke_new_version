@@ -1,6 +1,7 @@
+import { store } from "../../providers/store";
 import { useEffect, useRef } from "react";
 import { audioClient } from "../../services/audioClient";
-import { useServices } from "../ServicesContext";
+
 
 // Silence draws nothing new, so it is sampled rarely; after a second of full-rate silent frames every
 // music-driven visual has decayed to rest, and the first audible frame restores the full rate.
@@ -99,7 +100,7 @@ export const useSpectrumFeed = (
   onFrame: (frame: SpectrumFrame) => void,
   pollMilliseconds = 50,
 ): void => {
-  const { audio } = useServices();
+  const { audio } = store.application.services;
   const ready = audio.kind === "ready";
   const inFlight = useRef(false);
 

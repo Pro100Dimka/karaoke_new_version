@@ -1,4 +1,6 @@
-import { open } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
 import { readWavLayout, type WavLayout } from "./WavFile";
 
 const readChunkBytes = 1 << 20;
@@ -42,6 +44,24 @@ export const waveformPeaks = async (
 ): Promise<number[]> => {
   if (!Number.isFinite(bins)) throw new TypeError("bins must be finite");
   const count = Math.max(1, Math.min(maxBins, Math.floor(bins)));
+  if (filePath.toLowerCase().endsWith(".mp3")) {
+    const saved: unknown = JSON.parse(await readFile(`${filePath}.peaks.json`, "utf8"));
+    const file = await stat(filePath);
+    const hash = createHash("sha256");
+    for await (const chunk of createReadStream(filePath)) hash.update(chunk);
+    if (!saved || typeof saved !== "object" || !("peaks" in saved) ||
+        !("size" in saved) || !("sha256" in saved) ||
+        saved.size !== file.size || saved.sha256 !== hash.digest("hex") ||
+        !Array.isArray(saved.peaks) || saved.peaks.length !== maxBins ||
+        !saved.peaks.every((value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1))
+      throw new Error("Recording waveform cache is invalid");
+    const peaks = new Array<number>(count).fill(0);
+    saved.peaks.forEach((value: number, index: number) => {
+      const bin = Math.floor(index * count / maxBins);
+      peaks[bin] = Math.max(peaks[bin]!, value);
+    });
+    return peaks;
+  }
   const file = await open(filePath, "r");
   try {
     const layout = await readWavLayout(file);

@@ -1,4 +1,4 @@
-import { createReadStream, createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream, realpathSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import type { WebContents } from "electron";
 import { mkdir, rm, stat } from "node:fs/promises";
@@ -162,8 +162,8 @@ const requireProject = (raw: unknown) => {
 };
 
 const requireBackendPath = (root: string, value: unknown): string => {
-  const resolved = path.resolve(requireString(value, "path"));
-  const relative = path.relative(root, resolved);
+  const resolved = realpathSync(requireString(value, "path"));
+  const relative = path.relative(realpathSync(root), resolved);
   if (relative.startsWith("..") || path.isAbsolute(relative)) {
     throw new TypeError("Path is outside the backend data directory");
   }

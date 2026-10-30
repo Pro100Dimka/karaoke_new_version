@@ -1,24 +1,12 @@
-import {
-  Avatar,
-  Badge,
-  Beacon,
-  Card,
-  Icon,
-  IconButton,
-  LevelMeter,
-  Popover,
-  RotaryKnob,
-  Stack,
-  StatusIndicator,
-  Typography,
-} from "@neo-ui-kit/react";
+import { observer } from "mobx-react-lite";
+import { Avatar, Badge, Beacon, Card, Icon, IconButton, LevelMeter, Popover, RotaryKnob, Stack, StatusIndicator, Typography, tr, useLocale } from "@neo-ui-kit/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMicrophoneToggles } from "../../app/desktop/shellBus";
 import type { ParticipantDto } from "../../contracts/models";
 import type { SocialPerson } from "../../contracts/social";
 import { fixedKnobWidth } from "../../shared/ui/knobWidth";
-import { useText } from "../../i18n/useText";
-import { useRoomVoice } from "../../app/AppContext";
+import { ru } from "../../i18n/messages.ru";
+import { useRoomVoice } from "../../providers/application";
 import { usePersonPhoto } from "../social/usePersonPhoto";
 import type { ParticipantEffect } from "./participantEffects";
 import { RoomPersonMenu, type ParticipantEffects } from "./RoomPersonMenu";
@@ -75,7 +63,7 @@ const noEffects: ParticipantEffects = {
  * your microphone goes out at full level), the button that turns your own microphone off (only on
  * your card: nobody mutes another singer) and the effects and actions behind the sliders.
  */
-export const RoomPersonCard = ({
+export const RoomPersonCard = observer(({
   participant,
   person,
   hostControls,
@@ -88,7 +76,7 @@ export const RoomPersonCard = ({
   onTransferHost(participant: ParticipantDto): void;
   onRemove(participant: ParticipantDto): void;
 }) => {
-  const t = useText();
+  useLocale();
   const voice = useRoomVoice();
   const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -124,8 +112,8 @@ export const RoomPersonCard = ({
     setEffects((current) => ({ ...current, [effect]: value }));
     void voice.setParticipantEffect(participant.id, effect, value);
   };
-  const muteLabel = t(muted ? "unmuteMicrophone" : "muteMicrophone");
-  const effectsLabel = t("participantEffects", { name: participant.name });
+  const muteLabel = tr(ru[muted ? "unmuteMicrophone" : "muteMicrophone"]);
+  const effectsLabel = tr(ru.participantEffects, { name: participant.name });
 
   return (
     <li className="participant" data-connected={participant.connected}>
@@ -145,7 +133,7 @@ export const RoomPersonCard = ({
             variant={host ? "host" : "initials"}
             name={participant.name}
             src={photo}
-            badge={host ? undefined : t("guestBadge")}
+            badge={host ? undefined : tr(ru.guestBadge)}
           />
         </SpeakingBeacon>
         <div className="roomPersonMain">
@@ -165,18 +153,18 @@ export const RoomPersonCard = ({
           {!participant.connected && (
             <StatusIndicator
               status="offline"
-              label={t("readinessDisconnected")}
+              label={tr(ru.readinessDisconnected)}
             />
           )}
           <Stack direction="row" gap={1} align="center">
             <SpeakingMeter
               participant={participant}
               live={participant.connected && !muted}
-              label={t("liveInputLevel")}
+              label={tr(ru.liveInputLevel)}
             />
             {participant.self && (
               <Badge tone="info" className="roomPersonYou">
-                {t("you")}
+                {tr(ru.you)}
               </Badge>
             )}
           </Stack>
@@ -192,7 +180,7 @@ export const RoomPersonCard = ({
             step={0.01}
             resetValue={1}
             displayScale={100}
-            label={t("participantVolume", { name: participant.name })}
+            label={tr(ru.participantVolume, { name: participant.name })}
             value={volume}
             onValueChange={setVolume}
             onValueCommit={(value) =>
@@ -249,4 +237,4 @@ export const RoomPersonCard = ({
       </Popover>
     </li>
   );
-};
+});

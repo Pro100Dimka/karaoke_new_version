@@ -25,13 +25,16 @@ export const controlSelector = `${panelControls}, ${labelledControls}`;
 /** Drag bounds follow the rendered panel, including a participant joining or a section expanding. */
 export const useMeasuredPanelSize = (
   ref: RefObject<HTMLElement | null>, fallback: { width: number; height: number }, mounted = true,
+  space: "screen" | "layout" = "screen",
 ) => {
   const [size, setSize] = useState(fallback);
   useLayoutEffect(() => {
     const element = ref.current;
     if (!mounted || !element) return;
     const measure = () => {
-      const { width, height } = element.getBoundingClientRect();
+      const { width, height } = space === "layout"
+        ? { width: element.offsetWidth, height: element.offsetHeight }
+        : element.getBoundingClientRect();
       if (width > 0 && height > 0) setSize((current) =>
         current.width === width && current.height === height ? current : { width, height });
     };
@@ -40,7 +43,7 @@ export const useMeasuredPanelSize = (
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref, mounted]);
+  }, [ref, mounted, space]);
   return size;
 };
 

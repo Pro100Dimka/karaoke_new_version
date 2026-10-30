@@ -1,7 +1,9 @@
+import { store } from "../../providers/store";
+import { QueryProvider } from "../../test/QueryProvider";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useEffect, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { AppProvider, useApp, useRoomSession } from "../../app/AppContext";
+import { roomSession } from "../../providers/application";
 import { audioClient } from "../../services/audioClient";
 import { roomClient } from "../../services/roomClient";
 import { recordingCoordinator } from "../../services/recordingCoordinator";
@@ -11,7 +13,7 @@ import { clearStorage } from "../../shared/storage/localStore";
 import { unverifiedAsioMonitoring } from "../../contracts/models";
 
 const notify = vi.hoisted(() => vi.fn());
-vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => notify }));
+vi.mock("../../providers/notifications", () => ({ useNotify: () => notify }));
 
 vi.mock("../../services/audioClient", () => ({
   audioClient: {
@@ -46,11 +48,11 @@ vi.mock("../../services/recordingCoordinator", () => ({
 }));
 
 const wrapper = ({ children }: { children: ReactNode }) => (
-  <AppProvider>{children}</AppProvider>
+  <QueryProvider application>{children}</QueryProvider>
 );
 const RoomSeed = ({ children }: { children: ReactNode }) => {
-  const { room } = useApp();
-  const session = useRoomSession();
+  const { room } = store.online;
+  const session = roomSession;
   useEffect(() => {
     if (!room)
       session.setSnapshot({
@@ -64,13 +66,13 @@ const RoomSeed = ({ children }: { children: ReactNode }) => {
   return children;
 };
 const roomWrapper = ({ children }: { children: ReactNode }) => (
-  <AppProvider>
+  <QueryProvider application>
     <RoomSeed>{children}</RoomSeed>
-  </AppProvider>
+  </QueryProvider>
 );
 const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
-  const { room } = useApp();
-  const session = useRoomSession();
+  const { room } = store.online;
+  const session = roomSession;
   useEffect(() => {
     if (!room)
       session.setSnapshot({
@@ -84,9 +86,9 @@ const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
   return children;
 };
 const participantRoomWrapper = ({ children }: { children: ReactNode }) => (
-  <AppProvider>
+  <QueryProvider application>
     <ParticipantRoomSeed>{children}</ParticipantRoomSeed>
-  </AppProvider>
+  </QueryProvider>
 );
 
 describe("useKaraokeControls", () => {

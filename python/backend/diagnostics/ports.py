@@ -17,6 +17,8 @@ class RuntimeDiagnostics:
     vram_bytes: int | None
     free_vram_bytes: int | None
     ffmpeg_version: str | None
+    cpu_limit_supported: bool = False
+    vram_is_current: bool = False
 
 
 class RuntimeProbe(Protocol):

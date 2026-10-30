@@ -73,7 +73,7 @@ test("two-instance launcher reuses the normal dev profile and isolates only the 
   assert.match(multiLauncher, /ADVoice\.AudioService\.Dev\.v1/);
   assert.match(multiLauncher, /ADVoice\.AudioService\.Multi2\.v1/);
   assert.match(multi, /AD_VOICE_MODELS/);
-  assert.match(multiLauncher, /delete env\.AD_VOICE_DATA/);
+  assert.doesNotMatch(multiLauncher, /delete env\.AD_VOICE_DATA/);
 });
 
 test("the primary multi-instance window keeps the ordinary dev social identity", () => {

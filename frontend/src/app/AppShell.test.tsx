@@ -1,14 +1,15 @@
+import { useEffect } from "react";
+import { subscribeCloseRequests, useCloseGuard } from "../providers/close-guards";
+import { store } from "../providers/store";
 import { act, render, screen } from "@testing-library/react";
 import { QuantumBackground, type QuantumBackgroundProps } from "@neo-ui-kit/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { TestRouter } from "../test/QueryProvider";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "./AppShell";
 import { useSpectrumFeed } from "./backdrop/useSpectrumFeed";
 import { desktopClient } from "../services/desktopClient";
 
 const settings = vi.hoisted(() => ({
-  open: false,
-  listeners: new Set<() => void>(),
   titleBarRenders: 0,
   reducedMotion: false,
   onScreen: true,
@@ -27,6 +28,8 @@ vi.mock("../services/desktopClient", () => {
   const window = { fullscreen: false };
   return {
     desktopClient: {
+      onCloseRequested: vi.fn(() => vi.fn()),
+      confirmClose: vi.fn(async () => undefined),
       toggleFullscreen: vi.fn(async () => (window.fullscreen = !window.fullscreen)),
       isFullscreen: vi.fn(async () => window.fullscreen),
       keepDisplayAwake: vi.fn(async (awake: boolean) => awake),
@@ -36,22 +39,10 @@ vi.mock("../services/desktopClient", () => {
 vi.mock("../services/inputLevel", () => ({ microphoneLevel: vi.fn(async () => 0) }));
 vi.mock("./useAppOnScreen", () => ({ useAppOnScreen: () => settings.onScreen }));
 vi.mock("./backdrop/useSpectrumFeed", () => ({ useSpectrumFeed: vi.fn() }));
-vi.mock("./RadioContext", () => ({ RadioProvider: ({ children }: { children: React.ReactNode }) => children }));
-vi.mock("./AppContext", async () => {
-  const { useSyncExternalStore } = await import("react");
-  return {
-    useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion }, localProcessing: settings.localProcessing }),
-    useSettingsDialog: () => ({
-      settingsOpen: useSyncExternalStore(
-        (listener) => {
-          settings.listeners.add(listener);
-          return () => settings.listeners.delete(listener);
-        },
-        () => settings.open,
-      ),
-    }),
-  };
-});
+vi.mock("../providers/radio", () => ({ subscribeRadio: () => () => {} }));
+vi.mock("../providers/application", () => ({
+  useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion }, localProcessing: settings.localProcessing }),
+}));
 vi.mock("./TitleBar", () => ({ TitleBar: () => {
   settings.titleBarRenders += 1;
   return null;
@@ -63,7 +54,7 @@ vi.mock("./StartupRecovery", () => ({ StartupRecovery: () => null }));
 vi.mock("./ServiceBanner", () => ({ ServiceBanner: () => null }));
 vi.mock("../features/room/RoomDock", () => ({ RoomDock: () => null }));
 vi.mock("../features/room/RoomSync", () => ({ RoomSync: () => null }));
-vi.mock("../features/settings", () => ({ default: () => null }));
+vi.mock("../pages/library/modals/settings", () => ({ default: () => null }));
 // Karaoke itself (KaraokeHost) is tested on its own; here only whether it is on the TV matters.
 vi.mock("../features/karaoke/KaraokeHost", () => ({
   KaraokeHost: ({ children }: { children: React.ReactNode }) => children,
@@ -75,18 +66,14 @@ vi.mock("../features/karaoke/tv/TvRemote", () => ({ TvRemote: () => <div data-te
 
 const renderRoute = (path: string) =>
   render(
-    <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route element={<AppShell />}>
-          <Route path={path} element={<div>Page</div>} />
-        </Route>
-      </Routes>
-    </MemoryRouter>,
+    <TestRouter initialEntries={[path]}>
+      <AppShell><div>Page</div></AppShell>
+    </TestRouter>,
   );
 
 describe("AppShell backdrop", () => {
   it("releases the WebGL backdrop and spectrum polling while local processing is active", () => {
-    settings.localProcessing = true;
+    store.application.localProcessing = true;
     const view = renderRoute("/");
     expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(
@@ -94,11 +81,11 @@ describe("AppShell backdrop", () => {
       expect.any(Function),
       50,
     );
-    settings.localProcessing = false;
+    store.application.localProcessing = false;
     view.rerender(
-      <MemoryRouter>
+      <TestRouter>
         <AppShell />
-      </MemoryRouter>,
+      </TestRouter>,
     );
     expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(
@@ -129,18 +116,22 @@ describe("AppShell backdrop", () => {
 
   it.each(["reducedMotion", "onScreen"] as const)("removes the backdrop and stops the spectrum feed when %s disables motion", (key) => {
     settings[key] = key === "reducedMotion";
+    store.updatePreferences({ reducedMotion: settings.reducedMotion });
     renderRoute("/");
     expect(screen.queryByTestId("quantum-background")).not.toBeInTheDocument();
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function), 50);
     settings.reducedMotion = false;
+    store.updatePreferences({ reducedMotion: false });
     settings.onScreen = true;
   });
 
   it.each(["reducedMotion", "onScreen"] as const)("stops the spectrum feed when %s disables motion", (key) => {
     settings[key] = key === "reducedMotion";
+    store.updatePreferences({ reducedMotion: settings.reducedMotion });
     renderRoute("/");
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(false, expect.any(Function), 50);
     settings.reducedMotion = false;
+    store.updatePreferences({ reducedMotion: false });
     settings.onScreen = true;
   });
 
@@ -148,8 +139,7 @@ describe("AppShell backdrop", () => {
     const view = renderRoute("/");
     const titleBarRenders = settings.titleBarRenders;
     act(() => {
-      settings.open = true;
-      settings.listeners.forEach((listener) => listener());
+      store.setSettingsOpen(true);
     });
     expect(settings.titleBarRenders).toBe(titleBarRenders);
     const route = view.container.querySelector(".routeSurface");
@@ -160,8 +150,7 @@ describe("AppShell backdrop", () => {
     expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
     expect(vi.mocked(QuantumBackground).mock.lastCall?.[0].spectrum).toBeUndefined();
     act(() => {
-      settings.open = false;
-      settings.listeners.forEach((listener) => listener());
+      store.setSettingsOpen(false);
     });
     expect(route).not.toHaveAttribute("data-ad-offscreen");
     view.unmount();
@@ -171,14 +160,9 @@ describe("AppShell backdrop", () => {
 describe("AppShell full screen", () => {
   const renderAt = (path: string) =>
     render(
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<div>Library</div>} />
-            <Route path="/karaoke/:id" element={<div>Karaoke</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <TestRouter initialEntries={[path]}>
+        <AppShell><div>Page</div></AppShell>
+      </TestRouter>,
     );
   const settle = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
 
@@ -207,24 +191,16 @@ describe("AppShell screen saver", () => {
     const awake = vi.mocked(desktopClient.keepDisplayAwake);
     awake.mockClear();
     const library = render(
-      <MemoryRouter initialEntries={["/"]}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/" element={<div>Library</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <TestRouter initialEntries={["/"]}>
+        <AppShell><div>Page</div></AppShell>
+      </TestRouter>,
     );
     expect(awake).not.toHaveBeenCalled();
     library.unmount();
     const karaoke = render(
-      <MemoryRouter initialEntries={["/karaoke/song"]}>
-        <Routes>
-          <Route element={<AppShell />}>
-            <Route path="/karaoke/:id" element={<div>Karaoke</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>,
+      <TestRouter initialEntries={["/karaoke/song"]}>
+        <AppShell><div>Page</div></AppShell>
+      </TestRouter>,
     );
     expect(awake).toHaveBeenLastCalledWith(true);
     karaoke.unmount();
@@ -244,4 +220,34 @@ describe("AppShell screen saver", () => {
       settings.onTv = false;
     }
   });
+});
+
+it("subscribes close guards directly and uses the latest guard without a provider", async () => {
+  let close!: () => void;
+  const unsubscribe = vi.fn();
+  vi.mocked(desktopClient.onCloseRequested).mockImplementation(callback => {
+    close = callback;
+    return unsubscribe;
+  });
+  const Probe = ({ allowed }: { allowed: boolean }) => {
+    useCloseGuard(async () => allowed);
+    useEffect(subscribeCloseRequests, []);
+    return null;
+  };
+  const view = render(<Probe allowed={false} />);
+  await act(async () => { close(); });
+  expect(desktopClient.confirmClose).toHaveBeenLastCalledWith(false);
+  view.rerender(<Probe allowed />);
+  await act(async () => { close(); });
+  expect(desktopClient.confirmClose).toHaveBeenLastCalledWith(true);
+  view.unmount();
+  expect(unsubscribe).toHaveBeenCalledOnce();
+});
+it("does not reopen an old performance analysis after leaving the library", () => {
+  store.returnFromKaraoke({ analysisSongId: "song", analysisFor: "take", performanceReturn: true });
+  try {
+    const view = renderRoute("/help");
+    expect(store.playback.returned).toBeNull();
+    view.unmount();
+  } finally { store.returnFromKaraoke(null); }
 });

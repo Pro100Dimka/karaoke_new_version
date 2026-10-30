@@ -1,19 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
-import { useText } from "../../i18n/useText";
-import {
-  Badge,
-  Card,
-  Equalizer,
-  GlowText,
-  Icon,
-  NeonWaves,
-  Planet,
-  Reveal,
-  Sparkles,
-  Stack,
-  Typography,
-} from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
 import "./karaoke-intro.css";
 
 const holdMilliseconds = 2400;
@@ -38,7 +26,7 @@ export const KaraokeIntro = ({
   onStart,
   onDone,
 }: KaraokeIntroProps) => {
-  const t = useText();
+  useLocale();
   const [leaving, setLeaving] = useState(false);
   const canLeave = song !== null && ready;
   // The timers must not restart when the parent re-renders with new callback identities.
@@ -85,12 +73,12 @@ export const KaraokeIntro = ({
                 className="karaokeIntroBeat"
                 bars={9}
                 playing
-                label={t("nowItWillSound")}
+                label={tr(ru.nowItWillSound)}
               />
             </div>
             <div className="karaokeIntroText">
               <Typography variant="eyebrow" tone="accent">
-                {t("nowItWillSound")}
+                {tr(ru.nowItWillSound)}
               </Typography>
               <Typography variant="display" align="center">
                 <GlowText>{song.title}</GlowText>

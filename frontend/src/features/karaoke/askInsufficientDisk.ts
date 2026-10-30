@@ -1,28 +1,23 @@
-import type { DialogRequest } from "../../app/DialogProvider";
-import type { MessageKey } from "../../i18n/messages";
+import { tr } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import type { DialogRequest } from "../../providers/dialog";
 import { formatBytes } from "../../shared/utils/format";
 import { minimumRecordingBytes } from "../../application/karaoke/KaraokeRecordingCoordinator";
 
 type Ask = (request: DialogRequest) => Promise<string | null>;
-type Translate = (
-  key: MessageKey,
-  params?: Readonly<Record<string, string | number>>,
-) => string;
-
 /** One shared "not enough disk" prompt; resolves to the chosen action id. */
 export const askInsufficientDisk = (
   ask: Ask,
-  t: Translate,
   availableBytes: number,
 ): Promise<string | null> =>
   ask({
-    title: t("insufficientDiskTitle"),
-    body: t("insufficientDisk", {
+    title: tr(ru.insufficientDiskTitle),
+    body: tr(ru.insufficientDisk, {
       required: formatBytes(minimumRecordingBytes),
       available: formatBytes(availableBytes),
     }),
     actions: [
-      { id: "close", label: t("close") },
-      { id: "storage", label: t("openStorageSettings"), appearance: "primary" },
+      { id: "close", label: tr(ru.close) },
+      { id: "storage", label: tr(ru.openStorageSettings), appearance: "primary" },
     ],
   });

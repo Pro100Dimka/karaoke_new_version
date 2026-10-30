@@ -1,6 +1,8 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../../providers/store";
 import { canControlRoom } from "../../application/room/roomModel";
 import "./karaoke.css";
-import { Button, EmptyState, MessageBar, ProgressBar, refreshMotion } from "@neo-ui-kit/react";
+import { Button, EmptyState, MessageBar, ProgressBar, refreshMotion, tr, useLocale } from "@neo-ui-kit/react";
 import {
   createContext,
   useContext,
@@ -12,10 +14,10 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from "react";
-import { useApp, useRoomPlayback } from "../../app/AppContext";
-import { useNotify } from "../../app/NotificationsProvider";
+import { useRoomPlayback } from "../../providers/application";
+import { useNotify } from "../../providers/notifications";
 import type { MessageKey } from "../../i18n/messages";
-import { useText } from "../../i18n/useText";
+import { ru } from "../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../shared/errors";
 import { effectiveStageLayers } from "./displayModes";
 import { KaraokeHeader } from "./KaraokeHeader";
@@ -47,14 +49,6 @@ export const sceneVideoUrl = (
   mode === "RoomPrepared"
     ? songUrl || preferredUrl || ""
     : preferredUrl || songUrl || "";
-
-export const parseKaraokeMode = (state: unknown): KaraokeOpenMode => {
-  const mode =
-    state && typeof state === "object"
-      ? (state as { mode?: unknown }).mode
-      : undefined;
-  return mode === "AutoStart" || mode === "Rehearsal" || mode === "RoomPrepared" ? mode : "Normal";
-};
 
 /** A song that cannot be sung: what happened, and the way back. */
 const StateScreen = ({
@@ -110,7 +104,7 @@ interface KaraokeScreenProps {
   onFinished(songId: string, takeId: string | undefined): void;
 }
 
-export const KaraokeScreen = ({
+export const KaraokeScreen = observer(({
   songId,
   mode,
   target,
@@ -120,10 +114,12 @@ export const KaraokeScreen = ({
   onLeave,
   onFinished,
 }: KaraokeScreenProps) => {
-  const { theme, openSettings, room } = useApp();
+  const { preferences: { theme } } = store;
+  const { room } = store.online;
+  const { openSettings } = store;
   const roomPlayback = useRoomPlayback();
   const notify = useNotify();
-  const t = useText();
+  useLocale();
   const tv = useKaraokeTv();
   const opensWithIntro = opensWithFullIntroduction(mode);
   const [startReleased, setStartReleased] = useState(!opensWithIntro);
@@ -140,7 +136,7 @@ export const KaraokeScreen = ({
     if (!(await session.confirmExit())) return;
     if (room) {
       if (!canControlRoom(room)) {
-        notify(t("errorRoomPermission"), "warning");
+        notify(tr(ru.errorRoomPermission), "warning");
         return;
       }
       try {
@@ -148,7 +144,7 @@ export const KaraokeScreen = ({
         await roomPlayback.clearSong();
       } catch (error) {
         notify(
-          t(errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"),
+          tr(ru[errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"]),
           "error",
         );
         return;
@@ -247,7 +243,7 @@ export const KaraokeScreen = ({
         <ProgressBar
           className="karaokeLoading"
           indeterminate
-          label={t("loadingSong")}
+          label={tr(ru.loadingSong)}
         />
       </main>
     );
@@ -255,7 +251,7 @@ export const KaraokeScreen = ({
 
   const back = (
     <Button icon="back" onClick={() => void backToLibrary()}>
-      {t("library")}
+      {tr(ru.library)}
     </Button>
   );
 
@@ -263,8 +259,8 @@ export const KaraokeScreen = ({
     return place(
       <StateScreen
         icon="warning"
-        title={t("songNotFound")}
-        body={t("songNotFoundHint")}
+        title={tr(ru.songNotFound)}
+        body={tr(ru.songNotFoundHint)}
       >
         {back}
       </StateScreen>
@@ -274,8 +270,8 @@ export const KaraokeScreen = ({
     return place(
       <StateScreen
         icon="processing"
-        title={t("songNotProcessed")}
-        body={t("songNotProcessedHint")}
+        title={tr(ru.songNotProcessed)}
+        body={tr(ru.songNotProcessedHint)}
       >
         {back}
       </StateScreen>
@@ -291,8 +287,8 @@ export const KaraokeScreen = ({
     return place(
       <StateScreen
         icon="file"
-        title={t("projectInvalid")}
-        body={t(messages[load.compatibility])}
+        title={tr(ru.projectInvalid)}
+        body={tr(ru[messages[load.compatibility]])}
       >
         {back}
       </StateScreen>
@@ -361,7 +357,7 @@ export const KaraokeScreen = ({
                 icon="settings"
                 onClick={() => openSettings("audio")}
               >
-                {t("openAudioSettings")}
+                {tr(ru.openAudioSettings)}
               </Button>
               <Button
                 size="sm"
@@ -369,7 +365,7 @@ export const KaraokeScreen = ({
                 icon="refresh"
                 onClick={() => window.location.reload()}
               >
-                {t("retry")}
+                {tr(ru.retry)}
               </Button>
             </>
           }
@@ -381,7 +377,7 @@ export const KaraokeScreen = ({
       )}
       <div className="karaokeConsole">
         {!microphoneReady && (
-          <MessageBar tone="info">{t("noMicrophoneMode")}</MessageBar>
+          <MessageBar tone="info">{tr(ru.noMicrophoneMode)}</MessageBar>
         )}
         <KaraokeConsole
           song={song}
@@ -396,4 +392,4 @@ export const KaraokeScreen = ({
       </div>
     </main>
   );
-};
+});

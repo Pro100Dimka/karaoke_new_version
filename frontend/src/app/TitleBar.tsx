@@ -1,8 +1,8 @@
-import { IconButton } from "@neo-ui-kit/react";
+import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { MessageKey } from "../i18n/messages";
-import { useText } from "../i18n/useText";
+import { ru } from "../i18n/messages.ru";
 import { desktopClient } from "../services/desktopClient";
 import { useWindowState } from "./useWindowState";
 
@@ -64,7 +64,7 @@ const useTopModal = () => {
 };
 
 export const TitleBar = () => {
-  const t = useText();
+  useLocale();
   const { fullscreen } = useWindowState();
   const [moving, setMoving] = useState(false);
   useLayoutEffect(() => {
@@ -128,7 +128,7 @@ export const TitleBar = () => {
       className="titleBarControls"
       data-fullscreen={fullscreen || moving || undefined}
       role="toolbar"
-      aria-label={t("windowControls")}
+      aria-label={tr(ru.windowControls)}
     >
       {windowActions.map(({ id, label, icon, run }) => (
         <IconButton
@@ -138,7 +138,7 @@ export const TitleBar = () => {
           }
           variant="ghost"
           icon={icon}
-          label={t(id === "fullscreen" && fullscreen ? "exitFullscreen" : label)}
+          label={tr(ru[id === "fullscreen" && fullscreen ? "exitFullscreen" : label])}
           onClick={run}
         />
       ))}

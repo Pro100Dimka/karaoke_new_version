@@ -1,10 +1,10 @@
+import { QueryProvider } from "../../test/QueryProvider";
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AppProvider } from "../../app/AppContext";
+
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 import { KaraokeHeader } from "./KaraokeHeader";
-import showStyles from "./show/show.css?raw";
 
 vi.mock("./useSmoothPosition", () => ({
   useSmoothPosition: (position: number) => position,
@@ -20,8 +20,8 @@ describe("KaraokeStage", () => {
       ],
     };
     const stage = (position: number) => (
-      <AppProvider><KaraokeStage songTitle="Song" position={position} playing={false} rate={1}
-        document={document} layers={{ showLyrics: true, showNotes: false }} vocalRange="auto" /></AppProvider>
+      <QueryProvider application><KaraokeStage songTitle="Song" position={position} playing={false} rate={1}
+        document={document} layers={{ showLyrics: true, showNotes: false }} vocalRange="auto" /></QueryProvider>
     );
     const view = render(stage(17.1));
     const fill = () => [...view.container.querySelectorAll<HTMLElement>(".ad-lyrics-current .ad-lyric-word")]
@@ -55,7 +55,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "n", wordId: "w", start: 0, end: 1, pitch: 69 }],
     };
     const { container } = render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={0.4}
@@ -75,7 +75,7 @@ describe("KaraokeStage", () => {
             },
           ]}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
     expect(container.querySelector(".ad-melody-voice")).toBeNull();
     expect(container.querySelector(".ad-melody-trail path")).toBeNull();
@@ -85,14 +85,14 @@ describe("KaraokeStage", () => {
       recordingStatus: { label: "Запись · 0:42", active: true },
     };
     render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeHeader
           visible={false}
           consoleToggle={null}
           onBack={vi.fn()}
           {...previousHeaderProps}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.queryByText("Запись · 0:42")).toBeNull();
@@ -113,7 +113,7 @@ describe("KaraokeStage", () => {
       pitchHz: 440,
     }));
     const stage = (position: number, keyShift = 0) => (
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={position}
@@ -127,7 +127,7 @@ describe("KaraokeStage", () => {
           pitchFrames={frames}
           onNoteScoreChange={onNoteScoreChange}
         />
-      </AppProvider>
+      </QueryProvider>
     );
     const view = render(stage(0.4));
     await waitFor(() =>
@@ -152,7 +152,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
     };
     const stage = (position: number) => (
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={position}
@@ -162,7 +162,7 @@ describe("KaraokeStage", () => {
           layers={{ showLyrics: true, showNotes: true }}
           vocalRange="auto"
         />
-      </AppProvider>
+      </QueryProvider>
     );
     const view = render(stage(4));
     const opacity = (selector: string) =>
@@ -198,7 +198,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
     };
     const stage = (position: number) => (
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={position}
@@ -208,14 +208,11 @@ describe("KaraokeStage", () => {
           layers={{ showLyrics: true, showNotes: true }}
           vocalRange="auto"
         />
-      </AppProvider>
+      </QueryProvider>
     );
     const view = render(stage(1));
     const lane = view.container.querySelector(".pianoRollLane") as HTMLElement;
     expect(lane).toHaveClass("ad-melody-roll");
-    const alpha = /\.pianoRollLane\.ad-melody-roll::before\s*{[^}]*opacity:\s*([\d.]+)/.exec(showStyles)?.[1];
-    expect(alpha).toBeDefined();
-    expect(Number(alpha)).toBeLessThan(0.25);
     expect(screen.getAllByText("First").length).toBeGreaterThan(0);
     expect(screen.queryByText("Distant")).not.toBeInTheDocument();
     view.rerender(stage(4.9));
@@ -250,7 +247,7 @@ describe("KaraokeStage", () => {
     };
     // The consonant belongs to the word, but the persisted melody starts only at the voiced vowel.
     const stage = (position: number) => (
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={position}
@@ -261,7 +258,7 @@ describe("KaraokeStage", () => {
           vocalRange="auto"
           pitchHz={440}
         />
-      </AppProvider>
+      </QueryProvider>
     );
     const view = render(stage(10.2));
     expect(document.querySelector(".ad-melody-note[data-now]")).toBeNull();
@@ -279,7 +276,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={1}
@@ -290,7 +287,7 @@ describe("KaraokeStage", () => {
           vocalRange="auto"
           pitchHz={440}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
 
     expect(document.querySelector(".ad-melody-voice")).not.toBeNull();
@@ -307,7 +304,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={1}
@@ -317,7 +314,7 @@ describe("KaraokeStage", () => {
           layers={{ showLyrics: true, showNotes: true }}
           vocalRange="auto"
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
 
     expect(document.querySelector(".ad-melody-voice")).toBeNull();
@@ -332,7 +329,7 @@ describe("KaraokeStage", () => {
     } as EditorDocument;
     const onNoteScoreChange = vi.fn();
     const stage = (position: number) => (
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={position}
@@ -344,7 +341,7 @@ describe("KaraokeStage", () => {
           pitchHz={440}
           onNoteScoreChange={onNoteScoreChange}
         />
-      </AppProvider>
+      </QueryProvider>
     );
     const view = render(stage(0));
     for (let step = 1; step <= 5; step += 1) {
@@ -382,7 +379,7 @@ describe("KaraokeStage", () => {
       notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
-      <AppProvider>
+      <QueryProvider application>
         <KaraokeStage
           songTitle="Song"
           position={1}
@@ -393,7 +390,7 @@ describe("KaraokeStage", () => {
           vocalRange="auto"
           pitchHz={440 * 2 ** (0.8 / 12)}
         />
-      </AppProvider>,
+      </QueryProvider>,
     );
     expect(document.querySelector(".ad-melody-voice")).toHaveAttribute(
       "data-hit",

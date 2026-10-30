@@ -14,10 +14,10 @@ test("the free title-bar area drags the window while its controls stay clickable
     styles,
     /\.titleBarLeading\s*\{[^}]*-webkit-app-region:\s*no-drag/s,
   );
-  assert.match(titlebar, /onPointerDown=/);
+  assert.match(titlebar, /document\.addEventListener\("pointerdown", down, options\)/);
   assert.match(titlebar, /setPointerCapture/);
   assert.match(titlebar, /desktopClient\.dragWindow\("start"/);
-  assert.match(titlebar, /closest\("button"\)/);
+  assert.match(titlebar, /target\.closest\("button, a, input, textarea, select, label,/);
   assert.match(
     styles,
     /\.titleBarLeading button\s*[,{][^}]*-webkit-app-region:\s*no-drag/s,

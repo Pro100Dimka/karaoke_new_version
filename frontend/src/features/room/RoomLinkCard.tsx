@@ -1,19 +1,11 @@
+import { ru } from "../../i18n/messages.ru";
+import { monitoringErrorText } from "../../shared/errors";
 import { useEffect, useRef, useState } from "react";
-import {
-  Badge,
-  Card,
-  Icon,
-  SignalBars,
-  Sparkline,
-  Switch,
-  Tooltip,
-  Typography,
-} from "@neo-ui-kit/react";
+import { Badge, Card, Icon, SignalBars, Sparkline, Switch, Tooltip, Typography, tr, useLocale } from "@neo-ui-kit/react";
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
-import { monitoringErrorText, useText } from "../../i18n/useText";
-import { useRoomVoice } from "../../app/AppContext";
-import { useNotify } from "../../app/NotificationsProvider";
+import { useRoomVoice } from "../../providers/application";
+import { useNotify } from "../../providers/notifications";
 import { roomLink, type RoomLinkState } from "./roomLink";
 import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
 
@@ -37,10 +29,10 @@ const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
 
 /** The link: room delay and how good it is, its trace, and hearing yourself (monitoring). */
 export const RoomLinkCard = () => {
-  const t = useText();
+  useLocale();
   const notify = useNotify();
-  const latest = useRef({ notify, t });
-  latest.current = { notify, t };
+  const latest = useRef({ notify });
+  latest.current = { notify };
   const voice = useRoomVoice();
   const [timing, setTiming] = useState<RoomTimingReport | null>(null);
   const [monitoring, setMonitoring] = useState(false);
@@ -66,7 +58,7 @@ export const RoomLinkCard = () => {
             setMonitoring(false);
             monitoringWarningShown.current = true;
             latest.current.notify(
-              latest.current.t("monitoringSafetyStopped"),
+              tr(ru.monitoringSafetyStopped),
               "error",
             );
           } else if (!snapshot.monitoringSafetyTripped) {
@@ -96,7 +88,7 @@ export const RoomLinkCard = () => {
       .setMonitoring(!monitoring)
       .catch((error: unknown) => {
         latest.current.notify(
-          monitoringErrorText(error, latest.current.t),
+          monitoringErrorText(error),
           "error",
         );
         return null;
@@ -122,30 +114,30 @@ export const RoomLinkCard = () => {
     <span className="roomTimingDetails">
       <RoomSyncQuality timing={timing} />
       <Typography as="span" variant="caption" tone="muted">
-        {t("roomPing")}:{" "}
-        {t("millisecondsValue", { value: Math.round(timing.roundTripMs) })} ·{" "}
-        {t("roomJitter")}:{" "}
-        {t("millisecondsValue", { value: jitterMs.toFixed(1) })}
+        {tr(ru.roomPing)}:{" "}
+        {tr(ru.millisecondsValue, { value: Math.round(timing.roundTripMs) })} ·{" "}
+        {tr(ru.roomJitter)}:{" "}
+        {tr(ru.millisecondsValue, { value: jitterMs.toFixed(1) })}
         {link.route && (
           <>
             {" "}
-            · {t("roomRoute")}:{" "}
-            {t(link.route === "direct" ? "roomRouteDirect" : "roomRouteRelay")}
+            · {tr(ru.roomRoute)}:{" "}
+            {tr(ru[link.route === "direct" ? "roomRouteDirect" : "roomRouteRelay"])}
           </>
         )}
       </Typography>
       {link.deviceStarving && (
         <Typography as="span" variant="caption" tone="danger">
-          {t("roomDeviceStarving")}
+          {tr(ru.roomDeviceStarving)}
         </Typography>
       )}
       {link.unstable && !link.deviceStarving && (
         <Typography as="span" variant="caption" tone="danger">
-          {t("roomUnstableLink")}
+          {tr(ru.roomUnstableLink)}
         </Typography>
       )}
-      <span>{t("roomSyncEstimateHint")}</span>
-      <span>{t("roomSyncClicksHint")}</span>
+      <span>{tr(ru.roomSyncEstimateHint)}</span>
+      <span>{tr(ru.roomSyncClicksHint)}</span>
     </span>
   );
 
@@ -155,29 +147,29 @@ export const RoomLinkCard = () => {
       padding="sm"
       className="roomLink"
       role="status"
-      aria-label={t("roomSyncResult")}
+      aria-label={tr(ru.roomSyncResult)}
     >
       <Tooltip content={details}>
         <button
           type="button"
           className="roomLinkSignal"
-          aria-label={t("roomTimingDetails")}
+          aria-label={tr(ru.roomTimingDetails)}
         >
           <SignalBars
             level={rated.bars}
             weak={rated.bad}
-            label={t(rated.key)}
+            label={tr(ru[rated.key])}
           />
         </button>
       </Tooltip>
       <div className="roomLinkDelay">
         <Typography variant="caption" tone="muted">
-          {t("roomLatencyLabel")}
+          {tr(ru.roomLatencyLabel)}
         </Typography>
         <Typography as="strong" variant="h3">
-          {t("millisecondsValue", { value: Math.round(delayMs) })}
+          {tr(ru.millisecondsValue, { value: Math.round(delayMs) })}
         </Typography>
-        <Badge tone={rated.bad ? "warning" : "success"}>{t(rated.key)}</Badge>
+        <Badge tone={rated.bad ? "warning" : "success"}>{tr(ru[rated.key])}</Badge>
       </div>
       <Sparkline
         fit
@@ -191,10 +183,10 @@ export const RoomLinkCard = () => {
           className="roomLinkMonitorLabel"
         >
           <Icon name="headphones" />
-          {t("monitoring")}
+          {tr(ru.monitoring)}
         </Typography>
         <Switch
-          aria-label={t("monitoring")}
+          aria-label={tr(ru.monitoring)}
           checked={monitoring}
           onValueChange={() => void toggleMonitoring()}
         />

@@ -20,7 +20,9 @@ it("preserves the compact console appearance without extra headings or scrollbar
   const presets = readFileSync(resolve("src/features/karaoke/console/EffectPresets.tsx"), "utf8");
   expect(section).not.toContain("title={title}");
   expect(section).not.toContain("icon={icon}");
-  expect(presets).toContain("columns={4}");
+  expect(presets).toContain("<Popover");
+  expect(presets).toContain("columns={2}");
+  expect(presets).toContain("onOpenChange(false)");
   expect(css.match(/\.karaokeConsoleCard\.ad-card\s*\{([^}]*)\}/)?.[1]).not.toMatch(/overflow:\s*auto/);
 });
 
@@ -36,9 +38,9 @@ it("keeps console content within its floating panel and adapts the real lower gr
   expect(frame).toContain("defaultSize: size");
   expect(frame).toContain("useMeasuredPanelSize(frameRef");
   expect(readFileSync(resolve("src/shared/ui/useFloatingPanel.ts"), "utf8")).toContain("new ResizeObserver");
-  // The four panels keep their original row; small windows fold to two and then one.
+  // Three panels fold to two before controls collide, then to one on narrow consoles.
   expect(css).toMatch(
-    /@container\s*\(max-width:\s*46rem\)\s*\{\s*\.consolePanels\s*\{[^}]*grid-template-columns:\s*repeat\(2,/,
+    /@container\s*\(max-width:\s*68rem\)\s*\{\s*\.consolePanels\s*\{[^}]*grid-template-columns:\s*repeat\(2,/,
   );
   expect(css).toMatch(
     /@container\s*\(max-width:\s*30rem\)[\s\S]*\.consolePanels/,

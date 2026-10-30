@@ -1,7 +1,7 @@
 import type { RoomTimingReport } from "../../contracts/clients";
 import type { MessageKey } from "../../i18n/messages";
-import { useText } from "../../i18n/useText";
-import { Typography } from "@neo-ui-kit/react";
+import { ru } from "../../i18n/messages.ru";
+import { Typography, tr, useLocale } from "@neo-ui-kit/react";
 
 // Up to this voice delay everyone hears everyone as if in one room.
 const closeRoomMs = 30;
@@ -21,7 +21,7 @@ export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
 
 /** One line telling the singer how the room will sound for them right now. */
 export const RoomSyncQuality = ({ timing }: { timing: RoomTimingReport }) => {
-  const t = useText();
+  useLocale();
   const key = roomQualityMessage(timing);
   const ms = Math.round(
     timing.roomPlayoutDelayMs || timing.followMs || timing.voiceDelayMs,
@@ -32,7 +32,7 @@ export const RoomSyncQuality = ({ timing }: { timing: RoomTimingReport }) => {
       variant="caption"
       tone={key === "roomQualityFar" ? "danger" : "muted"}
     >
-      {t(key, { ms })}
+      {tr(ru[key], { ms })}
     </Typography>
   );
 };

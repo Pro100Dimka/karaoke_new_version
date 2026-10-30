@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   isRecord,
   readJson,
@@ -100,15 +101,17 @@ export const useDetachedPanel = (
 ) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const opened = useRef<Window | null>(null);
+  const heldPointer = useRef<PointerEvent | null>(null);
   const returned = useRef(onReturn);
   returned.current = onReturn;
 
   const attach = useCallback(() => {
     const panel = opened.current;
     opened.current = null;
-    setContainer(null);
+    if (id === "karaokeConsole") flushSync(() => setContainer(null));
+    else setContainer(null);
     panel?.close();
-  }, []);
+  }, [id]);
 
   /**
    * Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off; a
@@ -131,6 +134,15 @@ export const useDetachedPanel = (
       panel.document.documentElement.setAttribute("data-panel-window", "");
       const mount = panel.document.createElement("div");
       mount.className = "detachedPanel";
+      const appearance = document.querySelector<HTMLElement>(".main-theme");
+      if (id === "karaokeConsole" && appearance) {
+        const theme = getComputedStyle(appearance);
+        panel.document.documentElement.style.fontSize = getComputedStyle(document.documentElement).fontSize;
+        mount.style.cssText = appearance.style.cssText;
+        mount.style.fontFamily = theme.fontFamily;
+        for (const name of ["--ad-font-family-heading", "--ad-font-family-sans"])
+          mount.style.setProperty(name, theme.getPropertyValue(name));
+      }
       // The panel keeps the width (and, for panels sized by their frame, the height) it had in the app.
       mount.style.setProperty(
         "--detached-panel-width",
@@ -142,7 +154,8 @@ export const useDetachedPanel = (
       );
       panel.document.body.append(mount);
       const stopFitting = fitWindowToPanel(panel, mount);
-      const dropInApp = (layout: PanelLayout) => {
+      const dropInApp = (layout: PanelLayout, pointer?: PointerEvent) => {
+        heldPointer.current = pointer ?? null;
         returned.current?.(layout);
         attach();
       };
@@ -152,6 +165,7 @@ export const useDetachedPanel = (
           panel,
           { left: at.left, top: at.top, width: at.width, height: at.height },
           pointer,
+          id === "karaokeConsole" ? dropInApp : undefined,
         );
       // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
       panel.addEventListener("keydown", (event) => {
@@ -183,12 +197,20 @@ export const useDetachedPanel = (
         }
       });
       opened.current = panel;
-      setContainer(mount);
+      if (id === "karaokeConsole") {
+        const styles = [...panel.document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')];
+        void Promise.all(styles.map((link) => link.sheet ? undefined : new Promise<void>((resolve, reject) => {
+          link.addEventListener("load", () => resolve(), { once: true });
+          link.addEventListener("error", () => reject(new Error(`Unable to load panel stylesheet: ${link.href}`)), { once: true });
+        }))).then(() => {
+          if (!panel.closed && opened.current === panel) flushSync(() => setContainer(mount));
+        }).catch((error: unknown) => { console.error(error); panel.close(); });
+      } else setContainer(mount);
     },
     [attach, id, size, title],
   );
 
   useEffect(() => () => opened.current?.close(), []);
 
-  return { container, detached: container !== null, detach, attach };
+  return { container, detached: container !== null, detach, attach, heldPointer };
 };

@@ -1,8 +1,9 @@
-import { editorApi } from "../editor/editorApi";
+import { store } from "../../providers/store";
+import { editorApi } from "../../pages/editor/editorApi";
 import { audioClient } from "../../services/audioClient";
 import { pythonClient } from "../../services/pythonClient";
 import { useEffect, useRef, useState } from "react";
-import { useServices } from "../../app/ServicesContext";
+
 import type {
   AudioCapabilities,
   MixerChannelGains,
@@ -23,7 +24,7 @@ export const useKaraokeLoadSession = (
   onFailure: (error: unknown) => void,
   onRestart: () => void = () => undefined,
 ) => {
-  const { pythonEpoch } = useServices();
+  const { pythonEpoch } = store.application.services;
   const preparedSession = useRef("");
   const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
   const [document, setDocument] = useState<EditorDocument | null>(null);

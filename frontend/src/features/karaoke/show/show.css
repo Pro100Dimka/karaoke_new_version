@@ -106,7 +106,7 @@
   animation: none;
 }
 .pianoRollLane.ad-melody-roll::before {
-  opacity: 0.06;
+  opacity: 0.35;
   backdrop-filter: none;
 }
 

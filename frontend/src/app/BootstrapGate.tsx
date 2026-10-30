@@ -1,12 +1,13 @@
+import { observer } from "mobx-react-lite";
+import { store } from "../providers/store";
 import { useEffect, useState, type ReactNode } from "react";
-import { useText } from "../i18n/useText";
+import { ru } from "../i18n/messages.ru";
 import { audioClient } from "../services/audioClient";
 import { safeAudioConfiguration } from "../shared/preferences/preferences";
 import { desktopClient } from "../services/desktopClient";
-import { Button, EmptyState } from "@neo-ui-kit/react";
-import { useApp } from "./AppContext";
+import { Button, EmptyState, tr, useLocale } from "@neo-ui-kit/react";
 import { expectedPythonApiVersion } from "./serviceStatus";
-import { useServices } from "./ServicesContext";
+
 import { useVoiceChain } from "../features/karaoke/console/voiceChain";
 import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
 import { useLowLatencyMicrophoneNotice } from "./useLowLatencyMicrophoneNotice";
@@ -15,10 +16,10 @@ import { useLowLatencyMicrophoneNotice } from "./useLowLatencyMicrophoneNotice";
  * Holds the interface until the backend status is known so no control is usable before its service is.
  * AudioService trouble never blocks the offline Library; it only disables live-audio features later.
  */
-export const BootstrapGate = ({ children }: { children: ReactNode }) => {
-  const { python, probe } = useServices();
-  const { preferences, updatePreferences } = useApp("preferences");
-  const t = useText();
+export const BootstrapGate = observer(({ children }: { children: ReactNode }) => {
+  const { python, probe } = store.application.services;
+  const { preferences, updatePreferences } = store;
+  useLocale();
   const [admitted, setAdmitted] = useState(false);
 
   useEffect(() => {
@@ -74,25 +75,25 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
     <main className="bootstrapState" role="alert">
       <EmptyState
         icon="warning"
-        title={t(
-          python.kind === "incompatible"
+        title={tr(
+          ru[python.kind === "incompatible"
             ? "pythonIncompatible"
-            : "pythonUnavailable",
+            : "pythonUnavailable"],
         )}
         description={
           python.kind === "incompatible"
-            ? t("versionMismatch", {
+            ? tr(ru.versionMismatch, {
                 found: python.version,
                 expected: `API ${expectedPythonApiVersion}`,
               })
-            : t("pythonUnavailableHint")
+            : tr(ru.pythonUnavailableHint)
         }
         action={
           <Button variant="primary" icon="refresh" onClick={() => void probe()}>
-            {t("retry")}
+            {tr(ru.retry)}
           </Button>
         }
       />
     </main>
   );
-};
+});

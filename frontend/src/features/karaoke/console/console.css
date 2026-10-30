@@ -1,8 +1,5 @@
-/* The karaoke console: a floating Neo UI card at the bottom of the karaoke screen. The four panels
-   stay in one row down to a narrow console, then fold to two and to one. */
+/* Each orientation keeps its layout; ConsoleFrame scales the complete surface to fit. */
 .karaokeConsolePanel {
-  inline-size: 100%;
-  container-type: inline-size;
   touch-action: none;
   transition:
     opacity var(--ad-duration-normal) var(--ad-ease-standard),
@@ -15,53 +12,58 @@
   pointer-events: none;
 }
 
-.karaokeConsolePanel[data-dock]:not([data-dock="free"]) {
+.karaokeConsolePanel[data-dock] {
   position: fixed;
   z-index: 5;
-  max-block-size: calc(100dvh - var(--title, 40px) - 16px);
-  overflow: auto;
-  touch-action: auto;
 }
-.karaokeConsolePanel:is([data-dock="top"], [data-dock="bottom"]) {
-  inline-size: 90vw;
-  left: 5vw;
-}
-.karaokeConsolePanel[data-dock="top"] { top: calc(var(--title, 40px) + 8px); }
-.karaokeConsolePanel[data-dock="bottom"] { bottom: 8px; }
-.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) {
-  top: calc(var(--title, 40px) + 8px);
-  inline-size: min(360px, 92vw);
-}
-.karaokeConsolePanel[data-dock="left"] { left: 8px; }
-.karaokeConsolePanel[data-dock="right"] { right: 8px; }
 .karaokeConsolePanel[data-dock="top"][data-hidden] { transform: translateY(-110%); }
 .karaokeConsolePanel[data-dock="left"][data-hidden] { transform: translateX(-110%); }
 .karaokeConsolePanel[data-dock="right"][data-hidden] { transform: translateX(110%); }
-.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) .consoleTopRow {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) :is(.songStrip, .transport) {
-  grid-column: 1 / -1;
-}
-.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) .songStrip {
-  grid-template-columns: 1fr auto;
-}
-.karaokeConsolePanel:is([data-dock="left"], [data-dock="right"]) :is(.songStripTitle, .songStrip > .ad-waveform) {
-  grid-column: 1 / -1;
+
+.consoleSurface {
+  box-sizing: border-box;
+  padding: 16px;
 }
 
 .karaokeConsoleCard.ad-card {
+  --ad-shadow-shell:
+    0 0 .375rem rgb(from var(--ad-secondary) r g b / .57),
+    0 0 .75rem -.1875rem rgb(from var(--ad-primary) r g b / .43),
+    inset 0 0 .1875rem rgb(from var(--ad-secondary) r g b / .23),
+    inset 0 0 1.375rem rgb(from var(--ad-primary) r g b / .14);
+  position: relative;
   display: grid;
   gap: var(--ad-space-2);
 }
 
+.consoleDockButton.ad-icon-button {
+  position: absolute;
+  z-index: 1;
+  transform: none;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--ad-primary) 55%, #16080c), #16080c);
+  border-color: var(--ad-primary);
+  color: #fff;
+  box-shadow: 0 0 5px rgb(from var(--ad-primary) r g b / .6);
+}
+.consoleDockButton.ad-icon-button:is(:hover, :active) { transform: none; }
+.consoleDockButton[data-edge="top"] { top: 0; left: 50%; translate: -50% -50%; }
+.consoleDockButton[data-edge="bottom"] { bottom: 0; left: 50%; translate: -50% 50%; }
+.consoleDockButton[data-edge="left"] { top: 50%; left: 0; translate: -50% -50%; }
+.consoleDockButton[data-edge="right"] { top: 50%; right: 0; translate: 50% -50%; }
+.consoleDockButton[data-edge="top"] .ad-icon { rotate: 90deg; }
+.consoleDockButton[data-edge="bottom"] .ad-icon { rotate: -90deg; }
+.consoleDockButton[data-edge="right"] .ad-icon { rotate: 180deg; }
+
 /* Top row: song strip, transport, master volume, window button, layer toggles. */
 .consoleTopRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
   align-items: center;
   gap: var(--ad-space-3);
 }
+.consoleTopRow > .ad-icon-button { position: absolute; top: 0; right: 0; translate: 50% -50%; }
 
 .songStrip {
   display: grid;
@@ -107,24 +109,29 @@
   opacity: 0.4;
 }
 
-/* Lower row: song channels, mixer, parameters, mode. */
+/* Lower row: song channels, parameters, microphone and effects. */
 .consolePanels {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 3fr) minmax(0, 3fr) minmax(0, 3fr);
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
   gap: var(--ad-space-2);
 }
 
-/* Knobs stay in one line across their panel. */
-/* The monitoring button sits on the microphone knob's shoulder instead of taking a column. */
-.consoleMicrophone {
+/* Auxiliary buttons sit on their knob's shoulder, without taking a column. */
+.consoleKnob {
   position: relative;
+  inline-size: max-content;
+  flex-shrink: 0;
 }
 
-.consoleMicrophone>.ad-icon-button {
+.consoleKnob > .ad-icon-button {
   position: absolute;
-  top: calc(var(--ad-space-2) * -1);
-  right: calc(var(--ad-space-5) * -1);
+  left: -12px;
+  bottom: 0;
 }
+.consolePresetsTrigger.ad-icon-button { position: absolute; right: 8px; bottom: 8px; }
+.consoleKnobs-voice { padding-inline-end: 32px; }
+.karaokeConsolePanel[data-orientation="horizontal"] .consoleKnob[data-channel="mic"] { padding-inline-start: 12px; }
+.karaokeConsolePanel[data-orientation="horizontal"] .consoleKnob[data-channel="mic"] > .ad-icon-button { left: 0; }
 
 .metrics {
   display: grid;
@@ -144,13 +151,14 @@
   max-inline-size: 100%;
 }
 
-.consoleSection { min-inline-size: 0; }
-.displayToggles { flex-wrap: wrap; }
+.consoleSection.ad-card { position: relative; min-inline-size: 0; padding: 6px; }
+.consoleKnobs .ad-rotary-knob[data-labelled] { margin-block-end: 1.25rem; }
+.consoleKnobs .knob__label { translate: -50% 2px; }
+.displayToggles { flex-wrap: nowrap; inline-size: 100%; grid-column: 1 / -1; }
 .displayToggles button { min-inline-size: max-content; }
-
-@container (max-width: 86rem) {
-  .consolePanels { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
+.karaokeConsolePanel[data-orientation="horizontal"] .displayToggles { gap: 4px; }
+.karaokeConsolePanel[data-orientation="horizontal"] .displayToggles button { padding-inline: 6px; --ad-size-h: 1.8rem; }
+.karaokeConsolePanel[data-orientation="horizontal"] .songStrip > .ad-waveform { height: 2rem; }
 
 .presetGrid {
   display: grid;
@@ -158,41 +166,58 @@
   gap: var(--ad-space-2);
 }
 
-@container (max-width: 64rem) {
+.karaokeConsolePanel[data-orientation="vertical"] {
   .consoleTopRow {
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-flow: row;
+    gap: 8px;
   }
-
-  .displayToggles {
-    grid-column: 1 / -1;
-    justify-self: end;
+  .songStrip { display: contents; }
+  .songStripCover {
+    grid-area: 1 / 1;
+    inline-size: min(3.5rem, 100%);
   }
-}
-
-@container (max-width: 46rem) {
+  .songStripTitle { grid-area: 1 / 2 / 2 / 4; }
+  .masterVolume { grid-area: 1 / 4 / 2 / 6; justify-self: end; gap: 4px; zoom: .9; }
+  .songStripElapsed { grid-area: 2 / 1; }
+  .songStrip > .ad-waveform { grid-area: 2 / 2 / 3 / 5; }
+  .songStripDuration { grid-area: 2 / 5; justify-self: end; }
+  .transport {
+    grid-area: 3 / 1 / 4 / -1;
+    justify-content: space-evenly;
+    gap: 0;
+    flex-wrap: nowrap;
+  }
   .consolePanels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .consolePanels .consolePresets.ad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@container (max-width: 30rem) {
-
-  .consoleTopRow,
-  .consolePanels,
-  .songStrip {
     grid-template-columns: minmax(0, 1fr);
   }
-
-  .songStripCover {
-    display: none;
-  }
-
-  .transport,
-  .masterVolume,
-  .displayToggles {
-    justify-self: stretch;
+  .consoleKnobs.ad-stack {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(2, max-content);
     justify-content: center;
-    flex-wrap: wrap;
+    justify-items: center;
+    gap: 4px 12px;
   }
+  .consoleKnobs > :is([data-channel="melody"], [data-channel="autoTune"]) {
+    grid-column: 1 / -1;
+    justify-self: center;
+  }
+  .consoleKnobs-voice { padding-inline-end: 0; }
+  .consoleParameters.ad-grid {
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  }
+  .consoleMetric.ad-card { min-block-size: 3.5rem; padding-inline: 4px; }
+  .consoleMetric-key { grid-area: 1 / 2; }
+  .consoleMetric-key > .ad-stack { gap: 4px; }
+  .consoleMetric-range { grid-column: 1 / -1; }
+  .consoleMetric strong { font-size: 1rem; }
+  .consoleMetric .tempoField .ad-input-base { padding-inline: 5px; gap: 4px; }
+  .consoleParameters .tempoField { inline-size: 100%; }
+  .displayToggles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .displayToggles :is([data-toggle="autohide"], [data-toggle="tv"]) { grid-column: 1 / -1; }
+  .displayToggles button { inline-size: 100%; }
 }

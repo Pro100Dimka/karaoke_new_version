@@ -1,8 +1,10 @@
-import { Button, MessageBar, ProgressBar, tr } from "@neo-ui-kit/react";
+import { observer } from "mobx-react-lite";
+import { store } from "../providers/store";
+import { Button, MessageBar, ProgressBar, tr, useLocale, useRouter } from "@neo-ui-kit/react";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+
 import { routes } from "../shared/routes";
-import { useNotify } from "./NotificationsProvider";
+import { useNotify } from "../providers/notifications";
 import { desktopClient } from "../services/desktopClient";
 import {
   updateDownload,
@@ -10,8 +12,7 @@ import {
   useUpdateDownload,
   useUpdateReady,
 } from "./desktop/shellBus";
-import { useServices } from "./ServicesContext";
-import { useApp } from "./AppContext";
+
 
 const notices = [
   {
@@ -41,13 +42,13 @@ const notices = [
 ] as const;
 
 /** Non-blocking service notices and update progress on every screen. */
-export const ServiceBanner = () => {
-  useApp("language");
-  const services = useServices();
+export const ServiceBanner = observer(() => {
+  useLocale();
+  const services = store.application.services;
   const update = useUpdateReady();
   const available = useUpdateAvailable();
   const download = useUpdateDownload();
-  const { pathname } = useLocation();
+  const { pathname } = useRouter();
   const notify = useNotify();
   const [dismissed, setDismissed] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -120,4 +121,4 @@ export const ServiceBanner = () => {
       )}
     </div>
   );
-};
+});
