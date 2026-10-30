@@ -1,10 +1,10 @@
 import { pythonClient } from "../services/pythonClient";
 import type { ImportMetadata, ImportOptions } from "../contracts/clients";
-import { queryOptions, type QueryClient, type InfiniteData } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions, type QueryClient, type InfiniteData } from "@tanstack/react-query";
 import { array, parse } from "valibot";
 import { bridgedHttp } from "../services/desktopBridge";
 import { jobsSchema, modelSchema, type AIModel, type JobProgress, type JobType } from "../utils/contracts";
-import type { SongDto } from "../contracts/models";
+import type { SongDto, SongSearch } from "../contracts/models";
 
 export const refreshSongs = async (client: QueryClient) => {
   await client.cancelQueries({ queryKey: ["songs"] });
@@ -17,7 +17,29 @@ export const refreshSongs = async (client: QueryClient) => {
   ]);
 };
 
-type SongPage = Awaited<ReturnType<typeof pythonClient.searchSongs>>;
+export type SongPage = Awaited<ReturnType<typeof pythonClient.searchSongs>>;
+
+export const songsQuery = (epoch: number, filter?: SongSearch) => infiniteQueryOptions({
+  queryKey: ["songs", epoch, filter ?? null],
+  initialPageParam: null as string | null,
+  queryFn: async ({ signal, pageParam }): Promise<SongPage> => {
+    const page = filter ? await pythonClient.searchSongs(filter, pageParam)
+      : { items: await pythonClient.listSongs(), nextCursor: null };
+    signal.throwIfAborted();
+    return page;
+  },
+  getNextPageParam: page => page.nextCursor,
+  staleTime: Infinity,
+  refetchOnMount: "always",
+  refetchInterval: filter ? false : 15_000,
+  refetchIntervalInBackground: true,
+});
+
+export const songSummaryQuery = (epoch: number) => queryOptions({
+  queryKey: ["song-summary", epoch],
+  queryFn: () => pythonClient.songSummary(),
+  refetchInterval: 15_000,
+});
 
 export const importSong = async (
     client: QueryClient,

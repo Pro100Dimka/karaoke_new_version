@@ -1,27 +1,21 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { runInAction } from "mobx";
-import { store } from "../../../../providers/store";
 import { importSong, refreshSongs } from "../../../../api/api-service";
 import { pythonClient } from "../../../../services/pythonClient";
 import { tr, useLocale } from "@neo-ui-kit/react";
 import { desktopClient as libraryFiles } from "../../../../services/desktopClient";
-import { useState, type DragEvent } from "react";
 import { useNotify } from "../../../../providers/notifications";
 import type { ImportMetadata, ImportOptions } from "../../../../contracts/clients";
 import { ru } from "../../../../i18n/messages.ru";
 import { errorMessageKey, toAppError } from "../../../../shared/errors";
-import { importOneByOne } from "./batchImport";
-import { dragLeavesBoundary } from "./fileDrag";
+import { isSupportedAudio } from "./importModel";
 import { useGuardedAction } from "../../songs/useGuardedAction";
 
 /** Picked and dropped files share import progress in the query cache. */
 export const useLibraryImport = () => {
   const client = useQueryClient();
   const guarded = useGuardedAction();
-  const backendReady = store.application.services.python.kind === "ready";
   useLocale();
   const notify = useNotify();
-  const [dragging, setDragging] = useState(false);
 
   const importAndProcess = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
     const song = await importSong(client, path, metadata, options);
@@ -41,7 +35,20 @@ export const useLibraryImport = () => {
 
   // Several files picked or dropped at once are all added and queued for processing, one after another.
   const importMany = async (paths: readonly string[]) => {
-    const { imported, failed } = await importOneByOne(paths, (path) => importAndProcess(path, {}));
+    let imported = 0;
+    const failed: string[] = [];
+    for (const path of paths) {
+      const name = path.split(/[\\/]/).pop() ?? path;
+      const dot = name.lastIndexOf(".");
+      if (!isSupportedAudio(dot < 0 ? "" : name.slice(dot + 1))) {
+        failed.push(name);
+        continue;
+      }
+      try {
+        await importAndProcess(path, {});
+        imported += 1;
+      } catch { failed.push(name); }
+    }
     if (imported) notify(tr(ru.songsImported, { count: imported }), "success");
     if (failed.length) notify(tr(ru.songsImportFailed, { names: failed.join(", ") }), "error");
   };
@@ -64,37 +71,7 @@ export const useLibraryImport = () => {
       }
     });
 
-  /** One dropped file opens the add dialog; several are imported straight away. */
-  const handleDrop = (event: DragEvent<HTMLElement>) => {
-    event.preventDefault();
-    setDragging(false);
-    const files = Array.from(event.dataTransfer.files);
-    const [first] = files;
-    if (!first || !backendReady) return;
-    if (files.length > 1) {
-      void guarded(() => importMany(files.map((file) => libraryFiles.pathForFile(file))));
-      return;
-    }
-    runInAction(() => {
-      store.libraryDialogs.droppedPath = libraryFiles.pathForFile(first);
-      store.libraryDialogs.addOpen = true;
-    });
-  };
-
-  const dropTarget = {
-    onDragOver: (event: DragEvent<HTMLElement>) => {
-      event.preventDefault();
-      setDragging(true);
-    },
-    onDragLeave: (event: DragEvent<HTMLElement>) => {
-      if (dragLeavesBoundary(event.currentTarget, event.relatedTarget)) setDragging(false);
-    },
-    onDrop: handleDrop,
-  };
-
   return {
-    dragging,
-    dropTarget,
     addSong,
     handleImport,
     /** Files opened with the app ("Open with" in Explorer) are added like several dropped files. */

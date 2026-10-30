@@ -1,10 +1,10 @@
-import { app, clipboard, dialog, powerSaveBlocker, screen, shell, type BrowserWindow, type FileFilter } from "electron";
+import { app, clipboard, dialog, powerSaveBlocker, screen, shell, type BrowserWindow, type FileFilter, type Rectangle } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { launchAsio4AllInstaller } from "./Asio4AllInstaller";
 import { projectRoot, saveStorageRoot, themeIconPath } from "./AppPaths";
 import { ipcChannels } from "./ipcChannels";
-import { requireObject, requireString } from "./RequestValidation";
+import { requireNumber, requireObject, requireString } from "./RequestValidation";
 import { pickSceneClip } from "./SceneProtocol";
 import { isThemeName, saveTheme } from "./Splash";
 import type { TrustedIpc } from "./TrustedIpc";
@@ -45,6 +45,19 @@ const pickFiles = async (
 
 const registerWindowControls = ({ trustedIpc, window, reveal, confirmClose }: DesktopIpcContext) => {
   trustedIpc.handle(ipcChannels.minimize, () => window()?.minimize());
+  trustedIpc.handle(ipcChannels.setConsoleBounds, (_event, input) => {
+    const requested = requireObject(input, "bounds");
+    const bounds: Partial<Rectangle> = {};
+    for (const key of ["x", "y", "width", "height"] as const) {
+      if (requested[key] === undefined) continue;
+      const value = requireNumber(requested[key], key);
+      if (!Number.isFinite(value) || Math.abs(value) > 100000 || (["width", "height"].includes(key) && value < 1))
+        throw new RangeError(`Invalid console window ${key}`);
+      bounds[key] = Math.round(value);
+    }
+    // Only the console has a native parent; other panels keep their existing window behavior.
+    window()?.getChildWindows()[0]?.setBounds(bounds);
+  });
   let drag: { x: number; y: number } | undefined;
   trustedIpc.handle(ipcChannels.dragWindow, (_event, phase: unknown, ratio: unknown, y: unknown, x: unknown, screenY: unknown) => {
     const current = window();

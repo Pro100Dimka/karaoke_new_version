@@ -1,8 +1,6 @@
-import { useEffect } from "react";
-import { runInAction } from "mobx";
-import { observer } from "mobx-react-lite";
+import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, Stack } from "@neo-ui-kit/react";
-import { store } from "./store";
+import { createCommandQueue } from "../app/desktop/shellBus";
 
 export interface DialogAction {
   id: string;
@@ -22,21 +20,31 @@ export interface PendingDialog {
   resolve(id: string | null): void;
 }
 
-export const settleDialog = (id: string | null) => {
-  const pending = store.dialog;
-  runInAction(() => { store.dialog = null; });
-  pending?.resolve(id);
-};
-
+const requests = createCommandQueue<PendingDialog>();
 export const ask = (request: DialogRequest): Promise<string | null> =>
-  new Promise(resolve => {
-    settleDialog(null);
-    runInAction(() => { store.dialog = { request, resolve }; });
-  });
+  new Promise(resolve => requests.push({ request, resolve }));
 
-export const DialogView = observer(() => {
-  useEffect(() => () => settleDialog(null), []);
-  const request = store.dialog?.request;
+export const DialogView = () => {
+  const [request, setRequest] = useState<DialogRequest | null>(null);
+  const pending = useRef<PendingDialog | null>(null);
+  const settleDialog = (id: string | null) => {
+    const current = pending.current;
+    pending.current = null;
+    setRequest(null);
+    current?.resolve(id);
+  };
+  useEffect(() => {
+    const unsubscribe = requests.subscribe(next => {
+      pending.current?.resolve(null);
+      pending.current = next;
+      setRequest(next.request);
+    });
+    return () => {
+      unsubscribe();
+      pending.current?.resolve(null);
+      pending.current = null;
+    };
+  }, []);
   return (
     <Dialog
       open={!!request}
@@ -60,4 +68,4 @@ export const DialogView = observer(() => {
       </Stack>
     </Dialog>
   );
-});
+};

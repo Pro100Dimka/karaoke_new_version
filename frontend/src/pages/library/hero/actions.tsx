@@ -1,13 +1,16 @@
 import { useLibraryImport } from "../modals/add-song/useLibraryImport";
 import { observer } from "mobx-react-lite";
-import { runInAction } from "mobx";
 import { store } from "../../../providers/store";
 import { useJobs } from "../../../providers/application";
 import { Button, Stack, Switch, Tooltip, tr } from '@neo-ui-kit/react';
 import { ru } from '../../../i18n/messages.ru';
-import LibrarySearchField, { type LibraryFilters } from './search-field';
+import LibrarySearchField, { type LibraryFilters, type LibraryViewFilters } from './search-field';
 export type { LibraryFilters, StatusFilter } from './search-field';
 interface LibraryActionsProps {
+  view: { query: string; filters: LibraryViewFilters };
+  onQueryChange(query: string): void;
+  onFiltersChange(filters: LibraryViewFilters): void;
+  onOpenProcessing(): void;
   roomRole?: "host" | "participant";
   collaborativeControl?: boolean;
   onCollaborativeControlChange(enabled: boolean): void;
@@ -21,25 +24,21 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
   const { addSong } = useLibraryImport();
   const { jobs } = useJobs();
   const activeJobs = jobs.filter(job => job.type === "SongProcessing" && ["queued", "processing", "cancelling"].includes(job.state)).length;
-  const { query, filters: viewFilters } = store.library;
+  const { query, filters: viewFilters } = props.view;
   const filters = { ...viewFilters, sort: store.preferences.librarySort, direction: store.preferences.librarySortDirection };
   const changeQuery = (value: string) => {
     if (locked) return;
-    runInAction(() => { store.library.query = value; });
+    props.onQueryChange(value);
     props.onViewChange(value, filters);
   };
   const applyFilters = ({ sort, direction, ...next }: LibraryFilters) => {
     if (locked) return;
-    runInAction(() => { store.library.filters = next; });
+    props.onFiltersChange(next);
     store.updatePreferences({ librarySort: sort, librarySortDirection: direction });
     props.onViewChange(query, { ...next, sort, direction });
   };
-  const openProcessing = () => runInAction(() => {
-    store.libraryDialogs.focusSongId = undefined;
-    store.libraryDialogs.processingOpen = true;
-  });
   const actions = [
-    { icon: "wave", label: tr(ru.processingQueue) + (activeJobs > 0 ? ` (${activeJobs})` : ""), onClick: openProcessing },
+    { icon: "wave", label: tr(ru.processingQueue) + (activeJobs > 0 ? ` (${activeJobs})` : ""), onClick: () => props.onOpenProcessing() },
     ...(!roomRole ? [{ icon: "users", label: tr(ru.onlineRoom), onClick: props.onOpenRoom }] : []),
     { icon: "plus", label: tr(ru.addSong), onClick: () => void addSong(), variant: "primary" as const },
   ];

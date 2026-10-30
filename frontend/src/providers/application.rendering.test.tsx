@@ -1,10 +1,11 @@
+import SettingsModal, { openSettings } from "../pages/library/modals/settings";
 import { readText, removeKey, storageKey } from "../shared/storage/localStore";
 import { useLocale } from "@neo-ui-kit/react";
 import LocalizationProvider from "./localization";
 import { observer } from "mobx-react-lite";
 import { store } from "./store";
 import { QueryProvider } from "../test/QueryProvider";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, waitFor, screen, fireEvent } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { roomSession } from "./application";
 import type { ProcessingJobDto, RoomStateDto } from "../contracts/models";
@@ -120,20 +121,13 @@ it("wakes the kit animation clock after desktop restore even without browser vis
   }
 });
 
-it("keeps settings border motion enabled while opening and closing settings", () => {
-  let actions!: typeof store;
-  let dialog!: typeof store;
-  const Capture = () => {
-    actions = store;
-    dialog = store;
-    return null;
-  };
-  const view = render(<QueryProvider application><Capture /></QueryProvider>);
-  act(() => actions.updatePreferences({ reducedMotion: false }));
+it("keeps settings border motion enabled while opening and closing settings", async () => {
+  const view = render(<QueryProvider application><SettingsModal onOpenChange={() => {}} /></QueryProvider>);
+  act(() => store.updatePreferences({ reducedMotion: false }));
   expect(document.documentElement.dataset.adMotion).toBe("on");
-  act(() => actions.openSettings());
+  await act(async () => openSettings());
   expect(document.documentElement.dataset.adMotion).toBe("on");
-  act(() => dialog.setSettingsOpen(false));
+  fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
   expect(document.documentElement.dataset.adMotion).toBe("on");
   view.unmount();
 });

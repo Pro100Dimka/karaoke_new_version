@@ -1,7 +1,7 @@
+import { openSettings } from "../library/modals/settings";
 import { useLocale, Button, Card, tr, useRouter } from "@neo-ui-kit/react";
 import { useState } from "react";
 
-import { store } from "../../providers/store";
 import { ru } from "../../i18n/messages.ru";
 import type { MessageKey } from "../../i18n/messages";
 import { routes } from "../../shared/routes";
@@ -23,7 +23,6 @@ const chapters = [
 export const HelpPage = () => {
   useLocale();
   const { navigate } = useRouter();
-  const { openSettings } = store;
   const [active, setActive] = useState<(typeof chapters)[number]>(chapters[0]);
   return (
     <main className="helpPage">

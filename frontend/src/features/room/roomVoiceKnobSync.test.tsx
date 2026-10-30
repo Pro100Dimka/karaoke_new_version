@@ -1,7 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { store } from "../../providers/store";
 import { QueryProvider } from "../../test/QueryProvider";
-import { Form } from "@neo-ui-kit/react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
 import { TestRouter } from "../../test/QueryProvider";
@@ -12,7 +11,6 @@ import { audioClient } from "../../services/audioClient";
 import { clearStorage } from "../../shared/storage/localStore";
 import { useVoiceChain } from "../karaoke/console/voiceChain";
 import AudioPanel from "../../pages/library/modals/settings/audio";
-import useSettingsForm from "../../pages/library/modals/settings/form";
 import { RoomDock } from "./RoomDock";
 vi.mock("../../providers/social", () => {
   const offline = { type: "offline" };
@@ -98,10 +96,6 @@ const VoiceChain = observer(() => {
   return null;
 });
 
-const SettingsForm = observer(() => {
-  const form = useSettingsForm("audio");
-  return <Form form={form}><AudioPanel form={form} language="ru" /></Form>;
-});
 
 it.each([0.68, 4])("keeps the stored microphone gain %s when joining and leaving a room", async (voiceGain) => {
   clearStorage();
@@ -135,7 +129,7 @@ it("never shows a knob for your own microphone in the room, whatever the setting
     <TestRouter>
       <QueryProvider application>
         <InRoom />
-        <SettingsForm />
+        <AudioPanel />
         <RoomDock />
       </QueryProvider>
     </TestRouter>,

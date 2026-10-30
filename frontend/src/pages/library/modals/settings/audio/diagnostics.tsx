@@ -1,9 +1,10 @@
-import { Header, Select, Stack, Typography, tr } from '@neo-ui-kit/react';
+import { useFormContext, Header, Select, Stack, Typography, tr } from '@neo-ui-kit/react';
 import { ru } from '../../../../../i18n/messages.ru';
-import type { SettingsForm } from '../../../../../utils/contracts';
+import type { SettingsFormValues } from '../../../../../utils/contracts';
 import { AcousticCalibration } from './AcousticCalibration';
 
-export default function AudioDiagnostics({ form }: { form: SettingsForm }) {
+export default function AudioDiagnostics() {
+  const form = useFormContext<SettingsFormValues>();
   const { runtime, audioAvailable } = form.values.audioStatus;
   const usb = audioAvailable ? runtime.usbLatency : undefined;
   const parts = audioAvailable ? runtime.latencyParts : undefined;

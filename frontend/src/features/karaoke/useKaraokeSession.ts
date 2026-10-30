@@ -1,3 +1,4 @@
+import { openSettings } from "../../pages/library/modals/settings";
 import { tr, useLocale } from "@neo-ui-kit/react";
 import { ru } from "../../i18n/messages.ru";
 import { store } from "../../providers/store";
@@ -67,7 +68,6 @@ export const useKaraokeSession = (
   const recordingWork = recordingWorkRef.current;
   const { preferences, updatePreferences } = store;
   const { room } = store.online;
-  const { openSettings } = store;
   const roomPlayback = useRoomPlayback();
   const notify = useNotify();
   const locale = useLocale();

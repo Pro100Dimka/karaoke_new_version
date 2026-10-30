@@ -1,3 +1,4 @@
+import { openSettings } from "../pages/library/modals/settings";
 import { observer } from "mobx-react-lite";
 import { Icon, IconButton, Popover, Slider, tr, useLocale, useRouter } from "@neo-ui-kit/react";
 
@@ -14,7 +15,6 @@ export const FloatingControls = observer(() => {
   const { navigate } = useRouter();
   const radio = store.radio;
   const track = useRadioTrack();
-  const { openSettings } = store;
   const el = (
     <IconButton
       round

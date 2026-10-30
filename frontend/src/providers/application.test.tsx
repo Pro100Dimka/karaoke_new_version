@@ -1,4 +1,4 @@
-import { store } from "./store";
+import { subscribeAudioFocus } from "./application";
 import { QueryProvider } from "../test/QueryProvider";
 import { act, render, waitFor } from "@testing-library/react";
 import { useEffect } from "react";
@@ -52,11 +52,16 @@ vi.mock("../shared/preferences/preferences", async (importOriginal) => {
   };
 });
 
+const AudioFocus = ({ settingsOpen = false }: { settingsOpen?: boolean }) => {
+  useEffect(() => subscribeAudioFocus(() => settingsOpen), [settingsOpen]);
+  return null;
+};
+
 describe("ASIO background release", () => {
   it("releases ASIO after the app loses focus and restores it on return", async () => {
     render(
       <QueryProvider application>
-        <div>app</div>
+        <AudioFocus />
       </QueryProvider>,
     );
 
@@ -68,14 +73,9 @@ describe("ASIO background release", () => {
   });
 
   it("releases ASIO when the window is minimized even while settings are open", async () => {
-    const OpenSettings = () => {
-      const { setSettingsOpen } = store;
-      useEffect(() => setSettingsOpen(true), [setSettingsOpen]);
-      return <div>settings</div>;
-    };
     render(
       <QueryProvider application>
-        <OpenSettings />
+        <AudioFocus settingsOpen />
       </QueryProvider>,
     );
     await waitFor(() => expect(desktop.listener).toBeTypeOf("function"));

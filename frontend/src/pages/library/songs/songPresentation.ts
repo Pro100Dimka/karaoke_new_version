@@ -13,10 +13,8 @@ export type SongActionId =
 
 interface SongStatusPresentation {
   label: MessageKey;
-  tone: "default" | "primary" | "success" | "danger";
-  primaryAction: "play" | "cancel" | "details" | "none";
-  primaryLabel: MessageKey;
-  primaryDisabled: boolean;
+  tone: "offline" | "processing" | "success" | "error";
+  primaryAction: SongActionId | null;
   /** Exactly the actions the state/action matrix allows; everything else is hidden or disabled. */
   actions: readonly SongActionId[];
 }
@@ -24,58 +22,44 @@ interface SongStatusPresentation {
 export const songStatusPresentation = {
   "not-processed": {
     label: "notProcessed",
-    tone: "default",
-    primaryAction: "none",
-    primaryLabel: "notProcessed",
-    primaryDisabled: true,
+    tone: "offline",
+    primaryAction: null,
     actions: ["settings", "folder", "delete"],
   },
   queued: {
     label: "queued",
-    tone: "primary",
-    primaryAction: "cancel",
-    primaryLabel: "cancelQueueItem",
-    primaryDisabled: false,
+    tone: "processing",
+    primaryAction: "cancelQueued",
     actions: ["cancelQueued"],
   },
   processing: {
     label: "processing",
-    tone: "primary",
-    primaryAction: "details",
-    primaryLabel: "openProcessingDetails",
-    primaryDisabled: false,
+    tone: "processing",
+    primaryAction: "processingDetails",
     actions: ["processingDetails"],
   },
   ready: {
     label: "ready",
     tone: "success",
     primaryAction: "play",
-    primaryLabel: "play",
-    primaryDisabled: false,
     actions: ["play", "recordings", "settings", "folder", "delete"],
   },
   failed: {
     label: "failed",
-    tone: "danger",
-    primaryAction: "none",
-    primaryLabel: "failed",
-    primaryDisabled: true,
+    tone: "error",
+    primaryAction: null,
     actions: ["viewError", "settings", "folder", "delete"],
   },
   importing: {
     label: "importing",
-    tone: "primary",
-    primaryAction: "none",
-    primaryLabel: "importing",
-    primaryDisabled: true,
+    tone: "processing",
+    primaryAction: null,
     actions: [],
   },
   invalid: {
     label: "projectInvalid",
-    tone: "danger",
-    primaryAction: "none",
-    primaryLabel: "projectInvalid",
-    primaryDisabled: true,
+    tone: "error",
+    primaryAction: null,
     actions: ["viewError", "folder", "delete"],
   },
 } satisfies Record<SongStatus, SongStatusPresentation>;

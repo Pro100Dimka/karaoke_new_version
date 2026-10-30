@@ -11,7 +11,6 @@ import {
 import { ru } from "../../../../../i18n/messages.ru";
 import type {
   FormBlock,
-  SettingsForm,
   SettingsFormValues,
 } from "../../../../../utils/contracts";
 import FormButton from "../form-button";
@@ -24,8 +23,8 @@ const rotaryProps = {
   displayScale: 100,
 } as const;
 
-export const blocks = (form: SettingsForm, showDiagnostics: () => void) => {
-  const status = form.values.audioStatus;
+export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">, showDiagnostics: () => void) => {
+  const status = values.audioStatus;
   const runtime = status.runtime;
   const usb =
     runtime.latencyEstimateSource === "device-timeline"
@@ -58,7 +57,7 @@ export const blocks = (form: SettingsForm, showDiagnostics: () => void) => {
             <Stack gap={3}>
               <LevelMeter
                 value={Math.min(1, status.inputLevel * 4) * 100}
-                active={form.values.audio.voice.monitoring}
+                active={values.audio.voice.monitoring}
                 label={tr("liveInputLevel")}
               />
               <Stack direction="row" gap={3} align="center" wrap>
@@ -129,10 +128,10 @@ export const blocks = (form: SettingsForm, showDiagnostics: () => void) => {
               icon="sliders"
               disabled={
                 !status.audioAvailable ||
-                form.values.audio.configuration.backend !== "ASIO"
+                values.audio.configuration.backend !== "ASIO"
               }
               label={tr("audioConfigureDevices")}
-              onClick={() => form.setValue("audio.configureDevices", true)}
+              onClick={status.onOpenAsioControlPanel}
             />
           ),
         },
@@ -191,7 +190,7 @@ export const blocks = (form: SettingsForm, showDiagnostics: () => void) => {
           span,
           props: status.deviceOptions(
             name === "inputDeviceId" ? "input" : "output",
-            form.values.audio.configuration[
+            values.audio.configuration[
               name as "inputDeviceId" | "outputDeviceId"
             ] ?? "",
           ),
@@ -206,7 +205,7 @@ export const blocks = (form: SettingsForm, showDiagnostics: () => void) => {
                 size="md"
                 icon="play"
                 label={tr(ru.playTestSound)}
-                onClick={() => form.setValue("audio.playTestSound", true)}
+                onClick={() => void status.onPlayTestSound()}
                 disabled={!status.audioAvailable}
               />
             </Stack>

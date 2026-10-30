@@ -4,6 +4,7 @@ export const ipcChannels = {
   close: "desktop:close",
   isMaximized: "desktop:is-maximized",
   dragWindow: "desktop:drag-window",
+  setConsoleBounds: "desktop:set-console-bounds",
   pickAudioFile: "desktop:pick-audio-file",
   pickAudioFiles: "desktop:pick-audio-files",
   getStorageRoot: "desktop:get-storage-root",

@@ -180,12 +180,13 @@ def _guidance(
     *,
     prefer_accelerated: bool = False,
     model_cache: list[whisper.Whisper] | None = None,
+    reuse: AlignmentReuse | None = None,
 ) -> Mapping[str, object]:
     if device() == "cuda" and not prefer_accelerated:
         return _transcribe(vocal, language, prompt)
     try:
         return _accelerated_guidance(
-            vocal, language, prompt, threads=threads, model_cache=model_cache
+            vocal, language, prompt, threads=threads, model_cache=model_cache, reuse=reuse
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError):
         return _transcribe(vocal, language, prompt)
@@ -288,7 +289,9 @@ def _alignment_evidence(
         samples,
         instrumental,
         recognition,
-        lambda source: _guidance(source, language, None, threads, prefer_accelerated=True),
+        lambda source: _guidance(
+            source, language, None, threads, prefer_accelerated=True, reuse=reuse
+        ),
     )
     if independent_views is not None:
         independent_views.extend(candidates)

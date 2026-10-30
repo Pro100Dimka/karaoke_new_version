@@ -1,7 +1,5 @@
 import { observer } from "mobx-react-lite";
-import { useQueryClient } from "@tanstack/react-query";
-import { refreshSongs } from "../../../../api/api-service";
-import { useSongRecordings } from "../../songs/useSongRecordings";
+import { useSongRecordings } from "./useSongRecordings";
 import { PerformanceAnalysisModal } from "../analysis";
 import { ru } from "../../../../i18n/messages.ru";
 import { useMemo, useState } from "react";
@@ -39,9 +37,12 @@ const PerformancesSignature = () => (
 );
 
 /** A song's takes: listen, rename, analyze, reveal or delete each, as a list or a grid. */
-export const RecordingsModal = observer(({ songs, ready }: { songs: readonly SongDto[]; ready: boolean }) => {
-  const client = useQueryClient();
-  const actions = useSongRecordings(songs, ready, () => { void refreshSongs(client); });
+export const RecordingsModal = observer(({ requestedSong, onRequestHandled, onAnalysisReady }: {
+  requestedSong: SongDto | null;
+  onRequestHandled(): void;
+  onAnalysisReady(recordingId: string | null): void;
+}) => {
+  const actions = useSongRecordings(requestedSong, onRequestHandled, onAnalysisReady);
   const { song, recordings, close: onClose, analyze: onAnalyze, remove: onDelete,
     rename: onRename, analysisProgress: progress, analysisFailures: failures,
     cancelAnalysis: onCancelAnalysis } = actions;

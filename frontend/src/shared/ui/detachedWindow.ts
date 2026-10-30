@@ -12,6 +12,7 @@ import {
 export const fitWindowToPanel = (
   panel: Window,
   mount: HTMLElement,
+  resizePanel = (width: number, height: number) => panel.resizeTo(width, height),
 ): (() => void) => {
   // Without size notifications (never in Electron) the window keeps the size it opened with.
   if (typeof ResizeObserver === "undefined") return () => undefined;
@@ -21,7 +22,7 @@ export const fitWindowToPanel = (
     const width = Math.ceil(box.width);
     const height = Math.ceil(box.height);
     if (width !== panel.innerWidth || height !== panel.innerHeight)
-      panel.resizeTo(width, height);
+      resizePanel(width, height);
   };
   const observer = new ResizeObserver(fit);
   observer.observe(mount);
@@ -62,13 +63,18 @@ export const pointInApp = (
 export const moveWindowBySurface = (
   panel: Window,
   mount: HTMLElement,
-  onDropInApp: (layout: PanelLayout) => void,
+  onDropInApp: (layout: PanelLayout, pointer?: PointerEvent) => void,
+  movePanel = (left: number, top: number) => panel.moveTo(left, top),
+  continuous = false,
 ): (() => void) => {
   let grab: { x: number; y: number; pointerId: number } | null = null;
   const down = (event: PointerEvent) => {
     const target = event.target as Element | null;
     if (event.button !== 0 || target?.closest?.(controlSelector)) return;
-    grab = {
+    if (continuous) carryWindow(panel, {
+      left: panel.screenX, top: panel.screenY, width: panel.innerWidth, height: panel.innerHeight,
+    }, event, onDropInApp, movePanel);
+    else grab = {
       x: event.screenX - panel.screenX,
       y: event.screenY - panel.screenY,
       pointerId: event.pointerId,
@@ -78,7 +84,7 @@ export const moveWindowBySurface = (
   };
   const move = (event: PointerEvent) => {
     if (grab?.pointerId === event.pointerId)
-      panel.moveTo(event.screenX - grab.x, event.screenY - grab.y);
+      movePanel(event.screenX - grab.x, event.screenY - grab.y);
   };
   const up = (event: PointerEvent) => {
     if (grab?.pointerId !== event.pointerId) return;
@@ -117,6 +123,7 @@ export const carryWindow = (
   opened: PanelLayout,
   pointer: ScreenPoint,
   onReenter?: (layout: PanelLayout, pointer: PointerEvent) => void,
+  movePanel = (left: number, top: number) => panel.moveTo(left, top),
 ): void => {
   // Measured from where the window was asked to open: a window just opened may not report it yet.
   const grabX = pointer.screenX - opened.left;
@@ -145,7 +152,7 @@ export const carryWindow = (
       onReenter?.({ left: inside.x, top: inside.y, width: opened.width, height: opened.height }, event);
       return;
     }
-    panel.moveTo(left, top);
+    movePanel(left, top);
   };
   for (const host of hosts) {
     host.addEventListener("pointermove", move);

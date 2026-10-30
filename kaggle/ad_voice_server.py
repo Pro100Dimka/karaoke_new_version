@@ -11,7 +11,7 @@ import urllib.request
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import contextmanager
-from functools import wraps
+from functools import partial, wraps
 from pathlib import Path
 
 # Run from the repository root. Kaggle supplies CUDA-enabled torch/torchaudio.
@@ -31,6 +31,8 @@ import soundfile as sf
 import torch
 from backend.ai.catalog import CATALOG
 from backend.ai_worker.pitch import pitch
+from backend.ai_worker.runtime import AlignmentReuse
+from backend.processing.policies import ResourceBudget
 from backend.ai_worker.separation import separate
 from backend.ai_worker.speech import (
     align,
@@ -49,6 +51,7 @@ DISCOVERY_BASE_URL = os.environ.get(
 _lock = threading.Lock()
 _pitch_workers = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ad-voice-pitch")
 _pitch_jobs: dict[str, Future[dict]] = {}
+_resources = ResourceBudget()
 
 
 class _IdleActivity:
@@ -76,7 +79,9 @@ class _IdleActivity:
                 if self._active:
                     self._condition.wait()
                     continue
-                remaining = self._timeout_seconds - (time.monotonic() - self._last_finished)
+                remaining = self._timeout_seconds - (
+                    time.monotonic() - self._last_finished
+                )
                 if remaining <= 0:
                     return
                 self._condition.wait(remaining)
@@ -171,7 +176,9 @@ def _cleanup() -> None:
 
 
 def _session(session_id: str) -> Path:
-    if not session_id or any(character not in "0123456789abcdef" for character in session_id):
+    if not session_id or any(
+        character not in "0123456789abcdef" for character in session_id
+    ):
         raise gr.Error("Invalid session")
     directory = (SESSIONS / session_id).resolve()
     if directory.parent != SESSIONS.resolve() or not directory.is_dir():
@@ -232,13 +239,46 @@ def transcribe_song(session_id: str, language: str, start_seconds: float = 0.0) 
     return str(transcribe(vocal, language, start_seconds=start_seconds)["text"])
 
 
+def _alignment_scope(directory: Path, scope: str) -> Path:
+    if len(scope) != 32 or any(
+        character not in "0123456789abcdef" for character in scope
+    ):
+        raise gr.Error("Invalid alignment scope")
+    return directory / "alignment-reuse" / scope
+
+
 @_track_activity
-def align_song(session_id: str, lyrics: str, language: str, timing_hints: str) -> dict:
-    separation = _session(session_id) / "separation"
+def align_song(
+    session_id: str, lyrics: str, language: str, timing_hints: str, scope: str = ""
+) -> dict:
+    directory = _session(session_id)
+    separation = directory / "separation"
     instrumental = separation / "instrumental.wav"
     hints = json.loads(timing_hints) if timing_hints else []
-    return align(separation / "vocals.wav", lyrics, language, hints,
-                 instrumental=instrumental if instrumental.is_file() else None)
+    operation = align
+    if scope:
+        reserve = max(
+            _resources.min_free_disk_bytes,
+            int(shutil.disk_usage(directory).total * 0.05),
+        )
+        operation = partial(
+            align, reuse=AlignmentReuse(_alignment_scope(directory, scope), reserve)
+        )
+    return operation(
+        separation / "vocals.wav",
+        lyrics,
+        language,
+        hints,
+        instrumental=instrumental if instrumental.is_file() else None,
+    )
+
+
+@_track_activity
+def release_alignment(session_id: str, scope: str) -> dict:
+    directory = _alignment_scope(_session(session_id), scope)
+    if directory.is_dir():
+        shutil.rmtree(directory)
+    return {"released": True}
 
 
 @_track_activity
@@ -266,11 +306,15 @@ def main() -> None:
         raise RuntimeError("Enable a GPU accelerator in Kaggle Notebook settings")
     token = os.environ.get("AD_VOICE_TOKEN", "")
     if len(token) < 8:
-        raise RuntimeError("Create a Kaggle secret named AD_VOICE_TOKEN (at least 8 characters)")
+        raise RuntimeError(
+            "Create a Kaggle secret named AD_VOICE_TOKEN (at least 8 characters)"
+        )
     SESSIONS.mkdir(parents=True, exist_ok=True)
     _download_models()
     with gr.Blocks(title="A&D Voice Kaggle GPU") as app:
-        gr.Markdown("# A&D Voice GPU\nKeep this cell running while the desktop app processes songs.")
+        gr.Markdown(
+            "# A&D Voice GPU\nKeep this cell running while the desktop app processes songs."
+        )
         gr.Markdown(f"CUDA ready: **{torch.cuda.get_device_name(0)}**")
         with gr.Row(visible=False):
             upload = gr.File(type="filepath")
@@ -281,6 +325,7 @@ def main() -> None:
             language = gr.Textbox()
             lyrics = gr.Textbox()
             hints = gr.Textbox()
+            alignment_scope = gr.Textbox(value="")
             json_output = gr.JSON()
         gr.Button(visible=False).click(
             health,
@@ -319,10 +364,19 @@ def main() -> None:
         )
         gr.Button(visible=False).click(
             align_song,
-            [session_id, lyrics, language, hints],
+            [session_id, lyrics, language, hints, alignment_scope],
             json_output,
             api_name="align",
             concurrency_limit=1,
+            concurrency_id="alignment",
+        )
+        gr.Button(visible=False).click(
+            release_alignment,
+            [session_id, alignment_scope],
+            json_output,
+            api_name="release_alignment",
+            concurrency_limit=1,
+            concurrency_id="alignment",
         )
         gr.Button(visible=False).click(
             pitch_song,

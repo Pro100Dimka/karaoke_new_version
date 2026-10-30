@@ -1,6 +1,7 @@
+import { subscribeAudioFocus } from "../providers/application";
 import { observer } from "mobx-react-lite";
 import { store } from "../providers/store";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { refreshMotion, useRouter } from "@neo-ui-kit/react";
 
 import { KaraokeHost } from "../features/karaoke/KaraokeHost";
@@ -36,7 +37,10 @@ const RouteSurface = observer(({
   children?: ReactNode;
   animateBackground: boolean;
 }) => {
-  const { settingsOpen } = store;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpenRef = useRef(settingsOpen);
+  settingsOpenRef.current = settingsOpen;
+  useEffect(() => subscribeAudioFocus(() => settingsOpenRef.current), []);
   useEffect(refreshMotion, [settingsOpen]);
   return (
     <>
@@ -50,6 +54,7 @@ const RouteSurface = observer(({
         <ServiceBanner />
         {children}
       </div>
+      <SettingsModal onOpenChange={setSettingsOpen} />
     </>
   );
 });
@@ -122,7 +127,6 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
         <StartupRecovery />
         <RoomSync />
         <RoomDock />
-        <SettingsModal />
       </div>
   );
 });

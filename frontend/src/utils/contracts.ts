@@ -1,19 +1,18 @@
 import { array, object, pipe, string, minLength, picklist, number, nullable, type InferOutput } from "valibot";
-import type { CardProps, FormApi, FormFieldDefinition, IconButtonProps } from "@neo-ui-kit/react";
+import type { CardProps, FormFieldDefinition, IconButtonProps } from "@neo-ui-kit/react";
 import type { PropsWithChildren } from "react";
 import type { store } from "../providers/store";
-import type { initialSettings } from "./consts";
 import type { useAudioSettings } from "../pages/library/modals/settings/audio/useAudioSettings";
 
-export type SettingsFormValues = typeof initialSettings & Pick<typeof store,
+export type SettingsFormValues = Pick<typeof store,
   "profile" | "interface" | "radio" | "application" | "integrations" | "audio"> & {
+    keyboardLighting: { show: boolean };
+    ai: { backend: "Local" | "Kaggle"; transferToLibraryPath: string; savingBackend: boolean; error: string };
     profile: typeof store.profile & { canChangePhoto: boolean };
     audioStatus: ReturnType<typeof useAudioSettings>["audio"] & {
       inputLevel: number; canToggle: boolean; ready: boolean;
     };
   };
-export type SettingsForm = Pick<FormApi<SettingsFormValues>, "values" | "setValue" | "field">;
-export type SettingsPanelProps = { form: SettingsForm; language: string };
 export type FormCardProps = CardProps & { fields?: FormFieldDefinition<SettingsFormValues>[] };
 export type FormBlock = Omit<FormCardProps, "title"> & { span: FormFieldDefinition<SettingsFormValues>["span"]; show?: boolean };
 export type FormButtonProps = IconButtonProps & { caption?: string };

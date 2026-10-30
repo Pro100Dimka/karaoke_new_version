@@ -1,30 +1,32 @@
-import { reaction, runInAction } from "mobx";
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshSongs } from "../../../../api/api-service";
 import { tr, useLocale } from "@neo-ui-kit/react";
-import { pythonClient as catalog } from "../../../services/pythonClient";
+import { pythonClient as catalog } from "../../../../services/pythonClient";
 import { useEffect, useRef, useState } from "react";
-import { store } from "../../../providers/store";
-import { ask } from "../../../providers/dialog";
-import { useNotify } from "../../../providers/notifications";
+import { store } from "../../../../providers/store";
+import { ask } from "../../../../providers/dialog";
+import { useNotify } from "../../../../providers/notifications";
 import type {
   AnalysisDto,
   RecordingDto,
   SongDto,
-} from "../../../contracts/models";
+} from "../../../../contracts/models";
 import type {
   RecordingAnalysisProgress,
   StudioMasterProgress,
-} from "../../../contracts/clients";
-import { ru } from "../../../i18n/messages.ru";
-import type { MessageKey } from "../../../i18n/messages";
-import { useGuardedAction } from "./useGuardedAction";
-import { errorMessageKey, toAppError } from "../../../shared/errors";
+} from "../../../../contracts/clients";
+import { ru } from "../../../../i18n/messages.ru";
+import type { MessageKey } from "../../../../i18n/messages";
+import { useGuardedAction } from "../../songs/useGuardedAction";
+import { errorMessageKey, toAppError } from "../../../../shared/errors";
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
-  songs: readonly SongDto[],
-  ready: boolean,
-  onChanged: () => void,
+  requestedSong: SongDto | null,
+  onRequestHandled: () => void,
+  onAnalysisReady: (recordingId: string | null) => void,
 ) => {
+  const client = useQueryClient();
   const returned = store.playback.returned;
   const notify = useNotify();
   const locale = useLocale();
@@ -160,22 +162,28 @@ export const useSongRecordings = (
   );
 
   useEffect(() => {
-    if (!ready) return;
     const value = returned;
     if (!value?.analysisSongId || !value.analysisFor || handled.current === value.analysisFor) return;
-    const target = songs.find((item) => item.id === value.analysisSongId);
-    if (!target) return;
     handled.current = value.analysisFor;
     const takeId = value.analysisFor;
+    const songId = value.analysisSongId;
     const request = ++requests.current.analysis;
     const listRequest = ++requests.current.recordings;
     const current = () =>
       request === requests.current.analysis &&
       listRequest === requests.current.recordings;
-    setAnalysisSong(target);
+    setAnalysis(null);
+    setAnalysisSong(null);
     setAnalysisRecordId(takeId);
     void (async () => {
       try {
+        const target = await client.fetchQuery({
+          queryKey: ["song", store.application.services.pythonEpoch, songId],
+          queryFn: () => catalog.getSong(songId),
+          staleTime: 0,
+        });
+        if (!current()) return;
+        setAnalysisSong(target);
         // Only the analysis modal opens here; recordings is still fetched because the analysis modal
         // itself lists sibling takes, not to also open the separate recordings modal on top of it.
         const items = await catalog.listRecordings(target.id);
@@ -192,14 +200,14 @@ export const useSongRecordings = (
           );
       }
     })();
-  }, [ready, songs, returned, notify, locale, catalog]);
+  }, [returned, notify, locale, client]);
 
   const analyze = (recording: RecordingDto, recalculate = false) =>
     guarded(async () => {
       const request = ++requests.current.analysis;
       setAnalysis(null);
       setAnalysisSong(
-        songs.find((item) => item.id === recording.songId) ?? null,
+        song?.id === recording.songId ? song : analysisSong?.id === recording.songId ? analysisSong : null,
       );
       setAnalysisRecordId(recording.id);
       const result = await loadAnalysis(
@@ -234,7 +242,7 @@ export const useSongRecordings = (
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),
       );
-      onChanged();
+      void refreshSongs(client);
     });
 
   const createStudioMaster = (recording: RecordingDto) =>
@@ -265,16 +273,15 @@ export const useSongRecordings = (
     }, "studioMasterFailed");
 
   useEffect(() => {
-    runInAction(() => { store.libraryDialogs.analysisRecordId = analysisRecordId; });
-    return () => runInAction(() => { store.libraryDialogs.analysisRecordId = null; });
-  }, [analysisRecordId]);
+    onAnalysisReady(analysisRecordId);
+  }, [analysisRecordId, onAnalysisReady]);
   const openLatest = useRef(open);
   useEffect(() => { openLatest.current = open; });
-  useEffect(() => reaction(() => store.libraryDialogs.recordingsSong, requested => {
-    if (!requested) return;
-    runInAction(() => { store.libraryDialogs.recordingsSong = null; });
-    void openLatest.current(requested);
-  }, { fireImmediately: true }), []);
+  useEffect(() => {
+    if (!requestedSong) return;
+    onRequestHandled();
+    void openLatest.current(requestedSong);
+  }, [requestedSong, onRequestHandled]);
 
   return {
     song,
@@ -286,7 +293,6 @@ export const useSongRecordings = (
     analysisFailures,
     cancelAnalysis: (jobId: string) => guarded(() => catalog.cancelJob(jobId)),
     studioMaster,
-    open,
     analyze,
     rename,
     remove,

@@ -10,6 +10,60 @@ import zlib
 import pytest
 
 
+def test_remote_alignment_reuses_only_the_explicit_scope_and_releases_its_files(tmp_path):
+    import shutil
+    from functools import partial
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
+    functions = {
+        node.name: node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef)
+    }
+    reused = []
+    align = Mock(return_value={"words": []})
+
+    def reuse(directory, reserve):
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "features.pt").write_bytes(b"features")
+        reused.append((directory, reserve))
+        return reused[-1]
+
+    namespace = {
+        "Path": Path,
+        "json": json,
+        "shutil": shutil,
+        "partial": partial,
+        "gr": SimpleNamespace(Error=ValueError),
+        "_session": lambda _: tmp_path,
+        "_track_activity": lambda f: f,
+        "align": align,
+        "AlignmentReuse": reuse,
+        "_resources": SimpleNamespace(min_free_disk_bytes=512),
+    }
+    names = ["_alignment_scope", "align_song", "release_alignment"]
+    exec(
+        compile(
+            ast.Module(body=[functions[name] for name in names], type_ignores=[]), "server", "exec"
+        ),
+        namespace,
+    )
+    namespace["align_song"]("session", "first", "English", "[]")
+    assert "reuse" not in align.call_args.kwargs
+    scope = "a" * 32
+    for text in ["first", "changed"]:
+        namespace["align_song"]("session", text, "English", "[]", scope)
+    assert reused[0][0] == reused[1][0]
+    assert reused[0][1] >= 512
+    retained = tmp_path / "alignment-reuse" / ("b" * 32)
+    retained.mkdir()
+    namespace["release_alignment"]("session", scope)
+    assert not reused[0][0].exists() and retained.is_dir()
+    namespace["release_alignment"]("session", scope)
+    with pytest.raises(ValueError):
+        namespace["align_song"]("session", "first", "English", "[]", "../outside")
+
+
 def test_kaggle_worker_publishes_the_new_share_url_automatically() -> None:
     source = (Path(__file__).parents[2] / "kaggle" / "ad_voice_server.py").read_text(
         encoding="utf-8"
@@ -166,17 +220,19 @@ def test_server_health_identifies_its_process_generation():
             isinstance(node, ast.Assign)
             and any(
                 isinstance(target, ast.Name)
-                and target.id in {"SESSION_GENERATION", "PROTOCOL_VERSION"}
+                and target.id in {"SESSION_GENERATION", "PROTOCOL_VERSION", "WORKER_REVISION"}
                 for target in node.targets
             )
         )
     ]
     namespace = {
         "uuid": uuid,
+        "os": SimpleNamespace(environ={"AD_VOICE_KAGGLE_REVISION": "revision"}),
         "torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False)),
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server-health", "exec"), namespace)
     first = namespace["health"]()["sessionGeneration"]
     assert len(first) == 32
     assert namespace["health"]()["protocolVersion"] == 7
+    assert namespace["health"]()["workerRevision"] == "revision"
     assert namespace["health"]()["sessionGeneration"] == first

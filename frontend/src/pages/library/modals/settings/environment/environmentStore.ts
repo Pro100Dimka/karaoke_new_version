@@ -6,18 +6,16 @@ import {
 import type { EnvironmentSettingDto } from "../../../../../contracts/models";
 import {
   isSecret,
-  saveDelayMilliseconds,
   type DisplayEntry,
   type DisplayState,
 } from "./environmentModel";
 
 type Field = {
   confirmed: EnvironmentSettingDto;
-  draft?: string;
+  pendingValue?: string;
   revision: number;
   state?: DisplayState;
   error?: unknown;
-  debounce?: ReturnType<typeof setTimeout>;
   write?: Promise<EnvironmentSettingDto | null>;
 };
 type KaggleAction = "login" | "deploy";
@@ -40,7 +38,7 @@ const errorMessage = (error: unknown) =>
 const confirmedEntry = (entry: EnvironmentSettingDto): EnvironmentSettingDto =>
   isSecret(entry) ? { ...entry, value: "" } : entry;
 
-/** One backend-scoped session. Each field owns its confirmed value, draft and pending write. */
+/** One backend-scoped session. Each field owns its confirmed value and pending write. */
 export class EnvironmentStore {
   private fields = new Map<string, Field>();
   private listeners = new Set<() => void>();
@@ -72,9 +70,9 @@ export class EnvironmentStore {
       entries: this.loaded
         ? Array.from(
             this.fields.values(),
-            ({ confirmed, draft, state, error }) => ({
+            ({ confirmed, pendingValue, state, error }) => ({
               ...confirmed,
-              value: draft ?? confirmed.value,
+              value: pendingValue ?? confirmed.value,
               state: state ?? confirmed.state,
               ...(error !== undefined && { errorMessage: errorMessage(error) }),
             }),
@@ -101,7 +99,7 @@ export class EnvironmentStore {
         });
       else if (
         field.revision === revisions.get(field) &&
-        field.draft === undefined &&
+        field.pendingValue === undefined &&
         !field.write
       ) {
         field.confirmed = confirmedEntry(entry);
@@ -121,7 +119,7 @@ export class EnvironmentStore {
       (this.action ||
         [...this.fields.values()].some(
           (field) =>
-            field.draft !== undefined ||
+            field.pendingValue !== undefined ||
             field.write ||
             field.state === "checking",
         ))
@@ -136,7 +134,7 @@ export class EnvironmentStore {
           if (
             verifiesAlone(field.confirmed.key) &&
             field.confirmed.configured &&
-            field.draft === undefined &&
+            field.pendingValue === undefined &&
             !field.write
           )
             void this.verifyField(field, ++field.revision).catch(
@@ -183,32 +181,19 @@ export class EnvironmentStore {
   }
 
   private prepare(field: Field, value: string) {
-    clearTimeout(field.debounce);
-    field.debounce = undefined;
     field.revision++;
-    field.draft = value;
+    field.pendingValue = value;
     field.state = value.trim() ? "unverified" : "empty";
     field.error = undefined;
     return field;
   }
 
-  change = (
-    key: string,
-    value: string,
-    onError: (error: unknown) => void = () => undefined,
-  ) => {
-    const field = this.prepare(this.requireField(key), value);
-    const revision = field.revision;
-    // Clearing a secret draft keeps the confirmed secret; deletion is an explicit save.
-    if (isSecret(field.confirmed) && !value.trim()) {
-      field.draft = undefined;
-      field.state = undefined;
-    } else {
-      field.debounce = setTimeout(() => {
-        field.debounce = undefined;
-        void this.enqueue(field, value, revision).catch(onError);
-      }, saveDelayMilliseconds);
-    }
+  cancelPending = (key: string) => {
+    const field = this.requireField(key);
+    field.revision++;
+    field.pendingValue = undefined;
+    field.state = undefined;
+    field.error = undefined;
     this.publish();
   };
 
@@ -266,7 +251,7 @@ export class EnvironmentStore {
         );
         field.confirmed = stored;
         if (field.revision !== revision) return null;
-        field.draft = undefined;
+        field.pendingValue = undefined;
         field.error = undefined;
         return stored;
       })
@@ -303,11 +288,11 @@ export class EnvironmentStore {
       return { field, value };
     });
     const changes: [Field, string, number][] = [];
-    // Prepare every field before awaiting any write, cancelling all old debounces.
+    // Prepare every field before awaiting any write, superseding older writes.
     for (const { field, value } of validated) {
       if (
         field.confirmed.value !== value ||
-        field.draft !== undefined ||
+        field.pendingValue !== undefined ||
         field.error !== undefined
       ) {
         this.prepare(field, value);
@@ -334,7 +319,7 @@ export class EnvironmentStore {
       if (
         field.confirmed.group !== "kaggle" ||
         !field.confirmed.configured ||
-        field.draft !== undefined ||
+        field.pendingValue !== undefined ||
         field.write
       )
         continue;
@@ -383,8 +368,8 @@ export class EnvironmentStore {
         try {
           for (const field of this.fields.values()) {
             if (field.confirmed.group !== "kaggle") continue;
-            if (field.draft !== undefined)
-              await this.save(field.confirmed.key, field.draft);
+            if (field.pendingValue !== undefined)
+              await this.save(field.confirmed.key, field.pendingValue);
             else if (field.write) await field.write;
           }
           check = this.beginKaggleCheck();

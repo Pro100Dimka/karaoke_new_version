@@ -1,10 +1,10 @@
 import { FilePicker, themes, tr } from '@neo-ui-kit/react';
 import { appThemes } from '../../../../../providers/theme/variants';
 import { fonts, radioStations } from '../../../../../utils/consts';
-import type { FormBlock, SettingsForm } from '../../../../../utils/contracts';
+import type { FormBlock, SettingsFormValues } from '../../../../../utils/contracts';
 
-export const blocks = (form: SettingsForm) => {
-  const canControlRadio = form.values.radio.canControl;
+export const blocks = (values: Pick<SettingsFormValues, "profile" | "interface" | "application" | "integrations" | "radio" | "keyboardLighting">) => {
+  const canControlRadio = values.radio.canControl;
   const fontOptions = Object.entries(fonts).map(([value, [label, font]]) => ({
     value,
     font,
@@ -44,9 +44,9 @@ export const blocks = (form: SettingsForm) => {
             <FilePicker
               variant="avatar"
               accept="image/*"
-              disabled={!form.values.profile.canChangePhoto}
-              src={form.values.profile.photo}
-              name={form.values.profile.displayName}
+              disabled={!values.profile.canChangePhoto}
+              src={values.profile.photo}
+              name={values.profile.displayName}
               onFiles={field.onValueChange}
             />
           ),
@@ -92,7 +92,7 @@ export const blocks = (form: SettingsForm) => {
       ],
     },
     keyboardLighting: {
-      show: form.values.keyboardLighting.show,
+      show: values.keyboardLighting.show,
       span: { base: 'full' },
       icon: 'bulb',
       fields: [

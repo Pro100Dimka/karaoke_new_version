@@ -147,7 +147,7 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   });
 
   guardNavigation(window, options.trustedIpc);
-  window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon, () => window.getBounds()));
+  window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon, () => window.getBounds(), window));
   const visibility = watchAppVisibility(window, (onScreen) => {
     if (!window.isDestroyed()) window.webContents.send(ipcChannels.appVisibility, onScreen);
   });

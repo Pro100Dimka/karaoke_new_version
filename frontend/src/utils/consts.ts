@@ -26,15 +26,3 @@ export const radioStations = [
     url: 'https://stream.radioparadise.com/mp3-128',
   },
 ] as const;
-
-export const initialSettings = {
-  keyboardLighting: {
-    show: false,
-  },
-  ai: {
-    backend: 'Local',
-    transferToLibraryPath: '',
-    savingBackend: false,
-    error: '',
-  },
-};

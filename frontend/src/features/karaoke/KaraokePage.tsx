@@ -1,3 +1,4 @@
+import { openSettings } from "../../pages/library/modals/settings";
 import { observer } from "mobx-react-lite";
 import { store } from "../../providers/store";
 import { canControlRoom } from "../../application/room/roomModel";
@@ -116,7 +117,6 @@ export const KaraokeScreen = observer(({
 }: KaraokeScreenProps) => {
   const { preferences: { theme } } = store;
   const { room } = store.online;
-  const { openSettings } = store;
   const roomPlayback = useRoomPlayback();
   const notify = useNotify();
   useLocale();

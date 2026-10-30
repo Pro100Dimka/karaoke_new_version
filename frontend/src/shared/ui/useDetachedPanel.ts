@@ -12,6 +12,7 @@ import {
   moveWindowBySurface,
 } from "./detachedWindow";
 import { keyBelongsToControl } from "./keyOwnership";
+import { desktopClient } from "../../services/desktopClient";
 import type { PanelLayout, ScreenPoint } from "./useFloatingPanel";
 
 /** Must match electron/PanelWindows.ts: only windows with this name may open. */
@@ -153,19 +154,28 @@ export const useDetachedPanel = (
         `${Math.round(bounds.height)}px`,
       );
       panel.document.body.append(mount);
-      const stopFitting = fitWindowToPanel(panel, mount);
+      const setBounds = id === "karaokeConsole" ? desktopClient.setConsoleBounds : undefined;
+      const movePanel = setBounds
+        ? (x: number, y: number) => { void setBounds({ x, y }); }
+        : undefined;
+      const resizePanel = setBounds
+        ? (width: number, height: number) => { void setBounds({ width, height }); }
+        : undefined;
+      const stopFitting = fitWindowToPanel(panel, mount, resizePanel);
       const dropInApp = (layout: PanelLayout, pointer?: PointerEvent) => {
         heldPointer.current = pointer ?? null;
         returned.current?.(layout);
         attach();
       };
-      const stopMoving = moveWindowBySurface(panel, mount, dropInApp);
+      if (movePanel && bounds.left !== undefined && bounds.top !== undefined) movePanel(bounds.left, bounds.top);
+      const stopMoving = moveWindowBySurface(panel, mount, dropInApp, movePanel, id === "karaokeConsole");
       if (pointer && at?.left !== undefined && at.top !== undefined)
         carryWindow(
           panel,
           { left: at.left, top: at.top, width: at.width, height: at.height },
           pointer,
           id === "karaokeConsole" ? dropInApp : undefined,
+          movePanel,
         );
       // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
       panel.addEventListener("keydown", (event) => {

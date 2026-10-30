@@ -1,33 +1,16 @@
 import type { KaraokeOpenMode } from "../application/karaoke/karaokeMachine";
 import { radioStations } from "../app/radioStations";
-import type { PendingDialog } from "./dialog";
 import type { ServiceStatus } from "../app/serviceStatus";
 import { setLocale } from "@neo-ui-kit/react";
 import { makeAutoObservable, observable, observableRef } from "mobx";
-import type { Language, SettingsTab, ThemeName, RoomStateDto, SongDto } from "../contracts/models";
+import type { Language, ThemeName, RoomStateDto } from "../contracts/models";
 import { loadPreferences, savePreferences, type Preferences } from "../shared/preferences/preferences";
 import { appThemes } from './theme/variants';
 import type { SocialInbox } from '../contracts/social';
-import type { LibraryViewFilters } from '../pages/library/hero/search-field';
 
 class Store {
   get currentTheme() { return appThemes[this.preferences.theme]; }
   preferences = loadPreferences();
-  libraryDialogs = observable.object({
-    addOpen: false,
-    droppedPath: "",
-    settingsSong: null as SongDto | null,
-    recordingsSong: null as SongDto | null,
-    analysisRecordId: null as string | null,
-    processingOpen: false,
-    focusSongId: undefined as string | undefined,
-  }, { settingsSong: observableRef, recordingsSong: observableRef });
-  // Remembers the page across navigation, without persisting it or subscribing renders to scroll changes.
-  library = observable.object({
-    query: "",
-    filters: { status: "all", language: "all", duration: "all", artwork: "all" } as LibraryViewFilters,
-    scrollTop: 0,
-  }, { scrollTop: false });
   online = observable.object({ room: null as RoomStateDto | null }, { room: observableRef });
   application = {
     localProcessing: false,
@@ -53,13 +36,10 @@ class Store {
 
   inbox: SocialInbox = { type: 'offline' };
   setInbox(inbox: SocialInbox) { this.inbox = inbox; }
-  dialog: PendingDialog | null = null;
-  settingsOpen = false;
-  settingsTab: SettingsTab = "appearance";
 
   constructor() {
     setLocale(this.preferences.language);
-    makeAutoObservable(this, { library: false, preferences: observableRef, inbox: observableRef, dialog: observableRef }, { autoBind: true });
+    makeAutoObservable(this, { preferences: observableRef, inbox: observableRef }, { autoBind: true });
   }
 
   get interface() {
@@ -119,14 +99,7 @@ class Store {
     this.updatePreferences({ language });
   }
 
-  openSettings(tab: SettingsTab = "appearance") {
-    this.settingsTab = tab;
-    this.settingsOpen = true;
-  }
 
-  setSettingsOpen(open: boolean) {
-    this.settingsOpen = open;
-  }
 }
 
 export const store = new Store();

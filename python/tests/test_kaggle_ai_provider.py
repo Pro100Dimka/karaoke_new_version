@@ -83,6 +83,67 @@ class _Provider(KaggleAiProvider):
         return str(path)
 
 
+@pytest.mark.parametrize("fail", [False, True])
+def test_alignment_reuse_is_scoped_to_one_job_and_released_without_restarting(tmp_path, fail):
+    from concurrent.futures import Future
+
+    class Client(_Client):
+        def submit(self, *args, api_name):
+            if api_name == "/release_alignment":
+                self.calls.append((api_name, args))
+                result = Future()
+                result.set_result({"released": True})
+                return result
+            return super().submit(*args, api_name=api_name)
+
+    client = Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav")
+    provider = _Provider(client)
+    vocal = tmp_path / "vocal.wav"
+    execution = ExecutionContext(ComputeDevice.CPU, 1)
+    scopes = []
+    for _ in range(2):
+        cancel = threading.Event()
+        try:
+            with provider.reuse_alignment(tmp_path, cancel):
+                for lyrics in ["first", "changed text"]:
+                    provider.align(vocal, lyrics, Language.ENGLISH, cancel, execution=execution)
+                calls = [args for name, args in client.calls if name == "/align"]
+                assert calls[-1][-1] == calls[-2][-1]
+                scopes.append(calls[-1][-1])
+                if fail:
+                    cancel.set()
+                    raise RuntimeError("original failure")
+        except RuntimeError as error:
+            assert fail and str(error) == "original failure"
+    assert len(scopes[0]) == 32 and scopes[0] != scopes[1]
+    assert [args[1] for name, args in client.calls if name == "/release_alignment"] == scopes
+    provider.align(vocal, "one pass", Language.ENGLISH, threading.Event(), execution=execution)
+    assert len(client.calls[-1][1]) == 4, "one pass must keep the original request"
+
+
+def test_alignment_cleanup_failure_preserves_the_processing_error(tmp_path, caplog):
+    class Client(_Client):
+        def submit(self, *args, api_name):
+            if api_name == "/release_alignment":
+                raise OSError("connection closed")
+            return super().submit(*args, api_name=api_name)
+
+    provider = _Provider(Client(tmp_path / "unused.wav", tmp_path / "unused-vocal.wav"))
+    cancel = threading.Event()
+    with pytest.raises(RuntimeError, match="processing failed"):
+        with provider.reuse_alignment(tmp_path, cancel):
+            provider.align(
+                tmp_path / "vocal.wav",
+                "hello",
+                Language.ENGLISH,
+                cancel,
+                execution=ExecutionContext(ComputeDevice.CPU, 1),
+            )
+            raise RuntimeError("processing failed")
+    assert provider._alignment_scopes == {}
+    assert "Kaggle alignment cleanup failed: OSError" in caplog.text
+
+
 @pytest.mark.parametrize("activity", [True, False, None])
 def test_remote_pitch_preserves_optional_audio_activity(activity) -> None:
     value = {"time": 0.1, "frequency": 440.0, "confidence": 0.1}

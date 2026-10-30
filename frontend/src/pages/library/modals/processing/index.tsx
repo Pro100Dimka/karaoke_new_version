@@ -1,6 +1,8 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { observer } from "mobx-react-lite";
+import { store } from "../../../../providers/store";
+import { useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
 import { desktopClient } from "../../../../services/desktopClient";
-import { refreshSongs } from "../../../../api/api-service";
+import { refreshSongs, songsQuery } from "../../../../api/api-service";
 import { useGuardedAction } from "../../songs/useGuardedAction";
 import { pythonClient as catalog } from "../../../../services/pythonClient";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,14 +20,6 @@ import {
 import { useProcessingQueue } from "./useProcessingQueue";
 import "./processing.css";
 
-interface Props {
-  open: boolean;
-  songs: readonly SongDto[];
-  focusSongId?: string;
-  onClose(): void;
-  onPlay(song: SongDto): void;
-  playbackDisabled?: boolean;
-}
 /** A question or a note over the queue: confirmed actions run only after "OK". */
 interface Notice {
   title: string;
@@ -47,7 +41,7 @@ const clearGroups = {
     title: "processingClearFailedTitle",
     text: "processingClearFailedText",
     matches: (job: ProcessingJobDto) =>
-      job.state === "failed" || job.state === "interrupted",
+      ["failed", "interrupted"].includes(job.state),
   },
   all: {
     label: "processingClearAll",
@@ -83,16 +77,17 @@ const useDisk = (open: boolean): Disk => {
 };
 
 /** Every song being processed, waiting or done: progress, order of the queue, and what can be done with each job. */
-export const ProcessingModal = ({
-  open,
-  songs,
-  focusSongId,
-  onClose,
-  onPlay,
-  playbackDisabled,
-}: Props) => {
+export const ProcessingModal = observer(({ open, focusSongId, onClose, onPlay }: {
+  open: boolean;
+  focusSongId?: string;
+  onClose(): void;
+  onPlay(song: SongDto): void;
+}) => {
+  const playbackDisabled = store.application.localProcessing;
   useLocale();
   const client = useQueryClient();
+  const { data } = useInfiniteQuery({ ...songsQuery(store.application.services.pythonEpoch), enabled: open, refetchOnMount: false });
+  const songs = useMemo(() => data?.pages.flatMap(page => page.items) ?? [], [data]);
   const guarded = useGuardedAction();
   const onCancel = (jobId: string) => guarded(async () => {
     await catalog.cancelProcessing(jobId);
@@ -279,4 +274,4 @@ export const ProcessingModal = ({
       />
     </Dialog>
   );
-};
+});

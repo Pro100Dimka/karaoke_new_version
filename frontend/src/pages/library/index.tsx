@@ -1,129 +1,90 @@
-import { runInAction } from "mobx";
+import { object, string, picklist, safeParse } from "valibot";
+import type { LibraryViewFilters } from "./hero/search-field";
 import { observer } from "mobx-react-lite";
 import { store } from "../../providers/store";
 import {
-  useDeferredValue,
+  useCallback,
   useEffect,
-  useId,
-  useMemo,
   useRef,
   useState,
+  type DragEvent,
 } from "react";
 import { useRouter, Stack, tr, useLocale } from "@neo-ui-kit/react";
 
 import { ru } from "../../i18n/messages.ru";
 
-import { mergeRoomLibrary } from "../../application/room/roomLibrary";
 import { RoomModal } from "../../features/room/RoomModal";
 import { useKaraokeTv } from "../../features/karaoke/tv/karaokeTv";
 import { AddSongModal } from "./modals/add-song/index";
-import { loadLastPlayed } from "./songs/lastPlayed";
 import "./library.css";
-import { LibraryActions, type LibraryFilters } from "./hero/actions";
+import { LibraryActions } from "./hero/actions";
 import { LibraryHeader } from "./hero/index";
-import { selectLibrarySongs } from "./songs/librarySelectors";
 import { ProcessingModal } from "./modals/processing/index";
-import { RecordingsModal } from "./modals/recordings/index";
-import { SongSettingsModal } from "./modals/song-settings/index";
 import { useLibraryImport } from "./modals/add-song/useLibraryImport";
+import { desktopClient } from "../../services/desktopClient";
 import { libraryCommands } from "../../app/desktop/shellBus";
-import { useLibrarySongs } from "./songs/useLibrarySongs";
 import { useRoomLibrary } from "./songs/useRoomLibrary";
-import { useSongActions, curtainMilliseconds } from "./songs/useSongActions";
+import { useSongPlayback } from "./songs/useSongActions";
 import LibrarySongs from "./songs";
 
 
+const viewSchema = object({
+  query: string(),
+  filters: object({
+    status: picklist(["all", "not-processed", "queued", "processing", "ready", "failed", "importing", "invalid"]),
+    language: picklist(["all", "Auto", "Ukrainian", "Russian", "English"]),
+    duration: picklist(["all", "short", "medium", "long"]),
+    artwork: picklist(["all", "with", "without"]),
+  }),
+});
+
 export const LibraryPage = observer(() => {
-  useEffect(() => () => runInAction(() => {
-    Object.assign(store.libraryDialogs, {
-      settingsSong: null, recordingsSong: null, analysisRecordId: null,
-      processingOpen: false, focusSongId: undefined, addOpen: false, droppedPath: "",
-    });
-  }), []);
   const pageRef = useRef<HTMLElement>(null);
+  const [view, setView] = useState<{ query: string; filters: LibraryViewFilters }>(() => {
+    try {
+      const result = safeParse(viewSchema, JSON.parse(sessionStorage.getItem("adVoice.libraryView") ?? "null"));
+      if (result.success) return result.output;
+    } catch { /* Missing storage must not prevent opening the library. */ }
+    return { query: "", filters: { status: "all", language: "all", duration: "all", artwork: "all" } };
+  });
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  useEffect(() => () => {
+    try { sessionStorage.setItem("adVoice.libraryView", JSON.stringify(viewRef.current)); } catch { /* The local view remains usable. */ }
+  }, []);
+  const setQuery = useCallback((query: string) => setView(current => current.query === query ? current : { ...current, query }), []);
+  const setViewFilters = useCallback((update: (filters: LibraryViewFilters) => LibraryViewFilters) =>
+    setView(current => { const filters = update(current.filters); return filters === current.filters ? current : { ...current, filters }; }), []);
   const { navigate } = useRouter();
   const tv = useKaraokeTv();
-  const entrance = store.playback.returned;
-  const [returning, setReturning] = useState(
-    Boolean(entrance?.performanceReturn),
-  );
-  const titleId = useId();
   useLocale();
-  const { preferences } = store;
-  const { localProcessing } = store.application;
   const { python } = store.application.services;
 
-  const { query, filters: viewFilters } = store.library;
+  const [processing, setProcessing] = useState<{ focusSongId?: string } | null>(null);
+  const openProcessing = useCallback((focusSongId?: string) => setProcessing({ focusSongId }), []);
   const [roomOpen, setRoomOpen] = useState(false);
   const [invitationCode, setInvitationCode] = useState<string>();
-  const { processingOpen, focusSongId } = store.libraryDialogs;
-  const [selecting, setSelecting] = useState(false);
-  const deferredQuery = useDeferredValue(query);
   const roomLibrary = useRoomLibrary({
-    setQuery: value => runInAction(() => { store.library.query = value; }),
-    setViewFilters: update => runInAction(() => { store.library.filters = update(store.library.filters); }),
+    setQuery, setViewFilters,
   });
   const { room } = roomLibrary;
 
-  const filters: LibraryFilters = useMemo(
-    () => ({
-      ...viewFilters,
-      sort: preferences.librarySort,
-      direction: preferences.librarySortDirection,
-    }),
-    [viewFilters, preferences.librarySort, preferences.librarySortDirection],
-  );
-  const completeCatalog = !!room || processingOpen || selecting || filters.sort === "played" || !!entrance?.analysisFor;
-  const serverFilter = useMemo(() => ({ ...filters, query: deferredQuery }), [filters, deferredQuery]);
-  const library = useLibrarySongs(completeCatalog ? undefined : serverFilter);
-  const { state } = library;
-
-  const localSongs = useMemo(
-    () => (state.status === "ready" ? state.songs : []),
-    [state],
-  );
-  const selfId = room?.participants.find((person) => person.self)?.id ?? "";
-  const songs = useMemo(
-    () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
-    [localSongs, room?.sharedSongs, selfId],
-  );
-  const played = useMemo(() => loadLastPlayed(), []);
-  const visibleSongs = useMemo(
-    () =>
-      completeCatalog ? selectLibrarySongs(songs, serverFilter, played) : songs,
-    [songs, completeCatalog, serverFilter, played],
-  );
-
-  const reveal =
-    state.status !== "loading" &&
-    (!entrance?.analysisFor ||
-      store.libraryDialogs.analysisRecordId === entrance.analysisFor ||
-      state.status === "error");
-  useEffect(() => {
-    if (!returning || !reveal) return;
-    const timer = window.setTimeout(
-      () => setReturning(false),
-      curtainMilliseconds,
-    );
-    return () => window.clearTimeout(timer);
-  }, [returning, reveal]);
-  const returnCurtain = returning && (
-    <div
-      className="sceneCurtain"
-      data-phase={reveal ? "opening" : "waiting"}
-      aria-hidden
-      style={{
-        animationDirection: "reverse",
-        ...(reveal ? {} : { animation: "none" }),
-      }}
-    />
-  );
-  const { playSong, launching } = useSongActions(
-    library,
-    () => {},
-    { songs, roomLibrary, navigate, tv },
-  );
+  const { playSong, launching } = useSongPlayback({ roomLibrary, navigate, tv });
   const songImport = useLibraryImport();
+  const [dragging, setDragging] = useState(false);
+  const [droppedPath, setDroppedPath] = useState<string | null>(null);
+  const handleDrop = (event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    const files = Array.from(event.dataTransfer.files);
+    const first = files[0];
+    if (!first || python.kind !== "ready") return;
+    if (files.length > 1) {
+      void songImport.importFiles(files.map(file => desktopClient.pathForFile(file)));
+      return;
+    }
+    setDroppedPath(desktopClient.pathForFile(first));
+  };
   // The desktop's requests (jump list, invitation links, files opened with the app) are taken once
   // the backend can import; until then they wait in the queue.
   const importRef = useRef(songImport);
@@ -142,33 +103,32 @@ export const LibraryPage = observer(() => {
     });
   }, [backendReady]);
 
-  const readyCount = songs.filter((song) => song.status === "ready").length;
 
   return (
-    <Stack as="main" ref={pageRef} style={{ height: "100%", minHeight: 0, overflowX: "hidden", overflowY: "auto" }} {...songImport.dropTarget}>
-      {songImport.dragging && (
+    <Stack as="main" ref={pageRef} style={{ height: "100%", minHeight: 0, overflowX: "hidden", overflowY: "auto" }} onDragOver={event => { event.preventDefault(); setDragging(true); }}
+      onDragLeave={event => {
+        const next = event.relatedTarget;
+        if (!(next instanceof Node) || !event.currentTarget.contains(next)) setDragging(false);
+      }}
+      onDrop={handleDrop}>
+      {dragging && (
         <div className="dropOverlay">{tr(ru.dropToImport)}</div>
       )}
       <Stack as="section" gap={4}
         style={{ width: '90%', marginInline: 'auto', paddingBlock: '5vh', flexShrink: 0, position: 'relative', zIndex: 1 }}>
-        <LibraryHeader
-          titleId={titleId}
-          songCount={completeCatalog && !library.stale ? songs.length : library.summary?.total ?? "—"}
-          readyCount={completeCatalog && !library.stale ? readyCount : library.summary?.ready ?? "—"}
-        />
-        <LibraryActions
+        <LibraryHeader />
+        <LibraryActions view={view} onQueryChange={setQuery} onFiltersChange={filters => setViewFilters(() => filters)}
+          onOpenProcessing={openProcessing}
           roomRole={room?.role}
           collaborativeControl={room?.collaborativeControl}
           onCollaborativeControlChange={roomLibrary.setCollaborativeControl}
           onOpenRoom={() => setRoomOpen(true)}
           onViewChange={roomLibrary.publishView}
         />
-        <LibrarySongs pageRef={pageRef} library={library} songs={songs} localSongs={localSongs}
-          visibleSongs={visibleSongs} completeCatalog={completeCatalog}
-          selecting={selecting} setSelecting={setSelecting}
-          onPlay={playSong} songSelection={roomLibrary.songSelection} />
+        <LibrarySongs view={view} pageRef={pageRef} onPlay={playSong} onOpenProcessing={openProcessing} songSelection={roomLibrary.songSelection} />
       </Stack>
-      <AddSongModal />
+      <AddSongModal open={droppedPath !== null} initialPath={droppedPath ?? ""}
+        onClose={() => setDroppedPath(null)} />
       <RoomModal
         open={roomOpen}
         invitationCode={invitationCode}
@@ -177,18 +137,9 @@ export const LibraryPage = observer(() => {
           setInvitationCode(undefined);
         }}
       />
-      <ProcessingModal
-        open={processingOpen}
-        songs={songs}
-        focusSongId={focusSongId}
-        onClose={() => runInAction(() => { store.libraryDialogs.processingOpen = false; })}
-        onPlay={playSong}
-        playbackDisabled={localProcessing}
-      />
-      <SongSettingsModal />
-      <RecordingsModal songs={songs} ready={state.status === "ready"} />
+      <ProcessingModal open={processing !== null} focusSongId={processing?.focusSongId}
+        onClose={() => setProcessing(null)} onPlay={playSong} />
       {launching && <div className="sceneCurtain" aria-hidden />}
-      {returnCurtain}
     </Stack>
   );
 });

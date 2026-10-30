@@ -1,7 +1,4 @@
-import { observer } from "mobx-react-lite";
-import { runInAction } from "mobx";
 import { useQueryClient } from "@tanstack/react-query";
-import { store } from "../../../../providers/store";
 import { pythonClient } from "../../../../services/pythonClient";
 import { refreshSongs } from "../../../../api/api-service";
 import { useSongActions } from "../../songs/useSongActions";
@@ -49,18 +46,17 @@ const practiceSpeedOptions = practiceSpeeds.map((speed) => ({
   label: `${speed.toFixed(2)}×`,
 }));
 
-const SongSettingsForm = ({ song }: { song: SongDto }) => {
+export const SongSettingsModal = ({ song, onClose, onChange }: {
+  song: SongDto;
+  onClose(): void;
+  onChange(song: SongDto): void;
+}) => {
   const client = useQueryClient();
   const guarded = useGuardedAction();
-  const onClose = () => runInAction(() => { store.libraryDialogs.settingsSong = null; });
-  const { confirmDelete } = useSongActions({
-    processSong: async (target, mode) => { await pythonClient.processSong(target.id, mode); await refreshSongs(client); },
-    refresh: () => refreshSongs(client),
-    deleteSong: async target => { await pythonClient.deleteSong(target.id); await refreshSongs(client); },
-  }, onClose);
+  const { confirmDelete } = useSongActions(onClose);
   const onRemoveCover = (target: SongDto) => guarded(async () => {
     const saved = await pythonClient.removeSongCover(target.id);
-    runInAction(() => { store.libraryDialogs.settingsSong = saved; });
+    onChange(saved);
     await refreshSongs(client);
   });
   const { navigate } = useRouter();
@@ -72,7 +68,7 @@ const SongSettingsForm = ({ song }: { song: SongDto }) => {
       : coverLabel[song.coverState]],
   );
   const detected = detectedSongMetadata(song);
-  const busy = song.status === "queued" || song.status === "processing";
+  const busy = ["queued", "processing"].includes(song.status);
 
   const [failure, setFailure] = useState<string>();
   const form = useForm({
@@ -285,8 +281,3 @@ const SongSettingsForm = ({ song }: { song: SongDto }) => {
     </Dialog>
   );
 };
-
-export const SongSettingsModal = observer(() => {
-  const song = store.libraryDialogs.settingsSong;
-  return song && <SongSettingsForm key={song.id} song={song} />;
-});

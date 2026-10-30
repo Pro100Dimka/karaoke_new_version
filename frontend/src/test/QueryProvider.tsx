@@ -10,8 +10,6 @@ export const QueryProvider = ({ children, application = false }: PropsWithChildr
   const [client] = useState(() => {
     runInAction(() => {
       store.preferences = loadPreferences();
-      store.settingsOpen = false;
-      store.settingsTab = "appearance";
     });
     return new QueryClient({ defaultOptions: {
       queries: { retry: false, networkMode: "always", gcTime: Infinity },

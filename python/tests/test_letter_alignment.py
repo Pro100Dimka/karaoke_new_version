@@ -129,6 +129,33 @@ def test_alignment_reuse_keeps_lyric_evidence_independent_of_reused_audio(tmp_pa
     assert len(emitted) == 2
 
 
+def test_alignment_reuse_preserves_independent_views_across_changed_lyrics(tmp_path, monkeypatch):
+    import torch
+    from backend.ai_worker import speech
+    from backend.ai_worker.runtime import AlignmentReuse
+
+    decoded, selected = [], []
+    samples = np.ones(_RATE, dtype=np.float32)
+
+    def decode(audio, _language, _prompt, _start, _models, _reuse):
+        name = "one" if np.array_equal(audio, samples) else "two"
+        decoded.append(name)
+        return {"segments": [{"words": [{"word": name, "start": 0.0, "end": 0.5}]}]}
+
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    monkeypatch.setattr(speech, "_decode_context", decode)
+    monkeypatch.setattr(speech, "emission", lambda *_: (torch.zeros(1, 28), 0.02))
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda *_: None)
+    reuse = AlignmentReuse(tmp_path, 0)
+    for lyrics in ["one", "two"]:
+        _, _, heard = speech._alignment_evidence(
+            Path("vocal.wav"), samples, "English", lyrics, samples, reuse=reuse
+        )
+        selected.append(heard[0][0])
+    assert selected == ["one", "two"], "changed lyrics must still select their own evidence"
+    assert decoded == ["one", "two"], "identical independent audio must be decoded only once"
+
+
 def test_grouped_transcription_loads_once_and_releases_the_model_between_groups(monkeypatch):
     import weakref
     from backend.ai_worker import speech

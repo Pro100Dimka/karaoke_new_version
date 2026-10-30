@@ -11,6 +11,7 @@ import { desktopClient } from "../services/desktopClient";
 
 const settings = vi.hoisted(() => ({
   titleBarRenders: 0,
+  onSettingsOpen: (_open: boolean) => {},
   reducedMotion: false,
   onScreen: true,
   onTv: false,
@@ -41,6 +42,7 @@ vi.mock("./useAppOnScreen", () => ({ useAppOnScreen: () => settings.onScreen }))
 vi.mock("./backdrop/useSpectrumFeed", () => ({ useSpectrumFeed: vi.fn() }));
 vi.mock("../providers/radio", () => ({ subscribeRadio: () => () => {} }));
 vi.mock("../providers/application", () => ({
+  subscribeAudioFocus: () => () => {},
   useApp: () => ({ preferences: { reducedMotion: settings.reducedMotion }, localProcessing: settings.localProcessing }),
 }));
 vi.mock("./TitleBar", () => ({ TitleBar: () => {
@@ -54,7 +56,10 @@ vi.mock("./StartupRecovery", () => ({ StartupRecovery: () => null }));
 vi.mock("./ServiceBanner", () => ({ ServiceBanner: () => null }));
 vi.mock("../features/room/RoomDock", () => ({ RoomDock: () => null }));
 vi.mock("../features/room/RoomSync", () => ({ RoomSync: () => null }));
-vi.mock("../pages/library/modals/settings", () => ({ default: () => null }));
+vi.mock("../pages/library/modals/settings", () => ({ default: ({ onOpenChange }: { onOpenChange(open: boolean): void }) => {
+  settings.onSettingsOpen = onOpenChange;
+  return null;
+} }));
 // Karaoke itself (KaraokeHost) is tested on its own; here only whether it is on the TV matters.
 vi.mock("../features/karaoke/KaraokeHost", () => ({
   KaraokeHost: ({ children }: { children: React.ReactNode }) => children,
@@ -139,7 +144,7 @@ describe("AppShell backdrop", () => {
     const view = renderRoute("/");
     const titleBarRenders = settings.titleBarRenders;
     act(() => {
-      store.setSettingsOpen(true);
+      settings.onSettingsOpen(true);
     });
     expect(settings.titleBarRenders).toBe(titleBarRenders);
     const route = view.container.querySelector(".routeSurface");
@@ -150,7 +155,7 @@ describe("AppShell backdrop", () => {
     expect(screen.getByTestId("quantum-background")).toBeInTheDocument();
     expect(vi.mocked(QuantumBackground).mock.lastCall?.[0].spectrum).toBeUndefined();
     act(() => {
-      store.setSettingsOpen(false);
+      settings.onSettingsOpen(false);
     });
     expect(route).not.toHaveAttribute("data-ad-offscreen");
     view.unmount();

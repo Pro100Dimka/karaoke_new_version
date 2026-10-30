@@ -6,17 +6,13 @@ import shutil
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import AbstractContextManager
 from pathlib import Path
 
 import httpx
 import soundfile as sf
 from gradio_client import Client, handle_file
-from gradio_client.exceptions import (
-    AppError,
-    AuthenticationError,
-    SerializationSetupError,
-    ValidationError as GradioValidationError,
-)
+from gradio_client.exceptions import AppError
 
 from backend.ai.domain import (
     AiCapability,
@@ -28,6 +24,11 @@ from backend.ai.domain import (
 from backend.ai.ports import AiProvider
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.kaggle_notebook_automation import KaggleNotebookAutomation
+from backend.infrastructure.kaggle_alignment import (
+    CLIENT_ERRORS as _CLIENT_ERRORS,
+    AlignmentScopes,
+    alignment_scope,
+)
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
@@ -41,16 +42,6 @@ _HEALTH_TIMEOUT_SECONDS = 20
 _TRANSFER_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_TIMEOUT_SECONDS = 15 * 60
 _STARTUP_POLL_SECONDS = 5
-_CLIENT_ERRORS = (
-    AppError,
-    AuthenticationError,
-    GradioValidationError,
-    SerializationSetupError,
-    httpx.HTTPError,
-    OSError,
-    RuntimeError,
-    ValueError,
-)
 
 
 def _room_server_base_url() -> str:
@@ -95,10 +86,17 @@ class KaggleAiProvider(AiProvider):
         self._sessions: dict[Path, tuple[str, Path | None]] = {}
         self._clients: dict[tuple[str, str], Client] = {}
         self._session_generation: tuple[str, str, str] | None = None
+        self._alignment_scopes: AlignmentScopes = {}
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
         return self._descriptor
+
+    def reuse_alignment(
+        self, workdir: Path, cancel: threading.Event
+    ) -> AbstractContextManager[None]:
+        del workdir
+        return alignment_scope(self._alignment_scopes, self._lock, cancel)
 
     def validate_configuration(self) -> None:
         """Connect and execute the notebook health check without starting a processing job."""
@@ -172,10 +170,13 @@ class KaggleAiProvider(AiProvider):
         execution: ExecutionContext,
     ) -> Sequence[WordTiming]:
         hints = dumps([{"start": hint.start, "text": hint.text} for hint in timing_hints])
+        arguments = [lyrics, language.value, hints]
+        with self._lock:
+            scope = self._alignment_scopes.get(cancel)
+        if scope is not None:
+            arguments.append(scope[0])
         result = self._json_result(
-            self._invoke_vocal(
-                "/align", vocal, cancel, lyrics, language.value, hints, instrumental=instrumental
-            )
+            self._invoke_vocal("/align", vocal, cancel, *arguments, instrumental=instrumental)
         )
         values = result.get("words")
         if not isinstance(values, list):
@@ -196,6 +197,10 @@ class KaggleAiProvider(AiProvider):
         _ensure_not_cancelled(cancel)
         try:
             client = self._client(cancel=cancel)
+            with self._lock:
+                scope = self._alignment_scopes.get(cancel) if api_name == "/align" else None
+                if scope is not None:
+                    scope[1][str(arguments[0])] = client
             _ensure_not_cancelled(cancel)
             job = client.submit(*arguments, api_name=api_name)
             while not job.done():

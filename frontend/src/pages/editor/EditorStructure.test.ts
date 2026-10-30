@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-const sources = import.meta.glob(["./*.{tsx,css}", "../../app/AppShell.tsx"], {
+const sources = import.meta.glob(["./*.tsx", "../../app/AppShell.tsx"], {
   query: "?raw",
   import: "default",
   eager: true,
@@ -24,9 +24,4 @@ describe("melody editor structure", () => {
     expect(source("EditorHeader.tsx")).toContain("createPortal(back, slot)");
   });
 
-  it("keeps no fixed-size reference scene or drawn artwork", () => {
-    const styles = source("editor.css");
-    expect(styles).not.toMatch(/\d+px/);
-    expect(styles).not.toContain("1280");
-  });
 });

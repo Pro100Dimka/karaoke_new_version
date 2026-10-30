@@ -7,6 +7,8 @@ const desktopApi = {
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),
   dragWindow: (phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.dragWindow, phase, anchorRatio, anchorY, screenX, screenY),
+  setConsoleBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setConsoleBounds, bounds),
 
   toggleMaximize: (): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.toggleMaximize),

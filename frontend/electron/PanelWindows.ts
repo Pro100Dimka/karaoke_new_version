@@ -24,7 +24,7 @@ export const stageScreenDisplay = (
   displays.find((display) => display.id !== appDisplayId) ?? displays.find((display) => display.id === appDisplayId);
 
 export const panelWindowOpenHandler =
-  (icon: string | undefined, appBounds?: () => Rectangle) =>
+  (icon: string | undefined, appBounds?: () => Rectangle, parent?: BrowserWindow) =>
   ({ url, frameName }: HandlerDetails): WindowOpenHandlerResponse => {
     if (url !== "about:blank" || !frameName.startsWith(panelWindowPrefix))
       return { action: "deny" };
@@ -47,6 +47,7 @@ export const panelWindowOpenHandler =
       };
     }
     const options: BrowserWindowConstructorOptions = {
+      ...(frameName === `${panelWindowPrefix}karaokeConsole` && parent ? { parent } : {}),
       // Only the panel itself is seen: no Windows title bar, nothing around the panel. The panel is
       // moved by its own surface and sized to itself by the renderer (useDetachedPanel).
       frame: false,

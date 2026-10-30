@@ -1,6 +1,3 @@
-import { observer } from "mobx-react-lite";
-import { runInAction } from "mobx";
-import { store } from "../../../../providers/store";
 import { useLibraryImport } from "./useLibraryImport";
 import { desktopClient as files } from "../../../../services/desktopClient";
 import { useEffect, useRef, useState } from "react";
@@ -27,9 +24,11 @@ const fileErrors = {
 } as const satisfies Record<FileState["kind"], MessageKey | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
-export const AddSongModal = observer(() => {
-  const { addOpen: open, droppedPath: initialPath } = store.libraryDialogs;
-  const onClose = () => runInAction(() => { store.libraryDialogs.addOpen = false; });
+export const AddSongModal = ({ open, initialPath, onClose }: {
+  open: boolean;
+  initialPath: string;
+  onClose(): void;
+}) => {
   const { handleImport: onImport } = useLibraryImport();
   useLocale();
   const [file, setFile] = useState<FileState>({ kind: "none" });
@@ -178,4 +177,4 @@ export const AddSongModal = observer(() => {
       </form>
     </Dialog>
   );
-});
+};

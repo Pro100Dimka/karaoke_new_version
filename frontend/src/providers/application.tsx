@@ -91,30 +91,9 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     document.documentElement.dataset.theme = theme;
     void desktopClient.setAppIcon(theme);
   }, { fireImmediately: true });
-  let suspended = false;
-  let transition = Promise.resolve();
-  const canSuspend = () => store.preferences.releaseAsioInBackground &&
-    store.preferences.audio.backend === "ASIO" && store.online.room === null;
-  const setSuspended = (next: boolean) => {
-    if (suspended === next) return;
-    suspended = next;
-    transition = transition.then(() => next ? audioClient.suspendSession() : audioClient.resumeSession())
-      .catch(() => { suspended = false; });
-  };
-  const suspend = () => { if (canSuspend() && !store.settingsOpen) setSuspended(true); };
-  const resume = () => setSuspended(false);
-  const stopAsio = reaction(canSuspend, enabled => { if (!enabled) resume(); }, { fireImmediately: true });
-  window.addEventListener("blur", suspend);
-  window.addEventListener("focus", resume);
-  const stopWindow = desktopClient.onWindowState?.(state => {
-    if (state.minimized && canSuspend()) setSuspended(true);
-    else if (!state.minimized) resume();
-  });
   return () => {
     stopJobs(); jobs.destroy(); stopEvents(); stopRoom(); stopVisibility();
-    stopMotion(); stopFonts(); stopTheme(); stopAsio(); stopWindow?.();
-    window.removeEventListener("blur", suspend);
-    window.removeEventListener("focus", resume);
+    stopMotion(); stopFonts(); stopTheme();
     activeRuntime.dispose();
     if (runtime === activeRuntime) runtime = undefined;
     roomSession = createRoomSession();
@@ -146,3 +125,30 @@ export const useRoomVoice = (): RoomVoiceCoordinator | null => {
   return useSyncExternalStore(runtime.subscribe, runtime.getVoice, runtime.getVoice);
 };
 
+
+export const subscribeAudioFocus = (settingsOpen: () => boolean) => {
+  let suspended = false;
+  let transition = Promise.resolve();
+  const canSuspend = () => store.preferences.releaseAsioInBackground &&
+    store.preferences.audio.backend === "ASIO" && store.online.room === null;
+  const setSuspended = (next: boolean) => {
+    if (suspended === next) return;
+    suspended = next;
+    transition = transition.then(() => next ? audioClient.suspendSession() : audioClient.resumeSession())
+      .catch(() => { suspended = false; });
+  };
+  const suspend = () => { if (canSuspend() && !settingsOpen()) setSuspended(true); };
+  const resume = () => setSuspended(false);
+  const stopAsio = reaction(canSuspend, enabled => { if (!enabled) resume(); }, { fireImmediately: true });
+  window.addEventListener("blur", suspend);
+  window.addEventListener("focus", resume);
+  const stopWindow = desktopClient.onWindowState?.(state => {
+    if (state.minimized && canSuspend()) setSuspended(true);
+    else if (!state.minimized) resume();
+  });
+  return () => {
+    stopAsio(); stopWindow?.();
+    window.removeEventListener("blur", suspend);
+    window.removeEventListener("focus", resume);
+  };
+};
