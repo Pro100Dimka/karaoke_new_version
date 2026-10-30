@@ -150,8 +150,8 @@ export const fetchInstaller = async (
 };
 
 /**
- * Runs a verified installer after this app has exited, with no window of its own (/VERYSILENT): the
- * update shows only on the start-up screen, and the installer starts the app again.
+ * Runs a verified installer after this app has exited; its progress stays visible and it opens
+ * the app again when installation finishes.
  */
 const runInstaller = (file: string): void => {
   spawn(file, ["/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS"], {
@@ -240,11 +240,20 @@ export const startAutoUpdate = ({
     async beforeLaunch(progress: (state: LaunchUpdateState) => void): Promise<boolean> {
       checking = true;
       try {
+        const automaticUpdate = automatic();
+        if (automaticUpdate) {
+          const prefix = "AD-Voice-Setup-";
+          const cachedUpdate = fs.existsSync(updates) && fs.readdirSync(updates).some((name) =>
+            name.startsWith(prefix) && name.endsWith(".exe") &&
+            isNewerVersion(name.slice(prefix.length, -4), app.getVersion()),
+          );
+          if (!cachedUpdate) return false;
+        }
         progress({ phase: "checking" });
         const installer = await latestInstaller(fetchImpl, 5_000);
         if (!installer) return false;
         // Updates off: nothing is downloaded or installed; the Library offers the new version.
-        if (!automatic()) {
+        if (!automaticUpdate) {
           offer(installer);
           return false;
         }

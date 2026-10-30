@@ -150,7 +150,7 @@ def _numeric_points(value: object, *, dimensions: int) -> tuple[tuple[float, ...
             or any(isinstance(item, bool) or not isinstance(item, int | float) for item in point)
         ):
             raise ValueError("invalid numeric point")
-        numbers = tuple(float(item) for item in point if isinstance(item, int | float))
+        numbers = tuple(map(float, point))
         result.append(numbers + ((1.0,) if len(numbers) < dimensions else ()))
     return tuple(result)
 

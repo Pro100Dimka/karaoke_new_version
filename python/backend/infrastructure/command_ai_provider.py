@@ -78,6 +78,49 @@ class CommandAiProvider:
             cancel,
             execution=execution,
         )
+        return self._transcript(payload, key)
+
+    def transcribe_many(
+        self,
+        requests: Sequence[tuple[Path, float]],
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]:
+        if not requests:
+            return ()
+        if self._descriptor.provider_id != "local-torch":
+            return tuple(
+                self.transcribe(audio, language, cancel, execution=execution, start_seconds=start)
+                for audio, start in requests
+            )
+        keys = [
+            self._recognition_key(audio, language, cancel, execution) if not start else None
+            for audio, start in requests
+        ]
+        payload = self._invoke(
+            "transcribe-many",
+            ["--language", language.value],
+            cancel,
+            execution=execution,
+            timeout_seconds=self._timeout * len(requests),
+            input_data=dumps(
+                {
+                    "requests": [
+                        {"input": str(audio), "startSeconds": start} for audio, start in requests
+                    ]
+                }
+            ).encode("utf-8"),
+        )
+        values = payload.get("transcriptions")
+        if not isinstance(values, list) or len(values) != len(requests):
+            raise DependencyError("AiProviderInvalidOutput", "Transcription group is malformed")
+        return tuple(self._transcript(value, key) for value, key in zip(values, keys, strict=True))
+
+    def _transcript(self, payload: JsonValue, key: _RecognitionKey | None) -> str:
+        if not isinstance(payload, dict):
+            raise DependencyError("AiProviderInvalidOutput", "Transcription response is malformed")
         transcript = payload.get("text")
         if not isinstance(transcript, str):
             raise DependencyError("AiProviderInvalidOutput", "AI provider field text is invalid")
@@ -166,11 +209,12 @@ class CommandAiProvider:
         *,
         execution: ExecutionContext,
         input_data: bytes | None = None,
+        timeout_seconds: float | None = None,
     ) -> dict[str, JsonValue]:
         try:
             result = self._runner.run(
                 [*self._command, action, *arguments],
-                timeout_seconds=self._timeout,
+                timeout_seconds=self._timeout if timeout_seconds is None else timeout_seconds,
                 cancel=cancel,
                 input_data=input_data,
                 environment={

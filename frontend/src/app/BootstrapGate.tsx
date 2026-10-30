@@ -51,18 +51,17 @@ export const BootstrapGate = ({ children }: { children: ReactNode }) => {
 
   // The window stays hidden until the app (or its error screen) has painted two frames behind the splash.
   useEffect(() => {
-    if (python.kind === "starting" || (python.kind === "ready" && !admitted))
-      return;
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(
-        () => void desktopClient.appReady(),
-      );
-    });
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
+    const waiting = python.kind === "starting" || (python.kind === "ready" && !admitted);
+    let paintedFrames = 0;
+    let frame = 0;
+    const paint = () => {
+      if (!waiting) paintedFrames += 1;
+      if (paintedFrames === 2) void desktopClient.appReady();
+      else frame = window.requestAnimationFrame(paint);
     };
+    // Keep scheduling frames while hidden so the first ready frame does not wait for an idle renderer.
+    frame = window.requestAnimationFrame(paint);
+    return () => window.cancelAnimationFrame(frame);
   }, [python.kind, admitted]);
 
   if (admitted) return <>{children}</>;

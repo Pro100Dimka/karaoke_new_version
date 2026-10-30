@@ -26,6 +26,40 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_grouped_transcription_loads_once_and_releases_the_model_between_groups(monkeypatch):
+    import weakref
+    from backend.ai_worker import speech
+
+    loaded, decoded = [], []
+    alive = weakref.WeakSet()
+    samples = np.arange(2 * _RATE, dtype=np.float32)
+
+    class Model:
+        def __init__(self):
+            self.encoder = speech.torch.nn.Identity()
+            alive.add(self)
+
+        def transcribe(self, audio, **options):
+            decoded.append((len(loaded), len(audio), options))
+            return {"text": " hello", "segments": []}
+
+    def load(_target):
+        loaded.append(1)
+        return Model()
+
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    monkeypatch.setattr(speech, "_speech_model", load)
+    monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
+    requests = [(Path("vocal.wav"), 0.0), (Path("source.mp3"), 0.0), (Path("vocal.wav"), 1.0)]
+    for count in [1, 2]:
+        result = speech.transcribe_many(requests, "English")
+        assert result == {"transcriptions": [{"text": "hello", "segments": []}] * 3}
+        assert len(loaded) == count
+        assert len(alive) == 0, "weights must not survive the transcription group"
+    assert [item[1] for item in decoded] == [2 * _RATE, 2 * _RATE, _RATE] * 2
+    assert all(item[2]["word_timestamps"] for item in decoded)
+
+
 @pytest.mark.parametrize(
     "score,local_text",
     [(0.8, "carry our voices"), (0.02, "carry our voices"), (0.8, "unrelated invented words")],

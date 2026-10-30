@@ -1,4 +1,5 @@
 import type { ServiceObserver } from "./ServiceProcess";
+import { EventEmitter, once } from "node:events";
 
 const maximumAnnouncementBytes = 128;
 const requestTimeoutMilliseconds = 30_000;
@@ -10,6 +11,8 @@ export class BackendEndpoint implements ServiceObserver {
   private pending = "";
   private oversized = false;
   private lifetime = new AbortController();
+  private readiness = new EventEmitter();
+  private announced = false;
 
   started(): void {
     this.lifetime.abort();
@@ -44,6 +47,8 @@ export class BackendEndpoint implements ServiceObserver {
       this.oversized = false;
       if (match && Number(match[1]) > 0 && Number(match[1]) <= 65535) {
         this.port = Number(match[1]);
+        this.announced = true;
+        this.readiness.emit("ready");
         return;
       }
       offset = end + 1;
@@ -64,8 +69,6 @@ export class BackendEndpoint implements ServiceObserver {
     path: string,
     init: RequestInit = {},
   ): Promise<{ status: number; ok: boolean; body: unknown }> {
-    if (this.port === null)
-      throw new Error("Python backend is starting or stopped");
     const timeout =
       path === "/settings/kaggle/deploy"
         ? kaggleDeploymentTimeoutMilliseconds
@@ -74,6 +77,10 @@ export class BackendEndpoint implements ServiceObserver {
       this.lifetime.signal,
       AbortSignal.timeout(timeout),
     ]);
+    if (this.port === null && !this.announced && ["/version", "/health/ready"].includes(path))
+      await once(this.readiness, "ready", { signal });
+    if (this.port === null)
+      throw new Error("Python backend is starting or stopped");
     const response = await fetch(`http://127.0.0.1:${this.port}${path}`, {
       ...init,
       signal,

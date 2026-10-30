@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 
 from backend.domain_errors import DomainError
 from backend.persistence import UnitOfWorkFactory
@@ -27,12 +29,12 @@ class ReconcileLibrary:
         self._songs = songs
         self._clock = clock
 
-    def execute(self) -> tuple[ReconciliationIssue, ...]:
+    def execute(self, *, workers: int = 1) -> tuple[ReconciliationIssue, ...]:
         database_songs = self._all_songs()
         known_ids = {song.song_id for song in database_songs}
-        issues: list[ReconciliationIssue] = []
-        for song in database_songs:
-            issues.extend(self._song_issues(song))
+        with (ThreadPoolExecutor(max_workers=workers) if workers > 1 else nullcontext()) as pool:
+            results = (pool.map if pool else map)(self._song_issues, database_songs)
+            issues = [issue for result in results for issue in result]
         for song_id in self._catalog.song_ids():
             if song_id not in known_ids:
                 issues.append(

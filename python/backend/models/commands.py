@@ -56,6 +56,8 @@ class DeclareModel:
                 local_path,
                 download_url,
             )
+            if existing is not None and replace(model, updated_at=existing.updated_at) == existing:
+                return existing
             transaction.models.add_or_update(model)
             transaction.commit()
         return model

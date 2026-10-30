@@ -56,6 +56,93 @@ def _provider(stdout: bytes, exit_code: int = 0, *, provider_id="scripted") -> C
     return CommandAiProvider(descriptor, ["worker"], _ScriptedRunner(stdout, exit_code))
 
 
+def test_local_transcription_group_retains_independent_views_for_alignment(tmp_path):
+    from backend.serialization import dumps, loads_object
+
+    vocal, source = tmp_path / "vocal.wav", tmp_path / "source.mp3"
+    vocal.write_bytes(b"vocal")
+    source.write_bytes(b"original")
+    evidence = [{"text": text, "segments": []} for text in ["verse", "chorus", "ending"]]
+    provider = _provider(dumps({"transcriptions": evidence}).encode(), provider_id="local-torch")
+    cancel = threading.Event()
+    result = provider.transcribe_many(
+        [(vocal, 0.0), (source, 0.0), (vocal, 48.0)],
+        Language.ENGLISH,
+        cancel,
+        execution=EXECUTION,
+    )
+    runner = provider._runner
+    assert result == ("verse", "chorus", "ending")
+    assert "transcribe-many" in runner.command
+    assert runner.options["cancel"] is cancel
+    assert runner.options["timeout_seconds"] == 3 * provider._timeout
+    assert loads_object(runner.options["input_data"].decode()) == {
+        "requests": [
+            {"input": str(vocal), "startSeconds": 0.0},
+            {"input": str(source), "startSeconds": 0.0},
+            {"input": str(vocal), "startSeconds": 48.0},
+        ]
+    }
+    runner._result = ProcessResult(0, b'{"words": []}', b"")
+    provider.align(vocal, "verse chorus", Language.ENGLISH, cancel, execution=EXECUTION)
+    assert loads_object(runner.options["input_data"].decode()) == {
+        **evidence[0],
+        "alternatives": [evidence[1]],
+    }
+
+
+@pytest.mark.parametrize("payload", [{}, {"transcriptions": []}, {"transcriptions": [None]}])
+def test_invalid_transcription_group_is_rejected(payload):
+    from backend.serialization import dumps
+
+    provider = _provider(dumps(payload).encode(), provider_id="local-torch")
+    with pytest.raises(DependencyError) as error:
+        provider.transcribe_many(
+            [(Path("vocal.wav"), 0.0)], Language.AUTO, threading.Event(), execution=EXECUTION
+        )
+    assert error.value.code == "AiProviderInvalidOutput"
+
+
+def test_external_provider_keeps_its_existing_transcription_command():
+    provider = _provider(b'{"text": "heard"}')
+    assert provider.transcribe_many(
+        [(Path("vocal.wav"), 0.0), (Path("vocal.wav"), 48.0)],
+        Language.AUTO,
+        threading.Event(),
+        execution=EXECUTION,
+    ) == ("heard", "heard")
+    assert provider._runner.command == [
+        "worker",
+        "transcribe",
+        "--input",
+        "vocal.wav",
+        "--language",
+        "Auto",
+        "--start-seconds",
+        "48.0",
+    ]
+
+
+def test_empty_transcription_group_does_not_start_a_worker():
+    provider = _provider(b"", provider_id="local-torch")
+    assert provider.transcribe_many([], Language.AUTO, threading.Event(), execution=EXECUTION) == ()
+    assert not hasattr(provider._runner, "command")
+
+
+def test_cancelled_transcription_group_reports_job_cancellation(monkeypatch):
+    provider = _provider(b"", provider_id="local-torch")
+
+    def cancelled(*_args, **_kwargs):
+        raise DomainError("ProcessCancelled", "Cancelled", 499)
+
+    monkeypatch.setattr(provider._runner, "run", cancelled)
+    with pytest.raises(DomainError) as error:
+        provider.transcribe_many(
+            [(Path("vocal.wav"), 0.0)], Language.AUTO, threading.Event(), execution=EXECUTION
+        )
+    assert error.value.code == "JobCancelled"
+
+
 @pytest.mark.parametrize("change", [None, "vocal", "source", "language", "job", "device"])
 @pytest.mark.parametrize("word_count", [1, 2000])
 def test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job(

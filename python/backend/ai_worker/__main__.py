@@ -9,8 +9,8 @@ from backend.serialization import dumps, loads_list, loads_object
 
 # Each worker process handles one action. Import only its model stack during CLI startup.
 _action = sys.argv[1] if __name__ == "__main__" and len(sys.argv) > 1 else None
-if _action is None or _action in ["prepare-accelerator", "transcribe", "align"]:
-    from backend.ai_worker.speech import align, prepare_accelerator, transcribe
+if _action is None or _action in ["prepare-accelerator", "transcribe", "transcribe-many", "align"]:
+    from backend.ai_worker.speech import align, prepare_accelerator, transcribe, transcribe_many
 if _action is None or _action == "separate":
     from backend.ai_worker.separation import separate
 if _action is None or _action == "pitch":
@@ -28,6 +28,8 @@ def _parser() -> argparse.ArgumentParser:
     transcribe_action.add_argument("--input", type=Path, required=True)
     transcribe_action.add_argument("--language", default="Auto")
     transcribe_action.add_argument("--start-seconds", type=float, default=0.0)
+    transcribe_many_action = actions.add_parser("transcribe-many")
+    transcribe_many_action.add_argument("--language", default="Auto")
     align_action = actions.add_parser("align")
     align_action.add_argument("--input", type=Path, required=True)
     align_action.add_argument("--language", default="Auto")
@@ -47,6 +49,12 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
         return separate(args.input, args.output)
     if args.action == "transcribe":
         return transcribe(args.input, args.language, start_seconds=args.start_seconds)
+    if args.action == "transcribe-many":
+        payload = loads_object(sys.stdin.buffer.read().decode("utf-8"))
+        return transcribe_many(
+            [(Path(item["input"]), float(item["startSeconds"])) for item in payload["requests"]],
+            args.language,
+        )
     if args.action == "align":
         hints = loads_list(args.timing_hints) if args.timing_hints else []
         recognition = (

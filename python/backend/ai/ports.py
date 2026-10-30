@@ -2,12 +2,24 @@ from __future__ import annotations
 
 import threading
 from pathlib import Path
-from typing import Protocol, Sequence
+from typing import Protocol, Sequence, runtime_checkable
 
 from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, WordTiming
 from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
+
+
+@runtime_checkable
+class BatchTranscriber(Protocol):
+    def transcribe_many(
+        self,
+        requests: Sequence[tuple[Path, float]],
+        language: Language,
+        cancel: threading.Event,
+        *,
+        execution: ExecutionContext,
+    ) -> Sequence[str]: ...
 
 
 class AiProvider(Protocol):

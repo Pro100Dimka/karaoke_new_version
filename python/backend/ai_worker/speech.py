@@ -151,22 +151,31 @@ def _guidance(
     threads: int | None = None,
     *,
     prefer_accelerated: bool = False,
+    model_cache: list[whisper.Whisper] | None = None,
 ) -> Mapping[str, object]:
     if device() == "cuda" and not prefer_accelerated:
         return _transcribe(vocal, language, prompt)
     try:
-        return _accelerated_guidance(vocal, language, prompt, threads=threads)
+        return _accelerated_guidance(
+            vocal, language, prompt, threads=threads, model_cache=model_cache
+        )
     except (FileNotFoundError, OSError, RuntimeError, ValueError):
         return _transcribe(vocal, language, prompt)
 
 
-def transcribe(vocal: Path, language: str, *, start_seconds: float = 0.0) -> dict[str, object]:
+def transcribe(
+    vocal: Path,
+    language: str,
+    *,
+    start_seconds: float = 0.0,
+    model_cache: list[whisper.Whisper] | None = None,
+) -> dict[str, object]:
     source = (
         read_mono(vocal, _SAMPLE_RATE)[round(start_seconds * _SAMPLE_RATE) :]
         if start_seconds
         else vocal
     )
-    result = _guidance(source, language, None, prefer_accelerated=True)
+    result = _guidance(source, language, None, prefer_accelerated=True, model_cache=model_cache)
     # Recognition of singing sometimes invents symbols and numbers ("1.5%"); only words with letters are lyrics.
     text = [
         token for token in str(result.get("text", "")).split() if any(c.isalpha() for c in token)
@@ -181,6 +190,18 @@ def transcribe(vocal: Path, language: str, *, start_seconds: float = 0.0) -> dic
             token for index, token in enumerate(text) if intervals[index][0] < intervals[index][1]
         ]
     return {"text": " ".join(text), "segments": result.get("segments", [])}
+
+
+def transcribe_many(
+    requests: Sequence[tuple[Path, float]], language: str
+) -> dict[str, list[dict[str, object]]]:
+    models: list[whisper.Whisper] = []
+    return {
+        "transcriptions": [
+            transcribe(audio, language, start_seconds=start, model_cache=models)
+            for audio, start in requests
+        ]
+    }
 
 
 def _windows(
