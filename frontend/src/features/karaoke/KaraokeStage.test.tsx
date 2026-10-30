@@ -355,6 +355,10 @@ describe("KaraokeStage", () => {
         ).toContain("left:"),
       );
     }
+    await waitFor(() => expect(onNoteScoreChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ hitNotes: 1 }),
+    ));
+    view.rerender(stage(0.5));
     await waitFor(() =>
       expect(
         document.querySelector(".ad-melody-note[data-hit]"),

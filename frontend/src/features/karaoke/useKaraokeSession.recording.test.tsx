@@ -62,6 +62,7 @@ vi.mock("../../services/recordingCoordinator", () => ({
     pause: vi.fn(async () => ({ recording: true })),
     resume: vi.fn(async () => ({ recording: true })),
     observePosition: vi.fn(),
+    interrupt: vi.fn(),
     hasPendingTake: () => true,
   },
 }));

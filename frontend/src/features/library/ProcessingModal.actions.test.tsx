@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { ProcessingJobDto, SongDto } from "../../contracts/models";
 import { pythonClient } from "../../services/pythonClient";
 import { ProcessingModal } from "./ProcessingModal";
@@ -23,6 +23,17 @@ vi.mock("../../app/NotificationsProvider", () => ({
 }));
 
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
+vi.mock("@neo-ui-kit/react", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@neo-ui-kit/react")>(),
+  NeonWaves: () => null,
+}));
+
+beforeEach(() => {
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function () {
+    return this.classList.contains("processingScroll") ? 2000 : 150;
+  });
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(1000);
+});
 
 afterEach(() => {
   cleanup();

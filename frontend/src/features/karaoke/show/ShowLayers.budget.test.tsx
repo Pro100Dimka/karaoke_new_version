@@ -12,8 +12,13 @@ vi.mock("./stageFxRenderer", () => ({ StageFxRenderer: class {
   }
   start = state.start;
   stop = state.stop;
+  setPlaying = (playing: boolean) => { if (playing) this.start(); };
 } }));
-vi.mock("./rollFxRenderer", () => ({ RollFxRenderer: class { start = state.start; stop = state.stop; } }));
+vi.mock("./rollFxRenderer", () => ({ RollFxRenderer: class {
+  start = state.start;
+  stop = state.stop;
+  setPlaying = (playing: boolean) => { if (playing) this.start(); };
+} }));
 
 beforeEach(() => { vi.clearAllMocks(); state.canvases.clear(); });
 

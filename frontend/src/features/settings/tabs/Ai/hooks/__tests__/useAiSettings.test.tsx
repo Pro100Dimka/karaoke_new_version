@@ -34,6 +34,9 @@ vi.mock("../../../../../../app/SettingsProvider", () => ({
 vi.mock("../../../../../../app/NotificationsProvider", () => ({
   useNotify: () => dependencies.notify,
 }));
+vi.mock("../../../../../../app/DialogProvider", () => ({
+  useAsk: () => vi.fn(),
+}));
 vi.mock("../../../../../../i18n/useText", () => ({
   useText: () => (key: string) => key,
 }));

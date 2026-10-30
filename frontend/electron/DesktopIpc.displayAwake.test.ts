@@ -23,7 +23,7 @@ it("restores and moves a fullscreen header drag using the real cursor and reject
   const { registerDesktopIpc } = await import("./DesktopIpc");
   const { ipcChannels } = await import("./ipcChannels");
   const handlers = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
-  const current = { getNormalBounds: () => ({ width: 1000 }), setFullScreen: vi.fn(),
+  const current = { getNormalBounds: () => ({ width: 1000 }), getBounds: () => ({ height: 800 }), setFullScreen: vi.fn(),
     isFullScreen: () => true, isMaximized: () => true, unmaximize: vi.fn(), setPosition: vi.fn() };
   registerDesktopIpc({
     trustedIpc: { handle: (channel: string, listener: never) => handlers.set(channel, listener) } as unknown as TrustedIpc,

@@ -64,17 +64,17 @@ it("launches while the update downloads in the background and installs the cache
   });
 
   expect(await updater.beforeLaunch(() => undefined)).toBe(false);
-  expect(fetchImpl).toHaveBeenCalledTimes(1);
+  expect(fetchImpl).toHaveBeenCalledTimes(0);
   expect(mocks.spawn).not.toHaveBeenCalled();
   // A slow background download must not prevent the already running app from opening.
   await vi.advanceTimersByTimeAsync(31_000);
-  expect(fetchImpl).toHaveBeenCalledTimes(3);
+  expect(fetchImpl).toHaveBeenCalledTimes(2);
   finishDownload();
   await vi.waitFor(() => expect(ready).toHaveBeenCalledWith("1.1.5"));
   expect(await updater.beforeLaunch(() => undefined)).toBe(true);
   expect(mocks.spawn).toHaveBeenCalledWith(
     path.join(directory, "AD-Voice-Setup-1.1.5.exe"),
-    expect.arrayContaining(["/VERYSILENT"]),
+    expect.arrayContaining(["/SILENT"]),
     expect.anything(),
   );
   updater.stop();

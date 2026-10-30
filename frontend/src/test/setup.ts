@@ -5,6 +5,12 @@ import { afterEach } from "vitest";
 // Vitest runs without globals, so Testing Library's automatic cleanup is not registered.
 afterEach(cleanup);
 
+// jsdom omits native pointer capture and SVG path measurement used by window dragging and motion.
+if (!("setPointerCapture" in HTMLElement.prototype))
+  HTMLElement.prototype.setPointerCapture = () => undefined;
+if (!("getTotalLength" in SVGElement.prototype))
+  Object.defineProperty(SVGElement.prototype, "getTotalLength", { value: () => 100 });
+
 // jsdom has no canvas: drawing layers see no 2D context and simply stay idle instead of logging "not implemented".
 if (typeof HTMLCanvasElement !== "undefined")
   HTMLCanvasElement.prototype.getContext = (() =>

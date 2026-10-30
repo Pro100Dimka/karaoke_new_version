@@ -59,6 +59,7 @@ vi.mock("./NotificationIdentity", () => ({ configureNotificationIdentity: vi.fn(
 vi.mock("electron", () => ({
   app: {
     isPackaged: false,
+    getAppPath: () => process.cwd(),
     getPath: () => "D:/profile",
     getLocale: () => "ru-RU",
     exit: vi.fn(),
@@ -123,6 +124,7 @@ vi.mock("./Splash", () => ({
   closeSplash: vi.fn(),
   openSplash: vi.fn(),
   setSplashStatus: vi.fn(),
+  waitForStorageMigration: vi.fn(async () => undefined),
   readSavedTheme: () => "dark",
   isThemeName: () => false,
 }));
@@ -345,11 +347,11 @@ it("uses only the announced backend endpoint and discards it across restart", as
       { method: "GET", path: "/health/ready" },
     );
   try {
-    expect(await request()).toMatchObject({ status: 503 });
+    const pending = request();
     expect(fetch).not.toHaveBeenCalled();
     mocks.pythonObserver.stdout?.(Buffer.from("log line\nAD_VOICE_BACKEND_RE"));
     mocks.pythonObserver.stdout?.(Buffer.from("ADY:51234\n"));
-    expect(await request()).toMatchObject({ status: 200 });
+    expect(await pending).toMatchObject({ status: 200 });
     expect(fetch).toHaveBeenCalledWith(
       "http://127.0.0.1:51234/health/ready",
       expect.objectContaining({ signal: expect.any(AbortSignal) }),

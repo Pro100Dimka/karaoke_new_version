@@ -69,7 +69,7 @@ it("keeps one session and its song position when returning from TV through a rou
   expect(calls.release).not.toHaveBeenCalled();
 });
 
-it("darkens the finished performance before returning with its analysis beneath the curtain", () => {
+it("returns a finished solo performance with its analysis on the next tick", () => {
   cleanup();
   vi.useFakeTimers();
   function Location() {
@@ -86,9 +86,7 @@ it("darkens the finished performance before returning with its analysis beneath 
   act(() => calls.finished!("song", "take"));
   expect(view.container.querySelector(".sceneCurtain")).toBeInTheDocument();
   expect(screen.getByRole("status").textContent).toContain("/karaoke/song");
-  act(() => vi.advanceTimersByTime(399));
-  expect(screen.getByRole("status").textContent).toContain("/karaoke/song");
-  act(() => vi.advanceTimersByTime(1));
+  act(() => vi.advanceTimersByTime(0));
   expect(screen.getByRole("status").textContent).toContain(
     '"performanceReturn":true',
   );

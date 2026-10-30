@@ -1,5 +1,5 @@
 import { act, render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BootstrapGate } from "./BootstrapGate";
 
 const mocks = vi.hoisted(() => ({
@@ -42,6 +42,7 @@ vi.mock("../services/desktopClient", () => ({
 }));
 
 describe("BootstrapGate", () => {
+  afterEach(() => vi.useRealTimers());
   beforeEach(() => {
     mocks.python.kind = "starting";
     mocks.appReady.mockClear();
@@ -71,11 +72,7 @@ describe("BootstrapGate", () => {
 
   it("reveals Electron only after the ready application has painted", async () => {
     mocks.python.kind = "ready";
-    const frames: FrameRequestCallback[] = [];
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frames.push(callback);
-      return frames.length;
-    });
+    vi.useFakeTimers();
 
     render(
       <BootstrapGate>
@@ -84,9 +81,9 @@ describe("BootstrapGate", () => {
     );
 
     expect(mocks.appReady).not.toHaveBeenCalled();
-    await act(async () => frames.shift()?.(0));
+    await act(async () => vi.advanceTimersToNextFrame());
     expect(mocks.appReady).not.toHaveBeenCalled();
-    await act(async () => frames.shift()?.(16));
+    await act(async () => vi.advanceTimersToNextFrame());
     expect(mocks.appReady).toHaveBeenCalledOnce();
   });
 });

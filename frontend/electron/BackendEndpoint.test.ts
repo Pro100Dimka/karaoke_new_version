@@ -14,7 +14,7 @@ it("bounds incomplete output and ignores malformed or duplicate endpoint announc
       "AD_VOICE_BACKEND_READY:12345\nAD_VOICE_BACKEND_READY:0\nAD_VOICE_BACKEND_READY:65536\n",
     ),
   );
-  await expect(endpoint.request("/health/ready")).rejects.toThrow(
+  await expect(endpoint.request("/songs")).rejects.toThrow(
     "starting or stopped",
   );
   expect(fetch).not.toHaveBeenCalled();

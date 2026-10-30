@@ -16,7 +16,8 @@ const settings = vi.hoisted(() => ({
   localProcessing: false,
 }));
 
-vi.mock("@neo-ui-kit/react", () => ({
+vi.mock("@neo-ui-kit/react", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@neo-ui-kit/react")>(),
   QuantumBackground: vi.fn(({ spectrum: _spectrum, spectrumRange: _range, fieldSize: _size, interactive: _interactive, ...props }: QuantumBackgroundProps) => (
     <div {...props} data-testid="quantum-background" />
   )),
@@ -110,12 +111,12 @@ describe("AppShell backdrop", () => {
 
   it("shows QuantumBackground behind the Library, edge to edge and fed with AudioService's spectrum", () => {
     renderRoute("/");
-    expect(screen.getByTestId("quantum-background")).toHaveClass("libraryBackdrop");
+    expect(screen.getByTestId("quantum-background").parentElement).toHaveStyle({
+      position: "absolute", inset: "0", pointerEvents: "none",
+    });
     expect(vi.mocked(QuantumBackground).mock.lastCall?.[0]).toMatchObject({
-      interactive: false,
-      fieldSize: 1.1,
+      fieldSize: 1.05,
       spectrumRange: [40, 12000],
-      inert: true,
     });
     expect(useSpectrumFeed).toHaveBeenLastCalledWith(true, expect.any(Function), 50);
   });

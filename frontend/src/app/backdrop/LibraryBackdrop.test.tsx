@@ -7,7 +7,8 @@ import { LibraryBackdrop } from "./LibraryBackdrop";
 import { publishSpectrum } from "./spectrumEvents";
 import { toSpectrumFrame } from "./useSpectrumFeed";
 
-vi.mock("@neo-ui-kit/react", () => ({
+vi.mock("@neo-ui-kit/react", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@neo-ui-kit/react")>(),
   QuantumBackground: vi.fn((_props: QuantumBackgroundProps) => null),
   quantumBackgroundFullscreenFieldSize: 1.1,
 }));

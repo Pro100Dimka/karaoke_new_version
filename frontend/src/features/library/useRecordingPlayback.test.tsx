@@ -12,6 +12,7 @@ const audio = vi.hoisted(() => ({
   setPreviewVolume: vi.fn(),
 }));
 vi.mock("../../services/audioClient", () => ({ audioClient: audio }));
+vi.mock("../../app/NotificationsProvider", () => ({ useNotify: () => vi.fn() }));
 vi.mock("../../i18n/useText", () => ({ useText: () => (key: string) => key }));
 vi.mock("../../shared/hooks/useWaveformPeaks", () => ({ useRecordingPeaks: () => [0.2, 0.5, 0.3] }));
 const recording = {
