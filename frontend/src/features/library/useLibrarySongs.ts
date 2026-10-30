@@ -1,7 +1,7 @@
 import { pythonClient as catalog } from "../../services/pythonClient";
 import { libraryChanged, onLibraryChange } from "../../services/backendEvents";
 import type { ImportMetadata, ImportOptions, SongPatch } from "../../contracts/clients";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SongDto } from "../../contracts/models";
 import { useServices } from "../../app/ServicesContext";
 import { useApp } from "../../app/AppContext";
@@ -192,17 +192,21 @@ export const useLibrarySongs = () => {
     await refresh();
   };
 
-  const activeJobs = new Map(jobs.filter((job) =>
-    ["queued", "processing", "cancelling"].includes(job.state),
-  ).map((job) => [job.songId, job]));
-  const visibleState: LibrarySongsState = state.status === "ready" ? {
-    ...state,
-    songs: state.songs.map((song) => {
-      const job = activeJobs.get(song.id);
-      return job ? { ...song, jobId: job.id, stage: job.stage, progress: job.progress,
-        status: job.state === "queued" ? "queued" : "processing" } : song;
-    }),
-  } : state;
+  const visibleState = useMemo<LibrarySongsState>(() => {
+    if (state.status !== "ready") return state;
+    const activeJobs = new Map(jobs.filter((job) =>
+      ["queued", "processing", "cancelling"].includes(job.state),
+    ).map((job) => [job.songId, job]));
+    if (activeJobs.size === 0) return state;
+    return {
+      ...state,
+      songs: state.songs.map((song) => {
+        const job = activeJobs.get(song.id);
+        return job ? { ...song, jobId: job.id, stage: job.stage, progress: job.progress,
+          status: job.state === "queued" ? "queued" : "processing" } : song;
+      }),
+    };
+  }, [state, jobs]);
 
   return {
     state: visibleState,

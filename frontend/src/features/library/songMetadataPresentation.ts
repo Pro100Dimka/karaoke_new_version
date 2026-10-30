@@ -14,6 +14,8 @@ export const detectedSongMetadata = (
 });
 
 const fileStatusKeys = {
+  Preparing: "recordingPreparing",
+  PreparationFailed: "recordingPreparationFailed",
   Ready: "recordingFileReady",
   RecoveredIncomplete: "recordingRecoveredIncomplete",
   Missing: "recordingFileMissing",

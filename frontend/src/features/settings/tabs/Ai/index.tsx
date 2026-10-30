@@ -13,6 +13,7 @@ import {
 } from "@neo-ui-kit/react";
 import { useRef } from "react";
 import { useText } from "../../../../i18n/useText";
+import { desktopClient } from "../../../../services/desktopClient";
 import { useAiSettings, type ProcessingBackend } from "./hooks/useAiSettings";
 import "./ui/ai.css";
 import { ModelCard } from "./ui/ModelCard";
@@ -50,11 +51,11 @@ export const AiSettings = () => {
           />
           <TextField
             label={t("dataStorageRoot")}
-            description={t("dataStorageRootHint")}
+            description={t(desktopClient.fixedStorageRoot ? "installedDataStorageHint" : "dataStorageRootHint")}
             readOnly
             value={ai.dataRoot}
             startAdornment={<Icon name="folder" />}
-            endAdornment={
+            endAdornment={!desktopClient.fixedStorageRoot && (
               <Button
                 size="xs"
                 variant="ghost"
@@ -64,7 +65,7 @@ export const AiSettings = () => {
               >
                 {t("selectDataFolder")}
               </Button>
-            }
+            )}
           />
         </Grid>
         <Card

@@ -16,7 +16,7 @@ import {
   lyricSilenceSeconds,
   pitchAccuracy,
   pitchMatchesTarget,
-  pitchMidiNearTarget,
+  pitchHzToMidi,
   pitchRange,
   targetPitchAt,
   reliablePitchHz,
@@ -101,19 +101,24 @@ const PianoRoll = ({
       panel.detach(bounds, pointer),
     );
   const voicePosition = pitchFrame?.positionSeconds ?? position;
-  const observedPitch = pitchFrame
-    ? reliablePitchHz(pitchFrame.pitchHz, pitchFrame.confidence)
-    : pitchHz;
+  const observedPitch = pitchFrame ? pitchFrame.pitchHz : pitchHz;
+  const measuredPitch = reliablePitchHz(observedPitch, pitchFrame?.confidence);
   const activeNote = notes.find(
     (note) => voicePosition >= note.start && voicePosition <= note.end,
   );
   const targetPitch = activeNote
     ? targetPitchAt(activeNote, voicePosition)
     : undefined;
-  const liveMidi = pitchMidiNearTarget(observedPitch, targetPitch);
-  const accuracy = pitchAccuracy(observedPitch, targetPitch);
+  const liveMidi = pitchHzToMidi(observedPitch);
+  const audioActive = pitchFrame?.audioActive ?? (liveMidi !== undefined);
+  const pitchStatus = ([
+    ["pitchAboveRange", liveMidi !== undefined && liveMidi > range.max],
+    ["pitchBelowRange", liveMidi !== undefined && liveMidi < range.min],
+    ["pitchUncertain", measuredPitch === undefined],
+  ] as const).find(([, active]) => active)?.[0];
+  const accuracy = pitchAccuracy(measuredPitch, targetPitch);
   const onTarget = Boolean(
-    targetPitch !== undefined && pitchMatchesTarget(observedPitch, targetPitch),
+    targetPitch !== undefined && pitchMatchesTarget(measuredPitch, targetPitch),
   );
   const hitNoteIds = show.hitNoteIds;
   const frameStyle =
@@ -140,33 +145,41 @@ const PianoRoll = ({
         onPointerMove={panel.detached ? undefined : handleMove}
         onPointerUp={panel.detached ? undefined : handleUp}
       >
-        <MelodyRoll
-          className="pianoRollLane"
-          style={{ background: "rgba(4, 6, 12, 0.16)" }}
-          label={t("pianoRoll")}
-          notes={inLine}
-          position={position}
-          minPitch={range.min}
-          maxPitch={range.max}
-          window={span}
-          onWindowChange={setSpan}
-          livePitch={capturedPitch ? undefined : liveMidi}
-          accuracy={accuracy}
-          hit={onTarget}
-          hitIds={hitNoteIds}
-        />
-        <RollFx
-          playing={playing}
-          engine={show}
-          view={{
-            notes: inLine,
-            position,
-            span,
-            lead: rollLead,
-            low: range.min,
-            high: range.max,
-          }}
-        />
+        {!hidden && (
+          <>
+            <MelodyRoll
+              className="pianoRollLane"
+              label={t("pianoRoll")}
+              notes={inLine}
+              position={position}
+              minPitch={range.min}
+              maxPitch={range.max}
+              window={span}
+              onWindowChange={setSpan}
+              livePitch={capturedPitch ? undefined : liveMidi}
+              accuracy={accuracy}
+              hit={onTarget}
+              hitIds={hitNoteIds}
+            />
+            <RollFx
+              playing={playing}
+              engine={show}
+              view={{
+                notes: inLine,
+                position,
+                span,
+                lead: rollLead,
+                low: range.min,
+                high: range.max,
+              }}
+            />
+          </>
+        )}
+        {playing && !hidden && audioActive && pitchStatus && (
+          <span className="pianoRollVoiceStatus" role="status">
+            {t(pitchStatus)}
+          </span>
+        )}
         <span
           className="pianoRollDetach"
           onPointerDown={(event) => event.stopPropagation()}
@@ -298,10 +311,11 @@ export const KaraokeStage = ({
     playing,
     settings: showSettings,
   });
-  const noteScore = show.noteScore;
+  // The engine effects above consume this frame before its score is published.
+  // Publishing does not require another render of the lyrics and melody roll.
   useEffect(() => {
-    onNoteScoreChange?.(noteScore);
-  }, [noteScore, onNoteScoreChange]);
+    onNoteScoreChange?.(show.noteScore);
+  });
   // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
   // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
   // window already fades it out gracefully -- dropping it here the instant the line changes cut that

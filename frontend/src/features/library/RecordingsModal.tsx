@@ -67,6 +67,16 @@ export const RecordingsModal = ({
   const t = useText();
   const [view, setView] = useState<View>("list");
   const numbers = useMemo(() => numberTakes(recordings), [recordings]);
+  const versions = useMemo(() => {
+    const grouped = new Map<string, RecordingDto[]>();
+    for (const recording of recordings) {
+      if (!recording.sourceRecordingId) continue;
+      const items = grouped.get(recording.sourceRecordingId);
+      if (items) items.push(recording);
+      else grouped.set(recording.sourceRecordingId, [recording]);
+    }
+    return grouped;
+  }, [recordings]);
   const performances = useMemo(() => {
     const ids = new Set(recordings.map((recording) => recording.id));
     return recordings.filter((recording) => !recording.sourceRecordingId || !ids.has(recording.sourceRecordingId));
@@ -125,7 +135,7 @@ export const RecordingsModal = ({
               <RecordingCard
                 key={recording.id}
                 recording={recording}
-                versions={recordings.filter((item) => item.sourceRecordingId === recording.id)}
+                versions={versions.get(recording.id)}
                 index={index}
                 name={nameOf(recording)}
                 onRename={(value) => onRename(recording, value)}

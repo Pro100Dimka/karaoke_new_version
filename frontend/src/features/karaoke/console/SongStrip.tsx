@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Equalizer, Icon, Typography, Waveform } from "@neo-ui-kit/react";
 import type { SongDto } from "../../../contracts/models";
 import { useText } from "../../../i18n/useText";
@@ -14,7 +15,7 @@ interface SongStripProps {
 }
 
 /** Top row of the console: song identity, elapsed time, the seekable waveform and total time. */
-export const SongStrip = ({
+export const SongStrip = memo(({
   song,
   position,
   duration,
@@ -49,4 +50,4 @@ export const SongStrip = ({
       <Typography variant="caption">{formatTime(duration)}</Typography>
     </div>
   );
-};
+});

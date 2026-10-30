@@ -76,10 +76,19 @@ class SqlJobRepository:
             raise KeyError(job.job_id)
         _apply(row, job)
 
-    def list(self, *, limit: int, offset: int, job_type: JobType | None = None) -> Sequence[Job]:
+    def list(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        job_type: JobType | None = None,
+        entity_id: str | None = None,
+    ) -> Sequence[Job]:
         query = select(JobRow)
         if job_type:
             query = query.where(JobRow.job_type == job_type.value)
+        if entity_id is not None:
+            query = query.where(JobRow.entity_id == entity_id)
         query = query.order_by(JobRow.created_at.desc(), JobRow.job_id).limit(limit).offset(offset)
         return [_to_domain(row) for row in self._session.scalars(query).all()]
 

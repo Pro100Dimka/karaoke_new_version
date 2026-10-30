@@ -9,15 +9,17 @@ from pathlib import Path
 from uuid import uuid4
 
 from backend.domain_errors import ConflictError, DependencyError
+from backend.infrastructure.atomic_files import atomic_write_text
 from backend.serialization import dumps, loads_object
 
 
 class BackendInstanceLock:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, *, adopt_marker: bool = False) -> None:
         self._path = path
         self._token = str(uuid4())
         self._owned = False
         self._guard: int | None = None
+        self._adopt_marker = adopt_marker
 
     def acquire(self) -> None:
         if self._owned:
@@ -71,6 +73,12 @@ class BackendInstanceLock:
                 self._owned = True
                 return
             except FileExistsError:
+                if self._adopt_marker:
+                    data = loads_object(self._path.read_text(encoding="utf-8"))
+                    token = data.get("token")
+                    if data.get("pid") == os.getpid() and isinstance(token, str) and token:
+                        self._token, self._owned = token, True
+                        return
                 if not self._remove_stale():
                     raise ConflictError(
                         "BackendAlreadyRunning", "Another backend owns this library"
@@ -83,12 +91,22 @@ class BackendInstanceLock:
                 ) from exc
         raise ConflictError("BackendAlreadyRunning", "Another backend owns this library")
 
-    def release(self) -> None:
+    def transfer_to(self, pid: int) -> None:
+        if not self._owned or pid <= 0 or not _process_exists(pid):
+            raise ConflictError("BackendMigrationUnavailable", "Storage migration worker is unavailable")
+        data = loads_object(self._path.read_text(encoding="utf-8"))
+        if data.get("token") != self._token:
+            raise ConflictError("BackendAlreadyRunning", "Library ownership changed during migration")
+        atomic_write_text(self._path, dumps({"pid": pid, "token": self._token}))
+        self._owned = False
+        self._release_guard()
+
+    def release(self, *, preserve_marker: bool = False) -> None:
         if not self._owned:
             return
         try:
             data = loads_object(self._path.read_text(encoding="utf-8"))
-            if data.get("token") == self._token:
+            if data.get("token") == self._token and not preserve_marker:
                 self._path.unlink(missing_ok=True)
         except (OSError, ValueError):
             pass

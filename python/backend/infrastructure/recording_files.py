@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+import ctypes
 import os
 import shutil
 import struct
+from ctypes import wintypes
 from typing import BinaryIO
 import soundfile as sf
+
+if os.name == "nt":
+    import msvcrt
 
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.atomic_files import atomic_write_text
@@ -56,10 +61,13 @@ class LocalRecordingStorage:
                 raise DomainError("InvalidRecording", "Recording file cannot be an alias", 400)
             descriptor = directory / "recording-recovery.json"
             backing = directory / "recording.wav.backing.wav"
+            vocal = directory / "recording.wav.vocal.wav"
+            dry = directory / "recording.wav.dry.wav"
+            incomplete_dry = directory / "recording.wav.dry-incomplete.wav"
             children = tuple(directory.iterdir())
-            if any(child not in {target, backing, descriptor} for child in children) or any(
+            if any(child not in {target, backing, vocal, dry, incomplete_dry, descriptor} for child in children) or any(
                 file.exists() and (file.resolve() != file or not _empty_native_wav(file))
-                for file in (target, backing)
+                for file in (target, backing, vocal, dry, incomplete_dry)
             ):
                 raise ConflictError(
                     "RecordingNotEmpty",
@@ -67,6 +75,9 @@ class LocalRecordingStorage:
                 )
             target.unlink(missing_ok=True)
             backing.unlink(missing_ok=True)
+            vocal.unlink(missing_ok=True)
+            dry.unlink(missing_ok=True)
+            incomplete_dry.unlink(missing_ok=True)
             descriptor.unlink(missing_ok=True)
             directory.rmdir()
             return True
@@ -175,10 +186,6 @@ def _open_stopped_recording(path: Path) -> BinaryIO:
     if os.name != "nt":
         # Desktop capture is Windows-only; do not repair a potentially live foreign capture.
         raise OSError("Recording recovery requires exclusive Windows file access")
-    import ctypes
-    import msvcrt
-    from ctypes import wintypes
-
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.CreateFileW.argtypes = (
         wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,

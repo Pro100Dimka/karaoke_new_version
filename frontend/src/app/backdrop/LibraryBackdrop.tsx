@@ -1,10 +1,10 @@
 import {
   QuantumBackground,
-  quantumBackgroundFullscreenFieldSize,
+  Stack,
+  useMotion,
 } from "@neo-ui-kit/react";
 import { useEffect, useRef, useState } from "react";
 import { microphoneLevel } from "../../services/inputLevel";
-import { useOnBattery } from "../desktop/shellBus";
 import {
   backdropSpectrum,
   backdropSpectrumRange,
@@ -14,9 +14,6 @@ import { subscribeSpectrum } from "./spectrumEvents";
 
 // The build ships three.js beside the app (scripts/vite-three-vendor.mjs): the scene works offline and
 // loads no code from a CDN. Relative, so the scene's import map and CSP hash are the same everywhere.
-const threeUrl = "./vendor/three/";
-// On battery the scene draws at a calmer frame rate, so a laptop is not drained by decoration.
-const batteryFrameRate = 30;
 const voicePollMilliseconds = 50;
 const quietVoicePollMilliseconds = 200;
 
@@ -83,23 +80,64 @@ export const LibraryBackdrop = ({
   listening?: boolean;
 }) => {
   const spectrum = useBackdropSpectrum(listening);
-  console.log(spectrum);
-  const battery = useOnBattery();
+  const initial = {
+    field: "Higgs (Mass)",
+    fieldSize: 1.05,
+    particleDepth: 1,
+    particleScale: 2,
+    paused: !listening,
+    particleSharpness: 1,
+    timeScale: 0.38,
+    density: 0.14,
+    particleCount: 5280,
+    adaptiveQualityEnabled: true,
+    targetFPS: 45,
+    interactive: false,
+    nebulaEnabled: false,
+    connectionsEnabled: false,
+    crawlersEnabled: false,
+    particleTrailsEnabled: false,
+    lensFlareEnabled: false,
+    dofEnabled: false,
+    cameraShake: 0,
+    audioCameraEnabled: false,
+    bloom: 0,
+    trails: 0,
+    chromaticAberration: 0,
+    anamorphicStretch: 0,
+    godRaysEnabled: false,
+    filmGrain: 0,
+  } as const;
+  const threeUrl = "./vendor/three/";
+  const motion = useMotion();
+
   return (
-    <QuantumBackground
-      field="Neutrino"
-      className="libraryBackdrop"
-      aria-hidden
+    <Stack
       inert
-      particleCount={10750}
-      onsetSensitivity={3}
-      adaptiveQualityEnabled={false}
-      interactive={false}
-      fieldSize={quantumBackgroundFullscreenFieldSize}
-      spectrum={spectrum}
-      spectrumRange={backdropSpectrumRange}
-      threeUrl={threeUrl}
-      targetFPS={battery ? batteryFrameRate : undefined}
-    />
+      style={{
+        // No z-index here: particles blend with the theme's background.
+        position: "absolute",
+        inset: 0,
+        overflow: "hidden",
+        background: "rgba(0 0 0 / 0.3)",
+        pointerEvents: "none",
+      }}
+    >
+      {motion && (
+        <QuantumBackground
+          {...initial}
+          spectrum={spectrum}
+          spectrumRange={backdropSpectrumRange}
+          threeUrl={threeUrl}
+          style={{
+            height: "100%",
+            display: !listening ? "none" : undefined,
+            borderRadius: 0,
+            mixBlendMode: "screen",
+            maskImage: "linear-gradient(180deg, #0004, #0009 30%, #000 55%)",
+          }}
+        />
+      )}
+    </Stack>
   );
 };

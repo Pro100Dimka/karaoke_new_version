@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from collections.abc import Mapping
 
 from backend.ai.domain import AiCapability
-from backend.ai.ports import AiProvider
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
@@ -16,7 +16,7 @@ from backend.projects.ports import ProjectStorage
 from backend.recordings.domain import Recording
 from backend.recordings.ports import RecordingFileInspector, RecordingStorage
 from backend.recordings.register_recording import RegisterRecording, RegisterRecordingRequest
-from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
 from backend.runtime import Clock, IdGenerator
 from backend.settings.domain import ProcessingBackend
 from backend.settings.queries import SettingsReader
@@ -49,65 +49,77 @@ class StartStudioMaster:
 
     def execute(self, recording_id: str) -> Job:
         recording = self._recording(recording_id)
-        self._project_identity(recording)
-        settings = self._settings()
-        preferred = (
-            _KAGGLE_PROVIDER
-            if settings.processing_backend is ProcessingBackend.KAGGLE
-            else settings.selected_separation_provider
-        )
-        provider = self._resolver.execute(AiCapability.SEPARATION, preferred)
-        compute_mode = (
-            ComputeMode.CPU
-            if settings.processing_backend is ProcessingBackend.KAGGLE
-            else settings.compute_mode
-        )
+        song_id, revision = self._project_identity(recording)
+        for artifact in ("referenceVocal", "instrumental"):
+            if not self._projects.artifact_path(song_id, revision, artifact).is_file():
+                raise NotFoundError("StudioMasterUnavailable", "Original song stems are unavailable")
+        stems = recording_stems(recording.file_path, prefer_dry=True)
         return self._jobs.start(
             JobType.RECORDING_MASTERING,
-            lambda context: self._run(
-                recording, provider, compute_mode, settings.cpu_threads, context
-            ),
+            lambda context: self._run(recording, context),
             entity_id=recording.recording_id,
-            initial_report={"processingBackend": settings.processing_backend.value},
+            initial_report={
+                "processingBackend": ProcessingBackend.LOCAL.value if stems
+                else self._settings().processing_backend.value,
+            },
         )
 
     def _run(
         self,
         recording: Recording,
-        provider: AiProvider,
-        compute_mode: ComputeMode,
-        cpu_threads: int,
         context: JobContext,
     ) -> dict[str, object]:
         workspace = self._workspaces.allocate(f"studio-{recording.recording_id}")
-        lease = self._resources.claim_provider(
-            provider, recording.file_path.stat().st_size, compute_mode, cpu_threads=cpu_threads
-        )
         try:
-            context.progress("SeparatingPerformance", 0.0, 0.1)
-            separated = provider.separate(
-                recording.file_path,
-                workspace / "separation",
-                context.cancel,
-                execution=lease.execution,
-            )
+            context.ensure_not_cancelled()
+            stems = recording_stems(recording.file_path, prefer_dry=True)
+            exact_stems = stems is not None
+            if stems is None:
+                context.progress("SeparatingPerformance", 0.0, 0.1)
+                settings = self._settings()
+                remote = settings.processing_backend is ProcessingBackend.KAGGLE
+                provider = self._resolver.execute(
+                    AiCapability.SEPARATION,
+                    _KAGGLE_PROVIDER if remote else settings.selected_separation_provider,
+                )
+                lease = self._resources.claim_provider(
+                    provider, recording.file_path.stat().st_size,
+                    ComputeMode.CPU if remote else settings.compute_mode,
+                    cpu_threads=settings.cpu_threads,
+                )
+                try:
+                    separated = provider.separate(
+                        recording.file_path, workspace / "separation", context.cancel,
+                        execution=lease.execution,
+                    )
+                    stems = separated.reference_vocal, separated.instrumental
+                finally:
+                    lease.release()
             context.progress("AnalyzingBalance", 1.0, 0.58)
             song_id, revision = self._project_identity(recording)
             temporary = workspace / "studio-master.wav"
+            raw_adjustments = (recording.session_metadata or {}).get("playbackAdjustments", ())
+            adjustments = (
+                [item if isinstance(item, Mapping) else {} for item in raw_adjustments]
+                if isinstance(raw_adjustments, (list, tuple)) else [{}]
+            )
             balance = self._renderer.render(
-                separated.reference_vocal,
-                separated.instrumental,
+                *stems,
                 self._projects.artifact_path(song_id, revision, "referenceVocal"),
                 self._projects.artifact_path(song_id, revision, "instrumental"),
                 temporary,
                 context.cancel,
                 performance_mix=recording.file_path,
+                exact_stems=exact_stems,
+                process_voice=exact_stems and stems[0].name.endswith(".dry.wav"),
+                adjustments=adjustments,
+                progress=context.progress,
             )
+            context.ensure_not_cancelled()
             context.progress("PublishingStudioMaster", 1.0, 0.92)
             master = self._publisher.execute(recording, temporary, balance.payload())
             return {"recordingId": master.recording_id, "balance": balance.payload()}
         finally:
-            lease.release()
             self._workspaces.cleanup(workspace)
 
     def _recording(self, recording_id: str) -> Recording:
@@ -115,6 +127,10 @@ class StartStudioMaster:
             recording = transaction.recordings.get(recording_id)
         if recording is None:
             raise NotFoundError("RecordingNotFound", "Recording was not found")
+        if not recording.file_path.is_file():
+            raise NotFoundError("RecordingFileMissing", "Recording file is unavailable")
+        if recording.file_status != "Ready":
+            raise DomainError("StudioMasterUnavailable", "Recording is not finalized", 409)
         return recording
 
     @staticmethod
@@ -143,7 +159,7 @@ class PublishStudioMaster:
         self._clock = clock
         self._ids = ids
 
-    def execute(self, source: Recording, temporary: Path, balance: dict[str, float]) -> Recording:
+    def execute(self, source: Recording, temporary: Path, balance: dict[str, object]) -> Recording:
         recording_id = self._ids.new()
         target = self._storage.publish_file(recording_id, temporary)
         metadata = self._inspector.inspect(target)
@@ -157,7 +173,10 @@ class PublishStudioMaster:
                 created_at=self._clock.now(),
                 song_id=source.song_id,
                 song_revision=source.song_revision,
+                allow_historical_revision=True,
+                gaps=source.gaps,
                 session_metadata={
+                    **(source.session_metadata or {}),
                     "studioMaster": {
                         "sourceRecordingId": source.recording_id,
                         "balance": balance,

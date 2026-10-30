@@ -4,7 +4,7 @@ import type { PlaybackSnapshot } from "../contracts/models";
 /** What the radio and the recording preview need from the audio client they belong to. */
 export interface AudioPlayerOperations {
   command(name: string, args?: Record<string, unknown>): Promise<string>;
-  diagnostics(): Promise<Record<string, string>>;
+  diagnostics(playbackOnly?: boolean): Promise<Record<string, string>>;
   ensureSession(): Promise<void>;
   snapshot(state: PlaybackSnapshot["state"]): Promise<PlaybackSnapshot>;
   pythonRequest: DesktopApi["pythonRequest"];
@@ -113,7 +113,9 @@ export const createAudioPlayers = (
       assertCurrent();
       if (!response.ok || !response.body || typeof response.body !== "object")
         throw new Error("Recording not found");
-      const filePath = (response.body as Record<string, unknown>).filePath;
+      const { filePath, fileStatus } = response.body as Record<string, unknown>;
+      if (["Preparing", "PreparationFailed"].includes(String(fileStatus)))
+        throw new Error("Recording preparation is not complete");
       if (typeof filePath !== "string")
         throw new Error("Recording file path is invalid");
       const state = Number((await ops.diagnostics()).PreviewState ?? 0);
@@ -157,7 +159,7 @@ export const createAudioPlayers = (
       await ops.command("SetGain", { target: "preview", value: gain });
     },
     async recordingPreviewStatus(owner) {
-      const values = await ops.diagnostics();
+      const values = await ops.diagnostics(true);
       const sampleRate =
         Number(
           values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0,

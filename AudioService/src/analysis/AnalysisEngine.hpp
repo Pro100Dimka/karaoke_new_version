@@ -20,6 +20,7 @@ struct PitchObservation {
     float pitchHz{0};
     bool audioActive{false};
     float confidence{0};
+    std::uint32_t windowFrames{0};
 };
 
 struct AnalysisSnapshot {

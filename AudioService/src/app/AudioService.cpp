@@ -423,13 +423,14 @@ std::string AudioService::diagnostics(bool playbackOnly) {
     const auto analysis = analysis_.snapshot();
     const auto music = media_.snapshot(MediaSlot::Music);
     const auto sig = signal_.snapshot();
+    const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
     const auto observedAt = monotonicTicksNow();
     const auto presentationPosition = roomPlaybackFrame(observedAt);
     const auto rate = session_.runtime().outputSampleRateHz;
     std::ostringstream pitchFrames;
     if (rate != 0 && music.state == PlaybackState::Playing) {
         for (const auto& point : analysis_.pitchHistory()) {
-            const auto halfWindow = static_cast<MonotonicTicks>(point.frames) * 500'000'000 / rate;
+            const auto halfWindow = static_cast<MonotonicTicks>(point.windowFrames) * 500'000'000 / rate;
             if (point.capturedAt - halfWindow < pitchFence_) continue;
             if (pitchFrames.tellp() > 0) pitchFrames << '|';
             pitchFrames << point.sequence << ',' << roomPlaybackFrame(point.capturedAt) << ','
@@ -446,6 +447,8 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
         << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
         << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
+        << "PreviewState: " << playbackStateText(preview.state) << '\n'
+        << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::RecordingPreview) << '\n'
         << "InputRMS: " << sig.rms << '\n'
         << "InputPitchHz: " << analysis.pitchHz << '\n'
         << "InputPitchEpoch: " << pitchEpoch_ << '\n'
@@ -455,7 +458,6 @@ std::string AudioService::diagnostics(bool playbackOnly) {
     const auto micGap = realtime_.micGapTimeline();
     const auto backend = session_.backendSnapshot();
     const auto graph = graphInfo_.snapshot();
-    const auto preview = media_.snapshot(MediaSlot::RecordingPreview);
     const auto net = network_.diagnostics();
     const auto fullTrace = network_.diagnosticPacketTrace().status();
     const auto stageFrames = [this](LatencyRegistry::Stage id) {
@@ -743,8 +745,6 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "RoomClockObservationFrames: " << network_.roomTimelineFrame(observedAt, 0) << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "MusicUnderruns: " << music.underruns << '\n'
-        << "PreviewState: " << playbackStateText(preview.state) << '\n'
-        << "PreviewPositionFrames: " << media_.timelineFrame(MediaSlot::RecordingPreview) << '\n'
         << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'

@@ -148,6 +148,7 @@ export const PerformanceAnalysisModal = ({
               </>
             )}
             {failure && <MessageBar tone="error">{t(failure)}</MessageBar>}
+            {viewed?.fileStatus === "PreparationFailed" && <RecordingPlayer recording={viewed} />}
             {pending && (
               <Button
                 icon="stop"
@@ -250,6 +251,7 @@ export const PerformanceAnalysisModal = ({
                       variant="danger"
                       icon="trash"
                       label={t("recordingDelete")}
+                      disabled={viewed.fileStatus === "Preparing"}
                       onClick={() => onDelete(viewed)}
                     />
                   }
@@ -266,13 +268,11 @@ export const PerformanceAnalysisModal = ({
                     description={t("studioMasterReadyDescription")}
                     className="analysisMaster"
                     actions={
-                      <svg
+                      <img
                         className="analysisMasterArt"
-                        viewBox="0 0 240 204"
-                        aria-hidden="true"
-                      >
-                        <use href={`${performanceArtUrl}#pf-art-4`} />
-                      </svg>
+                        src={`${performanceArtUrl}#pf-view-4`}
+                        alt=""
+                      />
                     }
                   >
                     <RecordingPlayer key={master.id} recording={master} />
@@ -304,6 +304,7 @@ export const PerformanceAnalysisModal = ({
                       <Button
                         variant="primary"
                         icon="sparkle"
+                        disabled={Boolean(viewed.fileStatus && viewed.fileStatus !== "Ready")}
                         onClick={() => onCreateStudioMaster(viewed)}
                       >
                         {t("studioMasterCreate")}

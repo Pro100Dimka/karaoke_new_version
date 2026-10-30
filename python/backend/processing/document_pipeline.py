@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from collections.abc import Callable
+from collections import Counter
 
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.lyrics.discovery import LyricsDiscovery, LyricsDiscoveryResult, lyrics_language
 from backend.lyrics.domain import LyricsDocument
+from backend.lyrics.phrases import _lyrics_key
 from backend.processing.algorithms import construct_document, stabilize_pitch
 from backend.processing.audio_pipeline import PreparedAudio
 from backend.processing.domain import CancellationPolicy, ProcessingOptions, StageReport
@@ -24,6 +26,66 @@ class BuiltDocument:
     document: LyricsDocument
     discovery: LyricsDiscoveryResult
     warnings: tuple[str, ...]
+
+
+def _word_support(word: WordTiming) -> bool:
+    return "RecognizedWord" in word.diagnostics or (
+        word.confidence >= 0.1 and "ApproximateAlignment" not in word.diagnostics
+    )
+
+
+def _repeat_support(lines: list[str], words: tuple[WordTiming, ...]) -> list[float]:
+    evidence, first = [], 0
+    for line in lines:
+        last = first + len(line.split())
+        span = words[first:last]
+        supported = sum(len(_lyrics_key(word.text)) for word in span if _word_support(word))
+        evidence.append(
+            supported / max(1, len(_lyrics_key(line))) if span and _word_support(span[0]) else 0.0
+        )
+        first = last
+    return evidence
+
+
+def _verified_repeats(
+    discovery: LyricsDiscoveryResult, words: tuple[WordTiming, ...]
+) -> LyricsDiscoveryResult:
+    """Keep the catalogue floor and independently supported surplus occurrences."""
+    if not discovery.repeat_baseline or discovery.unverified_repeat_lyrics:
+        return discovery
+    lines = discovery.lyrics.splitlines()
+    baseline = Counter(_lyrics_key(line) for line in discovery.repeat_baseline.splitlines())
+    keys = [_lyrics_key(line) for line in lines]
+    support = _repeat_support(lines, words)
+    allowed = baseline | Counter(key for key, value in zip(keys, support) if value >= 0.6)
+    surplus = Counter(keys) - allowed
+    removed = set()
+    for index in sorted(range(len(lines)), key=support.__getitem__):
+        if surplus[keys[index]]:
+            removed.add(index)
+            surplus[keys[index]] -= 1
+    if allowed == baseline or [_lyrics_key(word.text) for word in words] != [
+        _lyrics_key(word) for word in discovery.lyrics.split()
+    ]:
+        retained = discovery.repeat_baseline
+    else:
+        retained = "\n".join(line for index, line in enumerate(lines) if index not in removed)
+    if retained == discovery.lyrics:
+        return discovery
+    return replace(
+        discovery,
+        lyrics=retained,
+        timing_hints=discovery.repeat_baseline_hints
+        if retained == discovery.repeat_baseline
+        else discovery.timing_hints,
+        unverified_repeat_lyrics=discovery.lyrics,
+        warnings=tuple(
+            warning
+            for warning in discovery.warnings
+            if warning != "LyricsRepeatsRecovered" or retained != discovery.repeat_baseline
+        )
+        + ("UnverifiedExtraRepeats",),
+    )
 
 
 class BuildProcessingDocument:
@@ -52,9 +114,7 @@ class BuildProcessingDocument:
         align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
         align_execution = replace(execution, cpu_threads=align_threads)
         pitch_execution = replace(execution, cpu_threads=pitch_threads)
-        discovery = self._discover(
-            song, prepared, providers, options, context, reports, execution
-        )
+        discovery = self._discover(song, prepared, providers, options, context, reports, execution)
         parallel = not discovery.timing_hints or execution.device is ComputeDevice.CUDA
         if not parallel:
             align_execution = pitch_execution = execution
@@ -69,15 +129,19 @@ class BuildProcessingDocument:
             )
 
         def run_align() -> None:
-            nonlocal words
-            words = self._align(
+            nonlocal words, discovery
+            discovery, words = self._align(
                 song, prepared, discovery, providers, context, reports, align_execution
             )
 
         self._run_stages(execution, run_align, run_pitch, parallel=parallel)
         reports.extend(pitch_reports)
         document = self._construct(song, prepared, discovery, words, stable, context, reports)
-        warnings = discovery.warnings + alignment_warnings(words) + pitch_warnings(stable)
+        warnings = (
+            discovery.warnings
+            + alignment_warnings(words, lyrics=discovery.lyrics, bpm=prepared.music.bpm)
+            + pitch_warnings(stable)
+        )
         return BuiltDocument(replace(document, rhythm=prepared.rhythm), discovery, warnings)
 
     def _run_stages(
@@ -124,7 +188,7 @@ class BuildProcessingDocument:
         context: JobContext,
         reports: list[StageReport],
         execution: ExecutionContext,
-    ) -> tuple[WordTiming, ...]:
+    ) -> tuple[LyricsDiscoveryResult, tuple[WordTiming, ...]]:
         words = self._stages.run(
             "ForcedAlignment",
             CancellationPolicy.INTERRUPTIBLE,
@@ -141,7 +205,11 @@ class BuildProcessingDocument:
             ),
             progress=0.72,
         )
-        return tuple(words)
+        verified = _verified_repeats(discovery, tuple(words))
+        if verified != discovery:
+            # An invented repeat shifts real words too: realign the retained text.
+            return self._align(song, prepared, verified, providers, context, reports, execution)
+        return discovery, tuple(words)
 
     def _stable_pitch(
         self,

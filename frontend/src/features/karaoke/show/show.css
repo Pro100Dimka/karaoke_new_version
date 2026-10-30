@@ -105,7 +105,8 @@
 .karaokePage .pianoRollLane .ad-melody-note[data-hit] {
   animation: none;
 }
-.karaokePage .pianoRollLane.ad-melody-roll::before {
+.pianoRollLane.ad-melody-roll::before {
+  opacity: 0.06;
   backdrop-filter: none;
 }
 

@@ -16,7 +16,12 @@ class JobRepository(Protocol):
     def update(self, job: Job) -> None: ...
 
     def list(
-        self, *, limit: int, offset: int, job_type: JobType | None = None
+        self,
+        *,
+        limit: int,
+        offset: int,
+        job_type: JobType | None = None,
+        entity_id: str | None = None,
     ) -> Sequence[Job]: ...
 
     def count(self, *, job_type: JobType | None = None) -> int: ...

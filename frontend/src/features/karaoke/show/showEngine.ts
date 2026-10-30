@@ -1,5 +1,4 @@
 import { MusicPulse, type MusicState } from "./musicPulse";
-import { reliablePitchHz } from "../karaokeLyrics";
 import {
   PerformanceTracker,
   type EnergyLevel,
@@ -43,6 +42,8 @@ export interface ShowState {
 interface VoiceObservation {
   position: number;
   pitchHz?: number;
+  confidence: number;
+  audioActive: boolean;
 }
 
 type CommandListener = (command: FxCommand) => void;
@@ -149,7 +150,9 @@ export class ShowEngine {
       if (last !== position)
         this.voiceHistory.push({
           position,
-          pitchHz: reliablePitchHz(pitchHz, confidence),
+          pitchHz,
+          confidence,
+          audioActive: audioActive ?? (pitchHz !== undefined && pitchHz > 0),
         });
       while (
         this.voiceHistory.length > 0 &&

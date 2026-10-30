@@ -20,12 +20,12 @@ const snapshot = (
 });
 
 describe("usePositionPolling", () => {
-  it("delivers microphone observations within 25 ms while singing", async () => {
+  it("delivers microphone observations within 16 ms while singing", async () => {
     getAudioSnapshot.mockResolvedValue(snapshot(1));
     const onSnapshot = vi.fn();
     renderHook(() => usePositionPolling({ enabled: true, isPollable: () => true,
       isPlaying: () => true, onPosition: vi.fn(), onSnapshot, onFinished: vi.fn(), onLost: vi.fn() }));
-    await vi.advanceTimersByTimeAsync(25);
+    await vi.advanceTimersByTimeAsync(16);
     expect(onSnapshot).toHaveBeenCalledOnce();
   });
   beforeEach(() => {
@@ -52,11 +52,11 @@ describe("usePositionPolling", () => {
         }),
       { initialProps: { onFinished: vi.fn() } },
     );
-    for (let update = 0; update < 25; update++) {
-      await vi.advanceTimersByTimeAsync(20);
+    for (let update = 0; update < 50; update++) {
+      await vi.advanceTimersByTimeAsync(10);
       rerender({ onFinished: vi.fn() });
     }
-    expect(getAudioSnapshot).toHaveBeenCalledTimes(20);
+    expect(getAudioSnapshot).toHaveBeenCalledTimes(31);
     expect(onPosition).toHaveBeenLastCalledWith(12);
   });
 

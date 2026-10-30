@@ -32,22 +32,22 @@ float sineAtFrame(float frequencyHz, std::size_t frame, std::uint32_t sampleRate
 
 namespace Tests {
 void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration() {
-    constexpr std::uint32_t rate = 48000, window = 2048;
+    constexpr std::uint32_t rate = 48000, window = 2048, hop = 512, blocks = 3;
     constexpr MonotonicTicks firstAt = 2'000'000'000;
     AnalysisEngine analysis;
     analysis.prepare(1, rate, rate, GenerationId{9});
     std::vector<float> samples(window);
-    for (std::uint32_t block = 0; block < 3; ++block) {
+    for (std::uint32_t block = 0; block < blocks; ++block) {
         for (std::uint32_t frame = 0; frame < window; ++frame)
-            samples[frame] = 0.5F * sineAtFrame(220.0F, frame, rate);
+            samples[frame] = 0.5F * sineAtFrame(220.0F, block * window + frame, rate);
         analysis.push(GenerationId{9}, samples, window,
                       firstAt + static_cast<MonotonicTicks>(block * window) * 1'000'000'000 / rate);
     }
-    waitForProcessedFrames(analysis, window * 3);
+    waitForProcessedFrames(analysis, window * blocks);
     const auto history = analysis.pitchHistory();
-    expect(history.size() == 3, "a slow UI poll retains every measured pitch window");
+    expect(history.size() == 1 + window * (blocks - 1) / hop, "a slow UI poll retains every measured pitch window");
     for (std::size_t index = 0; index < history.size(); ++index) {
-        const auto centre = firstAt + static_cast<MonotonicTicks>(index * window + window / 2) * 1'000'000'000 / rate;
+        const auto centre = firstAt + static_cast<MonotonicTicks>(index * hop + window / 2) * 1'000'000'000 / rate;
         expect(std::abs(history[index].capturedAt - centre) <= 1 &&
                    std::abs(history[index].pitchHz - 220) < 3 && history[index].audioActive,
                "pitch belongs to the capture window centre, independent of worker delay");

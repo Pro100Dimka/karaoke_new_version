@@ -1,5 +1,9 @@
 // English texts for recordings, their analysis and the studio master.
 export const recordingsEn = {
+  recordingPreparing: "Preparing recording in the background. Source tracks are saved.",
+  recordingPreparationFailed: "Recording preparation failed. Source tracks are saved.",
+  recordingPreparationRetry: "Retry preparation",
+
   recordingRehearsal: "Rehearsal without recording",
   recordingLive: "Recording · {time}",
   recordingLivePaused: "Recording paused · {time}",
@@ -31,7 +35,7 @@ export const recordingsEn = {
   recordingOriginal: "Original",
   recordingVersion: "Performance version",
   studioMasterDescription:
-    "AI separates the vocal and backing track, balances their loudness, and creates a separate studio version.",
+    "Master processes the saved dry voice and mixes it with the backing track. Without a dry track, it balances the recording while preserving existing effects. Source tracks remain unchanged.",
   studioMasterSourceTitle: "Original recording",
   studioMasterReadyDescription:
     "The studio version is ready — play each recording to compare the sound.",

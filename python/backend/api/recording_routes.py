@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Response
 from pydantic import Field
 
 from backend.analysis.domain import AnalysisResult
+from backend.domain_errors import ConflictError
 from backend.api.base_dto import ApiModel, JobRefDto
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
@@ -149,8 +150,16 @@ def update_recording(
 
 @router.delete("/{recording_id}", status_code=204)
 def delete_recording(recording_id: str, app: ContainerDep) -> Response:
-    app.recordings.delete.execute(recording_id)
+    app.system.jobs.run_when_idle(
+        lambda: app.recordings.delete.execute(recording_id),
+        busy_error=ConflictError("LibraryInUse", "Wait for background jobs before deleting recordings"),
+    )
     return Response(status_code=204)
+
+
+@router.post("/{recording_id}/prepare", response_model=RecordingDto)
+def prepare_recording(recording_id: str, app: ContainerDep) -> RecordingDto:
+    return _recording(app, app.recordings.register.retry(recording_id))
 
 
 @router.post("/{recording_id}/analysis", response_model=JobRefDto, status_code=202)

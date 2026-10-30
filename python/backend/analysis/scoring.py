@@ -37,7 +37,7 @@ class PlaybackAdjustment:
 
 def reference_audio_start(raw: Sequence[Mapping[str, object]]) -> float | None:
     """PCM correlation is meaningful only while tempo, key and source position stay continuous."""
-    adjustments = _valid_adjustments(raw)
+    adjustments = parse_playback_adjustments(raw)
     if len(adjustments) != len(raw) or len(adjustments) > 1:
         return None
     if not adjustments:
@@ -58,7 +58,7 @@ def score_pitch(
     *,
     reference_pitch: Sequence[PitchPoint] | None = None,
 ) -> ScoreSummary:
-    adjustments = _valid_adjustments(playback_adjustments)
+    adjustments = parse_playback_adjustments(playback_adjustments)
     if reference_pitch is not None:
         notes = sorted(
             (note for word in reference.words for note in word.notes), key=lambda note: note.start
@@ -419,7 +419,7 @@ def _compare_transformed(
     )
 
 
-def _valid_adjustments(
+def parse_playback_adjustments(
     raw: Sequence[Mapping[str, object]],
 ) -> tuple[PlaybackAdjustment, ...]:
     result: list[PlaybackAdjustment] = []

@@ -7,6 +7,15 @@ from pathlib import Path
 
 from backend.serialization import dumps, loads_list, loads_object
 
+# Each worker process handles one action. Import only its model stack during CLI startup.
+_action = sys.argv[1] if __name__ == "__main__" and len(sys.argv) > 1 else None
+if _action is None or _action in ["prepare-accelerator", "transcribe", "align"]:
+    from backend.ai_worker.speech import align, prepare_accelerator, transcribe
+if _action is None or _action == "separate":
+    from backend.ai_worker.separation import separate
+if _action is None or _action == "pitch":
+    from backend.ai_worker.pitch import pitch
+
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="backend.ai_worker")
@@ -32,14 +41,9 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _run(args: argparse.Namespace) -> Mapping[str, object]:
-    if args.action in {"prepare-accelerator", "transcribe", "align"}:
-        from backend.ai_worker.speech import align, prepare_accelerator, transcribe
-
     if args.action == "prepare-accelerator":
         return prepare_accelerator()
     if args.action == "separate":
-        from backend.ai_worker.separation import separate
-
         return separate(args.input, args.output)
     if args.action == "transcribe":
         return transcribe(args.input, args.language, start_seconds=args.start_seconds)
@@ -58,8 +62,6 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
             instrumental=args.instrumental,
             recognition=recognition,
         )
-    from backend.ai_worker.pitch import pitch
-
     return pitch(args.input)
 
 

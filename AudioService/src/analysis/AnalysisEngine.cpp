@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
 AnalysisEngine::~AnalysisEngine() {
     stopWorker();
@@ -86,6 +87,8 @@ AnalysisSnapshot AnalysisEngine::snapshot() const noexcept {
 
 namespace {
 constexpr std::uint32_t AnalysisWindowFrames = 2048;
+constexpr std::uint32_t AnalysisOverlap = 4;
+constexpr std::size_t PitchHistoryWindows = 64 * AnalysisOverlap;
 
 float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std::uint32_t channels,
                     std::uint32_t sampleRateHz, float& confidence) noexcept {
@@ -178,7 +181,7 @@ float estimatePitch(const std::vector<float>& samples, std::uint32_t frames, std
         if (std::abs(curvature) > 1.0e-9)
             refinedLag += std::clamp(0.5 * (left - right) / curvature, -0.5, 0.5);
     }
-    confidence = static_cast<float>(std::clamp(bestCorrelation, 0.0, 1.0));
+    confidence = static_cast<float>(std::clamp(correlations[selectedLag], 0.0, 1.0));
     return static_cast<float>(static_cast<double>(sampleRateHz) / refinedLag);
 }
 } // namespace
@@ -188,36 +191,47 @@ void AnalysisEngine::workerMain() noexcept {
     const auto rate = sampleRateHz_.load(std::memory_order_acquire);
     const auto windowFrames = std::max(4U, static_cast<std::uint32_t>(
         std::ceil(static_cast<double>(AnalysisWindowFrames) * rate / 48000)));
+    const auto hopFrames = windowFrames / AnalysisOverlap;
     std::vector<float> scratch(static_cast<std::size_t>(windowFrames) * channels);
     std::vector<MonotonicTicks> captureTimes(windowFrames);
     // Match the reference track's 30 dB audible range, using a causal rolling 95th percentile.
     // A sustained quiet voice must not be learned as noise; one click must not set the gate either.
-    const auto levelWindow = std::max(1U, rate * 10U / windowFrames);
+    const auto levelWindow = std::max(1U, rate * 10U / hopFrames);
     std::vector<float> levels(levelWindow), sortedLevels(levelWindow);
     std::uint32_t levelIndex = 0, levelCount = 0;
+    std::uint32_t retainedFrames = 0;
+    auto windowGeneration = generation_.load(std::memory_order_acquire);
 
     for (;;) {
         const auto sequence = wakeSequence_.load(std::memory_order_acquire);
         if (terminate_.load(std::memory_order_acquire))
             break;
-        // Real devices normally deliver 128-512 frames at a time. Estimating each period separately
-        // makes an ordinary 100-300 Hz singing voice mathematically impossible to detect because
-        // the correlation window is shorter than even one useful period. Keep those callback blocks
-        // in the queue until one complete analysis window is available.
-        if (queue_.availableFrames() < windowFrames) {
+        const auto workGeneration = generation_.load(std::memory_order_acquire);
+        if (workGeneration != windowGeneration) {
+            retainedFrames = 0;
+            levelIndex = levelCount = 0;
+            windowGeneration = workGeneration;
+        }
+        // Keep a full low-voice analysis window, but refresh it every ~11 ms instead of ~43 ms.
+        const auto neededFrames = windowFrames - retainedFrames;
+        if (queue_.availableFrames() < neededFrames) {
             wakeSequence_.wait(sequence, std::memory_order_acquire);
             continue;
         }
 
-        const auto workGeneration = generation_.load(std::memory_order_acquire);
-        const auto frames = queue_.pop(scratch, windowFrames, {}, nullptr, captureTimes);
+        const auto offset = static_cast<std::size_t>(retainedFrames) * channels;
+        const auto frames = queue_.pop(std::span<float>{scratch}.subspan(offset), neededFrames,
+                                      {}, nullptr, std::span<MonotonicTicks>{captureTimes}.subspan(retainedFrames));
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleFrames_.fetch_add(frames, std::memory_order_relaxed);
             continue;
         }
         const auto count = static_cast<std::size_t>(frames) * channels;
-        metrics_.observe(std::span<const float>{scratch.data(), count});
-        const auto rms = metrics_.snapshot().rms;
+        metrics_.observe(std::span<const float>{scratch.data() + offset, count});
+        retainedFrames += frames;
+        if (retainedFrames < windowFrames) continue;
+        const auto squareSum = std::inner_product(scratch.begin(), scratch.end(), scratch.begin(), 0.0);
+        const auto rms = static_cast<float>(std::sqrt(squareSum / static_cast<double>(scratch.size())));
         levels[levelIndex] = rms;
         levelIndex = (levelIndex + 1U) % levelWindow;
         levelCount = std::min(levelCount + 1U, levelWindow);
@@ -227,26 +241,30 @@ void AnalysisEngine::workerMain() noexcept {
         const auto audioActive = rms > std::max(0.0001F, *percentile * 0.031622777F);
 
         std::uint64_t crossings = 0;
-        for (std::uint32_t frame = 1; frame < frames; ++frame) {
+        for (std::uint32_t frame = 1; frame < windowFrames; ++frame) {
             const auto previous = scratch[(static_cast<std::size_t>(frame) - 1U) * channels];
             const auto current = scratch[static_cast<std::size_t>(frame) * channels];
             if ((previous < 0.0F) != (current < 0.0F))
                 ++crossings;
         }
         const auto zeroCrossingRate =
-            frames > 1 ? static_cast<float>(crossings) / static_cast<float>(frames - 1U) : 0.0F;
+            static_cast<float>(crossings) / static_cast<float>(windowFrames - 1U);
         zeroCrossingRate_.store(zeroCrossingRate, std::memory_order_relaxed);
         float confidence = 0.0F;
-        const auto pitch = audioActive ? estimatePitch(scratch, frames, channels, rate, confidence) : 0.0F;
+        const auto pitch = audioActive ? estimatePitch(scratch, windowFrames, channels, rate, confidence) : 0.0F;
         {
             std::lock_guard lock(pitchMutex_);
             if (workGeneration != generation_.load(std::memory_order_acquire)) continue;
             pitchHz_.store(pitch, std::memory_order_relaxed);
-            if (frames != 0 && captureTimes[frames / 2] > 0) {
-                pitchHistory_.push_back({++pitchSequence_, captureTimes[frames / 2], frames, pitch, audioActive, confidence});
-                while (pitchHistory_.size() > 64) pitchHistory_.pop_front();
+            if (captureTimes[windowFrames / 2] > 0) {
+                // Overlap improves refresh rate; each observation scores only one new hop.
+                pitchHistory_.push_back({++pitchSequence_, captureTimes[windowFrames / 2], hopFrames, pitch, audioActive, confidence, windowFrames});
+                while (pitchHistory_.size() > PitchHistoryWindows) pitchHistory_.pop_front();
             }
         }
+        std::move(scratch.begin() + static_cast<std::size_t>(hopFrames) * channels, scratch.end(), scratch.begin());
+        std::move(captureTimes.begin() + hopFrames, captureTimes.end(), captureTimes.begin());
+        retainedFrames = windowFrames - hopFrames;
         processedFrames_.fetch_add(frames, std::memory_order_relaxed);
     }
 }

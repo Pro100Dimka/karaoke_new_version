@@ -2,7 +2,7 @@ import { audioClient as preview } from "../../services/audioClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RecordingDto } from "../../contracts/models";
 
-const pollMilliseconds = 100;
+const pollMilliseconds = 16;
 
 /**
  * Playback of one take through AudioService. Only one take is loaded at a time: when another player loads its own take,

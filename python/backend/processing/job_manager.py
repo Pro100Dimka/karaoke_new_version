@@ -92,7 +92,10 @@ class ProcessingJobManager:
         return job
 
     def run_when_idle(
-        self, action: Callable[[], None], *, busy_error: ConflictError | None = None,
+        self,
+        action: Callable[[], None],
+        *,
+        busy_error: ConflictError | None = None,
     ) -> None:
         """Keep removal atomic with submission; cancelled workers may still own files."""
         with self._state_lock:
@@ -102,9 +105,18 @@ class ProcessingJobManager:
                 )
             action()
 
-    def list(self, *, limit: int, offset: int, job_type: JobType | None = None) -> Sequence[Job]:
+    def list(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        job_type: JobType | None = None,
+        entity_id: str | None = None,
+    ) -> Sequence[Job]:
         with self._uow.create() as transaction:
-            return transaction.jobs.list(limit=limit, offset=offset, job_type=job_type)
+            return transaction.jobs.list(
+                limit=limit, offset=offset, job_type=job_type, entity_id=entity_id
+            )
 
     def cancel(self, job_id: str) -> Job:
         with self._state_lock:
@@ -200,8 +212,11 @@ class ProcessingJobManager:
         with self._state_lock:
             job = self.get(job_id)
             # Publication is atomic and finishes before cancellation. A committed revision is usable.
-            published = (job.job_type is JobType.SONG_PROCESSING and report is not None
-                         and isinstance(report.get("revision"), int))
+            published = (
+                job.job_type is JobType.SONG_PROCESSING
+                and report is not None
+                and isinstance(report.get("revision"), int)
+            )
             if not published and (cancel.is_set() or job.state is JobState.CANCELLING):
                 self._cancel_running(job_id)
                 return
@@ -278,6 +293,7 @@ class ProcessingJobManager:
             "job.changed",
             {
                 "jobId": job.job_id,
+                "entityId": job.entity_id,
                 "type": job.job_type.value,
                 "state": job.state.value,
                 "stage": job.stage,

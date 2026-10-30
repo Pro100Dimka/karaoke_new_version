@@ -73,6 +73,17 @@ def test_catalog_version_follows_performed_repeats_instead_of_only_duration() ->
     assert result.lyrics == correct
 
 
+def test_small_recognition_errors_do_not_promote_a_longer_other_recording():
+    from backend.lyrics.discovery import _best_catalog_version
+
+    studio = "Silver rain is falling\nI follow the river\nWe find the road home"
+    live = studio.replace("road", "way") + "\nThank you everyone turn the lights off"
+    heard = studio.replace("road", "way").replace("river", "rivers")
+    correct = LyricsCandidate(studio, "T", "A", 188, "catalog")
+    other = LyricsCandidate(live, "T", "A", 189, "catalog")
+    assert _best_catalog_version([other, correct], {other: 1, correct: 0}, [heard]) == correct
+
+
 def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus_prefix() -> None:
     from backend.lyrics.phrases import _complete_repeats
 
@@ -637,6 +648,16 @@ def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_c
     assert _complete_repeats(lyrics, heard, threading.Event()) == lyrics
 
 
+def test_repeated_outro_suffix_cannot_recreate_an_unperformed_line_entry():
+    from backend.lyrics.phrases import _complete_repeats
+
+    line = "Ті хто вірив і правду знати хотів"
+    tail = "правду знати хотів"
+    result = _complete_repeats(line, f"{line} {tail} {tail}", threading.Event())
+
+    assert result.splitlines() == [line, tail, tail]
+
+
 def test_catalog_search_keeps_artist_match_and_also_checks_title_versions():
     fetch = _Recorder(_ROWS, _ROWS.replace('"x"', '"full text"'))
     result = LrclibLyricsProvider(fetch=fetch).search(
@@ -831,6 +852,29 @@ def test_recognition_order_cannot_invent_a_repeat_without_an_extra_performed_occ
     expected = [0, 1, 0, 2, 3, 3, 0, 0] if extra_final else original
 
     assert _merge_lines(original, heard, keys) == expected
+
+
+@pytest.mark.parametrize("extra_repeat", [False, True])
+def test_catalog_line_variants_do_not_create_a_phantom_repeat(extra_repeat):
+    from backend.lyrics.phrases import _complete_repeats
+
+    first = "Theres a fire starting in my heart"
+    short = "Reaching a fever pitch its bringing me out the dark"
+    long = "Reaching a fever pitch and its bringing me out the dark"
+    next_line = "Finally I can see you crystal clear"
+    bridge = "Go ahead and sell me out and Ill lay your ship bare"
+    catalog = [first, short, next_line, bridge, first, long]
+    performed = [first, long, next_line, bridge, first, long]
+    if extra_repeat:
+        performed.append(long)
+
+    expected = [first, short, next_line, bridge, first, long]
+    if extra_repeat:
+        expected.append(long)
+    assert (
+        _complete_repeats("\n".join(catalog), " ".join(performed), threading.Event()).splitlines()
+        == expected
+    )
 
 
 def test_a_fresh_catalog_recomputes_ai_repeats_instead_of_preserving_a_longer_bad_baseline():

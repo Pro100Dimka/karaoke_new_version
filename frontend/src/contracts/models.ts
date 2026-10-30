@@ -304,7 +304,7 @@ export interface RecordingDto {
   analyzed: boolean;
   analysisStatus?:
     "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
-  fileStatus?: "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";
+  fileStatus?: "Preparing" | "PreparationFailed" | "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";
   /** Present only for a Studio Master derived from an untouched source take. */
   sourceRecordingId?: string;
 }

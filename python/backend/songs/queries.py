@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import Song, SongStatus
-from backend.songs.ports import MediaInspector, SongPage
+from backend.songs.ports import MediaInspector, SongPage, SongSearch, SongSummary
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +47,16 @@ class ListSongs:
     def __init__(self, uow: UnitOfWorkFactory, max_limit: int) -> None:
         self._uow = uow
         self._max_limit = max_limit
+
+    def search(self, query: SongSearch) -> SongPage:
+        if not 1 <= query.limit <= self._max_limit:
+            raise DomainError("InvalidPageLimit", "Page limit is outside the allowed range", 400)
+        with self._uow.create() as transaction:
+            return transaction.songs.search(query)
+
+    def summary(self) -> SongSummary:
+        with self._uow.create() as transaction:
+            return transaction.songs.summary()
 
     def execute(self, query: ListSongsQuery) -> SongPage:
         if not 1 <= query.limit <= self._max_limit:

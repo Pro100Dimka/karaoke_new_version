@@ -6,7 +6,7 @@ import {
   Stack,
   Typography,
 } from "@neo-ui-kit/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import type { MessageKey } from "../../../i18n/messages";
 import { useText } from "../../../i18n/useText";
 import { ConsoleSection } from "./ConsoleSection";
@@ -160,7 +160,7 @@ const TempoField = ({
 };
 
 /** The three practice read-outs: tempo, key and the vocal range of the song. */
-export const PracticeParameters = ({
+export const PracticeParameters = memo(({
   speed,
   baseBpm,
   keyShift,
@@ -242,4 +242,4 @@ export const PracticeParameters = ({
       </Grid>
     </ConsoleSection>
   );
-};
+});

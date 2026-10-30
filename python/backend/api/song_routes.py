@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
+from uuid import uuid4
+import anyio
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import FileResponse
 
 from backend.api.dependencies import container
 from backend.api.song_dto import ImportSongDto, SongDto, SongPageDto, UpdateSongDto, song_dto
+from backend.api.song_dto import SongSummaryDto
 from backend.bootstrap.container import ApplicationContainer
 from backend.domain_errors import NotFoundError
-from backend.songs.domain import CoverState, Song
+from backend.songs.domain import CoverState, Language, Song
+from backend.songs.ports import SongSearch
 from backend.songs.domain import SongStatus
 from backend.songs.import_song import ImportSongRequest
 from backend.songs.queries import ListSongsQuery
@@ -20,6 +24,7 @@ from backend.api.system_routes import JobDto, _job
 
 router = APIRouter(prefix="/songs")
 ContainerDep = Annotated[ApplicationContainer, Depends(container)]
+waveform_limit = anyio.CapacityLimiter(2)
 
 
 @router.post("", response_model=SongDto, status_code=201)
@@ -75,6 +80,43 @@ def list_songs(
     )
 
 
+@router.get("/search", response_model=SongPageDto)
+def search_songs(
+    request: Request,
+    app: ContainerDep,
+    search: str | None = Query(default=None, max_length=300),
+    status: Literal[
+        "all", "ready", "importing", "processing", "queued", "not-processed", "failed", "invalid"
+    ] = "all",
+    sort: Literal["title", "artist", "createdAt", "played", "duration", "bpm"] = "createdAt",
+    descending: bool = True,
+    language: Language | None = None,
+    duration: Literal["all", "short", "medium", "long"] = "all",
+    artwork: Literal["all", "with", "without"] = "all",
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    cursor: str | None = Query(default=None, max_length=4096),
+) -> SongPageDto:
+    page = app.songs.list_songs.search(
+        SongSearch(search, status, sort, descending, language, duration, artwork, limit, cursor)
+    )
+    return SongPageDto(
+        items=[_song_dto(item, request) for item in page.items],
+        next_cursor=page.next_cursor,
+    )
+
+
+@router.get("/summary", response_model=SongSummaryDto)
+def song_summary(app: ContainerDep) -> SongSummaryDto:
+    summary = app.songs.list_songs.summary()
+    return SongSummaryDto(total=summary.total, ready=summary.ready, languages=summary.languages)
+
+
+@router.post("/{song_id}/played", status_code=204)
+def mark_song_played(song_id: str, app: ContainerDep) -> Response:
+    app.songs.update_song.mark_played(song_id, str(uuid4()))
+    return Response(status_code=204)
+
+
 @router.get("/{song_id}", response_model=SongDto)
 def get_song(song_id: str, request: Request, app: ContainerDep) -> SongDto:
     return _song_dto(app.songs.get_song.execute(song_id), request)
@@ -96,11 +138,14 @@ def get_song_cover(song_id: str, app: ContainerDep) -> FileResponse:
     return FileResponse(cached, headers={"Cache-Control": "max-age=86400"})
 
 
-@router.get("/{song_id}/waveform")
-def get_song_waveform(
-    song_id: str, app: ContainerDep, bins: int = Query(120, ge=16, le=480)
-) -> list[float]:
-    return app.songs.get_waveform.execute(song_id, bins)
+@router.get("/{song_id}/waveform", response_model=list[float])
+async def get_song_waveform(
+    song_id: str, request: Request, app: ContainerDep, bins: int = Query(120, ge=16, le=480)
+) -> list[float] | Response:
+    async with waveform_limit:
+        if await request.is_disconnected():
+            return Response(status_code=499)
+        return await anyio.to_thread.run_sync(app.songs.get_waveform.execute, song_id, bins)
 
 
 @router.delete("/{song_id}/cover", response_model=SongDto)

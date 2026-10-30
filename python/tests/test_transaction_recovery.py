@@ -10,6 +10,7 @@ from backend.domain_errors import DependencyError
 from backend.infrastructure.local_songs import LocalSongStorage
 from backend.infrastructure.recovery_journal import FileRecoveryJournal
 from backend.recovery.domain import RecoveryOperation
+from backend.songs.delete_song import DeleteSong
 from backend.storage.domain import StorageRoots
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider, FakeClock
@@ -213,3 +214,34 @@ def test_delete_does_not_move_song_files_if_recovery_journal_cannot_be_written(
         } == original
         assert not (root / "quarantine" / f"song-{song_id}").exists()
         assert client.delete(f"/songs/{song_id}").status_code == 204
+
+
+def test_delete_restores_quarantine_when_metadata_commit_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "runtime"
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(root) as client:
+        song_id = str(import_song(client, source)["songId"])
+        directory = root / "songs" / song_id
+        original = {
+            path.relative_to(directory): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        }
+
+        def fail_commit(*_args: object) -> None:
+            raise DependencyError("StorageUnavailable", "injected metadata failure")
+
+        with monkeypatch.context() as failure:
+            failure.setattr(DeleteSong, "_delete_metadata", fail_commit)
+            assert client.delete(f"/songs/{song_id}").status_code == 503
+
+        assert client.get(f"/songs/{song_id}").status_code == 200
+        assert {
+            path.relative_to(directory): path.read_bytes()
+            for path in directory.rglob("*")
+            if path.is_file()
+        } == original
+        assert _journal(root).entries() == ()

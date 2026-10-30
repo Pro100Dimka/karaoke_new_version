@@ -32,6 +32,7 @@ const rememberStorageRoot = (folder: string): string => {
 
 /** Where the backend keeps songs and data: the folder the user chose, else the environment's or the default. */
 export const configuredStorageRoot = (): string => {
+  if (app.isPackaged) return rememberStorageRoot(path.join(app.getPath("userData"), "backend-data"));
   try {
     const saved = fs.readFileSync(storageRootFile(), "utf8").trim();
     if (saved && path.isAbsolute(saved)) return rememberStorageRoot(saved);
@@ -45,6 +46,8 @@ export const configuredStorageRoot = (): string => {
 
 /** Takes effect at the next start: the running backend keeps the folder it opened. */
 export const saveStorageRoot = (folder: string): void => {
+  if (app.isPackaged && path.resolve(folder).toLowerCase() !== configuredStorageRoot().toLowerCase())
+    throw new Error("The installed application stores its data in its installation directory");
   fs.mkdirSync(folder, { recursive: true });
   fs.writeFileSync(storageRootFile(), folder, "utf8");
   rememberStorageRoot(folder);

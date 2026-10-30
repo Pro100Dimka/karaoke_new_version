@@ -202,11 +202,7 @@ class DownloadModel:
             )
             self._save(ready)
             completed = True
-            return {
-                "modelId": model.model_id,
-                "version": model.version,
-                "state": ModelState.READY.value,
-            }
+            return self._ready_result(model)
         except DomainError:
             context.ensure_not_cancelled()
             raise
@@ -216,6 +212,13 @@ class DownloadModel:
                     self._storage.delete(temporary)
                 finally:
                     self._set_state(model, ModelState.FAILED)
+
+    def _ready_result(self, model: AiModel) -> dict[str, object]:
+        return {
+            "modelId": model.model_id,
+            "version": model.version,
+            "state": ModelState.READY.value,
+        }
 
     def _get(self, model_id: str, version: str) -> AiModel:
         with self._uow.create() as transaction:

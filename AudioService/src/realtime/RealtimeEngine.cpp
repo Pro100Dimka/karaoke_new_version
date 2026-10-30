@@ -92,7 +92,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     remoteMixPeak_.store(0.0F, std::memory_order_relaxed);
     masterOutputNonzeroBlocks_.store(0, std::memory_order_relaxed);
     masterOutputPeak_.store(0.0F, std::memory_order_relaxed);
-    for (auto* aligner : {&aligner_, &backingAligner_})
+    for (auto* aligner : {&aligner_, &backingAligner_, &dryAligner_})
         aligner->prepare(plan.outputChannels, plan.internalSampleRateHz / PerformanceLeadDivisor,
                          plan.maximumBlockFrames);
     latencyMeter_.prepare(plan.internalSampleRateHz, plan.inputSampleRateHz);
@@ -150,11 +150,14 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
             std::vector<float> tail(static_cast<std::size_t>(frames) * plan_.outputChannels);
             aligner_.read(tail, frames);
             std::vector<float> backing;
+            std::vector<float> dry;
             if (recording_.backingEnabled()) {
                 backing.resize(tail.size());
                 backingAligner_.read(backing, frames);
+                dry.resize(tail.size());
+                dryAligner_.read(dry, frames);
             }
-            recording_.appendPerformanceTail(cutoff, tail, frames, backing);
+            recording_.appendPerformanceTail(cutoff, tail, frames, backing, dry);
         } catch (const std::exception& error) {
             recording_.fail(error.what());
             throw;
@@ -205,7 +208,7 @@ void RealtimeEngine::reset() noexcept {
     lastCaptureTimestamp_.store(-1, std::memory_order_relaxed);
     capturePushedAt_.store(0, std::memory_order_relaxed);
     capturedEndTicks_.store(0, std::memory_order_relaxed);
-    for (auto* aligner : {&aligner_, &backingAligner_})
+    for (auto* aligner : {&aligner_, &backingAligner_, &dryAligner_})
         aligner->reset();
     voiceLateFrames_ = -1.0;
     lastRenderAt_ = 0;
@@ -1010,6 +1013,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     std::span<const float> recordedBacking;
     const auto pairedPerformance =
         recording_.backingEnabled() && recording_.selectedTap() == RecordingTap::PerformanceMix;
+    if (performanceActive && pairedPerformance && microphoneEnabled) {
+        // Raw capture has no DSP delay. Retain its unity level, independently of monitor gains.
+        const auto dspFrames = dspLatencyFrames();
+        const auto dryLateFrames = voiceLateFrames > dspFrames ? voiceLateFrames - dspFrames : 0U;
+        dryAligner_.add(rawMic, buffer.frames, 1.0F, dryLateFrames);
+    }
     if (recording_.backingEnabled()) {
         // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
         // here before the performance aligner reuses buffer 3 for an aligned recording mix.
@@ -1035,6 +1044,8 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                                                            sessionFrame().value()));
     const auto remotePeak = pcmPeak(remote);
     if (remotePeak > 0.0F) {
+        if (performanceActive && pairedPerformance && gains.remote != 0.0F)
+            recording_.markDryIncomplete();
         remoteMixNonzeroBlocks_.fetch_add(1, std::memory_order_relaxed);
         retainPeak(remoteMixPeak_, remotePeak);
     }
@@ -1050,9 +1061,12 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // The tones belong to the accompaniment: when the song steps back under quiet voices, so do
     // they.
     renderTone(output, buffer.frames, accompaniment);
+    auto dry = buffers_.buffer(4, buffer.frames);
+    if (performanceActive && pairedPerformance)
+        dryAligner_.read(dry, buffer.frames);
     if (performanceActive) {
         recording_.push(generation, RecordingTap::PerformanceMix, sessionFrame(), performance,
-                        buffer.frames, {}, recordedBacking);
+                        buffer.frames, {}, recordedBacking, pairedPerformance ? dry : std::span<float>{});
         performanceFrame_.store(sessionFrame() + buffer.frames);
     }
     mixer_.clampToFullScale(output);

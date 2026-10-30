@@ -48,7 +48,7 @@ export const weakestMetric = (analysis: AnalysisDto): AnalysisMetric =>
     analysis[metric.key] < analysis[weakest.key] ? metric : weakest,
   );
 const analysisStages = {
-  Loading: "analysisLoading", Queued: "analysisWaitingResources", AnalyzingTiming: "analysisTiming",
+  PreparingRecording: "recordingPreparing", Loading: "analysisLoading", Queued: "analysisWaitingResources", AnalyzingTiming: "analysisTiming",
   SeparatingPerformance: "analysisSeparating", PitchAnalysis: "analysisPitchTracking",
   ReferencePitchAnalysis: "analysisReferenceTracking", Scoring: "analysisScoring",
 } as const;

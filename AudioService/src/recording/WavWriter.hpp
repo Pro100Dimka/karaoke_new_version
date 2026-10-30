@@ -10,7 +10,7 @@ class WavWriter {
     void open(const std::string& path, std::uint32_t sampleRateHz, std::uint32_t channels,
               bool floatingCapture = false);
     void write(std::span<const float> interleaved);
-    void close(float gain = 1.0F);
+    void close(float gain = 1.0F, bool preserveFloat = false);
     void abandon() noexcept;
     [[nodiscard]] bool open() const noexcept {
         return file_.is_open();

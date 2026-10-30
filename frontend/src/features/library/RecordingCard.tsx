@@ -95,6 +95,7 @@ export const RecordingCard = ({
   const t = useText();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
+  const preparing = ["Preparing", "PreparationFailed"].includes(selected.fileStatus ?? "");
   const task = progress[selected.id];
   const failure = failures[selected.id];
   const hasAnalysis = selected.analysisStatus === "Succeeded" || (selected.analyzed && !selected.analysisStatus);
@@ -110,9 +111,7 @@ export const RecordingCard = ({
   return (
     <li ref={card}>
       <Card border padding="sm" className="recordingCard">
-        <svg className="recordingArt" viewBox="0 0 240 204" aria-hidden="true">
-          <use href={`${performanceArtUrl}#pf-art-${(index % 6) + 1}`} />
-        </svg>
+        <img className="recordingArt" src={`${performanceArtUrl}#pf-view-${(index % 6) + 1}`} alt="" />
         <div className="recordingMain">
           <TakeName name={name} onRename={onRename} />
           {versions.length > 0 && (
@@ -142,7 +141,7 @@ export const RecordingCard = ({
           )}
         </div>
         <div className="recordingActions">
-          {task ? <IconButton icon="stop" label={t("analysisCancel")} disabled={!task.jobId}
+          {preparing ? null : task ? <IconButton icon="stop" label={t("analysisCancel")} disabled={!task.jobId}
             onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)} /> : hasAnalysis ? <SplitButton
             size="sm" variant="secondary" icon="levels" label={t("recordingOpenAnalysis")}
             onClick={() => onAnalyze(selected)} items={[{ id: "recalculate", label: t("recordingReanalyze"),
@@ -161,6 +160,7 @@ export const RecordingCard = ({
             icon="trash"
             variant="danger"
             label={t("recordingDelete")}
+            disabled={selected.fileStatus === "Preparing"}
             onClick={() => onDelete(selected)}
           />
         </div>

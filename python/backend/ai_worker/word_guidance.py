@@ -25,21 +25,8 @@ def recognized_phrase(
     Catalogue time selects the occurrence; the same character evidence used in lyric
     discovery selects its recognized span. It cannot add or replace any written text.
     """
-    key, keys = _lyrics_key(" ".join(words)), [_lyrics_key(word) for word, _, _ in heard]
-    matches = [
-        (support, first, last)
-        for first, (_, start, _) in enumerate(heard)
-        if window.start - margin <= start < min(window.end, window.start + 2 * margin)
-        for last, support in _line_matches(key, keys, first)
-        if heard[last - 1][1] < window.end and heard[last - 1][2] <= window.end + margin
-    ]
-    # Equal text support must keep the nearest occurrence, not the largest ASR index.
-    entry = window.heard_start if window.heard_start is not None else window.start
-    best = max(
-        matches,
-        key=lambda match: (match[0], -abs(heard[match[1]][1] - entry)),
-        default=None,
-    )
+    key = _lyrics_key(" ".join(words))
+    best = _best_phrase_match(window, key, heard, margin)
     span = (
         best[1:]
         if best is not None
@@ -52,11 +39,36 @@ def recognized_phrase(
     first, last = span
     phrase = replace(
         window,
-        start=min(window.start, heard[first][1]) if matches else window.start,
+        start=min(window.start, heard[first][1]) if best is not None else window.start,
         end=min(window.end, heard[last - 1][2] + margin),
         heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
     )
-    return phrase, _character_intervals(words, heard[first:last], window.first) if matches else {}
+    return phrase, _character_intervals(
+        words, heard[first:last], window.first
+    ) if best is not None else {}
+
+
+def _best_phrase_match(
+    window: ctc.Window,
+    key: str,
+    heard: Sequence[tuple[str, float, float]],
+    margin: float,
+) -> tuple[int, int, int] | None:
+    keys = [_lyrics_key(word) for word, _, _ in heard]
+    matches = [
+        (support, first, last)
+        for first, (_, start, _) in enumerate(heard)
+        if window.start - margin <= start < min(window.end, window.start + 2 * margin)
+        for last, support in _line_matches(key, keys, first)
+        if heard[last - 1][1] < window.end and heard[last - 1][2] <= window.end + margin
+    ]
+    # Equal text support must keep the nearest occurrence, not the largest ASR index.
+    entry = window.heard_start if window.heard_start is not None else window.start
+    return max(
+        matches,
+        key=lambda match: (match[0], -abs(heard[match[1]][1] - entry)),
+        default=None,
+    )
 
 
 def _nearby_utterance(
@@ -192,6 +204,7 @@ def with_word_guidance(
     *,
     recognized: Sequence[tuple[str, float, float]] = (),
     onsets: Sequence[float] = (),
+    reviewed: frozenset[int] = frozenset(),
 ) -> list[ctc.AlignedWord]:
     result = list(words)
     for window in windows:
@@ -206,7 +219,7 @@ def with_word_guidance(
         first, last = max(0, window.first - 1), min(len(words), window.last + 1)
         options = [[word] for word in result[first:last]]
         alternatives = _recognized_cores(
-            words, scores, frame_seconds, window, timings, voiced, margin, onsets
+            words, scores, frame_seconds, window, timings, voiced, margin, onsets, reviewed
         )
         if phrase is not None or any(window.first <= index < window.last for index in timings):
             # An unrecognized neighbour can occupy an earlier recognized word's real place.
@@ -232,13 +245,22 @@ def _recognized_cores(
     voiced: np.ndarray,
     margin: float,
     onsets: Sequence[float] = (),
+    reviewed: frozenset[int] = frozenset(),
 ) -> list[tuple[int, ctc.AlignedWord, tuple[float, float]]]:
     return [
         (index, candidate, interval)
         for index in range(window.first, window.last)
         if (interval := heard.get(index)) is not None
         for candidate in _candidates(
-            words[index], scores, frame_seconds, window, interval, voiced, margin, onsets
+            words[index],
+            scores,
+            frame_seconds,
+            window,
+            interval,
+            voiced,
+            margin,
+            onsets,
+            review=index in reviewed,
         )
     ]
 
@@ -312,10 +334,12 @@ def _candidates(
     voiced: np.ndarray,
     margin: float,
     onsets: Sequence[float] = (),
+    *,
+    review: bool = False,
 ) -> list[ctc.AlignedWord]:
     first, last = interval
     miss = abs(first - word.start)
-    if miss <= ctc._HEARD_DISAGREEMENT_SECONDS:
+    if miss <= ctc._HEARD_DISAGREEMENT_SECONDS and not review:
         return []
     return [
         candidate
@@ -326,9 +350,14 @@ def _candidates(
             window,
             interval,
             margin,
+            review=review,
         )
-        if miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS
-        and _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
+        if (review or miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS)
+        and (
+            candidate.score <= 0
+            and (review or not first <= word.start <= last)
+            or _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
+        )
         and not _crosses_confirmed_entry(word, candidate, interval, onsets)
         and ctc._implausible([candidate], voiced) <= ctc._implausible([word], voiced)
     ]
@@ -371,6 +400,8 @@ def _core_candidates(
     window: ctc.Window,
     interval: tuple[float, float],
     margin: float,
+    *,
+    review: bool = False,
 ) -> list[ctc.AlignedWord]:
     first, last = interval
     start, end = max(window.start, first), min(window.end, last + margin)
@@ -383,7 +414,7 @@ def _core_candidates(
         ctc.Window(0, 1, start, end),
     )
     end = min(last, window.end)
-    if start < end and not start <= word.start < end:
+    if start < end and (review or not start <= word.start < end):
         # A recognition span can include the previous vowel. An interpolated entry
         # supplies no acoustic evidence against a CTC core already inside that span.
         candidates.extend(ctc._evenly([word.text], start, end))
@@ -453,12 +484,13 @@ def _matching_blocks(
     heard_keys = [item[0] for item in heard]
     if whole is None:
         return difflib.SequenceMatcher(a=keys, b=heard_keys, autojunk=False).get_matching_blocks()
-    # Soft CTC timing disambiguates repeated choruses when ASR misses an occurrence.
+    # Match coverage first; bounded timing proximity only disambiguates equal-coverage repeats.
+    proximity = 1 / (min(len(words), len(heard)) + 1)
     scores = np.zeros((len(words) + 1, len(heard) + 1))
     for i in range(len(words) - 1, -1, -1):
         for j in range(len(heard) - 1, -1, -1):
             match = (
-                scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+                scores[i + 1, j + 1] + 1 + proximity / (1 + abs(whole[i].start - heard[j][1]))
                 if keys[i] == heard_keys[j]
                 else 0.0
             )
@@ -467,7 +499,7 @@ def _matching_blocks(
     i, j = 0, 0
     while i < len(words) and j < len(heard):
         if keys[i] == heard_keys[j] and scores[i, j] == (
-            scores[i + 1, j + 1] + 1 / (1 + abs(whole[i].start - heard[j][1]))
+            scores[i + 1, j + 1] + 1 + proximity / (1 + abs(whole[i].start - heard[j][1]))
         ):
             if (
                 blocks

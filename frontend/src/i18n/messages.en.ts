@@ -93,6 +93,7 @@ export const en = {
   dataStorageRootHint:
     "Songs, recordings, AI models, and cache are stored here. The new folder is used after restarting the app.",
   selectDataFolder: "Choose data folder",
+  installedDataStorageHint: "Songs, recordings, models, and cache are stored inside the installation folder.",
   allStatuses: "All statuses",
   gradeExcellent: "Excellent performance",
   gradeGood: "Good result",
@@ -206,6 +207,9 @@ export const en = {
   recovering: "Recovering",
   performanceAnalysis: "Performance analysis",
   pianoRoll: "Piano roll",
+  pitchUncertain: "Sound detected · pitch uncertain",
+  pitchAboveRange: "↑ Voice above the displayed range",
+  pitchBelowRange: "↓ Voice below the displayed range",
   introCountdown: "Vocals in {seconds}s",
   play: "Play karaoke",
   playRecording: "Play recording",

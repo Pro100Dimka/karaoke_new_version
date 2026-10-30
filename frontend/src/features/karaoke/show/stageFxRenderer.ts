@@ -81,7 +81,7 @@ export class StageFxRenderer {
   private flares: Flare[] = [];
   private rain: Timed | undefined;
   private rainDebt = 0;
-  private styles = new Map<string, string>();
+  private styles = new Map<string, { element: HTMLElement; value: string }>();
   private sweepToggle = false;
   private unsubscribe: () => void;
 
@@ -141,7 +141,8 @@ export class StageFxRenderer {
     this.events.abort();
     this.light?.dispose();
     this.worker?.terminate();
-    for (const name of this.styles.keys()) this.host.style.removeProperty(name);
+    for (const [name, { element }] of this.styles) element.style.removeProperty(name);
+    this.styles.clear();
     delete this.host.dataset.showSweep;
   }
 
@@ -538,20 +539,30 @@ export class StageFxRenderer {
   /** Backing-track motion belongs only to the painted lyrics. */
   private applyStyles(): void {
     const beat = this.engine.state.musicBeat ?? 0;
-    this.setStyle("--show-music-beat", (beat * 0.4).toFixed(5));
+    this.setStyle("--show-music-beat", (beat * 0.4).toFixed(5), ".ad-lyrics-current");
     this.setStyle(
       "--show-console-glow",
       (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),
+      ".karaokeConsoleCard",
     );
     this.setStyle(
       "--show-roll-glow",
       this.engine.state.ambient.rollGlow.toFixed(3),
+      ".pianoRollLane",
     );
   }
 
-  private setStyle(name: string, value: string): void {
-    if (this.styles.get(name) === value) return;
-    this.styles.set(name, value);
-    this.host.style.setProperty(name, value);
+  private setStyle(name: string, value: string, selector: string): void {
+    const element = this.host.querySelector<HTMLElement>(selector);
+    const previous = this.styles.get(name);
+    if (previous?.element === element && previous.value === value) return;
+    if (previous && previous.element !== element) previous.element.style.removeProperty(name);
+    if (!element) {
+      this.styles.delete(name);
+      return;
+    }
+    // Scope animated variables to their consumer instead of invalidating the entire scene.
+    element.style.setProperty(name, value);
+    this.styles.set(name, { element, value });
   }
 }

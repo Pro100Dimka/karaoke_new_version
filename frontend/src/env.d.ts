@@ -44,6 +44,7 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  readonly fixedStorageRoot?: boolean;
   readonly roomE2e?: boolean;
   minimize(): Promise<void>;
   dragWindow(phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void>;

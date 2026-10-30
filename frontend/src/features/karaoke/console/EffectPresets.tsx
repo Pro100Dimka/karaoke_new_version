@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Grid, ToggleButton } from "@neo-ui-kit/react";
 import { useText } from "../../../i18n/useText";
 import { ConsoleSection } from "./ConsoleSection";
@@ -10,7 +11,7 @@ interface EffectPresetsProps {
 }
 
 /** The "Mode" panel: one button per voice effect preset. */
-export const EffectPresets = ({
+export const EffectPresets = memo(({
   selected,
   microphoneAvailable,
   onSelect,
@@ -33,4 +34,4 @@ export const EffectPresets = ({
       </Grid>
     </ConsoleSection>
   );
-};
+});

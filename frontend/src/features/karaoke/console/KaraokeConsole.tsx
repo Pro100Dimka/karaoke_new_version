@@ -1,5 +1,5 @@
 import { Card, IconButton, Menu, tr } from "@neo-ui-kit/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { readText, storageKey, writeText } from "../../../shared/storage/localStore";
 import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
 import type { SongDto } from "../../../contracts/models";
@@ -107,6 +107,8 @@ export const KaraokeConsole = ({
     [session.document?.key, session.document?.notes, session.keyShift],
   );
 
+  const changeMaster = useCallback((value: number) => { void session.changeGain("master", value); }, [session.changeGain]);
+
   return (
     <DetachedPanel panel={panel}>
       <ConsoleFrame
@@ -121,11 +123,11 @@ export const KaraokeConsole = ({
           <div className="consoleTopRow">
             <SongStrip
               song={song}
-              position={session.position}
+              position={shown ? session.position : 0}
               duration={song.durationSeconds}
               locked={seekLocked}
-              playing={state.kind === "playing"}
-              onSeek={(seconds) => void session.seek(seconds)}
+              playing={shown && state.kind === "playing"}
+              onSeek={session.seek}
             />
             <Transport
               state={state}
@@ -147,20 +149,18 @@ export const KaraokeConsole = ({
               }))} />
             <MasterVolume
               value={session.gains.master}
-              onChange={(value) => void session.changeGain("master", value)}
+              onChange={changeMaster}
             />
           </div>
           <div className="consolePanels">
             <MixerPanel
               gains={session.gains}
               effects={effects.values}
-              onEffectChange={(id, value) => void effects.change(id, value)}
+              onEffectChange={effects.change}
               monitoring={session.monitoring}
               microphoneAvailable={microphoneAvailable}
-              onGainChange={(channel, value) =>
-                void session.changeGain(channel, value)
-              }
-              onToggleMonitoring={() => void session.toggleMonitoring()}
+              onGainChange={session.changeGain}
+              onToggleMonitoring={session.toggleMonitoring}
             />
             <PracticeParameters
               speed={session.speed}
@@ -177,13 +177,13 @@ export const KaraokeConsole = ({
               setShowLyrics={session.setShowLyrics}
               setAutoHideConsole={session.setAutoHideConsole}
               locked={locked}
-              onSpeedChange={(value) => void session.changeSpeed(value)}
-              onKeyChange={(delta) => void session.changeKey(delta)}
+              onSpeedChange={session.changeSpeed}
+              onKeyChange={session.changeKey}
             />
             <EffectPresets
               selected={effects.preset}
               microphoneAvailable={microphoneAvailable}
-              onSelect={(preset) => void effects.applyPreset(preset)}
+              onSelect={effects.applyPreset}
             />
           </div>
         </Card>

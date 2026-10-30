@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from backend.domain_errors import NotFoundError
+from backend.domain_errors import NotFoundError, ConflictError
 from backend.persistence import UnitOfWorkFactory
 from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.ports import RecordingStorage
@@ -17,6 +17,8 @@ class DeleteRecording:
             if self._storage.discard_empty_target(recording_id):
                 return
             raise NotFoundError("RecordingNotFound", "Recording was not found")
+        if recording.file_status == "Preparing":
+            raise ConflictError("RecordingPreparing", "Wait for recording preparation before deletion")
         quarantine = self._storage.quarantine(recording_id, recording.file_path)
         committed = False
         try:

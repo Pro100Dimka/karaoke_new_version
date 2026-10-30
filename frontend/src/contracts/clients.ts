@@ -168,6 +168,7 @@ export interface PythonClient {
     revision: number,
   ): Promise<ProjectCompatibility>;
   deleteSong(songId: string): Promise<void>;
+  retryRecordingPreparation(recordingId: string): Promise<RecordingDto>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
   analyzeRecording(recordingId: string, onProgress?: (progress: RecordingAnalysisProgress) => void): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;

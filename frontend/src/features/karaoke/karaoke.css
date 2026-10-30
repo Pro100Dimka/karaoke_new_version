@@ -119,7 +119,7 @@ html[data-tv-screen] body {
 }
 .karaokePage:has(.karaokeConsolePanel[data-dock="left"]:not([data-hidden])) .stage { margin-left: min(376px, 44vw); }
 .karaokePage:has(.karaokeConsolePanel[data-dock="right"]:not([data-hidden])) .stage { margin-right: min(376px, 44vw); }
-.karaokePage[data-paused] :is(.stage, .pianoRoll) *,
+.karaokePage[data-paused] :is(.stage, .pianoRoll) :not(.ad-lyrics-current),
 .karaokePage[data-paused] .karaokeConsoleCard::before { animation-play-state: paused; }
 
 /* The lyrics (Neo UI's KaraokeLyrics) cover the stage without taking its clicks. */
@@ -188,6 +188,16 @@ html[data-tv-screen] body {
 }
 .pianoRollLane.ad-melody-roll {
   min-height: 0;
+}
+.pianoRollVoiceStatus {
+  position: absolute;
+  z-index: 4;
+  top: var(--ad-space-1);
+  left: 12%;
+  color: #ffce78;
+  font-size: 0.75rem;
+  text-shadow: 0 0.0625rem 0.25rem #000;
+  pointer-events: none;
 }
 
 /* The console's slot at the bottom of the karaoke screen, with the no-microphone note above it. */

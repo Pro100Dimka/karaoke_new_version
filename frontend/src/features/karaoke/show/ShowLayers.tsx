@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useReducer } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { subscribeSpectrum } from "../../../app/backdrop/spectrumEvents";
 import type { LyricLine } from "../karaokeLyrics";
 import type { ShowNote, ShowPhrase } from "./performanceTracker";
@@ -108,7 +108,6 @@ export const useShowEngine = ({
   rhythm,
 }: ShowInput): ShowEngine => {
   const engine = useMemo(() => new ShowEngine(), []);
-  const [, refreshScore] = useReducer((version: number) => version + 1, 0);
   const lastPitch = useRef({ epoch: -1, sequence: 0 });
   const loadedLines = useRef<readonly LyricLine[] | undefined>(undefined);
   useEffect(() => {
@@ -123,7 +122,6 @@ export const useShowEngine = ({
     );
     loadedLines.current = lines;
     if (resetPerformance) lastPitch.current = { epoch: -1, sequence: 0 };
-    refreshScore();
   }, [engine, notes, lines, vocalActivity, rhythm]);
   useEffect(() => engine.configure(settings), [engine, settings]);
   useEffect(
@@ -142,18 +140,14 @@ export const useShowEngine = ({
         undefined,
         pitchFrames === undefined,
       );
-      if (playing && pitchFrames === undefined) refreshScore();
   }, [engine, notes, position, pitchHz, playing, pitchFrames]);
   useEffect(() => {
     if (!playing || !pitchFrames) return;
-    let changed = false;
     for (const frame of pitchFrames) {
       if (frame.epoch === lastPitch.current.epoch && frame.sequence <= lastPitch.current.sequence) continue;
       engine.advance(performance.now(), frame.positionSeconds, frame.pitchHz, true, frame.durationSeconds, true, frame.audioActive, frame.confidence);
       lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
-      changed = true;
     }
-    if (changed) refreshScore();
   }, [engine, pitchFrames, playing]);
   useEffect(() => exposeForDiagnostics(engine), [engine]);
   return engine;

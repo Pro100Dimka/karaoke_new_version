@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { IconButton, RotaryKnob, Stack } from "@neo-ui-kit/react";
 import type { MixerChannelGains } from "../../../contracts/models";
 import type { MessageKey } from "../../../i18n/messages";
@@ -47,7 +48,7 @@ const channels: readonly {
 ];
 
 /** Two console panels: the song channels, and the mixer with the microphone (it carries monitoring) and voice effects. */
-export const MixerPanel = ({
+export const MixerPanel = memo(({
   gains,
   effects,
   monitoring,
@@ -125,4 +126,4 @@ export const MixerPanel = ({
       </ConsoleSection>
     </>
   );
-};
+});

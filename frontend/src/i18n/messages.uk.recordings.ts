@@ -1,5 +1,9 @@
 // Ukrainian texts for recordings and their analysis.
 export const recordingsUk = {
+  recordingPreparing: "Підготовка запису у фоні. Вихідні доріжки збережено.",
+  recordingPreparationFailed: "Не вдалося підготувати запис. Вихідні доріжки збережено.",
+  recordingPreparationRetry: "Повторити підготовку",
+
   recordingRehearsal: "Репетиція без запису",
   recordingLive: "Запис · {time}",
   recordingLivePaused: "Запис на паузі · {time}",
@@ -21,7 +25,7 @@ export const recordingsUk = {
   recordingOriginal: "Оригінал",
   recordingVersion: "Версія виступу",
   studioMasterDescription:
-    "AI розділить голос і мінус, вирівняє їхню гучність і створить окрему студійну версію.",
+    "Master обробить збережений сухий голос і зведе його з мінусом. Без сухої доріжки вирівняє баланс, зберігши наявні ефекти. Вихідні доріжки не змінюються.",
   studioMasterSourceTitle: "Початковий запис",
   studioMasterReadyDescription:
     "Студійна версія готова — вмикайте записи по черзі та порівнюйте звучання.",

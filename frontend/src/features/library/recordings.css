@@ -5,6 +5,12 @@
   height: min(56rem, calc(100dvh - 2rem));
   overflow: hidden;
 }
+.recordingsDialog:has(~ .analysisDialog[open]) {
+  display: none;
+}
+.libraryPage:has(> .recordingsDialog[open]) .libraryHeroWaves {
+  display: none;
+}
 .recordingsDialog > .ad-dialog-body {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);

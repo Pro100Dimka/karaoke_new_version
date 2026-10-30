@@ -6,7 +6,8 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { loadEnvFile } from "node:process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runningAppPid } from "./running-app.mjs";
@@ -21,6 +22,23 @@ if (!modes.includes(mode)) {
 
 const python = path.join(root, "python", ".venv", "Scripts", "python.exe");
 const frontend = path.join(root, "frontend");
+if (["dev", "start", "multi", "install"].includes(mode)) {
+  try {
+    loadEnvFile(path.join(frontend, ".env.local"));
+  } catch (error) {
+    if (error?.code !== "ENOENT") throw error;
+  }
+}
+const profileRoot = process.env.AD_VOICE_PROFILE_ROOT?.trim();
+if (profileRoot) {
+  if (!path.isAbsolute(profileRoot)) throw new Error("AD_VOICE_PROFILE_ROOT must be an absolute path");
+  const temp = path.join(profileRoot, "temp");
+  mkdirSync(temp, { recursive: true });
+  Object.assign(process.env, {
+    TEMP: temp, TMP: temp,
+    AD_VOICE_MODELS: path.join(profileRoot, "AD Voice", "backend-data", "models"),
+  });
+}
 const audio = path.join(root, "AudioService");
 const quote = (value) => (/\s/.test(value) ? `"${value}"` : value);
 const running = new Set();

@@ -26,8 +26,11 @@ def _to_domain(row: HistoryRow) -> HistoryEvent:
 class SqlHistoryRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+        self.played: set[str] = set()
 
     def add(self, event: HistoryEvent) -> None:
+        if event.event_type == "SongPlayed" and event.entity_id:
+            self.played.add(event.entity_id)
         self._session.add(
             HistoryRow(
                 event_id=event.event_id,

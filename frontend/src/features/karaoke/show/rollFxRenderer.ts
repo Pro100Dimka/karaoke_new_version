@@ -2,7 +2,7 @@ import { easeOutCubic, rgba } from "./fxPalette";
 import { levelProgress, type ShowNote } from "./performanceTracker";
 import type { ShowEngine } from "./showEngine";
 import type { FxCommand } from "./visualDirector";
-import { pitchMidiNearTarget, targetPitchAt } from "../karaokeLyrics";
+import { pitchHzToMidi, reliablePitchHz } from "../karaokeLyrics";
 
 /** What the melody roll is showing right now, in the same terms MelodyRoll lays its notes out with. */
 export interface RollView {
@@ -499,11 +499,10 @@ export class RollFxRenderer {
     const observation = this.engine.voiceHistory.at(-1);
     const x = geometry.x(observation?.position ?? view.position);
     const live = state.live;
-    const midi = pitchMidiNearTarget(observation?.pitchHz, live?.target);
-    const y = midi !== undefined
-      ? geometry.y(midi)
-      : margin + this.lane.height / 2;
-    const visible = midi !== undefined && midi >= view.low && midi <= view.high;
+    const midi = pitchHzToMidi(observation?.pitchHz);
+    const boundedMidi = Math.max(view.low, Math.min(view.high, midi ?? (view.low + view.high) / 2));
+    const y = geometry.y(boundedMidi);
+    const visible = midi !== undefined && midi === boundedMidi;
     this.engine.voicePoint = visible ? { x: this.page.left + x, y: this.page.top + y } : undefined;
     if (state.level !== this.level) {
       if (this.level !== "" && state.energy > 1)
@@ -511,7 +510,32 @@ export class RollFxRenderer {
       this.level = state.level;
     }
     if (!state.playing) return;
-    if (!visible) return;
+    if (!observation?.audioActive) return;
+    const certain = reliablePitchHz(observation.pitchHz, observation.confidence) !== undefined;
+    const markerY = Math.max(margin + 10, Math.min(margin + this.lane.height - 10, y));
+    context.strokeStyle = rgba(certain ? "white" : "gold", 0.95);
+    context.fillStyle = context.strokeStyle;
+    context.lineWidth = 2;
+    context.beginPath();
+    if (midi !== undefined && !visible) {
+      const direction = Math.sign(boundedMidi - midi);
+      context.moveTo(x - 6, markerY - direction * 4);
+      context.lineTo(x, markerY + direction * 4);
+      context.lineTo(x + 6, markerY - direction * 4);
+    } else {
+      context.setLineDash(certain ? [] : [3, 3]);
+      context.arc(x, markerY, 6, 0, Math.PI * 2);
+      if (certain) context.fill();
+    }
+    context.stroke();
+    context.setLineDash([]);
+    if (midi === undefined) {
+      context.font = "10px sans-serif";
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.fillText("?", x, markerY);
+    }
+    if (!visible || !certain) return;
     const radius = Math.max(15, geometry.row * 1.25);
     const accuracy = live?.deviation === undefined ? 0 : live.accuracy;
     if (accuracy > 0.2) {
@@ -560,9 +584,7 @@ export class RollFxRenderer {
     context.beginPath();
     let previous: number | undefined;
     for (const observation of this.engine.voiceHistory) {
-      const note = view.notes.find((candidate) => observation.position >= candidate.start && observation.position <= candidate.end);
-      const target = note ? targetPitchAt(note, observation.position) : undefined;
-      const midi = pitchMidiNearTarget(observation.pitchHz, target);
+      const midi = pitchHzToMidi(reliablePitchHz(observation.pitchHz, observation.confidence));
       if (midi === undefined || midi < view.low || midi > view.high) { previous = undefined; continue; }
       const x = geometry.x(observation.position), y = geometry.y(midi);
       if (previous === undefined || observation.position - previous > 0.1) context.moveTo(x, y);

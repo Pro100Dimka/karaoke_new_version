@@ -69,7 +69,10 @@ def construct_document(
     # a short word on the crest of vibrato becomes an invented semitone change.
     melody = _notes_from_points(pitch, 0.0, duration)
     mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in words)
-    activity = _vocal_activity(pitch, duration)
+    activity = _vocal_activity(
+        [point for point in pitch if any(word.start <= point.time < word.end for word in words)],
+        duration,
+    )
     document = LyricsDocument(
         title,
         artist,

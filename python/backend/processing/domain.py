@@ -26,6 +26,7 @@ class JobState(StrEnum):
 class JobType(StrEnum):
     SONG_IMPORT = "SongImport"
     SONG_PROCESSING = "SongProcessing"
+    RECORDING_PREPARATION = "RecordingPreparation"
     RECORDING_ANALYSIS = "RecordingAnalysis"
     RECORDING_MASTERING = "RecordingMastering"
     MODEL_DOWNLOAD = "ModelDownload"

@@ -1,5 +1,9 @@
 // Russian texts for recordings, their analysis and the studio master.
 export const recordingsRu = {
+  recordingPreparing: "Подготовка записи в фоне. Исходные дорожки сохранены.",
+  recordingPreparationFailed: "Не удалось подготовить запись. Исходные дорожки сохранены.",
+  recordingPreparationRetry: "Повторить подготовку",
+
   recordingRehearsal: "Репетиция без записи",
   recordingLive: "Запись · {time}",
   recordingLivePaused: "Запись на паузе · {time}",
@@ -30,7 +34,7 @@ export const recordingsRu = {
   recordingOriginal: "Оригинал",
   recordingVersion: "Версия выступления",
   studioMasterDescription:
-    "AI разделит голос и минус, выровняет их громкость и создаст отдельную студийную версию.",
+    "Master обработает сохранённый сухой голос и сведёт его с минусом. Без сухой дорожки выровняет баланс, сохранив существующие эффекты. Исходные дорожки не изменяются.",
   studioMasterSourceTitle: "Исходная запись",
   studioMasterReadyDescription:
     "Студийная версия готова — включайте записи по очереди и сравнивайте звучание.",

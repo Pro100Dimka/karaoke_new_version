@@ -27,6 +27,7 @@ const knownCodes = {
   InsufficientRam: "errorInsufficientRam",
   ModelsInUse: "errorModelsInUse",
   LibraryInUse: "errorLibraryInUse",
+  RecordingPreparing: "recordingPreparing",
   RecordingTimingUnavailable: "errorRecordingTimingUnavailable",
   StorageUnavailable: "errorStorageUnavailable",
   MissingRequiredModels: "errorMissingModels",

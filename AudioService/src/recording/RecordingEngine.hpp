@@ -73,10 +73,13 @@ class RecordingEngine {
     void fail(std::string_view error) noexcept;
     // Control thread only, while the render-owned performance producer is suspended and drained.
     void appendPerformanceTail(SessionFrame cutoff, std::span<const float> samples,
-                               std::uint32_t frames, std::span<const float> backing = {});
+                               std::uint32_t frames, std::span<const float> backing = {},
+                               std::span<const float> dry = {});
     void push(GenerationId generation, RecordingTap tap, SessionFrame sessionFrame,
               std::span<const float> samples, std::uint32_t frames,
-              RecordingTimeline timeline = {}, std::span<const float> backing = {}) noexcept;
+              RecordingTimeline timeline = {}, std::span<const float> backing = {},
+              std::span<const float> dry = {}) noexcept;
+    void markDryIncomplete() noexcept { dryComplete_.store(false, std::memory_order_relaxed); }
     [[nodiscard]] bool backingEnabled() const noexcept {
         return backingEnabled_.load(std::memory_order_relaxed);
     }
@@ -104,12 +107,15 @@ class RecordingEngine {
         std::uint64_t timelineOffset{0};
         std::uint32_t frames{0};
         RecordingTimeline timeline{};
+        bool dryPresent{false};
     };
     PcmRingBuffer queue_;
     PcmRingBuffer backingQueue_;
+    PcmRingBuffer dryQueue_;
     // One descriptor per possible queued frame also supports arbitrarily small backend packets.
     std::vector<QueuedBlock> blocks_;
     std::vector<float> scratch_;
+    std::vector<float> backingScratch_;
     std::atomic<std::uint64_t> blockWrite_{0};
     std::atomic<std::uint64_t> blockRead_{0};
     std::atomic<std::uint64_t> timelineFrames_{0};
@@ -119,6 +125,9 @@ class RecordingEngine {
     std::atomic<std::uint64_t> wakeSequence_{0};
     WavWriter writer_;
     WavWriter backingWriter_;
+    WavWriter vocalWriter_;
+    WavWriter dryWriter_;
+    std::atomic<bool> dryComplete_{true};
     std::atomic<bool> backingEnabled_{false};
     std::ofstream timelineWriter_;
     std::uint32_t sampleRateHz_{0};

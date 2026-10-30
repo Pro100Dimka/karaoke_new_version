@@ -19,9 +19,9 @@ const environmentFiles = (dataRoot: string): EnvironmentFiles => {
   const inData = (name: string) =>
     app.isPackaged ? path.join(dataRoot, "environment", name) : undefined;
   return {
-    project: process.env.AD_VOICE_PROJECT_ENV_FILE ?? inData("project.env"),
-    python: process.env.AD_VOICE_ENV_FILE ?? inData("python.env"),
-    frontend: process.env.AD_VOICE_FRONTEND_ENV_FILE ?? inData("frontend.env"),
+    project: inData("project.env") ?? process.env.AD_VOICE_PROJECT_ENV_FILE,
+    python: inData("python.env") ?? process.env.AD_VOICE_ENV_FILE,
+    frontend: inData("frontend.env") ?? process.env.AD_VOICE_FRONTEND_ENV_FILE,
   };
 };
 

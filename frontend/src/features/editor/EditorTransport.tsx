@@ -3,6 +3,8 @@ import { useText } from "../../i18n/useText";
 import { useWaveformPeaks } from "../../shared/hooks/useWaveformPeaks";
 import { formatPreciseTime } from "../../shared/utils/format";
 
+const emptyPeaks: readonly number[] = [];
+
 interface EditorTransportProps {
   songId: string;
   revision: number;
@@ -40,7 +42,7 @@ export const EditorTransport = ({
       />
       <Typography variant="mono">{formatPreciseTime(position)}</Typography>
       <Waveform
-        points={peaks ?? []}
+        points={peaks ?? emptyPeaks}
         position={position}
         duration={Math.max(duration, 1)}
         label={t("songPosition")}

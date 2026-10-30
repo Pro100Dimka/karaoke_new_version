@@ -29,14 +29,21 @@ from backend.ai_worker.paths import model_directory, model_file
 from backend.ai_worker.runtime import WHISPER_LANGUAGES, cached_encoder, cpu_threads, device
 from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
 from backend.ai_worker.recognition import (
+    HeardWord,
     alignment_payload,
     guidance_positions,
     contextual_guidance,
     unhinted_windows,
     phrase_coverage,
     independent_words,
+    independent_timings,
+    recover_leading_words,
+    heard_words,
+    heard_timings as _heard_timings,
+    rate_review_indices,
 )
 from backend.ai_worker.word_guidance import (
+    _character_intervals,
     _key,
     _matching_blocks,
     phrase_window,
@@ -161,9 +168,18 @@ def transcribe(vocal: Path, language: str, *, start_seconds: float = 0.0) -> dic
     )
     result = _guidance(source, language, None, prefer_accelerated=True)
     # Recognition of singing sometimes invents symbols and numbers ("1.5%"); only words with letters are lyrics.
-    text = (
+    text = [
         token for token in str(result.get("text", "")).split() if any(c.isalpha() for c in token)
-    )
+    ]
+    heard = heard_words(result, include_untimed=True)
+    # A decoder can repeat many words at one instant; these cannot establish sung repeats.
+    if any(start >= end for _, start, end in heard) and "".join(
+        _key(token) for token in text
+    ) == "".join(word for word, _, _ in heard):
+        intervals = _character_intervals(text, heard, 0)
+        text = [
+            token for index, token in enumerate(text) if intervals[index][0] < intervals[index][1]
+        ]
     return {"text": " ".join(text), "segments": result.get("segments", [])}
 
 
@@ -213,6 +229,7 @@ def _alignment_evidence(
     lyrics: str,
     instrumental: np.ndarray | None = None,
     recognition: Mapping[str, object] | None = None,
+    independent_views: list[list[tuple[str, float, float]]] | None = None,
 ) -> tuple[torch.Tensor, float, list[tuple[str, float, float]]]:
     """Independent recognition precedes CTC; the native models do not compete for memory."""
     threads = cpu_threads()
@@ -223,6 +240,8 @@ def _alignment_evidence(
         recognition,
         lambda source: _guidance(source, language, None, threads, prefer_accelerated=True),
     )
+    if independent_views is not None:
+        independent_views.extend(candidates)
     heard = max(
         candidates,
         key=lambda view: (
@@ -234,21 +253,6 @@ def _alignment_evidence(
     scores, frame_seconds = emission(samples)
     alignment_model.cache_clear()
     return scores, frame_seconds, heard
-
-
-def _heard_timings(
-    words: list[str],
-    heard: list[tuple[str, float, float]],
-    whole: Sequence[AlignedWord] | None = None,
-    *,
-    minimum_block: int = 1,
-) -> dict[int, tuple[float, float]]:
-    return {
-        block.a + offset: (heard[block.b + offset][1], heard[block.b + offset][2])
-        for block in _matching_blocks(words, heard, whole)
-        if block.size >= minimum_block
-        for offset in range(block.size)
-    }
 
 
 def _line_first_words(
@@ -286,8 +290,9 @@ def _shifted_hints(
     words: list[str],
     hints: Sequence[Mapping[str, object]],
     whole: Sequence[AlignedWord],
+    heard: Sequence[HeardWord] = (),
 ) -> list[dict[str, object]]:
-    """Catalog line timings moved by the release offset the whole-song alignment reveals (if any)."""
+    """Correct release offsets and stale line entries against independently recognized phrases."""
     lines = _line_first_words(words, hints)
     differences = [whole[first].start - start for first, start, _ in lines]
     shift = 0.0
@@ -299,7 +304,24 @@ def _shifted_hints(
             and spread <= _CATALOG_SHIFT_MAXIMUM_SPREAD_SECONDS
         ):
             shift = middle
-    return [{"start": start + shift, "text": text} for _, start, text in lines]
+    supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
+    result: list[dict[str, object]] = []
+    for first, start, text in lines:
+        entry = start + shift
+        interval = supported.get(first)
+        phrase_support = {
+            _key(words[index])
+            for index in range(first, first + len(text.split()))
+            if index in supported
+        }
+        if (
+            interval is not None
+            and len(phrase_support) >= _MINIMUM_BLOCK
+            and not interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS
+        ):
+            entry = interval[0]
+        result.append({"start": entry, "text": text})
+    return result
 
 
 def _line_start(hint: float, onsets: np.ndarray) -> tuple[float, bool]:
@@ -365,7 +387,7 @@ def _alignment_windows(
 ) -> list[Window]:
     words, total = lyrics.split(), len(samples) / _SAMPLE_RATE
     if timing_hints:
-        hints = _shifted_hints(words, timing_hints, whole)
+        hints = _shifted_hints(words, timing_hints, whole, heard)
         onsets = vocal_onsets(samples, _SAMPLE_RATE, _HOP)
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
@@ -466,35 +488,66 @@ def align(
     instrumental: Path | None = None,
     recognition: Mapping[str, object] | None = None,
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-    samples, words = read_mono(vocal, _SAMPLE_RATE), lyrics.split()
+    audio, words = read_mono(vocal, _SAMPLE_RATE), lyrics.split()
     backing = read_mono(instrumental, _SAMPLE_RATE) if instrumental is not None else None
-    scores, frame_seconds, heard = _alignment_evidence(
-        vocal, samples, language, lyrics, backing, recognition
+    scores, step, heard = _alignment_evidence(
+        vocal, audio, language, lyrics, backing, recognition, views := list[list[HeardWord]]()
     )
-    whole = align_words(scores, frame_seconds, words)
-    heard_timings = _heard_timings(words, heard, whole)
-    windows = _alignment_windows(lyrics, timing_hints, heard, whole, samples)
+    whole = align_words(scores, step, words)
+    recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[])
+    heard = recover_leading_words(lyrics, whole, heard, recognize)
+    windows = _alignment_windows(lyrics, timing_hints, heard, whole, audio)
     windows, supported = contextual_guidance(
         words,
         windows,
         whole,
-        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK),
-        activity := singing_frames(samples, backing, _SAMPLE_RATE, _HOP),
-        partial(_accelerated_guidance, vocal, language, None, model_cache=[]),
+        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK, windows=windows),
+        activity := singing_frames(audio, backing, _SAMPLE_RATE, _HOP),
+        recognize,
     )
-    heard_timings.update(supported)
-    positions = guidance_positions(heard_timings, windows)
-    voiced = voiced_frames(samples, _SAMPLE_RATE, _HOP)
-    guided = with_word_guidance(
-        align_guided(scores, frame_seconds, words, windows, positions, voiced, whole),
-        scores,
-        frame_seconds,
-        windows,
-        supported,
-        voiced,
-        _MARGIN_SECONDS,
+    positions = guidance_positions(
+        _heard_timings(words, heard, whole, windows=windows) | supported, windows
+    )
+    voiced = voiced_frames(audio, _SAMPLE_RATE, _HOP)
+    guide = partial(
+        with_word_guidance,
+        scores=scores,
+        frame_seconds=step,
+        windows=windows,
+        heard=supported,
+        voiced=voiced,
+        margin=_MARGIN_SECONDS,
         recognized=heard,
-        onsets=vocal_onsets(samples, _SAMPLE_RATE, _HOP).tolist(),
+        onsets=vocal_onsets(audio, _SAMPLE_RATE, _HOP).tolist(),
     )
-    timed = ordered(with_sung_ends(with_voice_onsets(guided, samples), samples, backing, activity))
-    return alignment_payload(timed, heard_timings)
+    guided = guide(
+        align_guided(
+            scores,
+            step,
+            words,
+            windows,
+            positions,
+            voiced,
+            whole,
+            anchors={index: interval[0] for index, interval in supported.items()},
+        )
+    )
+    timed = ordered(with_sung_ends(with_voice_onsets(guided, audio), audio, backing, activity))
+    reviewed = rate_review_indices(timed, lyrics)
+    recovered: frozenset[int] = frozenset()
+    if reviewed:
+        repaired = guide(guided, reviewed=frozenset(reviewed))
+        repaired = ordered(
+            with_sung_ends(with_voice_onsets(repaired, audio), audio, backing, activity)
+        )
+        repaired = ordered([word if i in reviewed else timed[i] for i, word in enumerate(repaired)])
+        if rate_review_indices(repaired, lyrics) < reviewed and all(
+            (i in reviewed or word == timed[i])
+            and (word.end - word.start + 1e-9 >= 0.005 or timed[i].end - timed[i].start < 0.005)
+            for i, word in enumerate(repaired)
+        ):
+            recovered = frozenset(i for i in reviewed if repaired[i] != timed[i])
+            timed = repaired
+    return alignment_payload(
+        timed, independent_timings(words, [heard, *views], timed), recovered=recovered
+    )

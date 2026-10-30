@@ -5,13 +5,33 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
 
-from backend.songs.domain import Song, SongStatus
+from backend.songs.domain import Language, Song, SongStatus
 
 
 @dataclass(frozen=True, slots=True)
 class SongPage:
     items: Sequence[Song]
     next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class SongSearch:
+    search: str | None = None
+    status: str = "all"
+    sort: str = "createdAt"
+    descending: bool = True
+    language: Language | None = None
+    duration: str = "all"
+    artwork: str = "all"
+    limit: int = 50
+    cursor: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SongSummary:
+    total: int
+    ready: int
+    languages: list[Language]
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,6 +46,10 @@ class MediaMetadata:
 
 
 class SongRepository(Protocol):
+    def search(self, query: SongSearch) -> SongPage: ...
+
+    def summary(self) -> SongSummary: ...
+
     def get(self, song_id: str) -> Song | None: ...
 
     def get_by_source_identity(self, identity: str) -> Song | None: ...

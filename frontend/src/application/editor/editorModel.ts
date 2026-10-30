@@ -66,11 +66,17 @@ export const moveNotes = (
 ): EditorDocument => {
   const selected = document.notes.filter((note) => ids.has(note.id));
   if (selected.length === 0) return document;
+  const words = new Map<string, EditorWord>();
   let low = -Infinity;
   let high = Infinity;
+  let pitchLow = -Infinity;
+  let pitchHigh = Infinity;
   for (const note of selected) {
-    const word = wordOf(document, note);
+    pitchLow = Math.max(pitchLow, minPitch - note.pitch);
+    pitchHigh = Math.min(pitchHigh, maxPitch - note.pitch);
+    const word = words.get(note.wordId) ?? wordOf(document, note);
     if (!word) continue;
+    words.set(note.wordId, word);
     low = Math.max(low, word.start - note.start);
     high = Math.min(high, word.end - note.end);
   }
@@ -79,8 +85,6 @@ export const moveNotes = (
     Number.isFinite(low) ? low : 0,
     Number.isFinite(high) ? high : 0,
   );
-  const pitchLow = Math.max(...selected.map((note) => minPitch - note.pitch));
-  const pitchHigh = Math.min(...selected.map((note) => maxPitch - note.pitch));
   const pitchShift = clamp(deltaPitch, pitchLow, pitchHigh);
   if (shift === 0 && pitchShift === 0) return document;
   return withNotes(
@@ -199,20 +203,26 @@ export const alignBoundary = (
     document,
   );
 
-const serializeDocument = (document: EditorDocument): string =>
-  JSON.stringify([
-    document.bpm,
-    document.key,
-    document.lyrics,
-    document.words,
-    document.notes.map(({ id: _id, ...rest }) => rest),
-  ]);
-
 /** Content equality, ignoring the local revision counter: a document is dirty only when its content differs. */
 export const isEditorDirty = (
   saved: EditorDocument,
   current: EditorDocument,
-): boolean => serializeDocument(saved) !== serializeDocument(current);
+): boolean => {
+  if (saved === current) return false;
+  if (JSON.stringify([saved.bpm, saved.key, saved.lyrics]) !==
+      JSON.stringify([current.bpm, current.key, current.lyrics])) return true;
+  if (saved.words !== current.words &&
+      JSON.stringify(saved.words) !== JSON.stringify(current.words)) return true;
+  if (saved.notes.length !== current.notes.length) return true;
+  return saved.notes.some((note, index) => {
+    const other = current.notes[index];
+    if (note === other) return false;
+    if (!other) return true;
+    const { id: _savedId, ...savedContent } = note;
+    const { id: _currentId, ...currentContent } = other;
+    return JSON.stringify(savedContent) !== JSON.stringify(currentContent);
+  });
+};
 
 export const documentEnd = (
   document: EditorDocument,

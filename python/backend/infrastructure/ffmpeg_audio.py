@@ -7,11 +7,14 @@ from pathlib import Path
 
 from backend.domain_errors import DependencyError, DomainError
 from backend.infrastructure.process_runner import ProcessResult, ProcessRunner
+from backend.infrastructure.wave_recording import WaveRecordingInspector
 from backend.serialization import loads_object
 
 
-def loudnorm_filter(measured: dict[str, float] | None = None, *, lra: int = 7) -> str:
-    settings = f"loudnorm=I=-14:LRA={lra}:TP=-1"
+def loudnorm_filter(
+    measured: dict[str, float] | None = None, *, lra: int = 7, target_i: float = -14,
+) -> str:
+    settings = f"loudnorm=I={target_i:g}:LRA={lra}:TP=-1"
     if measured is None:
         return settings + ":print_format=json"
     ranges = {
@@ -52,6 +55,15 @@ class FfmpegAudioValidator:
         self._ffprobe = ffprobe
 
     def validate(self, path: Path) -> None:
+        if path.suffix.lower() == ".wav":
+            try:
+                with path.open("rb") as stream:
+                    header = stream.read(12)
+                if header[:4] in {b"RIFF", b"RF64"} and header[8:12] == b"WAVE":
+                    WaveRecordingInspector().inspect(path)
+                    return
+            except (OSError, DomainError):
+                pass
         result = self._runner.run(
             [
                 self._ffprobe,

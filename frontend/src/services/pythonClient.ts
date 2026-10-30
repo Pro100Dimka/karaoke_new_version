@@ -318,6 +318,10 @@ export const pythonClient: PythonClient = {
     await request("DELETE", `/songs/${encodeURIComponent(songId)}`);
   },
 
+  async retryRecordingPreparation(recordingId) {
+    return mapRecording(await request<BackendRecording>("POST", `/recordings/${encodeURIComponent(recordingId)}/prepare`));
+  },
+
   async listRecordings(songId) {
     const page = await request<RecordingPage>(
       "GET",

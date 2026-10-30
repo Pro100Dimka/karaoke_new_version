@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from array import array
-import math
+from functools import lru_cache
+import numpy as np
 
 from backend.domain_errors import DomainError
 from backend.infrastructure.process_runner import ProcessRunner
+from backend.projects.content_lock import KeyedLockManager
 from backend.serialization import loads_object
 from backend.songs.ports import MediaMetadata
 
@@ -17,8 +18,16 @@ class FfmpegMediaInspector:
         self._runner = runner
         self._ffprobe = ffprobe
         self._ffmpeg = ffmpeg
+        self._waveform_locks = KeyedLockManager()
 
     def waveform_peaks(self, source: Path, bins: int) -> list[float]:
+        source = source.resolve()
+        with self._waveform_locks.acquire(str(source)):
+            stat = source.stat()
+            return list(self._waveform(source, bins, stat.st_mtime_ns, stat.st_size))
+
+    @lru_cache(maxsize=256)
+    def _waveform(self, source: Path, bins: int, _mtime: int, _size: int) -> tuple[float, ...]:
         result = self._runner.run(
             [
                 self._ffmpeg,
@@ -39,15 +48,12 @@ class FfmpegMediaInspector:
         )
         if result.exit_code != 0:
             raise DomainError("InvalidMedia", "Song waveform could not be read", 400)
-        samples = array("f")
-        samples.frombytes(result.stdout)
-        peaks = [0.0] * bins
-        for index, sample in enumerate(samples):
-            if math.isfinite(sample):
-                slot = min(bins - 1, index * bins // len(samples))
-                peaks[slot] = max(peaks[slot], abs(sample))
-        maximum = max(peaks, default=0) or 1
-        return [round(value / maximum, 3) for value in peaks]
+        samples = np.frombuffer(result.stdout, dtype="<f4")
+        peaks = np.zeros(bins)
+        slots = np.arange(samples.size) * bins // max(1, samples.size)
+        np.maximum.at(peaks, slots, np.nan_to_num(np.abs(samples), nan=0, posinf=0, neginf=0))
+        maximum = float(peaks.max()) or 1
+        return tuple(round(float(value) / maximum, 3) for value in peaks)
 
     def inspect(self, source: Path) -> MediaMetadata:
         result = self._runner.run(

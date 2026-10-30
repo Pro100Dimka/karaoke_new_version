@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import queue
+import anyio
 from datetime import datetime
 from collections.abc import Iterator
 from typing import Annotated, Literal, Mapping
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
 from backend.api.base_dto import ApiModel
@@ -135,8 +136,9 @@ def list_jobs(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     job_type: JobType | None = Query(default=None, alias="type"),
+    entity_id: str | None = Query(default=None, alias="entityId", max_length=128),
 ) -> JobPageDto:
-    jobs = app.system.jobs.list(limit=limit, offset=offset, job_type=job_type)
+    jobs = app.system.jobs.list(limit=limit, offset=offset, job_type=job_type, entity_id=entity_id)
     return JobPageDto(items=[_job(item) for item in jobs], limit=limit, offset=offset)
 
 
@@ -167,6 +169,38 @@ def clear_temp(app: ContainerDep) -> CleanupDto:
 @router.post("/recovery/reconcile", response_model=JobDto, status_code=202)
 def reconcile(app: ContainerDep) -> JobDto:
     return _job(app.system.reconcile.execute())
+
+
+@router.websocket("/events/socket")
+async def events_socket(websocket: WebSocket) -> None:
+    app: ApplicationContainer = websocket.app.state.container
+    await websocket.accept()
+    with app.events.subscribe_async() as subscriber:
+        try:
+            async with anyio.create_task_group() as tasks:
+
+                async def send() -> None:
+                    while True:
+                        event = await subscriber.get()
+                        await websocket.send_text(
+                            dumps(
+                                {
+                                    "type": event.event_type,
+                                    "createdAt": event.created_at,
+                                    "data": dict(event.data),
+                                }
+                            )
+                        )
+                        subscriber.task_done()
+
+                tasks.start_soon(send)
+                try:
+                    while True:
+                        await websocket.receive_text()
+                finally:
+                    tasks.cancel_scope.cancel()
+        except* WebSocketDisconnect:
+            pass
 
 
 @router.get("/events")

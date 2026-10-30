@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import sqlite3
 import logging
-from contextlib import closing
+import threading
+from collections.abc import Callable
+from contextlib import AbstractContextManager, closing, nullcontext
 from pathlib import Path
 from types import TracebackType
+from uuid import uuid4
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
@@ -12,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from backend.domain_errors import DependencyError
+from backend.events import EventPublisher
 from backend.infrastructure.sql_analysis import SqlAnalysisRepository
 from backend.infrastructure.sql_history import SqlHistoryRepository
 from backend.infrastructure.sql_idempotency import SqlIdempotencyRepository
@@ -27,8 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 class Database:
-    def __init__(self, path: Path) -> None:
+    def __init__(self, path: Path, events: EventPublisher | None = None) -> None:
         self.path = path
+        self._events = events
+        self._catalog_lock = threading.RLock()
+        self._catalog_revision = uuid4().hex
+        self._played_revision = self._catalog_revision
         self._engine = create_engine(
             f"sqlite:///{path}",
             connect_args={"check_same_thread": False},
@@ -42,7 +50,19 @@ class Database:
         return self._engine
 
     def create(self) -> "SqlUnitOfWork":
-        return SqlUnitOfWork(self._sessions())
+        return SqlUnitOfWork(
+            self._sessions(),
+            self._publish,
+            lambda played: self._played_revision if played else self._catalog_revision,
+            self._catalog_lock,
+        )
+
+    def _publish(self, changes: dict[str, list[str]]) -> None:
+        if changes["songIds"] or changes["deletedIds"]:
+            self._catalog_revision = uuid4().hex
+        self._played_revision = uuid4().hex
+        if self._events:
+            self._events.publish("library.changed", changes)
 
     def validate(self) -> None:
         try:
@@ -60,9 +80,17 @@ class Database:
 
 
 class SqlUnitOfWork(UnitOfWork):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        notify: Callable[[dict[str, list[str]]], None] | None = None,
+        revision: Callable[[bool], str] | None = None,
+        lock: AbstractContextManager[object] | None = None,
+    ) -> None:
         self._session = session
-        self.songs = SqlSongRepository(session)
+        self._notify = notify
+        self._catalog_lock = lock or nullcontext()
+        self.songs = SqlSongRepository(session, revision, self._catalog_lock)
         self.projects = SqlProjectRevisionRepository(session)
         self.jobs = SqlJobRepository(session)
         self.recordings = SqlRecordingRepository(session)
@@ -96,15 +124,30 @@ class SqlUnitOfWork(UnitOfWork):
         return None
 
     def commit(self) -> None:
+        changes = {
+            "songIds": list(self.songs.changed),
+            "deletedIds": list(self.songs.deleted),
+            "playedIds": list(self.history.played),
+        }
         try:
-            self._session.commit()
+            with self._catalog_lock if any(changes.values()) else nullcontext():
+                self._session.commit()
+                self._clear_changes()
+                if any(changes.values()) and self._notify:
+                    self._notify(changes)
         except SQLAlchemyError as exc:
-            self._session.rollback()
+            self.rollback()
             logger.exception("Database transaction failed")
             raise DependencyError("DatabaseWriteFailed", "Database transaction failed") from exc
 
     def rollback(self) -> None:
         self._session.rollback()
+        self._clear_changes()
+
+    def _clear_changes(self) -> None:
+        self.songs.changed.clear()
+        self.songs.deleted.clear()
+        self.history.played.clear()
 
 
 def _configure_sqlite(connection: sqlite3.Connection, _record: object) -> None:

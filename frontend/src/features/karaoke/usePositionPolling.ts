@@ -2,7 +2,7 @@ import { audioClient as audio } from "../../services/audioClient";
 import { useCallback, useEffect, useRef } from "react";
 import type { PlaybackSnapshot } from "../../contracts/models";
 
-const pollMilliseconds = 25;
+const pollMilliseconds = 16;
 
 interface PositionPollingOptions {
   enabled: boolean;

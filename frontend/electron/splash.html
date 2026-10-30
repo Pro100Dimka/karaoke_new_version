@@ -63,6 +63,15 @@
         color: #fff;
         text-align: center;
         text-shadow: 0 0 6px #000, 0 0 14px var(--glow);
+        white-space: pre-line;
+        padding-inline: 16px;
+      }
+      progress {
+        position: fixed;
+        bottom: 78px;
+        width: 70%;
+        height: 8px;
+        accent-color: var(--glow);
       }
       @keyframes sweep {
         0% {
@@ -113,6 +122,7 @@
       </g>
     </svg>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+    <progress id="progress" max="1" hidden aria-label="Progress"></progress>
     <script>
       var query = new URLSearchParams(location.search);
       var icon = query.get("icon") || "";
@@ -128,8 +138,12 @@
       document.getElementById("icon").setAttribute("href", icon);
       document.getElementById("mask-icon").setAttribute("href", icon);
       // The desktop shows a line here while an update is installed before the app opens.
-      window.setStatus = function (text) {
+      window.setStatus = function (text, value) {
         document.getElementById("status").textContent = text;
+        var progress = document.getElementById("progress");
+        progress.hidden = value === undefined;
+        if (typeof value === "number") progress.value = value;
+        else progress.removeAttribute("value");
       };
     </script>
   </body>

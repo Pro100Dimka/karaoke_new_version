@@ -488,7 +488,7 @@ export const useKaraokeSession = (
         positionPolling.invalidate();
       }
     },
-    [controls, positionPolling],
+    [controls.seek, positionPolling.invalidate],
   );
 
   useEffect(() => {
@@ -516,6 +516,15 @@ export const useKaraokeSession = (
     }
   }, [state.kind]);
 
+  const setShowNotes = useCallback((value: boolean) =>
+    updatePreferences({ karaokeShowNotes: value }), [updatePreferences]);
+  const setShowLyrics = useCallback((value: boolean) =>
+    updatePreferences({ karaokeShowLyrics: value }), [updatePreferences]);
+  const setAutoHideConsole = useCallback((value: boolean) =>
+    updatePreferences({ karaokeAutoHideConsole: value }), [updatePreferences]);
+  const setEffectValues = useCallback((value: typeof preferences.karaokeEffects) =>
+    updatePreferences({ karaokeEffects: value }), [updatePreferences]);
+
   return {
     load,
     state,
@@ -541,14 +550,10 @@ export const useKaraokeSession = (
     autoHideConsole: preferences.karaokeAutoHideConsole,
     noiseSuppression: preferences.noiseSuppression,
     effectValues: preferences.karaokeEffects,
-    setShowNotes: (value: boolean) =>
-      updatePreferences({ karaokeShowNotes: value }),
-    setShowLyrics: (value: boolean) =>
-      updatePreferences({ karaokeShowLyrics: value }),
-    setAutoHideConsole: (value: boolean) =>
-      updatePreferences({ karaokeAutoHideConsole: value }),
-    setEffectValues: (value: typeof preferences.karaokeEffects) =>
-      updatePreferences({ karaokeEffects: value }),
+    setShowNotes,
+    setShowLyrics,
+    setAutoHideConsole,
+    setEffectValues,
     togglePlay,
     ...controls,
     seek,

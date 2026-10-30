@@ -121,7 +121,8 @@ export const registerProjectFileHandlers = (
     );
     if (!response.ok)
       throw new Error(`Recording lookup failed: HTTP ${response.status}`);
-    const { filePath } = response.body as { filePath?: unknown };
+    const { filePath, fileStatus } = response.body as { filePath?: unknown; fileStatus?: string };
+    if (["Preparing", "PreparationFailed"].includes(fileStatus ?? "")) return [];
     try {
       return await waveformPeaks(requireString(filePath, "filePath"), bins);
     } catch (error) {

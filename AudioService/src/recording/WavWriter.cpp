@@ -96,13 +96,13 @@ void WavWriter::writeHeader(std::uint32_t dataBytes) {
     file_.write("data", 4);
     writeValue(file_, dataBytes);
 }
-void WavWriter::close(float gain) {
+void WavWriter::close(float gain, bool preserveFloat) {
     RealtimeInstrumentation::reportDiskIo();
     if (!file_.is_open())
         return;
-    if (!std::isfinite(gain) || gain < 0.0F || gain > 1.0F)
+    if (!std::isfinite(gain) || gain < 0.0F || gain > 1.0F || (preserveFloat && gain != 1.0F))
         throw std::invalid_argument("invalid recording attenuation");
-    if (floatingCapture_) {
+    if (floatingCapture_ && !preserveFloat) {
         // Preserve unclipped capture until a complete PCM16 replacement is safely published.
         writeHeader(static_cast<std::uint32_t>(dataBytes_));
         file_.flush();

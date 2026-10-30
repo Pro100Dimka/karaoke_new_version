@@ -47,7 +47,8 @@ export const SceneBackdrop = ({
     let active = true;
     void desktopClient
       .sceneVideoUrl()
-      .then((url) => active && setSceneUrl(url ?? ""));
+      .then((url) => active && setSceneUrl(url ?? ""))
+      .catch(() => undefined);
     return () => {
       active = false;
     };
@@ -77,16 +78,16 @@ export const SceneBackdrop = ({
     const video = videoRef.current;
     if (!video) return;
     const synchronize = () => {
-      video.playbackRate = rate;
-      const target =
-        !isOwnVideo && Number.isFinite(video.duration) && video.duration > 0
-          ? positionSeconds % video.duration
-          : positionSeconds;
+      if (video.playbackRate !== rate) video.playbackRate = rate;
+      const duration = video.duration;
+      const target = Number.isFinite(duration) && duration > 0
+        ? isOwnVideo ? Math.min(positionSeconds, duration) : positionSeconds % duration
+        : positionSeconds;
       if (Math.abs(video.currentTime - target) > driftToleranceSeconds)
         video.currentTime = target;
       // Chromium may reject play() while the whole window is minimized. That is suspension, not a
       // broken clip: keep the source and retry when the document becomes visible again.
-      if (playing && video.paused && !document.hidden)
+      if (playing && video.paused && !document.hidden && !(isOwnVideo && target >= duration))
         void video.play().catch(() => undefined);
       if (!playing && !video.paused) video.pause();
     };
@@ -109,9 +110,11 @@ export const SceneBackdrop = ({
     >
       {useVideo ? (
         <video
+          key={source}
           ref={videoRef}
           className="sceneVideo"
           src={source}
+          loop={!isOwnVideo}
           muted
           playsInline
           preload="auto"

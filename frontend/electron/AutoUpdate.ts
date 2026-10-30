@@ -154,7 +154,7 @@ export const fetchInstaller = async (
  * update shows only on the start-up screen, and the installer starts the app again.
  */
 const runInstaller = (file: string): void => {
-  spawn(file, ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CLOSEAPPLICATIONS"], {
+  spawn(file, ["/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS"], {
     detached: true,
     stdio: "ignore",
   }).unref();

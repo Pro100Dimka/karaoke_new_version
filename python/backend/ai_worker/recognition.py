@@ -11,12 +11,22 @@ from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
 from backend.ai_worker.ctc import AlignedWord, Window, _PREFERENCE
+from backend.ai.domain import WordTiming
+from backend.processing.reporting import rate_reviews
 from backend.ai_worker.timing import _runs
-from backend.ai_worker.word_guidance import _key, phrase_window, recognized_phrase
+from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
 from backend.lyrics.phrases import _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
+HeardWord = tuple[str, float, float]
+
+
+def rate_review_indices(words: Sequence[AlignedWord], lyrics: str) -> set[int]:
+    reviews = rate_reviews(
+        [WordTiming(w.text, w.start, w.end, w.score, tuple(w.letters)) for w in words], lyrics
+    )
+    return {index for first, last in reviews for index in range(first, last)}
 
 
 def independent_words(
@@ -70,16 +80,85 @@ def serialize(segments: Iterable[Segment], offset: float = 0.0) -> dict[str, obj
     return {"text": "".join(str(item["text"]) for item in serialized), "segments": serialized}
 
 
-def heard_words(result: Mapping[str, object]) -> list[tuple[str, float, float]]:
-    heard: list[tuple[str, float, float]] = []
+def heard_words(result: Mapping[str, object], *, include_untimed: bool = False) -> list[HeardWord]:
+    heard: list[HeardWord] = []
     segments = result.get("segments")
     for segment in segments if isinstance(segments, list) else []:
         words = segment.get("words") if isinstance(segment, dict) else None
         for word in words if isinstance(words, list) else []:
             key = _key(str(word.get("word", "")))
-            if key:
+            if key and (include_untimed or float(word["start"]) < float(word["end"])):
                 heard.append((key, float(word["start"]), float(word["end"])))
     return heard
+
+
+def heard_timings(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[AlignedWord] | None = None,
+    *,
+    minimum_block: int = 1,
+    windows: Sequence[Window] = (),
+) -> dict[int, tuple[float, float]]:
+    timings = {
+        block.a + offset: (heard[block.b + offset][1], heard[block.b + offset][2])
+        for block in _matching_blocks(words, heard, whole)
+        if block.size >= minimum_block
+        for offset in range(block.size)
+    }
+    return {
+        index: interval
+        for index, interval in timings.items()
+        if not windows
+        or any(
+            window.first <= index < window.last and window.start <= interval[0] < window.end
+            for window in windows
+        )
+    }
+
+
+def independent_timings(
+    words: list[str], views: Sequence[list[tuple[str, float, float]]], timed: Sequence[AlignedWord]
+) -> dict[int, tuple[float, float]]:
+    """Keep complementary unprompted views, matched to the final acoustic positions."""
+    matches = [heard_timings(words, view, timed) for view in views]
+    return {
+        index: min(
+            (match[index] for match in matches if index in match),
+            key=lambda interval: abs(timed[index].start - interval[0]),
+        )
+        for index in set().union(*(match.keys() for match in matches))
+    }
+
+
+def recover_leading_words(
+    lyrics: str,
+    whole: Sequence[AlignedWord],
+    heard: list[tuple[str, float, float]],
+    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
+) -> list[tuple[str, float, float]]:
+    """Recheck a missed entry when three acoustic cores precede the full-song ASR."""
+    prefix = whole[:3]
+    if (
+        len(prefix) < 3
+        or not heard
+        or any(word.score < 0.3 for word in prefix)
+        or prefix[-1].end + _MARGIN >= heard[0][1]
+    ):
+        return heard
+    start = max(0.0, prefix[0].start - _MARGIN)
+    end = min(start + CHUNK_LENGTH, heard[0][2] + _MARGIN)
+    try:
+        results = recognize([(start, end, None)]).get("contexts", [])
+    except (FileNotFoundError, OSError, RuntimeError, ValueError):
+        return heard
+    local = heard_words(results[0]) if isinstance(results, list) and results else []
+    if [word for word, _, _ in local[:3]] != [_key(word.text) for word in prefix]:
+        return heard
+    combined = [*local, *(word for word in heard if word[1] >= end)]
+    return (
+        combined if phrase_coverage(lyrics, combined) >= phrase_coverage(lyrics, heard) else heard
+    )
 
 
 def context_windows(
@@ -212,27 +291,33 @@ def _ending_guidance(
         return revised, supported
     supported.update(local)
     for index in range(first, len(windows)):
-        window = windows[index]
-        start, end = local[window.first][0], local[window.last - 1][1]
-        # Whisper includes the previous vowel in a word's span. If that span already
-        # contains the established entry, it supplies no evidence for moving it earlier.
-        contains_entry = (
-            window.heard_start is not None and start <= window.heard_start <= local[window.first][1]
-        )
-        revised[index] = replace(
-            window,
-            start=window.start if contains_entry else max(0, start - _MARGIN),
-            end=end + _MARGIN,
-            heard_start=window.heard_start if contains_entry else start,
-        )
+        revised[index] = _ending_position(windows[index], local)
     return revised, supported
 
 
+def _ending_position(window: Window, local: Mapping[int, tuple[float, float]]) -> Window:
+    start, end = local[window.first][0], local[window.last - 1][1]
+    # A span containing the established entry may include the preceding vowel.
+    contains_entry = (
+        window.heard_start is not None and start <= window.heard_start <= local[window.first][1]
+    )
+    return replace(
+        window,
+        start=window.start if contains_entry else max(0, start - _MARGIN),
+        end=end + _MARGIN,
+        heard_start=window.heard_start if contains_entry else start,
+    )
+
+
 def _word_payload(
-    word: AlignedWord, heard_timing: tuple[float, float] | None
+    word: AlignedWord, heard_timing: tuple[float, float] | None, *, recovered: bool = False
 ) -> dict[str, float | str | list[float] | list[str]]:
     reasons = {
+        "RateReviewRetimed": recovered,
         "ApproximateAlignment": word.score <= 0.0,
+        "RecognizedWord": heard_timing is not None
+        and heard_timing[0] < heard_timing[1]
+        and heard_timing[0] - _MARGIN <= word.start <= heard_timing[1] + _MARGIN,
         "AsrCtcBoundaryDisagreement": heard_timing is not None
         and max(abs(word.start - heard_timing[0]), abs(word.end - heard_timing[1])) > _MARGIN,
     }
@@ -247,17 +332,25 @@ def _word_payload(
 
 
 def alignment_payload(
-    words: Sequence[AlignedWord], timings: Mapping[int, tuple[float, float]]
+    words: Sequence[AlignedWord],
+    timings: Mapping[int, tuple[float, float]],
+    *,
+    recovered: frozenset[int] = frozenset(),
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-    return {"words": [_word_payload(word, timings.get(index)) for index, word in enumerate(words)]}
+    return {
+        "words": [
+            _word_payload(word, timings.get(index), recovered=index in recovered)
+            for index, word in enumerate(words)
+        ]
+    }
 
 
 def guidance_positions(
     timings: Mapping[int, tuple[float, float]], windows: Sequence[Window]
 ) -> dict[int, float]:
-    return {index: times[0] for index, times in timings.items()} | {
+    return {
         window.first: window.heard_start for window in windows if window.heard_start is not None
-    }
+    } | {index: times[0] for index, times in timings.items()}
 
 
 def unhinted_windows(

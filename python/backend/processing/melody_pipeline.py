@@ -189,7 +189,7 @@ class MelodyPipeline:
             words = self._aligned_words(
                 inputs, alignment, reference, context, reports, execution, instrumental
             )
-            warnings = alignment_warnings(words)
+            warnings = alignment_warnings(words, lyrics=document.lyrics, bpm=document.bpm)
         else:
             words = tuple(
                 WordTiming(word.text, word.start, word.end, 1.0, tuple(word.letters))

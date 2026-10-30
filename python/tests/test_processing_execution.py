@@ -74,7 +74,7 @@ def test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budg
             "we sing", "catalog", (), (LyricLineTiming(1, "we sing"),)
         ),
     )
-    monkeypatch.setattr(pipeline, "_align", stage)
+    monkeypatch.setattr(pipeline, "_align", lambda *args: (args[2], stage(*args)))
     monkeypatch.setattr(pipeline, "_stable_pitch", stage)
     monkeypatch.setattr(
         pipeline, "_construct", lambda *_: LyricsDocument("T", "A", 2, None, None, "", ())

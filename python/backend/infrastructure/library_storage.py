@@ -1,20 +1,22 @@
 from __future__ import annotations
 
 import math
+import logging
 import os
 import shutil
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
-from typing import Mapping, Sequence, cast
+from typing import Callable, Mapping, Sequence, cast
 
-from sqlalchemy import DateTime, Float, Table, select
+from sqlalchemy import DateTime, Float, MetaData, Table, select
 from sqlalchemy.engine import Connection
 
 from backend.analysis.domain import AnalysisState
 from backend.domain_errors import ConflictError
 from backend.infrastructure.database import Database
+from backend.infrastructure.atomic_files import atomic_write_text
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.orm import (
     AnalysisRow,
@@ -48,6 +50,7 @@ _PATHS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "recordings": ("file_path",),
     }
 )
+logger = logging.getLogger(__name__)
 
 
 class SqlLibraryStorage:
@@ -66,6 +69,64 @@ class SqlLibraryStorage:
 
     def require_free(self, required_bytes: int) -> None:
         self._storage.require_free(self._roots.app, self._margin + required_bytes)
+
+    def relocate(self, transform: Callable[[object], object]) -> tuple[tuple[str, int], ...]:
+        """Rebase a copied database and its revision references without changing identities."""
+        metadata = MetaData()
+        with self._database.engine.begin() as connection:
+            metadata.reflect(bind=connection)
+            for table in metadata.tables.values():
+                if "id" not in table.c:
+                    continue
+                for record in connection.execute(select(table)).mappings().all():
+                    changes: LibraryRow = {}
+                    for field, value in record.items():
+                        if not isinstance(value, str):
+                            continue
+                        if field.endswith("_json"):
+                            try:
+                                parsed = loads_value(value)
+                            except ValueError:
+                                continue
+                            relocated = transform(parsed)
+                            if relocated != parsed:
+                                changes[field] = dumps(relocated)
+                        elif field.endswith("_path"):
+                            relocated = transform(value)
+                            if relocated != value:
+                                changes[field] = relocated
+                    if changes:
+                        connection.execute(table.update().where(table.c.id == record["id"]).values(**changes))
+        rows = self._snapshot_rows(self.song_ids())
+        for row in rows["songs"]:
+            portable_component(str(row["song_id"]))
+        sources = {row["song_id"]: row["source_path"] for row in rows["songs"]}
+        candidates: list[LibraryRow] = []
+        for row in rows["project_revisions"]:
+            revision = int(str(row["revision"]))
+            if revision < 1:
+                raise ValueError("Invalid project revision")
+            root = self._roots.songs / str(row["song_id"]) / "revisions" / str(revision)
+            if not sources.get(row["song_id"]):
+                continue
+            if not (root / "manifest.json").is_file() or not (root / "source.ref").is_file():
+                continue
+            try:
+                project = decode_manifest((root / "manifest.json").read_text(encoding="utf-8"))
+            except ValueError:
+                logger.warning("Existing revision metadata is invalid; copied unchanged: %s", root)
+                continue
+            if any(item.relative_path.root or item.relative_path.drive or ".." in item.relative_path.parts for item in project.artifacts):
+                logger.warning("Existing revision has unsafe artifact paths; copied unchanged: %s", root)
+                continue
+            candidates.append(row)
+        rows["project_revisions"] = candidates
+        self._source_references(rows, self._roots.app)
+        with self._database.engine.begin() as connection:
+            table = _TABLES["project_revisions"]
+            for row in rows["project_revisions"]:
+                connection.execute(table.update().where(table.c.id == row["id"]).values(fingerprint=row["fingerprint"]))
+        return tuple((str(row["song_id"]), int(str(row["revision"]))) for row in candidates)
 
     def song_ids(self) -> tuple[str, ...]:
         with self._database.engine.connect() as connection:
@@ -314,7 +375,7 @@ class SqlLibraryStorage:
             reference = root / "source.ref"
             if reference.exists() and sources[revision["song_id"]]:
                 source = str(sources[revision["song_id"]])
-                reference.write_text(source, encoding="utf-8")
+                atomic_write_text(reference, source)
                 manifest_path = root / "manifest.json"
                 project = decode_manifest(manifest_path.read_text(encoding="utf-8"))
                 project = replace(
@@ -327,7 +388,7 @@ class SqlLibraryStorage:
                     ),
                     provenance={**project.provenance, "sourcePath": source},
                 )
-                manifest_path.write_text(encode_manifest(project), encoding="utf-8")
+                atomic_write_text(manifest_path, encode_manifest(project))
                 revision["fingerprint"] = manifest_fingerprint(project)
 
     def _relocate_json(self, row: LibraryRow, *, portable: bool) -> None:

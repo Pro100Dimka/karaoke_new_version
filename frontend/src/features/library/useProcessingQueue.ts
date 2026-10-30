@@ -1,5 +1,5 @@
 import { useApp } from "../../app/AppContext";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ProcessingJobDto } from "../../contracts/models";
 import { readJson, storageKey, writeJson } from "../../shared/storage/localStore";
 
@@ -18,11 +18,11 @@ export const useProcessingQueue = (focusSongId?: string) => {
   });
   useEffect(() => writeJson(hiddenJobsKey, [...hidden]), [hidden]);
 
-  const visible = jobs.filter((job) => !hidden.has(job.id));
-  const ordered = [...visible].sort(
+  const visible = useMemo(() => jobs.filter((job) => !hidden.has(job.id)), [jobs, hidden]);
+  const ordered = useMemo(() => [...visible].sort(
     (a, b) =>
       Number(b.songId === focusSongId) - Number(a.songId === focusSongId),
-  );
+  ), [visible, focusSongId]);
 
   const count = (states: readonly JobState[]) =>
     visible.filter((job) => states.includes(job.state)).length;

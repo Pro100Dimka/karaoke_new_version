@@ -86,13 +86,53 @@ uk.CloseBeforeUninstall=Закрийте A&D Voice і дочекайтеся з�
 en.DataNotRemoved=These folders were kept because files are in use or exclusive ownership could not be verified. Review their contents before deleting application data; they may contain your other files:
 ru.DataNotRemoved=Эти папки сохранены: файлы заняты либо не удалось подтвердить, что всё содержимое принадлежит приложению. Перед удалением данных приложения проверьте содержимое — здесь могут быть другие ваши файлы:
 uk.DataNotRemoved=Ці папки збережено: файли зайняті або не вдалося підтвердити, що весь вміст належить застосунку. Перед видаленням даних застосунку перевірте вміст — тут можуть бути інші ваші файли:
+en.StorageMoving=Moving application data
+ru.StorageMoving=Перенос данных программы
+uk.StorageMoving=Перенесення даних програми
+en.StorageMovingHint=Songs, recordings, models and settings are being moved into the installation folder.
+ru.StorageMovingHint=Песни, записи, модели и настройки переносятся в папку установки.
+uk.StorageMovingHint=Пісні, записи, моделі та налаштування переносяться до папки встановлення.
+
+en.StoragePrepare=Preparing application data…
+ru.StoragePrepare=Подготовка данных программы…
+uk.StoragePrepare=Підготовка даних програми…
+en.StorageCopy=Copying files…
+ru.StorageCopy=Копирование файлов…
+uk.StorageCopy=Копіювання файлів…
+en.StorageCatalog=Updating the library and file paths…
+ru.StorageCatalog=Обновление библиотеки и путей…
+uk.StorageCatalog=Оновлення бібліотеки та шляхів…
+en.StorageVerify=Checking data integrity…
+ru.StorageVerify=Проверка целостности данных…
+uk.StorageVerify=Перевірка цілісності даних…
+en.StoragePublish=Opening the relocated library…
+ru.StoragePublish=Подключение перенесённой библиотеки…
+uk.StoragePublish=Підключення перенесеної бібліотеки…
+en.StorageWaiting=Data verified. Finishing the update; cleanup continues when Setup closes…
+ru.StorageWaiting=Данные проверены. Очистка старой папки продолжится после закрытия установщика…
+uk.StorageWaiting=Дані перевірено. Очищення старої папки продовжиться після закриття інсталятора…
+en.StorageCleanup=Cleaning up the old data folder…
+ru.StorageCleanup=Очистка старой папки данных…
+uk.StorageCleanup=Очищення старої папки даних…
+en.StorageDone=Application data is ready. Migration complete.
+ru.StorageDone=Данные готовы. Перенос завершён.
+uk.StorageDone=Дані готові. Перенесення завершено.
+en.StorageError=Data migration could not finish
+ru.StorageError=Не удалось завершить перенос данных
+uk.StorageError=Не вдалося завершити перенесення даних
+en.StorageElapsed=Elapsed: %1 s. Please wait.
+ru.StorageElapsed=Прошло %1 с. Пожалуйста, подождите.
+uk.StorageElapsed=Минуло %1 с. Будь ласка, зачекайте.
+en.StorageMoveFailed=Data migration could not finish. The original data has been preserved. Close other instances, check free space and run the installer again.
+ru.StorageMoveFailed=Не удалось завершить перенос. Исходные данные сохранены. Закройте другие экземпляры, проверьте свободное место и запустите установщик повторно.
+uk.StorageMoveFailed=Не вдалося завершити перенесення. Вихідні дані збережено. Закрийте інші екземпляри, перевірте вільне місце та запустіть інсталятор повторно.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
 Name: "models"; Description: "{cm:Models}"; Flags: unchecked
 
 [Files]
-Source: "{#AppSource}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#AppSource}\*"; DestDir: "{app}"; Excludes: "\data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; AppUserModelID matches app.setAppUserModelId in electron/main.ts: Windows notifications need it.
@@ -127,10 +167,10 @@ Root: HKA; Subkey: "Software\Classes\.m4a\OpenWithProgids"; ValueType: string; V
 Root: HKA; Subkey: "Software\Classes\.ogg\OpenWithProgids"; ValueType: string; ValueName: "ADVoice.Audio"; ValueData: ""; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\AD Voice.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\AD Voice.exe"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent; Check: IsStorageReady
 ; An update installed silently by the app (electron/AutoUpdate.ts) opens the new version; one run
 ; with /NORELAUNCH leaves it closed.
-Filename: "{app}\AD Voice.exe"; Flags: nowait; Check: ShouldRelaunch
+Filename: "{app}\AD Voice.exe"; Flags: nowait postinstall; Check: ShouldRelaunch
 
 [UninstallDelete]
 ; Only this application's profile; never remove a shared install directory recursively.
@@ -141,10 +181,12 @@ Type: dirifempty; Name: "{app}"
 [Code]
 const
   { Must match the runtime directory used by electron/GpuRuntime.ts. }
-  GpuRuntimeDir = '{userappdata}\AD Voice\gpu-runtime\torch-2.11.0-cu130';
+  GpuRuntimeDir = '{app}\data\AD Voice\gpu-runtime\torch-2.11.0-cu130';
 
 var
   DownloadPage: TOutputProgressWizardPage;
+  StoragePage: TOutputProgressWizardPage;
+  StorageReady: Boolean;
   DownloadAbort: TNewButton;
   DownloadCancelFile, DownloadError: string;
   DownloadsCancelled: Boolean;
@@ -185,7 +227,7 @@ end;
 
 procedure InitializeWizard;
 begin
-  DownloadCancelFile := ExpandConstant('{tmp}\ai-downloads.cancel');
+  StoragePage := CreateOutputProgressPage(CustomMessage('StorageMoving'), CustomMessage('StorageMovingHint'));
   DownloadPage := CreateOutputProgressPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'));
   DownloadAbort := TNewButton.Create(DownloadPage);
   DownloadAbort.Parent := DownloadPage.Surface;
@@ -239,16 +281,91 @@ end;
 
 [Code]
 
+function SetEnvironmentVariable(Name, Value: string): Boolean;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+function GetCurrentProcessId: Cardinal;
+  external 'GetCurrentProcessId@kernel32.dll stdcall';
+
+procedure StorageOutput(const S: String; const Error, FirstLine: Boolean);
+var
+  Parts: TArrayOfString;
+  Caption: String;
+  Total: Integer;
+begin
+  Log(S);
+  Parts := StringSplit(S, ['|'], stAll);
+  if (GetArrayLength(Parts) = 6) and (Parts[0] = 'STORAGE') then
+  begin
+    Caption := CustomMessage('Storage' + Parts[1]);
+    Total := StrToIntDef(Parts[3], 0);
+    if Total > 0 then Caption := Caption + ' (' + Parts[2] + ' / ' + Parts[3] + ')';
+    StoragePage.SetText(Caption, FmtMessage(CustomMessage('StorageElapsed'), [Parts[4]]) + ' ' + Parts[5]);
+    if Parts[1] = 'Done' then StoragePage.SetProgress(1, 1)
+    else if Total > 0 then StoragePage.SetProgress(StrToIntDef(Parts[2], 0), Total)
+    else
+    begin
+      StoragePage.SetProgress(0, 100);
+      StoragePage.ProgressBar.Style := npbstMarquee;
+    end;
+    if Parts[1] = 'Error' then StoragePage.ProgressBar.State := npbsError;
+  end;
+  if Copy(S, 1, 14) = 'STORAGE_ERROR|' then DownloadError := Copy(S, 15, Length(S));
+end;
+
+function IsStorageReady: Boolean;
+begin
+  Result := StorageReady;
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Params: string;
-  Code: Integer;
+  Code, I: Integer;
+  Names, Folders: TArrayOfString;
 begin
+  { Older versions start updates with /VERYSILENT. Keep their first migration visible too. }
+  if CurStep = ssInstall then WizardForm.Show;
+  if CurStep <> ssPostInstall then Exit;
+  Names := ['TEMP', 'TMP', 'NUMBA_CACHE_DIR', 'TORCH_HOME', 'HF_HOME', 'PIP_CACHE_DIR'];
+  Folders := ['temp', 'temp', 'cache\numba', 'cache\torch', 'cache\huggingface', 'cache\pip'];
+  for I := 0 to GetArrayLength(Names) - 1 do
+    SetEnvironmentVariable(Names[I], ExpandConstant('{app}\data\' + Folders[I]));
+  ForceDirectories(ExpandConstant('{app}\data\temp'));
+  DownloadCancelFile := ExpandConstant('{app}\data\temp\downloads.cancel');
+  Params := '-E -B -u -m backend.infrastructure.profile_migration ' +
+    AddQuotes(ExpandConstant('{userappdata}\AD Voice')) + ' ' +
+    AddQuotes(ExpandConstant('{app}\data\AD Voice')) +
+    ' --wait-parent ' + IntToStr(GetCurrentProcessId);
+  StoragePage.Show;
+  try
+    StoragePage.SetText(CustomMessage('StoragePrepare'), '');
+    StoragePage.SetProgress(0, 100);
+    StoragePage.ProgressBar.Style := npbstMarquee;
+    DownloadError := '';
+    Code := -1;
+    try
+      StorageReady := ExecAndLogOutput(ExpandConstant('{app}\resources\python-runtime\python.exe'),
+        Params, ExpandConstant('{app}\resources\python-app'), SW_HIDE,
+        ewWaitUntilTerminated, Code, @StorageOutput) and (Code = 0);
+    except
+      DownloadError := GetExceptionMessage;
+      StorageReady := False;
+    end;
+    if not StorageReady then
+    begin
+      if DownloadError = '' then DownloadError := SysErrorMessage(Code);
+      StoragePage.ProgressBar.State := npbsError;
+      MsgBox(CustomMessage('StorageMoveFailed') + #13#10 + DownloadError, mbError, MB_OK or MB_SETFOREGROUND);
+      Abort;
+    end;
+  finally
+    StoragePage.Hide;
+  end;
   { Installed Python runs the shared queue before the app opens. Silent updates never wait for AI files. }
-  if (CurStep <> ssPostInstall) or WizardSilent then Exit;
+  if WizardSilent then Exit;
   if not (WizardIsTaskSelected('models') or NeedsGpuRuntime) then Exit;
   Params := '-E -B -u -m backend.infrastructure.installer_downloads ' +
-    AddQuotes(ExpandConstant('{userappdata}\AD Voice')) +
+    AddQuotes(ExpandConstant('{app}\data\AD Voice')) +
     ' --cancel-file ' + AddQuotes(DownloadCancelFile);
   if WizardIsTaskSelected('models') then Params := Params + ' --models';
   if NeedsGpuRuntime then Params := Params + ' --gpu ' + AddQuotes(ExpandConstant(GpuRuntimeDir));
@@ -280,11 +397,26 @@ begin
   end;
 end;
 
+function GetCustomSetupExitCode: Integer;
+begin
+  Result := 0;
+  if not StorageReady then Result := 1;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if (CurPageID = wpFinished) and not StorageReady then
+  begin
+    WizardForm.FinishedHeadingLabel.Caption := CustomMessage('StorageError');
+    WizardForm.FinishedLabel.Caption := CustomMessage('StorageMoveFailed');
+  end;
+end;
+
 function ShouldRelaunch: Boolean;
 var
   I: Integer;
 begin
-  Result := WizardSilent;
+  Result := WizardSilent and StorageReady;
   for I := 1 to ParamCount do
     if CompareText(ParamStr(I), '/NORELAUNCH') = 0 then
       Result := False;
@@ -336,7 +468,7 @@ begin
   CheckedRoots := CheckedRoots + #10 + Lowercase(Root) + #10;
   { The fixed application profile is private. Custom roots need proof they started empty;
     the old marker was also written into folders containing unrelated user data. }
-  if CompareText(Root, ExpandConstant('{userappdata}\AD Voice\backend-data')) <> 0 then
+  if CompareText(Root, ExpandConstant('{app}\data\AD Voice\backend-data')) <> 0 then
     if not LoadStringFromFile(Root + '\.ad-voice-data', Marker) or (Marker <> 'ADVoice.App.v2') then
     begin
       RemainingData := RemainingData + #13#10 + Root;
@@ -373,10 +505,20 @@ var
   Roots: TArrayOfString;
   Profile: string;
   I: Integer;
+  Code: Integer;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    Profile := ExpandConstant('{userappdata}\AD Voice');
+    Profile := ExpandConstant('{app}\data\AD Voice');
+    if not Exec(ExpandConstant('{app}\resources\python-runtime\python.exe'),
+      '-E -B -m backend.infrastructure.profile_migration ' +
+      AddQuotes(ExpandConstant('{userappdata}\AD Voice')) + ' ' + AddQuotes(Profile) +
+      ' --unlink-compatibility', ExpandConstant('{app}\resources\python-app'),
+      SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+    begin
+      RemainingData := Profile;
+      Exit;
+    end;
     if LoadStringsFromFile(Profile + '\storage-roots.txt', Roots) then
       for I := 0 to GetArrayLength(Roots) - 1 do DeleteStorageRoot(Roots[I]);
     if LoadStringsFromFile(Profile + '\storage-root.txt', Roots) then
@@ -385,6 +527,19 @@ begin
     if RemainingData = '' then
       if DirExists(Profile) then
         if not DelTree(Profile, True, True, True) then RemainingData := Profile;
+    if RemainingData = '' then
+    begin
+      Roots := ['cache', 'temp'];
+      for I := 0 to GetArrayLength(Roots) - 1 do
+        if DirExists(ExpandConstant('{app}\data\' + Roots[I])) then
+          if not DelTree(ExpandConstant('{app}\data\' + Roots[I]), True, True, True) then
+            RemainingData := ExpandConstant('{app}\data');
+      DeleteFile(ExpandConstant('{app}\data\storage-layout.json'));
+      DeleteFile(ExpandConstant('{app}\data\storage-migration.log'));
+      DeleteFile(ExpandConstant('{app}\data\storage-progress.json'));
+      DeleteFile(ExpandConstant('{app}\data\.storage-worker.lock.guard'));
+      RemoveDir(ExpandConstant('{app}\data'));
+    end;
   end;
   if (CurUninstallStep = usPostUninstall) and (RemainingData <> '') then
     MsgBox(CustomMessage('DataNotRemoved') + #13#10 + RemainingData, mbError, MB_OK);

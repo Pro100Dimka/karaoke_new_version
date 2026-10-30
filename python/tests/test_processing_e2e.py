@@ -18,6 +18,54 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+@pytest.mark.parametrize("extra_supported", [False, True])
+def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quiet_originals(
+    extra_supported,
+):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult, _with_completed_repeats
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart\nkeep my heart\nI am alone"
+    found = _with_completed_repeats(
+        LyricsDiscoveryResult(baseline, "Sidecar", ()),
+        "keep my heart keep my heart keep my heart I am alone",
+        Event(),
+    )
+    assert found.lyrics != baseline
+    words = tuple(
+        WordTiming(text, i, i + 0.5, 0.5 if i < (9 if extra_supported else 6) else 0.02)
+        for i, text in enumerate(found.lyrics.split())
+    )
+    verified = _verified_repeats(found, words)
+    assert verified.lyrics == (found.lyrics if extra_supported else baseline)
+    if not extra_supported:
+        assert "UnverifiedExtraRepeats" in verified.warnings
+
+
+@pytest.mark.parametrize("score", [0.02, 0.0])
+def test_independently_recognized_repeat_is_not_removed_solely_for_weak_ctc(score):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "keep my heart"
+    candidate = "\n".join([baseline] * 2)
+    found = LyricsDiscoveryResult(candidate, "Sidecar", (), repeat_baseline=baseline)
+    words = tuple(
+        WordTiming(
+            text,
+            i,
+            i + 0.5,
+            score,
+            diagnostics=("RecognizedWord",) + (("ApproximateAlignment",) if not score else ()),
+        )
+        for i, text in enumerate(candidate.split())
+    )
+
+    assert _verified_repeats(found, words).lyrics == candidate
+
+
 def test_failed_clip_download_keeps_discovered_url_for_retry(tmp_path, monkeypatch) -> None:
     source = tmp_path / "SadSvit - Небо.wav"
     write_wav(source)

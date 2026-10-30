@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, Menu } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
+import { loadEnvFile } from "node:process";
 import { configuredStorageRoot, projectRoot, themeIconPath } from "./AppPaths";
 import { AppLogUploader, sendAppLogs } from "./AppLogUploader";
 import { BackendEndpoint } from "./BackendEndpoint";
@@ -19,7 +20,7 @@ import { configureRuntimeIdentity } from "./RuntimeIdentity";
 import { registerSceneProtocol } from "./SceneProtocol";
 import { registerServiceIpc } from "./ServiceIpc";
 import { registerSocialChannel } from "./SocialChannel";
-import { closeSplash, openSplash, readSavedTheme, setSplashStatus } from "./Splash";
+import { closeSplash, openSplash, readSavedTheme, setSplashStatus, waitForStorageMigration } from "./Splash";
 import { shellLanguages, shellText } from "./ShellText";
 import { createTrustedIpc } from "./TrustedIpc";
 import { applyGpuSwitches } from "./GpuSwitches";
@@ -33,6 +34,13 @@ import { createTaskbarIntegration } from "./TaskbarIntegration";
 import { createTrayRadio } from "./TrayRadio";
 import { configureNotificationIdentity } from "./NotificationIdentity";
 
+if (!app.isPackaged) {
+  try {
+    loadEnvFile(path.join(app.getAppPath(), ".env.local"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+}
 applyGpuSwitches(app.commandLine);
 configureRuntimeIdentity(app);
 // Notifications say "A&D Voice" (not "Electron") with the app's icon; each profile has its own id.
@@ -185,6 +193,7 @@ app
     // As in Discord: a newer version is installed before the app opens; offline it simply opens.
     const locale = app.getLocale().slice(0, 2);
     const language = shellLanguages.find((item) => item === locale) ?? "en";
+    await waitForStorageMigration(language);
     const updating = await updater.beforeLaunch((state) =>
       setSplashStatus(
         state.phase === "checking"
@@ -224,11 +233,11 @@ app
   .catch((error: unknown) => {
     // Without this a failed start left an invisible process: no splash, no window, no message.
     console.error("Application startup failed", error);
-    closeSplash();
     const headline =
       startupFailed[app.getLocale().slice(0, 2)] ?? "The application could not start.";
     const detail = error instanceof Error ? error.message : String(error);
     dialog.showErrorBox("A&D Voice", `${headline}\n\n${detail}`);
+    closeSplash();
     app.quit();
   });
 

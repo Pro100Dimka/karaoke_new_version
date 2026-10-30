@@ -1,5 +1,6 @@
 import { pythonClient as catalog } from "../../services/pythonClient";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   Dialog,
   IconButton,
@@ -101,6 +102,18 @@ export const ProcessingModal = ({
   const disk = useDisk(open);
   const [notice, setNotice] = useState<Notice>();
   const [motionPaused, setMotionPaused] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const rows = useVirtualizer({
+    count: queue.ordered.length,
+    getScrollElement: () => scrollRef.current,
+    getItemKey: (index) => queue.ordered[index]?.id ?? index,
+    estimateSize: () => 150,
+    overscan: 2,
+    enabled: open,
+    scrollMargin: listRef.current?.offsetTop ?? 0,
+  });
+  const songsById = useMemo(() => new Map(songs.map((song) => [song.id, song])), [songs]);
   const diskText = disk
     ? t("processingDiskUsage", {
         free: formatBytes(disk.free),
@@ -109,7 +122,7 @@ export const ProcessingModal = ({
     : t("processingDiskUnavailable");
 
   const songOf = (job: ProcessingJobDto) =>
-    songs.find((item) => item.id === job.songId);
+    songsById.get(job.songId);
   const details = (job: ProcessingJobDto) => {
     const song = songOf(job);
     setNotice({
@@ -178,7 +191,7 @@ export const ProcessingModal = ({
         className="processingBody"
         data-ad-motion={motionPaused ? "off" : undefined}
       >
-        <div className="processingScroll">
+        <div className="processingScroll" ref={scrollRef}>
           {queue.failed && (
             <Typography role="alert" tone="danger">
               {t("processingLoadFailed")}
@@ -187,13 +200,18 @@ export const ProcessingModal = ({
           {!queue.failed && queue.ordered.length === 0 && (
             <Typography tone="muted">{t("processingEmpty")}</Typography>
           )}
-          <ul className="processingList" aria-label={t("processingQueue")}>
-            {queue.ordered.map((job, index) => (
+          <ul className="processingList" ref={listRef} style={{ height: rows.getTotalSize() }} aria-label={t("processingQueue")}>
+            {rows.getVirtualItems().map((row) => {
+              const job = queue.ordered[row.index];
+              if (!job) return null;
+              return <li key={row.key} ref={rows.measureElement} data-index={row.index}
+                aria-posinset={row.index + 1} aria-setsize={queue.ordered.length}
+                style={{ position: "absolute", top: 0, left: 0, width: "100%", paddingBottom: "var(--ad-space-3)",
+                  transform: `translateY(${row.start - rows.options.scrollMargin}px)` }}>
               <ProcessingJobCard
-                key={job.id}
                 job={job}
                 song={songOf(job)}
-                index={index}
+                index={row.index}
                 actions={{
                   onOpenFolder,
                   onPlay,
@@ -205,7 +223,8 @@ export const ProcessingModal = ({
                   onToggleMotion: () => setMotionPaused((value) => !value),
                 }}
               />
-            ))}
+              </li>;
+            })}
           </ul>
         </div>
         <footer className="processingFooter">

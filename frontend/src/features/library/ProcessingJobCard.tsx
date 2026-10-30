@@ -90,7 +90,6 @@ export const ProcessingJobCard = ({
   ];
 
   return (
-    <li>
       <Card
         border
         padding="sm"
@@ -193,6 +192,5 @@ export const ProcessingJobCard = ({
           />
         </div>
       </Card>
-    </li>
   );
 };

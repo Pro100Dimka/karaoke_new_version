@@ -98,6 +98,7 @@ export const uk: MessageTable = {
   dataStorageRootHint:
     "Тут зберігаються пісні, записи, AI-моделі та кеш. Нова папка застосовується після перезапуску програми.",
   selectDataFolder: "Вибрати папку даних",
+  installedDataStorageHint: "Пісні, записи, моделі та кеш зберігаються всередині папки встановленої програми.",
   allStatuses: "Усі статуси",
   appearance: "Вигляд",
   interfaceSettings: "Інтерфейс",
@@ -179,6 +180,9 @@ export const uk: MessageTable = {
   playing: "Відтворення",
   recovering: "Відновлення",
   pianoRoll: "Нотна доріжка",
+  pitchUncertain: "Звук є · висоту поки не визначено точно",
+  pitchAboveRange: "↑ Голос вище видимого діапазону",
+  pitchBelowRange: "↓ Голос нижче видимого діапазону",
   introCountdown: "До вступу залишилось {seconds} с",
   play: "Запустити караоке",
   process: "Обробити",

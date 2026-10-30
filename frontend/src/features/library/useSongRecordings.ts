@@ -78,6 +78,22 @@ export const useSongRecordings = (
         : await catalog.latestAnalysis(recordingId);
       if (request !== requests.current.analysis) return null;
       if (stored) return stored;
+      while (request === requests.current.analysis && ownsRun()) {
+        const items = await catalog.listRecordings(songId);
+        if (request !== requests.current.analysis || !ownsRun()) return null;
+        if (listRequest === requests.current.recordings) setRecordings(items);
+        const current = items.find((item) => item.id === recordingId);
+        if (current?.fileStatus === "PreparationFailed") {
+          setAnalysisFailures((items) => ({ ...items, [recordingId]: "recordingPreparationFailed" }));
+        }
+        if (!["Preparing", "PreparationFailed"].includes(current?.fileStatus ?? "")) break;
+        setAnalysisProgress((items) => ({ ...items, [recordingId]: {
+          recordingId, jobId: "", state: "Queued", stage: "PreparingRecording", progress: 0,
+        } }));
+        await new Promise((resolve) => window.setTimeout(resolve, 750));
+      }
+      if (request !== requests.current.analysis || !ownsRun()) return null;
+      setAnalysisFailures((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
       started = true;
       return await catalog.analyzeRecording(recordingId, (progress) => {
         if (ownsRun())
@@ -108,6 +124,19 @@ export const useSongRecordings = (
       }
     }
   };
+
+  useEffect(() => {
+    const target = song ?? (analysisRecordId ? analysisSong : null);
+    if (!target || !recordings.some((item) => ["Preparing", "PreparationFailed"].includes(item.fileStatus ?? ""))) return;
+    let active = true;
+    const request = requests.current.recordings;
+    const timer = window.setTimeout(() => {
+      void catalog.listRecordings(target.id).then((items) => {
+        if (active && request === requests.current.recordings) setRecordings(items);
+      }).catch(() => undefined);
+    }, 1000);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [song, analysisSong, analysisRecordId, recordings]);
 
   const open = (target: SongDto) =>
     guarded(async () => {

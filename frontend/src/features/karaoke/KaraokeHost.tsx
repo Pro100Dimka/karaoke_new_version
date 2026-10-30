@@ -120,9 +120,9 @@ export const KaraokeHost = ({ children }: { children: ReactNode }) => {
         },
       });
       setEnding(null);
-    }, 400);
+    }, room ? 400 : 0);
     return () => window.clearTimeout(timer);
-  }, [ending, navigate]);
+  }, [ending, navigate, room]);
 
   const leave = useCallback(() => {
     if (tvRef.current) endTv();

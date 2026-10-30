@@ -257,8 +257,10 @@ export const pitchRange = (
 };
 
 /** Converts a detected frequency to a fractional MIDI note so pitch distance is measured musically. */
-export const pitchHzToMidi = (pitchHz: number): number =>
-  69 + 12 * Math.log2(pitchHz / 440);
+export const pitchHzToMidi = (pitchHz: number | undefined): number | undefined =>
+  pitchHz !== undefined && Number.isFinite(pitchHz) && pitchHz > 0
+    ? 69 + 12 * Math.log2(pitchHz / 440)
+    : undefined;
 
 /** The revision's measured target; note edits carry the contour with them. */
 export const targetPitchAt = (
@@ -309,8 +311,8 @@ export const pitchMidiNearTarget = (
   pitchHz: number | undefined,
   targetMidi: number | undefined,
 ): number | undefined => {
-  if (!pitchHz || pitchHz <= 0) return undefined;
   const midi = pitchHzToMidi(pitchHz);
+  if (midi === undefined) return undefined;
   return targetMidi === undefined
     ? midi
     : midi + 12 * Math.round((targetMidi - midi) / 12);

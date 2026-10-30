@@ -1,7 +1,7 @@
 import { audioClient } from "../../services/audioClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-const pollMilliseconds = 100;
+const pollMilliseconds = 16;
 
 export const useEditorPreview = (
   audioReady: boolean,
@@ -27,7 +27,7 @@ export const useEditorPreview = (
         .then((snapshot) => {
           if (!active) return;
           setPosition(snapshot.positionSeconds);
-          if (snapshot.state === "finished" || snapshot.state === "ready")
+          if (["finished", "ready"].includes(snapshot.state))
             setPlaying(false);
         })
         .catch(() => { if (active) setPlaying(false); })

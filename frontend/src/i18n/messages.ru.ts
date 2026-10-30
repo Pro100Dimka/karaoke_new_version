@@ -95,6 +95,7 @@ export const ru: MessageTable = {
   dataStorageRootHint:
     "Здесь хранятся песни, записи, AI-модели и кэш. Новая папка применяется после перезапуска программы.",
   selectDataFolder: "Выбрать папку данных",
+  installedDataStorageHint: "Песни, записи, модели и кэш хранятся внутри папки установленной программы.",
   allStatuses: "Все статусы",
   gradeExcellent: "Отличное исполнение",
   gradeGood: "Хороший результат",
@@ -208,6 +209,9 @@ export const ru: MessageTable = {
   recovering: "Восстановление",
   performanceAnalysis: "Анализ исполнения",
   pianoRoll: "Нотная дорожка",
+  pitchUncertain: "Звук есть · высота пока не определена точно",
+  pitchAboveRange: "↑ Голос выше видимого диапазона",
+  pitchBelowRange: "↓ Голос ниже видимого диапазона",
   introCountdown: "До вступления осталось {seconds} сек",
   play: "Запустить караоке",
   playRecording: "Воспроизвести запись",

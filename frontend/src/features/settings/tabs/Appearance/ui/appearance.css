@@ -100,7 +100,7 @@
 }
 
 .appearanceThemePanel .ad-theme-card:is(:hover, :focus-within) .ad-theme-card-preview> :is(img, svg, .ad-image-shine),
-.appearanceThemePanel .ad-theme-card:has(input:checked) .ad-theme-card-preview> :is(img, svg, .ad-image-shine) {
+.appearanceThemePanel .ad-theme-card[aria-checked="true"] .ad-theme-card-preview> :is(img, svg, .ad-image-shine) {
   filter: brightness(0.94) saturate(1) contrast(1.04);
 }
 

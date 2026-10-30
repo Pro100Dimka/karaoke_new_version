@@ -1,7 +1,7 @@
 import { bridgedHttp } from "../../services/desktopBridge";
 import { libraryChanged } from "../../services/backendEvents";
 import type { SongDto } from "../../contracts/models";
-import type { EditorDocument } from "../../application/editor/editorModel";
+import type { EditorDocument, EditorNote } from "../../application/editor/editorModel";
 
 interface BackendNote {
   note: number;
@@ -76,35 +76,42 @@ const toEditorDocument = (value: BackendEditor): EditorDocument => {
 const wordCount = (lyrics: string): number =>
   lyrics.split(/\s+/).filter(Boolean).length;
 
-const backendDocument = (song: SongDto, document: EditorDocument) => ({
-  title: song.title,
-  artist: song.artist,
-  duration: song.durationSeconds,
-  bpm: document.bpm ?? null,
-  key: document.key ?? null,
-  ...(document.vocalActivity ? { vocalActivity: document.vocalActivity } : {}),
-  ...(document.rhythm ? { rhythm: document.rhythm } : {}),
-  lyrics:
-    document.lyrics && wordCount(document.lyrics) === document.words.length
-      ? document.lyrics
-      : document.words.map((word) => word.text).join(" "),
-  words: document.words.map((word) => ({
-    text: word.text,
-    start: word.start,
-    end: word.end,
-    letters: word.letters?.map(
-      (fraction) => Math.min(word.end, Math.max(word.start,
-        word.start + fraction * (word.end - word.start),
-      )),
-    ),
-    notes: document.notes
-      .filter((note) => note.wordId === word.id)
-      .sort((a, b) => a.start - b.start)
-      .map((note) => ({ note: note.pitch, start: note.start, end: note.end,
-        ...(note.contour?.length ? { contour: note.contour } : {}),
-      })),
-  })),
-});
+const backendDocument = (song: SongDto, document: EditorDocument) => {
+  const notesByWord = new Map<string, EditorNote[]>();
+  for (const note of document.notes) {
+    const notes = notesByWord.get(note.wordId);
+    if (notes) notes.push(note);
+    else notesByWord.set(note.wordId, [note]);
+  }
+  return {
+    title: song.title,
+    artist: song.artist,
+    duration: song.durationSeconds,
+    bpm: document.bpm ?? null,
+    key: document.key ?? null,
+    ...(document.vocalActivity ? { vocalActivity: document.vocalActivity } : {}),
+    ...(document.rhythm ? { rhythm: document.rhythm } : {}),
+    lyrics:
+      document.lyrics && wordCount(document.lyrics) === document.words.length
+        ? document.lyrics
+        : document.words.map((word) => word.text).join(" "),
+    words: document.words.map((word) => ({
+      text: word.text,
+      start: word.start,
+      end: word.end,
+      letters: word.letters?.map(
+        (fraction) => Math.min(word.end, Math.max(word.start,
+          word.start + fraction * (word.end - word.start),
+        )),
+      ),
+      notes: (notesByWord.get(word.id) ?? [])
+        .sort((a, b) => a.start - b.start)
+        .map((note) => ({ note: note.pitch, start: note.start, end: note.end,
+          ...(note.contour?.length ? { contour: note.contour } : {}),
+        })),
+    })),
+  };
+};
 
 export const createEditorApi = (
   request: (value: PythonBridgeRequest) => Promise<unknown>,

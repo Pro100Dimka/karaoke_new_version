@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Icon, RotaryKnob } from "@neo-ui-kit/react";
 import { useText } from "../../../i18n/useText";
 import { fixedKnobWidth } from "../../../shared/ui/knobWidth";
@@ -5,7 +6,7 @@ import { fixedKnobWidth } from "../../../shared/ui/knobWidth";
 const diameter = 70;
 
 /** Master volume: scales the whole karaoke mix at once. */
-export const MasterVolume = ({
+export const MasterVolume = memo(({
   value,
   onChange,
 }: {
@@ -33,4 +34,4 @@ export const MasterVolume = ({
       />
     </div>
   );
-};
+});

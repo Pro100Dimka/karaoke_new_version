@@ -288,7 +288,7 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
     """Moves word starts back to where the voice really starts.
 
     The model marks a letter a little after its sound begins. A word that follows a pause starts at the voice onset found
-    in the audio; the typical lag measured on those words is then removed from the words inside a phrase.
+    in the audio; that entry's measured lag is removed inside its phrase, with a median fallback.
     """
     voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
@@ -311,6 +311,8 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
     result: list[AlignedWord] = []
     floor = 0.0
     for index, word in enumerate(words):
+        if index in found:
+            lag = min(_LARGEST_LAG_SECONDS, max(0.0, word.start - found[index]))
         start = found.get(index, word.start - lag)
         start = max(min(start, word.end - _MINIMUM_WORD_SECONDS), floor)
         shift = start - word.start
@@ -358,24 +360,29 @@ def align_guided(
     heard: Mapping[int, float] = MappingProxyType({}),
     voiced: np.ndarray | None = None,
     whole: Sequence[AlignedWord] | None = None,
+    *,
+    anchors: Mapping[int, float] = MappingProxyType({}),
 ) -> list[AlignedWord]:
-    """Aligns the text against the whole song and, for each stretch with a known place, inside that part of the audio.
-
-    Where the whole-song alignment is unsure (a noisy intro, a break) the guided one is usually right; where the hint is
-    wrong (a repeated chorus matched to the wrong repeat) the whole-song one is. The placement the model finds more
-    probable is kept, stretch by stretch, unless the words Whisper heard (``heard``: word index -> second) clearly put
-    the stretch's words where only one of the two placements has them and that placement does not start words in
-    silence or crush them more often (``voiced``: per-10-ms vocal activity). The model alone confuses neighbouring
-    phrases of a held, repeated melody ("Please | stay" both sung on the same notes). A window too short for its words
-    shares its time among them evenly. ``whole`` is the whole-song alignment when the caller already has it.
-    """
-    if whole is None:
-        whole = align_words(scores, frame_seconds, words)
+    """Choose guided or whole-song timing using recognition and voiced activity."""
+    whole = align_words(scores, frame_seconds, words) if whole is None else whole
     result: list[AlignedWord] = []
     for window in windows:
         chunk = list(words[window.first : window.last])
         if not chunk:
             continue
+        entry, following = anchors.get(window.first), heard.get(window.last)
+        start = (
+            min(window.start, max(0.0, entry - _HEARD_DISAGREEMENT_SECONDS))
+            if entry is not None
+            else window.start
+        )
+        window = replace(
+            window,
+            start=start,
+            end=min(window.end, following + _HEARD_DISAGREEMENT_SECONDS)
+            if following is not None and following > start
+            else window.end,
+        )
         reference = list(whole[window.first : window.last])
         if voiced is not None and window.heard_start is not None:
             step = _VOICE_HOP / _VOICE_RATE
@@ -384,16 +391,39 @@ def align_guided(
                 first = round(pause / step)
                 sounding = np.flatnonzero(voiced[first : round(reference[0].end / step)])
                 entry = float((first + sounding[0]) * step) if len(sounding) else pause
-                if window.heard_start < entry < window.end:
-                    # A line entry inside a long pause cannot belong to the preceding
-                    # vowel. Refit its phonemes at the voice returning after that pause.
+                if window.heard_start - _ONSET_SEARCH_BEFORE_SECONDS <= entry < window.end:
+                    # Refit at returning voice even when coarse recognition trails it.
                     window = replace(window, start=max(window.start, entry))
         guided = _align_window(scores, frame_seconds, chunk, window)
-        candidates = [
+        sequential = [
             candidate
             for candidate in (guided, reference)
-            if not result or candidate[0].start >= result[-1].start
+            if (not result or candidate[0].start > result[-1].start + 1e-9)
+            and (
+                not result
+                or voiced is None
+                or _implausible([ordered([result[-1], candidate[0]])[0]], voiced)
+                <= _implausible([result[-1]], voiced)
+            )
+            and (
+                window.last == len(whole)
+                or following is not None
+                or candidate[-1].start < whole[window.last].start
+            )
         ]
+        candidates = [
+            candidate
+            for candidate in sequential
+            if (
+                entry is None
+                or window.start - _HEARD_DISAGREEMENT_SECONDS
+                <= candidate[0].start
+                <= candidate[-1].start
+                < window.end
+            )
+        ] or sequential
+        if not candidates:
+            return ordered(list(whole))
         result.extend(
             candidates[0]
             if len(candidates) == 1
@@ -460,7 +490,7 @@ def _implausible(words: Sequence[AlignedWord], voiced: np.ndarray) -> int:
         if frame < len(voiced) and not voiced[frame : frame + lead].any():
             count += 1
         if (
-            word.end - word.start < _CRAMMED_WORD_SECONDS
+            word.end - word.start + 1e-9 < _CRAMMED_WORD_SECONDS
             and sum(c.isalnum() for c in word.text) >= 2
         ):
             count += 1
