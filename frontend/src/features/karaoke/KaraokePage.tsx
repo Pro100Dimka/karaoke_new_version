@@ -1,6 +1,6 @@
 import { canControlRoom } from "../../application/room/roomModel";
 import "./karaoke.css";
-import { Button, EmptyState, MessageBar, ProgressBar } from "@neo-ui-kit/react";
+import { Button, EmptyState, MessageBar, ProgressBar, refreshMotion } from "@neo-ui-kit/react";
 import {
   createContext,
   useContext,
@@ -130,6 +130,7 @@ export const KaraokeScreen = ({
   const [introFinished, setIntroFinished] = useState(!opensWithIntro);
   const session = useKaraokeSession(songId, mode, startReleased);
   const { load, state } = session;
+  useEffect(refreshMotion, [state.kind]);
 
   const backToLibrary = async () => {
     if (!room && ["ready", "playing", "paused"].includes(state.kind)) {
@@ -329,7 +330,7 @@ export const KaraokeScreen = ({
     />
   );
   return place(
-    <main className="karaokePage" data-paused={state.kind === "paused" || undefined} onClick={(event) => {
+    <main className="karaokePage" data-paused={state.kind === "paused" || undefined} data-ad-paused={state.kind === "paused" || undefined} onClick={(event) => {
       if (!introFinished || !session.interactive || event.button !== 0) return;
       if ((event.target as Element).closest("button, a, input, select, textarea, [role='slider'], .pianoRoll, .karaokeConsole, .karaokeTop")) return;
       void session.togglePlay();

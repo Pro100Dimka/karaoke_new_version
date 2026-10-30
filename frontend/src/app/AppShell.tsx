@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { refreshMotion } from "@neo-ui-kit/react";
 import { Outlet, useLocation } from "react-router-dom";
 import { KaraokeHost } from "../features/karaoke/KaraokeHost";
 import { useKaraokeTv } from "../features/karaoke/tv/karaokeTv";
@@ -31,6 +32,7 @@ const RouteSurface = ({
   animateBackground: boolean;
 }) => {
   const { settingsOpen } = useSettingsDialog();
+  useEffect(refreshMotion, [settingsOpen]);
   return (
     <>
       {/* Hears the radio and the microphone through AudioService's spectrum. It stays mounted under

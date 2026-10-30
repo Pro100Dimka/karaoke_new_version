@@ -1,8 +1,10 @@
 import {
+  useEffect,
   useMemo,
   useRef,
   type ReactNode,
 } from "react";
+import { refreshMotion } from "@neo-ui-kit/react";
 import type { useDetachedPanel } from "../../../shared/ui/useDetachedPanel";
 import type { ConsolePlacement } from "./KaraokeConsole";
 import {
@@ -38,6 +40,7 @@ export const ConsoleFrame = ({
   children,
   dock = "free",
 }: ConsoleFrameProps) => {
+  useEffect(refreshMotion, [shown]);
   const frameRef = useRef<HTMLElement>(null);
   const { height } = useMeasuredPanelSize(frameRef, { width, height: consoleDesignHeight });
   const size = useMemo(() => ({ width, height }), [width, height]);
@@ -64,6 +67,7 @@ export const ConsoleFrame = ({
       className="karaokeConsolePanel"
       aria-label={label}
       data-hidden={!shown || undefined}
+      data-ad-paused={!shown || undefined}
       aria-hidden={!shown}
       data-dock={panel.detached ? undefined : dock}
       ref={frameRef}
