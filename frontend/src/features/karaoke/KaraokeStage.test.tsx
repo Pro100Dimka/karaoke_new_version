@@ -4,6 +4,7 @@ import { AppProvider } from "../../app/AppContext";
 import type { EditorDocument } from "../../application/editor/editorModel";
 import { KaraokeStage } from "./KaraokeStage";
 import { KaraokeHeader } from "./KaraokeHeader";
+import showStyles from "./show/show.css?raw";
 
 vi.mock("./useSmoothPosition", () => ({
   useSmoothPosition: (position: number) => position,
@@ -211,9 +212,8 @@ describe("KaraokeStage", () => {
     );
     const view = render(stage(1));
     const lane = view.container.querySelector(".pianoRollLane") as HTMLElement;
-    const alpha = /rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/.exec(
-      lane.style.background,
-    )?.[1];
+    expect(lane).toHaveClass("ad-melody-roll");
+    const alpha = /\.pianoRollLane\.ad-melody-roll::before\s*{[^}]*opacity:\s*([\d.]+)/.exec(showStyles)?.[1];
     expect(alpha).toBeDefined();
     expect(Number(alpha)).toBeLessThan(0.25);
     expect(screen.getAllByText("First").length).toBeGreaterThan(0);
