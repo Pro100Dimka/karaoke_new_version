@@ -1,0 +1,122 @@
+{
+  "comparison": "Sequential paired runs after compatible dependency validation and completed full/backend/frontend checks; one CPU thread, five warmed repetitions.",
+  "limitations": [
+    "Real cropped vocal/backing samples with recorded CTC emissions and ASR; not complete songs.",
+    "No new ASR/MMS inference. Missing contextual ASR results remain explicitly unavailable.",
+    "Existing bundled VAD runs only to prepare a missing acoustic mask; excluded from measured runs.",
+    "Timings compare the same CPU cached alignment/postprocessing path, not full processing speed.",
+    "Reference assertions are the existing fixture regression bounds, not manually measured phoneme ground truth."
+  ],
+  "verification": {
+    "sameTorchVersion": true,
+    "sameTorchaudioVersion": true,
+    "sameCpuThreads": true,
+    "sameActivityCode": true,
+    "baselineCodeStillMatches": true,
+    "currentCodeStillMatches": true
+  },
+  "cases": [
+    {
+      "case": "fast",
+      "fragmentDurationSeconds": 11.0,
+      "sameInputs": true,
+      "beforeAssertionsPass": true,
+      "afterAssertionsPass": true,
+      "allWordBoundariesEqual": true,
+      "allLetterTimingsEqual": true,
+      "diagnosticChanges": 5,
+      "beforeMedianMs": 62.95801699980075,
+      "afterMedianMs": 113.36223400030576,
+      "beforeStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered"
+      ],
+      "afterStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered",
+        "with_sung_letters"
+      ],
+      "deltaMs": 50.404217000505014,
+      "ratio": 1.8006004541195213
+    },
+    {
+      "case": "native_fast",
+      "fragmentDurationSeconds": 10.0,
+      "sameInputs": true,
+      "beforeAssertionsPass": true,
+      "afterAssertionsPass": true,
+      "allWordBoundariesEqual": true,
+      "allLetterTimingsEqual": true,
+      "diagnosticChanges": 0,
+      "beforeMedianMs": 58.38961799963727,
+      "afterMedianMs": 60.17820600027335,
+      "beforeStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered"
+      ],
+      "afterStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered",
+        "with_sung_letters"
+      ],
+      "deltaMs": 1.7885880006360821,
+      "ratio": 1.0306319524242682
+    },
+    {
+      "case": "reply",
+      "fragmentDurationSeconds": 40.0,
+      "sameInputs": true,
+      "beforeAssertionsPass": true,
+      "afterAssertionsPass": true,
+      "allWordBoundariesEqual": true,
+      "allLetterTimingsEqual": true,
+      "diagnosticChanges": 11,
+      "beforeMedianMs": 226.30917799961026,
+      "afterMedianMs": 415.27934199984884,
+      "beforeStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered"
+      ],
+      "afterStageCalls": [
+        "align_words",
+        "align_guided",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered",
+        "with_word_guidance",
+        "with_voice_onsets",
+        "with_sung_ends",
+        "ordered",
+        "with_sung_letters"
+      ],
+      "deltaMs": 188.97016400023858,
+      "ratio": 1.8350088391048993
+    }
+  ],
+  "interpretation": "All real fixture word/letter boundaries are preserved. New review diagnostics are observable. These fixtures demonstrate regression preservation, not improved acoustic ground-truth accuracy. Fast/reply perform additional acoustic review; no full-song/model processing speed is measured."
+}

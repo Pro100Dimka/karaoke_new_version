@@ -1,0 +1,6915 @@
+{
+  "createdAtUtc": "2026-10-31T00:36:23.393384+00:00",
+  "repositoryPython": "/tmp/karaoke-sync-baseline/karaoke_new_version-refactor-frontend-direct/python",
+  "torchVersion": "2.11.0+cpu",
+  "torchaudioVersion": "2.11.0+cpu",
+  "cpuThreads": 1,
+  "limitations": [
+    "Real cropped vocal/backing samples with recorded CTC emissions and ASR; not complete songs.",
+    "No new ASR/MMS inference. Missing contextual ASR results remain explicitly unavailable.",
+    "Existing bundled VAD runs only to prepare a missing acoustic mask; excluded from measured runs.",
+    "Timings compare the same CPU cached alignment/postprocessing path, not full processing speed.",
+    "Reference assertions are the existing fixture regression bounds, not manually measured phoneme ground truth."
+  ],
+  "sourceHashes": {
+    "backend/ai_worker/ctc.py": "fce80a7c4c3a4d5482d04412478e8ddbf36dbcb9f0d07d4051b69fa4792a576c",
+    "backend/ai_worker/speech.py": "524f5b666d28775046fd198cecc90a10cf55398723e3d7ffb0f9b0e8c3abcc65",
+    "backend/ai_worker/word_guidance.py": "e7e271dcec40ddaeaa1d438f365adfff0149c6d5dfa0d4eb2cc7308c7807b1ed",
+    "backend/ai_worker/recognition.py": "c7f8d7d6950f536d493130380d06c5cd0dbdb3f3b8a40b50c89dc421ff798fc8",
+    "backend/ai_worker/timing.py": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+    "backend/processing/reporting.py": "f1ca153efc7c918330e3afb5b35a67f9c27b97b68192c50d2dfdcd7b403a99ce"
+  },
+  "cases": [
+    {
+      "case": "fast",
+      "fixture": "wildways-verse-entry.npz",
+      "sourceOffsetSeconds": 57,
+      "fragmentDurationSeconds": 11.0,
+      "lyrics": "Дома было бы намного легче\nНо за столом я один",
+      "inputs": {
+        "vocalSha256": "e0ecc3e10c06f5a7e47f5367cd38687827016169cc78e0d9d93947b1e28c695c",
+        "instrumentalSha256": "6a619e57e43af7c48df1dca467453bcb1a87dbff4255c6697b1e0dbc6db33d47",
+        "emissionsSha256": "db124c3a5d0fe6eae0e68c22579ed5a2987bef0b4ab438d72e06253d480e338e"
+      },
+      "cachedIndependentAsr": [
+        [
+          "гома",
+          1.240000000000002,
+          2.1799999999999997
+        ],
+        [
+          "было",
+          2.1799999999999997,
+          2.6400000000000006
+        ],
+        [
+          "бы",
+          2.6400000000000006,
+          3.3599999999999994
+        ],
+        [
+          "намного",
+          3.3599999999999994,
+          4.079999999999998
+        ],
+        [
+          "легче",
+          4.079999999999998,
+          5.479999999999997
+        ],
+        [
+          "но",
+          5.920000000000002,
+          6.020000000000003
+        ],
+        [
+          "за",
+          6.020000000000003,
+          6.420000000000002
+        ],
+        [
+          "столом",
+          6.420000000000002,
+          7.939999999999998
+        ],
+        [
+          "я",
+          7.939999999999998,
+          8.920000000000002
+        ],
+        [
+          "тихо",
+          8.920000000000002,
+          10.040000000000006
+        ],
+        [
+          "насдеть",
+          10.079999999999998,
+          10.560000000000002
+        ],
+        [
+          "и",
+          10.560000000000002,
+          10.799999999999997
+        ],
+        [
+          "дальше",
+          10.799999999999997,
+          11.560000000000002
+        ]
+      ],
+      "missingLocalRecognitionRequests": [
+        {
+          "start": 1.240000000000002,
+          "end": 10.640000000000006,
+          "prompt": "Дома было бы намного легче Но за столом я один"
+        }
+      ],
+      "stages": [
+        {
+          "stage": "align_words",
+          "call": 1,
+          "durationMs": 3.268039999966277,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.4,
+              "end": 1.96,
+              "letters": [
+                1.4,
+                1.5,
+                1.8,
+                1.94
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.98,
+              "end": 2.34,
+              "letters": [
+                1.98,
+                2.12,
+                2.14,
+                2.32
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.34,
+              "end": 2.38,
+              "letters": [
+                2.34,
+                2.36
+              ],
+              "confidence": 0.00609290087595582,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.38,
+              "end": 2.86,
+              "letters": [
+                2.38,
+                2.4,
+                2.74,
+                2.76,
+                2.78,
+                2.82,
+                2.84
+              ],
+              "confidence": 0.010626136691176466,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 2.86,
+              "end": 5.44,
+              "letters": [
+                2.86,
+                2.96,
+                4.26,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.021460440708324313,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.88,
+              "end": 5.96,
+              "letters": [
+                5.88,
+                5.94
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.16,
+              "end": 6.3,
+              "letters": [
+                6.16,
+                6.28
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.58,
+              "end": 10.1,
+              "letters": [
+                6.58,
+                6.66,
+                6.76,
+                7.08,
+                7.18,
+                10.08
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 10.1,
+              "end": 10.16,
+              "letters": [
+                10.1
+              ],
+              "confidence": 0.30053962767124176,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 10.5,
+              "end": 10.76,
+              "letters": [
+                10.5,
+                10.6,
+                10.68,
+                10.74
+              ],
+              "confidence": 0.15766470786184072,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "align_guided",
+          "call": 1,
+          "durationMs": 3.7359690004450385,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.4,
+              "end": 1.96,
+              "letters": [
+                1.4,
+                1.5,
+                1.8,
+                1.94
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.98,
+              "end": 2.34,
+              "letters": [
+                1.98,
+                2.12,
+                2.14,
+                2.32
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.34,
+              "end": 2.38,
+              "letters": [
+                2.34,
+                2.36
+              ],
+              "confidence": 0.00609290087595582,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.38,
+              "end": 2.86,
+              "letters": [
+                2.38,
+                2.4,
+                2.74,
+                2.76,
+                2.78,
+                2.82,
+                2.84
+              ],
+              "confidence": 0.010626136691176466,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 2.86,
+              "end": 5.44,
+              "letters": [
+                2.86,
+                2.96,
+                4.26,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.021460440708324313,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.88,
+              "end": 5.96,
+              "letters": [
+                5.88,
+                5.94
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.16,
+              "end": 6.3,
+              "letters": [
+                6.16,
+                6.28
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.58,
+              "end": 10.1,
+              "letters": [
+                6.58,
+                6.66,
+                6.76,
+                7.08,
+                7.18,
+                10.08
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 10.1,
+              "end": 10.16,
+              "letters": [
+                10.1
+              ],
+              "confidence": 0.30053962767124176,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 10.5,
+              "end": 10.76,
+              "letters": [
+                10.5,
+                10.6,
+                10.68,
+                10.74
+              ],
+              "confidence": 0.15766470786184072,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_word_guidance",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.4,
+              "end": 1.96,
+              "letters": [
+                1.4,
+                1.5,
+                1.8,
+                1.94
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.98,
+              "end": 2.34,
+              "letters": [
+                1.98,
+                2.12,
+                2.14,
+                2.32
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.34,
+              "end": 2.38,
+              "letters": [
+                2.34,
+                2.36
+              ],
+              "confidence": 0.00609290087595582,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.38,
+              "end": 2.86,
+              "letters": [
+                2.38,
+                2.4,
+                2.74,
+                2.76,
+                2.78,
+                2.82,
+                2.84
+              ],
+              "confidence": 0.010626136691176466,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 2.86,
+              "end": 5.44,
+              "letters": [
+                2.86,
+                2.96,
+                4.26,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.021460440708324313,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.88,
+              "end": 5.96,
+              "letters": [
+                5.88,
+                5.94
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.16,
+              "end": 6.3,
+              "letters": [
+                6.16,
+                6.28
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.58,
+              "end": 10.1,
+              "letters": [
+                6.58,
+                6.66,
+                6.76,
+                7.08,
+                7.18,
+                10.08
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 10.1,
+              "end": 10.16,
+              "letters": [
+                10.1
+              ],
+              "confidence": 0.30053962767124176,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 10.5,
+              "end": 10.76,
+              "letters": [
+                10.5,
+                10.6,
+                10.68,
+                10.74
+              ],
+              "confidence": 0.15766470786184072,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 7.09503300004144,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.4,
+              "end": 1.96,
+              "letters": [
+                1.4,
+                1.5,
+                1.8,
+                1.94
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.98,
+              "end": 2.34,
+              "letters": [
+                1.98,
+                2.12,
+                2.14,
+                2.32
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.64,
+              "end": 3.36,
+              "letters": [
+                2.64,
+                3.0
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.36,
+              "end": 4.08,
+              "letters": [
+                3.36,
+                3.463,
+                3.566,
+                3.669,
+                3.771,
+                3.874,
+                3.977
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.8,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.88,
+              "end": 5.96,
+              "letters": [
+                5.88,
+                5.94
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.16,
+              "end": 6.3,
+              "letters": [
+                6.16,
+                6.28
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.58,
+              "end": 10.1,
+              "letters": [
+                6.58,
+                6.66,
+                6.76,
+                7.08,
+                7.18,
+                10.08
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.94,
+              "end": 8.92,
+              "letters": [
+                7.94
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.92,
+              "end": 10.04,
+              "letters": [
+                8.92,
+                9.2,
+                9.48,
+                9.76
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_voice_onsets",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.4,
+              "end": 1.96,
+              "letters": [
+                1.4,
+                1.5,
+                1.8,
+                1.94
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.98,
+              "end": 2.34,
+              "letters": [
+                1.98,
+                2.12,
+                2.14,
+                2.32
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.64,
+              "end": 3.36,
+              "letters": [
+                2.64,
+                3.0
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.36,
+              "end": 4.08,
+              "letters": [
+                3.36,
+                3.463,
+                3.566,
+                3.669,
+                3.771,
+                3.874,
+                3.977
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.8,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.88,
+              "end": 5.96,
+              "letters": [
+                5.88,
+                5.94
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.16,
+              "end": 6.3,
+              "letters": [
+                6.16,
+                6.28
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.58,
+              "end": 10.1,
+              "letters": [
+                6.58,
+                6.66,
+                6.76,
+                7.08,
+                7.18,
+                10.08
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.94,
+              "end": 8.92,
+              "letters": [
+                7.94
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.92,
+              "end": 10.04,
+              "letters": [
+                8.92,
+                9.2,
+                9.48,
+                9.76
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 0.8776710001257015,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.3,
+              "end": 1.96,
+              "letters": [
+                1.3,
+                1.4,
+                1.7,
+                1.84
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.88,
+              "end": 2.34,
+              "letters": [
+                1.88,
+                2.02,
+                2.04,
+                2.22
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.54,
+              "end": 3.36,
+              "letters": [
+                2.54,
+                2.9
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.26,
+              "end": 4.08,
+              "letters": [
+                3.26,
+                3.363,
+                3.466,
+                3.569,
+                3.671,
+                3.774,
+                3.877
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.44,
+              "letters": [
+                4.58,
+                4.7,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.78,
+              "end": 5.96,
+              "letters": [
+                5.78,
+                5.84
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.06,
+              "end": 6.3,
+              "letters": [
+                6.06,
+                6.18
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.48,
+              "end": 10.1,
+              "letters": [
+                6.48,
+                6.56,
+                6.66,
+                6.98,
+                7.08,
+                9.98
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.84,
+              "end": 8.92,
+              "letters": [
+                7.84
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.82,
+              "end": 10.04,
+              "letters": [
+                8.82,
+                9.1,
+                9.38,
+                9.66
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_sung_ends",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.3,
+              "end": 1.96,
+              "letters": [
+                1.3,
+                1.4,
+                1.7,
+                1.84
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.88,
+              "end": 2.34,
+              "letters": [
+                1.88,
+                2.02,
+                2.04,
+                2.22
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.54,
+              "end": 3.36,
+              "letters": [
+                2.54,
+                2.9
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.26,
+              "end": 4.08,
+              "letters": [
+                3.26,
+                3.363,
+                3.466,
+                3.569,
+                3.671,
+                3.774,
+                3.877
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.44,
+              "letters": [
+                4.58,
+                4.7,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.78,
+              "end": 5.96,
+              "letters": [
+                5.78,
+                5.84
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.06,
+              "end": 6.3,
+              "letters": [
+                6.06,
+                6.18
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.48,
+              "end": 10.1,
+              "letters": [
+                6.48,
+                6.56,
+                6.66,
+                6.98,
+                7.08,
+                9.98
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.84,
+              "end": 8.92,
+              "letters": [
+                7.84
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.82,
+              "end": 10.04,
+              "letters": [
+                8.82,
+                9.1,
+                9.38,
+                9.66
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 44.8681130001205,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.3,
+              "end": 1.96,
+              "letters": [
+                1.3,
+                1.4,
+                1.7,
+                1.84
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.88,
+              "end": 2.53,
+              "letters": [
+                1.88,
+                2.02,
+                2.04,
+                2.22
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.54,
+              "end": 3.36,
+              "letters": [
+                2.54,
+                2.9
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.26,
+              "end": 4.57,
+              "letters": [
+                3.26,
+                3.363,
+                3.466,
+                3.569,
+                3.671,
+                3.774,
+                3.877
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.77,
+              "letters": [
+                4.58,
+                4.7,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.78,
+              "end": 6.05,
+              "letters": [
+                5.78,
+                5.84
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.06,
+              "end": 6.47,
+              "letters": [
+                6.06,
+                6.18
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.48,
+              "end": 10.1,
+              "letters": [
+                6.48,
+                6.56,
+                6.66,
+                6.98,
+                7.08,
+                9.98
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.84,
+              "end": 8.92,
+              "letters": [
+                7.84
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.82,
+              "end": 11.0,
+              "letters": [
+                8.82,
+                9.1,
+                9.38,
+                9.66
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "ordered",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.3,
+              "end": 1.96,
+              "letters": [
+                1.3,
+                1.4,
+                1.7,
+                1.84
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.88,
+              "end": 2.53,
+              "letters": [
+                1.88,
+                2.02,
+                2.04,
+                2.22
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.54,
+              "end": 3.36,
+              "letters": [
+                2.54,
+                2.9
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.26,
+              "end": 4.57,
+              "letters": [
+                3.26,
+                3.363,
+                3.466,
+                3.569,
+                3.671,
+                3.774,
+                3.877
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.77,
+              "letters": [
+                4.58,
+                4.7,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.78,
+              "end": 6.05,
+              "letters": [
+                5.78,
+                5.84
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.06,
+              "end": 6.47,
+              "letters": [
+                6.06,
+                6.18
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.48,
+              "end": 10.1,
+              "letters": [
+                6.48,
+                6.56,
+                6.66,
+                6.98,
+                7.08,
+                9.98
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.84,
+              "end": 8.92,
+              "letters": [
+                7.84
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.82,
+              "end": 11.0,
+              "letters": [
+                8.82,
+                9.1,
+                9.38,
+                9.66
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 0.05837299977429211,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.3,
+              "end": 1.88,
+              "letters": [
+                1.3,
+                1.4,
+                1.7,
+                1.84
+              ],
+              "confidence": 0.05010348465293646,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 1.88,
+              "end": 2.53,
+              "letters": [
+                1.88,
+                2.02,
+                2.04,
+                2.22
+              ],
+              "confidence": 0.0036075669195270166,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.54,
+              "end": 3.26,
+              "letters": [
+                2.54,
+                2.9
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.26,
+              "end": 4.57,
+              "letters": [
+                3.26,
+                3.363,
+                3.466,
+                3.569,
+                3.671,
+                3.774,
+                3.877
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.77,
+              "letters": [
+                4.58,
+                4.7,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.01529062419043233,
+              "diagnostics": []
+            },
+            {
+              "text": "Но",
+              "start": 5.78,
+              "end": 6.05,
+              "letters": [
+                5.78,
+                5.84
+              ],
+              "confidence": 0.2869173586368561,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 6.06,
+              "end": 6.47,
+              "letters": [
+                6.06,
+                6.18
+              ],
+              "confidence": 0.24202302051708102,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 6.48,
+              "end": 7.84,
+              "letters": [
+                6.48,
+                6.56,
+                6.66,
+                6.98,
+                7.08,
+                7.84
+              ],
+              "confidence": 0.2881625673423211,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 7.84,
+              "end": 8.82,
+              "letters": [
+                7.84
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 8.82,
+              "end": 11.0,
+              "letters": [
+                8.82,
+                9.1,
+                9.38,
+                9.66
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            }
+          ]
+        }
+      ],
+      "finalPayload": {
+        "words": [
+          {
+            "text": "Дома",
+            "start": 1.3,
+            "end": 1.88,
+            "confidence": 0.05010348465293646,
+            "letters": [
+              1.3,
+              1.4,
+              1.7,
+              1.84
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "было",
+            "start": 1.88,
+            "end": 2.53,
+            "confidence": 0.0036075669195270166,
+            "letters": [
+              1.88,
+              2.02,
+              2.04,
+              2.22
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "бы",
+            "start": 2.54,
+            "end": 3.26,
+            "confidence": 0.0,
+            "letters": [
+              2.54,
+              2.9
+            ],
+            "diagnostics": [
+              "ApproximateAlignment",
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "намного",
+            "start": 3.26,
+            "end": 4.57,
+            "confidence": 0.0,
+            "letters": [
+              3.26,
+              3.363,
+              3.466,
+              3.569,
+              3.671,
+              3.774,
+              3.877
+            ],
+            "diagnostics": [
+              "ApproximateAlignment",
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "легче",
+            "start": 4.58,
+            "end": 5.77,
+            "confidence": 0.01529062419043233,
+            "letters": [
+              4.58,
+              4.7,
+              5.12,
+              5.2,
+              5.32
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "Но",
+            "start": 5.78,
+            "end": 6.05,
+            "confidence": 0.2869173586368561,
+            "letters": [
+              5.78,
+              5.84
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "за",
+            "start": 6.06,
+            "end": 6.47,
+            "confidence": 0.24202302051708102,
+            "letters": [
+              6.06,
+              6.18
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "столом",
+            "start": 6.48,
+            "end": 7.84,
+            "confidence": 0.2881625673423211,
+            "letters": [
+              6.48,
+              6.56,
+              6.66,
+              6.98,
+              7.08,
+              7.84
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "я",
+            "start": 7.84,
+            "end": 8.82,
+            "confidence": 0.0,
+            "letters": [
+              7.84
+            ],
+            "diagnostics": [
+              "ApproximateAlignment",
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "один",
+            "start": 8.82,
+            "end": 11.0,
+            "confidence": 0.0,
+            "letters": [
+              8.82,
+              9.1,
+              9.38,
+              9.66
+            ],
+            "diagnostics": [
+              "ApproximateAlignment"
+            ]
+          }
+        ]
+      },
+      "assertions": {
+        "inputVocalUnchanged": true,
+        "inputInstrumentalUnchanged": true,
+        "positiveWordDurations": true,
+        "nonoverlappingWords": true,
+        "lettersInsideWords": true,
+        "orderedLetters": true,
+        "wordByAfter2_5Seconds": true,
+        "wordByNotCollapsed": true,
+        "wordNamnogoInItsPhrase": true,
+        "wordLegcheInItsPhrase": true
+      },
+      "runtime": {
+        "warmupRuns": 1,
+        "measuredRuns": 5,
+        "medianMs": 62.95801699980075,
+        "runsMs": [
+          62.95801699980075,
+          60.42621199958376,
+          61.823505000575096,
+          65.08181800018065,
+          63.445995000620314
+        ],
+        "scope": "CTC forced alignment and postprocessing; cached emissions, ASR and singing mask"
+      }
+    },
+    {
+      "case": "native_fast",
+      "fixture": "wildways-verse-entry.npz",
+      "sourceOffsetSeconds": 57,
+      "fragmentDurationSeconds": 10.0,
+      "lyrics": "Дома было бы намного легче",
+      "inputs": {
+        "vocalSha256": "4e15a2adefc63ed0701d6ac2dcea5d4139fc19816aee25d01c1a0e8edac2614f",
+        "instrumentalSha256": "8e37a27a4ae3d9d9a862576ed811457f49bdede3f8ce7b5bbc3dd1703df883f4",
+        "emissionsSha256": "b888a63db9615c4a121c2e815a82db5656912ad8117ef2ad0acc7c5f431676be"
+      },
+      "cachedIndependentAsr": [
+        [
+          "гома",
+          0.7000000000000028,
+          2.3400000000000034
+        ],
+        [
+          "был",
+          2.3400000000000034,
+          2.9200000000000017
+        ],
+        [
+          "бы",
+          2.9200000000000017,
+          3.3599999999999994
+        ],
+        [
+          "на",
+          3.3599999999999994,
+          3.6799999999999997
+        ],
+        [
+          "врага",
+          3.6799999999999997,
+          4.68
+        ],
+        [
+          "легче",
+          4.759999999999998,
+          5.579999999999998
+        ],
+        [
+          "но",
+          6.060000000000002,
+          6.060000000000002
+        ],
+        [
+          "за",
+          6.060000000000002,
+          6.560000000000002
+        ],
+        [
+          "столов",
+          6.560000000000002,
+          7.859999999999999
+        ],
+        [
+          "я",
+          7.859999999999999,
+          9.040000000000006
+        ],
+        [
+          "тебя",
+          9.040000000000006,
+          9.980000000000004
+        ],
+        [
+          "достать",
+          9.980000000000004,
+          10.579999999999998
+        ]
+      ],
+      "missingLocalRecognitionRequests": [
+        {
+          "start": 0.7000000000000028,
+          "end": 6.179999999999998,
+          "prompt": "Дома было бы намного легче"
+        }
+      ],
+      "stages": [
+        {
+          "stage": "align_words",
+          "call": 1,
+          "durationMs": 2.098586000101932,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.42,
+              "end": 1.94,
+              "letters": [
+                1.42,
+                1.5,
+                1.8,
+                1.92
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.28,
+              "end": 2.42,
+              "letters": [
+                2.28,
+                2.32,
+                2.34,
+                2.4
+              ],
+              "confidence": 0.007447625044733286,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.88,
+              "end": 2.92,
+              "letters": [
+                2.88,
+                2.9
+              ],
+              "confidence": 0.0037071260157972574,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.92,
+              "end": 6.78,
+              "letters": [
+                2.92,
+                2.96,
+                3.8,
+                5.88,
+                5.94,
+                6.66,
+                6.76
+              ],
+              "confidence": 0.07046509580686688,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 7.08,
+              "end": 8.74,
+              "letters": [
+                7.08,
+                7.18,
+                7.74,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.09603831088073396,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "align_guided",
+          "call": 1,
+          "durationMs": 1.8975620005221572,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.42,
+              "end": 1.94,
+              "letters": [
+                1.42,
+                1.5,
+                1.8,
+                1.92
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.28,
+              "end": 2.36,
+              "letters": [
+                2.28,
+                2.3,
+                2.32,
+                2.34
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.36,
+              "end": 2.4,
+              "letters": [
+                2.36,
+                2.38
+              ],
+              "confidence": 0.0034583090455271304,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.82,
+              "end": 4.36,
+              "letters": [
+                2.82,
+                2.84,
+                2.86,
+                2.88,
+                2.96,
+                4.26,
+                4.34
+              ],
+              "confidence": 0.0075737043433556596,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.78,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_word_guidance",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.42,
+              "end": 1.94,
+              "letters": [
+                1.42,
+                1.5,
+                1.8,
+                1.92
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.28,
+              "end": 2.36,
+              "letters": [
+                2.28,
+                2.3,
+                2.32,
+                2.34
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.36,
+              "end": 2.4,
+              "letters": [
+                2.36,
+                2.38
+              ],
+              "confidence": 0.0034583090455271304,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 2.82,
+              "end": 4.36,
+              "letters": [
+                2.82,
+                2.84,
+                2.86,
+                2.88,
+                2.96,
+                4.26,
+                4.34
+              ],
+              "confidence": 0.0075737043433556596,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.78,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 4.358645000138495,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.42,
+              "end": 1.94,
+              "letters": [
+                1.42,
+                1.5,
+                1.8,
+                1.92
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.28,
+              "end": 2.36,
+              "letters": [
+                2.28,
+                2.3,
+                2.32,
+                2.34
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.92,
+              "end": 3.36,
+              "letters": [
+                2.92,
+                3.14
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.48,
+              "end": 4.36,
+              "letters": [
+                3.48,
+                3.58,
+                3.78,
+                3.8,
+                3.88,
+                4.26,
+                4.34
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.78,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_voice_onsets",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.42,
+              "end": 1.94,
+              "letters": [
+                1.42,
+                1.5,
+                1.8,
+                1.92
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.28,
+              "end": 2.36,
+              "letters": [
+                2.28,
+                2.3,
+                2.32,
+                2.34
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.92,
+              "end": 3.36,
+              "letters": [
+                2.92,
+                3.14
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.48,
+              "end": 4.36,
+              "letters": [
+                3.48,
+                3.58,
+                3.78,
+                3.8,
+                3.88,
+                4.26,
+                4.34
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.68,
+              "end": 5.44,
+              "letters": [
+                4.68,
+                4.78,
+                5.22,
+                5.3,
+                5.42
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 0.8699159998286632,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.32,
+              "end": 1.94,
+              "letters": [
+                1.32,
+                1.4,
+                1.7,
+                1.82
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.18,
+              "end": 2.36,
+              "letters": [
+                2.18,
+                2.2,
+                2.22,
+                2.24
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.82,
+              "end": 3.36,
+              "letters": [
+                2.82,
+                3.04
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.38,
+              "end": 4.36,
+              "letters": [
+                3.38,
+                3.48,
+                3.68,
+                3.7,
+                3.78,
+                4.16,
+                4.24
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.44,
+              "letters": [
+                4.58,
+                4.68,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_sung_ends",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.32,
+              "end": 1.94,
+              "letters": [
+                1.32,
+                1.4,
+                1.7,
+                1.82
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.18,
+              "end": 2.36,
+              "letters": [
+                2.18,
+                2.2,
+                2.22,
+                2.24
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.82,
+              "end": 3.36,
+              "letters": [
+                2.82,
+                3.04
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.38,
+              "end": 4.36,
+              "letters": [
+                3.38,
+                3.48,
+                3.68,
+                3.7,
+                3.78,
+                4.16,
+                4.24
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 5.44,
+              "letters": [
+                4.58,
+                4.68,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 47.9162110004836,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.32,
+              "end": 2.17,
+              "letters": [
+                1.32,
+                1.4,
+                1.7,
+                1.82
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.18,
+              "end": 2.81,
+              "letters": [
+                2.18,
+                2.2,
+                2.22,
+                2.24
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.82,
+              "end": 3.37,
+              "letters": [
+                2.82,
+                3.04
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.38,
+              "end": 4.57,
+              "letters": [
+                3.38,
+                3.48,
+                3.68,
+                3.7,
+                3.78,
+                4.16,
+                4.24
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 8.26,
+              "letters": [
+                4.58,
+                4.68,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "ordered",
+          "call": 1,
+          "input": [
+            {
+              "text": "Дома",
+              "start": 1.32,
+              "end": 2.17,
+              "letters": [
+                1.32,
+                1.4,
+                1.7,
+                1.82
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.18,
+              "end": 2.81,
+              "letters": [
+                2.18,
+                2.2,
+                2.22,
+                2.24
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.82,
+              "end": 3.37,
+              "letters": [
+                2.82,
+                3.04
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.38,
+              "end": 4.57,
+              "letters": [
+                3.38,
+                3.48,
+                3.68,
+                3.7,
+                3.78,
+                4.16,
+                4.24
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 8.26,
+              "letters": [
+                4.58,
+                4.68,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 0.1421289998688735,
+          "output": [
+            {
+              "text": "Дома",
+              "start": 1.32,
+              "end": 2.17,
+              "letters": [
+                1.32,
+                1.4,
+                1.7,
+                1.82
+              ],
+              "confidence": 0.03663134481757879,
+              "diagnostics": []
+            },
+            {
+              "text": "было",
+              "start": 2.18,
+              "end": 2.81,
+              "letters": [
+                2.18,
+                2.2,
+                2.22,
+                2.24
+              ],
+              "confidence": 0.0070078824064694345,
+              "diagnostics": []
+            },
+            {
+              "text": "бы",
+              "start": 2.82,
+              "end": 3.37,
+              "letters": [
+                2.82,
+                3.04
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "намного",
+              "start": 3.38,
+              "end": 4.57,
+              "letters": [
+                3.38,
+                3.48,
+                3.68,
+                3.7,
+                3.78,
+                4.16,
+                4.24
+              ],
+              "confidence": 0.00664592871284445,
+              "diagnostics": []
+            },
+            {
+              "text": "легче",
+              "start": 4.58,
+              "end": 8.26,
+              "letters": [
+                4.58,
+                4.68,
+                5.12,
+                5.2,
+                5.32
+              ],
+              "confidence": 0.012500180513598025,
+              "diagnostics": []
+            }
+          ]
+        }
+      ],
+      "finalPayload": {
+        "words": [
+          {
+            "text": "Дома",
+            "start": 1.32,
+            "end": 2.17,
+            "confidence": 0.03663134481757879,
+            "letters": [
+              1.32,
+              1.4,
+              1.7,
+              1.82
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "было",
+            "start": 2.18,
+            "end": 2.81,
+            "confidence": 0.0070078824064694345,
+            "letters": [
+              2.18,
+              2.2,
+              2.22,
+              2.24
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "бы",
+            "start": 2.82,
+            "end": 3.37,
+            "confidence": 0.0,
+            "letters": [
+              2.82,
+              3.04
+            ],
+            "diagnostics": [
+              "ApproximateAlignment",
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "намного",
+            "start": 3.38,
+            "end": 4.57,
+            "confidence": 0.00664592871284445,
+            "letters": [
+              3.38,
+              3.48,
+              3.68,
+              3.7,
+              3.78,
+              4.16,
+              4.24
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "легче",
+            "start": 4.58,
+            "end": 8.26,
+            "confidence": 0.012500180513598025,
+            "letters": [
+              4.58,
+              4.68,
+              5.12,
+              5.2,
+              5.32
+            ],
+            "diagnostics": [
+              "RecognizedWord",
+              "AsrCtcBoundaryDisagreement"
+            ]
+          }
+        ]
+      },
+      "assertions": {
+        "inputVocalUnchanged": true,
+        "inputInstrumentalUnchanged": true,
+        "positiveWordDurations": true,
+        "nonoverlappingWords": true,
+        "lettersInsideWords": true,
+        "orderedLetters": true,
+        "wordByAfter2_5Seconds": true,
+        "wordByNotCollapsed": true,
+        "wordNamnogoInItsPhrase": true,
+        "wordLegcheInItsPhrase": true
+      },
+      "runtime": {
+        "warmupRuns": 1,
+        "measuredRuns": 5,
+        "medianMs": 58.38961799963727,
+        "runsMs": [
+          58.59439300002123,
+          58.073615000466816,
+          53.349597999840626,
+          58.38961799963727,
+          65.80247999954736
+        ],
+        "scope": "CTC forced alignment and postprocessing; cached emissions, ASR and singing mask"
+      }
+    },
+    {
+      "case": "reply",
+      "fixture": "wildways-verse-entry.npz",
+      "sourceOffsetSeconds": 110,
+      "fragmentDurationSeconds": 40.0,
+      "lyrics": "Но за столом я один\nЯ так и не смог своё сердце отдать\nВ нужные руки\nЯ так и не смог своё сердце отдать\nВ нужные руки, в нужные руки",
+      "inputs": {
+        "vocalSha256": "1195cd7eb15151535f4a1291b3218e3c22bd8a5539a789e685568d93f7e6c9c3",
+        "instrumentalSha256": "bd3583dc8f7471f3181330142e61001937a6f692ee698c98cbf6699b697d6bd1",
+        "emissionsSha256": "d50c2f32d04d7cb3b731d899773f6902e125858827fa5f3533b8557628b6efcf"
+      },
+      "cachedIndependentAsr": [
+        [
+          "но",
+          0.9000000000000057,
+          1.019999999999996
+        ],
+        [
+          "застало",
+          1.019999999999996,
+          2.1599999999999966
+        ],
+        [
+          "я",
+          3.319999999999993,
+          3.8400000000000034
+        ],
+        [
+          "лати",
+          3.8400000000000034,
+          4.640000000000001
+        ],
+        [
+          "я",
+          4.640000000000001,
+          7.040000000000006
+        ],
+        [
+          "так",
+          7.040000000000006,
+          7.700000000000003
+        ],
+        [
+          "и",
+          7.700000000000003,
+          7.939999999999998
+        ],
+        [
+          "не",
+          7.939999999999998,
+          8.239999999999995
+        ],
+        [
+          "смог",
+          8.239999999999995,
+          8.599999999999994
+        ],
+        [
+          "своё",
+          8.599999999999994,
+          9.439999999999998
+        ],
+        [
+          "сердце",
+          9.439999999999998,
+          10.280000000000001
+        ],
+        [
+          "отдать",
+          10.280000000000001,
+          13.079999999999998
+        ],
+        [
+          "влёжная",
+          13.420000000000002,
+          14.819999999999993
+        ],
+        [
+          "руки",
+          14.819999999999993,
+          15.299999999999997
+        ],
+        [
+          "я",
+          25.54000000000002,
+          26.24000000000001
+        ],
+        [
+          "так",
+          26.24000000000001,
+          26.599999999999994
+        ],
+        [
+          "и",
+          26.599999999999994,
+          27.139999999999986
+        ],
+        [
+          "не",
+          27.139999999999986,
+          27.419999999999987
+        ],
+        [
+          "смог",
+          27.419999999999987,
+          27.80000000000001
+        ],
+        [
+          "своё",
+          27.80000000000001,
+          28.639999999999986
+        ],
+        [
+          "сердце",
+          28.639999999999986,
+          29.47999999999999
+        ],
+        [
+          "отдать",
+          29.47999999999999,
+          30.879999999999995
+        ],
+        [
+          "можешь",
+          30.879999999999995,
+          31.28
+        ],
+        [
+          "не",
+          31.28,
+          31.5
+        ],
+        [
+          "локиться",
+          31.5,
+          32.44
+        ],
+        [
+          "можешь",
+          32.96000000000001,
+          33.66
+        ],
+        [
+          "не",
+          33.66,
+          33.84
+        ],
+        [
+          "локиться",
+          33.84,
+          34.94
+        ]
+      ],
+      "missingLocalRecognitionRequests": [
+        {
+          "start": 1.65,
+          "end": 13.679999999999998,
+          "prompt": "Но за столом я один Я так и не смог своё сердце отдать"
+        },
+        {
+          "start": 6.5200000000000005,
+          "end": 16.54,
+          "prompt": "Я так и не смог своё сердце отдать В нужные руки Я так и не смог своё сердце отдать"
+        },
+        {
+          "start": 25.07,
+          "end": 36.28,
+          "prompt": "В нужные руки Я так и не смог своё сердце отдать В нужные руки, в нужные руки"
+        },
+        {
+          "start": 26.24000000000001,
+          "end": 40.0,
+          "prompt": "Я так и не смог своё сердце отдать В нужные руки, в нужные руки"
+        }
+      ],
+      "stages": [
+        {
+          "stage": "align_words",
+          "call": 1,
+          "durationMs": 7.767176999550429,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.88,
+              "end": 0.98,
+              "letters": [
+                0.88,
+                0.96
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.16,
+              "end": 1.32,
+              "letters": [
+                1.16,
+                1.3
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.56,
+              "end": 3.44,
+              "letters": [
+                1.56,
+                1.66,
+                1.76,
+                2.02,
+                2.18,
+                3.42
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.62,
+              "end": 3.74,
+              "letters": [
+                3.62
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.16,
+              "end": 5.02,
+              "letters": [
+                4.16,
+                4.46,
+                4.6,
+                5.0
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.9,
+              "end": 7.04,
+              "letters": [
+                6.9
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.18,
+              "end": 7.64,
+              "letters": [
+                7.18,
+                7.32,
+                7.62
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.76,
+              "end": 7.78,
+              "letters": [
+                7.76
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 8.06,
+              "end": 8.2,
+              "letters": [
+                8.06,
+                8.18
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.36,
+              "end": 8.74,
+              "letters": [
+                8.36,
+                8.48,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.84,
+              "end": 9.4,
+              "letters": [
+                8.84,
+                8.92,
+                9.04,
+                9.38
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.6,
+              "end": 10.18,
+              "letters": [
+                9.6,
+                9.74,
+                9.88,
+                9.94,
+                9.98,
+                10.16
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 15.08,
+              "end": 25.5,
+              "letters": [
+                15.08,
+                16.0,
+                16.02,
+                18.44,
+                25.48,
+                25.5
+              ],
+              "confidence": 0.0042290912941098215,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 25.56,
+              "end": 25.58,
+              "letters": [
+                25.56
+              ],
+              "confidence": 0.0007951016305014491,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 25.58,
+              "end": 25.92,
+              "letters": [
+                25.58,
+                25.6,
+                25.7,
+                25.86,
+                25.88,
+                25.9
+              ],
+              "confidence": 0.002795049737739776,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 26.02,
+              "end": 26.1,
+              "letters": [
+                26.02,
+                26.04,
+                26.06,
+                26.08
+              ],
+              "confidence": 0.00380917068105191,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.1,
+              "end": 26.22,
+              "letters": [
+                26.1
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.4,
+              "end": 26.84,
+              "letters": [
+                26.4,
+                26.52,
+                26.82
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.98,
+              "end": 27.0,
+              "letters": [
+                26.98
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.28,
+              "end": 27.4,
+              "letters": [
+                27.28,
+                27.38
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.56,
+              "end": 27.94,
+              "letters": [
+                27.56,
+                27.66,
+                27.74,
+                27.92
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 28.04,
+              "end": 28.42,
+              "letters": [
+                28.04,
+                28.12,
+                28.22,
+                28.4
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.8,
+              "end": 29.4,
+              "letters": [
+                28.8,
+                28.94,
+                29.08,
+                29.2,
+                29.22,
+                29.38
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.74,
+              "end": 30.86,
+              "letters": [
+                29.74,
+                29.86,
+                30.0,
+                30.14,
+                30.84,
+                30.86
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.92,
+              "end": 30.94,
+              "letters": [
+                30.92
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.96,
+              "end": 31.4,
+              "letters": [
+                30.96,
+                31.06,
+                31.18,
+                31.28,
+                31.32,
+                31.38
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.82,
+              "end": 32.48,
+              "letters": [
+                31.82,
+                31.98,
+                32.34,
+                32.46,
+                32.48
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.22,
+              "end": 33.24,
+              "letters": [
+                33.22
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.32,
+              "end": 34.02,
+              "letters": [
+                33.32,
+                33.44,
+                33.58,
+                33.66,
+                33.74,
+                34.0
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.18,
+              "end": 34.52,
+              "letters": [
+                34.18,
+                34.28,
+                34.44,
+                34.5
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "align_guided",
+          "call": 1,
+          "durationMs": 10.762025000076392,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.88,
+              "end": 0.98,
+              "letters": [
+                0.88,
+                0.96
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.16,
+              "end": 1.32,
+              "letters": [
+                1.16,
+                1.3
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.56,
+              "end": 3.44,
+              "letters": [
+                1.56,
+                1.66,
+                1.76,
+                2.02,
+                2.18,
+                3.42
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.62,
+              "end": 3.74,
+              "letters": [
+                3.62
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.16,
+              "end": 5.02,
+              "letters": [
+                4.16,
+                4.46,
+                4.6,
+                5.0
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.9,
+              "end": 7.04,
+              "letters": [
+                6.9
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.18,
+              "end": 7.64,
+              "letters": [
+                7.18,
+                7.32,
+                7.62
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.76,
+              "end": 7.78,
+              "letters": [
+                7.76
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 8.06,
+              "end": 8.2,
+              "letters": [
+                8.06,
+                8.18
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.36,
+              "end": 8.74,
+              "letters": [
+                8.36,
+                8.48,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.84,
+              "end": 9.4,
+              "letters": [
+                8.84,
+                8.92,
+                9.04,
+                9.38
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.6,
+              "end": 10.18,
+              "letters": [
+                9.6,
+                9.74,
+                9.88,
+                9.94,
+                9.98,
+                10.16
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.54,
+              "end": 13.12,
+              "letters": [
+                10.54,
+                10.66,
+                10.8,
+                10.9,
+                13.1,
+                13.12
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 14.32,
+              "end": 14.34,
+              "letters": [
+                14.32
+              ],
+              "confidence": 0.00036748702405020595,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 14.38,
+              "end": 14.74,
+              "letters": [
+                14.38,
+                14.46,
+                14.6,
+                14.66,
+                14.68,
+                14.72
+              ],
+              "confidence": 0.0013084893663679914,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.98,
+              "end": 15.72,
+              "letters": [
+                14.98,
+                15.08,
+                15.24,
+                15.7
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.1,
+              "end": 26.22,
+              "letters": [
+                26.1
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.4,
+              "end": 26.84,
+              "letters": [
+                26.4,
+                26.52,
+                26.82
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.98,
+              "end": 27.0,
+              "letters": [
+                26.98
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.28,
+              "end": 27.4,
+              "letters": [
+                27.28,
+                27.38
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.56,
+              "end": 27.94,
+              "letters": [
+                27.56,
+                27.66,
+                27.74,
+                27.92
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 28.04,
+              "end": 28.42,
+              "letters": [
+                28.04,
+                28.12,
+                28.22,
+                28.4
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.8,
+              "end": 29.4,
+              "letters": [
+                28.8,
+                28.94,
+                29.08,
+                29.2,
+                29.22,
+                29.38
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.74,
+              "end": 30.86,
+              "letters": [
+                29.74,
+                29.86,
+                30.0,
+                30.14,
+                30.84,
+                30.86
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.92,
+              "end": 30.94,
+              "letters": [
+                30.92
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.96,
+              "end": 31.4,
+              "letters": [
+                30.96,
+                31.06,
+                31.18,
+                31.28,
+                31.32,
+                31.38
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.82,
+              "end": 32.48,
+              "letters": [
+                31.82,
+                31.98,
+                32.34,
+                32.46,
+                32.48
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.22,
+              "end": 33.24,
+              "letters": [
+                33.22
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.32,
+              "end": 34.02,
+              "letters": [
+                33.32,
+                33.44,
+                33.58,
+                33.66,
+                33.74,
+                34.0
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.18,
+              "end": 34.52,
+              "letters": [
+                34.18,
+                34.28,
+                34.44,
+                34.5
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_word_guidance",
+          "call": 1,
+          "input": [
+            {
+              "text": "Но",
+              "start": 0.88,
+              "end": 0.98,
+              "letters": [
+                0.88,
+                0.96
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.16,
+              "end": 1.32,
+              "letters": [
+                1.16,
+                1.3
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.56,
+              "end": 3.44,
+              "letters": [
+                1.56,
+                1.66,
+                1.76,
+                2.02,
+                2.18,
+                3.42
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.62,
+              "end": 3.74,
+              "letters": [
+                3.62
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.16,
+              "end": 5.02,
+              "letters": [
+                4.16,
+                4.46,
+                4.6,
+                5.0
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.9,
+              "end": 7.04,
+              "letters": [
+                6.9
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.18,
+              "end": 7.64,
+              "letters": [
+                7.18,
+                7.32,
+                7.62
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.76,
+              "end": 7.78,
+              "letters": [
+                7.76
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 8.06,
+              "end": 8.2,
+              "letters": [
+                8.06,
+                8.18
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.36,
+              "end": 8.74,
+              "letters": [
+                8.36,
+                8.48,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.84,
+              "end": 9.4,
+              "letters": [
+                8.84,
+                8.92,
+                9.04,
+                9.38
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.6,
+              "end": 10.18,
+              "letters": [
+                9.6,
+                9.74,
+                9.88,
+                9.94,
+                9.98,
+                10.16
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.54,
+              "end": 13.12,
+              "letters": [
+                10.54,
+                10.66,
+                10.8,
+                10.9,
+                13.1,
+                13.12
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 14.32,
+              "end": 14.34,
+              "letters": [
+                14.32
+              ],
+              "confidence": 0.00036748702405020595,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 14.38,
+              "end": 14.74,
+              "letters": [
+                14.38,
+                14.46,
+                14.6,
+                14.66,
+                14.68,
+                14.72
+              ],
+              "confidence": 0.0013084893663679914,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.98,
+              "end": 15.72,
+              "letters": [
+                14.98,
+                15.08,
+                15.24,
+                15.7
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.1,
+              "end": 26.22,
+              "letters": [
+                26.1
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.4,
+              "end": 26.84,
+              "letters": [
+                26.4,
+                26.52,
+                26.82
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.98,
+              "end": 27.0,
+              "letters": [
+                26.98
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.28,
+              "end": 27.4,
+              "letters": [
+                27.28,
+                27.38
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.56,
+              "end": 27.94,
+              "letters": [
+                27.56,
+                27.66,
+                27.74,
+                27.92
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 28.04,
+              "end": 28.42,
+              "letters": [
+                28.04,
+                28.12,
+                28.22,
+                28.4
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.8,
+              "end": 29.4,
+              "letters": [
+                28.8,
+                28.94,
+                29.08,
+                29.2,
+                29.22,
+                29.38
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.74,
+              "end": 30.86,
+              "letters": [
+                29.74,
+                29.86,
+                30.0,
+                30.14,
+                30.84,
+                30.86
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.92,
+              "end": 30.94,
+              "letters": [
+                30.92
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.96,
+              "end": 31.4,
+              "letters": [
+                30.96,
+                31.06,
+                31.18,
+                31.28,
+                31.32,
+                31.38
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.82,
+              "end": 32.48,
+              "letters": [
+                31.82,
+                31.98,
+                32.34,
+                32.46,
+                32.48
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.22,
+              "end": 33.24,
+              "letters": [
+                33.22
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.32,
+              "end": 34.02,
+              "letters": [
+                33.32,
+                33.44,
+                33.58,
+                33.66,
+                33.74,
+                34.0
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.18,
+              "end": 34.52,
+              "letters": [
+                34.18,
+                34.28,
+                34.44,
+                34.5
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 7.465403999958653,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.88,
+              "end": 0.98,
+              "letters": [
+                0.88,
+                0.96
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.16,
+              "end": 1.32,
+              "letters": [
+                1.16,
+                1.3
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.56,
+              "end": 3.44,
+              "letters": [
+                1.56,
+                1.66,
+                1.76,
+                2.02,
+                2.18,
+                3.42
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.62,
+              "end": 3.74,
+              "letters": [
+                3.62
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.16,
+              "end": 5.02,
+              "letters": [
+                4.16,
+                4.46,
+                4.6,
+                5.0
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.9,
+              "end": 7.04,
+              "letters": [
+                6.9
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.18,
+              "end": 7.64,
+              "letters": [
+                7.18,
+                7.32,
+                7.62
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.76,
+              "end": 7.78,
+              "letters": [
+                7.76
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 8.06,
+              "end": 8.2,
+              "letters": [
+                8.06,
+                8.18
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.36,
+              "end": 8.74,
+              "letters": [
+                8.36,
+                8.48,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.84,
+              "end": 9.4,
+              "letters": [
+                8.84,
+                8.92,
+                9.04,
+                9.38
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.6,
+              "end": 10.18,
+              "letters": [
+                9.6,
+                9.74,
+                9.88,
+                9.94,
+                9.98,
+                10.16
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.54,
+              "end": 13.12,
+              "letters": [
+                10.54,
+                10.66,
+                10.8,
+                10.9,
+                13.1,
+                13.12
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.42,
+              "end": 13.62,
+              "letters": [
+                13.42
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 14.0,
+              "end": 14.74,
+              "letters": [
+                14.0,
+                14.46,
+                14.6,
+                14.66,
+                14.68,
+                14.72
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.98,
+              "end": 15.72,
+              "letters": [
+                14.98,
+                15.08,
+                15.24,
+                15.7
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.1,
+              "end": 26.22,
+              "letters": [
+                26.1
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.4,
+              "end": 26.84,
+              "letters": [
+                26.4,
+                26.52,
+                26.82
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.98,
+              "end": 27.0,
+              "letters": [
+                26.98
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.28,
+              "end": 27.4,
+              "letters": [
+                27.28,
+                27.38
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.56,
+              "end": 27.94,
+              "letters": [
+                27.56,
+                27.66,
+                27.74,
+                27.92
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 28.04,
+              "end": 28.42,
+              "letters": [
+                28.04,
+                28.12,
+                28.22,
+                28.4
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.8,
+              "end": 29.4,
+              "letters": [
+                28.8,
+                28.94,
+                29.08,
+                29.2,
+                29.22,
+                29.38
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.74,
+              "end": 30.86,
+              "letters": [
+                29.74,
+                29.86,
+                30.0,
+                30.14,
+                30.84,
+                30.86
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.92,
+              "end": 30.94,
+              "letters": [
+                30.92
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.96,
+              "end": 31.4,
+              "letters": [
+                30.96,
+                31.06,
+                31.18,
+                31.28,
+                31.32,
+                31.38
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.82,
+              "end": 32.48,
+              "letters": [
+                31.82,
+                31.98,
+                32.34,
+                32.46,
+                32.48
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.22,
+              "end": 33.24,
+              "letters": [
+                33.22
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.32,
+              "end": 34.02,
+              "letters": [
+                33.32,
+                33.44,
+                33.58,
+                33.66,
+                33.74,
+                34.0
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.18,
+              "end": 34.52,
+              "letters": [
+                34.18,
+                34.28,
+                34.44,
+                34.5
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_voice_onsets",
+          "call": 1,
+          "input": [
+            {
+              "text": "Но",
+              "start": 0.88,
+              "end": 0.98,
+              "letters": [
+                0.88,
+                0.96
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.16,
+              "end": 1.32,
+              "letters": [
+                1.16,
+                1.3
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.56,
+              "end": 3.44,
+              "letters": [
+                1.56,
+                1.66,
+                1.76,
+                2.02,
+                2.18,
+                3.42
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.62,
+              "end": 3.74,
+              "letters": [
+                3.62
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.16,
+              "end": 5.02,
+              "letters": [
+                4.16,
+                4.46,
+                4.6,
+                5.0
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.9,
+              "end": 7.04,
+              "letters": [
+                6.9
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.18,
+              "end": 7.64,
+              "letters": [
+                7.18,
+                7.32,
+                7.62
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.76,
+              "end": 7.78,
+              "letters": [
+                7.76
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 8.06,
+              "end": 8.2,
+              "letters": [
+                8.06,
+                8.18
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.36,
+              "end": 8.74,
+              "letters": [
+                8.36,
+                8.48,
+                8.58,
+                8.72
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.84,
+              "end": 9.4,
+              "letters": [
+                8.84,
+                8.92,
+                9.04,
+                9.38
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.6,
+              "end": 10.18,
+              "letters": [
+                9.6,
+                9.74,
+                9.88,
+                9.94,
+                9.98,
+                10.16
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.54,
+              "end": 13.12,
+              "letters": [
+                10.54,
+                10.66,
+                10.8,
+                10.9,
+                13.1,
+                13.12
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.42,
+              "end": 13.62,
+              "letters": [
+                13.42
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 14.0,
+              "end": 14.74,
+              "letters": [
+                14.0,
+                14.46,
+                14.6,
+                14.66,
+                14.68,
+                14.72
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.98,
+              "end": 15.72,
+              "letters": [
+                14.98,
+                15.08,
+                15.24,
+                15.7
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.1,
+              "end": 26.22,
+              "letters": [
+                26.1
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.4,
+              "end": 26.84,
+              "letters": [
+                26.4,
+                26.52,
+                26.82
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.98,
+              "end": 27.0,
+              "letters": [
+                26.98
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.28,
+              "end": 27.4,
+              "letters": [
+                27.28,
+                27.38
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.56,
+              "end": 27.94,
+              "letters": [
+                27.56,
+                27.66,
+                27.74,
+                27.92
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 28.04,
+              "end": 28.42,
+              "letters": [
+                28.04,
+                28.12,
+                28.22,
+                28.4
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.8,
+              "end": 29.4,
+              "letters": [
+                28.8,
+                28.94,
+                29.08,
+                29.2,
+                29.22,
+                29.38
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.74,
+              "end": 30.86,
+              "letters": [
+                29.74,
+                29.86,
+                30.0,
+                30.14,
+                30.84,
+                30.86
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.92,
+              "end": 30.94,
+              "letters": [
+                30.92
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.96,
+              "end": 31.4,
+              "letters": [
+                30.96,
+                31.06,
+                31.18,
+                31.28,
+                31.32,
+                31.38
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.82,
+              "end": 32.48,
+              "letters": [
+                31.82,
+                31.98,
+                32.34,
+                32.46,
+                32.48
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.22,
+              "end": 33.24,
+              "letters": [
+                33.22
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.32,
+              "end": 34.02,
+              "letters": [
+                33.32,
+                33.44,
+                33.58,
+                33.66,
+                33.74,
+                34.0
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.18,
+              "end": 34.52,
+              "letters": [
+                34.18,
+                34.28,
+                34.44,
+                34.5
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 3.1765390003783978,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.78,
+              "end": 0.98,
+              "letters": [
+                0.78,
+                0.86
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.06,
+              "end": 1.32,
+              "letters": [
+                1.06,
+                1.2
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.46,
+              "end": 3.44,
+              "letters": [
+                1.46,
+                1.56,
+                1.66,
+                1.92,
+                2.08,
+                3.32
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.52,
+              "end": 3.74,
+              "letters": [
+                3.52
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.06,
+              "end": 5.02,
+              "letters": [
+                4.06,
+                4.36,
+                4.5,
+                4.9
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.8,
+              "end": 7.04,
+              "letters": [
+                6.8
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.08,
+              "end": 7.64,
+              "letters": [
+                7.08,
+                7.22,
+                7.52
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.66,
+              "end": 7.78,
+              "letters": [
+                7.66
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 7.96,
+              "end": 8.2,
+              "letters": [
+                7.96,
+                8.08
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.26,
+              "end": 8.74,
+              "letters": [
+                8.26,
+                8.38,
+                8.48,
+                8.62
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.74,
+              "end": 9.4,
+              "letters": [
+                8.74,
+                8.82,
+                8.94,
+                9.28
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.5,
+              "end": 10.18,
+              "letters": [
+                9.5,
+                9.64,
+                9.78,
+                9.84,
+                9.88,
+                10.06
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.44,
+              "end": 13.12,
+              "letters": [
+                10.44,
+                10.56,
+                10.7,
+                10.8,
+                13.0,
+                13.02
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.32,
+              "end": 13.62,
+              "letters": [
+                13.32
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 13.9,
+              "end": 14.74,
+              "letters": [
+                13.9,
+                14.36,
+                14.5,
+                14.56,
+                14.58,
+                14.62
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.88,
+              "end": 15.72,
+              "letters": [
+                14.88,
+                14.98,
+                15.14,
+                15.6
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.0,
+              "end": 26.22,
+              "letters": [
+                26.0
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.3,
+              "end": 26.84,
+              "letters": [
+                26.3,
+                26.42,
+                26.72
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.88,
+              "end": 27.0,
+              "letters": [
+                26.88
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.18,
+              "end": 27.4,
+              "letters": [
+                27.18,
+                27.28
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.46,
+              "end": 27.94,
+              "letters": [
+                27.46,
+                27.56,
+                27.64,
+                27.82
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 27.94,
+              "end": 28.42,
+              "letters": [
+                27.94,
+                28.02,
+                28.12,
+                28.3
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.7,
+              "end": 29.4,
+              "letters": [
+                28.7,
+                28.84,
+                28.98,
+                29.1,
+                29.12,
+                29.28
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.64,
+              "end": 30.86,
+              "letters": [
+                29.64,
+                29.76,
+                29.9,
+                30.04,
+                30.74,
+                30.76
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.82,
+              "end": 30.94,
+              "letters": [
+                30.82
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.86,
+              "end": 31.4,
+              "letters": [
+                30.86,
+                30.96,
+                31.08,
+                31.18,
+                31.22,
+                31.28
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.72,
+              "end": 32.48,
+              "letters": [
+                31.72,
+                31.88,
+                32.24,
+                32.36,
+                32.38
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.12,
+              "end": 33.24,
+              "letters": [
+                33.12
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.22,
+              "end": 34.02,
+              "letters": [
+                33.22,
+                33.34,
+                33.48,
+                33.56,
+                33.64,
+                33.9
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.08,
+              "end": 34.52,
+              "letters": [
+                34.08,
+                34.18,
+                34.34,
+                34.4
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "with_sung_ends",
+          "call": 1,
+          "input": [
+            {
+              "text": "Но",
+              "start": 0.78,
+              "end": 0.98,
+              "letters": [
+                0.78,
+                0.86
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.06,
+              "end": 1.32,
+              "letters": [
+                1.06,
+                1.2
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.46,
+              "end": 3.44,
+              "letters": [
+                1.46,
+                1.56,
+                1.66,
+                1.92,
+                2.08,
+                3.32
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.52,
+              "end": 3.74,
+              "letters": [
+                3.52
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.06,
+              "end": 5.02,
+              "letters": [
+                4.06,
+                4.36,
+                4.5,
+                4.9
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.8,
+              "end": 7.04,
+              "letters": [
+                6.8
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.08,
+              "end": 7.64,
+              "letters": [
+                7.08,
+                7.22,
+                7.52
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.66,
+              "end": 7.78,
+              "letters": [
+                7.66
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 7.96,
+              "end": 8.2,
+              "letters": [
+                7.96,
+                8.08
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.26,
+              "end": 8.74,
+              "letters": [
+                8.26,
+                8.38,
+                8.48,
+                8.62
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.74,
+              "end": 9.4,
+              "letters": [
+                8.74,
+                8.82,
+                8.94,
+                9.28
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.5,
+              "end": 10.18,
+              "letters": [
+                9.5,
+                9.64,
+                9.78,
+                9.84,
+                9.88,
+                10.06
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.44,
+              "end": 13.12,
+              "letters": [
+                10.44,
+                10.56,
+                10.7,
+                10.8,
+                13.0,
+                13.02
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.32,
+              "end": 13.62,
+              "letters": [
+                13.32
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 13.9,
+              "end": 14.74,
+              "letters": [
+                13.9,
+                14.36,
+                14.5,
+                14.56,
+                14.58,
+                14.62
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.88,
+              "end": 15.72,
+              "letters": [
+                14.88,
+                14.98,
+                15.14,
+                15.6
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.0,
+              "end": 26.22,
+              "letters": [
+                26.0
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.3,
+              "end": 26.84,
+              "letters": [
+                26.3,
+                26.42,
+                26.72
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.88,
+              "end": 27.0,
+              "letters": [
+                26.88
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.18,
+              "end": 27.4,
+              "letters": [
+                27.18,
+                27.28
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.46,
+              "end": 27.94,
+              "letters": [
+                27.46,
+                27.56,
+                27.64,
+                27.82
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 27.94,
+              "end": 28.42,
+              "letters": [
+                27.94,
+                28.02,
+                28.12,
+                28.3
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.7,
+              "end": 29.4,
+              "letters": [
+                28.7,
+                28.84,
+                28.98,
+                29.1,
+                29.12,
+                29.28
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.64,
+              "end": 30.86,
+              "letters": [
+                29.64,
+                29.76,
+                29.9,
+                30.04,
+                30.74,
+                30.76
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.82,
+              "end": 30.94,
+              "letters": [
+                30.82
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.86,
+              "end": 31.4,
+              "letters": [
+                30.86,
+                30.96,
+                31.08,
+                31.18,
+                31.22,
+                31.28
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.72,
+              "end": 32.48,
+              "letters": [
+                31.72,
+                31.88,
+                32.24,
+                32.36,
+                32.38
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.12,
+              "end": 33.24,
+              "letters": [
+                33.12
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.22,
+              "end": 34.02,
+              "letters": [
+                33.22,
+                33.34,
+                33.48,
+                33.56,
+                33.64,
+                33.9
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.08,
+              "end": 34.52,
+              "letters": [
+                34.08,
+                34.18,
+                34.34,
+                34.4
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 182.4271499999668,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.78,
+              "end": 1.05,
+              "letters": [
+                0.78,
+                0.86
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.06,
+              "end": 1.45,
+              "letters": [
+                1.06,
+                1.2
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.46,
+              "end": 3.51,
+              "letters": [
+                1.46,
+                1.56,
+                1.66,
+                1.92,
+                2.08,
+                3.32
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.52,
+              "end": 4.05,
+              "letters": [
+                3.52
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.06,
+              "end": 5.79,
+              "letters": [
+                4.06,
+                4.36,
+                4.5,
+                4.9
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.8,
+              "end": 7.07,
+              "letters": [
+                6.8
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.08,
+              "end": 7.65,
+              "letters": [
+                7.08,
+                7.22,
+                7.52
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.66,
+              "end": 7.78,
+              "letters": [
+                7.66
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 7.96,
+              "end": 8.25,
+              "letters": [
+                7.96,
+                8.08
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.26,
+              "end": 8.74,
+              "letters": [
+                8.26,
+                8.38,
+                8.48,
+                8.62
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.74,
+              "end": 9.49,
+              "letters": [
+                8.74,
+                8.82,
+                8.94,
+                9.28
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.5,
+              "end": 10.19,
+              "letters": [
+                9.5,
+                9.64,
+                9.78,
+                9.84,
+                9.88,
+                10.06
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.44,
+              "end": 13.31,
+              "letters": [
+                10.44,
+                10.56,
+                10.7,
+                10.8,
+                13.0,
+                13.02
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.32,
+              "end": 13.89,
+              "letters": [
+                13.32
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 13.9,
+              "end": 14.87,
+              "letters": [
+                13.9,
+                14.36,
+                14.5,
+                14.56,
+                14.58,
+                14.62
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.88,
+              "end": 15.94,
+              "letters": [
+                14.88,
+                14.98,
+                15.14,
+                15.6
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.0,
+              "end": 26.29,
+              "letters": [
+                26.0
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.3,
+              "end": 26.87,
+              "letters": [
+                26.3,
+                26.42,
+                26.72
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.88,
+              "end": 27.17,
+              "letters": [
+                26.88
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.18,
+              "end": 27.45,
+              "letters": [
+                27.18,
+                27.28
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.46,
+              "end": 27.94,
+              "letters": [
+                27.46,
+                27.56,
+                27.64,
+                27.82
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 27.94,
+              "end": 28.69,
+              "letters": [
+                27.94,
+                28.02,
+                28.12,
+                28.3
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.7,
+              "end": 29.63,
+              "letters": [
+                28.7,
+                28.84,
+                28.98,
+                29.1,
+                29.12,
+                29.28
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.64,
+              "end": 30.86,
+              "letters": [
+                29.64,
+                29.76,
+                29.9,
+                30.04,
+                30.74,
+                30.76
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.82,
+              "end": 30.94,
+              "letters": [
+                30.82
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.86,
+              "end": 31.71,
+              "letters": [
+                30.86,
+                30.96,
+                31.08,
+                31.18,
+                31.22,
+                31.28
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.72,
+              "end": 33.11,
+              "letters": [
+                31.72,
+                31.88,
+                32.24,
+                32.36,
+                32.38
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.12,
+              "end": 33.24,
+              "letters": [
+                33.12
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.22,
+              "end": 34.07,
+              "letters": [
+                33.22,
+                33.34,
+                33.48,
+                33.56,
+                33.64,
+                33.9
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.08,
+              "end": 35.68,
+              "letters": [
+                34.08,
+                34.18,
+                34.34,
+                34.4
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        },
+        {
+          "stage": "ordered",
+          "call": 1,
+          "input": [
+            {
+              "text": "Но",
+              "start": 0.78,
+              "end": 1.05,
+              "letters": [
+                0.78,
+                0.86
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.06,
+              "end": 1.45,
+              "letters": [
+                1.06,
+                1.2
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.46,
+              "end": 3.51,
+              "letters": [
+                1.46,
+                1.56,
+                1.66,
+                1.92,
+                2.08,
+                3.32
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.52,
+              "end": 4.05,
+              "letters": [
+                3.52
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.06,
+              "end": 5.79,
+              "letters": [
+                4.06,
+                4.36,
+                4.5,
+                4.9
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.8,
+              "end": 7.07,
+              "letters": [
+                6.8
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.08,
+              "end": 7.65,
+              "letters": [
+                7.08,
+                7.22,
+                7.52
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.66,
+              "end": 7.78,
+              "letters": [
+                7.66
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 7.96,
+              "end": 8.25,
+              "letters": [
+                7.96,
+                8.08
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.26,
+              "end": 8.74,
+              "letters": [
+                8.26,
+                8.38,
+                8.48,
+                8.62
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.74,
+              "end": 9.49,
+              "letters": [
+                8.74,
+                8.82,
+                8.94,
+                9.28
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.5,
+              "end": 10.19,
+              "letters": [
+                9.5,
+                9.64,
+                9.78,
+                9.84,
+                9.88,
+                10.06
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.44,
+              "end": 13.31,
+              "letters": [
+                10.44,
+                10.56,
+                10.7,
+                10.8,
+                13.0,
+                13.02
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.32,
+              "end": 13.89,
+              "letters": [
+                13.32
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 13.9,
+              "end": 14.87,
+              "letters": [
+                13.9,
+                14.36,
+                14.5,
+                14.56,
+                14.58,
+                14.62
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.88,
+              "end": 15.94,
+              "letters": [
+                14.88,
+                14.98,
+                15.14,
+                15.6
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.0,
+              "end": 26.29,
+              "letters": [
+                26.0
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.3,
+              "end": 26.87,
+              "letters": [
+                26.3,
+                26.42,
+                26.72
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.88,
+              "end": 27.17,
+              "letters": [
+                26.88
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.18,
+              "end": 27.45,
+              "letters": [
+                27.18,
+                27.28
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.46,
+              "end": 27.94,
+              "letters": [
+                27.46,
+                27.56,
+                27.64,
+                27.82
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 27.94,
+              "end": 28.69,
+              "letters": [
+                27.94,
+                28.02,
+                28.12,
+                28.3
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.7,
+              "end": 29.63,
+              "letters": [
+                28.7,
+                28.84,
+                28.98,
+                29.1,
+                29.12,
+                29.28
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.64,
+              "end": 30.86,
+              "letters": [
+                29.64,
+                29.76,
+                29.9,
+                30.04,
+                30.74,
+                30.76
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.82,
+              "end": 30.94,
+              "letters": [
+                30.82
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.86,
+              "end": 31.71,
+              "letters": [
+                30.86,
+                30.96,
+                31.08,
+                31.18,
+                31.22,
+                31.28
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.72,
+              "end": 33.11,
+              "letters": [
+                31.72,
+                31.88,
+                32.24,
+                32.36,
+                32.38
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.12,
+              "end": 33.24,
+              "letters": [
+                33.12
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.22,
+              "end": 34.07,
+              "letters": [
+                33.22,
+                33.34,
+                33.48,
+                33.56,
+                33.64,
+                33.9
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.08,
+              "end": 35.68,
+              "letters": [
+                34.08,
+                34.18,
+                34.34,
+                34.4
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ],
+          "durationMs": 0.1986659999602125,
+          "output": [
+            {
+              "text": "Но",
+              "start": 0.78,
+              "end": 1.05,
+              "letters": [
+                0.78,
+                0.86
+              ],
+              "confidence": 0.16975414752960205,
+              "diagnostics": []
+            },
+            {
+              "text": "за",
+              "start": 1.06,
+              "end": 1.45,
+              "letters": [
+                1.06,
+                1.2
+              ],
+              "confidence": 0.22105743549764156,
+              "diagnostics": []
+            },
+            {
+              "text": "столом",
+              "start": 1.46,
+              "end": 3.51,
+              "letters": [
+                1.46,
+                1.56,
+                1.66,
+                1.92,
+                2.08,
+                3.32
+              ],
+              "confidence": 0.19938081627090773,
+              "diagnostics": []
+            },
+            {
+              "text": "я",
+              "start": 3.52,
+              "end": 4.05,
+              "letters": [
+                3.52
+              ],
+              "confidence": 0.19920676201581955,
+              "diagnostics": []
+            },
+            {
+              "text": "один",
+              "start": 4.06,
+              "end": 5.79,
+              "letters": [
+                4.06,
+                4.36,
+                4.5,
+                4.9
+              ],
+              "confidence": 0.037594566121697426,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 6.8,
+              "end": 7.07,
+              "letters": [
+                6.8
+              ],
+              "confidence": 0.7753123342990875,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 7.08,
+              "end": 7.65,
+              "letters": [
+                7.08,
+                7.22,
+                7.52
+              ],
+              "confidence": 0.7076509694258372,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 7.66,
+              "end": 7.78,
+              "letters": [
+                7.66
+              ],
+              "confidence": 0.14091059565544128,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 7.96,
+              "end": 8.25,
+              "letters": [
+                7.96,
+                8.08
+              ],
+              "confidence": 0.5638531446456909,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 8.26,
+              "end": 8.74,
+              "letters": [
+                8.26,
+                8.38,
+                8.48,
+                8.62
+              ],
+              "confidence": 0.3827579468488693,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 8.74,
+              "end": 9.49,
+              "letters": [
+                8.74,
+                8.82,
+                8.94,
+                9.28
+              ],
+              "confidence": 0.3519974974915385,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 9.5,
+              "end": 10.19,
+              "letters": [
+                9.5,
+                9.64,
+                9.78,
+                9.84,
+                9.88,
+                10.06
+              ],
+              "confidence": 0.3830995973465698,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 10.44,
+              "end": 13.31,
+              "letters": [
+                10.44,
+                10.56,
+                10.7,
+                10.8,
+                13.0,
+                13.02
+              ],
+              "confidence": 0.005648208770435303,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 13.32,
+              "end": 13.89,
+              "letters": [
+                13.32
+              ],
+              "confidence": 0.0,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 13.9,
+              "end": 14.87,
+              "letters": [
+                13.9,
+                14.36,
+                14.5,
+                14.56,
+                14.58,
+                14.62
+              ],
+              "confidence": 0.0013332990181100155,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 14.88,
+              "end": 15.94,
+              "letters": [
+                14.88,
+                14.98,
+                15.14,
+                15.6
+              ],
+              "confidence": 0.002281932844198309,
+              "diagnostics": []
+            },
+            {
+              "text": "Я",
+              "start": 26.0,
+              "end": 26.29,
+              "letters": [
+                26.0
+              ],
+              "confidence": 0.37867923080921173,
+              "diagnostics": []
+            },
+            {
+              "text": "так",
+              "start": 26.3,
+              "end": 26.87,
+              "letters": [
+                26.3,
+                26.42,
+                26.72
+              ],
+              "confidence": 0.6676037907600403,
+              "diagnostics": []
+            },
+            {
+              "text": "и",
+              "start": 26.88,
+              "end": 27.17,
+              "letters": [
+                26.88
+              ],
+              "confidence": 0.07382557541131973,
+              "diagnostics": []
+            },
+            {
+              "text": "не",
+              "start": 27.18,
+              "end": 27.45,
+              "letters": [
+                27.18,
+                27.28
+              ],
+              "confidence": 0.626430332660675,
+              "diagnostics": []
+            },
+            {
+              "text": "смог",
+              "start": 27.46,
+              "end": 27.94,
+              "letters": [
+                27.46,
+                27.56,
+                27.64,
+                27.82
+              ],
+              "confidence": 0.6337733641266823,
+              "diagnostics": []
+            },
+            {
+              "text": "своё",
+              "start": 27.94,
+              "end": 28.69,
+              "letters": [
+                27.94,
+                28.02,
+                28.12,
+                28.3
+              ],
+              "confidence": 0.3230995014309883,
+              "diagnostics": []
+            },
+            {
+              "text": "сердце",
+              "start": 28.7,
+              "end": 29.63,
+              "letters": [
+                28.7,
+                28.84,
+                28.98,
+                29.1,
+                29.12,
+                29.28
+              ],
+              "confidence": 0.4734153893909284,
+              "diagnostics": []
+            },
+            {
+              "text": "отдать",
+              "start": 29.64,
+              "end": 30.82,
+              "letters": [
+                29.64,
+                29.76,
+                29.9,
+                30.04,
+                30.74,
+                30.76
+              ],
+              "confidence": 0.3274597943527624,
+              "diagnostics": []
+            },
+            {
+              "text": "В",
+              "start": 30.82,
+              "end": 30.86,
+              "letters": [
+                30.82
+              ],
+              "confidence": 0.001968059688806534,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 30.86,
+              "end": 31.71,
+              "letters": [
+                30.86,
+                30.96,
+                31.08,
+                31.18,
+                31.22,
+                31.28
+              ],
+              "confidence": 0.22600180895200797,
+              "diagnostics": []
+            },
+            {
+              "text": "руки,",
+              "start": 31.72,
+              "end": 33.11,
+              "letters": [
+                31.72,
+                31.88,
+                32.24,
+                32.36,
+                32.38
+              ],
+              "confidence": 0.02339274506084621,
+              "diagnostics": []
+            },
+            {
+              "text": "в",
+              "start": 33.12,
+              "end": 33.22,
+              "letters": [
+                33.12
+              ],
+              "confidence": 0.2788349390029907,
+              "diagnostics": []
+            },
+            {
+              "text": "нужные",
+              "start": 33.22,
+              "end": 34.07,
+              "letters": [
+                33.22,
+                33.34,
+                33.48,
+                33.56,
+                33.64,
+                33.9
+              ],
+              "confidence": 0.2873499996161887,
+              "diagnostics": []
+            },
+            {
+              "text": "руки",
+              "start": 34.08,
+              "end": 35.68,
+              "letters": [
+                34.08,
+                34.18,
+                34.34,
+                34.4
+              ],
+              "confidence": 0.46154508739709854,
+              "diagnostics": []
+            }
+          ]
+        }
+      ],
+      "finalPayload": {
+        "words": [
+          {
+            "text": "Но",
+            "start": 0.78,
+            "end": 1.05,
+            "confidence": 0.16975414752960205,
+            "letters": [
+              0.78,
+              0.86
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "за",
+            "start": 1.06,
+            "end": 1.45,
+            "confidence": 0.22105743549764156,
+            "letters": [
+              1.06,
+              1.2
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "столом",
+            "start": 1.46,
+            "end": 3.51,
+            "confidence": 0.19938081627090773,
+            "letters": [
+              1.46,
+              1.56,
+              1.66,
+              1.92,
+              2.08,
+              3.32
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "я",
+            "start": 3.52,
+            "end": 4.05,
+            "confidence": 0.19920676201581955,
+            "letters": [
+              3.52
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "один",
+            "start": 4.06,
+            "end": 5.79,
+            "confidence": 0.037594566121697426,
+            "letters": [
+              4.06,
+              4.36,
+              4.5,
+              4.9
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "Я",
+            "start": 6.8,
+            "end": 7.07,
+            "confidence": 0.7753123342990875,
+            "letters": [
+              6.8
+            ],
+            "diagnostics": [
+              "RecognizedWord",
+              "AsrCtcBoundaryDisagreement"
+            ]
+          },
+          {
+            "text": "так",
+            "start": 7.08,
+            "end": 7.65,
+            "confidence": 0.7076509694258372,
+            "letters": [
+              7.08,
+              7.22,
+              7.52
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "и",
+            "start": 7.66,
+            "end": 7.78,
+            "confidence": 0.14091059565544128,
+            "letters": [
+              7.66
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "не",
+            "start": 7.96,
+            "end": 8.25,
+            "confidence": 0.5638531446456909,
+            "letters": [
+              7.96,
+              8.08
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "смог",
+            "start": 8.26,
+            "end": 8.74,
+            "confidence": 0.3827579468488693,
+            "letters": [
+              8.26,
+              8.38,
+              8.48,
+              8.62
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "своё",
+            "start": 8.74,
+            "end": 9.49,
+            "confidence": 0.3519974974915385,
+            "letters": [
+              8.74,
+              8.82,
+              8.94,
+              9.28
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "сердце",
+            "start": 9.5,
+            "end": 10.19,
+            "confidence": 0.3830995973465698,
+            "letters": [
+              9.5,
+              9.64,
+              9.78,
+              9.84,
+              9.88,
+              10.06
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "отдать",
+            "start": 10.44,
+            "end": 13.31,
+            "confidence": 0.005648208770435303,
+            "letters": [
+              10.44,
+              10.56,
+              10.7,
+              10.8,
+              13.0,
+              13.02
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "В",
+            "start": 13.32,
+            "end": 13.89,
+            "confidence": 0.0,
+            "letters": [
+              13.32
+            ],
+            "diagnostics": [
+              "ApproximateAlignment"
+            ]
+          },
+          {
+            "text": "нужные",
+            "start": 13.9,
+            "end": 14.87,
+            "confidence": 0.0013332990181100155,
+            "letters": [
+              13.9,
+              14.36,
+              14.5,
+              14.56,
+              14.58,
+              14.62
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "руки",
+            "start": 14.88,
+            "end": 15.94,
+            "confidence": 0.002281932844198309,
+            "letters": [
+              14.88,
+              14.98,
+              15.14,
+              15.6
+            ],
+            "diagnostics": [
+              "RecognizedWord",
+              "AsrCtcBoundaryDisagreement"
+            ]
+          },
+          {
+            "text": "Я",
+            "start": 26.0,
+            "end": 26.29,
+            "confidence": 0.37867923080921173,
+            "letters": [
+              26.0
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "так",
+            "start": 26.3,
+            "end": 26.87,
+            "confidence": 0.6676037907600403,
+            "letters": [
+              26.3,
+              26.42,
+              26.72
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "и",
+            "start": 26.88,
+            "end": 27.17,
+            "confidence": 0.07382557541131973,
+            "letters": [
+              26.88
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "не",
+            "start": 27.18,
+            "end": 27.45,
+            "confidence": 0.626430332660675,
+            "letters": [
+              27.18,
+              27.28
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "смог",
+            "start": 27.46,
+            "end": 27.94,
+            "confidence": 0.6337733641266823,
+            "letters": [
+              27.46,
+              27.56,
+              27.64,
+              27.82
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "своё",
+            "start": 27.94,
+            "end": 28.69,
+            "confidence": 0.3230995014309883,
+            "letters": [
+              27.94,
+              28.02,
+              28.12,
+              28.3
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "сердце",
+            "start": 28.7,
+            "end": 29.63,
+            "confidence": 0.4734153893909284,
+            "letters": [
+              28.7,
+              28.84,
+              28.98,
+              29.1,
+              29.12,
+              29.28
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "отдать",
+            "start": 29.64,
+            "end": 30.82,
+            "confidence": 0.3274597943527624,
+            "letters": [
+              29.64,
+              29.76,
+              29.9,
+              30.04,
+              30.74,
+              30.76
+            ],
+            "diagnostics": [
+              "RecognizedWord"
+            ]
+          },
+          {
+            "text": "В",
+            "start": 30.82,
+            "end": 30.86,
+            "confidence": 0.001968059688806534,
+            "letters": [
+              30.82
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "нужные",
+            "start": 30.86,
+            "end": 31.71,
+            "confidence": 0.22600180895200797,
+            "letters": [
+              30.86,
+              30.96,
+              31.08,
+              31.18,
+              31.22,
+              31.28
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "руки,",
+            "start": 31.72,
+            "end": 33.11,
+            "confidence": 0.02339274506084621,
+            "letters": [
+              31.72,
+              31.88,
+              32.24,
+              32.36,
+              32.38
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "в",
+            "start": 33.12,
+            "end": 33.22,
+            "confidence": 0.2788349390029907,
+            "letters": [
+              33.12
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "нужные",
+            "start": 33.22,
+            "end": 34.07,
+            "confidence": 0.2873499996161887,
+            "letters": [
+              33.22,
+              33.34,
+              33.48,
+              33.56,
+              33.64,
+              33.9
+            ],
+            "diagnostics": []
+          },
+          {
+            "text": "руки",
+            "start": 34.08,
+            "end": 35.68,
+            "confidence": 0.46154508739709854,
+            "letters": [
+              34.08,
+              34.18,
+              34.34,
+              34.4
+            ],
+            "diagnostics": []
+          }
+        ]
+      },
+      "assertions": {
+        "inputVocalUnchanged": true,
+        "inputInstrumentalUnchanged": true,
+        "positiveWordDurations": true,
+        "nonoverlappingWords": true,
+        "lettersInsideWords": true,
+        "orderedLetters": true,
+        "shortReplyBeforeInstrumental": true,
+        "shortReplyEndsBefore16_2Seconds": true,
+        "previousWordNotCrushed": true
+      },
+      "runtime": {
+        "warmupRuns": 1,
+        "measuredRuns": 5,
+        "medianMs": 226.30917799961026,
+        "runsMs": [
+          227.79998500027432,
+          213.69061799941846,
+          214.10129000014422,
+          233.33230299977004,
+          226.30917799961026
+        ],
+        "scope": "CTC forced alignment and postprocessing; cached emissions, ASR and singing mask"
+      }
+    }
+  ]
+}

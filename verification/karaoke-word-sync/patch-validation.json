@@ -1,0 +1,76 @@
+{
+  "patch": "/workspace/scratch/513dbcd967bf/deliverables/karaoke_word_sync.patch",
+  "patch_bytes": 250328,
+  "patch_sha256": "f9a96c69423d2de72aeb360b01acc46623bdb95c6330bc8d2318047d7ed6b6ef",
+  "commands": [
+    {
+      "command": [
+        "git",
+        "diff",
+        "--binary"
+      ],
+      "cwd": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "cwd": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "apply",
+        "--check",
+        "/workspace/scratch/513dbcd967bf/deliverables/karaoke_word_sync.patch"
+      ],
+      "cwd": "/tmp/karaoke-sync-baseline/karaoke_new_version-refactor-frontend-direct",
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--numstat"
+      ],
+      "cwd": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "exit": 0,
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--name-only"
+      ],
+      "cwd": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "exit": 0,
+      "stderr": ""
+    }
+  ],
+  "git_numstat": "28\t0\tfrontend/src/features/karaoke/karaokeLyrics.test.ts\n3\t3\tkaggle/ad_voice_p100.ipynb\n201\t28\tpython/backend/ai_worker/ctc.py\n58\t6\tpython/backend/ai_worker/recognition.py\n22\t15\tpython/backend/ai_worker/speech.py\n162\t5\tpython/backend/ai_worker/word_guidance.py\n2\t0\tpython/backend/processing/reporting.py\n155\t0\tpython/tests/test_ctc_sustained_tail.py\n189\t0\tpython/tests/test_ctc_window_recovery.py\n14\t12\tpython/tests/test_letter_alignment.py\n64\t0\tpython/tests/test_refine_words.py\n65\t0\tpython/tests/test_sung_boundary_regressions.py\n257\t0\tpython/tests/test_word_timing_review.py\n",
+  "diff_path_count": 13,
+  "source_hash_reference": "/tmp/karaoke-sync-artifacts/final-verification/summary.json",
+  "source_hash_comparison": {
+    "source_hashes_before": {
+      "file_count": 366,
+      "matching_count": 366,
+      "all_match": true,
+      "mismatches": []
+    },
+    "source_hashes_after": {
+      "file_count": 366,
+      "matching_count": 366,
+      "all_match": true,
+      "mismatches": []
+    }
+  },
+  "manifest": "/tmp/karaoke-sync-artifacts/change-manifest.json"
+}

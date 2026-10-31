@@ -5,6 +5,7 @@ from collections import Counter
 from dataclasses import replace
 import threading
 from pathlib import Path
+from types import MappingProxyType
 
 import numpy as np
 from faster_whisper.transcribe import Segment
@@ -22,11 +23,47 @@ _STEP = 0.01
 HeardWord = tuple[str, float, float]
 
 
-def rate_review_indices(words: Sequence[AlignedWord], lyrics: str) -> set[int]:
+def boundary_conflicts(words: Sequence[AlignedWord]) -> set[int]:
+    return {index for index, word in enumerate(words) if "BoundaryConflict" in word.diagnostics} | {
+        index + offset
+        for index, (left, right) in enumerate(zip(words, words[1:]))
+        if left.end > right.start + 0.02 or left.start >= right.start
+        for offset in (0, 1)
+    }
+
+
+def rate_review_indices(
+    words: Sequence[AlignedWord],
+    lyrics: str,
+    *,
+    heard: Mapping[int, tuple[float, float]] = MappingProxyType({}),
+    activity: np.ndarray | None = None,
+) -> set[int]:
+    """Review spelling outliers and contradicted acoustic spans, never impose a speech minimum."""
     reviews = rate_reviews(
-        [WordTiming(w.text, w.start, w.end, w.score, tuple(w.letters)) for w in words], lyrics
+        [
+            WordTiming(w.text, w.start, w.end, w.score, tuple(w.letters), w.diagnostics)
+            for w in words
+        ],
+        lyrics,
     )
-    return {index for first, last in reviews for index in range(first, last)}
+    indices = {
+        index for first, last in reviews for index in range(first, last)
+    } | boundary_conflicts(words)
+    if activity is not None:
+        for index, (start, end) in heard.items():
+            if not 0 <= index < len(words):
+                continue
+            word = words[index]
+            missing = [(start, min(end, word.start)), (max(start, word.end), end)]
+            if any(
+                last - first > 0.08
+                and len(frames := activity[max(0, round(first / _STEP)) : round(last / _STEP)])
+                and float(frames.mean()) >= 0.6
+                for first, last in missing
+            ):
+                indices.add(index)
+    return indices
 
 
 def independent_words(
@@ -310,10 +347,15 @@ def _ending_position(window: Window, local: Mapping[int, tuple[float, float]]) -
 
 
 def _word_payload(
-    word: AlignedWord, heard_timing: tuple[float, float] | None, *, recovered: bool = False
+    word: AlignedWord,
+    heard_timing: tuple[float, float] | None,
+    *,
+    recovered: bool = False,
+    review_required: bool = False,
 ) -> dict[str, float | str | list[float] | list[str]]:
     reasons = {
         "RateReviewRetimed": recovered,
+        "TimingReviewRequired": review_required,
         "ApproximateAlignment": word.score <= 0.0,
         "RecognizedWord": heard_timing is not None
         and heard_timing[0] < heard_timing[1]
@@ -327,7 +369,11 @@ def _word_payload(
         "end": round(word.end, 3),
         "confidence": word.score,
         "letters": list(word.letters),
-        "diagnostics": [reason for reason, present in reasons.items() if present],
+        "diagnostics": list(
+            dict.fromkeys(
+                [*word.diagnostics, *(reason for reason, present in reasons.items() if present)]
+            )
+        ),
     }
 
 
@@ -336,10 +382,16 @@ def alignment_payload(
     timings: Mapping[int, tuple[float, float]],
     *,
     recovered: frozenset[int] = frozenset(),
+    reviewed: frozenset[int] = frozenset(),
 ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
     return {
         "words": [
-            _word_payload(word, timings.get(index), recovered=index in recovered)
+            _word_payload(
+                word,
+                timings.get(index),
+                recovered=index in recovered,
+                review_required=index in reviewed,
+            )
             for index, word in enumerate(words)
         ]
     }

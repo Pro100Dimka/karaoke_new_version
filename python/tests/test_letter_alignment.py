@@ -237,7 +237,7 @@ def test_alignment_recovers_a_leading_phrase_before_a_late_full_song_asr_anchor(
     monkeypatch.setattr(
         speech, "contextual_guidance", lambda _w, windows, _whole, times, *_: (windows, times)
     )
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **__: words)
     monkeypatch.setattr(speech, "singing_frames", lambda *_: np.zeros(3200, bool))
     monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.zeros(3200, bool))
@@ -263,7 +263,7 @@ def test_returning_voice_can_precede_its_coarse_recognized_entry(
     monkeypatch.setattr(
         ctc,
         "_align_window",
-        lambda _scores, _step, chunk, window: [
+        lambda _scores, _step, chunk, window, **_kwargs: [
             AlignedWord(chunk[0], window.start + 0.02, 8.7, (), 0.03)
         ],
     )
@@ -444,7 +444,7 @@ def test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings(
     monkeypatch.setattr(speech, "read_mono", lambda path, *_: samples)
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, []))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(
         speech, "contextual_guidance", lambda w, windows, whole, times, *_: (windows, times)
     )
@@ -501,7 +501,7 @@ def test_alignment_loads_one_speech_model_for_its_refinements_only(
     monkeypatch.setattr(speech, "_alignment_windows", lambda *_: [Window(0, 1, 0, 3)])
     monkeypatch.setattr(speech, "contextual_guidance", refine)
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **_kw: words)
     for _ in range(2):
         speech.align(Path("vocal.wav"), "ah", "English")
@@ -1222,7 +1222,7 @@ def test_speech_alignment_reports_supported_score_instead_of_perfect_confidence(
     monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, []))
     monkeypatch.setattr(speech, "align_words", lambda *_args: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_args: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
 
     result = speech.align(Path("vocal.wav"), "stay", "English")
 
@@ -1241,7 +1241,7 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
         speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, [("stay", 1.0, 2.0)])
     )
     monkeypatch.setattr(speech, "align_words", lambda *_args: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_args: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
 
     word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
 
@@ -1615,7 +1615,7 @@ def test_fuzzy_phrase_start_reaches_alignment_choice_as_independent_evidence(mon
     monkeypatch.setattr(speech, "align_words", lambda *_: whole)
     captured = {}
 
-    def align_guided(*args):
+    def align_guided(*args, **_options):
         captured.update(args[4])
         return whole
 
@@ -1696,7 +1696,9 @@ def test_an_accepted_repeat_cannot_be_followed_by_words_from_the_previous_repeat
 
     whole = [AlignedWord("first", 20, 21, (), 0.9), AlignedWord("next", 12, 13, (), 0.9)]
     guided = [whole[0], AlignedWord("next", 22, 23, (), 0.4)]
-    monkeypatch.setattr(ctc, "_align_window", lambda _s, _step, _chunk, w: [guided[w.first]])
+    monkeypatch.setattr(
+        ctc, "_align_window", lambda _s, _step, _chunk, w, **_kwargs: [guided[w.first]]
+    )
     result = ctc.align_guided(
         torch.empty(0),
         0.02,
@@ -1978,7 +1980,7 @@ def test_recognized_word_intervals_preserve_a_genuine_fast_cluster(monkeypatch):
     monkeypatch.setattr(speech, "read_mono", lambda *_: _signal([(1, 1.3)], 2))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
     monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
 
@@ -2003,7 +2005,7 @@ def test_a_supported_word_run_does_not_cap_a_quiet_long_vowel_at_its_asr_endpoin
     monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
 
     result = speech.align(Path("voice.wav"), "we stay here", "English")["words"]
 
@@ -2024,7 +2026,7 @@ def test_a_recognition_run_cannot_replace_strong_acoustic_cores_with_weak_late_t
         speech, "_alignment_evidence", lambda *_: (torch.zeros(350, 28), 0.02, heard)
     )
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_: words)
+    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(
         ctc,
         "_align_window",
@@ -2575,7 +2577,7 @@ def test_a_strong_word_average_does_not_hide_its_unsupported_first_phoneme(monke
     scores = torch.zeros(300, 28)
     first_token = ctc._character_tokens("we")[0][0]
     scores[200, first_token] = np.log(0.001)
-    monkeypatch.setattr(word_guidance, "_core_candidates", lambda *_: [approximate])
+    monkeypatch.setattr(word_guidance, "_core_candidates", lambda *_, **__: [approximate])
 
     candidates = word_guidance._candidates(
         word, scores, 0.02, ctc.Window(0, 1, 0, 5), (3.0, 3.5), np.ones(500, bool), 0.6

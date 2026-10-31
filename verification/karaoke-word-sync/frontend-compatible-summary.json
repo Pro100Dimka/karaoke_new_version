@@ -1,0 +1,35 @@
+[
+  {
+    "name": "typecheck",
+    "command": [
+      "npm",
+      "run",
+      "typecheck"
+    ],
+    "exit": 0,
+    "log": "/tmp/karaoke-sync-artifacts/frontend-compatible-typecheck.log",
+    "seconds": 11.7
+  },
+  {
+    "name": "npm-test",
+    "command": [
+      "npm",
+      "test"
+    ],
+    "exit": 1,
+    "log": "/tmp/karaoke-sync-artifacts/frontend-compatible-npm-test.log",
+    "seconds": 33.47
+  },
+  {
+    "name": "node-tests",
+    "command": [
+      "node",
+      "--test",
+      "electron/*.test.mjs",
+      "scripts/*.test.mjs"
+    ],
+    "exit": 1,
+    "log": "/tmp/karaoke-sync-artifacts/frontend-compatible-node-tests.log",
+    "seconds": 1.42
+  }
+]

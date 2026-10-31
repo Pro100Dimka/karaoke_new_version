@@ -206,6 +206,10 @@ def with_word_guidance(
     onsets: Sequence[float] = (),
     reviewed: frozenset[int] = frozenset(),
 ) -> list[ctc.AlignedWord]:
+    if reviewed:
+        return _reviewed_words(
+            words, scores, frame_seconds, heard, voiced, margin, reviewed, onsets
+        )
     result = list(words)
     for window in windows:
         phrase, local = recognized_phrase(
@@ -234,6 +238,162 @@ def with_word_guidance(
             result[first:last], options, timings, first, voiced, margin=margin
         )
     return result
+
+
+def _reviewed_words(
+    words: list[ctc.AlignedWord],
+    scores: torch.Tensor,
+    step: float,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    margin: float,
+    reviewed: frozenset[int],
+    onsets: Sequence[float] = (),
+) -> list[ctc.AlignedWord]:
+    """Refit disputed cores with their neighbours, using the existing full-audio emission."""
+    result = list(words)
+    for window in _review_windows(words, heard, reviewed, margin, scores.shape[0] * step):
+        if window.start >= window.end:
+            continue
+        original = words[window.first : window.last]
+        candidates = ctc._align_window(scores, step, [w.text for w in original], window)
+        if any(
+            index in heard and _crosses_confirmed_entry(before, after, heard[index], onsets)
+            for index, (before, after) in enumerate(zip(original, candidates), window.first)
+        ):
+            continue
+        if _supported_review(original, candidates, window.first, reviewed, heard, voiced, step):
+            result[window.first : window.last] = candidates
+    return result
+
+
+def _review_windows(
+    words: Sequence[ctc.AlignedWord],
+    heard: Mapping[int, tuple[float, float]],
+    reviewed: frozenset[int],
+    margin: float,
+    total: float,
+) -> list[ctc.Window]:
+    ranges: list[tuple[int, int]] = []
+    for index in sorted(reviewed):
+        first, last = max(0, index - 1), min(len(words), index + 2)
+        if ranges and first <= ranges[-1][1]:
+            ranges[-1] = ranges[-1][0], max(ranges[-1][1], last)
+        else:
+            ranges.append((first, last))
+    return [
+        ctc.Window(
+            first,
+            last,
+            max(
+                0.0,
+                words[first - 1].end if first else 0.0,
+                min(words[first].start, heard.get(first, (words[first].start, 0))[0]) - margin,
+            ),
+            min(
+                total,
+                words[last].start if last < len(words) else total,
+                max(words[last - 1].end, heard.get(last - 1, (0, words[last - 1].end))[1]) + margin,
+            ),
+        )
+        for first, last in ranges
+    ]
+
+
+def _supported_review(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    first: int,
+    reviewed: frozenset[int],
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    step: float,
+) -> bool:
+    if len(candidates) != len(original) or any(w.score <= 0 for w in candidates):
+        return False
+    if any(left.end > right.start for left, right in zip(candidates, candidates[1:])):
+        return False
+    changed = [
+        index
+        for index, (before, after) in enumerate(zip(original, candidates, strict=True))
+        if max(abs(before.start - after.start), abs(before.end - after.end)) >= step / 2
+        or before.letters != after.letters
+    ]
+    if not changed or any(
+        candidates[i].score < original[i].score * (1 - ctc._PREFERENCE) for i in changed
+    ):
+        return False
+    if any(
+        first + i in heard
+        and abs(candidates[i].start - heard[first + i][0])
+        > abs(original[i].start - heard[first + i][0]) + ctc._HEARD_DISAGREEMENT_SECONDS
+        for i in changed
+    ):
+        return False
+    return _preserved_neighbours(original, candidates, first, reviewed, step) and _review_improves(
+        original, candidates, changed, first, heard, voiced, step
+    )
+
+
+def _preserved_neighbours(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    first: int,
+    reviewed: frozenset[int],
+    step: float,
+) -> bool:
+    """Keep unflagged boundaries unless an adjacent repaired core requires the move."""
+    return not any(
+        first + index not in reviewed
+        and (
+            abs(before.start - after.start) > 2 * step
+            and not (
+                index > 0
+                and before.start < candidates[index - 1].end
+                and abs(after.start - candidates[index - 1].end) <= 2 * step + 1e-9
+            )
+            or abs(before.end - after.end) > 2 * step
+            and not (
+                index + 1 < len(candidates)
+                and before.end > candidates[index + 1].start
+                and abs(after.end - candidates[index + 1].start) <= 2 * step + 1e-9
+            )
+        )
+        for index, (before, after) in enumerate(zip(original, candidates, strict=True))
+    )
+
+
+def _review_improves(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    changed: Sequence[int],
+    first: int,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    step: float,
+) -> bool:
+    before_fit, after_fit = (
+        sum(
+            abs(sequence[i].start - heard[first + i][0])
+            + abs(sequence[i].end - heard[first + i][1])
+            for i in changed
+            if first + i in heard
+        )
+        for sequence in (original, candidates)
+    )
+    voice_step = ctc._VOICE_HOP / ctc._VOICE_RATE
+    silent_before, silent_after = (
+        sum(
+            not voiced[max(0, int(w.start / voice_step)) : max(1, round(w.end / voice_step))].any()
+            for w in sequence
+        )
+        for sequence in (original, candidates)
+    )
+    old, new = [original[i] for i in changed], [candidates[i] for i in changed]
+    return silent_after <= silent_before and (
+        after_fit + step < before_fit
+        or ctc._confidence(new) > ctc._confidence(old) * (1 + ctc._PREFERENCE)
+    )
 
 
 def _recognized_cores(
@@ -353,11 +513,8 @@ def _candidates(
             review=review,
         )
         if (review or miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS)
-        and (
-            candidate.score <= 0
-            and (review or not first <= word.start <= last)
-            or _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
-        )
+        and (candidate.score > 0 or review or not first <= word.start <= last)
+        and _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
         and not _crosses_confirmed_entry(word, candidate, interval, onsets)
         and ctc._implausible([candidate], voiced) <= ctc._implausible([word], voiced)
     ]

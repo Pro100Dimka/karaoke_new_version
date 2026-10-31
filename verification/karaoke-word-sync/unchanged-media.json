@@ -1,0 +1,158 @@
+[
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-01-song-31.594-master.wav",
+    "sha256": "f7264acb4d28681b00a368ba33d18632227628d042f466a247a2b12d229f8491"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-01-song-31.594-remote-residual.wav",
+    "sha256": "785d1ce7173b7a6528908cedd709156fa8692cc566bed6880e9da38bfa9b4395"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-01-song-31.594-sender-real-mic.wav",
+    "sha256": "1669af0b2ee9886c4883b6a70e3c2eb91be822f81279c6944ef9a9dd4fdbf240"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-02-song-129.178-master.wav",
+    "sha256": "e6abb22f8aba6424defd2bfbe5ef8bc22e24f2bf8badae230fa73ec6466982fe"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-02-song-129.178-remote-residual.wav",
+    "sha256": "17f9095cb6dd5f22dde2297f68a9fe1b9b057b0aaf7579f82590a1c46eb53995"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/baseline-host-to-laptop-voice-contexts/gap-02-song-129.178-sender-real-mic.wav",
+    "sha256": "5a3af67aa39ba740a892cc62a2a2fcefecdd54e5f32fa4e40eb6621d3b4f9f22"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/failed-mandatory-cell-06-song-39.000-master.wav",
+    "sha256": "05053faefa084e481b767ea2ccd602980f8d42d877298075826a97bef015888a"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/failed-mandatory-cell-06-song-39.000-remote-residual.wav",
+    "sha256": "a9cfb8d7178163519203e5fe6577383191c71e0669140a8d8d694dac9a4b7456"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/failed-mandatory-cell-06-song-39.000-sender-real-mic.wav",
+    "sha256": "1404702141838e56512e21f619dd333c58d61c0701a5b9994b7ec7c1f5be180d"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/unknown-active-02-song-38.919-master.wav",
+    "sha256": "002592803d8b6519d14ae70376c6938234939db73d66a7c93f773348568bcd5e"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/unknown-active-02-song-38.919-remote-residual.wav",
+    "sha256": "3f8da27ae5d9b326345e502bcacffe28d431355fc8be4aebf3693449de74bfdb"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-host-to-laptop-voice-contexts/unknown-active-02-song-38.919-sender-real-mic.wav",
+    "sha256": "d44763e6bbc34894d0fe20342b987b3ebf2dd39e4ad1acbb32a271053d677c9b"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-laptop-to-host-voice-contexts/identified-mandatory-context-01-song-39.000-master.wav",
+    "sha256": "f268505b25bdfc4e96f3cf38f7a47ed1542feec786795de4d239ddb67dfdf578"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-laptop-to-host-voice-contexts/identified-mandatory-context-01-song-39.000-remote-residual.wav",
+    "sha256": "f1cea4dda3dedbb872b892a93f2d16bae9b145aec46c4cb3e3f46bef48a2de5b"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-direct-late-recovery/final-laptop-to-host-voice-contexts/identified-mandatory-context-01-song-39.000-sender-real-mic.wav",
+    "sha256": "785c3e47cb294e44b904fb5ad57851fd319e50c9ca81d82b132530b2918fa4f1"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/clean-03-song-24.500-master.wav",
+    "sha256": "384d506df532c50b288c4a9447ef3221339f667c79e1b8d78f45ffd07b7ec5cd"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/clean-03-song-24.500-remote-residual.wav",
+    "sha256": "c222839bf2f307985f950a5d31c8633ed69575d395b5a6f3b7099a8cf8ea3953"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/clean-03-song-24.500-sender-real-mic.wav",
+    "sha256": "c3a16d5a99ca947f1a4853dd63fc8d0e6dd909ebd521ff7a39e23133607bfdfa"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-01-song-14.100-master.wav",
+    "sha256": "2521ba26bc278f8b2844c8fab3c2f5b81fdc08e479ce09988d5649babe464bbf"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-01-song-14.100-remote-residual.wav",
+    "sha256": "ff8caa6788d6617e4534f2ff7db10dd298d8db0155278d11e04f324f796dd7fd"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-01-song-14.100-sender-real-mic.wav",
+    "sha256": "e67fb1a6a65eae5f4410e0030ed11b965baf4873e7e8b0775438fb5a7fb9f687"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-02-song-128.719-master.wav",
+    "sha256": "b283b4f1505d241454ab4f216eff83580b1e62e1e490a058d28fd9430b0f8431"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-02-song-128.719-remote-residual.wav",
+    "sha256": "b9728d69549f304d435249cd94ae63c3fa915f42a4675dec97e89fb3b05c002e"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-A55-voice-contexts/gap-02-song-128.719-sender-real-mic.wav",
+    "sha256": "f4acb3cd0358a8c2ed23f43de5c9fa73354cb197c7c8b4273bb9ce90cec32151"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-B72-5-voice-contexts/gap-01-song-105.471-master.wav",
+    "sha256": "5e4c444255552a99ab4043068ffd1009494a2683de489fc0a04a705d9e53e153"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-B72-5-voice-contexts/gap-01-song-105.471-remote-residual.wav",
+    "sha256": "681ad15f9f0776d52ad8a2e5ed2fcb5ecb436d86e6c921ead24a907948f1760c"
+  },
+  {
+    "path": "artifacts/room-e2e/2026-10-15-real-mic-v2/FINAL-B72-5-voice-contexts/gap-01-song-105.471-sender-real-mic.wav",
+    "sha256": "ade93a89a9567d3463e2b130f509400c9de98838b2a9609328c787032b421008"
+  },
+  {
+    "path": "frontend/docs/assets/sounds/room-join-leave.mp3",
+    "sha256": "72faf4950bd6f52b4b0122c981d9ba1cc53cbaef57fda6a8fcfa5f78ec981e37"
+  },
+  {
+    "path": "frontend/src/assets/sounds/notice-error.ogg",
+    "sha256": "0b574cea597d96507e782ae9764f88482ce49f46e931e57054bf7150047f2d69"
+  },
+  {
+    "path": "frontend/src/assets/sounds/notice-info.ogg",
+    "sha256": "d21d0f0b782445db579d11e2506b24cd1ac9d664ee33aeaf807761aa7b6fd710"
+  },
+  {
+    "path": "frontend/src/assets/sounds/notice-invitation.ogg",
+    "sha256": "46056f10c70dda860e93bd27b66f4d33c0b7154eff28def06471b50028efa5b3"
+  },
+  {
+    "path": "frontend/src/assets/sounds/notice-success.ogg",
+    "sha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c"
+  },
+  {
+    "path": "frontend/src/assets/sounds/notice-warning.ogg",
+    "sha256": "abb8f9e4eb2071491b0b15f84ee302386b1847609310c1b000ae174639a6cc5a"
+  },
+  {
+    "path": "frontend/src/assets/sounds/room-join.mp3",
+    "sha256": "72faf4950bd6f52b4b0122c981d9ba1cc53cbaef57fda6a8fcfa5f78ec981e37"
+  },
+  {
+    "path": "frontend/src/assets/sounds/room-leave.mp3",
+    "sha256": "884db62ce3840bca6f16368eca4b46467e035888a21792da8b4605ad23cbc753"
+  },
+  {
+    "path": "python/tests/fixtures/chorus-entry.npz",
+    "sha256": "ff0f2db76e362c8432e500fe29f26fd0d065d9b0a2c07d7aab87708a8dab7b42"
+  },
+  {
+    "path": "python/tests/fixtures/sadvit-outro.npz",
+    "sha256": "f438f0fea00fdb57cac76b2280658985faf5e2b946b0827c46d22c5eb52b687c"
+  },
+  {
+    "path": "python/tests/fixtures/sadvit-phrase-ends.npz",
+    "sha256": "d6e63a34861ba0f05db8b94e43b2e99f2075072839c57d00f196cea251d8a694"
+  },
+  {
+    "path": "python/tests/fixtures/wildways-verse-entry.npz",
+    "sha256": "e5e2ff821627c858d0a9f781d29e9fba72817dc1e2df960e8e920baf3882c309"
+  }
+]

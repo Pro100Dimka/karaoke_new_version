@@ -4,7 +4,7 @@ import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from functools import lru_cache
-from math import prod
+from math import ceil, prod
 from types import MappingProxyType
 
 import numpy as np
@@ -60,6 +60,8 @@ class AlignedWord:
     letters: tuple[float, ...]
     # Mean probability the model gave the word's letters where they were placed (0 when it had nothing to pronounce).
     score: float = 0.0
+    # Keep destructive normalization visible to acoustic review and the saved report.
+    diagnostics: tuple[str, ...] = ()
 
 
 @lru_cache(maxsize=1)
@@ -148,20 +150,31 @@ def _character_tokens(word: str, context: str = "") -> list[list[int]]:
     return result
 
 
-def _transcript_path(scores: torch.Tensor, tokens: list[int]) -> torch.Tensor:
+def _transcript_path(
+    scores: torch.Tensor, tokens: list[int], *, bounded_end: bool = False
+) -> torch.Tensor:
+    # A CTC path needs a frame per token, separating blanks for repeats, and the optional tail.
+    minimum = len(tokens) + (not bounded_end) + sum(a == b for a, b in zip(tokens, tokens[1:]))
+    if scores.shape[0] < minimum:
+        raise ValueError("The vocal track is too short for the lyrics")
     # MMS's zero-score wildcard absorbs untranscribed audio after the lyrics. Without it, a
     # slightly better final-letter spike in an instrumental outro can win over the sung letter.
     star = scores.shape[-1]
-    with_star = torch.cat((scores, scores.new_zeros((scores.shape[0], 1))), dim=-1)
+    if not bounded_end:
+        scores = torch.cat((scores, scores.new_zeros((scores.shape[0], 1))), dim=-1)
+        tokens = [*tokens, star]
     aligned: torch.Tensor
-    aligned, _ = forced_align(
-        with_star[None], torch.tensor([[*tokens, star]], dtype=torch.int32), blank=0
-    )
+    aligned, _ = forced_align(scores[None], torch.tensor([tokens], dtype=torch.int32), blank=0)
     return aligned.masked_fill(aligned == star, 0)
 
 
 def align_words(
-    scores: torch.Tensor, frame_seconds: float, words: Sequence[str], offset_seconds: float = 0.0
+    scores: torch.Tensor,
+    frame_seconds: float,
+    words: Sequence[str],
+    offset_seconds: float = 0.0,
+    *,
+    bounded_end: bool = False,
 ) -> list[AlignedWord]:
     """Times every word and letter of ``words`` (the text of one stretch, in order) against the emission of that stretch."""
     # Preserve the displayed digits, but give CTC their spoken sounds rather than
@@ -171,9 +184,7 @@ def align_words(
     flat = [token for characters in per_word for tokens in characters for token in tokens]
     if not flat:
         return _placed([None] * len(words), words)
-    if scores.shape[0] < len(flat) * 2:
-        raise ValueError("The vocal track is too short for the lyrics")
-    aligned = _transcript_path(scores, flat)
+    aligned = _transcript_path(scores, flat, bounded_end=bounded_end)
     spans = merge_tokens(aligned[0], torch.exp(scores[torch.arange(scores.shape[0]), aligned[0]]))
     found: list[AlignedWord | None] = []
     position = 0
@@ -259,18 +270,126 @@ def with_sung_ends(
         silence = _first_long_silence(continued, word.start, end, step)
         letters = word.letters
         if silence is not None:
-            end = max(silence, word.start + _MINIMUM_WORD_SECONDS)
+            end = max(silence, word.start + 0.001)
             letters = _clamped_letters(word.letters, 0.0, word.start, end)
         result.append(
-            AlignedWord(
-                word.text,
-                word.start,
-                round(max(end, word.start + _MINIMUM_WORD_SECONDS), 3),
-                letters,
-                word.score,
+            replace(
+                word,
+                end=round(max(end, word.start + 0.001), 3),
+                letters=letters,
             )
         )
     return result
+
+
+def with_sung_letters(
+    words: list[AlignedWord],
+    scores: torch.Tensor,
+    frame_seconds: float,
+    activity: np.ndarray,
+    heard: Mapping[int, tuple[float, float]],
+) -> list[AlignedWord]:
+    """Recheck final consonants inside confirmed sung bounds; preserve word times and prefixes."""
+    result = list(words)
+    for index, word in enumerate(words):
+        following = words[index + 1] if index + 1 < len(words) else None
+        last = _sung_tail_index(word)
+        if last is None or not _sung_tail_supported(
+            word, last, following, heard.get(index), activity, frame_seconds
+        ):
+            continue
+        begin, end = max(0, int(word.start / frame_seconds)), round(word.end / frame_seconds)
+        crop = scores[begin:end]
+        try:
+            original = align_words(crop, frame_seconds, [word.text], begin * frame_seconds)[0]
+            candidate = align_words(
+                crop, frame_seconds, [word.text], begin * frame_seconds, bounded_end=True
+            )[0]
+        except ValueError:
+            result[index] = replace(
+                word, diagnostics=(*word.diagnostics, "SungLetterAlignmentUnresolved")
+            )
+            continue
+        letters = _sung_letter_candidate(word, original, candidate, last, scores, frame_seconds)
+        if letters is not None:
+            result[index] = replace(
+                word, letters=letters, diagnostics=(*word.diagnostics, "SungConsonantRetimed")
+            )
+    return result
+
+
+def _sung_tail_index(word: AlignedWord) -> int | None:
+    if word.score <= 0 or len(word.letters) != len(word.text):
+        return None
+    pronounced = [
+        i for i, char in enumerate(word.text) if char.isalpha() and char.casefold() not in "ьъ"
+    ]
+    last = pronounced[-1] if pronounced else -1
+    if (
+        last < 1
+        or word.text[last].casefold() in "aeiouyаеёиоуыэюяіїє"
+        or word.end - word.letters[last] <= _HEARD_DISAGREEMENT_SECONDS
+    ):
+        return None
+    return last
+
+
+def _sung_tail_supported(
+    word: AlignedWord,
+    last: int,
+    following: AlignedWord | None,
+    heard: tuple[float, float] | None,
+    activity: np.ndarray,
+    step: float,
+) -> bool:
+    bounded = (
+        heard is not None
+        and heard[0] - _HEARD_DISAGREEMENT_SECONDS <= word.start < heard[1]
+        and abs(heard[1] - word.end) <= _HEARD_DISAGREEMENT_SECONDS
+    ) or (
+        following is not None
+        and following.score > _PREFERENCE
+        and "BoundaryConflict" not in following.diagnostics
+        and abs(following.start - word.end) <= step
+    )
+    voice_step = _VOICE_HOP / _VOICE_RATE
+    first, stop = int(word.letters[last] / voice_step), round(word.end / voice_step)
+    return bounded and 0 <= first < stop <= len(activity) and bool(activity[first:stop].all())
+
+
+def _sung_letter_candidate(
+    word: AlignedWord,
+    original: AlignedWord,
+    candidate: AlignedWord,
+    last: int,
+    scores: torch.Tensor,
+    step: float,
+) -> tuple[float, ...] | None:
+    shift = word.letters[0] - original.letters[0]
+    if (
+        candidate.score < max(word.score, original.score)
+        or any(
+            abs(a - b) > step
+            for a, b in zip(candidate.letters[:last], original.letters[:last], strict=True)
+        )
+        or any(
+            abs(a + shift - b) > step for a, b in zip(original.letters, word.letters, strict=True)
+        )
+    ):
+        return None
+    tokens = _character_tokens(word.text)[last]
+    if not tokens:
+        return None
+    support = [
+        float(scores[round(aligned.letters[last] / step), tokens[0]].exp())
+        for aligned in (original, candidate)
+    ]
+    if support[1] <= support[0] + _PREFERENCE:
+        return None
+    tail = _clamped_letters(candidate.letters[last:], shift, word.letters[last - 1], word.end)
+    if tail[0] <= word.letters[last] + step or tail[0] >= word.end:
+        return None
+    return (*word.letters[:last], *tail)
 
 
 def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: float) -> float | None:
@@ -318,11 +437,11 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
         if index in found:
             lag = min(_LARGEST_LAG_SECONDS, max(0.0, word.start - found[index]))
         start = found.get(index, word.start - lag)
-        start = max(min(start, word.end - _MINIMUM_WORD_SECONDS), floor)
+        start = max(min(start, word.end - 0.001), floor)
         shift = start - word.start
-        end = max(word.end, start + _MINIMUM_WORD_SECONDS)
+        end = max(word.end, start + 0.001)
         letters = _clamped_letters(word.letters, shift, start, end)
-        result.append(AlignedWord(word.text, round(start, 3), end, letters, word.score))
+        result.append(replace(word, start=round(start, 3), end=end, letters=letters))
         floor = start
     return result
 
@@ -339,16 +458,36 @@ class Window:
 
 
 def _align_window(
-    scores: torch.Tensor, frame_seconds: float, chunk: Sequence[str], window: Window
+    scores: torch.Tensor,
+    frame_seconds: float,
+    chunk: Sequence[str],
+    window: Window,
+    *,
+    recovery_bounds: tuple[float, float] | None = None,
 ) -> list[AlignedWord]:
+    """Retry a failed crop only within caller-supplied neighbouring acoustic anchors."""
     begin = max(0, int(window.start / frame_seconds))
     stop = min(scores.shape[0], max(begin + 1, int(window.end / frame_seconds)))
-    try:
-        return align_words(scores[begin:stop], frame_seconds, chunk, begin * frame_seconds)
-    except ValueError:
-        return _evenly(
-            chunk, window.start, max(window.end, window.start + _MINIMUM_WORD_SECONDS * len(chunk))
+    attempts = [(begin, stop)]
+    if recovery_bounds is not None:
+        first, last = recovery_bounds
+        expanded = (
+            max(0, ceil(max(first, window.start - _CONTEXT_SECONDS) / frame_seconds)),
+            min(
+                scores.shape[0],
+                int(min(last, window.end + _CONTEXT_SECONDS) / frame_seconds),
+            ),
         )
+        if expanded[0] < expanded[1] and expanded != attempts[0]:
+            attempts.append(expanded)
+    for begin, stop in attempts:
+        try:
+            return align_words(scores[begin:stop], frame_seconds, chunk, begin * frame_seconds)
+        except ValueError:
+            continue
+    return _evenly(
+        chunk, window.start, max(window.end, window.start + _MINIMUM_WORD_SECONDS * len(chunk))
+    )
 
 
 def _confidence(words: Sequence[AlignedWord]) -> float:
@@ -398,7 +537,20 @@ def align_guided(
                 if window.heard_start - _ONSET_SEARCH_BEFORE_SECONDS <= entry < window.end:
                     # Refit at returning voice even when coarse recognition trails it.
                     window = replace(window, start=max(window.start, entry))
-        guided = _align_window(scores, frame_seconds, chunk, window)
+        recovery_end = (
+            following
+            if following is not None
+            else whole[window.last].start
+            if window.last < len(whole)
+            else max(window.end, reference[-1].end) + _CONTEXT_SECONDS
+        )
+        guided = _align_window(
+            scores,
+            frame_seconds,
+            chunk,
+            window,
+            recovery_bounds=(result[-1].end if result else 0.0, recovery_end),
+        )
         sequential = [
             candidate
             for candidate in (guided, reference)
@@ -412,6 +564,9 @@ def align_guided(
             and (
                 window.last == len(whole)
                 or following is not None
+                # A next word from an earlier repeat cannot veto this phrase
+                # before its own window gets a chance to recover it.
+                or whole[window.last].start <= reference[-1].start
                 or candidate[-1].start < whole[window.last].start
             )
         ]
@@ -526,6 +681,7 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
 
     Only reversed starts need moving. Duration alone cannot tell whether a long word or an unequal
     letter interval is wrong; audio evidence belongs to the alignment/refinement stages.
+    Significant clipping remains diagnostic evidence, even after a second normalization.
     """
     starts: list[float] = []
     cursor = 0.0
@@ -540,6 +696,23 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
         end = max(word.end, start + 0.001)
         if index + 1 < len(starts):
             end = min(end, starts[index + 1])
+        conflict = (
+            start > word.start + 0.001
+            or word.end - end > _HEARD_DISAGREEMENT_SECONDS
+            or word.end - word.start >= _CRAMMED_WORD_SECONDS
+            and end - start + 1e-9 < _CRAMMED_WORD_SECONDS
+        )
+        diagnostics = tuple(
+            dict.fromkeys((*word.diagnostics, *(("BoundaryConflict",) if conflict else ())))
+        )
         letters = _clamped_letters(word.letters, 0.0, start, end)
-        result.append(AlignedWord(word.text, round(start, 3), round(end, 3), letters, word.score))
+        result.append(
+            replace(
+                word,
+                start=round(start, 3),
+                end=round(end, 3),
+                letters=letters,
+                diagnostics=diagnostics,
+            )
+        )
     return result

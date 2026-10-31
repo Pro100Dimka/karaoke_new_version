@@ -1,0 +1,27 @@
+{
+  "scenario": "Real cached CTC fragment chorus-entry.npz; intentionally narrowed window for голос, recovery bounded by preceding end and following start. This is not a complete song/model benchmark.",
+  "bounds": [
+    9.660000000000004,
+    10.219999999999999
+  ],
+  "results": [
+    {
+      "version": "before",
+      "text": "голос",
+      "start": 9.700000000000003,
+      "end": 9.750000000000004,
+      "confidence": 0.0,
+      "median_ms": 0.2714344998366869,
+      "iterations": 100
+    },
+    {
+      "version": "after",
+      "text": "голос",
+      "start": 9.7,
+      "end": 10.14,
+      "confidence": 0.41874165534973146,
+      "median_ms": 1.180930499913302,
+      "iterations": 100
+    }
+  ]
+}

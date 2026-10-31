@@ -1,0 +1,253 @@
+{
+  "localSyntheticCTC": {
+    "input": [
+      {
+        "text": "дом",
+        "start": 1,
+        "end": 1.1,
+        "letters": [
+          1.0,
+          1.0333333333333334,
+          1.0666666666666667
+        ],
+        "confidence": 0.1
+      },
+      {
+        "text": "там",
+        "start": 1.1,
+        "end": 2.4,
+        "letters": [
+          1.1,
+          1.5333333333333334,
+          1.9666666666666668
+        ],
+        "confidence": 0.1
+      }
+    ],
+    "output": [
+      {
+        "text": "дом",
+        "start": 1.0,
+        "end": 2.0,
+        "letters": [
+          1.0,
+          1.04,
+          1.98
+        ],
+        "confidence": 0.9900000095367432
+      },
+      {
+        "text": "там",
+        "start": 2.04,
+        "end": 2.4,
+        "letters": [
+          2.04,
+          2.12,
+          2.38
+        ],
+        "confidence": 0.9900000095367432
+      }
+    ]
+  },
+  "acceptedPairCommit": {
+    "input": [
+      {
+        "text": "дорога",
+        "start": 1,
+        "end": 1.1,
+        "letters": [
+          1.0,
+          1.0166666666666666,
+          1.0333333333333334,
+          1.05,
+          1.0666666666666667,
+          1.0833333333333335
+        ],
+        "confidence": 0.1
+      },
+      {
+        "text": "домой",
+        "start": 1.1,
+        "end": 2.5,
+        "letters": [
+          1.1,
+          1.3800000000000001,
+          1.6600000000000001,
+          1.94,
+          2.2199999999999998
+        ],
+        "confidence": 0.1
+      }
+    ],
+    "output": [
+      {
+        "text": "дорога",
+        "start": 1,
+        "end": 1.1,
+        "confidence": 0.1,
+        "letters": [
+          1.0,
+          1.017,
+          1.033,
+          1.05,
+          1.067,
+          1.083
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      {
+        "text": "домой",
+        "start": 1.1,
+        "end": 2.5,
+        "confidence": 0.1,
+        "letters": [
+          1.1,
+          1.38,
+          1.66,
+          1.94,
+          2.22
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ]
+      }
+    ]
+  },
+  "fastWords": {
+    "и": {
+      "input": [
+        {
+          "text": "и",
+          "start": 1,
+          "end": 1.03,
+          "letters": [
+            1
+          ],
+          "confidence": 0.8
+        }
+      ],
+      "output": [
+        {
+          "text": "и",
+          "start": 1,
+          "end": 1.05,
+          "letters": [
+            1
+          ],
+          "confidence": 0.8
+        }
+      ]
+    },
+    "і": {
+      "input": [
+        {
+          "text": "і",
+          "start": 1,
+          "end": 1.03,
+          "letters": [
+            1
+          ],
+          "confidence": 0.8
+        }
+      ],
+      "output": [
+        {
+          "text": "і",
+          "start": 1,
+          "end": 1.05,
+          "letters": [
+            1
+          ],
+          "confidence": 0.8
+        }
+      ]
+    }
+  },
+  "heldFinalConsonants": {
+    "дом": {
+      "rawCTC": [
+        {
+          "text": "дом",
+          "start": 0.2,
+          "end": 0.3,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ],
+      "sungEnds": [
+        {
+          "text": "дом",
+          "start": 0.2,
+          "end": 1.22,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ],
+      "final": [
+        {
+          "text": "дом",
+          "start": 0.2,
+          "end": 1.22,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ]
+    },
+    "дім": {
+      "rawCTC": [
+        {
+          "text": "дім",
+          "start": 0.2,
+          "end": 0.3,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ],
+      "sungEnds": [
+        {
+          "text": "дім",
+          "start": 0.2,
+          "end": 1.22,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ],
+      "final": [
+        {
+          "text": "дім",
+          "start": 0.2,
+          "end": 1.22,
+          "letters": [
+            0.2,
+            0.24,
+            0.28
+          ],
+          "confidence": 0.699999988079071
+        }
+      ]
+    }
+  }
+}

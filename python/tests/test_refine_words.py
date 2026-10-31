@@ -57,3 +57,67 @@ def test_pitch_cannot_move_independently_aligned_word_and_consonant_boundaries()
         word.end,
         word.letters,
     )
+
+
+@pytest.mark.parametrize("text", [("дом", "мой"), ("дім", "мій")])
+def test_corrected_joint_word_boundary_restores_held_note_without_changing_melody(text) -> None:
+    from backend.lyrics.codec import decode_document, encode_document
+
+    pitch = [PitchPoint(i / 100, 220.0, 0.99, True) for i in range(150)]
+    pitch += [PitchPoint(i / 100, 0.0, 0.0, False) for i in range(150, 200)]
+    compressed = (
+        WordTiming(text[0], 0.0, 0.1, 0.9, (0.0, 0.03, 0.09)),
+        WordTiming(text[1], 0.1, 1.5, 0.5, (0.1, 1.05, 1.4)),
+    )
+    corrected = (
+        WordTiming(text[0], 0.0, 1.0, 0.9, (0.0, 0.03, 0.95)),
+        WordTiming(text[1], 1.0, 1.5, 0.9, (1.0, 1.05, 1.4)),
+    )
+    before, after = (
+        construct_document("t", "a", 2.0, "\n".join(text), words, pitch, MusicMetadata(None, None))
+        for words in (compressed, corrected)
+    )
+
+    assert before.words[0].notes[0].end == 0.1
+    assert [(note.note, note.start, note.end) for word in after.words for note in word.notes] == [
+        (57, 0.0, 1.0),
+        (57, 1.0, 1.5),
+    ]
+    assert [word.letters for word in after.words] == [word.letters for word in corrected]
+    # The same measured melody/analysis timeline survives reassignment to the right word.
+    assert list(after.target_frames()) == list(before.target_frames())
+    assert decode_document(encode_document(after)) == after
+    for word in after.words:
+        note = word.notes[0]
+        measured_times = [
+            note.start + fraction * (note.end - note.start) for fraction, _, _ in note.contour
+        ]
+        assert measured_times == pytest.approx(
+            [point.time for point in pitch if note.start <= point.time < note.end]
+        )
+
+
+@pytest.mark.parametrize("text,fast", [("дом", "и"), ("дім", "і")])
+def test_repeated_words_keep_distinct_holds_and_fast_word_does_not_fill_silence(text, fast) -> None:
+    words = (
+        WordTiming(text, 0.0, 1.0, 0.9, (0.0, 0.03, 0.95)),
+        WordTiming(text, 2.0, 3.65, 0.9, (2.0, 2.03, 3.6)),
+        WordTiming(fast, 3.65, 3.72, 0.9, (3.65,)),
+    )
+    pitch = [
+        PitchPoint(i / 100, 220.0 if active else 0.0, 0.99 if active else 0.0, active)
+        for i in range(400)
+        for active in [i < 100 or 200 <= i < 372]
+    ]
+    document = construct_document(
+        "t", "a", 4.0, f"{text}\n{text} {fast}", words, pitch, MusicMetadata(None, None)
+    )
+
+    assert [word.end - word.start for word in document.words] == pytest.approx([1.0, 1.65, 0.07])
+    for word, expected in zip(document.words, [(0.0, 1.0), (2.0, 3.65), (3.65, 3.72)], strict=True):
+        assert (word.notes[0].start, word.notes[-1].end) == pytest.approx(expected)
+    assert all(
+        pitch is None and not active
+        for time, pitch, active in document.target_frames()
+        if 1.0 <= time < 1.99 or 3.73 <= time
+    )

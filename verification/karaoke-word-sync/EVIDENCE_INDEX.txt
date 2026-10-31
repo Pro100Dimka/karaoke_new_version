@@ -1,0 +1,6 @@
+Authoritative final checks: compatible-baseline/, compatible-final/, frontend-compatible-*
+Final paired benchmark and complete stage traces: cached-pipeline-before.json, cached-pipeline-after.json, cached-pipeline-comparison.json
+Synthetic before/after: synthetic-boundaries-*.json; reproducible script alongside them
+The older backend-original-full.log and recording-original-recheck.log are historical baseline reproduction evidence from before validation dependency versions were aligned. Use compatible-* for final full-suite counts.
+Earlier focused reproduction logs document failures before implementation; all final added tests are included in the compatible-final full suite.
+The acoustic_cache files contain reusable singing-activity masks for the existing three cropped audio fixtures. They do not change audio data.

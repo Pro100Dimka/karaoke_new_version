@@ -24,6 +24,7 @@ from backend.ai_worker.ctc import (
     _model as alignment_model,
     ordered,
     with_sung_ends,
+    with_sung_letters,
     with_voice_onsets,
 )
 from backend.ai_worker.paths import model_directory, model_file
@@ -38,6 +39,7 @@ from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
 from backend.ai_worker.recognition import (
     HeardWord,
     alignment_payload,
+    boundary_conflicts,
     guidance_positions,
     contextual_guidance,
     unhinted_windows,
@@ -600,22 +602,27 @@ def align(
             anchors={index: interval[0] for index, interval in supported.items()},
         )
     )
-    timed = ordered(with_sung_ends(with_voice_onsets(guided, audio), audio, backing, activity))
-    reviewed = rate_review_indices(timed, lyrics)
+    started = with_voice_onsets(guided, audio)
+    timed = ordered(with_sung_ends(started, audio, backing, activity))
+    intervals = independent_timings(words, [heard, *views], timed) | supported
+    reviewed = rate_review_indices(timed, lyrics, heard=intervals, activity=activity)
+    reviewed |= boundary_conflicts(guided)
     recovered: frozenset[int] = frozenset()
     if reviewed:
-        repaired = guide(guided, reviewed=frozenset(reviewed))
-        repaired = ordered(
-            with_sung_ends(with_voice_onsets(repaired, audio), audio, backing, activity)
-        )
-        repaired = ordered([word if i in reviewed else timed[i] for i, word in enumerate(repaired)])
-        if rate_review_indices(repaired, lyrics) < reviewed and all(
-            (i in reviewed or word == timed[i])
-            and (word.end - word.start + 1e-9 >= 0.005 or timed[i].end - timed[i].start < 0.005)
-            for i, word in enumerate(repaired)
-        ):
-            recovered = frozenset(i for i in reviewed if repaired[i] != timed[i])
-            timed = repaired
+        cores = guide(guided, heard=intervals, voiced=activity, reviewed=frozenset(reviewed))
+        adjusted = with_voice_onsets(cores, audio)
+        # Recalibrating one onset must not shift distant unchanged cores. Keep
+        # jointly accepted neighbours, then recompute the affected preceding ends.
+        local = [word if cores[i] != guided[i] else started[i] for i, word in enumerate(adjusted)]
+        repaired = ordered(with_sung_ends(local, audio, backing, activity))
+        # Guidance has already compared the local acoustic evidence. Commit the
+        # accepted sequence together: restoring its old neighbour would cut it again.
+        recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
+        timed = repaired
+    timed = with_sung_letters(timed, scores, step, activity, intervals)
     return alignment_payload(
-        timed, independent_timings(words, [heard, *views], timed), recovered=recovered
+        timed,
+        independent_timings(words, [heard, *views], timed),
+        recovered=recovered,
+        reviewed=frozenset(rate_review_indices(timed, lyrics, heard=intervals, activity=activity)),
     )

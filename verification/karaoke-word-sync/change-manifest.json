@@ -1,0 +1,98 @@
+{
+  "file_count": 13,
+  "total_added_lines": 1220,
+  "total_deleted_lines": 69,
+  "files": [
+    {
+      "path": "frontend/src/features/karaoke/karaokeLyrics.test.ts",
+      "original_sha256": "3d1ead2aba98c88f6497b4295c563027adb5d7a1d6c47912b757133e85ac244f",
+      "current_sha256": "dd86efdf3695e982ad25a6e60c6023415ca03830135519ed43cfe0202fdd8ca0",
+      "added_lines": 28,
+      "deleted_lines": 0
+    },
+    {
+      "path": "kaggle/ad_voice_p100.ipynb",
+      "original_sha256": "792d58ee05114f1efb01acceb6e0c7b0bdfde3d34c317832a3623bb6df573bf0",
+      "current_sha256": "7ba50fb9c8d6feb8bc92b37895c3de63698903af33a1419c6f2e1da2546089f0",
+      "added_lines": 3,
+      "deleted_lines": 3
+    },
+    {
+      "path": "python/backend/ai_worker/ctc.py",
+      "original_sha256": "fce80a7c4c3a4d5482d04412478e8ddbf36dbcb9f0d07d4051b69fa4792a576c",
+      "current_sha256": "b234d08fdb06fb7d5bf1584dae990276a7f37d9234baa392b87554c4faae0271",
+      "added_lines": 201,
+      "deleted_lines": 28
+    },
+    {
+      "path": "python/backend/ai_worker/recognition.py",
+      "original_sha256": "c7f8d7d6950f536d493130380d06c5cd0dbdb3f3b8a40b50c89dc421ff798fc8",
+      "current_sha256": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4",
+      "added_lines": 58,
+      "deleted_lines": 6
+    },
+    {
+      "path": "python/backend/ai_worker/speech.py",
+      "original_sha256": "524f5b666d28775046fd198cecc90a10cf55398723e3d7ffb0f9b0e8c3abcc65",
+      "current_sha256": "005b340e0f60646f35332b5ea52e65c75a82d2ca3e3d8677625776c922328ff4",
+      "added_lines": 22,
+      "deleted_lines": 15
+    },
+    {
+      "path": "python/backend/ai_worker/word_guidance.py",
+      "original_sha256": "e7e271dcec40ddaeaa1d438f365adfff0149c6d5dfa0d4eb2cc7308c7807b1ed",
+      "current_sha256": "68799831766fb75295bbd26afbbbaa51893702352709f11aecaf89afc9d762b6",
+      "added_lines": 162,
+      "deleted_lines": 5
+    },
+    {
+      "path": "python/backend/processing/reporting.py",
+      "original_sha256": "f1ca153efc7c918330e3afb5b35a67f9c27b97b68192c50d2dfdcd7b403a99ce",
+      "current_sha256": "857d1cb7dcb564d1e633712d69a2cf6516199ba8f0c5af227bd8b91800b56693",
+      "added_lines": 2,
+      "deleted_lines": 0
+    },
+    {
+      "path": "python/tests/test_ctc_sustained_tail.py",
+      "original_sha256": null,
+      "current_sha256": "987be70e5537afc2ad43c8c9f0998f6c012061d3d57b1a46143ba0c4b6540464",
+      "added_lines": 155,
+      "deleted_lines": 0
+    },
+    {
+      "path": "python/tests/test_ctc_window_recovery.py",
+      "original_sha256": null,
+      "current_sha256": "03061e9601f51f95dac99c640f165914475168c872c99fc006672c7ae38a4ede",
+      "added_lines": 189,
+      "deleted_lines": 0
+    },
+    {
+      "path": "python/tests/test_letter_alignment.py",
+      "original_sha256": "63c1ee89071502c2126dcb21f8eb5abc565ae2e629f92441d2f89be4eb5324e8",
+      "current_sha256": "f0599c3991cf5eb5262bf1d7ea956101163c5c1ec656497c3ee39c6beee6ef03",
+      "added_lines": 14,
+      "deleted_lines": 12
+    },
+    {
+      "path": "python/tests/test_refine_words.py",
+      "original_sha256": "1fafe19a8b0b18819a067fdf1f5d862af764cfbfd498ece6f28b8eb0fbd3951b",
+      "current_sha256": "ddb8812143178313f5fb14f4c76a2acdfa178f6d4f576f721ea6ee224c750ecf",
+      "added_lines": 64,
+      "deleted_lines": 0
+    },
+    {
+      "path": "python/tests/test_sung_boundary_regressions.py",
+      "original_sha256": null,
+      "current_sha256": "47e7df84a710dd9d6f192a8699ab315e8cfecf2791526439bb6fa9e06116fe03",
+      "added_lines": 65,
+      "deleted_lines": 0
+    },
+    {
+      "path": "python/tests/test_word_timing_review.py",
+      "original_sha256": null,
+      "current_sha256": "2ce680a1d559152ea0087fb95435984e7f95c265577bf7d65f003f866492a04b",
+      "added_lines": 257,
+      "deleted_lines": 0
+    }
+  ]
+}

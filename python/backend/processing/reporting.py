@@ -49,6 +49,8 @@ def rate_reviews(
         reasons = [
             reason
             for reason, active in {
+                "BoundaryConflict": "BoundaryConflict" in word.diagnostics,
+                "TimingReviewRequired": "TimingReviewRequired" in word.diagnostics,
                 "CollapsedWord": letters > 0 and duration + 1e-9 < 0.005,
                 "HighWrittenRate": letters >= 5 and letters > 45 * duration + 1e-9,
                 "HighVowelGroupRate": syllables >= 2 and syllables > 15 * duration + 1e-9,

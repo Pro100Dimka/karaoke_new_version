@@ -172,6 +172,34 @@ describe("karaoke lyrics model", () => {
     expect(letterProgress(held, 4)).toBe(1);
   });
 
+  it.each([["дом", "и"], ["дім", "і"]])("keeps the line and measured vowel active through the corrected %s ending", (text, fastText) => {
+    const held = { ...word("held", 10, 11), text, letters: [0, 0.03, 0.95] };
+    const fast = { ...word("fast", 11, 11.03), text: fastText, letters: [0] };
+    const lines = buildLines([held, fast], `${text}\n${fastText}`);
+    expect(currentLineIndex(lines, 10.9)).toBe(0);
+    expect(letterProgress(held, 10.5)).toBeCloseTo((1 + 0.47 / 0.92) / 3);
+    expect(letterProgress(held, 10.99)).toBeLessThan(1);
+    expect(letterProgress(held, 11)).toBe(1);
+    expect(currentLineIndex(lines, 11.01)).toBe(1);
+    expect(letterProgress(fast, 11)).toBe(0);
+    expect(letterProgress(fast, 11.015)).toBeCloseTo(0.5);
+    expect(letterProgress(fast, 11.03)).toBe(1);
+    expect(letterProgress(fast, 12)).toBe(1);
+    expect(lines.map(({ start, end }) => [start, end])).toEqual([[10, 11], [11, 11.03]]);
+  });
+
+  it.each(["дом", "дім"])("uses each performed %s duration when a chorus repeats", (text) => {
+    const first = { ...word("first", 0, 1), text, letters: [0, 0.03, 0.95] };
+    const repeated = { ...word("repeated", 10, 12), text, letters: [0, 0.015, 0.975] };
+    const lines = buildLines([first, repeated], `${text}\n${text}`);
+    expect(letterProgress(first, 1.5)).toBe(1);
+    expect(letterProgress(repeated, 11.5)).toBeGreaterThan(1 / 3);
+    expect(letterProgress(repeated, 11.5)).toBeLessThan(2 / 3);
+    expect(currentLineIndex(lines, 11.99)).toBe(1);
+    expect(letterProgress(repeated, 12)).toBe(1);
+    expect(lines[1]?.end).toBe(12);
+  });
+
   it("never lets a trailing punctuation mark's own timing affect the fill", () => {
     // "день." over 4 s; the period's own measured slot (the last one) must be irrelevant to the fill --
     // moving it around must never change what fraction of the word reads as sung.

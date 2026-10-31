@@ -1,0 +1,37 @@
+{
+  "comparisons": [
+    {
+      "file": "frontend/electron/ServiceProcess.ts",
+      "identical_to_uploaded_zip": true,
+      "sha256": "1d693f7a900a3c719832b67070fda9b48e3662dc325ddb7c23d0d5c3899a4765"
+    },
+    {
+      "file": "frontend/electron/ServiceProcess.test.ts",
+      "identical_to_uploaded_zip": true,
+      "sha256": "04369db7b075e94a158bb74188061618dfb387229c374d5a0a6c332c1c3d4b11"
+    },
+    {
+      "file": "frontend/scripts/release-script.test.mjs",
+      "identical_to_uploaded_zip": true,
+      "sha256": "d0749be389bc7211347a3d9210978af09b7a98817c010fb1cb7af80f6c75d9a0"
+    },
+    {
+      "file": "release.bat",
+      "identical_to_uploaded_zip": true,
+      "sha256": "3afe7a28af300fc62cc9c2bef3762e65a9f46ee7cd43893860e5ac7d737d6739"
+    },
+    {
+      "file": "frontend/package.json",
+      "identical_to_uploaded_zip": true,
+      "sha256": "edcb247b0ab49cd3cf4dd623c36f22a46e10a598ec6b5dcb0886fb68acdfdad7"
+    },
+    {
+      "file": "frontend/package-lock.json",
+      "identical_to_uploaded_zip": true,
+      "sha256": "76447142fb4f67f0ac718fa152cc218b7a4fc2b9da24bd55fab6032be9a7c170"
+    }
+  ],
+  "cmd_exe_available": false,
+  "electron_binary_exists": true,
+  "electron_installed_version": "42.11.8"
+}
