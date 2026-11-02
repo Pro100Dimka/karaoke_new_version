@@ -1,9 +1,9 @@
-import { EventEmitter } from "node:events";
-import type { BrowserWindow, BrowserWindowConstructorOptions } from "electron";
-import { expect, it, vi } from "vitest";
-import type { TrustedIpc } from "./TrustedIpc";
+import { EventEmitter } from 'node:events';
+import type { BrowserWindow, BrowserWindowConstructorOptions } from 'electron';
+import { expect, it, vi } from 'vitest';
+import type { TrustedIpc } from './TrustedIpc';
 
-vi.mock("electron", () => ({
+vi.mock('electron', () => ({
   BrowserWindow: class extends EventEmitter {
     private visible: boolean;
     private maximized = false;
@@ -17,7 +17,9 @@ vi.mock("electron", () => ({
     constructor(options: BrowserWindowConstructorOptions) {
       super();
       this.visible = options.show !== false;
-      (this.constructor as { lastOptions?: BrowserWindowConstructorOptions }).lastOptions = options;
+      (
+        this.constructor as { lastOptions?: BrowserWindowConstructorOptions }
+      ).lastOptions = options;
     }
 
     isDestroyed() {
@@ -35,7 +37,7 @@ vi.mock("electron", () => ({
     show() {
       if (this.visible) return;
       this.visible = true;
-      this.emit("show");
+      this.emit('show');
     }
     maximize() {
       this.maximized = true;
@@ -54,24 +56,24 @@ vi.mock("electron", () => ({
     }
   },
 }));
-vi.mock("./AppPaths", () => ({ themeIconPath: () => null }));
-vi.mock("./Splash", () => ({ readSavedTheme: () => "dark" }));
+vi.mock('./AppPaths', () => ({ themeIconPath: () => null }));
+vi.mock('./Splash', () => ({ readSavedTheme: () => 'dark' }));
 const savedState = vi.hoisted(() => ({ maximized: true, fullscreen: false }));
-vi.mock("./WindowState", () => ({
+vi.mock('./WindowState', () => ({
   loadWindowState: () => ({ width: 1280, height: 720, ...savedState }),
   saveWindowState: vi.fn(),
   publishWindowState: vi.fn(),
 }));
-vi.mock("./PanelWindows", () => ({
+vi.mock('./PanelWindows', () => ({
   panelWindowOpenHandler: () => vi.fn(),
   securePanelWindow: vi.fn(),
 }));
-vi.mock("./AppVisibility", () => ({
+vi.mock('./AppVisibility', () => ({
   watchAppVisibility: () => ({ republish: vi.fn(), addPanel: vi.fn() }),
 }));
 
-it("keeps a saved maximized main window hidden behind the loader until reveal", async () => {
-  const { createMainWindow } = await import("./MainWindow");
+it('keeps a saved maximized main window hidden behind the loader until reveal', async () => {
+  const { createMainWindow } = await import('./MainWindow');
   let mainWindow!: BrowserWindow;
   let loaderVisible = true;
   const reveal = () => {
@@ -79,9 +81,9 @@ it("keeps a saved maximized main window hidden behind the loader until reveal", 
     loaderVisible = false;
   };
   mainWindow = createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal,
   });
@@ -94,14 +96,14 @@ it("keeps a saved maximized main window hidden behind the loader until reveal", 
   expect(mainWindow.isMaximized()).toBe(true);
 });
 
-it("reopens full screen behind the loader when the window was closed full screen", async () => {
+it('reopens full screen behind the loader when the window was closed full screen', async () => {
   savedState.fullscreen = true;
   try {
-    const { createMainWindow } = await import("./MainWindow");
+    const { createMainWindow } = await import('./MainWindow');
     const mainWindow = createMainWindow({
-      rendererUrl: "file:///app/index.html",
+      rendererUrl: 'file:///app/index.html',
       trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-      roomParticipant: "participant",
+      roomParticipant: 'participant',
       closeConfirmed: () => false,
       reveal: vi.fn(),
     });
@@ -116,124 +118,175 @@ it("reopens full screen behind the loader when the window was closed full screen
   }
 });
 
-it("turns off spell checking: no underlines and no dictionary downloads", async () => {
-  const { createMainWindow } = await import("./MainWindow");
-  const { BrowserWindow } = await import("electron");
+it('turns off spell checking: no underlines and no dictionary downloads', async () => {
+  const { createMainWindow } = await import('./MainWindow');
+  const { BrowserWindow } = await import('electron');
   createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal: vi.fn(),
   });
-  expect((BrowserWindow as unknown as { lastOptions: BrowserWindowConstructorOptions }).lastOptions.webPreferences?.spellcheck).toBe(false);
+  expect(
+    (
+      BrowserWindow as unknown as {
+        lastOptions: BrowserWindowConstructorOptions;
+      }
+    ).lastOptions.webPreferences?.spellcheck,
+  ).toBe(false);
 });
 
-it("publishes the explicit fullscreen transition even when Windows reports its previous flag during the event", async () => {
-  const { createMainWindow } = await import("./MainWindow");
-  const { publishWindowState } = await import("./WindowState");
+it('publishes the explicit fullscreen transition even when Windows reports its previous flag during the event', async () => {
+  const { createMainWindow } = await import('./MainWindow');
+  const { publishWindowState } = await import('./WindowState');
   const window = createMainWindow({
-    rendererUrl: "file:///app/index.html", trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant", closeConfirmed: () => false, reveal: vi.fn(),
+    rendererUrl: 'file:///app/index.html',
+    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
+    roomParticipant: 'participant',
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
   });
   expect(window.isFullScreen()).toBe(false);
-  window.emit("enter-full-screen");
-  expect(publishWindowState).toHaveBeenLastCalledWith(window, { fullscreen: true });
+  window.emit('enter-full-screen');
+  expect(publishWindowState).toHaveBeenLastCalledWith(window, {
+    fullscreen: true,
+  });
   window.setFullScreen(true);
-  window.emit("leave-full-screen");
-  expect(publishWindowState).toHaveBeenLastCalledWith(window, { fullscreen: false });
+  window.emit('leave-full-screen');
+  expect(publishWindowState).toHaveBeenLastCalledWith(window, {
+    fullscreen: false,
+  });
 });
 
 it("fills the window with the saved theme's colour until the interface paints", async () => {
-  const { createMainWindow, themeWindowBackground } = await import("./MainWindow");
-  const { BrowserWindow } = await import("electron");
+  const { createMainWindow, themeWindowBackground } =
+    await import('./MainWindow');
+  const { BrowserWindow } = await import('electron');
   createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal: vi.fn(),
   });
   // The test's saved theme is "dark".
-  expect((BrowserWindow as unknown as { lastOptions: BrowserWindowConstructorOptions }).lastOptions.backgroundColor).toBe(themeWindowBackground.dark);
-  expect(Object.keys(themeWindowBackground).sort()).toEqual(["dark", "green", "light", "violet"]);
+  expect(
+    (
+      BrowserWindow as unknown as {
+        lastOptions: BrowserWindowConstructorOptions;
+      }
+    ).lastOptions.backgroundColor,
+  ).toBe(themeWindowBackground.dark);
+  expect(Object.keys(themeWindowBackground).sort()).toEqual([
+    'dark',
+    'green',
+    'light',
+    'violet',
+  ]);
 });
 
-it("forwards renderer and detached panel console errors to the app log", async () => {
-  const { createMainWindow } = await import("./MainWindow");
+it('forwards renderer and detached panel console errors to the app log', async () => {
+  const { createMainWindow } = await import('./MainWindow');
   const log = vi.fn();
   const window = createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal: vi.fn(),
     log,
   });
-  window.webContents.emit("console-message", { level: "error", message: "renderer failed" });
+  window.webContents.emit('console-message', {
+    level: 'error',
+    message: 'renderer failed',
+  });
   const panel = { webContents: new EventEmitter() } as unknown as BrowserWindow;
-  window.webContents.emit("did-create-window", panel);
-  panel.webContents.emit("console-message", { level: "warning", message: "panel lag" });
+  window.webContents.emit('did-create-window', panel);
+  panel.webContents.emit('console-message', {
+    level: 'warning',
+    message: 'panel lag',
+  });
   expect(log.mock.calls).toEqual([
-    ["renderer", "error", "renderer failed"],
-    ["renderer", "warning", "panel lag"],
+    ['renderer', 'error', 'renderer failed'],
+    ['renderer', 'warning', 'panel lag'],
   ]);
 });
 
-it("reports renderer hangs and recovery in the central log", async () => {
-  const { createMainWindow } = await import("./MainWindow");
+it('reports renderer hangs and recovery in the central log', async () => {
+  const { createMainWindow } = await import('./MainWindow');
   const log = vi.fn();
   const window = createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal: vi.fn(),
     log,
   });
-  window.emit("unresponsive");
-  window.emit("responsive");
+  window.emit('unresponsive');
+  window.emit('responsive');
   expect(log.mock.calls).toEqual([
-    ["renderer", "warning", "Renderer unresponsive"],
-    ["renderer", "info", "Renderer responsive"],
+    ['renderer', 'warning', 'Renderer unresponsive'],
+    ['renderer', 'info', 'Renderer responsive'],
   ]);
 });
 
-it("records a failed renderer load before revealing the error window", async () => {
-  const { createMainWindow } = await import("./MainWindow");
+it('records a failed renderer load before revealing the error window', async () => {
+  const { createMainWindow } = await import('./MainWindow');
   const log = vi.fn();
   const reveal = vi.fn();
   const window = createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant",
+    roomParticipant: 'participant',
     closeConfirmed: () => false,
     reveal,
     log,
   });
-  window.webContents.emit("did-fail-load", {}, -6, "File not found");
-  expect(log).toHaveBeenCalledWith("renderer", "error", "Renderer failed to load (-6): File not found");
+  window.webContents.emit('did-fail-load', {}, -6, 'File not found');
+  expect(log).toHaveBeenCalledWith(
+    'renderer',
+    'error',
+    'Renderer failed to load (-6): File not found',
+  );
   expect(reveal).toHaveBeenCalledOnce();
 });
 
-it("allows a failed main document to close, but preserves guards for subframes and after recovery", async () => {
-  const { createMainWindow } = await import("./MainWindow");
+it('allows a failed main document to close, but preserves guards for subframes and after recovery', async () => {
+  const { createMainWindow } = await import('./MainWindow');
   const window = createMainWindow({
-    rendererUrl: "file:///app/index.html",
+    rendererUrl: 'file:///app/index.html',
     trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: "participant", closeConfirmed: () => false, reveal: vi.fn(),
+    roomParticipant: 'participant',
+    closeConfirmed: () => false,
+    reveal: vi.fn(),
   });
   const close = { preventDefault: vi.fn() };
-  window.webContents.emit("did-fail-load", {}, -6, "File not found", "file:///app/frame.html", false);
-  window.emit("close", close);
+  window.webContents.emit(
+    'did-fail-load',
+    {},
+    -6,
+    'File not found',
+    'file:///app/frame.html',
+    false,
+  );
+  window.emit('close', close);
   expect(close.preventDefault).toHaveBeenCalledOnce();
   close.preventDefault.mockClear();
 
-  window.webContents.emit("did-fail-load", {}, -6, "File not found", "file:///app/index.html", true);
-  window.emit("close", close);
+  window.webContents.emit(
+    'did-fail-load',
+    {},
+    -6,
+    'File not found',
+    'file:///app/index.html',
+    true,
+  );
+  window.emit('close', close);
   expect(close.preventDefault).not.toHaveBeenCalled();
 
-  window.webContents.emit("did-finish-load");
-  window.emit("close", close);
+  window.webContents.emit('did-finish-load');
+  window.emit('close', close);
   expect(close.preventDefault).toHaveBeenCalledOnce();
 });

@@ -1,25 +1,29 @@
-import { store } from "../../providers/store";
-import { useEffect, useRef, useState } from "react";
-import { useRouter, Button, tr, useLocale } from "@neo-ui-kit/react";
-import { useRoomMembership, roomSession, getRoomRuntime } from "../../providers/application";
-import { ask } from "../../providers/dialog";
-import { useNotify } from "../../providers/notifications";
-import type { ParticipantDto } from "../../contracts/models";
-import { ru } from "../../i18n/messages.ru";
-import { errorMessageKey, toAppError } from "../../shared/errors";
+import { store } from '../../providers/store';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter, Button, tr, useLocale } from '@neo-ui-kit/react';
+import {
+  useRoomMembership,
+  roomSession,
+  getRoomRuntime,
+} from '../../providers/application';
+import { ask } from '../../providers/dialog';
+import { useNotify } from '../../providers/notifications';
+import type { ParticipantDto } from '../../contracts/models';
+import { ru } from '../../i18n/messages.ru';
+import { errorMessageKey, toAppError } from '../../shared/errors';
 
-import "./room-dock.css";
-import { RoomHeadCard } from "./RoomHeadCard";
-import { RoomLinkCard } from "./RoomLinkCard";
-import { RoomPersonCard } from "./RoomPersonCard";
-import { DetachedPanel } from "../../shared/ui/DetachedPanel";
-import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
+import './room-dock.css';
+import { RoomHeadCard } from './RoomHeadCard';
+import { RoomLinkCard } from './RoomLinkCard';
+import { RoomPersonCard } from './RoomPersonCard';
+import { DetachedPanel } from '../../shared/ui/DetachedPanel';
+import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
 import {
   useFloatingPanel,
   useMeasuredPanelSize,
   useStoredPanelLayout,
-} from "../../shared/ui/useFloatingPanel";
-import { useRoomPeople } from "../social/useRoomPeople";
+} from '../../shared/ui/useFloatingPanel';
+import { useRoomPeople } from '../social/useRoomPeople';
 
 // The room panel's window starts at the size of the in-app dock.
 const roomPanelSize = { width: 555, height: 660 };
@@ -70,18 +74,22 @@ export const RoomDock = () => {
     return () => window.clearTimeout(timer);
   }, [copied]);
 
-  const isHost = room?.role === "host";
+  const isHost = room?.role === 'host';
   const people = useRoomPeople(room);
   // The dock is dragged anywhere in the app by its surface, and past the window's edge into a window.
-  const placement = useStoredPanelLayout("room");
+  const placement = useStoredPanelLayout('room');
   const panel = useDetachedPanel(
-    "room",
+    'room',
     tr(ru.onlineRoom),
     roomPanelSize,
     placement.save,
   );
   const frameRef = useRef<HTMLElement>(null);
-  const measuredSize = useMeasuredPanelSize(frameRef, roomPanelSize, Boolean(room) && !collapsed && !panel.detached);
+  const measuredSize = useMeasuredPanelSize(
+    frameRef,
+    roomPanelSize,
+    Boolean(room) && !collapsed && !panel.detached,
+  );
   const floating = useFloatingPanel(frameRef, {
     layout: placement.layout && { ...placement.layout, ...measuredSize },
     onLayoutChange: placement.save,
@@ -89,12 +97,12 @@ export const RoomDock = () => {
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
   // The dock stays out of the way while the Melody Editor owns the screen.
-  if (!room || pathname.startsWith("/editor/")) return null;
+  if (!room || pathname.startsWith('/editor/')) return null;
 
   const failure = (error: unknown) =>
     notify(
-      tr(ru[errorMessageKey(toAppError(error)) ?? "roomNetworkUnavailable"]),
-      "error",
+      tr(ru[errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable']),
+      'error',
     );
 
   const handleCopy = async () => {
@@ -109,13 +117,13 @@ export const RoomDock = () => {
         title: tr(ru.hostLeavingTitle),
         body: tr(ru.hostLeavingBody),
         actions: [
-          { id: "cancel", label: tr(ru.cancel) },
-          { id: "transfer", label: tr(ru.transferHost), appearance: "primary" },
-          { id: "close", label: tr(ru.closeRoom), appearance: "secondary" },
+          { id: 'cancel', label: tr(ru.cancel) },
+          { id: 'transfer', label: tr(ru.transferHost), appearance: 'primary' },
+          { id: 'close', label: tr(ru.closeRoom), appearance: 'secondary' },
         ],
       });
-      if (choice === "cancel" || choice === null) return;
-      if (choice === "close") {
+      if (choice === 'cancel' || choice === null) return;
+      if (choice === 'close') {
         try {
           await roomSession.close();
         } catch (error) {
@@ -123,7 +131,7 @@ export const RoomDock = () => {
         }
         return;
       }
-      if (choice !== "transfer") return;
+      if (choice !== 'transfer') return;
     }
     try {
       await roomSession.leave();
@@ -144,17 +152,17 @@ export const RoomDock = () => {
     const choice = await ask({
       title: tr(ru.removeParticipantTitle),
       body: tr(ru.removeParticipantBody, { name: participant.name }),
-      tone: "warning",
+      tone: 'warning',
       actions: [
-        { id: "cancel", label: tr(ru.cancel) },
+        { id: 'cancel', label: tr(ru.cancel) },
         {
-          id: "remove",
+          id: 'remove',
           label: tr(ru.removeParticipant, { name: participant.name }),
-          appearance: "primary",
+          appearance: 'primary',
         },
       ],
     });
-    if (choice !== "remove") return;
+    if (choice !== 'remove') return;
     try {
       await membership?.removeParticipant(participant.id);
     } catch (error) {
@@ -170,7 +178,7 @@ export const RoomDock = () => {
     }
   };
 
-  const collapseLabel = tr(ru[collapsed ? "expandRoom" : "collapseRoom"]);
+  const collapseLabel = tr(ru[collapsed ? 'expandRoom' : 'collapseRoom']);
 
   if (collapsed && !panel.detached) {
     return (
@@ -204,8 +212,8 @@ export const RoomDock = () => {
             ? {
                 left: floating.layout.left,
                 top: floating.layout.top,
-                bottom: "auto",
-                right: "auto",
+                bottom: 'auto',
+                right: 'auto',
               }
             : undefined
         }

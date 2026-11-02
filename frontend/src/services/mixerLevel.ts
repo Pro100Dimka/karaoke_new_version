@@ -1,12 +1,12 @@
-import type { MixerChannel } from "../contracts/clients";
+import type { MixerChannel } from '../contracts/clients';
 
 // The accompaniment knobs follow a fader law; voices (the microphone, remote participants) and the
 // master keep their linear knobs, so a saved voice level sounds exactly as it always did. How loud a
 // song is at 100% is measured by AudioService (streaming loudness), not fixed here.
 const faderChannels: ReadonlySet<MixerChannel> = new Set([
-  "music",
-  "reference",
-  "melody",
+  'music',
+  'reference',
+  'melody',
 ]);
 
 /**
@@ -15,6 +15,6 @@ const faderChannels: ReadonlySet<MixerChannel> = new Set([
  * silence. A linear music knob stayed loud over most of its travel and only fell quiet next to zero.
  */
 export const mixerGain = (channel: MixerChannel, position: number): number => {
-  const clamped = Math.min(channel === "mic" ? 4 : 1, Math.max(0, position));
+  const clamped = Math.min(channel === 'mic' ? 4 : 1, Math.max(0, position));
   return faderChannels.has(channel) ? clamped ** 3 : clamped;
 };

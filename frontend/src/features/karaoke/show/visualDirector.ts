@@ -1,26 +1,26 @@
-import type { MusicCue, MusicState } from "./musicPulse";
+import type { MusicCue, MusicState } from './musicPulse';
 import {
   goodNoteScore,
   type FinaleGrade,
   type PerformanceEvent,
-} from "./performanceTracker";
+} from './performanceTracker';
 
 export type FxKind =
-  | "noteGlow"
-  | "noteSparks"
-  | "noteRing"
-  | "chargeRelease"
-  | "phraseSweep"
-  | "phraseBloom"
-  | "crossLight"
-  | "lightWave"
-  | "stageExpansion"
-  | "shockwave"
-  | "laserSweep"
-  | "firework"
-  | "starRain"
-  | "dim"
-  | "beatPulse";
+  | 'noteGlow'
+  | 'noteSparks'
+  | 'noteRing'
+  | 'chargeRelease'
+  | 'phraseSweep'
+  | 'phraseBloom'
+  | 'crossLight'
+  | 'lightWave'
+  | 'stageExpansion'
+  | 'shockwave'
+  | 'laserSweep'
+  | 'firework'
+  | 'starRain'
+  | 'dim'
+  | 'beatPulse';
 
 /** One visual the director allows, at a moment (`performance.now()` ms) and strength (0–1+). */
 export interface FxCommand {
@@ -33,7 +33,7 @@ export interface FxCommand {
   duration?: number;
 }
 
-export type VisualIntensity = "minimal" | "balanced" | "full";
+export type VisualIntensity = 'minimal' | 'balanced' | 'full';
 
 export interface DirectorContext {
   energy: number;
@@ -58,16 +58,16 @@ const cooldowns: Partial<Record<FxKind, number>> = {
   starRain: 9000,
 };
 const largeKinds: ReadonlySet<FxKind> = new Set([
-  "stageExpansion",
-  "shockwave",
-  "laserSweep",
-  "firework",
+  'stageExpansion',
+  'shockwave',
+  'laserSweep',
+  'firework',
 ]);
 const flashKinds: ReadonlySet<FxKind> = new Set([
-  "laserSweep",
-  "firework",
-  "shockwave",
-  "stageExpansion",
+  'laserSweep',
+  'firework',
+  'shockwave',
+  'stageExpansion',
 ]);
 // After a large event only small rewards appear for this long, so one big moment is never buried by the next.
 const afterLargeQuietMs = 3000;
@@ -89,7 +89,7 @@ export class VisualDirector {
   private quietUntil = 0;
   private legendaryCount = 0;
   private random: () => number;
-  intensity: VisualIntensity = "full";
+  intensity: VisualIntensity = 'full';
 
   constructor(random: () => number = Math.random) {
     this.random = random;
@@ -121,7 +121,7 @@ export class VisualDirector {
   }
 
   private ready(kind: FxKind, now: number): boolean {
-    if (this.intensity === "minimal" && flashKinds.has(kind)) return false;
+    if (this.intensity === 'minimal' && flashKinds.has(kind)) return false;
     if (largeKinds.has(kind) && now < this.quietUntil) return false;
     return now - (this.lastAt.get(kind) ?? -Infinity) >= (cooldowns[kind] ?? 0);
   }
@@ -157,7 +157,7 @@ export class VisualDirector {
     context: DirectorContext,
   ): void {
     switch (event.kind) {
-      case "noteCompleted":
+      case 'noteCompleted':
         this.onNote(
           now,
           event.note.id,
@@ -166,7 +166,7 @@ export class VisualDirector {
           context,
         );
         return;
-      case "phraseCompleted":
+      case 'phraseCompleted':
         this.onPhrase(
           now,
           event.score,
@@ -175,21 +175,26 @@ export class VisualDirector {
           context,
         );
         return;
-      case "levelReached":
+      case 'levelReached':
         if (
-          ["awakening", "flow", "momentum", "onFire", "headliner", "legendary"].includes(
-            event.level,
-          ) &&
-          this.ready("lightWave", now)
+          [
+            'awakening',
+            'flow',
+            'momentum',
+            'onFire',
+            'headliner',
+            'legendary',
+          ].includes(event.level) &&
+          this.ready('lightWave', now)
         ) {
           this.schedule(
-            "lightWave",
+            'lightWave',
             this.release(now, context, 400),
             Math.max(0.45, context.energy / 100),
           );
         }
         return;
-      case "songCompleted":
+      case 'songCompleted':
         this.onFinale(now, event.grade, context);
         return;
     }
@@ -203,21 +208,21 @@ export class VisualDirector {
     context: DirectorContext,
   ): void {
     if (score < goodNoteScore) return;
-    this.pending.push({ kind: "noteGlow", at: now, strength: score, noteId });
-    if (score >= 0.97 && this.ready("noteRing", now)) {
-      this.schedule("noteRing", now, 1, { noteId });
-    } else if (score >= 0.92 && this.ready("noteSparks", now)) {
-      this.schedule("noteSparks", now, 1, { noteId });
+    this.pending.push({ kind: 'noteGlow', at: now, strength: score, noteId });
+    if (score >= 0.97 && this.ready('noteRing', now)) {
+      this.schedule('noteRing', now, 1, { noteId });
+    } else if (score >= 0.92 && this.ready('noteSparks', now)) {
+      this.schedule('noteSparks', now, 1, { noteId });
     }
     // A long note held nearly perfectly releases its stored charge on the next beat.
     if (
       duration >= 1 &&
       score >= 0.85 &&
       context.energy >= 25 &&
-      this.ready("chargeRelease", now)
+      this.ready('chargeRelease', now)
     ) {
       this.schedule(
-        "chargeRelease",
+        'chargeRelease',
         this.release(now, context, 250),
         Math.min(1, 0.4 + context.energy / 120),
         { noteId },
@@ -232,18 +237,18 @@ export class VisualDirector {
     perfectInRow: number,
     context: DirectorContext,
   ): void {
-    if (score >= 0.88 && this.ready("phraseBloom", now))
-      this.schedule("phraseBloom", now, score);
-    else if (score >= 0.7 && this.ready("phraseSweep", now))
-      this.schedule("phraseSweep", now, score);
+    if (score >= 0.88 && this.ready('phraseBloom', now))
+      this.schedule('phraseBloom', now, score);
+    else if (score >= 0.7 && this.ready('phraseSweep', now))
+      this.schedule('phraseSweep', now, score);
     if (
       goodInRow > 0 &&
       goodInRow % 3 === 0 &&
       context.energy >= 40 &&
-      this.ready("crossLight", now)
+      this.ready('crossLight', now)
     ) {
       this.schedule(
-        "crossLight",
+        'crossLight',
         this.release(now, context, 500),
         context.energy / 100,
       );
@@ -260,31 +265,31 @@ export class VisualDirector {
       this.legendaryCount < maxLegendarySequences
     ) {
       this.legendary(now, at);
-    } else if (context.energy >= 75 && this.ready("laserSweep", now)) {
-      this.schedule("laserSweep", at, context.energy / 100);
-    } else if (this.ready("shockwave", now)) {
-      this.schedule("shockwave", at, 0.6 + context.energy / 250);
+    } else if (context.energy >= 75 && this.ready('laserSweep', now)) {
+      this.schedule('laserSweep', at, context.energy / 100);
+    } else if (this.ready('shockwave', now)) {
+      this.schedule('shockwave', at, 0.6 + context.energy / 250);
     } else if (
       context.energy >= 65 &&
       context.streakSeconds >= 30 &&
-      this.ready("firework", now)
+      this.ready('firework', now)
     ) {
-      this.schedule("firework", at, 0.8);
+      this.schedule('firework', at, 0.8);
     }
   }
 
   private onMusic(now: number, cue: MusicCue, context: DirectorContext): void {
-    if (cue.kind === "beat") {
-      this.pending.push({ kind: "beatPulse", at: now, strength: cue.strength });
+    if (cue.kind === 'beat') {
+      this.pending.push({ kind: 'beatPulse', at: now, strength: cue.strength });
       // A long strong streak in a big section earns a rare distant firework on the beat.
       if (
         context.streakSeconds >= 30 &&
         context.energy >= 65 &&
         context.music.intensity >= 0.9 &&
-        this.ready("firework", now) &&
+        this.ready('firework', now) &&
         this.random() < 0.05
       ) {
-        this.schedule("firework", now, 0.7);
+        this.schedule('firework', now, 0.7);
       }
       return;
     }
@@ -293,17 +298,17 @@ export class VisualDirector {
       context.energy >= 90 &&
       context.streakSeconds >= 45 &&
       this.legendaryCount < maxLegendarySequences &&
-      this.ready("shockwave", now)
+      this.ready('shockwave', now)
     ) {
       this.legendary(now, now + 300);
     } else if (
       context.streakSeconds >= 20 &&
       context.energy >= 55 &&
-      this.ready("stageExpansion", now)
+      this.ready('stageExpansion', now)
     ) {
-      this.schedule("dim", now, 0.6, { duration: 300 });
+      this.schedule('dim', now, 0.6, { duration: 300 });
       this.schedule(
-        "stageExpansion",
+        'stageExpansion',
         this.release(now + 300, context, 400, now),
         context.energy / 100,
       );
@@ -314,19 +319,19 @@ export class VisualDirector {
   private legendary(now: number, at: number): void {
     this.legendaryCount += 1;
     this.pending.push({
-      kind: "dim",
+      kind: 'dim',
       at: now,
       strength: 0.7,
       duration: Math.max(250, at - now),
     });
-    this.schedule("shockwave", at, 1.2);
-    this.lastAt.set("stageExpansion", at + 200);
-    this.pending.push({ kind: "stageExpansion", at: at + 200, strength: 1 });
-    this.schedule("starRain", at + 550, 1);
-    this.lastAt.set("laserSweep", at + 1100);
-    this.pending.push({ kind: "laserSweep", at: at + 1100, strength: 1 });
-    this.lastAt.set("firework", at + 2000);
-    this.pending.push({ kind: "firework", at: at + 2000, strength: 1 });
+    this.schedule('shockwave', at, 1.2);
+    this.lastAt.set('stageExpansion', at + 200);
+    this.pending.push({ kind: 'stageExpansion', at: at + 200, strength: 1 });
+    this.schedule('starRain', at + 550, 1);
+    this.lastAt.set('laserSweep', at + 1100);
+    this.pending.push({ kind: 'laserSweep', at: at + 1100, strength: 1 });
+    this.lastAt.set('firework', at + 2000);
+    this.pending.push({ kind: 'firework', at: at + 2000, strength: 1 });
     this.quietUntil = at + 2800 + afterLargeQuietMs;
   }
 
@@ -343,28 +348,28 @@ export class VisualDirector {
       duration?: number,
     ) => this.pending.push({ kind, at: at + offset, strength, duration });
     switch (grade) {
-      case "normal":
-        push("phraseBloom", 0, 0.6);
+      case 'normal':
+        push('phraseBloom', 0, 0.6);
         return;
-      case "good":
-        push("lightWave", 0, 0.8);
-        push("crossLight", 150, 0.8);
-        push("starRain", 400, 0.5);
+      case 'good':
+        push('lightWave', 0, 0.8);
+        push('crossLight', 150, 0.8);
+        push('starRain', 400, 0.5);
         return;
-      case "excellent":
-        push("dim", -400, 0.6, 400);
-        push("shockwave", 0, 1);
-        push("stageExpansion", 200, 1);
-        for (const offset of [700, 1300, 2100]) push("firework", offset, 0.9);
+      case 'excellent':
+        push('dim', -400, 0.6, 400);
+        push('shockwave', 0, 1);
+        push('stageExpansion', 200, 1);
+        for (const offset of [700, 1300, 2100]) push('firework', offset, 0.9);
         return;
-      case "legendary":
-        push("dim", -500, 0.8, 500);
-        push("shockwave", 0, 1.3);
-        push("stageExpansion", 200, 1.2);
-        push("starRain", 550, 1.2);
-        push("laserSweep", 1100, 1.1);
+      case 'legendary':
+        push('dim', -500, 0.8, 500);
+        push('shockwave', 0, 1.3);
+        push('stageExpansion', 200, 1.2);
+        push('starRain', 550, 1.2);
+        push('laserSweep', 1100, 1.1);
         for (const offset of [2000, 2400, 2900, 3500, 4200])
-          push("firework", offset, 1.1);
+          push('firework', offset, 1.1);
         return;
     }
   }
@@ -407,7 +412,7 @@ export const ambientFor = (
     beams:
       beams *
       Math.min(1, 0.6 + section * 0.45) *
-      (intensity === "minimal" ? 0.5 : 1),
+      (intensity === 'minimal' ? 0.5 : 1),
     particles: Math.max(0, (e - 0.12) / 0.88) * (0.55 + section * 0.45) * scale,
     fog: Math.max(0, (e - 0.3) / 0.7) * 0.6 * scale,
     grade: e * scale,

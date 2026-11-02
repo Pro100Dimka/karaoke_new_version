@@ -1,12 +1,12 @@
-import type { BrowserWindow, NativeImage } from "electron";
-import type { BackendEvent } from "./BackendEvents";
-import type { DesktopShell, ShellCommand, ShellStatus } from "./DesktopShell";
-import { overlayColors, shellIcon, type iconShapes } from "./ShellIcons";
-import { shellText, type ShellTextKey } from "./ShellText";
+import type { BrowserWindow, NativeImage } from 'electron';
+import type { BackendEvent } from './BackendEvents';
+import type { DesktopShell, ShellCommand, ShellStatus } from './DesktopShell';
+import { overlayColors, shellIcon, type iconShapes } from './ShellIcons';
+import { shellText, type ShellTextKey } from './ShellText';
 
-const activeStates = new Set(["Queued", "Running", "Cancelling"]);
+const activeStates = new Set(['Queued', 'Running', 'Cancelling']);
 
-export type JobOutcome = "succeeded" | "failed";
+export type JobOutcome = 'succeeded' | 'failed';
 
 /**
  * Processing jobs as the backend reports them (`job.changed`): how far the active ones are, and
@@ -19,35 +19,42 @@ export class JobProgress {
 
   /** Returns the outcome when this event finished a job that was being followed. */
   track(event: BackendEvent): JobOutcome | undefined {
-    if (event.type === "connected") {
+    if (event.type === 'connected') {
       // Events missed while the stream was down: progress is rebuilt from the next ones.
       this.active.clear();
       this.songs.clear();
       return undefined;
     }
-    if (event.type !== "job.changed" || !event.data) return undefined;
+    if (event.type !== 'job.changed' || !event.data) return undefined;
     const { jobId, state, overallProgress, type } = event.data;
-    if (typeof jobId !== "string" || typeof state !== "string") return undefined;
+    if (typeof jobId !== 'string' || typeof state !== 'string')
+      return undefined;
     if (activeStates.has(state)) {
-      if (type === "SongProcessing") this.songs.add(jobId);
-      const progress = typeof overallProgress === "number" && Number.isFinite(overallProgress) ? overallProgress : 0;
+      if (type === 'SongProcessing') this.songs.add(jobId);
+      const progress =
+        typeof overallProgress === 'number' && Number.isFinite(overallProgress)
+          ? overallProgress
+          : 0;
       this.active.set(jobId, Math.max(0, Math.min(1, progress)));
       return undefined;
     }
     const followed = this.active.delete(jobId);
     const song = this.songs.delete(jobId);
     if (!followed || !song) return undefined;
-    if (state === "Succeeded") return "succeeded";
-    if (state === "Failed") return "failed";
+    if (state === 'Succeeded') return 'succeeded';
+    if (state === 'Failed') return 'failed';
     return undefined;
   }
 
   /** -1 hides the bar; "indeterminate" while every job only waits. */
-  bar(): { progress: number; mode: "none" | "normal" | "indeterminate" } {
-    if (this.active.size === 0) return { progress: -1, mode: "none" };
+  bar(): { progress: number; mode: 'none' | 'normal' | 'indeterminate' } {
+    if (this.active.size === 0) return { progress: -1, mode: 'none' };
     const values = [...this.active.values()];
-    const progress = values.reduce((sum, value) => sum + value, 0) / values.length;
-    return progress > 0 ? { progress, mode: "normal" } : { progress: 2, mode: "indeterminate" };
+    const progress =
+      values.reduce((sum, value) => sum + value, 0) / values.length;
+    return progress > 0
+      ? { progress, mode: 'normal' }
+      : { progress: 2, mode: 'indeterminate' };
   }
 }
 
@@ -59,24 +66,47 @@ export interface ThumbButton {
 
 /** The buttons under the taskbar thumbnail for what is on screen. */
 export const thumbButtons = (status: ShellStatus): ThumbButton[] => {
-  if (status.screen === "karaoke" && status.song)
+  if (status.screen === 'karaoke' && status.song)
     return [
       status.playing
-        ? { icon: "pause", tooltip: "pause", command: { type: "togglePlayback" } }
-        : { icon: "play", tooltip: "play", command: { type: "togglePlayback" } },
+        ? {
+            icon: 'pause',
+            tooltip: 'pause',
+            command: { type: 'togglePlayback' },
+          }
+        : {
+            icon: 'play',
+            tooltip: 'play',
+            command: { type: 'togglePlayback' },
+          },
     ];
-  if (status.screen === "library" && status.radio.available)
+  if (status.screen === 'library' && status.radio.available)
     return [
-      { icon: "radio", tooltip: status.radio.enabled ? "radioOff" : "radioOn", command: { type: "toggleRadio" } },
-      { icon: "next", tooltip: "nextStation", command: { type: "nextStation" } },
+      {
+        icon: 'radio',
+        tooltip: status.radio.enabled ? 'radioOff' : 'radioOn',
+        command: { type: 'toggleRadio' },
+      },
+      {
+        icon: 'next',
+        tooltip: 'nextStation',
+        command: { type: 'nextStation' },
+      },
     ];
   return [];
 };
 
 /** The badge on the taskbar icon: recording first, then being in a room. */
-export const overlayFor = (status: ShellStatus): { icon: keyof typeof iconShapes; color: keyof typeof overlayColors; text: ShellTextKey } | null => {
-  if (status.recording) return { icon: "dot", color: "recording", text: "recording" };
-  if (status.room) return { icon: "people", color: "room", text: "inRoom" };
+export const overlayFor = (
+  status: ShellStatus,
+): {
+  icon: keyof typeof iconShapes;
+  color: keyof typeof overlayColors;
+  text: ShellTextKey;
+} | null => {
+  if (status.recording)
+    return { icon: 'dot', color: 'recording', text: 'recording' };
+  if (status.room) return { icon: 'people', color: 'room', text: 'inRoom' };
   return null;
 };
 
@@ -84,32 +114,40 @@ interface TaskbarOptions {
   window: () => BrowserWindow | null;
   shell: DesktopShell;
   notify: (title: string, body: string) => void;
-  icon?: (name: keyof typeof iconShapes, color?: readonly [number, number, number]) => NativeImage;
+  icon?: (
+    name: keyof typeof iconShapes,
+    color?: readonly [number, number, number],
+  ) => NativeImage;
 }
 
 /** Keeps the taskbar entry in step with the app: progress, badge, thumbnail buttons, attention. */
-export const createTaskbarIntegration = ({ window, shell, notify, icon = shellIcon }: TaskbarOptions) => {
+export const createTaskbarIntegration = ({
+  window,
+  shell,
+  notify,
+  icon = shellIcon,
+}: TaskbarOptions) => {
   const jobs = new JobProgress();
-  let lastButtons = "";
-  let lastOverlay = "";
+  let lastButtons = '';
+  let lastOverlay = '';
 
   const applyProgress = () => {
     const current = window();
     if (!current || current.isDestroyed()) return;
     const { progress, mode } = jobs.bar();
-    current.setProgressBar(progress, mode === "none" ? undefined : { mode });
+    current.setProgressBar(progress, mode === 'none' ? undefined : { mode });
   };
 
   const applyStatus = (status: ShellStatus) => {
     const current = window();
     if (!current || current.isDestroyed()) return;
     const overlay = overlayFor(status);
-    const overlayKey = overlay ? `${overlay.icon}:${status.language}` : "";
+    const overlayKey = overlay ? `${overlay.icon}:${status.language}` : '';
     if (overlayKey !== lastOverlay) {
       lastOverlay = overlayKey;
       current.setOverlayIcon(
         overlay ? icon(overlay.icon, overlayColors[overlay.color]) : null,
-        overlay ? shellText(status.language, overlay.text) : "",
+        overlay ? shellText(status.language, overlay.text) : '',
       );
     }
     const buttons = thumbButtons(status);
@@ -135,16 +173,25 @@ export const createTaskbarIntegration = ({ window, shell, notify, icon = shellIc
       const outcome = jobs.track(event);
       applyProgress();
       const current = window();
-      if (!outcome || !current || current.isDestroyed() || current.isFocused()) return;
+      if (!outcome || !current || current.isDestroyed() || current.isFocused())
+        return;
       const language = shell.status().language;
       current.flashFrame(true);
-      if (outcome === "succeeded") notify(shellText(language, "songReady"), shellText(language, "songReadyBody"));
-      else notify(shellText(language, "songFailed"), shellText(language, "songFailedBody"));
+      if (outcome === 'succeeded')
+        notify(
+          shellText(language, 'songReady'),
+          shellText(language, 'songReadyBody'),
+        );
+      else
+        notify(
+          shellText(language, 'songFailed'),
+          shellText(language, 'songFailedBody'),
+        );
     },
     /** The window was shown: Windows only accepts thumbnail buttons on a visible window. */
     refresh(): void {
-      lastButtons = "";
-      lastOverlay = "";
+      lastButtons = '';
+      lastOverlay = '';
       applyStatus(shell.status());
       applyProgress();
     },

@@ -1,4 +1,4 @@
-import type { SettingsAudioPort } from "../../../../../application/settings/SettingsPorts";
+import type { SettingsAudioPort } from '../../../../../application/settings/SettingsPorts';
 import type {
   AudioBackendName,
   AudioCapabilities,
@@ -6,7 +6,7 @@ import type {
   DeviceDto,
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
-} from "../../../../../contracts/models";
+} from '../../../../../contracts/models';
 
 const emptyCapabilities: AudioConfigurationCapabilities = {
   sampleRates: [],
@@ -15,7 +15,7 @@ const emptyCapabilities: AudioConfigurationCapabilities = {
   defaultPeriodFrames: 0,
 };
 const defaultRequest: RequestedAudioConfiguration = {
-  backend: "WASAPI Shared",
+  backend: 'WASAPI Shared',
   sampleRate: 0,
   periodFrames: 0,
 };
@@ -58,14 +58,14 @@ export const createAudioSession = (
     requested: initial,
     accepted: initial,
     runtime: {
-      backend: "WASAPI Shared",
+      backend: 'WASAPI Shared',
       sampleRate: 0,
       periodFrames: 0,
       endpointBufferFrames: 0,
       estimatedLatencyMs: null,
     },
     devices: [],
-    capabilities: { microphone: "missing", keyboardLighting: false },
+    capabilities: { microphone: 'missing', keyboardLighting: false },
     configurationCapabilities: emptyCapabilities,
     configurationCapabilitiesBackend: initial.backend,
     audioAvailable: false,
@@ -108,7 +108,7 @@ export const createAudioSession = (
     const selected = state.requested;
     const target =
       !state.audioAvailable ||
-      (selected.backend === "ASIO" &&
+      (selected.backend === 'ASIO' &&
         (selected.inputDeviceId || selected.outputDeviceId))
         ? selected
         : { ...selected, backend: state.runtime.backend };
@@ -120,7 +120,7 @@ export const createAudioSession = (
         configurationCapabilities: capabilities,
         configurationCapabilitiesBackend: target.backend,
         asioUnavailable:
-          selected.backend === "ASIO" && state.runtime.backend !== "ASIO",
+          selected.backend === 'ASIO' && state.runtime.backend !== 'ASIO',
       });
     } catch {
       if (!current(request, view)) return;
@@ -128,7 +128,7 @@ export const createAudioSession = (
       publish({
         configurationCapabilities: emptyCapabilities,
         configurationCapabilitiesBackend: target.backend,
-        asioUnavailable: selected.backend === "ASIO",
+        asioUnavailable: selected.backend === 'ASIO',
       });
     }
   };
@@ -153,7 +153,7 @@ export const createAudioSession = (
       ]);
       if (!current(request, view)) return;
       const patch: Partial<AudioSnapshot> = {};
-      if (devices.status === "fulfilled") {
+      if (devices.status === 'fulfilled') {
         configurationDirty ||=
           devices.value.length !== state.devices.length ||
           devices.value.some((device, index) => {
@@ -171,11 +171,11 @@ export const createAudioSession = (
         patch.devices = devices.value;
         if (readDevices) nextDeviceRefresh = Date.now() + 5000;
       } else devicesDirty = true;
-      if (capabilities.status === "fulfilled") {
+      if (capabilities.status === 'fulfilled') {
         microphoneDirty = false;
         patch.capabilities = capabilities.value;
       } else microphoneDirty = true;
-      if (runtime.status === "fulfilled") {
+      if (runtime.status === 'fulfilled') {
         const changed =
           runtime.value.backend !== state.runtime.backend ||
           runtime.value.calibrationContext !== state.runtime.calibrationContext;
@@ -239,11 +239,11 @@ export const createAudioSession = (
         if (revision !== id) return;
         publish({
           requested: state.accepted,
-          asioReadyToRestart: prepared && request.backend === "ASIO",
+          asioReadyToRestart: prepared && request.backend === 'ASIO',
           ...(prepared &&
             driver && {
               devices: state.devices.some(
-                (item) => item.id === driver.id && item.backend === "ASIO",
+                (item) => item.id === driver.id && item.backend === 'ASIO',
               )
                 ? state.devices
                 : [...state.devices, driver],

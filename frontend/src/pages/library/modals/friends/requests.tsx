@@ -1,4 +1,4 @@
-import { friendRelations } from "../../../../providers/social";
+import { friendRelations } from '../../../../providers/social';
 import {
   Button,
   IconButton,
@@ -124,12 +124,23 @@ export const FriendRequests = ({ inbox }: { inbox: OnlineInbox }) => {
           <FriendsList
             rows={rows}
             actions={({ accountId, displayName: name }) =>
-              actions.map((action) => <IconButton key={action} size="sm" variant="secondary" {...config[action]}
-                label={tr(config[action].label, { name })} disabled={busy}
-                onClick={() => request.mutate(async () => {
-                  await friends[action](accountId);
-                  if (action === 'accept') return tr('friendAdded', { name });
-                })} />)
+              actions.map((action) => (
+                <IconButton
+                  key={action}
+                  size="sm"
+                  variant="secondary"
+                  {...config[action]}
+                  label={tr(config[action].label, { name })}
+                  disabled={busy}
+                  onClick={() =>
+                    request.mutate(async () => {
+                      await friends[action](accountId);
+                      if (action === 'accept')
+                        return tr('friendAdded', { name });
+                    })
+                  }
+                />
+              ))
             }
           />
         </Stack>

@@ -11,7 +11,10 @@ const silence = 0.02;
 
 /** The microphone RMS on the spectrum's scale (dBFS from −60 to 0 → 0..1), gated against room noise. */
 export const voiceLevel = (rms: number): number => {
-  const level = Math.min(1, Math.max(0, (20 * Math.log10(Math.max(rms, 1e-6)) - floorDb) / -floorDb));
+  const level = Math.min(
+    1,
+    Math.max(0, (20 * Math.log10(Math.max(rms, 1e-6)) - floorDb) / -floorDb),
+  );
   return level <= voiceGate ? 0 : (level - voiceGate) / (1 - voiceGate);
 };
 
@@ -28,7 +31,9 @@ export const backdropSpectrum = (
   const [low, high] = backdropSpectrumRange;
   const bands = Array.from({ length: count }, (_, band) => {
     const hz = low * (high / low) ** (band / Math.max(1, count - 1));
-    const shape = Math.exp(-(Math.log(hz / voiceCenterHz) ** 2) / (2 * voiceWidth ** 2));
+    const shape = Math.exp(
+      -(Math.log(hz / voiceCenterHz) ** 2) / (2 * voiceWidth ** 2),
+    );
     return Math.max(output[band] ?? 0, voice * shape);
   });
   return bands.some((level) => level > silence) ? bands : undefined;

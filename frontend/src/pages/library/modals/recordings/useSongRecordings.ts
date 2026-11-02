@@ -1,24 +1,24 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { refreshSongs } from "../../../../api/api-service";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { pythonClient as catalog } from "../../../../services/pythonClient";
-import { useEffect, useRef, useState } from "react";
-import { store } from "../../../../providers/store";
-import { ask } from "../../../../providers/dialog";
-import { useNotify } from "../../../../providers/notifications";
+import { useQueryClient } from '@tanstack/react-query';
+import { refreshSongs } from '../../../../api/api-service';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { useEffect, useRef, useState } from 'react';
+import { store } from '../../../../providers/store';
+import { ask } from '../../../../providers/dialog';
+import { useNotify } from '../../../../providers/notifications';
 import type {
   AnalysisDto,
   RecordingDto,
   SongDto,
-} from "../../../../contracts/models";
+} from '../../../../contracts/models';
 import type {
   RecordingAnalysisProgress,
   StudioMasterProgress,
-} from "../../../../contracts/clients";
-import { ru } from "../../../../i18n/messages.ru";
-import type { MessageKey } from "../../../../i18n/messages";
-import { useGuardedAction } from "../../songs/useGuardedAction";
-import { errorMessageKey, toAppError } from "../../../../shared/errors";
+} from '../../../../contracts/clients';
+import { ru } from '../../../../i18n/messages.ru';
+import type { MessageKey } from '../../../../i18n/messages';
+import { useGuardedAction } from '../../songs/useGuardedAction';
+import { errorMessageKey, toAppError } from '../../../../shared/errors';
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
@@ -64,9 +64,9 @@ export const useSongRecordings = (
       ...items,
       [recordingId]: {
         recordingId,
-        jobId: "",
-        state: "Queued",
-        stage: "Loading",
+        jobId: '',
+        state: 'Queued',
+        stage: 'Loading',
         progress: 0,
       },
     }));
@@ -86,17 +86,36 @@ export const useSongRecordings = (
         if (request !== requests.current.analysis || !ownsRun()) return null;
         if (listRequest === requests.current.recordings) setRecordings(items);
         const current = items.find((item) => item.id === recordingId);
-        if (current?.fileStatus === "PreparationFailed") {
-          setAnalysisFailures((items) => ({ ...items, [recordingId]: "recordingPreparationFailed" }));
+        if (current?.fileStatus === 'PreparationFailed') {
+          setAnalysisFailures((items) => ({
+            ...items,
+            [recordingId]: 'recordingPreparationFailed',
+          }));
         }
-        if (!["Preparing", "PreparationFailed"].includes(current?.fileStatus ?? "")) break;
-        setAnalysisProgress((items) => ({ ...items, [recordingId]: {
-          recordingId, jobId: "", state: "Queued", stage: "PreparingRecording", progress: 0,
-        } }));
+        if (
+          !['Preparing', 'PreparationFailed'].includes(
+            current?.fileStatus ?? '',
+          )
+        )
+          break;
+        setAnalysisProgress((items) => ({
+          ...items,
+          [recordingId]: {
+            recordingId,
+            jobId: '',
+            state: 'Queued',
+            stage: 'PreparingRecording',
+            progress: 0,
+          },
+        }));
         await new Promise((resolve) => window.setTimeout(resolve, 750));
       }
       if (request !== requests.current.analysis || !ownsRun()) return null;
-      setAnalysisFailures((items) => Object.fromEntries(Object.entries(items).filter(([id]) => id !== recordingId)));
+      setAnalysisFailures((items) =>
+        Object.fromEntries(
+          Object.entries(items).filter(([id]) => id !== recordingId),
+        ),
+      );
       started = true;
       return await catalog.analyzeRecording(recordingId, (progress) => {
         if (ownsRun())
@@ -106,11 +125,11 @@ export const useSongRecordings = (
           }));
       });
     } catch (failure) {
-      if (!ownsRun() || toAppError(failure).code === "JobCancelled")
+      if (!ownsRun() || toAppError(failure).code === 'JobCancelled')
         return null;
       setAnalysisFailures((items) => ({
         ...items,
-        [recordingId]: errorMessageKey(toAppError(failure)) ?? "actionFailed",
+        [recordingId]: errorMessageKey(toAppError(failure)) ?? 'actionFailed',
       }));
       throw failure;
     } finally {
@@ -130,15 +149,28 @@ export const useSongRecordings = (
 
   useEffect(() => {
     const target = song ?? (analysisRecordId ? analysisSong : null);
-    if (!target || !recordings.some((item) => ["Preparing", "PreparationFailed"].includes(item.fileStatus ?? ""))) return;
+    if (
+      !target ||
+      !recordings.some((item) =>
+        ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
+      )
+    )
+      return;
     let active = true;
     const request = requests.current.recordings;
     const timer = window.setTimeout(() => {
-      void catalog.listRecordings(target.id).then((items) => {
-        if (active && request === requests.current.recordings) setRecordings(items);
-      }).catch(() => undefined);
+      void catalog
+        .listRecordings(target.id)
+        .then((items) => {
+          if (active && request === requests.current.recordings)
+            setRecordings(items);
+        })
+        .catch(() => undefined);
     }, 1000);
-    return () => { active = false; window.clearTimeout(timer); };
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [song, analysisSong, analysisRecordId, recordings]);
 
   const open = (target: SongDto) =>
@@ -163,7 +195,12 @@ export const useSongRecordings = (
 
   useEffect(() => {
     const value = returned;
-    if (!value?.analysisSongId || !value.analysisFor || handled.current === value.analysisFor) return;
+    if (
+      !value?.analysisSongId ||
+      !value.analysisFor ||
+      handled.current === value.analysisFor
+    )
+      return;
     handled.current = value.analysisFor;
     const takeId = value.analysisFor;
     const songId = value.analysisSongId;
@@ -178,7 +215,7 @@ export const useSongRecordings = (
     void (async () => {
       try {
         const target = await client.fetchQuery({
-          queryKey: ["song", store.application.services.pythonEpoch, songId],
+          queryKey: ['song', store.application.services.pythonEpoch, songId],
           queryFn: () => catalog.getSong(songId),
           staleTime: 0,
         });
@@ -195,8 +232,8 @@ export const useSongRecordings = (
       } catch (failure) {
         if (current())
           notify(
-            tr(ru[errorMessageKey(toAppError(failure)) ?? "actionFailed"]),
-            "error",
+            tr(ru[errorMessageKey(toAppError(failure)) ?? 'actionFailed']),
+            'error',
           );
       }
     })();
@@ -207,7 +244,11 @@ export const useSongRecordings = (
       const request = ++requests.current.analysis;
       setAnalysis(null);
       setAnalysisSong(
-        song?.id === recording.songId ? song : analysisSong?.id === recording.songId ? analysisSong : null,
+        song?.id === recording.songId
+          ? song
+          : analysisSong?.id === recording.songId
+            ? analysisSong
+            : null,
       );
       setAnalysisRecordId(recording.id);
       const result = await loadAnalysis(
@@ -233,11 +274,15 @@ export const useSongRecordings = (
         title: tr(ru.deleteRecordingTitle),
         body: tr(ru.deleteRecordingBody),
         actions: [
-          { id: "cancel", label: tr(ru.cancel) },
-          { id: "delete", label: tr(ru.recordingDelete), appearance: "primary" },
+          { id: 'cancel', label: tr(ru.cancel) },
+          {
+            id: 'delete',
+            label: tr(ru.recordingDelete),
+            appearance: 'primary',
+          },
         ],
       });
-      if (choice !== "delete") return;
+      if (choice !== 'delete') return;
       await catalog.deleteRecording(recording.id);
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),
@@ -251,7 +296,7 @@ export const useSongRecordings = (
       const request = ++requests.current.master;
       setStudioMaster({
         recordingId: recording.id,
-        stage: "Queued",
+        stage: 'Queued',
         progress: 0,
       });
       try {
@@ -266,17 +311,19 @@ export const useSongRecordings = (
             mastered,
             ...items.filter((item) => item.id !== mastered.id),
           ]);
-        notify(tr(ru.studioMasterReady), "success");
+        notify(tr(ru.studioMasterReady), 'success');
       } finally {
         if (request === requests.current.master) setStudioMaster(null);
       }
-    }, "studioMasterFailed");
+    }, 'studioMasterFailed');
 
   useEffect(() => {
     onAnalysisReady(analysisRecordId);
   }, [analysisRecordId, onAnalysisReady]);
   const openLatest = useRef(open);
-  useEffect(() => { openLatest.current = open; });
+  useEffect(() => {
+    openLatest.current = open;
+  });
   useEffect(() => {
     if (!requestedSong) return;
     onRequestHandled();

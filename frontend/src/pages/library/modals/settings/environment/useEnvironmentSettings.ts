@@ -1,10 +1,10 @@
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { useNotify } from "../../../../../providers/notifications";
-import { ru } from "../../../../../i18n/messages.ru";
-import { pythonClient } from "../../../../../services/pythonClient";
-import { environmentStoreFor } from "./environmentStore";
-import { valuesOf, isSecret, saveDelayMilliseconds } from "./environmentModel";
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useNotify } from '../../../../../providers/notifications';
+import { ru } from '../../../../../i18n/messages.ru';
+import { pythonClient } from '../../../../../services/pythonClient';
+import { environmentStoreFor } from './environmentStore';
+import { valuesOf, isSecret, saveDelayMilliseconds } from './environmentModel';
 
 const errorText = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -17,51 +17,82 @@ export const useEnvironmentSettings = () => {
   const notify = useNotify();
   const [now, setNow] = useState(Date.now);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const pending = useRef(new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>());
-  const reportError = (error: unknown) => notify(errorText(error, tr(ru.settingsApplyFailed)), "error");
+  const pending = useRef(
+    new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>(),
+  );
+  const reportError = (error: unknown) =>
+    notify(errorText(error, tr(ru.settingsApplyFailed)), 'error');
   const reportErrorRef = useRef(reportError);
   reportErrorRef.current = reportError;
   const discard = (key: string) => {
     clearTimeout(pending.current.get(key)?.timer);
     pending.current.delete(key);
-    setDrafts(current => { const next = { ...current }; delete next[key]; return next; });
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   };
   const flush = () => {
     const writes = [...pending.current];
     pending.current.clear();
-    setDrafts(current => { const next = { ...current }; for (const [key] of writes) delete next[key]; return next; });
-    return Promise.all(writes.map(([key, { value, timer }]) => {
-      clearTimeout(timer);
-      return store.save(key, value);
-    }));
+    setDrafts((current) => {
+      const next = { ...current };
+      for (const [key] of writes) delete next[key];
+      return next;
+    });
+    return Promise.all(
+      writes.map(([key, { value, timer }]) => {
+        clearTimeout(timer);
+        return store.save(key, value);
+      }),
+    );
   };
   useEffect(() => {
     const writes = pending.current;
     return () => {
       for (const [key, { value, timer }] of writes) {
         clearTimeout(timer);
-        void store.save(key, value).catch(error => reportErrorRef.current(error));
+        void store
+          .save(key, value)
+          .catch((error) => reportErrorRef.current(error));
       }
       writes.clear();
     };
   }, [store]);
   const change = (key: string, value: string) => {
     discard(key);
-    const entry = snapshot.entries?.find(entry => entry.key === key);
-    if (entry && isSecret(entry) && !value.trim()) { store.cancelPending(key); return; }
-    setDrafts(current => ({ ...current, [key]: value }));
+    const entry = snapshot.entries?.find((entry) => entry.key === key);
+    if (entry && isSecret(entry) && !value.trim()) {
+      store.cancelPending(key);
+      return;
+    }
+    setDrafts((current) => ({ ...current, [key]: value }));
     const timer = setTimeout(() => {
       pending.current.delete(key);
-      void store.save(key, value).catch(error => reportErrorRef.current(error));
-      setDrafts(current => { const next = { ...current }; delete next[key]; return next; });
+      void store
+        .save(key, value)
+        .catch((error) => reportErrorRef.current(error));
+      setDrafts((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
     }, saveDelayMilliseconds);
     pending.current.set(key, { value, timer });
   };
-  const entries = snapshot.entries?.map(entry => {
-    const value = drafts[entry.key];
-    return value === undefined ? entry : { ...entry, value,
-      state: value.trim() ? "unverified" as const : "empty" as const, errorMessage: undefined };
-  }) ?? null;
+  const entries =
+    snapshot.entries?.map((entry) => {
+      const value = drafts[entry.key];
+      return value === undefined
+        ? entry
+        : {
+            ...entry,
+            value,
+            state: value.trim() ? ('unverified' as const) : ('empty' as const),
+            errorMessage: undefined,
+          };
+    }) ?? null;
 
   useEffect(() => {
     void store.load();
@@ -86,7 +117,7 @@ export const useEnvironmentSettings = () => {
   ) => {
     try {
       await flush();
-      notify(await store.runKaggleAction(action), "success");
+      notify(await store.runKaggleAction(action), 'success');
     } catch (error) {
       reportError(error);
     }
@@ -119,4 +150,4 @@ export const useEnvironmentSettings = () => {
 
 export type KaggleSettings = ReturnType<
   typeof useEnvironmentSettings
->["kaggle"];
+>['kaggle'];

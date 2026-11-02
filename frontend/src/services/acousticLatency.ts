@@ -10,35 +10,35 @@ type Command = (name: string) => Promise<string>;
 /** Playback or recording started: the optional measurement ended and must not be retried. */
 export class AcousticMeasurementCancelled extends Error {
   constructor() {
-    super("The measurement was cancelled because playback started");
-    this.name = "AcousticMeasurementCancelled";
+    super('The measurement was cancelled because playback started');
+    this.name = 'AcousticMeasurementCancelled';
   }
 }
 
 const measureOnce = async (
   command: Command,
 ): Promise<{ milliseconds: number; context: string; fingerprint: string }> => {
-  await command("MeasureAcousticLatency");
+  await command('MeasureAcousticLatency');
   for (let attempt = 0; attempt < pollAttempts; attempt += 1) {
     await new Promise((resolve) =>
       window.setTimeout(resolve, pollMilliseconds),
     );
     // "state=Done|ms=28.0|confidence=0.92"
     const result = Object.fromEntries(
-      (await command("GetAcousticLatency"))
+      (await command('GetAcousticLatency'))
         .trim()
-        .split("|")
-        .map((field) => field.split("=")),
+        .split('|')
+        .map((field) => field.split('=')),
     ) as Record<string, string | undefined>;
-    if (result.state === "Failed" && result.reason === "cancelled")
+    if (result.state === 'Failed' && result.reason === 'cancelled')
       throw new AcousticMeasurementCancelled();
-    if (result.state === "Failed")
+    if (result.state === 'Failed')
       throw new Error(
-        result.reason === "timing"
-          ? "Audio timestamps changed or packets were lost; repeat the measurement"
-          : "The microphone did not hear an unambiguous test signal; move it closer to the speaker",
+        result.reason === 'timing'
+          ? 'Audio timestamps changed or packets were lost; repeat the measurement'
+          : 'The microphone did not hear an unambiguous test signal; move it closer to the speaker',
       );
-    if (result.state === "Done") {
+    if (result.state === 'Done') {
       const milliseconds = Number(result.ms);
       if (
         !result.context ||
@@ -48,11 +48,15 @@ const measureOnce = async (
         milliseconds > 500 ||
         !(Number(result.confidence) >= 0.3)
       )
-        throw new Error("Invalid latency measurement");
-      return { milliseconds, context: result.context, fingerprint: result.fingerprint ?? "" };
+        throw new Error('Invalid latency measurement');
+      return {
+        milliseconds,
+        context: result.context,
+        fingerprint: result.fingerprint ?? '',
+      };
     }
   }
-  throw new Error("Latency measurement timed out");
+  throw new Error('Latency measurement timed out');
 };
 
 /**
@@ -63,10 +67,10 @@ export const measureAcousticLatency = async (
   command: Command,
 ): Promise<{ milliseconds: number; context: string; fingerprint: string }> => {
   const values: number[] = [];
-  let context = "";
-  let fingerprint = "";
+  let context = '';
+  let fingerprint = '';
   let failure: unknown = new Error(
-    "The microphone did not hear the test signal",
+    'The microphone did not hear the test signal',
   );
   for (let run = 0; run < measurementRuns; run += 1) {
     let found;
@@ -79,7 +83,7 @@ export const measureAcousticLatency = async (
       continue;
     }
     if (context && context !== found.context)
-      throw new Error("Audio configuration changed during measurement");
+      throw new Error('Audio configuration changed during measurement');
     context = found.context;
     fingerprint = found.fingerprint;
     values.push(found.milliseconds);
@@ -94,9 +98,13 @@ export const measureAcousticLatency = async (
   if (!best || best.length < 2) {
     if (values.length < 2) throw failure;
     throw new Error(
-      "The runs disagree: echo cancellation or noise hid the test signal",
+      'The runs disagree: echo cancellation or noise hid the test signal',
     );
   }
   const sorted = [...best].sort((left, right) => left - right);
-  return { milliseconds: sorted[Math.floor(sorted.length / 2)]!, context, fingerprint };
+  return {
+    milliseconds: sorted[Math.floor(sorted.length / 2)]!,
+    context,
+    fingerprint,
+  };
 };

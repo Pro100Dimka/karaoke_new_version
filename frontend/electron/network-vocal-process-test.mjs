@@ -1,18 +1,18 @@
-import { spawn } from "node:child_process";
-import dgram from "node:dgram";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createImpairment } from "./network-impairment.mjs";
+import { spawn } from 'node:child_process';
+import dgram from 'node:dgram';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createImpairment } from './network-impairment.mjs';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
+  '..',
+  '..',
 );
 const candidates = [
-  path.join(root, "AudioService", "build", "Release", "AudioService.exe"),
-  path.join(root, "AudioService", "build", "Debug", "AudioService.exe"),
+  path.join(root, 'AudioService', 'build', 'Release', 'AudioService.exe'),
+  path.join(root, 'AudioService', 'build', 'Debug', 'AudioService.exe'),
 ];
 const executable = (
   await Promise.all(
@@ -26,32 +26,32 @@ const executable = (
   )
 ).find(Boolean);
 if (!executable)
-  throw new Error("Build AudioService before running the process network test");
+  throw new Error('Build AudioService before running the process network test');
 
 const songRoot = path.join(
-  process.env.APPDATA ?? "",
-  "ad-voice-frontend",
-  "backend-data",
-  "songs",
+  process.env.APPDATA ?? '',
+  'ad-voice-frontend',
+  'backend-data',
+  'songs',
 );
 const songFiles = await fs.readdir(songRoot, { recursive: true });
 const relativeVocal = songFiles.find((file) =>
-  file.endsWith("reference-vocal.wav"),
+  file.endsWith('reference-vocal.wav'),
 );
 if (!relativeVocal)
   throw new Error(`No reference-vocal.wav found under ${songRoot}`);
 const referenceVocal = path.join(songRoot, relativeVocal);
 const artifactRoot = path.join(
   root,
-  "AudioService",
-  "build",
-  "network-process-test",
+  'AudioService',
+  'build',
+  'network-process-test',
 );
 await fs.mkdir(artifactRoot, { recursive: true });
-const clientAPath = path.join(artifactRoot, "client-a.wav");
-const clientBPath = path.join(artifactRoot, "client-b.wav");
-const evidencePath = path.join(artifactRoot, "network-test-output.wav");
-const reportPath = path.join(artifactRoot, "network-test-report.json");
+const clientAPath = path.join(artifactRoot, 'client-a.wav');
+const clientBPath = path.join(artifactRoot, 'client-b.wav');
+const evidencePath = path.join(artifactRoot, 'network-test-output.wav');
+const reportPath = path.join(artifactRoot, 'network-test-report.json');
 
 const participantKey = (id) => {
   let hash = 2166136261;
@@ -62,8 +62,8 @@ const participantKey = (id) => {
   return hash || 1;
 };
 const clients = [
-  { id: "network-vocal-A", output: clientAPath },
-  { id: "network-vocal-B", output: clientBPath },
+  { id: 'network-vocal-A', output: clientAPath },
+  { id: 'network-vocal-B', output: clientBPath },
 ];
 const endpoints = new Map();
 const timers = new Set();
@@ -100,7 +100,7 @@ const impairments = new Map([
     ),
   ],
 ]);
-const proxy = dgram.createSocket("udp4");
+const proxy = dgram.createSocket('udp4');
 const schedule = (message, endpoint, milliseconds) => {
   const timer = setTimeout(() => {
     timers.delete(timer);
@@ -108,7 +108,7 @@ const schedule = (message, endpoint, milliseconds) => {
   }, milliseconds);
   timers.add(timer);
 };
-proxy.on("message", (message, source) => {
+proxy.on('message', (message, source) => {
   if (message.length < 36) return;
   const key = message.readUInt32LE(12);
   endpoints.set(key, { address: source.address, port: source.port });
@@ -123,41 +123,41 @@ proxy.on("message", (message, source) => {
       schedule(message, endpoint, impairment.delayMs + 1);
   }
 });
-await new Promise((resolve) => proxy.bind(0, "127.0.0.1", resolve));
+await new Promise((resolve) => proxy.bind(0, '127.0.0.1', resolve));
 
 const run = (client, remote, startAtMs) =>
   new Promise((resolve, reject) => {
     const child = spawn(
       executable,
       [
-        "--network-test-client",
-        "--input",
+        '--network-test-client',
+        '--input',
         referenceVocal,
-        "--output",
+        '--output',
         client.output,
-        "--local-id",
+        '--local-id',
         client.id,
-        "--remote-id",
+        '--remote-id',
         remote.id,
-        "--remote-port",
+        '--remote-port',
         String(proxy.address().port),
-        "--token",
-        "123456789abcdef0",
-        "--start-at-ms",
+        '--token',
+        '123456789abcdef0',
+        '--start-at-ms',
         String(startAtMs),
       ],
       { windowsHide: true },
     );
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
       stdout += chunk;
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr.on('data', (chunk) => {
       stderr += chunk;
     });
-    child.once("error", reject);
-    child.once("exit", (code) =>
+    child.once('error', reject);
+    child.once('exit', (code) =>
       code === 0
         ? resolve(JSON.parse(stdout))
         : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`)),
@@ -170,16 +170,16 @@ const readMonoWav = async (file) => {
   let format;
   let data;
   while (offset + 8 <= bytes.length) {
-    const id = bytes.toString("ascii", offset, offset + 4);
+    const id = bytes.toString('ascii', offset, offset + 4);
     const size = bytes.readUInt32LE(offset + 4);
-    if (id === "fmt ")
+    if (id === 'fmt ')
       format = {
         type: bytes.readUInt16LE(offset + 8),
         channels: bytes.readUInt16LE(offset + 10),
         rate: bytes.readUInt32LE(offset + 12),
         bits: bytes.readUInt16LE(offset + 22),
       };
-    if (id === "data") data = bytes.subarray(offset + 8, offset + 8 + size);
+    if (id === 'data') data = bytes.subarray(offset + 8, offset + 8 + size);
     offset += 8 + size + (size & 1);
   }
   if (!format || !data || format.channels !== 1 || format.bits !== 16)
@@ -241,9 +241,9 @@ const writeEvidence = async (file, rate, left, right) => {
   const frames = Math.min(left.length, right.length);
   const dataBytes = frames * 3 * 2;
   const bytes = Buffer.alloc(44 + dataBytes);
-  bytes.write("RIFF", 0);
+  bytes.write('RIFF', 0);
   bytes.writeUInt32LE(36 + dataBytes, 4);
-  bytes.write("WAVEfmt ", 8);
+  bytes.write('WAVEfmt ', 8);
   bytes.writeUInt32LE(16, 16);
   bytes.writeUInt16LE(1, 20);
   bytes.writeUInt16LE(3, 22);
@@ -251,7 +251,7 @@ const writeEvidence = async (file, rate, left, right) => {
   bytes.writeUInt32LE(rate * 6, 28);
   bytes.writeUInt16LE(6, 32);
   bytes.writeUInt16LE(16, 34);
-  bytes.write("data", 36);
+  bytes.write('data', 36);
   bytes.writeUInt32LE(dataBytes, 40);
   for (let frame = 0; frame < frames; frame += 1) {
     const a = left[frame],
@@ -315,7 +315,7 @@ try {
   await fs.writeFile(
     reportPath,
     `${JSON.stringify(report, null, 2)}\n`,
-    "utf8",
+    'utf8',
   );
   console.log(JSON.stringify(report));
 } finally {

@@ -1,16 +1,16 @@
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../i18n/messages.ru";
-import { audioClient } from "../../services/audioClient";
-import { pythonClient } from "../../services/pythonClient";
-import { editorApi } from "./editorApi";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ask } from "../../providers/dialog";
-import { useCloseGuard } from "../../providers/close-guards";
-import { useNotify } from "../../providers/notifications";
-import type { ProjectCompatibility } from "../../contracts/clients";
-import type { SongDto } from "../../contracts/models";
-import { toAppError } from "../../shared/errors";
-import { clearDraft, loadDraft, saveDraft } from "./editorDraft";
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { ru } from '../../i18n/messages.ru';
+import { audioClient } from '../../services/audioClient';
+import { pythonClient } from '../../services/pythonClient';
+import { editorApi } from './editorApi';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ask } from '../../providers/dialog';
+import { useCloseGuard } from '../../providers/close-guards';
+import { useNotify } from '../../providers/notifications';
+import type { ProjectCompatibility } from '../../contracts/clients';
+import type { SongDto } from '../../contracts/models';
+import { toAppError } from '../../shared/errors';
+import { clearDraft, loadDraft, saveDraft } from './editorDraft';
 import {
   deleteNotes,
   isEditorDirty,
@@ -21,17 +21,17 @@ import {
   undoHistory,
   type EditorDocument,
   type EditorHistory,
-} from "../../application/editor/editorModel";
-import { useEditorPreview } from "./useEditorPreview";
+} from '../../application/editor/editorModel';
+import { useEditorPreview } from './useEditorPreview';
 
 export type EditorLoad =
-  | { kind: "loading" }
-  | { kind: "failed" }
+  | { kind: 'loading' }
+  | { kind: 'failed' }
   | {
-      kind: "invalid";
-      compatibility: Exclude<ProjectCompatibility, "Current"> | "NotReady";
+      kind: 'invalid';
+      compatibility: Exclude<ProjectCompatibility, 'Current'> | 'NotReady';
     }
-  | { kind: "ready"; song: SongDto };
+  | { kind: 'ready'; song: SongDto };
 
 const draftDelayMilliseconds = 600;
 
@@ -39,7 +39,7 @@ export const useEditorSession = (songId: string) => {
   const notify = useNotify();
   const locale = useLocale();
 
-  const [load, setLoad] = useState<EditorLoad>({ kind: "loading" });
+  const [load, setLoad] = useState<EditorLoad>({ kind: 'loading' });
   const [history, setHistory] = useState<EditorHistory | null>(null);
   const [saved, setSaved] = useState<EditorDocument | null>(null);
   const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
@@ -49,18 +49,21 @@ export const useEditorSession = (songId: string) => {
   const savingGeneration = useRef<number | null>(null);
 
   const document = history?.present ?? null;
-  const dirty = useMemo(() => document && saved ? isEditorDirty(saved, document) : false, [saved, document]);
+  const dirty = useMemo(
+    () => (document && saved ? isEditorDirty(saved, document) : false),
+    [saved, document],
+  );
   const historyRef = useRef(history);
   historyRef.current = history;
   const savedRef = useRef(saved);
   savedRef.current = saved;
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
-  const song = load.kind === "ready" ? load.song : null;
+  const song = load.kind === 'ready' ? load.song : null;
   const songRef = useRef(song);
   songRef.current = song;
   const previewFailure = useCallback(
-    () => notify(tr(ru.actionFailed), "error"),
+    () => notify(tr(ru.actionFailed), 'error'),
     [notify, locale],
   );
   const preview = useEditorPreview(audioReady, previewFailure);
@@ -69,7 +72,7 @@ export const useEditorSession = (songId: string) => {
   useEffect(() => {
     let active = true;
     generation.current += 1;
-    setLoad({ kind: "loading" });
+    setLoad({ kind: 'loading' });
     setHistory(null);
     setSaved(null);
     setSaving(false);
@@ -78,39 +81,39 @@ export const useEditorSession = (songId: string) => {
       try {
         const loaded = await pythonClient.getSong(songId);
         if (!active) return;
-        if (loaded.status !== "ready")
-          return setLoad({ kind: "invalid", compatibility: "NotReady" });
+        if (loaded.status !== 'ready')
+          return setLoad({ kind: 'invalid', compatibility: 'NotReady' });
         const compatibility = await pythonClient.projectCompatibility(
           loaded.id,
           loaded.activeRevision,
         );
         if (!active) return;
-        if (compatibility !== "Current")
-          return setLoad({ kind: "invalid", compatibility });
+        if (compatibility !== 'Current')
+          return setLoad({ kind: 'invalid', compatibility });
         const document = await editorApi.load(loaded.id);
         if (!active) return;
         setSaved(document);
         setHistory(startHistory(document));
         setSelection(new Set());
-        setLoad({ kind: "ready", song: loaded });
+        setLoad({ kind: 'ready', song: loaded });
 
         const draft = loadDraft(loaded.id);
         if (draft && draft.baseRevision === document.revision) {
           const choice = await ask({
             title: tr(ru.draftFoundTitle),
             body: tr(ru.draftFoundBody),
-            tone: "info",
+            tone: 'info',
             actions: [
-              { id: "discard", label: tr(ru.discard) },
+              { id: 'discard', label: tr(ru.discard) },
               {
-                id: "restore",
+                id: 'restore',
                 label: tr(ru.restoreDraft),
-                appearance: "primary",
+                appearance: 'primary',
               },
             ],
           });
           if (!active) return;
-          if (choice === "restore")
+          if (choice === 'restore')
             setHistory(pushHistory(startHistory(document), draft.document));
           else clearDraft(loaded.id);
         }
@@ -119,7 +122,7 @@ export const useEditorSession = (songId: string) => {
           .then(() => active && setAudioReady(true))
           .catch(() => undefined);
       } catch {
-        if (active) setLoad({ kind: "failed" });
+        if (active) setLoad({ kind: 'failed' });
       }
     })();
     return () => {
@@ -138,7 +141,11 @@ export const useEditorSession = (songId: string) => {
       return;
     }
     const timer = window.setTimeout(
-      () => saveDraft(songId, { baseRevision: saved.revision, document: history.present }),
+      () =>
+        saveDraft(songId, {
+          baseRevision: saved.revision,
+          document: history.present,
+        }),
       draftDelayMilliseconds,
     );
     return () => window.clearTimeout(timer);
@@ -179,36 +186,42 @@ export const useEditorSession = (songId: string) => {
           const revision = await editorApi.save(target, current, expected);
           if (requestGeneration !== generation.current) return false;
           const next = { ...current, revision };
-          const present = { ...(historyRef.current?.present ?? current), revision };
+          const present = {
+            ...(historyRef.current?.present ?? current),
+            revision,
+          };
           const pendingEdits = isEditorDirty(next, present);
           savedRef.current = next;
           dirtyRef.current = pendingEdits;
           setSaved(next);
           setHistory((existing) =>
-            existing ? { ...existing, present: { ...existing.present, revision } } : existing,
+            existing
+              ? { ...existing, present: { ...existing.present, revision } }
+              : existing,
           );
-          if (pendingEdits) saveDraft(target.id, { baseRevision: revision, document: present });
+          if (pendingEdits)
+            saveDraft(target.id, { baseRevision: revision, document: present });
           else clearDraft(target.id);
-          notify(tr(ru.editorSaved), "success");
+          notify(tr(ru.editorSaved), 'success');
           return !pendingEdits;
         } catch (error) {
           if (requestGeneration !== generation.current) return false;
-          if (toAppError(error).code !== "RevisionConflict") throw error;
+          if (toAppError(error).code !== 'RevisionConflict') throw error;
           const choice = await ask({
             title: tr(ru.editorConflictTitle),
             body: tr(ru.editorConflictBody),
             actions: [
-              { id: "cancel", label: tr(ru.cancel) },
-              { id: "reload", label: tr(ru.reloadLatest) },
+              { id: 'cancel', label: tr(ru.cancel) },
+              { id: 'reload', label: tr(ru.reloadLatest) },
               {
-                id: "overwrite",
+                id: 'overwrite',
                 label: tr(ru.overwriteLatest),
-                appearance: "primary",
+                appearance: 'primary',
               },
             ],
           });
           if (requestGeneration !== generation.current) return false;
-          if (choice === "reload") {
+          if (choice === 'reload') {
             const latest = await editorApi.load(target.id);
             if (requestGeneration !== generation.current) return false;
             setSaved(latest);
@@ -217,7 +230,7 @@ export const useEditorSession = (songId: string) => {
             clearDraft(target.id);
             return true;
           }
-          if (choice !== "overwrite") return false;
+          if (choice !== 'overwrite') return false;
           // Explicit overwrite: adopt the latest revision number, keep the local edits.
           expected = (await editorApi.load(target.id)).revision;
           if (requestGeneration !== generation.current) return false;
@@ -226,7 +239,7 @@ export const useEditorSession = (songId: string) => {
     } catch {
       // The edits stay in memory so the user can retry.
       if (requestGeneration === generation.current)
-        notify(tr(ru.editorSaveFailed), "error");
+        notify(tr(ru.editorSaveFailed), 'error');
       return false;
     } finally {
       if (requestGeneration === generation.current) {
@@ -243,13 +256,13 @@ export const useEditorSession = (songId: string) => {
       title: tr(ru.unsavedEditorTitle),
       body: tr(ru.unsavedEditorBody),
       actions: [
-        { id: "cancel", label: tr(ru.cancel) },
-        { id: "discard", label: tr(ru.discardChanges) },
-        { id: "save", label: tr(ru.save), appearance: "primary" },
+        { id: 'cancel', label: tr(ru.cancel) },
+        { id: 'discard', label: tr(ru.discardChanges) },
+        { id: 'save', label: tr(ru.save), appearance: 'primary' },
       ],
     });
-    if (choice === "save") return save();
-    if (choice === "discard") {
+    if (choice === 'save') return save();
+    if (choice === 'discard') {
       if (songRef.current) clearDraft(songRef.current.id);
       return true;
     }

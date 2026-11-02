@@ -1,15 +1,18 @@
-import { EventEmitter } from "node:events";
-import type { BrowserWindowConstructorOptions } from "electron";
-import { afterEach, expect, it, vi } from "vitest";
+import { EventEmitter } from 'node:events';
+import type { BrowserWindowConstructorOptions } from 'electron';
+import { afterEach, expect, it, vi } from 'vitest';
 
-const splashWindows = vi.hoisted(() => [] as Array<{
-  options: BrowserWindowConstructorOptions;
-  webContents: EventEmitter;
-  visible: boolean;
-}>);
+const splashWindows = vi.hoisted(
+  () =>
+    [] as Array<{
+      options: BrowserWindowConstructorOptions;
+      webContents: EventEmitter;
+      visible: boolean;
+    }>,
+);
 
-vi.mock("electron", () => ({
-  app: { getPath: () => "C:\\missing-profile" },
+vi.mock('electron', () => ({
+  app: { getPath: () => 'C:\\missing-profile' },
   BrowserWindow: class extends EventEmitter {
     webContents = Object.assign(new EventEmitter(), {
       isLoading: () => false,
@@ -31,20 +34,20 @@ vi.mock("electron", () => ({
       return Promise.resolve();
     }
     close() {
-      this.emit("closed");
+      this.emit('closed');
     }
   },
 }));
 
 afterEach(async () => {
-  const { closeSplash } = await import("./Splash");
+  const { closeSplash } = await import('./Splash');
   closeSplash();
   splashWindows.length = 0;
 });
 
-it("shows the startup loader without adding a separate taskbar preview", async () => {
-  const { openSplash } = await import("./Splash");
-  openSplash(null, "C:\\app\\splash.html");
+it('shows the startup loader without adding a separate taskbar preview', async () => {
+  const { openSplash } = await import('./Splash');
+  openSplash(null, 'C:\\app\\splash.html');
 
   const loader = splashWindows[0];
   expect(loader).toBeDefined();
@@ -55,6 +58,6 @@ it("shows the startup loader without adding a separate taskbar preview", async (
   });
   expect(loader.visible).toBe(false);
 
-  loader.webContents.emit("did-finish-load");
+  loader.webContents.emit('did-finish-load');
   expect(loader.visible).toBe(true);
 });

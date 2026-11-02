@@ -1,22 +1,22 @@
-import { store } from "../../../providers/store";
-import { audioClient as audio } from "../../../services/audioClient";
-import { useEffect } from "react";
-import type { VoiceChainAudioPort } from "../../../application/karaoke/KaraokePorts";
+import { store } from '../../../providers/store';
+import { audioClient as audio } from '../../../services/audioClient';
+import { useEffect } from 'react';
+import type { VoiceChainAudioPort } from '../../../application/karaoke/KaraokePorts';
 import {
   noiseReduction,
   noiseThreshold,
-} from "../../../application/karaoke/noiseSuppression";
-import type { Preferences } from "../../../shared/preferences/preferences";
+} from '../../../application/karaoke/noiseSuppression';
+import type { Preferences } from '../../../shared/preferences/preferences';
 import {
   anyEffectActive,
   effectBaseParameters,
   voiceEffects,
-} from "./voiceEffects";
+} from './voiceEffects';
 
 /** The singer's own voice settings: one stored value each, shown by every knob that controls it. */
 export type VoiceChainSettings = Pick<
   Preferences,
-  "voiceGain" | "karaokeEffects" | "noiseSuppression"
+  'voiceGain' | 'karaokeEffects' | 'noiseSuppression'
 >;
 
 /**
@@ -24,21 +24,20 @@ export type VoiceChainSettings = Pick<
  * The settings, the karaoke console and the room panel only change the stored values; this is the
  * one place that applies them, so all of them always show and play the same thing.
  */
-export const applyVoiceChain = async ({
-  voiceGain,
-  karaokeEffects,
-  noiseSuppression,
-}: VoiceChainSettings, audioClient: VoiceChainAudioPort) => {
+export const applyVoiceChain = async (
+  { voiceGain, karaokeEffects, noiseSuppression }: VoiceChainSettings,
+  audioClient: VoiceChainAudioPort,
+) => {
   const parameters: [string, number][] = [
     ...voiceEffects.map((effect): [string, number] => [
       effect.parameter,
       karaokeEffects[effect.id] * effect.parameterScale,
     ]),
-    ["noise.threshold", noiseThreshold(noiseSuppression)],
-    ["noise.reduction", noiseReduction(noiseSuppression)],
+    ['noise.threshold', noiseThreshold(noiseSuppression)],
+    ['noise.reduction', noiseReduction(noiseSuppression)],
     ...Object.entries(effectBaseParameters),
   ];
-  await audioClient.setMixer("mic", voiceGain);
+  await audioClient.setMixer('mic', voiceGain);
   await Promise.all(
     parameters.map(([name, value]) => audioClient.setDspParameter(name, value)),
   );
@@ -52,8 +51,9 @@ export const useVoiceChain = (): void => {
   const { preferences } = store;
   const { voiceGain, karaokeEffects, noiseSuppression } = preferences;
   useEffect(() => {
-    void applyVoiceChain({ voiceGain, karaokeEffects, noiseSuppression }, audio).catch(
-      () => undefined,
-    );
+    void applyVoiceChain(
+      { voiceGain, karaokeEffects, noiseSuppression },
+      audio,
+    ).catch(() => undefined);
   }, [voiceGain, karaokeEffects, noiseSuppression]);
 };

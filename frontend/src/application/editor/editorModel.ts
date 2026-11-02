@@ -106,7 +106,7 @@ export const moveNotes = (
 export const resizeNote = (
   document: EditorDocument,
   noteId: string,
-  edge: "start" | "end",
+  edge: 'start' | 'end',
   seconds: number,
 ): EditorDocument => {
   const note = document.notes.find((item) => item.id === noteId);
@@ -116,7 +116,7 @@ export const resizeNote = (
     (item) => item.wordId === note.wordId && item.id !== note.id,
   );
   let next = note;
-  if (edge === "start") {
+  if (edge === 'start') {
     const floor = Math.max(
       word.start,
       ...siblings
@@ -195,7 +195,7 @@ export const mergeNotes = (
 export const alignBoundary = (
   document: EditorDocument,
   ids: ReadonlySet<string>,
-  edge: "start" | "end",
+  edge: 'start' | 'end',
   seconds: number,
 ): EditorDocument =>
   [...ids].reduce(
@@ -209,10 +209,16 @@ export const isEditorDirty = (
   current: EditorDocument,
 ): boolean => {
   if (saved === current) return false;
-  if (JSON.stringify([saved.bpm, saved.key, saved.lyrics]) !==
-      JSON.stringify([current.bpm, current.key, current.lyrics])) return true;
-  if (saved.words !== current.words &&
-      JSON.stringify(saved.words) !== JSON.stringify(current.words)) return true;
+  if (
+    JSON.stringify([saved.bpm, saved.key, saved.lyrics]) !==
+    JSON.stringify([current.bpm, current.key, current.lyrics])
+  )
+    return true;
+  if (
+    saved.words !== current.words &&
+    JSON.stringify(saved.words) !== JSON.stringify(current.words)
+  )
+    return true;
   if (saved.notes.length !== current.notes.length) return true;
   return saved.notes.some((note, index) => {
     const other = current.notes[index];
@@ -251,7 +257,11 @@ export const pushHistory = (
 ): EditorHistory =>
   next === history.present
     ? history
-    : { past: [...history.past.slice(-(historyLimit - 1)), history.present], present: next, future: [] };
+    : {
+        past: [...history.past.slice(-(historyLimit - 1)), history.present],
+        present: next,
+        future: [],
+      };
 
 export const undoHistory = (history: EditorHistory): EditorHistory => {
   const previous = history.past.at(-1);

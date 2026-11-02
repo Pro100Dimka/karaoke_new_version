@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { desktopClient } from "../services/desktopClient";
+import { useEffect, useState } from 'react';
+import { desktopClient } from '../services/desktopClient';
 
 export const useWindowState = (): WindowState => {
   const [state, setState] = useState<WindowState>({

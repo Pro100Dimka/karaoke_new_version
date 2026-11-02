@@ -1,9 +1,19 @@
-import { Stack, Button, Card, DataTable, MessageBar, NeonWaves, Tabs, tr, useLocale } from "@neo-ui-kit/react";
-import type { HistoryEventDto } from "../../../../../../contracts/models";
-import { ru } from "../../../../../../i18n/messages.ru";
-import { historyKindLabel, type HistoryTab } from "./historyModel";
+import {
+  Stack,
+  Button,
+  Card,
+  DataTable,
+  MessageBar,
+  NeonWaves,
+  Tabs,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { HistoryEventDto } from '../../../../../../contracts/models';
+import { ru } from '../../../../../../i18n/messages.ru';
+import { historyKindLabel, type HistoryTab } from './historyModel';
 
-import { useHistory } from "./useHistory";
+import { useHistory } from './useHistory';
 
 /** Product events page by page, split into performances and processing. */
 export const HistoryPanel = () => {
@@ -20,8 +30,8 @@ export const HistoryPanel = () => {
     retry,
   } = useHistory();
   const songOf = (event: HistoryEventDto) => {
-    if (!event.songId) return "—";
-    if (!catalog.titles) return catalog.failed ? tr(ru.unavailable) : "—";
+    if (!event.songId) return '—';
+    if (!catalog.titles) return catalog.failed ? tr(ru.unavailable) : '—';
     return catalog.titles.get(event.songId) ?? tr(ru.historySongRemoved);
   };
   const kindOf = (event: HistoryEventDto) => {
@@ -34,9 +44,9 @@ export const HistoryPanel = () => {
       border
       className="advancedHistoryCard"
       style={{
-        background: "unset!important",
-        flex: "1",
-        boxShadow: "unset!important",
+        background: 'unset!important',
+        flex: '1',
+        boxShadow: 'unset!important',
       }}
       icon="list"
       title={tr(ru.history)}
@@ -49,8 +59,8 @@ export const HistoryPanel = () => {
           value={tab}
           onValueChange={setTab}
           items={[
-            { value: "performances", label: tr(ru.historyPerformances) },
-            { value: "processing", label: tr(ru.historyProcessing) },
+            { value: 'performances', label: tr(ru.historyPerformances) },
+            { value: 'processing', label: tr(ru.historyProcessing) },
           ]}
         />
         {(failed || catalog.failed) && (
@@ -74,9 +84,9 @@ export const HistoryPanel = () => {
             rows={events.map((event) => ({ ...event }))}
             columns={[
               {
-                key: "createdAt",
+                key: 'createdAt',
                 title: tr(ru.historyColumnDate),
-                width: "12rem",
+                width: '12rem',
                 render: (event) => (
                   <time dateTime={event.createdAt}>
                     {new Date(event.createdAt).toLocaleString()}
@@ -84,15 +94,15 @@ export const HistoryPanel = () => {
                 ),
               },
               {
-                key: "songId",
+                key: 'songId',
                 title: tr(ru.historyColumnSong),
                 render: songOf,
                 value: songOf,
               },
               {
-                key: "kind",
+                key: 'kind',
                 title: tr(ru.historyColumnKind),
-                width: "15rem",
+                width: '15rem',
                 render: kindOf,
                 value: kindOf,
               },

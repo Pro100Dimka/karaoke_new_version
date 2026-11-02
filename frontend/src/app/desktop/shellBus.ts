@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from 'react';
 
 /**
  * Commands for a screen that may not be open yet: they wait until its handler subscribes (e.g. a
@@ -23,9 +23,9 @@ export const createCommandQueue = <Command>() => {
 };
 
 export type LibraryCommand =
-  | { type: "addSong" }
-  | { type: "importFiles"; paths: readonly string[] }
-  | { type: "openRoom"; code?: string };
+  | { type: 'addSong' }
+  | { type: 'importFiles'; paths: readonly string[] }
+  | { type: 'openRoom'; code?: string };
 
 /** What the desktop asks of the Library: add songs, import opened files, open the room dialog. */
 export const libraryCommands = createCommandQueue<LibraryCommand>();
@@ -69,7 +69,13 @@ export const usePublishNowPlaying = (value: NowPlaying | null): void => {
     nowPlaying.set(
       title === undefined || !togglePlayback
         ? null
-        : { title, artist, playing: playing === true, recording: recording === true, togglePlayback },
+        : {
+            title,
+            artist,
+            playing: playing === true,
+            recording: recording === true,
+            togglePlayback,
+          },
     );
   }, [title, artist, playing, recording, togglePlayback]);
   useEffect(() => () => nowPlaying.set(null), []);
@@ -88,7 +94,10 @@ export const useUpdateReady = (): string | null =>
   useSyncExternalStore(updateReady.subscribe, updateReady.get, updateReady.get);
 
 /** What the radio plays now, as the station tells it; null while unknown or when it stops. */
-export const radioTrack = createStore<{ title: string; artist?: string } | null>(null);
+export const radioTrack = createStore<{
+  title: string;
+  artist?: string;
+} | null>(null);
 
 export const useRadioTrack = (): { title: string; artist?: string } | null =>
   useSyncExternalStore(radioTrack.subscribe, radioTrack.get, radioTrack.get);
@@ -97,19 +106,31 @@ export const useRadioTrack = (): { title: string; artist?: string } | null =>
 export const updateAvailable = createStore<string | null>(null);
 
 export const useUpdateAvailable = (): string | null =>
-  useSyncExternalStore(updateAvailable.subscribe, updateAvailable.get, updateAvailable.get);
+  useSyncExternalStore(
+    updateAvailable.subscribe,
+    updateAvailable.get,
+    updateAvailable.get,
+  );
 
 /** Automatic or manual update download: 0..100, "failed", or null while inactive. */
-export const updateDownload = createStore<number | "failed" | null>(null);
+export const updateDownload = createStore<number | 'failed' | null>(null);
 
-export const useUpdateDownload = (): number | "failed" | null =>
-  useSyncExternalStore(updateDownload.subscribe, updateDownload.get, updateDownload.get);
+export const useUpdateDownload = (): number | 'failed' | null =>
+  useSyncExternalStore(
+    updateDownload.subscribe,
+    updateDownload.get,
+    updateDownload.get,
+  );
 
 /** Screens connected to the computer; Karaoke can move to a second one (a TV). */
 export const displayCount = createStore(1);
 
 export const useDisplayCount = (): number =>
-  useSyncExternalStore(displayCount.subscribe, displayCount.get, displayCount.get);
+  useSyncExternalStore(
+    displayCount.subscribe,
+    displayCount.get,
+    displayCount.get,
+  );
 
 /** Karaoke plays on the TV while the laptop shows the Library. */
 export const karaokeOnTv = createStore(false);
@@ -121,4 +142,8 @@ export const useKaraokeOnTv = (): boolean =>
 export const microphoneToggled = createStore(0);
 
 export const useMicrophoneToggles = (): number =>
-  useSyncExternalStore(microphoneToggled.subscribe, microphoneToggled.get, microphoneToggled.get);
+  useSyncExternalStore(
+    microphoneToggled.subscribe,
+    microphoneToggled.get,
+    microphoneToggled.get,
+  );

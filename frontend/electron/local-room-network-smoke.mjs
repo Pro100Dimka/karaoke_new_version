@@ -1,25 +1,25 @@
-import { spawn } from "node:child_process";
-import dgram from "node:dgram";
-import fs from "node:fs/promises";
-import net from "node:net";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createImpairment } from "./network-impairment.mjs";
+import { spawn } from 'node:child_process';
+import dgram from 'node:dgram';
+import fs from 'node:fs/promises';
+import net from 'node:net';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createImpairment } from './network-impairment.mjs';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
+  '..',
+  '..',
 );
 const executable = path.join(
   root,
-  "AudioService",
-  "build",
-  "Release",
-  "AudioService.exe",
+  'AudioService',
+  'build',
+  'Release',
+  'AudioService.exe',
 );
 const suffix = crypto.randomUUID().slice(0, 8);
-const token = "123456789abcdef0";
+const token = '123456789abcdef0';
 const clients = [
   {
     participantId: `local-A-${suffix}`,
@@ -45,10 +45,10 @@ const processes = clients.map((client) =>
   spawn(executable, [], {
     env: {
       ...process.env,
-      AD_VOICE_AUDIO_ENDPOINT: "\\\\.\\pipe\\" + client.pipe,
+      AD_VOICE_AUDIO_ENDPOINT: '\\\\.\\pipe\\' + client.pipe,
     },
     windowsHide: true,
-    stdio: "ignore",
+    stdio: 'ignore',
   }),
 );
 const delay = (milliseconds) =>
@@ -57,22 +57,22 @@ const audio = async (pipeName, line) => {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
       return await new Promise((resolve, reject) => {
-        const socket = net.createConnection("\\\\.\\pipe\\" + pipeName);
-        let output = "";
+        const socket = net.createConnection('\\\\.\\pipe\\' + pipeName);
+        let output = '';
         let settled = false;
         const finish = () => {
           if (settled) return;
           settled = true;
           resolve(output);
         };
-        socket.once("connect", () => socket.write(`${line}\n`));
-        socket.on("data", (chunk) => {
-          output += chunk.toString("utf8");
+        socket.once('connect', () => socket.write(`${line}\n`));
+        socket.on('data', (chunk) => {
+          output += chunk.toString('utf8');
         });
-        socket.once("end", finish);
-        socket.once("close", finish);
-        socket.once("error", (error) =>
-          output.endsWith("\n") ? finish() : reject(error),
+        socket.once('end', finish);
+        socket.once('close', finish);
+        socket.once('error', (error) =>
+          output.endsWith('\n') ? finish() : reject(error),
         );
       });
     } catch (error) {
@@ -80,13 +80,13 @@ const audio = async (pipeName, line) => {
       await delay(100);
     }
   }
-  throw new Error("AudioService pipe did not open");
+  throw new Error('AudioService pipe did not open');
 };
 const diagnosticNumber = (text, name) =>
   Number(new RegExp(`${name}: ([0-9.]+)`).exec(text)?.[1] ?? 0);
 const diagnosticText = (text, name) =>
-  new RegExp(`${name}: ([^\r\n]+)`).exec(text)?.[1] ?? "missing";
-const proxy = dgram.createSocket("udp4");
+  new RegExp(`${name}: ([^\r\n]+)`).exec(text)?.[1] ?? 'missing';
+const proxy = dgram.createSocket('udp4');
 const endpoints = new Map();
 const pendingTimers = new Set();
 let startedAt = performance.now();
@@ -129,7 +129,7 @@ const schedule = (message, endpoint, delayMs) => {
   }, delayMs);
   pendingTimers.add(timer);
 };
-proxy.on("message", (message, source) => {
+proxy.on('message', (message, source) => {
   if (message.length < 36) return;
   const key = message.readUInt32LE(12);
   if (!keys.has(key)) return;
@@ -150,7 +150,7 @@ proxy.on("message", (message, source) => {
 });
 
 try {
-  await new Promise((resolve) => proxy.bind(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => proxy.bind(0, '127.0.0.1', resolve));
   const proxyPort = proxy.address().port;
   const setupResponses = [];
   setupResponses.push(
@@ -158,14 +158,14 @@ try {
       clients.map((client) =>
         audio(
           client.pipe,
-          "1|Reconfigure|backend=wasapi-shared|rate=0|period=0|inChannels=0|outChannels=0",
+          '1|Reconfigure|backend=wasapi-shared|rate=0|period=0|inChannels=0|outChannels=0',
         ),
       ),
     )),
   );
   setupResponses.push(
     ...(await Promise.all(
-      clients.map((client) => audio(client.pipe, "1|StartSession")),
+      clients.map((client) => audio(client.pipe, '1|StartSession')),
     )),
   );
   setupResponses.push(
@@ -191,19 +191,19 @@ try {
       `1|JoinMediaSession|localParticipantId=${clients[1].participantId}|localPort=0|host=127.0.0.1|remotePort=${proxyPort}|voiceToken=${token}`,
     ),
   );
-  if (setupResponses.some((response) => !response.startsWith("0|")))
+  if (setupResponses.some((response) => !response.startsWith('0|')))
     throw new Error(
       `Local room setup failed: ${JSON.stringify(setupResponses)}`,
     );
   const songRoot = path.join(
-    process.env.APPDATA ?? "",
-    "ad-voice-frontend",
-    "backend-data",
-    "songs",
+    process.env.APPDATA ?? '',
+    'ad-voice-frontend',
+    'backend-data',
+    'songs',
   );
   const songFiles = await fs.readdir(songRoot, { recursive: true });
   const referenceRelative = songFiles.find((file) =>
-    file.endsWith("reference-vocal.wav"),
+    file.endsWith('reference-vocal.wav'),
   );
   if (!referenceRelative)
     throw new Error(`No processed reference vocal found under ${songRoot}`);
@@ -220,28 +220,28 @@ try {
   );
   await delay(1_000);
   await Promise.all(
-    clients.map((client) => audio(client.pipe, "1|SetMusicGain|value=0")),
+    clients.map((client) => audio(client.pipe, '1|SetMusicGain|value=0')),
   );
   setupResponses.push(
     ...(await Promise.all(
-      clients.map((client) => audio(client.pipe, "1|Play|context=karaoke")),
+      clients.map((client) => audio(client.pipe, '1|Play|context=karaoke')),
     )),
   );
   setupResponses.push(
     await audio(
       clients[0].pipe,
-      "1|Reconfigure|backend=wasapi-shared|rate=0|period=0|inChannels=0|outChannels=0",
+      '1|Reconfigure|backend=wasapi-shared|rate=0|period=0|inChannels=0|outChannels=0',
     ),
   );
   startedAt = performance.now();
 
   await delay(2_500);
-  const baselineDiagnostics = await audio(clients[1].pipe, "1|GetDiagnostics");
+  const baselineDiagnostics = await audio(clients[1].pipe, '1|GetDiagnostics');
   await delay(3_000);
-  const spikeDiagnostics = await audio(clients[1].pipe, "1|GetDiagnostics");
+  const spikeDiagnostics = await audio(clients[1].pipe, '1|GetDiagnostics');
   await delay(3_000);
-  const recoveryDiagnostics = await audio(clients[1].pipe, "1|GetDiagnostics");
-  await audio(clients[1].pipe, "1|LeaveMediaSession");
+  const recoveryDiagnostics = await audio(clients[1].pipe, '1|GetDiagnostics');
+  await audio(clients[1].pipe, '1|LeaveMediaSession');
   await delay(250);
   await audio(
     clients[1].pipe,
@@ -250,7 +250,7 @@ try {
   await delay(2_000);
 
   const diagnostics = await Promise.all(
-    clients.map((client) => audio(client.pipe, "1|GetDiagnostics")),
+    clients.map((client) => audio(client.pipe, '1|GetDiagnostics')),
   );
   const stagedTargets = {
     baseline: diagnosticNumber(
@@ -268,9 +268,9 @@ try {
   };
   const result = diagnostics.map((text, index) => ({
     client: clients[index].participantId,
-    sent: diagnosticNumber(text, "NetworkPacketsSent"),
-    received: diagnosticNumber(text, "NetworkPacketsReceived"),
-    roundTripMs: diagnosticNumber(text, "NetworkRoundTripMs"),
+    sent: diagnosticNumber(text, 'NetworkPacketsSent'),
+    received: diagnosticNumber(text, 'NetworkPacketsReceived'),
+    roundTripMs: diagnosticNumber(text, 'NetworkRoundTripMs'),
     jitterMs: diagnosticNumber(
       text,
       `RemoteJitterMs\\.${clients[1 - index].participantId}`,
@@ -283,16 +283,16 @@ try {
       text,
       `RemoteQueueFrames\\.${clients[1 - index].participantId}`,
     ),
-    xruns: diagnosticNumber(text, "Xruns"),
-    transportRunning: diagnosticNumber(text, "NetworkTransportRunning"),
-    sendEnabled: diagnosticNumber(text, "NetworkSendEnabled"),
-    sessionState: diagnosticText(text, "SessionState"),
-    failure: diagnosticText(text, "LastFailureMessage"),
-    inputRms: diagnosticNumber(text, "InputRMS"),
-    sharedTimeline: diagnosticNumber(text, "RoomSharedTimeline"),
+    xruns: diagnosticNumber(text, 'Xruns'),
+    transportRunning: diagnosticNumber(text, 'NetworkTransportRunning'),
+    sendEnabled: diagnosticNumber(text, 'NetworkSendEnabled'),
+    sessionState: diagnosticText(text, 'SessionState'),
+    failure: diagnosticText(text, 'LastFailureMessage'),
+    inputRms: diagnosticNumber(text, 'InputRMS'),
+    sharedTimeline: diagnosticNumber(text, 'RoomSharedTimeline'),
   }));
   if (
-    setupResponses.some((response) => !response.startsWith("0|")) ||
+    setupResponses.some((response) => !response.startsWith('0|')) ||
     result.some(
       (item) =>
         item.sent === 0 ||

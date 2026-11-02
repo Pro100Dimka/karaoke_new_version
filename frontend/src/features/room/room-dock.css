@@ -79,7 +79,7 @@
   align-items: center;
   gap: var(--ad-space-2);
 } /* Participant: seal, name and level, volume knob, mute and effects. */
-.participant[data-connected="false"] .roomPerson {
+.participant[data-connected='false'] .roomPerson {
   opacity: 0.6;
 }
 .roomPerson.ad-card {

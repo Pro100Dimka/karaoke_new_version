@@ -1,7 +1,7 @@
-import { app, screen, type BrowserWindow } from "electron";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { ipcChannels } from "./ipcChannels";
+import { app, screen, type BrowserWindow } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { ipcChannels } from './ipcChannels';
 
 export interface WindowState {
   width: number;
@@ -21,7 +21,7 @@ const defaultWindowState: WindowState = {
   fullscreen: false,
 };
 const windowStatePath = (): string =>
-  path.join(app.getPath("userData"), "window-state.json");
+  path.join(app.getPath('userData'), 'window-state.json');
 
 const isVisibleOnSomeDisplay = (x: number, y: number): boolean =>
   screen
@@ -37,22 +37,22 @@ const isVisibleOnSomeDisplay = (x: number, y: number): boolean =>
 export const loadWindowState = (): WindowState => {
   try {
     const raw = JSON.parse(
-      fs.readFileSync(windowStatePath(), "utf8"),
+      fs.readFileSync(windowStatePath(), 'utf8'),
     ) as Partial<WindowState>;
     const state: WindowState = {
       ...defaultWindowState,
       maximized: raw.maximized === true,
       fullscreen: raw.fullscreen === true,
     };
-    for (const dimension of ["width", "height"] as const) {
+    for (const dimension of ['width', 'height'] as const) {
       const value = raw[dimension];
-      if (typeof value === "number" && Number.isSafeInteger(value) && value > 0)
+      if (typeof value === 'number' && Number.isSafeInteger(value) && value > 0)
         state[dimension] = value;
     }
     // A saved position on a monitor that no longer exists falls back to the primary display.
     if (
-      typeof raw.x === "number" &&
-      typeof raw.y === "number" &&
+      typeof raw.x === 'number' &&
+      typeof raw.y === 'number' &&
       isVisibleOnSomeDisplay(raw.x, raw.y)
     ) {
       return { ...state, x: raw.x, y: raw.y };
@@ -83,8 +83,13 @@ export const saveWindowState = (window: BrowserWindow): void => {
   }
 };
 
-export const publishWindowState = (window: BrowserWindow,
-  transition: Partial<{ maximized: boolean; fullscreen: boolean; minimized: boolean }> = {},
+export const publishWindowState = (
+  window: BrowserWindow,
+  transition: Partial<{
+    maximized: boolean;
+    fullscreen: boolean;
+    minimized: boolean;
+  }> = {},
 ): void => {
   window.webContents.send(ipcChannels.windowState, {
     maximized: window.isMaximized(),

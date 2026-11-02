@@ -1,9 +1,8 @@
-import { subscribeAudioFocus } from "./application";
-import { QueryProvider } from "../test/QueryProvider";
-import { act, render, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
-import { describe, expect, it, vi } from "vitest";
-
+import { subscribeAudioFocus } from './application';
+import { QueryProvider } from '../test/QueryProvider';
+import { act, render, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 
 const audio = vi.hoisted(() => ({
   suspend: vi.fn(async () => undefined),
@@ -19,29 +18,29 @@ const desktop = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("../services/audioClient", () => ({
+vi.mock('../services/audioClient', () => ({
   audioClient: {
     suspendSession: audio.suspend,
     resumeSession: audio.resume,
   },
 }));
 
-vi.mock("../services/desktopClient", () => ({
+vi.mock('../services/desktopClient', () => ({
   desktopClient: {
     setAppIcon: vi.fn(async () => undefined),
     onWindowState: desktop.onWindowState,
   },
 }));
 
-vi.mock("../shared/preferences/preferences", async (importOriginal) => {
+vi.mock('../shared/preferences/preferences', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import("../shared/preferences/preferences")>();
+    await importOriginal<typeof import('../shared/preferences/preferences')>();
   return {
     ...actual,
     loadPreferences: () => ({
       ...actual.defaultPreferences(),
       audio: {
-        backend: "ASIO",
+        backend: 'ASIO',
         sampleRate: 44100,
         periodFrames: 512,
         bufferFrames: 512,
@@ -57,28 +56,28 @@ const AudioFocus = ({ settingsOpen = false }: { settingsOpen?: boolean }) => {
   return null;
 };
 
-describe("ASIO background release", () => {
-  it("releases ASIO after the app loses focus and restores it on return", async () => {
+describe('ASIO background release', () => {
+  it('releases ASIO after the app loses focus and restores it on return', async () => {
     render(
       <QueryProvider application>
         <AudioFocus />
       </QueryProvider>,
     );
 
-    act(() => window.dispatchEvent(new Event("blur")));
+    act(() => window.dispatchEvent(new Event('blur')));
     await waitFor(() => expect(audio.suspend).toHaveBeenCalledOnce());
 
-    act(() => window.dispatchEvent(new Event("focus")));
+    act(() => window.dispatchEvent(new Event('focus')));
     await waitFor(() => expect(audio.resume).toHaveBeenCalledOnce());
   });
 
-  it("releases ASIO when the window is minimized even while settings are open", async () => {
+  it('releases ASIO when the window is minimized even while settings are open', async () => {
     render(
       <QueryProvider application>
         <AudioFocus settingsOpen />
       </QueryProvider>,
     );
-    await waitFor(() => expect(desktop.listener).toBeTypeOf("function"));
+    await waitFor(() => expect(desktop.listener).toBeTypeOf('function'));
 
     act(() =>
       desktop.listener?.({

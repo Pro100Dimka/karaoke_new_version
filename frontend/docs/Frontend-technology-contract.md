@@ -204,13 +204,13 @@ React может кэшировать snapshot для UI, но не создаё
 
 ```ts
 export type KaraokeState =
-  | { kind: "preparing" }
-  | { kind: "ready" }
-  | { kind: "playing"; positionSeconds: number }
-  | { kind: "paused"; positionSeconds: number }
-  | { kind: "stopping" }
-  | { kind: "finished" }
-  | { kind: "failed"; error: AppError };
+  | { kind: 'preparing' }
+  | { kind: 'ready' }
+  | { kind: 'playing'; positionSeconds: number }
+  | { kind: 'paused'; positionSeconds: number }
+  | { kind: 'stopping' }
+  | { kind: 'finished' }
+  | { kind: 'failed'; error: AppError };
 ```
 
 Обработка state должна быть exhaustive.

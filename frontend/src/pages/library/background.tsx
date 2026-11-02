@@ -3,15 +3,15 @@ import {
   NeonWaves,
   Stack,
   useMotion,
-} from "@neo-ui-kit/react";
-import { useEffect, useRef, useState } from "react";
-import { microphoneLevel } from "../../services/inputLevel";
+} from '@neo-ui-kit/react';
+import { useEffect, useRef, useState } from 'react';
+import { microphoneLevel } from '../../services/inputLevel';
 import {
   backdropSpectrum,
   backdropSpectrumRange,
   voiceLevel,
-} from "../../app/backdrop/backdropSpectrum";
-import { subscribeSpectrum } from "../../app/backdrop/spectrumEvents";
+} from '../../app/backdrop/backdropSpectrum';
+import { subscribeSpectrum } from '../../app/backdrop/spectrumEvents';
 
 // The build ships three.js beside the app (scripts/vite-three-vendor.mjs): the scene works offline and
 // loads no code from a CDN. Relative, so the scene's import map and CSP hash are the same everywhere.
@@ -75,16 +75,12 @@ const useBackdropSpectrum = (listening: boolean): number[] | undefined => {
  * re-render only the scene, never the page above it. While a window covers it, `listening` is off
  * and the stylesheet hides it, which also stops the scene's frames (see app.css).
  */
-export const LibraryBackdrop = ({
-  paused = false,
-}: {
-  paused?: boolean;
-}) => {
+export const LibraryBackdrop = ({ paused = false }: { paused?: boolean }) => {
   const motion = useMotion();
   const listening = !paused && motion;
   const spectrum = useBackdropSpectrum(listening);
   const initial = {
-    field: "Higgs (Mass)",
+    field: 'Higgs (Mass)',
     fieldSize: 1.05,
     particleDepth: 1,
     particleScale: 2,
@@ -111,7 +107,7 @@ export const LibraryBackdrop = ({
     godRaysEnabled: false,
     filmGrain: 0,
   } as const;
-  const threeUrl = "./vendor/three/";
+  const threeUrl = './vendor/three/';
 
   return (
     <Stack
@@ -119,11 +115,11 @@ export const LibraryBackdrop = ({
       data-ad-offscreen={paused ? '' : undefined}
       style={{
         // No z-index here: particles blend with the theme's background.
-        position: "absolute",
+        position: 'absolute',
         inset: 0,
-        overflow: "hidden",
-        background: "rgba(0 0 0 / 0.3)",
-        pointerEvents: "none",
+        overflow: 'hidden',
+        background: 'rgba(0 0 0 / 0.3)',
+        pointerEvents: 'none',
       }}
     >
       {motion && (
@@ -133,17 +129,30 @@ export const LibraryBackdrop = ({
           spectrumRange={backdropSpectrumRange}
           threeUrl={threeUrl}
           style={{
-            height: "100%",
-            display: !listening ? "none" : undefined,
+            height: '100%',
+            display: !listening ? 'none' : undefined,
             borderRadius: 0,
-            mixBlendMode: "screen",
-            maskImage: "linear-gradient(180deg, #0004, #0009 30%, #000 55%)",
+            mixBlendMode: 'screen',
+            maskImage: 'linear-gradient(180deg, #0004, #0009 30%, #000 55%)',
           }}
         />
       )}
-      <NeonWaves shape="twist" strands={18} comets={2} stars={false} phase={2.6}
-        style={{ position: 'absolute', bottom: '10%', left: '-10%', width: '120%',
-          height: '34%', opacity: 0.9, transform: 'rotate(-4deg)' }} />
+      <NeonWaves
+        shape="twist"
+        strands={18}
+        comets={2}
+        stars={false}
+        phase={2.6}
+        style={{
+          position: 'absolute',
+          bottom: '10%',
+          left: '-10%',
+          width: '120%',
+          height: '34%',
+          opacity: 0.9,
+          transform: 'rotate(-4deg)',
+        }}
+      />
     </Stack>
   );
 };

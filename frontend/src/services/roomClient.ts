@@ -1,7 +1,7 @@
-import type { RoomClient } from "../contracts/clients";
-import type { AppError } from "../contracts/models";
-import { bridgedHttp, desktopBridge } from "./desktopBridge";
-import { BackendRoom, mapRoom, participantId } from "./roomMappers";
+import type { RoomClient } from '../contracts/clients';
+import type { AppError } from '../contracts/models';
+import { bridgedHttp, desktopBridge } from './desktopBridge';
+import { BackendRoom, mapRoom, participantId } from './roomMappers';
 
 const roomPath = (code: string): string =>
   encodeURIComponent(code.trim().toLowerCase());
@@ -15,19 +15,19 @@ let roomClock:
 const clockSampleAgingPerMillisecond = 1 / 10_000;
 
 const request = <T>(
-  method: PythonBridgeRequest["method"],
+  method: PythonBridgeRequest['method'],
   path: string,
   body?: unknown,
   headers?: Record<string, string>,
 ): Promise<T> =>
   bridgedHttp<T>(
-    "roomRequest",
+    'roomRequest',
     { method, path, body, headers },
-    "Room server request failed",
+    'Room server request failed',
   );
 
 const requestRoom = async (
-  method: PythonBridgeRequest["method"],
+  method: PythonBridgeRequest['method'],
   path: string,
   body?: unknown,
   headers?: Record<string, string>,
@@ -66,22 +66,22 @@ const requestRoom = async (
 
 export const roomClient: RoomClient = {
   async createRoom(displayName) {
-    return requestRoom("POST", "/rooms", {
+    return requestRoom('POST', '/rooms', {
       participantId,
       displayName,
-      disconnectPolicy: "Transfer",
+      disconnectPolicy: 'Transfer',
     });
   },
 
   async joinRoom(code, displayName) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/join`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/join`, {
       participantId,
       displayName,
     });
   },
 
   async getRoom(code) {
-    return requestRoom("GET", `/rooms/${roomPath(code)}`);
+    return requestRoom('GET', `/rooms/${roomPath(code)}`);
   },
 
   watchRoom(code, onRoom, onError) {
@@ -94,15 +94,15 @@ export const roomClient: RoomClient = {
             version: number;
             room: BackendRoom | null;
           }>(
-            "GET",
+            'GET',
             `/rooms/${roomPath(code)}/changes?participantId=${encodeURIComponent(participantId)}&after=${version}`,
           );
           if (!active) return;
           if (change.room === null) {
             onError({
-              code: "RoomNotFound",
-              message: "Room was closed",
-              source: "python",
+              code: 'RoomNotFound',
+              message: 'Room was closed',
+              source: 'python',
             });
             return;
           }
@@ -131,12 +131,12 @@ export const roomClient: RoomClient = {
   },
 
   async leaveRoom(code) {
-    await request("POST", `/rooms/${roomPath(code)}/leave`, { participantId });
+    await request('POST', `/rooms/${roomPath(code)}/leave`, { participantId });
     if (roomClock?.code === code.trim().toLowerCase()) roomClock = undefined;
   },
 
   async transferHost(code, targetParticipantId) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/host`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/host`, {
       participantId,
       targetParticipantId,
     });
@@ -144,19 +144,19 @@ export const roomClient: RoomClient = {
 
   async removeParticipant(code, targetParticipantId) {
     return requestRoom(
-      "POST",
+      'POST',
       `/rooms/${roomPath(code)}/participants/${encodeURIComponent(targetParticipantId)}/remove`,
       { participantId },
     );
   },
 
   async closeRoom(code) {
-    await request("POST", `/rooms/${roomPath(code)}/close`, { participantId });
+    await request('POST', `/rooms/${roomPath(code)}/close`, { participantId });
     if (roomClock?.code === code.trim().toLowerCase()) roomClock = undefined;
   },
 
   async selectRoomSong(code, songId, revision) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/song`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/song`, {
       participantId,
       songId,
       revision,
@@ -164,13 +164,13 @@ export const roomClient: RoomClient = {
   },
 
   async clearRoomSong(code) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/song/clear`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/song/clear`, {
       participantId,
     });
   },
 
   async setRoomReadiness(code, readiness, progress) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/readiness`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/readiness`, {
       participantId,
       readiness,
       progress,
@@ -178,7 +178,7 @@ export const roomClient: RoomClient = {
   },
 
   async roomControl(code, command, positionSeconds) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/control`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/control`, {
       participantId,
       command,
       positionSeconds,
@@ -188,14 +188,14 @@ export const roomClient: RoomClient = {
   async updateSharedState(code, state) {
     const path = `/rooms/${roomPath(code)}/shared-state`;
     try {
-      return await requestRoom("POST", path, { participantId, ...state });
+      return await requestRoom('POST', path, { participantId, ...state });
     } catch (error) {
       // Existing Oracle deployments used the schema below. Keep radio/search/filter usable
       // during a rolling server upgrade; a current server accepts the authoritative audio fields.
       if (
         !error ||
-        typeof error !== "object" ||
-        (error as AppError).code !== "Http422"
+        typeof error !== 'object' ||
+        (error as AppError).code !== 'Http422'
       )
         throw error;
       const {
@@ -206,12 +206,18 @@ export const roomClient: RoomClient = {
         melodyGain: _melodyGain,
         ...legacyState
       } = state;
-      return requestRoom("POST", path, { participantId, ...legacyState });
+      return requestRoom('POST', path, { participantId, ...legacyState });
     }
   },
 
-  async setVoiceLatency(code, voiceLatencyMs, routeStages, routeCalibrated = true, voiceRoute) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/timing`, {
+  async setVoiceLatency(
+    code,
+    voiceLatencyMs,
+    routeStages,
+    routeCalibrated = true,
+    voiceRoute,
+  ) {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/timing`, {
       participantId,
       voiceLatencyMs,
       ...routeStages,
@@ -225,21 +231,21 @@ export const roomClient: RoomClient = {
   },
 
   async publishDiagnostics(code, values) {
-    await request("POST", `/rooms/${roomPath(code)}/diagnostics`, {
+    await request('POST', `/rooms/${roomPath(code)}/diagnostics`, {
       participantId,
       values,
     });
   },
 
   async startSyncCheck(code) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/sync-check`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/sync-check`, {
       participantId,
     });
   },
 
   async setCollaborativeControl(code, enabled) {
     return requestRoom(
-      "POST",
+      'POST',
       `/rooms/${roomPath(code)}/collaborative-control`,
       {
         participantId,
@@ -249,10 +255,10 @@ export const roomClient: RoomClient = {
   },
 
   async publishLibrary(code, songs) {
-    return requestRoom("POST", `/rooms/${roomPath(code)}/library`, {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/library`, {
       participantId,
       songs: songs
-        .filter((song) => song.status === "ready")
+        .filter((song) => song.status === 'ready')
         .map((song) => ({
           songId: song.id,
           revision: song.activeRevision,

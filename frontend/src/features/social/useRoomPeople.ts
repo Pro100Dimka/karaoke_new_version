@@ -1,9 +1,8 @@
-import { socialClient } from "../../services/socialClient";
-import { store } from "../../providers/store";
-import { useEffect, useMemo, useState } from "react";
-import type { RoomStateDto } from "../../contracts/models";
-import type { SocialPerson, SocialRelation } from "../../contracts/social";
-
+import { socialClient } from '../../services/socialClient';
+import { store } from '../../providers/store';
+import { useEffect, useMemo, useState } from 'react';
+import type { RoomStateDto } from '../../contracts/models';
+import type { SocialPerson, SocialRelation } from '../../contracts/social';
 
 /**
  * Who the room's participants are as people: their photos, and what they are to this user. Asked
@@ -16,18 +15,18 @@ export const useRoomPeople = (
   const [people, setPeople] = useState<ReadonlyMap<string, SocialPerson>>(
     new Map(),
   );
-  const connected = inbox.type === "inbox";
+  const connected = inbox.type === 'inbox';
   const participantKey = room
     ? room.participants
         .map((participant) => participant.id)
         .sort()
-        .join(",")
-    : "";
+        .join(',')
+    : '';
 
   useEffect(() => {
     if (!participantKey || !connected) return setPeople(new Map());
     let active = true;
-    socialClient.people(participantKey.split(",")).then(
+    socialClient.people(participantKey.split(',')).then(
       (found) =>
         active &&
         setPeople(
@@ -41,17 +40,17 @@ export const useRoomPeople = (
   }, [participantKey, connected]);
 
   return useMemo(() => {
-    if (inbox.type !== "inbox") return people;
+    if (inbox.type !== 'inbox') return people;
     const known = (list: SocialPerson[]) =>
       new Map(list.map((person) => [person.accountId, person]));
     const friends = known(inbox.friends);
     const sent = known(inbox.outgoingRequests);
     const received = known(inbox.friendRequests);
     const relation = (person: SocialPerson): SocialRelation => {
-      if (person.accountId === inbox.me.accountId) return "Self";
-      if (friends.has(person.accountId)) return "Friend";
-      if (sent.has(person.accountId)) return "Requested";
-      return received.has(person.accountId) ? "Incoming" : "None";
+      if (person.accountId === inbox.me.accountId) return 'Self';
+      if (friends.has(person.accountId)) return 'Friend';
+      if (sent.has(person.accountId)) return 'Requested';
+      return received.has(person.accountId) ? 'Incoming' : 'None';
     };
     return new Map(
       [...people].map(([participant, person]) => {

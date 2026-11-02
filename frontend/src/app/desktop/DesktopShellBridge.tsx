@@ -1,15 +1,15 @@
-import { observer } from "mobx-react-lite";
-import { store } from "../../providers/store";
-import { tr, useLocale, useRouter } from "@neo-ui-kit/react";
-import { ru } from "../../i18n/messages.ru";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { observer } from 'mobx-react-lite';
+import { store } from '../../providers/store';
+import { tr, useLocale, useRouter } from '@neo-ui-kit/react';
+import { ru } from '../../i18n/messages.ru';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { desktopClient } from "../../services/desktopClient";
-import { routes } from "../../shared/routes";
-import { useRoomVoice } from "../../providers/application";
-import { useNotify } from "../../providers/notifications";
-import { toggleRadio, setRadioStation } from "../../providers/radio";
-import { radioStations } from "../radioStations";
+import { desktopClient } from '../../services/desktopClient';
+import { routes } from '../../shared/routes';
+import { useRoomVoice } from '../../providers/application';
+import { useNotify } from '../../providers/notifications';
+import { toggleRadio, setRadioStation } from '../../providers/radio';
+import { radioStations } from '../radioStations';
 import {
   libraryCommands,
   microphoneToggled,
@@ -25,19 +25,23 @@ import {
   useMicrophoneToggles,
   useNowPlaying,
   type LibraryCommand,
-} from "./shellBus";
+} from './shellBus';
 
 const screenOf = (pathname: string) =>
   pathname === routes.library
-    ? "library"
-    : pathname.startsWith("/karaoke/")
-      ? "karaoke"
-      : pathname.startsWith("/editor/")
-        ? "editor"
-        : "other";
+    ? 'library'
+    : pathname.startsWith('/karaoke/')
+      ? 'karaoke'
+      : pathname.startsWith('/editor/')
+        ? 'editor'
+        : 'other';
 
-const isCommand = (value: unknown): value is { type: string } & Record<string, unknown> =>
-  !!value && typeof value === "object" && typeof (value as { type?: unknown }).type === "string";
+const isCommand = (
+  value: unknown,
+): value is { type: string } & Record<string, unknown> =>
+  !!value &&
+  typeof value === 'object' &&
+  typeof (value as { type?: unknown }).type === 'string';
 
 /**
  * Connects the interface to the desktop: tells it what is happening (for the taskbar, tray and
@@ -52,7 +56,7 @@ export const DesktopShellBridge = observer(() => {
   const playing = useNowPlaying();
   // A song on the TV is shown and driven from the taskbar and tray while the laptop is in the Library.
   const onTv = useKaraokeOnTv();
-  const singing = screen === "karaoke" || onTv;
+  const singing = screen === 'karaoke' || onTv;
   const radio = store.radio;
   const { room } = store.online;
   const { preferences } = store;
@@ -70,7 +74,9 @@ export const DesktopShellBridge = observer(() => {
     return () => window.clearInterval(timer);
   }, [room, voice, toggles]);
 
-  const stationEntry = radioStations.find((item) => item.id === radio.stationId);
+  const stationEntry = radioStations.find(
+    (item) => item.id === radio.stationId,
+  );
   const station = stationEntry?.name;
   const streamUrl = stationEntry?.url;
   const track = useRadioTrack();
@@ -83,9 +89,11 @@ export const DesktopShellBridge = observer(() => {
         : {}),
       playing: singing && playing?.playing === true,
       recording: singing && playing?.recording === true,
-      ...(room ? { room: { code: room.code, participants: room.participants.length } } : {}),
+      ...(room
+        ? { room: { code: room.code, participants: room.participants.length } }
+        : {}),
       radio: {
-        available: screen === "library" && !onTv && radio.canControl,
+        available: screen === 'library' && !onTv && radio.canControl,
         enabled: radio.enabled,
         station,
         streamUrl,
@@ -95,7 +103,22 @@ export const DesktopShellBridge = observer(() => {
       discordPresence: preferences.discordPresence,
       autoUpdate: preferences.autoUpdate,
     }),
-    [language, screen, singing, onTv, playing, room, radio.canControl, radio.enabled, station, streamUrl, track, muted, preferences.discordPresence, preferences.autoUpdate],
+    [
+      language,
+      screen,
+      singing,
+      onTv,
+      playing,
+      room,
+      radio.canControl,
+      radio.enabled,
+      station,
+      streamUrl,
+      track,
+      muted,
+      preferences.discordPresence,
+      preferences.autoUpdate,
+    ],
   );
   useEffect(() => {
     void desktopClient.reportShellStatus(status).catch(() => undefined);
@@ -112,72 +135,90 @@ export const DesktopShellBridge = observer(() => {
         // Library work never pulls a singer out of a song: it waits until they are back in the Library.
         const forLibrary = (next: LibraryCommand) => {
           libraryCommands.push(next);
-          if (screen === "library") return;
-          if (screen === "karaoke" || screen === "editor") notify(tr(ru.desktopActionWaitsForLibrary), "info");
+          if (screen === 'library') return;
+          if (screen === 'karaoke' || screen === 'editor')
+            notify(tr(ru.desktopActionWaitsForLibrary), 'info');
           else navigate(routes.library);
         };
         switch (command.type) {
-          case "togglePlayback":
+          case 'togglePlayback':
             nowPlaying.get()?.togglePlayback();
             break;
-          case "toggleRadio":
+          case 'toggleRadio':
             toggleRadio();
             break;
-          case "nextStation": {
-            const index = radioStations.findIndex((item) => item.id === radio.stationId);
+          case 'nextStation': {
+            const index = radioStations.findIndex(
+              (item) => item.id === radio.stationId,
+            );
             const next = radioStations[(index + 1) % radioStations.length];
             if (next) setRadioStation(next.id);
             break;
           }
-          case "addSong":
-            forLibrary({ type: "addSong" });
+          case 'addSong':
+            forLibrary({ type: 'addSong' });
             break;
-          case "openRoom":
-            forLibrary({ type: "openRoom" });
+          case 'openRoom':
+            forLibrary({ type: 'openRoom' });
             break;
-          case "joinRoom":
-            if (typeof command.code === "string") forLibrary({ type: "openRoom", code: command.code });
+          case 'joinRoom':
+            if (typeof command.code === 'string')
+              forLibrary({ type: 'openRoom', code: command.code });
             break;
-          case "importFiles":
+          case 'importFiles':
             if (Array.isArray(command.paths))
-              forLibrary({ type: "importFiles", paths: command.paths.filter((path): path is string => typeof path === "string") });
+              forLibrary({
+                type: 'importFiles',
+                paths: command.paths.filter(
+                  (path): path is string => typeof path === 'string',
+                ),
+              });
             break;
-          case "toggleMicrophone":
+          case 'toggleMicrophone':
             if (voice)
               void voice
                 .setMicrophoneEnabled(!voice.microphoneEnabled())
                 .then(() => microphoneToggled.set(microphoneToggled.get() + 1))
                 .catch(() => undefined);
             break;
-          case "power":
+          case 'power':
             onBattery.set(command.onBattery === true);
             break;
-          case "updateReady":
-            if (typeof command.version === "string") {
+          case 'updateReady':
+            if (typeof command.version === 'string') {
               updateDownload.set(null);
               updateAvailable.set(null);
               updateReady.set(command.version);
             }
             break;
-          case "updateAvailable":
-            if (typeof command.version === "string") updateAvailable.set(command.version);
+          case 'updateAvailable':
+            if (typeof command.version === 'string')
+              updateAvailable.set(command.version);
             break;
-          case "updateProgress":
-            if (typeof command.percent === "number")
-              updateDownload.set(Math.max(0, Math.min(100, Math.round(command.percent))));
+          case 'updateProgress':
+            if (typeof command.percent === 'number')
+              updateDownload.set(
+                Math.max(0, Math.min(100, Math.round(command.percent))),
+              );
             break;
-          case "updateFailed":
-            updateDownload.set("failed");
+          case 'updateFailed':
+            updateDownload.set('failed');
             break;
-          case "radioTrack":
+          case 'radioTrack':
             radioTrack.set(
-              typeof command.title === "string" && command.title
-                ? { title: command.title, ...(typeof command.artist === "string" && command.artist ? { artist: command.artist } : {}) }
+              typeof command.title === 'string' && command.title
+                ? {
+                    title: command.title,
+                    ...(typeof command.artist === 'string' && command.artist
+                      ? { artist: command.artist }
+                      : {}),
+                  }
                 : null,
             );
             break;
-          case "displays":
-            if (typeof command.count === "number") displayCount.set(Math.max(1, Math.round(command.count)));
+          case 'displays':
+            if (typeof command.count === 'number')
+              displayCount.set(Math.max(1, Math.round(command.count)));
             break;
         }
       }),

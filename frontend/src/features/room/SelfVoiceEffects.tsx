@@ -1,8 +1,8 @@
-import { observer } from "mobx-react-lite";
-import { store } from "../../providers/store";
-import { RotaryKnob, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../i18n/messages.ru";
-import { voiceEffects } from "../karaoke/console/voiceEffects";
+import { observer } from 'mobx-react-lite';
+import { store } from '../../providers/store';
+import { RotaryKnob, tr, useLocale } from '@neo-ui-kit/react';
+import { ru } from '../../i18n/messages.ru';
+import { voiceEffects } from '../karaoke/console/voiceEffects';
 
 /**
  * The singer's own voice effects in the room panel: the same stored values the karaoke console and

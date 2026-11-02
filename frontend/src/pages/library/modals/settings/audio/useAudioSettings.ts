@@ -1,13 +1,13 @@
-import { store } from "../../../../../providers/store";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
-import { audioOptions, deviceOptions } from "./audioOptions";
-import { useEffect, useSyncExternalStore } from "react";
-import { useNotify } from "../../../../../providers/notifications";
-import type { DeviceDto } from "../../../../../contracts/models";
-import { safeAudioConfiguration } from "../../../../../shared/preferences/preferences";
-import { audioClient as audio } from "../../../../../services/audioClient";
-import { audioSessionFor } from "./audioSession";
+import { store } from '../../../../../providers/store';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
+import { audioOptions, deviceOptions } from './audioOptions';
+import { useEffect, useSyncExternalStore } from 'react';
+import { useNotify } from '../../../../../providers/notifications';
+import type { DeviceDto } from '../../../../../contracts/models';
+import { safeAudioConfiguration } from '../../../../../shared/preferences/preferences';
+import { audioClient as audio } from '../../../../../services/audioClient';
+import { audioSessionFor } from './audioSession';
 import {
   automaticAudioTiming,
   changeAudioValue,
@@ -15,7 +15,7 @@ import {
   toAudioRequest,
   toAudioValues,
   type AudioCommit,
-} from "./audioConfiguration";
+} from './audioConfiguration';
 
 /** The view subscribes to the session; negotiated timing remains display-only. */
 export const useAudioSettings = (enabled = true) => {
@@ -30,7 +30,7 @@ export const useAudioSettings = (enabled = true) => {
     onError: (error: unknown) =>
       notify(
         `${tr(ru.settingsApplyFailed)}: ${error instanceof Error ? error.message : String(error)}`,
-        "error",
+        'error',
       ),
   };
   useEffect(() => {
@@ -47,16 +47,18 @@ export const useAudioSettings = (enabled = true) => {
       changeAudioValue(
         toAudioValues(
           current.requested,
-          current.audioAvailable && !current.asioUnavailable ? current.runtime : undefined,
+          current.audioAvailable && !current.asioUnavailable
+            ? current.runtime
+            : undefined,
         ),
         name,
         value,
       ),
     );
-    if (request.backend === "ASIO") request.userSelectedAsio = true;
+    if (request.backend === 'ASIO') request.userSelectedAsio = true;
     if (
-      request.backend === "ASIO" &&
-      !current.devices.some((device) => device.backend === "ASIO")
+      request.backend === 'ASIO' &&
+      !current.devices.some((device) => device.backend === 'ASIO')
     )
       session.selectUnavailableAsio(request);
     else
@@ -68,7 +70,7 @@ export const useAudioSettings = (enabled = true) => {
   const prepareAsio = (driver: DeviceDto) => {
     const request = safeAudioConfiguration(
       {
-        backend: "ASIO",
+        backend: 'ASIO',
         inputDeviceId: driver.id,
         outputDeviceId: driver.id,
         userSelectedAsio: true,
@@ -78,17 +80,32 @@ export const useAudioSettings = (enabled = true) => {
     );
     void session.prepareAsio(request, driver, effects);
   };
-  const values = displayedAudioValues(state.requested, state.runtime, state.audioAvailable && !state.applying);
+  const values = displayedAudioValues(
+    state.requested,
+    state.runtime,
+    state.audioAvailable && !state.applying,
+  );
   return {
     ready: state.ready,
     audio: {
       values,
-      options: audioOptions({ values, runtime: state.runtime,
+      options: audioOptions({
+        values,
+        runtime: state.runtime,
         configurationCapabilities: state.configurationCapabilities,
-        capabilitiesBackend: state.configurationCapabilitiesBackend }),
-      deviceOptions: (kind: "input" | "output", current: string) => deviceOptions(
-        state.devices.filter((device) => device.kind === kind &&
-          (values.backend === "ASIO" ? device.backend === "ASIO" : device.backend !== "ASIO")), current),
+        capabilitiesBackend: state.configurationCapabilitiesBackend,
+      }),
+      deviceOptions: (kind: 'input' | 'output', current: string) =>
+        deviceOptions(
+          state.devices.filter(
+            (device) =>
+              device.kind === kind &&
+              (values.backend === 'ASIO'
+                ? device.backend === 'ASIO'
+                : device.backend !== 'ASIO'),
+          ),
+          current,
+        ),
       runtime: state.runtime,
       devices: state.devices,
       capabilities: state.capabilities,
@@ -103,7 +120,7 @@ export const useAudioSettings = (enabled = true) => {
         } catch (error) {
           notify(
             `${tr(ru.outputTestFailed)}: ${error instanceof Error ? error.message : String(error)}`,
-            "error",
+            'error',
           );
         }
       },

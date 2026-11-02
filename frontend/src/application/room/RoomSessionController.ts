@@ -1,9 +1,14 @@
-import type { AudioServiceClient, RoomClient } from "../../contracts/clients";
-import type { RoomStateDto } from "../../contracts/models";
+import type { AudioServiceClient, RoomClient } from '../../contracts/clients';
+import type { RoomStateDto } from '../../contracts/models';
 
-type RoomPort = Pick<RoomClient, "createRoom" | "joinRoom" | "leaveRoom" | "closeRoom">;
-type VoicePort = Pick<AudioServiceClient,
-  "joinVoiceSession" | "leaveVoiceSession" | "setRoomPlayoutDelay">;
+type RoomPort = Pick<
+  RoomClient,
+  'createRoom' | 'joinRoom' | 'leaveRoom' | 'closeRoom'
+>;
+type VoicePort = Pick<
+  AudioServiceClient,
+  'joinVoiceSession' | 'leaveVoiceSession' | 'setRoomPlayoutDelay'
+>;
 type SessionPersistence = {
   load(): string | null;
   save(code: string): void;
@@ -12,12 +17,12 @@ type SessionPersistence = {
 
 /** Server snapshots remain authoritative; these states describe only this window's participation. */
 export type RoomSessionState =
-  | { type: "disconnected" }
-  | { type: "joining"; code?: string }
-  | { type: "joined"; room: RoomStateDto }
-  | { type: "recovering"; room: RoomStateDto }
-  | { type: "leaving"; room: RoomStateDto }
-  | { type: "failed"; error: unknown };
+  | { type: 'disconnected' }
+  | { type: 'joining'; code?: string }
+  | { type: 'joined'; room: RoomStateDto }
+  | { type: 'recovering'; room: RoomStateDto }
+  | { type: 'leaving'; room: RoomStateDto }
+  | { type: 'failed'; error: unknown };
 
 /** A lease for work started in one local participation generation. */
 export interface RoomSessionScope {
@@ -30,11 +35,12 @@ export interface RoomSessionScope {
   disconnect(): boolean;
 }
 
-const cancelledJoin = (): Error => Object.assign(new Error("Room join cancelled"), { name: "AbortError" });
+const cancelledJoin = (): Error =>
+  Object.assign(new Error('Room join cancelled'), { name: 'AbortError' });
 
 /** Owns one local room session and compensates partial server/voice operations. */
 export class RoomSessionController {
-  private state: RoomSessionState = { type: "disconnected" };
+  private state: RoomSessionState = { type: 'disconnected' };
   private readonly listeners = new Set<() => void>();
   private readonly retiredCodes = new Set<string>();
   private generation = 0;
@@ -55,17 +61,20 @@ export class RoomSessionController {
   async restore(name: string): Promise<void> {
     if (this.recoveryAttempted) return;
     this.recoveryAttempted = true;
-    if (this.state.type !== "disconnected") return;
+    if (this.state.type !== 'disconnected') return;
     const code = this.persistence?.load();
     if (!code) return;
-    try { await this.join(name, code); }
-    catch { /* A stopped room or unavailable service remains retryable through the UI. */ }
+    try {
+      await this.join(name, code);
+    } catch {
+      /* A stopped room or unavailable service remains retryable through the UI. */
+    }
   }
 
   getState = (): RoomSessionState => this.state;
 
   getRoom = (): RoomStateDto | null =>
-    "room" in this.state ? this.state.room : null;
+    'room' in this.state ? this.state.room : null;
 
   getScope = (): RoomSessionScope | null => this.activeScope ?? null;
 
@@ -89,8 +98,8 @@ export class RoomSessionController {
         !abort.signal.aborted &&
         this.generation === generation &&
         this.getRoom()?.code === code &&
-        this.state.type !== "leaving",
-      getRoom: () => scope.isCurrent() ? this.getRoom() : null,
+        this.state.type !== 'leaving',
+      getRoom: () => (scope.isCurrent() ? this.getRoom() : null),
       setSnapshot: (room) => {
         if (!scope.isCurrent() || room.code !== code) return false;
         this.setSnapshot(room);
@@ -112,8 +121,12 @@ export class RoomSessionController {
   };
 
   private publish(state: RoomSessionState): void {
-    if (this.state.type === state.type &&
-        "room" in this.state && "room" in state && this.state.room === state.room)
+    if (
+      this.state.type === state.type &&
+      'room' in this.state &&
+      'room' in state &&
+      this.state.room === state.room
+    )
       return;
     this.state = state;
     for (const listener of this.listeners) listener();
@@ -127,36 +140,46 @@ export class RoomSessionController {
       this.persistence?.clear();
       this.invalidateScope();
       this.generation += 1;
-      this.publish({ type: "disconnected" });
+      this.publish({ type: 'disconnected' });
       return;
     }
-    if (this.state.type === "joining" || this.state.type === "leaving" ||
-        this.retiredCodes.has(room.code)) return;
+    if (
+      this.state.type === 'joining' ||
+      this.state.type === 'leaving' ||
+      this.retiredCodes.has(room.code)
+    )
+      return;
     const current = this.getRoom();
     if (current && current.code !== room.code) return;
     this.activateScope(room.code);
-    this.publish(room.connectionStatus === "reconnecting"
-      ? { type: "recovering", room }
-      : { type: "joined", room });
+    this.publish(
+      room.connectionStatus === 'reconnecting'
+        ? { type: 'recovering', room }
+        : { type: 'joined', room },
+    );
   };
 
   join(name: string, code?: string): Promise<RoomStateDto> {
     if (this.joining) return this.joining;
-    if (this.leaving) return Promise.reject(new Error("Room leave is in progress"));
+    if (this.leaving)
+      return Promise.reject(new Error('Room leave is in progress'));
     const current = this.getRoom();
     if (current)
       return code === current.code
         ? Promise.resolve(current)
-        : Promise.reject(new Error("Leave the current room before joining another"));
+        : Promise.reject(
+            new Error('Leave the current room before joining another'),
+          );
     const generation = ++this.generation;
-    this.publish({ type: "joining", code });
+    this.publish({ type: 'joining', code });
     const joining = (async () => {
       let joined: RoomStateDto | undefined;
       let voiceAttempted = false;
       try {
-        joined = code === undefined
-          ? await this.room.createRoom(name)
-          : await this.room.joinRoom(code, name);
+        joined =
+          code === undefined
+            ? await this.room.createRoom(name)
+            : await this.room.joinRoom(code, name);
         if (generation !== this.generation) throw cancelledJoin();
         voiceAttempted = true;
         await this.voice.setRoomPlayoutDelay(joined.roomPlayoutDelayMs ?? 10);
@@ -169,23 +192,29 @@ export class RoomSessionController {
         if (generation !== this.generation) throw cancelledJoin();
         this.retiredCodes.delete(joined.code);
         this.activateScope(joined.code);
-        this.publish({ type: "joined", room: joined });
+        this.publish({ type: 'joined', room: joined });
         this.persistence?.save(joined.code);
         return joined;
       } catch (error) {
-        if (voiceAttempted) await this.voice.leaveVoiceSession().catch(() => undefined);
+        if (voiceAttempted)
+          await this.voice.leaveVoiceSession().catch(() => undefined);
         if (joined) {
           this.retiredCodes.add(joined.code);
           await this.room.leaveRoom(joined.code).catch(() => undefined);
         }
-        if (generation === this.generation) this.publish({ type: "failed", error });
+        if (generation === this.generation)
+          this.publish({ type: 'failed', error });
         throw error;
       }
     })();
     this.joining = joining;
     void joining.then(
-      () => { if (this.joining === joining) this.joining = undefined; },
-      () => { if (this.joining === joining) this.joining = undefined; },
+      () => {
+        if (this.joining === joining) this.joining = undefined;
+      },
+      () => {
+        if (this.joining === joining) this.joining = undefined;
+      },
     );
     return joining;
   }
@@ -198,24 +227,32 @@ export class RoomSessionController {
     const generation = ++this.generation;
     if (current) {
       this.retiredCodes.add(current.code);
-      this.publish({ type: "leaving", room: current });
-    } else this.publish({ type: "disconnected" });
+      this.publish({ type: 'leaving', room: current });
+    } else this.publish({ type: 'disconnected' });
     const pendingJoin = this.joining;
     const leaving = (async () => {
       if (pendingJoin) await pendingJoin.catch(() => undefined);
       let serverError: unknown;
       if (current) {
-        try { await this.room.leaveRoom(current.code); }
-        catch (error) { serverError = error; }
+        try {
+          await this.room.leaveRoom(current.code);
+        } catch (error) {
+          serverError = error;
+        }
         await this.voice.leaveVoiceSession().catch(() => undefined);
       }
-      if (generation === this.generation) this.publish({ type: "disconnected" });
+      if (generation === this.generation)
+        this.publish({ type: 'disconnected' });
       if (serverError) throw serverError;
     })();
     this.leaving = leaving;
     void leaving.then(
-      () => { if (this.leaving === leaving) this.leaving = undefined; },
-      () => { if (this.leaving === leaving) this.leaving = undefined; },
+      () => {
+        if (this.leaving === leaving) this.leaving = undefined;
+      },
+      () => {
+        if (this.leaving === leaving) this.leaving = undefined;
+      },
     );
     return leaving;
   }
@@ -226,26 +263,31 @@ export class RoomSessionController {
     if (!current) return Promise.resolve();
     this.invalidateScope();
     const generation = ++this.generation;
-    this.publish({ type: "leaving", room: current });
+    this.publish({ type: 'leaving', room: current });
     const leaving = (async () => {
       try {
         await this.room.closeRoom(current.code);
       } catch (error) {
         if (generation === this.generation) {
           this.activateScope(current.code);
-          this.publish({ type: "joined", room: current });
+          this.publish({ type: 'joined', room: current });
         }
         throw error;
       }
       this.retiredCodes.add(current.code);
       this.persistence?.clear();
       await this.voice.leaveVoiceSession().catch(() => undefined);
-      if (generation === this.generation) this.publish({ type: "disconnected" });
+      if (generation === this.generation)
+        this.publish({ type: 'disconnected' });
     })();
     this.leaving = leaving;
     void leaving.then(
-      () => { if (this.leaving === leaving) this.leaving = undefined; },
-      () => { if (this.leaving === leaving) this.leaving = undefined; },
+      () => {
+        if (this.leaving === leaving) this.leaving = undefined;
+      },
+      () => {
+        if (this.leaving === leaving) this.leaving = undefined;
+      },
     );
     return leaving;
   }

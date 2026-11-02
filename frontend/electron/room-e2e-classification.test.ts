@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { classifyRoomE2eFailure } from "./room-e2e-classification.mjs";
+import { describe, expect, it } from 'vitest';
+import { classifyRoomE2eFailure } from './room-e2e-classification.mjs';
 
-describe("classifyRoomE2eFailure", () => {
-  it("distinguishes a missing pilot from a deadline miss", () => {
+describe('classifyRoomE2eFailure', () => {
+  it('distinguishes a missing pilot from a deadline miss', () => {
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: null },
@@ -12,7 +12,7 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 0 },
         ],
       }),
-    ).toBe("PILOT_NOT_DETECTED");
+    ).toBe('PILOT_NOT_DETECTED');
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: 1 },
@@ -22,7 +22,7 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 2 },
         ],
       }),
-    ).toBe("NETWORK_DEADLINE_MISS");
+    ).toBe('NETWORK_DEADLINE_MISS');
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: 1 },
@@ -32,10 +32,10 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 2 },
         ],
         lateCutPhases: [
-          { firstPhase: "DRAIN", lastPhase: "DRAIN", lateAudioCuts: 2 },
+          { firstPhase: 'DRAIN', lastPhase: 'DRAIN', lateAudioCuts: 2 },
         ],
       }),
-    ).toBe("DRAIN_LIFECYCLE");
+    ).toBe('DRAIN_LIFECYCLE');
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: 1 },
@@ -50,7 +50,7 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 0 },
         ],
       }),
-    ).toBe("MUSICAL_POSITION_MISMATCH");
+    ).toBe('MUSICAL_POSITION_MISMATCH');
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: 0 },
@@ -64,7 +64,7 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 0 },
         ],
       }),
-    ).toBe("SERVER_MIX_INCOMPLETE");
+    ).toBe('SERVER_MIX_INCOMPLETE');
     expect(
       classifyRoomE2eFailure({
         audioAlignment: { backingSkewMs: 0, remoteVocalSkewMs: 0 },
@@ -80,9 +80,9 @@ describe("classifyRoomE2eFailure", () => {
           { packetsSent: 100, packetsReceived: 100, lateAudioCuts: 2 },
         ],
         lateCutPhases: [
-          { firstPhase: "DRAIN", lastPhase: "DRAIN", lateAudioCuts: 2 },
+          { firstPhase: 'DRAIN', lastPhase: 'DRAIN', lateAudioCuts: 2 },
         ],
       }),
-    ).toBe("SERVER_MIX_INCOMPLETE");
+    ).toBe('SERVER_MIX_INCOMPLETE');
   });
 });

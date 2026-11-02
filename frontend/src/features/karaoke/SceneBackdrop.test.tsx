@@ -1,9 +1,9 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { desktopClient } from "../../services/desktopClient";
-import { SceneBackdrop } from "./SceneBackdrop";
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { desktopClient } from '../../services/desktopClient';
+import { SceneBackdrop } from './SceneBackdrop';
 
-vi.mock("../../services/desktopClient", () => ({
+vi.mock('../../services/desktopClient', () => ({
   desktopClient: { sceneVideoUrl: vi.fn().mockResolvedValue(null) },
 }));
 
@@ -12,13 +12,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("SceneBackdrop", () => {
-  it("plays only a downloaded local clip and never embeds a YouTube page", () => {
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+describe('SceneBackdrop', () => {
+  it('plays only a downloaded local clip and never embeds a YouTube page', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(
       () => undefined,
     );
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(
       () => undefined,
     );
     const view = render(
@@ -32,10 +32,10 @@ describe("SceneBackdrop", () => {
     );
 
     expect(
-      screen.queryByTitle("YouTube karaoke background"),
+      screen.queryByTitle('YouTube karaoke background'),
     ).not.toBeInTheDocument();
-    expect(document.querySelector("iframe")).not.toBeInTheDocument();
-    expect(document.querySelector("video")).not.toBeInTheDocument();
+    expect(document.querySelector('iframe')).not.toBeInTheDocument();
+    expect(document.querySelector('video')).not.toBeInTheDocument();
     view.rerender(
       <SceneBackdrop
         theme="dark"
@@ -45,36 +45,36 @@ describe("SceneBackdrop", () => {
         rate={1}
       />,
     );
-    expect(document.querySelector("video")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8765/songs/song-1/clip",
+    expect(document.querySelector('video')).toHaveAttribute(
+      'src',
+      'http://127.0.0.1:8765/songs/song-1/clip',
     );
   });
 
-  it("loops the generic scene fallback instead of freezing once the song outlasts the clip", async () => {
+  it('loops the generic scene fallback instead of freezing once the song outlasts the clip', async () => {
     vi.mocked(desktopClient.sceneVideoUrl).mockResolvedValueOnce(
-      "file:///media/scene/clip-00.webm",
+      'file:///media/scene/clip-00.webm',
     );
-    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(
       () => undefined,
     );
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(
       () => undefined,
     );
-    vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockReturnValue(
+    vi.spyOn(HTMLMediaElement.prototype, 'duration', 'get').mockReturnValue(
       300,
     );
     let currentTime = 0;
     vi.spyOn(
       HTMLMediaElement.prototype,
-      "currentTime",
-      "get",
+      'currentTime',
+      'get',
     ).mockImplementation(() => currentTime);
     vi.spyOn(
       HTMLMediaElement.prototype,
-      "currentTime",
-      "set",
+      'currentTime',
+      'set',
     ).mockImplementation((value) => {
       currentTime = value;
     });
@@ -93,12 +93,12 @@ describe("SceneBackdrop", () => {
     await waitFor(() => expect(currentTime).toBeCloseTo(10));
   });
 
-  it("releases the local clip file when karaoke closes", () => {
+  it('releases the local clip file when karaoke closes', () => {
     const pause = vi
-      .spyOn(HTMLMediaElement.prototype, "pause")
+      .spyOn(HTMLMediaElement.prototype, 'pause')
       .mockImplementation(() => undefined);
     const load = vi
-      .spyOn(HTMLMediaElement.prototype, "load")
+      .spyOn(HTMLMediaElement.prototype, 'load')
       .mockImplementation(() => undefined);
     const view = render(
       <SceneBackdrop
@@ -116,15 +116,15 @@ describe("SceneBackdrop", () => {
     expect(load).toHaveBeenCalled();
   });
 
-  it("keeps the song clip after background playback is temporarily rejected", async () => {
+  it('keeps the song clip after background playback is temporarily rejected', async () => {
     const play = vi
-      .spyOn(HTMLMediaElement.prototype, "play")
-      .mockRejectedValueOnce(new DOMException("backgrounded"))
+      .spyOn(HTMLMediaElement.prototype, 'play')
+      .mockRejectedValueOnce(new DOMException('backgrounded'))
       .mockResolvedValue(undefined);
-    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(
       () => undefined,
     );
-    vi.spyOn(HTMLMediaElement.prototype, "load").mockImplementation(
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(
       () => undefined,
     );
 
@@ -138,13 +138,13 @@ describe("SceneBackdrop", () => {
       />,
     );
     await waitFor(() => expect(play).toHaveBeenCalledOnce());
-    expect(document.querySelector("video")).toHaveAttribute(
-      "src",
-      "http://127.0.0.1:8765/songs/song-1/clip",
+    expect(document.querySelector('video')).toHaveAttribute(
+      'src',
+      'http://127.0.0.1:8765/songs/song-1/clip',
     );
 
-    document.dispatchEvent(new Event("visibilitychange"));
+    document.dispatchEvent(new Event('visibilitychange'));
     await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
-    expect(document.querySelector("video")).toBeInTheDocument();
+    expect(document.querySelector('video')).toBeInTheDocument();
   });
 });

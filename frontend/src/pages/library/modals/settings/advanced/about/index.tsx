@@ -1,7 +1,16 @@
-import { Card, Equalizer, KeyValueList, Planet, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import { version } from "../../../../../../../package.json";
-import { ru } from "../../../../../../i18n/messages.ru";
-import type { SubsystemHealth } from "../useSubsystemHealth";
+import {
+  Card,
+  Equalizer,
+  KeyValueList,
+  Planet,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { version } from '../../../../../../../package.json';
+import { ru } from '../../../../../../i18n/messages.ru';
+import type { SubsystemHealth } from '../useSubsystemHealth';
 
 export const frontendVersion: string = version;
 
@@ -33,9 +42,9 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
       padding="none"
       className="advancedAboutCard"
       style={{
-        background: "unset!important",
-        height: "100%",
-        boxShadow: "unset!important",
+        background: 'unset!important',
+        height: '100%',
+        boxShadow: 'unset!important',
       }}
     >
       <Planet className="advancedAboutPlanet">

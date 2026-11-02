@@ -1,53 +1,53 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
-const start = readFileSync(new URL("../../start.bat", import.meta.url), "utf8");
+const start = readFileSync(new URL('../../start.bat', import.meta.url), 'utf8');
 const multi = readFileSync(
-  new URL("../../start-multy.bat", import.meta.url),
-  "utf8",
+  new URL('../../start-multy.bat', import.meta.url),
+  'utf8',
 );
 const multiLauncher = readFileSync(
-  new URL("../scripts/launch-multi.mjs", import.meta.url),
-  "utf8",
+  new URL('../scripts/launch-multi.mjs', import.meta.url),
+  'utf8',
 );
 const singleLauncher = readFileSync(
-  new URL("../scripts/start-electron.mjs", import.meta.url),
-  "utf8",
+  new URL('../scripts/start-electron.mjs', import.meta.url),
+  'utf8',
 );
 const identity = readFileSync(
-  new URL("./RuntimeIdentity.ts", import.meta.url),
-  "utf8",
+  new URL('./RuntimeIdentity.ts', import.meta.url),
+  'utf8',
 );
 const release = readFileSync(
-  new URL("../../release.bat", import.meta.url),
-  "utf8",
+  new URL('../../release.bat', import.meta.url),
+  'utf8',
 );
 const electronTsconfig = readFileSync(
-  new URL("./tsconfig.json", import.meta.url),
-  "utf8",
+  new URL('./tsconfig.json', import.meta.url),
+  'utf8',
 );
 const developmentLauncher = readFileSync(
-  new URL("../scripts/dev-electron.mjs", import.meta.url),
-  "utf8",
+  new URL('../scripts/dev-electron.mjs', import.meta.url),
+  'utf8',
 );
-const preload = readFileSync(new URL("./preload.ts", import.meta.url), "utf8");
+const preload = readFileSync(new URL('./preload.ts', import.meta.url), 'utf8');
 const audioClient = readFileSync(
-  new URL("../src/services/audioClient.ts", import.meta.url),
-  "utf8",
+  new URL('../src/services/audioClient.ts', import.meta.url),
+  'utf8',
 );
 
-test("development startup does not terminate the installed app audio service", () => {
+test('development startup does not terminate the installed app audio service', () => {
   assert.doesNotMatch(start, /taskkill[^\r\n]*\/im\s+AudioService\.exe/i);
 });
 
-test("ordinary startup loads the same room server environment as multi-instance startup", () => {
+test('ordinary startup loads the same room server environment as multi-instance startup', () => {
   assert.match(start, /start-electron\.mjs/);
   assert.match(singleLauncher, /loadEnvFile/);
   assert.match(singleLauncher, /\.env\.local/);
 });
 
-test("ordinary startup lets npx resolve the installed Electron executable", () => {
+test('ordinary startup lets npx resolve the installed Electron executable', () => {
   assert.match(singleLauncher, /spawn\("npx"[\s\S]*"electron"/);
   assert.doesNotMatch(
     singleLauncher,
@@ -55,7 +55,7 @@ test("ordinary startup lets npx resolve the installed Electron executable", () =
   );
 });
 
-test("development and installed profiles share the already downloaded AI model store", () => {
+test('development and installed profiles share the already downloaded AI model store', () => {
   assert.match(identity, /AD_VOICE_MODELS/);
   assert.match(
     identity,
@@ -63,7 +63,7 @@ test("development and installed profiles share the already downloaded AI model s
   );
 });
 
-test("two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models", () => {
+test('two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models', () => {
   assert.match(multiLauncher, /loadEnvFile/);
   assert.match(multiLauncher, /\.env\.local/);
   assert.match(multiLauncher, /AD Voice Dev/);
@@ -76,7 +76,7 @@ test("two-instance launcher reuses the normal dev profile and isolates only the 
   assert.doesNotMatch(multiLauncher, /delete env\.AD_VOICE_DATA/);
 });
 
-test("the primary multi-instance window keeps the ordinary dev social identity", () => {
+test('the primary multi-instance window keeps the ordinary dev social identity', () => {
   assert.match(
     multiLauncher,
     /socialProfile:\s*process\.env\.AD_VOICE_PROFILE/,
@@ -88,7 +88,7 @@ test("the primary multi-instance window keeps the ordinary dev social identity",
   assert.match(multiLauncher, /socialProfile:\s*"AD Voice Multi 2"/);
 });
 
-test("the production multi launcher provides isolated profiles for the automated room E2E", () => {
+test('the production multi launcher provides isolated profiles for the automated room E2E', () => {
   assert.match(multiLauncher, /AD_VOICE_MULTI_E2E/);
   assert.match(multiLauncher, /AD Voice Multi E2E A/);
   assert.match(multiLauncher, /AD Voice Multi E2E B/);
@@ -96,20 +96,20 @@ test("the production multi launcher provides isolated profiles for the automated
   assert.match(multiLauncher, /ADVoice\.AudioService\.MultiE2E\.B\.v1/);
 });
 
-test("room E2E reconnect invokes the production audio client lifecycle", () => {
+test('room E2E reconnect invokes the production audio client lifecycle', () => {
   assert.match(preload, /AD_VOICE_ROOM_E2E/);
   assert.match(audioClient, /roomE2eReconnectVoiceSession/);
   assert.match(audioClient, /audioClient\.reconnectVoiceSession\(\)/);
 });
 
-test("room smoke scenarios do not assume fixed backend ports", () => {
+test('room smoke scenarios do not assume fixed backend ports', () => {
   for (const name of [
-    "live-two-song-room-smoke",
-    "two-instance-room-transfer-smoke",
+    'live-two-song-room-smoke',
+    'two-instance-room-transfer-smoke',
   ]) {
     const source = readFileSync(
       new URL(`../scripts/${name}.mjs`, import.meta.url),
-      "utf8",
+      'utf8',
     );
     assert.equal(
       /\b(?:8765|8767|8772)\b/.test(source),
@@ -119,7 +119,7 @@ test("room smoke scenarios do not assume fixed backend ports", () => {
   }
 });
 
-test("release leaves only the Windows installer and no ISO media", () => {
+test('release leaves only the Windows installer and no ISO media', () => {
   assert.doesNotMatch(
     release,
     /create_release_iso|pycdlib|AD-Voice-Setup\.iso/i,
@@ -127,16 +127,16 @@ test("release leaves only the Windows installer and no ISO media", () => {
   assert.match(release, /Only installer kept|Keeping only/i);
 });
 
-test("Electron uses the modern Node 16 module resolver", () => {
+test('Electron uses the modern Node 16 module resolver', () => {
   const config = JSON.parse(electronTsconfig);
-  assert.equal(config.compilerOptions.moduleResolution, "Node16");
-  assert.equal(config.compilerOptions.module, "Node16");
+  assert.equal(config.compilerOptions.moduleResolution, 'Node16');
+  assert.equal(config.compilerOptions.module, 'Node16');
 });
 
-test("development launcher closes both Electron and Vite on every termination signal", () => {
+test('development launcher closes both Electron and Vite on every termination signal', () => {
   assert.match(developmentLauncher, /let electron/);
   assert.match(developmentLauncher, /killTree\(electron\)/);
-  for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     assert.match(
       developmentLauncher,
       new RegExp(`process\\.once\\("${signal}"`),

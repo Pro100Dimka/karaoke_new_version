@@ -1,55 +1,55 @@
-import { tr } from "@neo-ui-kit/react";
-import { ru } from "../i18n/messages.ru";
-import { unverifiedAsioMonitoring } from "../contracts/models";
-import type { AppError } from "../contracts/models";
-import type { MessageKey } from "../i18n/messages";
+import { tr } from '@neo-ui-kit/react';
+import { ru } from '../i18n/messages.ru';
+import { unverifiedAsioMonitoring } from '../contracts/models';
+import type { AppError } from '../contracts/models';
+import type { MessageKey } from '../i18n/messages';
 
 export const toAppError = (value: unknown): AppError => {
   if (
     value &&
-    typeof value === "object" &&
-    "code" in value &&
-    "message" in value
+    typeof value === 'object' &&
+    'code' in value &&
+    'message' in value
   ) {
     return value as AppError;
   }
   return {
-    code: "Unknown",
-    message: value instanceof Error ? value.message : "Unexpected error",
-    source: "frontend",
+    code: 'Unknown',
+    message: value instanceof Error ? value.message : 'Unexpected error',
+    source: 'frontend',
   };
 };
 
 /** UI branches on the stable error code, never on message text. */
 const knownCodes = {
-  DuplicateSong: "errorDuplicateSong",
-  InvalidMedia: "errorInvalidMedia",
-  UnsupportedMedia: "errorUnsupportedMedia",
-  SourceMissing: "errorSourceMissing",
-  InsufficientDiskSpace: "errorInsufficientDisk",
-  InsufficientRam: "errorInsufficientRam",
-  ModelsInUse: "errorModelsInUse",
-  LibraryInUse: "errorLibraryInUse",
-  RecordingPreparing: "recordingPreparing",
-  RecordingTimingUnavailable: "errorRecordingTimingUnavailable",
-  StorageUnavailable: "errorStorageUnavailable",
-  MissingRequiredModels: "errorMissingModels",
-  ProcessingAlreadyRunning: "errorProcessingRunning",
-  AnalysisPitchUncertain: "analysisPitchUncertain",
-  JobCancelled: "jobCancelled",
-  RevisionConflict: "errorRevisionConflict",
-  ProjectInvalid: "errorProjectInvalid",
-  ProjectUpgradeRequired: "errorProjectUpgrade",
-  UnsupportedProjectVersion: "errorProjectTooNew",
-  RoomNotFound: "errorRoomNotFound",
-  RoomPermissionDenied: "errorRoomPermission",
-  RoomFull: "errorRoomFull",
-  ApiVersionMismatch: "pythonIncompatible",
-  FriendCodeNotFound: "errorFriendCodeNotFound",
-  FriendIsSelf: "errorFriendIsSelf",
-  TransferCodeNotFound: "errorTransferCodeNotFound",
-  UnsupportedAvatar: "errorAvatarRejected",
-  AvatarTooLarge: "errorAvatarRejected",
+  DuplicateSong: 'errorDuplicateSong',
+  InvalidMedia: 'errorInvalidMedia',
+  UnsupportedMedia: 'errorUnsupportedMedia',
+  SourceMissing: 'errorSourceMissing',
+  InsufficientDiskSpace: 'errorInsufficientDisk',
+  InsufficientRam: 'errorInsufficientRam',
+  ModelsInUse: 'errorModelsInUse',
+  LibraryInUse: 'errorLibraryInUse',
+  RecordingPreparing: 'recordingPreparing',
+  RecordingTimingUnavailable: 'errorRecordingTimingUnavailable',
+  StorageUnavailable: 'errorStorageUnavailable',
+  MissingRequiredModels: 'errorMissingModels',
+  ProcessingAlreadyRunning: 'errorProcessingRunning',
+  AnalysisPitchUncertain: 'analysisPitchUncertain',
+  JobCancelled: 'jobCancelled',
+  RevisionConflict: 'errorRevisionConflict',
+  ProjectInvalid: 'errorProjectInvalid',
+  ProjectUpgradeRequired: 'errorProjectUpgrade',
+  UnsupportedProjectVersion: 'errorProjectTooNew',
+  RoomNotFound: 'errorRoomNotFound',
+  RoomPermissionDenied: 'errorRoomPermission',
+  RoomFull: 'errorRoomFull',
+  ApiVersionMismatch: 'pythonIncompatible',
+  FriendCodeNotFound: 'errorFriendCodeNotFound',
+  FriendIsSelf: 'errorFriendIsSelf',
+  TransferCodeNotFound: 'errorTransferCodeNotFound',
+  UnsupportedAvatar: 'errorAvatarRejected',
+  AvatarTooLarge: 'errorAvatarRejected',
 } as const satisfies Record<string, MessageKey>;
 
 export const errorMessageKey = (error: AppError): MessageKey | null =>
@@ -58,4 +58,6 @@ export const errorMessageKey = (error: AppError): MessageKey | null =>
 export const monitoringErrorText = (error: unknown): string =>
   error instanceof Error && error.message === unverifiedAsioMonitoring
     ? tr(ru.monitoringAsio4AllBlocked)
-    : error instanceof Error ? error.message : String(error);
+    : error instanceof Error
+      ? error.message
+      : String(error);

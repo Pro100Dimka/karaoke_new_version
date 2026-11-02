@@ -1,8 +1,22 @@
-import { useEffect, useRef, useState } from "react";
-import type { SongDto } from "../../contracts/models";
-import { ru } from "../../i18n/messages.ru";
-import { Badge, Card, Equalizer, GlowText, Icon, NeonWaves, Planet, Reveal, Sparkles, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import "./karaoke-intro.css";
+import { useEffect, useRef, useState } from 'react';
+import type { SongDto } from '../../contracts/models';
+import { ru } from '../../i18n/messages.ru';
+import {
+  Badge,
+  Card,
+  Equalizer,
+  GlowText,
+  Icon,
+  NeonWaves,
+  Planet,
+  Reveal,
+  Sparkles,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import './karaoke-intro.css';
 
 const holdMilliseconds = 2400;
 const fadeOutMilliseconds = 800;

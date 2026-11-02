@@ -1,5 +1,5 @@
-import { observer } from "mobx-react-lite";
-import { store } from "../../providers/store";
+import { observer } from 'mobx-react-lite';
+import { store } from '../../providers/store';
 import {
   useCallback,
   useEffect,
@@ -7,24 +7,24 @@ import {
   useRef,
   useState,
   type ReactNode,
-} from "react";
-import { useRouter } from "@neo-ui-kit/react";
+} from 'react';
+import { useRouter } from '@neo-ui-kit/react';
 
-import { karaokeOnTv, useDisplayCount } from "../../app/desktop/shellBus";
-import { routes } from "../../shared/routes";
+import { karaokeOnTv, useDisplayCount } from '../../app/desktop/shellBus';
+import { routes } from '../../shared/routes';
 import {
   KaraokeScreen,
   KaraokeSlotContext,
   type KaraokeScreenControls,
-} from "./KaraokePage";
+} from './KaraokePage';
 import {
   KaraokeTvContext,
   queueWith,
   type KaraokeTv,
   type QueuedSong,
-} from "./tv/karaokeTv";
-import { useTvWindow } from "./tv/useTvWindow";
-import type { KaraokeOpenMode } from "./useKaraokeSession";
+} from './tv/karaokeTv';
+import { useTvWindow } from './tv/useTvWindow';
+import type { KaraokeOpenMode } from './useKaraokeSession';
 
 interface TvPlayback {
   songId: string;
@@ -52,9 +52,12 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
   tvRef.current = tv;
   const controls = useRef<KaraokeScreenControls | null>(null);
 
-  const routeSongId = pathname.startsWith("/karaoke/") ? params.songId : undefined;
+  const routeSongId = pathname.startsWith('/karaoke/')
+    ? params.songId
+    : undefined;
   const launch = store.playback.launch;
-  const routeMode = launch && launch.songId === routeSongId ? launch.mode : "Normal";
+  const routeMode =
+    launch && launch.songId === routeSongId ? launch.mode : 'Normal';
   const route = useRef({ songId: routeSongId, mode: routeMode });
   route.current = { songId: routeSongId, mode: routeMode };
 
@@ -81,7 +84,7 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
   const send = useCallback(() => {
     const { songId, mode } = route.current;
     if (!songId || tvRef.current) return;
-    if (!openTv("A&D Voice")) return;
+    if (!openTv('A&D Voice')) return;
     setTv({ songId, mode, queue: [] });
     navigate(routes.library);
   }, [openTv, navigate]);
@@ -100,7 +103,7 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
       if (next)
         setTv({
           songId: next.id,
-          mode: next.rehearsal ? "Rehearsal" : "AutoStart",
+          mode: next.rehearsal ? 'Rehearsal' : 'AutoStart',
           queue: rest,
         });
       else endTv();
@@ -114,16 +117,19 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (!ending) return;
-    const timer = window.setTimeout(() => {
-      store.returnFromKaraoke({
+    const timer = window.setTimeout(
+      () => {
+        store.returnFromKaraoke({
           performanceReturn: true,
           ...(ending.takeId
             ? { analysisSongId: ending.songId, analysisFor: ending.takeId }
             : {}),
-      });
-      navigate(routes.library);
-      setEnding(null);
-    }, room ? 400 : 0);
+        });
+        navigate(routes.library);
+        setEnding(null);
+      },
+      room ? 400 : 0,
+    );
     return () => window.clearTimeout(timer);
   }, [ending, navigate, room]);
 
@@ -132,16 +138,16 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
     else navigate(routes.library);
   }, [endTv, navigate]);
 
-  const play = useCallback((song: QueuedSong, when: "next" | "now") => {
+  const play = useCallback((song: QueuedSong, when: 'next' | 'now') => {
     const current = tvRef.current;
     if (!current || song.id === current.songId) return;
     const queue = queueWith(current.queue, song, when);
-    const finish = when === "now" ? controls.current?.finish : null;
+    const finish = when === 'now' ? controls.current?.finish : null;
     // Right away: the current song ends as with Stop (its take is kept) and the queue moves on.
-    if (when === "now" && !finish)
+    if (when === 'now' && !finish)
       setTv({
         songId: song.id,
-        mode: song.rehearsal ? "Rehearsal" : "AutoStart",
+        mode: song.rehearsal ? 'Rehearsal' : 'AutoStart',
         queue: queue.slice(1),
       });
     else setTv({ ...current, queue });

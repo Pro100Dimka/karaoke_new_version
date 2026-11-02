@@ -1,11 +1,11 @@
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-import { useVoiceEffects } from "./useVoiceEffects";
-import { voiceEffects, type VoiceEffectValues } from "./voiceEffects";
+import { act, renderHook } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { useVoiceEffects } from './useVoiceEffects';
+import { voiceEffects, type VoiceEffectValues } from './voiceEffects';
 
-describe("useVoiceEffects", () => {
-  it("lets the delay knob reach zero and stores zero without a minimum offset", () => {
-    expect(voiceEffects.find((effect) => effect.id === "delay")?.min).toBe(0);
+describe('useVoiceEffects', () => {
+  it('lets the delay knob reach zero and stores zero without a minimum offset', () => {
+    expect(voiceEffects.find((effect) => effect.id === 'delay')?.min).toBe(0);
     const store = vi.fn();
     const { result } = renderHook(() =>
       useVoiceEffects(
@@ -13,7 +13,7 @@ describe("useVoiceEffects", () => {
         store,
       ),
     );
-    act(() => result.current.change("delay", 0));
+    act(() => result.current.change('delay', 0));
     expect(store).toHaveBeenLastCalledWith({
       echo: 0.2,
       reverb: 0,
@@ -22,7 +22,7 @@ describe("useVoiceEffects", () => {
     });
   });
 
-  it("shows the stored knob values and reports every change for storing", () => {
+  it('shows the stored knob values and reports every change for storing', () => {
     const saved: VoiceEffectValues = {
       echo: 0.21,
       reverb: 0.43,
@@ -33,7 +33,7 @@ describe("useVoiceEffects", () => {
     const { result } = renderHook(() => useVoiceEffects(saved, store));
 
     expect(result.current.values).toEqual(saved);
-    act(() => result.current.change("reverb", 0.61));
+    act(() => result.current.change('reverb', 0.61));
 
     expect(store).toHaveBeenLastCalledWith({ ...saved, reverb: 0.61 });
   });
@@ -50,9 +50,9 @@ describe("useVoiceEffects", () => {
 
     act(() =>
       result.current.applyPreset({
-        id: "room",
-        label: "presetRoom",
-        symbol: "◇",
+        id: 'room',
+        label: 'presetRoom',
+        symbol: '◇',
         echo: 0.12,
         reverb: 0.42,
         delay: 0.08,
@@ -65,6 +65,6 @@ describe("useVoiceEffects", () => {
       delay: 0.08,
       autoTune: 0.3,
     });
-    expect(result.current.preset).toBe("room");
+    expect(result.current.preset).toBe('room');
   });
 });

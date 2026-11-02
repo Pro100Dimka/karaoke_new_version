@@ -1,40 +1,48 @@
 export const expectedPythonApiVersion = 1;
 
 export type ServiceStatus =
-  | { kind: "starting" }
-  | { kind: "ready"; version: string; instanceId?: string }
-  | { kind: "unavailable" }
-  | { kind: "incompatible"; version: string; expected: string };
+  | { kind: 'starting' }
+  | { kind: 'ready'; version: string; instanceId?: string }
+  | { kind: 'unavailable' }
+  | { kind: 'incompatible'; version: string; expected: string };
 
 export const isReady = (status: ServiceStatus): boolean =>
-  status.kind === "ready";
+  status.kind === 'ready';
 
 /** Preserve context identity for a health reply that carries no new information. */
-export const sameServiceStatus = (previous: ServiceStatus, next: ServiceStatus): boolean => {
+export const sameServiceStatus = (
+  previous: ServiceStatus,
+  next: ServiceStatus,
+): boolean => {
   if (previous.kind !== next.kind) return false;
-  if (previous.kind === "ready" && next.kind === "ready")
-    return previous.version === next.version && previous.instanceId === next.instanceId;
-  if (previous.kind === "incompatible" && next.kind === "incompatible")
-    return previous.version === next.version && previous.expected === next.expected;
+  if (previous.kind === 'ready' && next.kind === 'ready')
+    return (
+      previous.version === next.version &&
+      previous.instanceId === next.instanceId
+    );
+  if (previous.kind === 'incompatible' && next.kind === 'incompatible')
+    return (
+      previous.version === next.version && previous.expected === next.expected
+    );
   return true;
 };
 
 export const pythonStatusFrom = (result: {
-  status: "ready" | "unavailable";
+  status: 'ready' | 'unavailable';
   version: string;
   apiVersion: number;
   instanceId?: string;
 }): ServiceStatus => {
   if (result.apiVersion !== expectedPythonApiVersion) {
     return {
-      kind: "incompatible",
+      kind: 'incompatible',
       version: `API ${result.apiVersion}`,
       expected: `API ${expectedPythonApiVersion}`,
     };
   }
-  return result.status === "ready"
-    ? { kind: "ready", version: result.version, instanceId: result.instanceId }
-    : { kind: "unavailable" };
+  return result.status === 'ready'
+    ? { kind: 'ready', version: result.version, instanceId: result.instanceId }
+    : { kind: 'unavailable' };
 };
 
 /** A service that came back after being down invalidates every snapshot the renderer holds for it. */
@@ -42,9 +50,9 @@ export const reconnected = (
   previous: ServiceStatus,
   next: ServiceStatus,
 ): boolean =>
-  previous.kind !== "starting" &&
-  next.kind === "ready" &&
-  (previous.kind !== "ready" ||
+  previous.kind !== 'starting' &&
+  next.kind === 'ready' &&
+  (previous.kind !== 'ready' ||
     (previous.instanceId !== undefined &&
       next.instanceId !== undefined &&
       previous.instanceId !== next.instanceId));
@@ -57,8 +65,8 @@ export const withStartupGrace = (
   everReady: boolean,
   elapsedMilliseconds: number,
 ): ServiceStatus =>
-  next.kind === "unavailable" &&
+  next.kind === 'unavailable' &&
   !everReady &&
   elapsedMilliseconds < startupGraceMilliseconds
-    ? { kind: "starting" }
+    ? { kind: 'starting' }
     : next;

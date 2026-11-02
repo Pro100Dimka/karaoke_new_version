@@ -1,10 +1,28 @@
-import { desktopBridge } from "./desktopBridge";
-import { roomServerMixParticipantId, type AudioServiceClient } from "../contracts/clients";
-import type { RequestedAudioConfiguration, RuntimeAudioConfiguration } from "../contracts/models";
-import { backendName, diagnosticNumber, roomTimingFromDiagnostics } from "./audioProtocol";
-import { audioClock, audioState, command, diagnostics, ensureSession, refreshClock } from "./audioSession";
+import { desktopBridge } from './desktopBridge';
+import {
+  roomServerMixParticipantId,
+  type AudioServiceClient,
+} from '../contracts/clients';
+import type {
+  RequestedAudioConfiguration,
+  RuntimeAudioConfiguration,
+} from '../contracts/models';
+import {
+  backendName,
+  diagnosticNumber,
+  roomTimingFromDiagnostics,
+} from './audioProtocol';
+import {
+  audioClock,
+  audioState,
+  command,
+  diagnostics,
+  ensureSession,
+  refreshClock,
+} from './audioSession';
 
-type RemoteEffect = "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
+type RemoteEffect =
+  'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';
 
 interface VoiceSession {
   roomId: string;
@@ -39,7 +57,10 @@ const forgetParticipant = (participantId: string) => {
 };
 
 /** A person's personal volume lives in the server mix-minus, so it is replayed to the relay. */
-const restoreRelayGain = async (participantId: string, gain: number): Promise<void> => {
+const restoreRelayGain = async (
+  participantId: string,
+  gain: number,
+): Promise<void> => {
   const setGain = desktopBridge().setRoomVoiceParticipantGain;
   if (!setGain) {
     forgetParticipant(participantId);
@@ -55,33 +76,40 @@ const restoreRelayGain = async (participantId: string, gain: number): Promise<vo
 };
 
 /** The server mix itself is one AudioService participant, with its gain, effects and mute. */
-const restoreServerMix = async (participantId: string, gain: number): Promise<void> => {
-  await command("AddRemoteParticipant", { participantId });
-  await command("SetRemoteGain", { participantId, value: gain });
+const restoreServerMix = async (
+  participantId: string,
+  gain: number,
+): Promise<void> => {
+  await command('AddRemoteParticipant', { participantId });
+  await command('SetRemoteGain', { participantId, value: gain });
   for (const [effect, value] of voice.effects.get(participantId) ?? [])
-    await command("SetRemoteEffect", { participantId, effect, value });
+    await command('SetRemoteEffect', { participantId, effect, value });
   if (voice.muted.has(participantId))
-    await command("SetRemoteMute", { participantId, muted: true });
+    await command('SetRemoteMute', { participantId, muted: true });
 };
 
 const restoreRemoteParticipants = async (): Promise<void> => {
   if (voice.session && !voice.gains.has(roomServerMixParticipantId))
     voice.gains.set(roomServerMixParticipantId, 1);
   for (const [participantId, gain] of voice.gains) {
-    if (participantId === roomServerMixParticipantId) await restoreServerMix(participantId, gain);
+    if (participantId === roomServerMixParticipantId)
+      await restoreServerMix(participantId, gain);
     else await restoreRelayGain(participantId, gain);
   }
 };
 
-export const synchronizeRoomClock = async (offset?: number, force = false): Promise<void> => {
+export const synchronizeRoomClock = async (
+  offset?: number,
+  force = false,
+): Promise<void> => {
   if (offset === undefined || !Number.isFinite(offset)) return;
   if (!force && voice.session?.serverClockOffsetMilliseconds === offset) return;
   await diagnostics();
   await refreshClock();
   const clock = audioClock();
-  if (!clock) throw new Error("AudioService clock is unavailable");
+  if (!clock) throw new Error('AudioService clock is unavailable');
   const now = performance.now();
-  await command("SetRoomClock", {
+  await command('SetRoomClock', {
     serverMicros: Math.round((now + offset) * 1000),
     localMicros: Math.round((now + clock.offset) * 1000),
   });
@@ -96,28 +124,32 @@ export const restoreVoiceSession = async (): Promise<void> => {
   await synchronizeRoomClock(session.serverClockOffsetMilliseconds, true);
   await desktopBridge().joinRoomVoice(session.roomId, session.participantId);
   await restoreRemoteParticipants();
-  await command("SetRoomPlayoutDelay", { milliseconds: voice.roomPlayoutDelayMilliseconds });
+  await command('SetRoomPlayoutDelay', {
+    milliseconds: voice.roomPlayoutDelayMilliseconds,
+  });
 };
 
 type RoomVoiceMethods = Pick<
   AudioServiceClient,
-  | "setParticipantMuted"
-  | "participantMuted"
-  | "setParticipantVolume"
-  | "roomLevels"
-  | "setParticipantEffect"
-  | "roomTiming"
-  | "synchronizeRoomClock"
-  | "setRoomPlayoutDelay"
-  | "joinVoiceSession"
-  | "reconnectVoiceSession"
-  | "leaveVoiceSession"
-  | "addRemoteParticipant"
-  | "removeRemoteParticipant"
+  | 'setParticipantMuted'
+  | 'participantMuted'
+  | 'setParticipantVolume'
+  | 'roomLevels'
+  | 'setParticipantEffect'
+  | 'roomTiming'
+  | 'synchronizeRoomClock'
+  | 'setRoomPlayoutDelay'
+  | 'joinVoiceSession'
+  | 'reconnectVoiceSession'
+  | 'leaveVoiceSession'
+  | 'addRemoteParticipant'
+  | 'removeRemoteParticipant'
 >;
 
 export const createRoomVoice = (
-  applyConfiguration: (configuration: RequestedAudioConfiguration) => Promise<RuntimeAudioConfiguration>,
+  applyConfiguration: (
+    configuration: RequestedAudioConfiguration,
+  ) => Promise<RuntimeAudioConfiguration>,
 ): RoomVoiceMethods => ({
   async setParticipantMuted(participantId, muted) {
     const gain = muted ? 0 : (voice.gains.get(participantId) ?? 1);
@@ -140,16 +172,18 @@ export const createRoomVoice = (
     const values = await diagnostics();
     const remote: Record<string, number> = {};
     for (const [name, value] of Object.entries(values)) {
-      if (name.startsWith("RemoteLevel.")) remote[name.slice("RemoteLevel.".length)] = diagnosticNumber(value);
+      if (name.startsWith('RemoteLevel.'))
+        remote[name.slice('RemoteLevel.'.length)] = diagnosticNumber(value);
     }
     return { local: diagnosticNumber(values.InputRMS), remote };
   },
 
   async setParticipantEffect(participantId, effect, value) {
-    const effects = voice.effects.get(participantId) ?? new Map<RemoteEffect, number>();
+    const effects =
+      voice.effects.get(participantId) ?? new Map<RemoteEffect, number>();
     effects.set(effect, value);
     voice.effects.set(participantId, effects);
-    await command("SetRemoteEffect", { participantId, effect, value });
+    await command('SetRemoteEffect', { participantId, effect, value });
   },
 
   async roomTiming() {
@@ -159,9 +193,12 @@ export const createRoomVoice = (
   synchronizeRoomClock,
 
   async setRoomPlayoutDelay(milliseconds) {
-    const bounded = Math.max(0, Math.min(maximumRoomPlayoutDelayMilliseconds, milliseconds));
+    const bounded = Math.max(
+      0,
+      Math.min(maximumRoomPlayoutDelayMilliseconds, milliseconds),
+    );
     if (bounded === voice.roomPlayoutDelayMilliseconds) return;
-    await command("SetRoomPlayoutDelay", { milliseconds: bounded });
+    await command('SetRoomPlayoutDelay', { milliseconds: bounded });
     voice.roomPlayoutDelayMilliseconds = bounded;
   },
 
@@ -171,7 +208,10 @@ export const createRoomVoice = (
     // switch) would carry the room on that mode's latency; the chosen mode is restored first.
     // If the device refuses it, the room still opens on the mode that works.
     const running = (await diagnostics()).Backend;
-    if (running !== undefined && backendName(running) !== audioState.preferred.backend) {
+    if (
+      running !== undefined &&
+      backendName(running) !== audioState.preferred.backend
+    ) {
       const selected = audioState.preferred;
       await applyConfiguration(selected).catch(() => {
         // A temporary device failure may keep the room on its working fallback, but it must not
@@ -193,7 +233,7 @@ export const createRoomVoice = (
     await desktopBridge().leaveRoomVoice();
     voice.session = null;
     if (voice.roomPlayoutDelayMilliseconds > 0)
-      await command("SetRoomPlayoutDelay", { milliseconds: 0 });
+      await command('SetRoomPlayoutDelay', { milliseconds: 0 });
     voice.roomPlayoutDelayMilliseconds = 0;
     voice.gains.clear();
     voice.effects.clear();
@@ -201,12 +241,12 @@ export const createRoomVoice = (
   },
 
   async addRemoteParticipant(participantId) {
-    await command("AddRemoteParticipant", { participantId });
+    await command('AddRemoteParticipant', { participantId });
     if (!voice.gains.has(participantId)) voice.gains.set(participantId, 1);
   },
 
   async removeRemoteParticipant(participantId) {
-    await command("RemoveRemoteParticipant", { participantId });
+    await command('RemoveRemoteParticipant', { participantId });
     voice.gains.delete(participantId);
     voice.effects.delete(participantId);
   },

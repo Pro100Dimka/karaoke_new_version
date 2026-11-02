@@ -1,8 +1,15 @@
-import { Button, Card, Icon, IconButton, tr, useLocale } from "@neo-ui-kit/react";
-import { useNowPlaying } from "../../../app/desktop/shellBus";
-import { ru } from "../../../i18n/messages.ru";
-import { useKaraokeTv } from "./karaokeTv";
-import "./tv.css";
+import {
+  Button,
+  Card,
+  Icon,
+  IconButton,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { useNowPlaying } from '../../../app/desktop/shellBus';
+import { ru } from '../../../i18n/messages.ru';
+import { useKaraokeTv } from './karaokeTv';
+import './tv.css';
 
 /**
  * The laptop's remote while Karaoke is on the TV: what plays there and what comes next, play and
@@ -16,14 +23,23 @@ export const TvRemote = () => {
   const [next] = tv.queue;
   const later = tv.queue.length - 1;
   return (
-    <Card border shell padding="sm" className="tvRemote" role="region" aria-label={tr(ru.tvRemote)}>
+    <Card
+      border
+      shell
+      padding="sm"
+      className="tvRemote"
+      role="region"
+      aria-label={tr(ru.tvRemote)}
+    >
       <span className="tvRemoteIcon">
         <Icon name="window" />
       </span>
       <div className="tvRemoteSong">
         <span className="tvRemoteLabel">{tr(ru.tvNowPlaying)}</span>
         <strong className="tvRemoteTitle">
-          {playing ? [playing.title, playing.artist].filter(Boolean).join(" — ") : tr(ru.loadingSong)}
+          {playing
+            ? [playing.title, playing.artist].filter(Boolean).join(' — ')
+            : tr(ru.loadingSong)}
         </strong>
         {next && (
           <span className="tvRemoteNext">
@@ -35,8 +51,8 @@ export const TvRemote = () => {
       </div>
       <IconButton
         round
-        icon={playing?.playing ? "pause" : "play"}
-        label={tr(ru[playing?.playing ? "pause" : "tvPlay"])}
+        icon={playing?.playing ? 'pause' : 'play'}
+        label={tr(ru[playing?.playing ? 'pause' : 'tvPlay'])}
         disabled={!playing}
         onClick={() => playing?.togglePlayback()}
       />

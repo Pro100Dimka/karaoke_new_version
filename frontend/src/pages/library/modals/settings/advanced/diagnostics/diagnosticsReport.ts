@@ -1,7 +1,7 @@
 import type {
   BackendDiagnosticsDto,
   ProcessingJobDto,
-} from "../../../../../../contracts/models";
+} from '../../../../../../contracts/models';
 
 export interface DiagnosticsSnapshot {
   frontendVersion: string;
@@ -18,17 +18,17 @@ const reportedFailures = 5;
 /** Select recent failures; backend error details are retained for diagnosis. */
 export const failedJobsOf = (jobs: readonly ProcessingJobDto[]) =>
   jobs
-    .filter((job) => job.state === "failed" || job.state === "interrupted")
+    .filter((job) => job.state === 'failed' || job.state === 'interrupted')
     .sort((a, b) =>
-      (b.finishedAt ?? b.startedAt ?? "").localeCompare(
-        a.finishedAt ?? a.startedAt ?? "",
+      (b.finishedAt ?? b.startedAt ?? '').localeCompare(
+        a.finishedAt ?? a.startedAt ?? '',
       ),
     )
     .slice(0, reportedFailures)
     .map((job) => ({
       state: job.state,
       stage: job.stage,
-      processingBackend: job.processingBackend ?? "Local",
+      processingBackend: job.processingBackend ?? 'Local',
       startedAt: job.startedAt,
       finishedAt: job.finishedAt,
       error: job.error
@@ -45,18 +45,18 @@ export const buildDiagnosticsReport = (snapshot: DiagnosticsSnapshot): string =>
   JSON.stringify(
     {
       application: {
-        name: "A&D Voice",
+        name: 'A&D Voice',
         frontendVersion: snapshot.frontendVersion,
         generatedAt: snapshot.generatedAt,
       },
-      pythonBackend: snapshot.backend ?? "unavailable",
-      audioService: snapshot.audio ?? "unavailable",
+      pythonBackend: snapshot.backend ?? 'unavailable',
+      audioService: snapshot.audio ?? 'unavailable',
       failedProcessing: snapshot.jobs
         ? failedJobsOf(snapshot.jobs)
-        : "unavailable",
+        : 'unavailable',
       keyboardLighting: snapshot.keyboardLighting
-        ? "supported"
-        : "unsupported: no compatible device",
+        ? 'supported'
+        : 'unsupported: no compatible device',
     },
     null,
     2,

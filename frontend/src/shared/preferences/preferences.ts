@@ -3,25 +3,27 @@ import type {
   Language,
   RequestedAudioConfiguration,
   ThemeName,
-} from "../../contracts/models";
+} from '../../contracts/models';
 import {
   appFontIds,
   defaultHeadingFont,
   defaultTextFont,
   type AppFont,
-} from "./appFonts";
+} from './appFonts';
 import {
   readJson,
   storageKey as localKey,
   writeJson,
-} from "../storage/localStore";
+} from '../storage/localStore';
 
 export type LibrarySort =
-  "recent" | "title" | "artist" | "played" | "duration" | "bpm";
+  'recent' | 'title' | 'artist' | 'played' | 'duration' | 'bpm';
 
 /** Windows defaults keep a microphone and output paired through the operating system. */
 export const defaultAudioConfiguration: RequestedAudioConfiguration = {
-  backend: "WASAPI Shared", sampleRate: 0, periodFrames: 0,
+  backend: 'WASAPI Shared',
+  sampleRate: 0,
+  periodFrames: 0,
 };
 
 /** ASIO4ALL does not expose which Windows pins its channels currently represent. */
@@ -29,12 +31,18 @@ export const isAsio4AllRoute = (
   configuration: RequestedAudioConfiguration,
   devices: readonly { id: string; name: string; backend: AudioBackendName }[],
 ): boolean => {
-  if (configuration.backend !== "ASIO") return false;
-  const ids = [configuration.inputDeviceId, configuration.outputDeviceId].filter(Boolean);
-  const asio4all = devices.filter((device) =>
-    device.backend === "ASIO" && /asio4all/i.test(device.name));
-  return asio4all.some((device) => ids.includes(device.id)) ||
-    (ids.length === 0 && asio4all.length > 0);
+  if (configuration.backend !== 'ASIO') return false;
+  const ids = [
+    configuration.inputDeviceId,
+    configuration.outputDeviceId,
+  ].filter(Boolean);
+  const asio4all = devices.filter(
+    (device) => device.backend === 'ASIO' && /asio4all/i.test(device.name),
+  );
+  return (
+    asio4all.some((device) => ids.includes(device.id)) ||
+    (ids.length === 0 && asio4all.length > 0)
+  );
 };
 
 export const safeAudioConfiguration = (
@@ -44,7 +52,7 @@ export const safeAudioConfiguration = (
   !configuration.userSelectedAsio && isAsio4AllRoute(configuration, devices)
     ? defaultAudioConfiguration
     : configuration;
-export type LibrarySortDirection = "asc" | "desc";
+export type LibrarySortDirection = 'asc' | 'desc';
 
 export interface KaraokeEffectPreferences {
   echo: number;
@@ -63,7 +71,7 @@ export interface PianoRollLayout {
 
 export interface KeyboardLightingPreferences {
   enabled: boolean;
-  mode: "music" | "theme";
+  mode: 'music' | 'theme';
   brightness: number;
   sensitivity: number;
 }
@@ -120,30 +128,30 @@ export interface Preferences {
 export const maxAcousticLatencyMs = 500;
 
 export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
-  backend: "WASAPI Shared",
+  backend: 'WASAPI Shared',
   // Zero means "ask the selected device". It is resolved by AudioService before the stream opens.
   sampleRate: 0,
   periodFrames: 0,
   bufferFrames: 0,
 });
 
-const storageKey = localKey("preferences");
+const storageKey = localKey('preferences');
 
 const systemReducedMotion = (): boolean =>
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export const defaultPreferences = (): Preferences => ({
-  theme: "dark",
+  theme: 'dark',
   headingFont: defaultHeadingFont,
   textFont: defaultTextFont,
   fontDefaults: currentFontDefaults,
-  language: "ru",
+  language: 'ru',
   reducedMotion: systemReducedMotion(),
   discordPresence: true,
   autoUpdate: true,
-  librarySort: "recent",
-  librarySortDirection: "desc",
+  librarySort: 'recent',
+  librarySortDirection: 'desc',
   karaokeShowNotes: true,
   karaokeShowLyrics: true,
   karaokeAutoHideConsole: true,
@@ -159,15 +167,15 @@ export const defaultPreferences = (): Preferences => ({
   pianoRollLayout: null,
   keyboardLighting: {
     enabled: false,
-    mode: "theme",
+    mode: 'theme',
     brightness: 70,
     sensitivity: 50,
   },
   noiseSuppression: 0,
-  radioStation: "",
+  radioStation: '',
   radioVolume: 35,
-  displayName: "",
-  profilePhoto: "",
+  displayName: '',
+  profilePhoto: '',
   audio: defaultAudioRequest(),
   releaseAsioInBackground: false,
   acousticLatencyMs: {},
@@ -183,14 +191,14 @@ const oneOf = <T extends string>(
 export const masterGainMax = 1.5;
 
 const gain = (value: unknown, fallback: number, max = 1): number =>
-  typeof value === "number" && value >= 0 && value <= max ? value : fallback;
+  typeof value === 'number' && value >= 0 && value <= max ? value : fallback;
 
 const parseEffects = (
   raw: unknown,
   fallback: KaraokeEffectPreferences,
 ): KaraokeEffectPreferences => {
   const value =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
     echo: gain(value.echo, fallback.echo),
     reverb: gain(value.reverb, fallback.reverb),
@@ -200,10 +208,10 @@ const parseEffects = (
 };
 
 const finiteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
+  typeof value === 'number' && Number.isFinite(value);
 
 const parsePianoRollLayout = (raw: unknown): PianoRollLayout | null => {
-  if (!raw || typeof raw !== "object") return null;
+  if (!raw || typeof raw !== 'object') return null;
   const value = raw as Record<string, unknown>;
   const { left, top, width, height } = value;
   return finiteNumber(left) &&
@@ -217,7 +225,7 @@ const parsePianoRollLayout = (raw: unknown): PianoRollLayout | null => {
 };
 
 const percentage = (value: unknown, fallback: number): number =>
-  typeof value === "number" &&
+  typeof value === 'number' &&
   Number.isFinite(value) &&
   value >= 0 &&
   value <= 100
@@ -229,11 +237,11 @@ const parseKeyboardLighting = (
   fallback: KeyboardLightingPreferences,
 ): KeyboardLightingPreferences => {
   const value =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
     enabled:
-      typeof value.enabled === "boolean" ? value.enabled : fallback.enabled,
-    mode: oneOf(value.mode, ["music", "theme"], fallback.mode),
+      typeof value.enabled === 'boolean' ? value.enabled : fallback.enabled,
+    mode: oneOf(value.mode, ['music', 'theme'], fallback.mode),
     brightness: percentage(value.brightness, fallback.brightness),
     sensitivity: percentage(value.sensitivity, fallback.sensitivity),
   };
@@ -241,22 +249,22 @@ const parseKeyboardLighting = (
 
 // What a user can choose: "Windows" (WASAPI Shared) or ASIO. Full WASAPI Exclusive is no longer a
 // choice; only the microphone can be exclusive, through lowLatencyInput.
-const backends: readonly AudioBackendName[] = ["WASAPI Shared", "ASIO"];
+const backends: readonly AudioBackendName[] = ['WASAPI Shared', 'ASIO'];
 
 const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
   const base = defaultAudioRequest();
   const value =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const nonNegative = (item: unknown, fallback: number) =>
-    typeof item === "number" && Number.isFinite(item) && item >= 0
+    typeof item === 'number' && Number.isFinite(item) && item >= 0
       ? item
       : fallback;
   const id = (item: unknown) =>
-    typeof item === "string" && item ? item : undefined;
+    typeof item === 'string' && item ? item : undefined;
   // A former full-Exclusive choice becomes plain Windows with the device's own rate and period:
   // its exclusive buffer is meaningless in shared mode, and an exclusive microphone is never
   // switched on without the user asking, so the sound is sure to start after the update.
-  if (value.backend === "WASAPI Exclusive")
+  if (value.backend === 'WASAPI Exclusive')
     return {
       ...base,
       inputDeviceId: id(value.inputDeviceId),
@@ -265,8 +273,10 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
   const backend = oneOf(value.backend, backends, base.backend);
   return {
     backend,
-    userSelectedAsio: value.backend === "ASIO" && value.userSelectedAsio === true,
-    ...(backend === "WASAPI Shared" && value.lowLatencyInput === true && { lowLatencyInput: true }),
+    userSelectedAsio:
+      value.backend === 'ASIO' && value.userSelectedAsio === true,
+    ...(backend === 'WASAPI Shared' &&
+      value.lowLatencyInput === true && { lowLatencyInput: true }),
     inputDeviceId: id(value.inputDeviceId),
     outputDeviceId: id(value.outputDeviceId),
     sampleRate: nonNegative(value.sampleRate, base.sampleRate),
@@ -277,7 +287,7 @@ const parseAudio = (raw: unknown): RequestedAudioConfiguration => {
 
 const parseAcousticLatency = (raw: unknown): Record<string, number> =>
   Object.fromEntries(
-    Object.entries(raw && typeof raw === "object" ? raw : {}).filter(
+    Object.entries(raw && typeof raw === 'object' ? raw : {}).filter(
       (entry): entry is [string, number] =>
         finiteNumber(entry[1]) &&
         entry[1] >= 0 &&
@@ -286,19 +296,22 @@ const parseAcousticLatency = (raw: unknown): Record<string, number> =>
   );
 
 const profilePhoto = (value: unknown): string =>
-  typeof value === "string" &&
+  typeof value === 'string' &&
   value.length <= 400_000 &&
   /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/]+={0,2}$/i.test(value)
     ? value
-    : "";
+    : '';
 
 // Preferences are saved whole, so a text face nobody ever picked was stored as the old default
 // (Melodix text) too. Settings saved before the default became Segoe UI move to it once; anything
 // chosen after that is kept as it is.
 const currentFontDefaults = 2;
-const previousDefaultTextFont: AppFont = "melodixText";
+const previousDefaultTextFont: AppFont = 'melodixText';
 
-const parseTextFont = (value: Record<string, unknown>, base: AppFont): AppFont => {
+const parseTextFont = (
+  value: Record<string, unknown>,
+  base: AppFont,
+): AppFont => {
   const chosen = oneOf(value.textFont, appFontIds, base);
   return value.fontDefaults !== currentFontDefaults &&
     chosen === previousDefaultTextFont
@@ -309,47 +322,49 @@ const parseTextFont = (value: Record<string, unknown>, base: AppFont): AppFont =
 export const parsePreferences = (raw: unknown): Preferences => {
   const base = defaultPreferences();
   const value =
-    raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
-    theme: oneOf(value.theme, ["dark", "light", "green", "violet"], base.theme),
+    theme: oneOf(value.theme, ['dark', 'light', 'green', 'violet'], base.theme),
     headingFont: oneOf(value.headingFont, appFontIds, base.headingFont),
     textFont: parseTextFont(value, base.textFont),
     fontDefaults: currentFontDefaults,
-    language: oneOf(value.language, ["uk", "ru", "en"], base.language),
+    language: oneOf(value.language, ['uk', 'ru', 'en'], base.language),
     reducedMotion:
-      typeof value.reducedMotion === "boolean"
+      typeof value.reducedMotion === 'boolean'
         ? value.reducedMotion
         : base.reducedMotion,
     discordPresence:
-      typeof value.discordPresence === "boolean"
+      typeof value.discordPresence === 'boolean'
         ? value.discordPresence
         : base.discordPresence,
     autoUpdate:
-      typeof value.autoUpdate === "boolean" ? value.autoUpdate : base.autoUpdate,
+      typeof value.autoUpdate === 'boolean'
+        ? value.autoUpdate
+        : base.autoUpdate,
     librarySort: oneOf(
       value.librarySort,
-      ["recent", "title", "artist", "played", "duration", "bpm"],
+      ['recent', 'title', 'artist', 'played', 'duration', 'bpm'],
       base.librarySort,
     ),
     librarySortDirection: oneOf(
       value.librarySortDirection,
-      ["asc", "desc"],
+      ['asc', 'desc'],
       base.librarySortDirection,
     ),
     karaokeShowNotes:
-      typeof value.karaokeShowNotes === "boolean"
+      typeof value.karaokeShowNotes === 'boolean'
         ? value.karaokeShowNotes
         : base.karaokeShowNotes,
     karaokeShowLyrics:
-      typeof value.karaokeShowLyrics === "boolean"
+      typeof value.karaokeShowLyrics === 'boolean'
         ? value.karaokeShowLyrics
         : base.karaokeShowLyrics,
     karaokeAutoHideConsole:
-      typeof value.karaokeAutoHideConsole === "boolean"
+      typeof value.karaokeAutoHideConsole === 'boolean'
         ? value.karaokeAutoHideConsole
         : base.karaokeAutoHideConsole,
     karaokeMonitoring:
-      typeof value.karaokeMonitoring === "boolean"
+      typeof value.karaokeMonitoring === 'boolean'
         ? value.karaokeMonitoring
         : base.karaokeMonitoring,
     musicGain: gain(value.musicGain, base.musicGain),
@@ -358,13 +373,13 @@ export const parsePreferences = (raw: unknown): Preferences => {
     melodyGain: gain(value.melodyGain, base.melodyGain),
     masterGain: gain(value.masterGain, base.masterGain, masterGainMax),
     karaokeSpeed:
-      typeof value.karaokeSpeed === "number" &&
+      typeof value.karaokeSpeed === 'number' &&
       value.karaokeSpeed >= 0.5 &&
       value.karaokeSpeed <= 1.5
         ? value.karaokeSpeed
         : base.karaokeSpeed,
     karaokeKeyShift:
-      typeof value.karaokeKeyShift === "number" &&
+      typeof value.karaokeKeyShift === 'number' &&
       Number.isInteger(value.karaokeKeyShift) &&
       value.karaokeKeyShift >= -12 &&
       value.karaokeKeyShift <= 12
@@ -378,23 +393,23 @@ export const parsePreferences = (raw: unknown): Preferences => {
     ),
     noiseSuppression: gain(value.noiseSuppression, base.noiseSuppression),
     radioStation:
-      typeof value.radioStation === "string"
+      typeof value.radioStation === 'string'
         ? value.radioStation
         : base.radioStation,
     radioVolume:
-      typeof value.radioVolume === "number" &&
+      typeof value.radioVolume === 'number' &&
       value.radioVolume >= 0 &&
       value.radioVolume <= 100
         ? value.radioVolume
         : base.radioVolume,
     displayName:
-      typeof value.displayName === "string"
+      typeof value.displayName === 'string'
         ? value.displayName.slice(0, 40)
         : base.displayName,
     profilePhoto: profilePhoto(value.profilePhoto),
     audio: parseAudio(value.audio),
     releaseAsioInBackground:
-      typeof value.releaseAsioInBackground === "boolean"
+      typeof value.releaseAsioInBackground === 'boolean'
         ? value.releaseAsioInBackground
         : base.releaseAsioInBackground,
     acousticLatencyMs: parseAcousticLatency(value.acousticLatencyMs),

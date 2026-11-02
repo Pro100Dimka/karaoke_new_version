@@ -1,21 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from 'vitest';
 import {
   audioCapabilitiesFromValues,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
-} from "./audioProtocol";
+} from './audioProtocol';
 
-describe("device format capabilities", () => {
-  it("reports the active endpoints after startup falls back to Windows defaults", () => {
-    expect(runtimeConfigurationFromDiagnostics({
-      ActiveInputDeviceId: "system-default", ActiveOutputDeviceId: "actual-speakers",
-    })).toMatchObject({ inputDeviceId: "", outputDeviceId: "actual-speakers" });
+describe('device format capabilities', () => {
+  it('reports the active endpoints after startup falls back to Windows defaults', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        ActiveInputDeviceId: 'system-default',
+        ActiveOutputDeviceId: 'actual-speakers',
+      }),
+    ).toMatchObject({ inputDeviceId: '', outputDeviceId: 'actual-speakers' });
   });
-  it("lists the sample rates and buffers the selected device offers", () => {
+  it('lists the sample rates and buffers the selected device offers', () => {
     expect(
       audioCapabilitiesFromValues(
         parseKeyValues(
-          "sampleRatesHz=44100,48000\nperiodFrames=128,256,512\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=256",
+          'sampleRatesHz=44100,48000\nperiodFrames=128,256,512\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=256',
         ),
       ),
     ).toEqual({
@@ -26,11 +29,11 @@ describe("device format capabilities", () => {
     });
   });
 
-  it("preserves ASIO buffer sizes and the default reported by the driver", () => {
+  it('preserves ASIO buffer sizes and the default reported by the driver', () => {
     expect(
       audioCapabilitiesFromValues(
         parseKeyValues(
-          "sampleRatesHz=44100\nperiodFrames=8,16,32,64,128\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=8",
+          'sampleRatesHz=44100\nperiodFrames=8,16,32,64,128\ndefaultSampleRateHz=44100\ndefaultPeriodFrames=8',
         ),
       ),
     ).toMatchObject({
@@ -40,179 +43,279 @@ describe("device format capabilities", () => {
   });
 
   it("preserves the endpoint's period availability reason", () => {
-    expect(audioCapabilitiesFromValues({
-      sampleRatesHz: "48000", periodFrames: "480", defaultSampleRateHz: "48000",
-      defaultPeriodFrames: "480", periodSelectionReason: "IAUDIOCLIENT3_UNAVAILABLE",
-    })).toMatchObject({ periodFrames: [480], periodSelectionReason: "IAUDIOCLIENT3_UNAVAILABLE" });
+    expect(
+      audioCapabilitiesFromValues({
+        sampleRatesHz: '48000',
+        periodFrames: '480',
+        defaultSampleRateHz: '48000',
+        defaultPeriodFrames: '480',
+        periodSelectionReason: 'IAUDIOCLIENT3_UNAVAILABLE',
+      }),
+    ).toMatchObject({
+      periodFrames: [480],
+      periodSelectionReason: 'IAUDIOCLIENT3_UNAVAILABLE',
+    });
   });
 
   it("expands capture periods using that endpoint's own rate and fundamental", () => {
-    expect(audioCapabilitiesFromValues({
-      sampleRatesHz: "48000", periodFrames: "480", defaultSampleRateHz: "48000",
-      defaultPeriodFrames: "480", inputSampleRateHz: "44100",
-      inputMinPeriodFrames: "128", inputMaxPeriodFrames: "192",
-      inputFundamentalPeriodFrames: "32", inputDefaultPeriodFrames: "192",
-    })).toMatchObject({ inputPeriodFrames: [128, 160, 192], inputSampleRate: 44100 });
+    expect(
+      audioCapabilitiesFromValues({
+        sampleRatesHz: '48000',
+        periodFrames: '480',
+        defaultSampleRateHz: '48000',
+        defaultPeriodFrames: '480',
+        inputSampleRateHz: '44100',
+        inputMinPeriodFrames: '128',
+        inputMaxPeriodFrames: '192',
+        inputFundamentalPeriodFrames: '32',
+        inputDefaultPeriodFrames: '192',
+      }),
+    ).toMatchObject({
+      inputPeriodFrames: [128, 160, 192],
+      inputSampleRate: 44100,
+    });
   });
 
   it("expands a driver's period interval and always offers its default", () => {
     expect(
       audioCapabilitiesFromValues({
-        minPeriodFrames: "64",
-        maxPeriodFrames: "256",
-        fundamentalPeriodFrames: "64",
-        defaultPeriodFrames: "96",
+        minPeriodFrames: '64',
+        maxPeriodFrames: '256',
+        fundamentalPeriodFrames: '64',
+        defaultPeriodFrames: '96',
       }),
     ).toMatchObject({ periodFrames: [64, 128, 192, 256] });
   });
 });
 
-describe("runtime acoustic calibration", () => {
-  it("preserves selected, backend requested, and actual period separately", () => {
+describe('runtime acoustic calibration', () => {
+  it('preserves selected, backend requested, and actual period separately', () => {
     expect(
       runtimeConfigurationFromDiagnostics({
-        SelectedPeriodFrames: "128",
-        RequestedPeriodFrames: "480",
-        RuntimeOutputPeriodFrames: "480",
-        PeriodSelectionFallback: "UNSUPPORTED_BY_CAPABILITIES",
+        SelectedPeriodFrames: '128',
+        RequestedPeriodFrames: '480',
+        RuntimeOutputPeriodFrames: '480',
+        PeriodSelectionFallback: 'UNSUPPORTED_BY_CAPABILITIES',
       }),
     ).toMatchObject({
       selectedPeriodFrames: 128,
       requestedPeriodFrames: 480,
       periodFrames: 480,
-      periodSelectionFallback: "UNSUPPORTED_BY_CAPABILITIES",
+      periodSelectionFallback: 'UNSUPPORTED_BY_CAPABILITIES',
     });
   });
-  it("preserves independently selected and actual capture periods", () => {
-    expect(runtimeConfigurationFromDiagnostics({
-      SelectedInputPeriodFrames: "128", RequestedInputPeriodFrames: "128",
-      RuntimeInputPeriodFrames: "128", InputPeriodMismatchReason: "NONE",
-    })).toMatchObject({ selectedInputPeriodFrames: 128,
-      requestedInputPeriodFrames: 128, inputPeriodFrames: 128,
-      inputPeriodMismatchReason: "NONE" });
-  });
-  it("derives only absolute fundamental multiples for capture and render", () => {
-    expect(audioCapabilitiesFromValues({
-      minPeriodFrames: "130", maxPeriodFrames: "225", fundamentalPeriodFrames: "32",
-      inputMinPeriodFrames: "130", inputMaxPeriodFrames: "225",
-      inputFundamentalPeriodFrames: "32", defaultPeriodFrames: "160",
-    })).toMatchObject({ periodFrames: [160, 192, 224],
-      inputPeriodFrames: [160, 192, 224] });
-  });
-  it("does not display an invalid default as a selectable shared period", () => {
-    expect(audioCapabilitiesFromValues({
-      minPeriodFrames: "130", maxPeriodFrames: "225", fundamentalPeriodFrames: "32",
-      defaultPeriodFrames: "130", inputMinPeriodFrames: "130",
-      inputMaxPeriodFrames: "225", inputFundamentalPeriodFrames: "32",
-      inputDefaultPeriodFrames: "130",
-    })).toMatchObject({ periodFrames: [160, 192, 224],
-      inputPeriodFrames: [160, 192, 224] });
-  });
-  it("preserves a Windows periodicity lock even when the user request was supported", () => {
-    expect(runtimeConfigurationFromDiagnostics({
-      SelectedPeriodFrames: "128", RequestedPeriodFrames: "128",
-      RuntimeOutputPeriodFrames: "480", SharedEnginePeriodicityLocked: "1",
-      SharedEnginePeriodFallback: "ENGINE_PERIODICITY_LOCKED",
-    })).toMatchObject({
-      selectedPeriodFrames: 128, requestedPeriodFrames: 128,
-      periodFrames: 480, sharedPeriodLocked: true,
-      sharedPeriodFallback: "ENGINE_PERIODICITY_LOCKED",
+  it('preserves independently selected and actual capture periods', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        SelectedInputPeriodFrames: '128',
+        RequestedInputPeriodFrames: '128',
+        RuntimeInputPeriodFrames: '128',
+        InputPeriodMismatchReason: 'NONE',
+      }),
+    ).toMatchObject({
+      selectedInputPeriodFrames: 128,
+      requestedInputPeriodFrames: 128,
+      inputPeriodFrames: 128,
+      inputPeriodMismatchReason: 'NONE',
     });
   });
-  it.each(["NaN", "Infinity", "-1", "500001"])(
-    "rejects invalid latency %s",
+  it('derives only absolute fundamental multiples for capture and render', () => {
+    expect(
+      audioCapabilitiesFromValues({
+        minPeriodFrames: '130',
+        maxPeriodFrames: '225',
+        fundamentalPeriodFrames: '32',
+        inputMinPeriodFrames: '130',
+        inputMaxPeriodFrames: '225',
+        inputFundamentalPeriodFrames: '32',
+        defaultPeriodFrames: '160',
+      }),
+    ).toMatchObject({
+      periodFrames: [160, 192, 224],
+      inputPeriodFrames: [160, 192, 224],
+    });
+  });
+  it('does not display an invalid default as a selectable shared period', () => {
+    expect(
+      audioCapabilitiesFromValues({
+        minPeriodFrames: '130',
+        maxPeriodFrames: '225',
+        fundamentalPeriodFrames: '32',
+        defaultPeriodFrames: '130',
+        inputMinPeriodFrames: '130',
+        inputMaxPeriodFrames: '225',
+        inputFundamentalPeriodFrames: '32',
+        inputDefaultPeriodFrames: '130',
+      }),
+    ).toMatchObject({
+      periodFrames: [160, 192, 224],
+      inputPeriodFrames: [160, 192, 224],
+    });
+  });
+  it('preserves a Windows periodicity lock even when the user request was supported', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        SelectedPeriodFrames: '128',
+        RequestedPeriodFrames: '128',
+        RuntimeOutputPeriodFrames: '480',
+        SharedEnginePeriodicityLocked: '1',
+        SharedEnginePeriodFallback: 'ENGINE_PERIODICITY_LOCKED',
+      }),
+    ).toMatchObject({
+      selectedPeriodFrames: 128,
+      requestedPeriodFrames: 128,
+      periodFrames: 480,
+      sharedPeriodLocked: true,
+      sharedPeriodFallback: 'ENGINE_PERIODICITY_LOCKED',
+    });
+  });
+  it.each(['NaN', 'Infinity', '-1', '500001'])(
+    'rejects invalid latency %s',
     (value) => {
       expect(
         runtimeConfigurationFromDiagnostics({
-          AcousticCalibrationValid: "1",
+          AcousticCalibrationValid: '1',
           AcousticLatencyUs: value,
         }).calibratedLatencyMs,
       ).toBeUndefined();
     },
   );
 
-  it("requires native validity and preserves a verified zero", () => {
+  it('requires native validity and preserves a verified zero', () => {
     expect(
       runtimeConfigurationFromDiagnostics({
-        AcousticCalibrationValid: "0",
-        AcousticLatencyUs: "23000",
+        AcousticCalibrationValid: '0',
+        AcousticLatencyUs: '23000',
       }).calibratedLatencyMs,
     ).toBeUndefined();
     expect(
       runtimeConfigurationFromDiagnostics({
-        AcousticCalibrationValid: "1",
-        AcousticLatencyUs: "0",
+        AcousticCalibrationValid: '1',
+        AcousticLatencyUs: '0',
       }).calibratedLatencyMs,
     ).toBe(0);
   });
 });
 
-
-describe("latency without acoustic calibration", () => {
+describe('latency without acoustic calibration', () => {
   const runtime = {
-    RuntimeOutputSampleRate: "48000", MonitoringLatencyFrames: "1519",
-    LocalAudioServiceInternalMs: "5.56", LocalResamplerDspMs: "2",
-    RenderCallbackSamples: "256", RenderCallbackP95Us: "120",
+    RuntimeOutputSampleRate: '48000',
+    MonitoringLatencyFrames: '1519',
+    LocalAudioServiceInternalMs: '5.56',
+    LocalResamplerDspMs: '2',
+    RenderCallbackSamples: '256',
+    RenderCallbackP95Us: '120',
   };
-  it("uses the actual timeline interval, not that interval plus queues or acoustic correction", () => {
-    const values = { ...runtime, LocalObservedMonitoringMs: "34.125" };
+  it('uses the actual timeline interval, not that interval plus queues or acoustic correction', () => {
+    const values = { ...runtime, LocalObservedMonitoringMs: '34.125' };
     const calibrations: Record<string, string>[] = [
-      { AcousticCalibrationValid: "0" },
-      { AcousticCalibrationValid: "1", AcousticLatencyUs: "45200" },
+      { AcousticCalibrationValid: '0' },
+      { AcousticCalibrationValid: '1', AcousticLatencyUs: '45200' },
     ];
     for (const acoustic of calibrations) {
-      expect(runtimeConfigurationFromDiagnostics({ ...values, ...acoustic })).toMatchObject({
-        estimatedLatencyMs: 34.125, latencyEstimateSource: "device-timeline",
+      expect(
+        runtimeConfigurationFromDiagnostics({ ...values, ...acoustic }),
+      ).toMatchObject({
+        estimatedLatencyMs: 34.125,
+        latencyEstimateSource: 'device-timeline',
         latencyParts: { bridgeMs: 5.56, dspMs: 2 },
-        latencyTiming: { renderCallbackP95Ms: 0.12, captureCallbackP95Ms: null },
+        latencyTiming: {
+          renderCallbackP95Ms: 0.12,
+          captureCallbackP95Ms: null,
+        },
       });
     }
   });
-  it("uses a labelled model when a driver timeline is unavailable, never a 45 ms default", () => {
-    const result = runtimeConfigurationFromDiagnostics({ ...runtime, LocalObservedMonitoringMs: "UNKNOWN" });
+  it('uses a labelled model when a driver timeline is unavailable, never a 45 ms default', () => {
+    const result = runtimeConfigurationFromDiagnostics({
+      ...runtime,
+      LocalObservedMonitoringMs: 'UNKNOWN',
+    });
     expect(result.estimatedLatencyMs).toBeCloseTo(1519 / 48);
-    expect(result.latencyEstimateSource).toBe("driver-model");
+    expect(result.latencyEstimateSource).toBe('driver-model');
     expect(result.calibratedLatencyMs).toBeUndefined();
   });
-  it("does not turn missing timing samples or absent capture into a measured zero", () => {
-    expect(runtimeConfigurationFromDiagnostics({ ...runtime,
-      LocalCaptureEstimateSource: "NO_CAPTURE", RenderCallbackSamples: "0",
-    })).toMatchObject({ estimatedLatencyMs: null,
-      latencyTiming: { renderCallbackP95Ms: null } });
+  it('does not turn missing timing samples or absent capture into a measured zero', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        ...runtime,
+        LocalCaptureEstimateSource: 'NO_CAPTURE',
+        RenderCallbackSamples: '0',
+      }),
+    ).toMatchObject({
+      estimatedLatencyMs: null,
+      latencyTiming: { renderCallbackP95Ms: null },
+    });
   });
-  it.each(["", "UNKNOWN", "-1", "NaN", "Infinity"])("rejects unavailable observation %s", (value) => {
-    expect(runtimeConfigurationFromDiagnostics({ LocalObservedMonitoringMs: value }).estimatedLatencyMs).toBeNull();
-  });
-  it("does not sum a negative unknown stage into an apparently positive latency", () => {
-    expect(runtimeConfigurationFromDiagnostics({ LocalAudioServiceInternalMs: "-1", LocalResamplerDspMs: "5" })
-      .latencyParts?.appMs).toBeNull();
+  it.each(['', 'UNKNOWN', '-1', 'NaN', 'Infinity'])(
+    'rejects unavailable observation %s',
+    (value) => {
+      expect(
+        runtimeConfigurationFromDiagnostics({
+          LocalObservedMonitoringMs: value,
+        }).estimatedLatencyMs,
+      ).toBeNull();
+    },
+  );
+  it('does not sum a negative unknown stage into an apparently positive latency', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        LocalAudioServiceInternalMs: '-1',
+        LocalResamplerDspMs: '5',
+      }).latencyParts?.appMs,
+    ).toBeNull();
   });
 });
 
-describe("minimum microphone latency", () => {
-  it("reports the microphone mode AudioService really opened and why it fell back", () => {
-    expect(runtimeConfigurationFromDiagnostics({
-      Backend: "WASAPI Shared",
-      LowLatencyMicrophoneActive: "1",
-      LowLatencyMicrophoneFallback: "NONE",
-    })).toMatchObject({ backend: "WASAPI Shared", lowLatencyInputActive: true });
-    expect(runtimeConfigurationFromDiagnostics({
-      Backend: "WASAPI Shared",
-      LowLatencyMicrophoneActive: "0",
-      LowLatencyMicrophoneFallback: "DEVICE_IN_USE",
-    })).toMatchObject({ lowLatencyInputActive: false, lowLatencyInputFallback: "DEVICE_IN_USE" });
+describe('minimum microphone latency', () => {
+  it('reports the microphone mode AudioService really opened and why it fell back', () => {
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        Backend: 'WASAPI Shared',
+        LowLatencyMicrophoneActive: '1',
+        LowLatencyMicrophoneFallback: 'NONE',
+      }),
+    ).toMatchObject({ backend: 'WASAPI Shared', lowLatencyInputActive: true });
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        Backend: 'WASAPI Shared',
+        LowLatencyMicrophoneActive: '0',
+        LowLatencyMicrophoneFallback: 'DEVICE_IN_USE',
+      }),
+    ).toMatchObject({
+      lowLatencyInputActive: false,
+      lowLatencyInputFallback: 'DEVICE_IN_USE',
+    });
   });
 });
 
-describe("latency right after the streams reopen", () => {
-  it("says it is measuring instead of showing the driver model for the new path", () => {
-    const base = { RuntimeOutputSampleRate: "48000", LocalCaptureEstimateSource: "RUNTIME_PERIOD_MODEL",
-      LocalCaptureDeviceMs: "10", LocalAudioServiceInternalMs: "1", LocalResamplerDspMs: "0",
-      LocalRenderQueueMs: "10", LocalEndpointOutputMs: "3", LocalObservedMonitoringMs: "UNKNOWN",
-      MonitoringLatencyFrames: "1150" };
-    expect(runtimeConfigurationFromDiagnostics({ ...base, LocalObservedLatencyState: "MEASURING" }))
-      .toMatchObject({ estimatedLatencyMs: null, latencyEstimateSource: "measuring" });
-    expect(runtimeConfigurationFromDiagnostics({ ...base, LocalObservedLatencyState: "UNAVAILABLE" }))
-      .toMatchObject({ latencyEstimateSource: "driver-model" });
+describe('latency right after the streams reopen', () => {
+  it('says it is measuring instead of showing the driver model for the new path', () => {
+    const base = {
+      RuntimeOutputSampleRate: '48000',
+      LocalCaptureEstimateSource: 'RUNTIME_PERIOD_MODEL',
+      LocalCaptureDeviceMs: '10',
+      LocalAudioServiceInternalMs: '1',
+      LocalResamplerDspMs: '0',
+      LocalRenderQueueMs: '10',
+      LocalEndpointOutputMs: '3',
+      LocalObservedMonitoringMs: 'UNKNOWN',
+      MonitoringLatencyFrames: '1150',
+    };
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        ...base,
+        LocalObservedLatencyState: 'MEASURING',
+      }),
+    ).toMatchObject({
+      estimatedLatencyMs: null,
+      latencyEstimateSource: 'measuring',
+    });
+    expect(
+      runtimeConfigurationFromDiagnostics({
+        ...base,
+        LocalObservedLatencyState: 'UNAVAILABLE',
+      }),
+    ).toMatchObject({ latencyEstimateSource: 'driver-model' });
   });
 });

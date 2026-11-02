@@ -1,26 +1,40 @@
-import { Button, Card, Dialog, IconButton, Landscape, MessageBar, NeonWaves, Planet, ProgressBar, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import { useEffect, useState } from "react";
+import {
+  Button,
+  Card,
+  Dialog,
+  IconButton,
+  Landscape,
+  MessageBar,
+  NeonWaves,
+  Planet,
+  ProgressBar,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { useEffect, useState } from 'react';
 import type {
   RecordingAnalysisProgress,
   StudioMasterProgress,
-} from "../../../../contracts/clients";
+} from '../../../../contracts/clients';
 import type {
   AnalysisDto,
   RecordingDto,
   SongDto,
-} from "../../../../contracts/models";
-import type { MessageKey } from "../../../../i18n/messages";
-import { ru } from "../../../../i18n/messages.ru";
-import "./analysis.css";
+} from '../../../../contracts/models';
+import type { MessageKey } from '../../../../i18n/messages';
+import { ru } from '../../../../i18n/messages.ru';
+import './analysis.css';
 import {
   analysisMetrics,
   analysisStageLabel,
   gradeLabel,
   weakestMetric,
   type AnalysisMetricKey,
-} from "./analysisPresentation";
-import performanceArtUrl from "./performance-art.svg";
-import { RecordingPlayer } from "../recordings/RecordingPlayer";
+} from './analysisPresentation';
+import performanceArtUrl from './performance-art.svg';
+import { RecordingPlayer } from '../recordings/RecordingPlayer';
 
 interface PerformanceAnalysisModalProps {
   analysis: AnalysisDto | null;
@@ -48,10 +62,10 @@ const takeList = (
         ...takes,
         {
           id: analysis.recordingId,
-          filePath: "",
-          songId: "",
-          displayName: "",
-          createdAt: "",
+          filePath: '',
+          songId: '',
+          displayName: '',
+          createdAt: '',
           durationSeconds: 0,
           sizeBytes: 0,
           analyzed: true,
@@ -60,9 +74,9 @@ const takeList = (
 };
 
 const metricIcons = {
-  pitch: "music",
-  rhythm: "rhythm",
-  stability: "timer",
+  pitch: 'music',
+  rhythm: 'rhythm',
+  stability: 'timer',
 } as const satisfies Record<AnalysisMetricKey, string>;
 
 /** How a take went: browse the takes, listen, master the analysed one, and see its scores with a practice tip. */
@@ -112,8 +126,8 @@ export const PerformanceAnalysisModal = ({
       icon="wave"
       title={
         <>
-          {tr(ru.performanceAnalysis)} :{" "}
-          {song ? `${song.artist} — ${song.title}` : ""}
+          {tr(ru.performanceAnalysis)} :{' '}
+          {song ? `${song.artist} — ${song.title}` : ''}
         </>
       }
       closeLabel={tr(ru.closeDialog)}
@@ -131,12 +145,14 @@ export const PerformanceAnalysisModal = ({
                 <ProgressBar
                   label={tr(ru[analysisStageLabel(pending.stage)])}
                   value={pending.progress}
-                  indeterminate={pending.state === "Queued"}
+                  indeterminate={pending.state === 'Queued'}
                 />
               </>
             )}
             {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
-            {viewed?.fileStatus === "PreparationFailed" && <RecordingPlayer recording={viewed} />}
+            {viewed?.fileStatus === 'PreparationFailed' && (
+              <RecordingPlayer recording={viewed} />
+            )}
             {pending && (
               <Button
                 icon="stop"
@@ -183,9 +199,11 @@ export const PerformanceAnalysisModal = ({
                         </Typography>
                         <Typography variant="body-sm" tone="muted">
                           {tr(
-                            ru[analysis[practice.key] >= 100
-                              ? "analysisPerfectAdvice"
-                              : practice.advice],
+                            ru[
+                              analysis[practice.key] >= 100
+                                ? 'analysisPerfectAdvice'
+                                : practice.advice
+                            ],
                           )}
                         </Typography>
                       </div>
@@ -239,7 +257,7 @@ export const PerformanceAnalysisModal = ({
                       variant="danger"
                       icon="trash"
                       label={tr(ru.recordingDelete)}
-                      disabled={viewed.fileStatus === "Preparing"}
+                      disabled={viewed.fileStatus === 'Preparing'}
                       onClick={() => onDelete(viewed)}
                     />
                   }
@@ -292,7 +310,9 @@ export const PerformanceAnalysisModal = ({
                       <Button
                         variant="primary"
                         icon="sparkle"
-                        disabled={Boolean(viewed.fileStatus && viewed.fileStatus !== "Ready")}
+                        disabled={Boolean(
+                          viewed.fileStatus && viewed.fileStatus !== 'Ready',
+                        )}
                         onClick={() => onCreateStudioMaster(viewed)}
                       >
                         {tr(ru.studioMasterCreate)}

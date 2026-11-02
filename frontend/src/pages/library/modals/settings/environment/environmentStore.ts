@@ -1,14 +1,14 @@
-import type { SettingsBackendPort } from "../../../../../application/settings/SettingsPorts";
+import type { SettingsBackendPort } from '../../../../../application/settings/SettingsPorts';
 import {
   kaggleDeployment,
   kaggleDeploymentRunning,
-} from "../../../../../application/settings/KaggleDeployment";
-import type { EnvironmentSettingDto } from "../../../../../contracts/models";
+} from '../../../../../application/settings/KaggleDeployment';
+import type { EnvironmentSettingDto } from '../../../../../contracts/models';
 import {
   isSecret,
   type DisplayEntry,
   type DisplayState,
-} from "./environmentModel";
+} from './environmentModel';
 
 type Field = {
   confirmed: EnvironmentSettingDto;
@@ -18,7 +18,7 @@ type Field = {
   error?: unknown;
   write?: Promise<EnvironmentSettingDto | null>;
 };
-type KaggleAction = "login" | "deploy";
+type KaggleAction = 'login' | 'deploy';
 type KaggleRun = {
   phase: KaggleAction;
   startedAt: number | null;
@@ -32,11 +32,11 @@ export type EnvironmentSnapshot = {
   kaggleStartedAt: number | null;
 };
 
-const verifiesAlone = (key: string) => key !== "KAGGLE_API_TOKEN";
+const verifiesAlone = (key: string) => key !== 'KAGGLE_API_TOKEN';
 const errorMessage = (error: unknown) =>
   error instanceof Error ? error.message : null;
 const confirmedEntry = (entry: EnvironmentSettingDto): EnvironmentSettingDto =>
-  isSecret(entry) ? { ...entry, value: "" } : entry;
+  isSecret(entry) ? { ...entry, value: '' } : entry;
 
 /** One backend-scoped session. Each field owns its confirmed value and pending write. */
 export class EnvironmentStore {
@@ -121,7 +121,7 @@ export class EnvironmentStore {
           (field) =>
             field.pendingValue !== undefined ||
             field.write ||
-            field.state === "checking",
+            field.state === 'checking',
         ))
     )
       return Promise.resolve();
@@ -145,7 +145,7 @@ export class EnvironmentStore {
         if (kaggleDeploymentRunning()) {
           // Capture the observed job before any continuation can let it finish.
           const deployment = kaggleDeployment(this.backend);
-          void this.runKaggleAction("deploy", deployment).catch(
+          void this.runKaggleAction('deploy', deployment).catch(
             () => undefined,
           );
           return;
@@ -157,9 +157,9 @@ export class EnvironmentStore {
             if (
               revision === this.readRevision &&
               !this.action &&
-              settings.processingBackend === "Kaggle" &&
+              settings.processingBackend === 'Kaggle' &&
               settings.kaggleConfigured &&
-              this.fields.get("KAGGLE_API_TOKEN")?.confirmed.configured
+              this.fields.get('KAGGLE_API_TOKEN')?.confirmed.configured
             )
               return this.verifyKaggle();
           })
@@ -183,7 +183,7 @@ export class EnvironmentStore {
   private prepare(field: Field, value: string) {
     field.revision++;
     field.pendingValue = value;
-    field.state = value.trim() ? "unverified" : "empty";
+    field.state = value.trim() ? 'unverified' : 'empty';
     field.error = undefined;
     return field;
   }
@@ -205,14 +205,14 @@ export class EnvironmentStore {
 
   private fail(field: Field, revision: number, error: unknown) {
     if (field.revision !== revision) return;
-    field.state = "invalid";
+    field.state = 'invalid';
     field.error = error;
     this.publish();
   }
 
   private async verifyField(field: Field, revision: number) {
     if (field.revision !== revision) return;
-    field.state = "checking";
+    field.state = 'checking';
     field.error = undefined;
     const value = field.confirmed.value;
     this.publish();
@@ -241,7 +241,7 @@ export class EnvironmentStore {
       .catch(() => undefined)
       .then(async () => {
         if (field.revision !== revision) return null;
-        field.state = "checking";
+        field.state = 'checking';
         this.publish();
         const stored = confirmedEntry(
           await this.backend.updateEnvironmentSetting(
@@ -269,7 +269,7 @@ export class EnvironmentStore {
       if (
         verifiesAlone(stored.key) &&
         stored.configured &&
-        stored.state !== "invalid"
+        stored.state !== 'invalid'
       )
         return this.verifyField(field, revision);
       field.state = undefined;
@@ -279,11 +279,11 @@ export class EnvironmentStore {
 
   applyJson = async (source: string) => {
     const parsed: unknown = JSON.parse(source);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-      throw new Error("JSON must contain an object");
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+      throw new Error('JSON must contain an object');
     const validated = Object.entries(parsed).map(([key, value]) => {
       const field = this.fields.get(key);
-      if (!field || isSecret(field.confirmed) || typeof value !== "string")
+      if (!field || isSecret(field.confirmed) || typeof value !== 'string')
         throw new Error(`Unsupported ENV value: ${key}`);
       return { field, value };
     });
@@ -306,25 +306,25 @@ export class EnvironmentStore {
         await this.enqueue(field, value, revision);
       } catch (error) {
         failures.push(
-          `${field.confirmed.key}: ${errorMessage(error) ?? "Could not save value"}`,
+          `${field.confirmed.key}: ${errorMessage(error) ?? 'Could not save value'}`,
         );
       }
     }
-    if (failures.length) throw new Error(failures.join("\n"));
+    if (failures.length) throw new Error(failures.join('\n'));
   };
 
   private beginKaggleCheck(): Check {
     const check = new Map<Field, number>();
     for (const field of this.fields.values()) {
       if (
-        field.confirmed.group !== "kaggle" ||
+        field.confirmed.group !== 'kaggle' ||
         !field.confirmed.configured ||
         field.pendingValue !== undefined ||
         field.write
       )
         continue;
       check.set(field, ++field.revision);
-      field.state = "checking";
+      field.state = 'checking';
       field.error = undefined;
     }
     this.publish();
@@ -346,11 +346,11 @@ export class EnvironmentStore {
       const result = await this.backend.verifyKaggleSettings();
       this.endKaggleCheck(
         check,
-        result.state === "valid" ? "valid" : "unverified",
+        result.state === 'valid' ? 'valid' : 'unverified',
       );
       return result;
     } catch (error) {
-      this.endKaggleCheck(check, "invalid", error);
+      this.endKaggleCheck(check, 'invalid', error);
       throw error;
     }
   };
@@ -367,26 +367,26 @@ export class EnvironmentStore {
         let check: Check = new Map();
         try {
           for (const field of this.fields.values()) {
-            if (field.confirmed.group !== "kaggle") continue;
+            if (field.confirmed.group !== 'kaggle') continue;
             if (field.pendingValue !== undefined)
               await this.save(field.confirmed.key, field.pendingValue);
             else if (field.write) await field.write;
           }
           check = this.beginKaggleCheck();
-          if (action === "login") await this.backend.loginKaggle();
+          if (action === 'login') await this.backend.loginKaggle();
           const deployment =
             existingDeployment ?? kaggleDeployment(this.backend);
-          run.phase = "deploy";
+          run.phase = 'deploy';
           run.startedAt = deployment.startedAt;
           this.publish();
           const result = await deployment.promise;
           await this.readEntries();
           const verification = await this.verifyKaggle();
-          if (verification.state !== "valid")
+          if (verification.state !== 'valid')
             throw new Error(verification.message);
           return result.message;
         } catch (error) {
-          this.endKaggleCheck(check, "invalid", error);
+          this.endKaggleCheck(check, 'invalid', error);
           throw error;
         } finally {
           this.action = null;

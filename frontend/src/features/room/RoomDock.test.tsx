@@ -1,15 +1,15 @@
-import { ru } from "../../i18n/messages.ru";
+import { ru } from '../../i18n/messages.ru';
 import {
   fireEvent,
   render,
   screen,
   waitFor,
   within,
-} from "@testing-library/react";
-import { TestRouter } from "../../test/QueryProvider";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { RoomDock } from "./RoomDock";
-import { roomTransferFailure } from "../../application/room/roomProjectDownload";
+} from '@testing-library/react';
+import { TestRouter } from '../../test/QueryProvider';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { RoomDock } from './RoomDock';
+import { roomTransferFailure } from '../../application/room/roomProjectDownload';
 
 let roomState: Record<string, unknown>;
 const mocks = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ const mocks = vi.hoisted(() => ({
   personPhoto: undefined as string | undefined,
 }));
 
-vi.mock("../../providers/application", () => {
+vi.mock('../../providers/application', () => {
   const voice = {
     microphoneEnabled: () => true,
     participantMuted: () => false,
@@ -68,24 +68,24 @@ vi.mock("../../providers/application", () => {
     useRoomVoice: () => voice,
     useRoomMembership: () => ({
       copyInvite: vi.fn(async () => undefined),
-      transferHost: (id: string) => mocks.transferHost("ROOM42", id),
-      removeParticipant: (id: string) => mocks.removeParticipant("ROOM42", id),
-      checkTiming: () => mocks.startSyncCheck("ROOM42"),
+      transferHost: (id: string) => mocks.transferHost('ROOM42', id),
+      removeParticipant: (id: string) => mocks.removeParticipant('ROOM42', id),
+      checkTiming: () => mocks.startSyncCheck('ROOM42'),
     }),
     getRoomRuntime: () => ({
       getProject: () => ({
         selectedArtwork: async () => undefined,
-        retry: () => mocks.setRoomReadiness("ROOM42", "MissingSong"),
+        retry: () => mocks.setRoomReadiness('ROOM42', 'MissingSong'),
         replaceProject: mocks.replaceProject,
-        cancelTransfer: () => mocks.cancelRoomProjectTransfer("transfer-1"),
+        cancelTransfer: () => mocks.cancelRoomProjectTransfer('transfer-1'),
       }),
     }),
     useApp: () => ({
       room: roomState ?? {
-        code: "ROOM42",
-        hostId: "host",
-        role: "host",
-        songId: "song-1",
+        code: 'ROOM42',
+        hostId: 'host',
+        role: 'host',
+        songId: 'song-1',
         revision: 1,
         transferProgress: 70,
         playbackLocked: false,
@@ -93,7 +93,7 @@ vi.mock("../../providers/application", () => {
       },
       setRoom: mocks.setRoom,
       preferences: {
-        theme: "dark",
+        theme: 'dark',
         voiceGain: 0.68,
         noiseSuppression: 0,
         karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
@@ -102,9 +102,9 @@ vi.mock("../../providers/application", () => {
     }),
   };
 });
-vi.mock("../../providers/dialog", () => ({ ask: mocks.ask }));
-vi.mock("../../providers/social", () => {
-  const offline = { type: "offline" };
+vi.mock('../../providers/dialog', () => ({ ask: mocks.ask }));
+vi.mock('../../providers/social', () => {
+  const offline = { type: 'offline' };
   const directory = { people: vi.fn(async () => []) };
   return {
     friendRelations: { befriend: vi.fn(async () => undefined) },
@@ -112,14 +112,14 @@ vi.mock("../../providers/social", () => {
     useSocialDirectory: () => directory,
   };
 });
-vi.mock("../../providers/notifications", () => ({
+vi.mock('../../providers/notifications', () => ({
   useNotify: () => vi.fn(),
 }));
 
-vi.mock("../../services/pythonClient", () => ({
+vi.mock('../../services/pythonClient', () => ({
   pythonClient: { listSongs: mocks.listSongs },
 }));
-vi.mock("../../services/roomClient", () => ({
+vi.mock('../../services/roomClient', () => ({
   roomClient: {
     roomControl: vi.fn(),
     setRoomReadiness: mocks.setRoomReadiness,
@@ -130,7 +130,7 @@ vi.mock("../../services/roomClient", () => ({
     startSyncCheck: mocks.startSyncCheck,
   },
 }));
-vi.mock("../../services/audioClient", () => ({
+vi.mock('../../services/audioClient', () => ({
   audioClient: {
     setParticipantVolume: mocks.setParticipantVolume,
     setParticipantEffect: mocks.setParticipantEffect,
@@ -150,26 +150,26 @@ vi.mock("../../services/audioClient", () => ({
     })),
   },
 }));
-vi.mock("../../services/desktopClient", () => ({
+vi.mock('../../services/desktopClient', () => ({
   desktopClient: {
     copyText: vi.fn(),
     cancelRoomProjectTransfer: mocks.cancelRoomProjectTransfer,
   },
 }));
-vi.mock("../social/usePersonPhoto", () => ({
+vi.mock('../social/usePersonPhoto', () => ({
   usePersonPhoto: () => mocks.personPhoto,
 }));
 
 /** Types a value into a Neo knob's readout, as a singer does to set an exact number. */
 const typeKnob = (slider: HTMLElement, value: string) => {
-  const root = slider.closest(".ad-rotary-knob") as HTMLElement;
-  fireEvent.click(root.querySelector(".knob__value") as HTMLElement);
-  const input = within(root).getByRole("textbox");
+  const root = slider.closest('.ad-rotary-knob') as HTMLElement;
+  fireEvent.click(root.querySelector('.knob__value') as HTMLElement);
+  const input = within(root).getByRole('textbox');
   fireEvent.change(input, { target: { value } });
-  fireEvent.keyDown(input, { key: "Enter" });
+  fireEvent.keyDown(input, { key: 'Enter' });
 };
 
-describe("RoomDock", () => {
+describe('RoomDock', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.listSongs.mockResolvedValue([]);
@@ -177,32 +177,65 @@ describe("RoomDock", () => {
     roomState = undefined as unknown as Record<string, unknown>;
   });
   roomState = undefined as unknown as Record<string, unknown>;
-  it("can move a short room panel to the bottom even after a taller layout was saved", () => {
-    const key = "adVoice.panelLayout.room.v1";
-    localStorage.setItem(key, JSON.stringify({ left: 100, top: 100, width: 300, height: 660 }));
-    const measure = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect")
-      .mockReturnValue({ left: 100, top: 100, width: 300, height: 240, right: 400, bottom: 340, x: 100, y: 100, toJSON: () => ({}) });
+  it('can move a short room panel to the bottom even after a taller layout was saved', () => {
+    const key = 'adVoice.panelLayout.room.v1';
+    localStorage.setItem(
+      key,
+      JSON.stringify({ left: 100, top: 100, width: 300, height: 660 }),
+    );
+    const measure = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({
+        left: 100,
+        top: 100,
+        width: 300,
+        height: 240,
+        right: 400,
+        bottom: 340,
+        x: 100,
+        y: 100,
+        toJSON: () => ({}),
+      });
     try {
-      const view = render(<TestRouter><RoomDock /></TestRouter>);
-      const panel = view.container.querySelector(".roomDock") as HTMLElement;
-      fireEvent(panel, new MouseEvent("pointerdown", { bubbles: true, button: 0, clientX: 150, clientY: 150 }));
-      fireEvent(panel, new MouseEvent("pointermove", { bubbles: true, clientX: 150, clientY: 700 }));
-      fireEvent(panel, new MouseEvent("pointerup", { bubbles: true }));
+      const view = render(
+        <TestRouter>
+          <RoomDock />
+        </TestRouter>,
+      );
+      const panel = view.container.querySelector('.roomDock') as HTMLElement;
+      fireEvent(
+        panel,
+        new MouseEvent('pointerdown', {
+          bubbles: true,
+          button: 0,
+          clientX: 150,
+          clientY: 150,
+        }),
+      );
+      fireEvent(
+        panel,
+        new MouseEvent('pointermove', {
+          bubbles: true,
+          clientX: 150,
+          clientY: 700,
+        }),
+      );
+      fireEvent(panel, new MouseEvent('pointerup', { bubbles: true }));
       expect(panel.style.top).toBe(`${window.innerHeight - 240}px`);
     } finally {
       localStorage.removeItem(key);
       measure.mockRestore();
     }
   });
-  it("keeps retry available after a failed transfer clears progress", async () => {
+  it('keeps retry available after a failed transfer clears progress', async () => {
     roomState = {
       ...roomTransferFailure({
-        code: "ROOM42",
-        hostId: "host",
-        role: "host",
+        code: 'ROOM42',
+        hostId: 'host',
+        role: 'host',
         playbackLocked: false,
         participants: [],
-        transferId: "transfer",
+        transferId: 'transfer',
         transferProgress: 45,
       }),
     };
@@ -212,34 +245,34 @@ describe("RoomDock", () => {
         <RoomDock />
       </TestRouter>,
     );
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку" }));
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Повторить загрузку' }));
     await waitFor(() =>
       expect(mocks.setRoomReadiness).toHaveBeenCalledWith(
-        "ROOM42",
-        "MissingSong",
+        'ROOM42',
+        'MissingSong',
       ),
     );
   });
   it.each([true, false])(
-    "shows a failed server transfer without an eternal progress bar (self=%s)",
+    'shows a failed server transfer without an eternal progress bar (self=%s)',
     async (self) => {
       roomState = {
-        code: "ROOM42",
-        hostId: "host",
-        role: "host",
-        songId: "song",
+        code: 'ROOM42',
+        hostId: 'host',
+        role: 'host',
+        songId: 'song',
         revision: 1,
         playbackLocked: false,
         transferProgress: 70,
         participants: [
           {
-            id: "guest",
-            name: "Guest",
-            role: "participant",
+            id: 'guest',
+            name: 'Guest',
+            role: 'participant',
             connected: true,
             self,
-            readiness: "failed",
+            readiness: 'failed',
             muted: false,
             volume: 1,
           },
@@ -251,21 +284,25 @@ describe("RoomDock", () => {
           <RoomDock />
         </TestRouter>,
       );
-      expect(screen.getByRole("alert")).toHaveTextContent(
-        self ? "Не удалось подготовить проект. Повторите загрузку." : "Участник не смог подготовить проект. Он может повторить загрузку.",
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        self
+          ? 'Не удалось подготовить проект. Повторите загрузку.'
+          : 'Участник не смог подготовить проект. Он может повторить загрузку.',
       );
-      expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
       if (self) {
-        fireEvent.click(screen.getByRole("button", { name: "Повторить загрузку" }));
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Повторить загрузку' }),
+        );
         await waitFor(() =>
           expect(mocks.setRoomReadiness).toHaveBeenCalledWith(
-            "ROOM42",
-            "MissingSong",
+            'ROOM42',
+            'MissingSong',
           ),
         );
       } else
         expect(
-          screen.queryByRole("button", { name: "Повторить загрузку" }),
+          screen.queryByRole('button', { name: 'Повторить загрузку' }),
         ).not.toBeInTheDocument();
     },
   );
@@ -273,12 +310,12 @@ describe("RoomDock", () => {
     roomState = {
       ...roomTransferFailure(
         {
-          code: "ROOM42",
-          hostId: "host",
-          role: "host",
+          code: 'ROOM42',
+          hostId: 'host',
+          role: 'host',
           playbackLocked: false,
           participants: [],
-          songId: "song-1",
+          songId: 'song-1',
           revision: 2,
         },
         true,
@@ -290,14 +327,18 @@ describe("RoomDock", () => {
         <RoomDock />
       </TestRouter>,
     );
-    expect(screen.getByText("У вас другая версия этой песни. Ваша копия сохранена.")).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "Повторить загрузку" }),
+      screen.getByText('У вас другая версия этой песни. Ваша копия сохранена.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Повторить загрузку' }),
     ).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Заменить версией хоста" }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Заменить версией хоста' }),
+    );
     await waitFor(() => expect(mocks.replaceProject).toHaveBeenCalledOnce());
   });
-  it("shows room project transfer progress while another participant prepares the selected song", () => {
+  it('shows room project transfer progress while another participant prepares the selected song', () => {
     render(
       <TestRouter>
         <RoomDock />
@@ -305,19 +346,19 @@ describe("RoomDock", () => {
     );
 
     expect(
-      screen.getByRole("progressbar", { name: "Передача проекта · 70%" }),
-    ).toHaveAttribute("aria-valuenow", "70");
+      screen.getByRole('progressbar', { name: 'Передача проекта · 70%' }),
+    ).toHaveAttribute('aria-valuenow', '70');
   });
 
-  it("shows the transfer progress and lets the user cancel an active project transfer", async () => {
+  it('shows the transfer progress and lets the user cancel an active project transfer', async () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants: [],
       transferProgress: 25,
-      transferId: "transfer-1",
+      transferId: 'transfer-1',
       transferBytes: 250,
       transferTotalBytes: 1000,
     };
@@ -327,23 +368,25 @@ describe("RoomDock", () => {
       </TestRouter>,
     );
 
-    expect(screen.getByText("25%")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Действия комнаты" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Отменить загрузку" }));
+    expect(screen.getByText('25%')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Действия комнаты' }));
+    fireEvent.click(
+      screen.getByRole('menuitem', { name: 'Отменить загрузку' }),
+    );
     await waitFor(() =>
       expect(mocks.cancelRoomProjectTransfer).toHaveBeenCalledWith(
-        "transfer-1",
+        'transfer-1',
       ),
     );
   });
 
-  it("shows that room state is reconnecting during a transient signaling outage", () => {
+  it('shows that room state is reconnecting during a transient signaling outage', () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
-      connectionStatus: "reconnecting",
+      connectionStatus: 'reconnecting',
       participants: [],
     };
 
@@ -354,11 +397,11 @@ describe("RoomDock", () => {
     );
 
     expect(
-      screen.getByRole("status", { name: "Восстановление связи с комнатой…" }),
+      screen.getByRole('status', { name: 'Восстановление связи с комнатой…' }),
     ).toBeInTheDocument();
   });
 
-  it("puts leave and collapse on the frame without redundant synchronization or detach actions", async () => {
+  it('puts leave and collapse on the frame without redundant synchronization or detach actions', async () => {
     render(
       <TestRouter>
         <RoomDock />
@@ -366,50 +409,58 @@ describe("RoomDock", () => {
     );
 
     expect(
-      screen.getByRole("button", { name: "Выйти из комнаты" }),
+      screen.getByRole('button', { name: 'Выйти из комнаты' }),
     ).toBeInTheDocument();
     // The room latency is on screen without any click; the menu only starts the audible check.
     await waitFor(() =>
       expect(screen.getByText(/^Задержка/)).toBeInTheDocument(),
     );
     expect(
-      screen.getByRole("status", { name: "Оценка задержки голосов" }),
+      screen.getByRole('status', { name: 'Оценка задержки голосов' }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Свернуть комнату" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Действия комнаты" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Проверить синхронизацию")).not.toBeInTheDocument();
-    expect(screen.queryByText("В отдельное окно")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Свернуть комнату" }));
-    expect(screen.getByRole("button", { name: "Развернуть комнату" })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Свернуть комнату' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Действия комнаты' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Проверить синхронизацию'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('В отдельное окно')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Свернуть комнату' }));
+    expect(
+      screen.getByRole('button', { name: 'Развернуть комнату' }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the host's actions for a participant behind that participant's sliders button", async () => {
     const participants = [
       {
-        id: "host",
-        name: "Host",
-        role: "host",
+        id: 'host',
+        name: 'Host',
+        role: 'host',
         self: true,
         connected: true,
         muted: false,
         volume: 1,
-        readiness: "ready",
+        readiness: 'ready',
       },
       {
-        id: "guest",
-        name: "Guest",
-        role: "participant",
+        id: 'guest',
+        name: 'Guest',
+        role: 'participant',
         self: false,
         connected: true,
         muted: false,
         volume: 1,
-        readiness: "missing",
+        readiness: 'missing',
       },
     ];
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants,
     };
@@ -425,58 +476,60 @@ describe("RoomDock", () => {
     );
 
     expect(
-      screen.queryByRole("button", { name: "Сделать Guest хостом" }),
+      screen.queryByRole('button', { name: 'Сделать Guest хостом' }),
     ).not.toBeInTheDocument();
     const guest = screen
-      .getByText("Guest")
-      .closest(".participant") as HTMLElement;
+      .getByText('Guest')
+      .closest('.participant') as HTMLElement;
     fireEvent.click(
-      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
+      within(guest).getByRole('button', { name: 'Эффекты: Guest' }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Сделать Guest хостом" }));
-    await waitFor(() =>
-      expect(mocks.transferHost).toHaveBeenCalledWith("ROOM42", "guest"),
-    );
-    mocks.ask.mockResolvedValueOnce("remove");
     fireEvent.click(
-      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
+      screen.getByRole('button', { name: 'Сделать Guest хостом' }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Исключить Guest" }));
     await waitFor(() =>
-      expect(mocks.removeParticipant).toHaveBeenCalledWith("ROOM42", "guest"),
+      expect(mocks.transferHost).toHaveBeenCalledWith('ROOM42', 'guest'),
+    );
+    mocks.ask.mockResolvedValueOnce('remove');
+    fireEvent.click(
+      within(guest).getByRole('button', { name: 'Эффекты: Guest' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Исключить Guest' }));
+    await waitFor(() =>
+      expect(mocks.removeParticipant).toHaveBeenCalledWith('ROOM42', 'guest'),
     );
 
-    mocks.ask.mockResolvedValueOnce("close");
-    fireEvent.click(screen.getByRole("button", { name: "Выйти из комнаты" }));
+    mocks.ask.mockResolvedValueOnce('close');
+    fireEvent.click(screen.getByRole('button', { name: 'Выйти из комнаты' }));
     await waitFor(() => expect(mocks.closeSession).toHaveBeenCalledOnce());
   });
 
-  it("opens isolated effects for a remote participant and sends the selected value", async () => {
+  it('opens isolated effects for a remote participant and sends the selected value', async () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants: [
         {
-          id: "host",
-          name: "Host",
-          role: "host",
+          id: 'host',
+          name: 'Host',
+          role: 'host',
           self: true,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
         {
-          id: "guest",
-          name: "Guest",
-          role: "participant",
+          id: 'guest',
+          name: 'Guest',
+          role: 'participant',
           self: false,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
       ],
     };
@@ -487,15 +540,15 @@ describe("RoomDock", () => {
     );
 
     const guest = screen
-      .getByText("Guest")
-      .closest(".participant") as HTMLElement;
+      .getByText('Guest')
+      .closest('.participant') as HTMLElement;
     typeKnob(
-      within(guest).getByRole("slider", { name: "Громкость: Guest" }),
-      "35",
+      within(guest).getByRole('slider', { name: 'Громкость: Guest' }),
+      '35',
     );
-    expect(mocks.setParticipantVolume).toHaveBeenCalledWith("guest", 0.35);
+    expect(mocks.setParticipantVolume).toHaveBeenCalledWith('guest', 0.35);
     fireEvent.click(
-      within(guest).getByRole("button", { name: "Эффекты: Guest" }),
+      within(guest).getByRole('button', { name: 'Эффекты: Guest' }),
     );
     for (const name of [
       ru.effectReverb,
@@ -505,48 +558,49 @@ describe("RoomDock", () => {
       ru.effectAutoTune,
     ])
       expect(
-        screen.getByRole("slider", { name }).closest(".ad-rotary-knob"),
+        screen.getByRole('slider', { name }).closest('.ad-rotary-knob'),
       ).not.toBeNull();
     expect(
-      screen.queryByRole("slider", { name: "Задержка" }),
+      screen.queryByRole('slider', { name: 'Задержка' }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("slider", { name: "Октава" }),
-    ).toHaveAttribute("aria-valuetext", "0");
-    typeKnob(screen.getByRole("slider", { name: "Реверб" }), "60");
+    expect(screen.getByRole('slider', { name: 'Октава' })).toHaveAttribute(
+      'aria-valuetext',
+      '0',
+    );
+    typeKnob(screen.getByRole('slider', { name: 'Реверб' }), '60');
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith(
-        "guest",
-        "reverb",
+        'guest',
+        'reverb',
         0.6,
       ),
     );
-    typeKnob(screen.getByRole("slider", { name: "Автотюн" }), "75");
+    typeKnob(screen.getByRole('slider', { name: 'Автотюн' }), '75');
     await waitFor(() =>
       expect(mocks.setParticipantEffect).toHaveBeenCalledWith(
-        "guest",
-        "autoTune",
+        'guest',
+        'autoTune',
         0.75,
       ),
     );
   });
 
-  it("shows no microphone volume knob on your own row; its effects still control your stored voice", () => {
+  it('shows no microphone volume knob on your own row; its effects still control your stored voice', () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants: [
         {
-          id: "host",
-          name: "Host",
-          role: "host",
+          id: 'host',
+          name: 'Host',
+          role: 'host',
           self: true,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
       ],
     };
@@ -558,46 +612,46 @@ describe("RoomDock", () => {
 
     // Your own microphone level stays in settings; the card controls other singers' levels.
     expect(
-      screen.queryByRole("slider", { name: "Мик" }),
+      screen.queryByRole('slider', { name: 'Мик' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("slider", { name: /^Громкость:/ }),
+      screen.queryByRole('slider', { name: /^Громкость:/ }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Эффекты:/ }));
-    typeKnob(screen.getByRole("slider", { name: "Реверб" }), "40");
+    fireEvent.click(screen.getByRole('button', { name: /Эффекты:/ }));
+    typeKnob(screen.getByRole('slider', { name: 'Реверб' }), '40');
     expect(mocks.updatePreferences).toHaveBeenLastCalledWith({
       karaokeEffects: { echo: 0, reverb: 0.4, delay: 0.24, autoTune: 0 },
     });
     expect(mocks.setParticipantEffect).not.toHaveBeenCalled();
   });
 
-  it("turns your own microphone off without touching its volume and offers no mute for others", async () => {
+  it('turns your own microphone off without touching its volume and offers no mute for others', async () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants: [
         {
-          id: "host",
-          name: "Host",
-          role: "host",
+          id: 'host',
+          name: 'Host',
+          role: 'host',
           self: true,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
         {
-          id: "guest",
-          name: "Guest",
-          role: "participant",
+          id: 'guest',
+          name: 'Guest',
+          role: 'participant',
           self: false,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
       ],
     };
@@ -607,15 +661,17 @@ describe("RoomDock", () => {
       </TestRouter>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Выключить мой микрофон" }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Выключить мой микрофон' }),
+    );
     await waitFor(() =>
       expect(mocks.setMicrophoneEnabled).toHaveBeenCalledWith(false),
     );
     expect(
-      await screen.findByRole("button", { name: "Включить мой микрофон" }),
-    ).toHaveAttribute("aria-pressed", "true");
+      await screen.findByRole('button', { name: 'Включить мой микрофон' }),
+    ).toHaveAttribute('aria-pressed', 'true');
     expect(
-      screen.getAllByRole("button", {
+      screen.getAllByRole('button', {
         name: /мой микрофон|Выключить звук/i,
       }),
     ).toHaveLength(1);
@@ -623,32 +679,32 @@ describe("RoomDock", () => {
     expect(mocks.updatePreferences).not.toHaveBeenCalled();
   });
 
-  it("moves a remote volume knob locally and sends only its committed value", () => {
+  it('moves a remote volume knob locally and sends only its committed value', () => {
     roomState = {
-      code: "ROOM42",
-      hostId: "host",
-      role: "host",
+      code: 'ROOM42',
+      hostId: 'host',
+      role: 'host',
       playbackLocked: false,
       participants: [
         {
-          id: "host",
-          name: "Host",
-          role: "host",
+          id: 'host',
+          name: 'Host',
+          role: 'host',
           self: true,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
         {
-          id: "guest",
-          name: "Guest",
-          role: "participant",
+          id: 'guest',
+          name: 'Guest',
+          role: 'participant',
           self: false,
           connected: true,
           muted: false,
           volume: 1,
-          readiness: "ready",
+          readiness: 'ready',
         },
       ],
     };
@@ -658,12 +714,12 @@ describe("RoomDock", () => {
       </TestRouter>,
     );
     const guest = screen
-      .getByText("Guest")
-      .closest(".participant") as HTMLElement;
-    const knob = within(guest).getByRole("slider", {
-      name: "Громкость: Guest",
+      .getByText('Guest')
+      .closest('.participant') as HTMLElement;
+    const knob = within(guest).getByRole('slider', {
+      name: 'Громкость: Guest',
     });
-    expect(knob).toHaveAttribute("aria-valuemax", "2");
+    expect(knob).toHaveAttribute('aria-valuemax', '2');
     // A short 16 px drag now covers a fifth of the turn, 100 % → 140 %.
     knob.getBoundingClientRect = () => ({
       left: 0,
@@ -691,37 +747,47 @@ describe("RoomDock", () => {
       fireEvent(knob, event);
     };
 
-    pointer("pointerdown", 50);
-    pointer("pointermove", 42);
-    pointer("pointermove", 34);
+    pointer('pointerdown', 50);
+    pointer('pointermove', 42);
+    pointer('pointermove', 34);
 
     expect(mocks.setParticipantVolume).not.toHaveBeenCalled();
-    expect(Number(knob.getAttribute("aria-valuenow"))).toBeCloseTo(1.4);
+    expect(Number(knob.getAttribute('aria-valuenow'))).toBeCloseTo(1.4);
 
-    pointer("pointerup", 34);
+    pointer('pointerup', 34);
     expect(mocks.setParticipantVolume).toHaveBeenCalledTimes(1);
-    expect(mocks.setParticipantVolume.mock.calls[0]?.[0]).toBe("guest");
+    expect(mocks.setParticipantVolume.mock.calls[0]?.[0]).toBe('guest');
     expect(mocks.setParticipantVolume.mock.calls[0]?.[1]).toBeCloseTo(1.4);
   });
 });
 
-vi.mock("../../providers/store", () => ({ store: {
-  get online() { return { room: roomState ?? {
-        code: "ROOM42",
-        hostId: "host",
-        role: "host",
-        songId: "song-1",
-        revision: 1,
-        transferProgress: 70,
-        playbackLocked: false,
-        participants: [],
-      } }; },
-  inbox: { type: "offline" },
-  get preferences() { return {
-        theme: "dark",
+vi.mock('../../providers/store', () => ({
+  store: {
+    get online() {
+      return {
+        room: roomState ?? {
+          code: 'ROOM42',
+          hostId: 'host',
+          role: 'host',
+          songId: 'song-1',
+          revision: 1,
+          transferProgress: 70,
+          playbackLocked: false,
+          participants: [],
+        },
+      };
+    },
+    inbox: { type: 'offline' },
+    get preferences() {
+      return {
+        theme: 'dark',
         voiceGain: 0.68,
         noiseSuppression: 0,
         karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
-      }; },
-  get updatePreferences() { return mocks.updatePreferences; }
-} }));
+      };
+    },
+    get updatePreferences() {
+      return mocks.updatePreferences;
+    },
+  },
+}));

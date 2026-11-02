@@ -7,27 +7,30 @@ import {
   Tooltip,
   tr,
   Typography,
-} from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
+} from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
 import type {
   FormBlock,
   SettingsFormValues,
-} from "../../../../../utils/contracts";
-import FormButton from "../form-button";
+} from '../../../../../utils/contracts';
+import FormButton from '../form-button';
 
 const rotaryProps = {
-  size: "sm",
+  size: 'sm',
   showLabel: true,
   min: 0,
   step: 0.01,
   displayScale: 100,
 } as const;
 
-export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">, showDiagnostics: () => void) => {
+export const blocks = (
+  values: Pick<SettingsFormValues, 'audio' | 'audioStatus'>,
+  showDiagnostics: () => void,
+) => {
   const status = values.audioStatus;
   const runtime = status.runtime;
   const usb =
-    runtime.latencyEstimateSource === "device-timeline"
+    runtime.latencyEstimateSource === 'device-timeline'
       ? (runtime.usbLatency?.inputMs ?? 0) + (runtime.usbLatency?.outputMs ?? 0)
       : 0;
   const latency =
@@ -36,29 +39,29 @@ export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">
       : null;
   return {
     estimatedLatencyTitle: {
-      span: { base: "full", md: 6, lg: 5 },
-      icon: "timer",
+      span: { base: 'full', md: 6, lg: 5 },
+      icon: 'timer',
       actions: (
-        <Tooltip content={tr("audioLatencyHint")}>
+        <Tooltip content={tr('audioLatencyHint')}>
           <IconButton
             icon="info"
             size="sm"
             variant="ghost"
-            label={tr("audioLatencyHint")}
+            label={tr('audioLatencyHint')}
             onClick={showDiagnostics}
           />
         </Tooltip>
       ),
       fields: [
         {
-          name: "audio.latency",
-          kind: "custom",
+          name: 'audio.latency',
+          kind: 'custom',
           render: () => (
             <Stack gap={3}>
               <LevelMeter
                 value={Math.min(1, status.inputLevel * 4) * 100}
                 active={values.audio.voice.monitoring}
-                label={tr("liveInputLevel")}
+                label={tr('liveInputLevel')}
               />
               <Stack direction="row" gap={3} align="center" wrap>
                 <Typography
@@ -66,18 +69,18 @@ export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">
                   as="strong"
                   text={
                     latency === null
-                      ? "—"
+                      ? '—'
                       : tr(ru.approximateMillisecondsValue, {
                           value: Math.round(latency),
                         })
                   }
                 />
                 <StatusIndicator
-                  status={status.audioAvailable ? "warning" : "offline"}
+                  status={status.audioAvailable ? 'warning' : 'offline'}
                   label={
                     status.audioAvailable
                       ? tr(ru.latencyIncomplete)
-                      : tr("audioNoData")
+                      : tr('audioNoData')
                   }
                 />
               </Stack>
@@ -85,52 +88,52 @@ export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">
           ),
         },
         {
-          name: "audio.configuration.backend",
-          kind: "select",
-          label: tr("audioBackend"),
-          span: { base: "full", sm: 4 },
+          name: 'audio.configuration.backend',
+          kind: 'select',
+          label: tr('audioBackend'),
+          span: { base: 'full', sm: 4 },
           props: {
-            options: ["ASIO", "WASAPI Shared", "WASAPI Exclusive"],
+            options: ['ASIO', 'WASAPI Shared', 'WASAPI Exclusive'],
             disabled: !status.ready,
           },
         },
         ...Object.entries({
           sampleRate: {
-            label: "sampleRate",
+            label: 'sampleRate',
             values: [0, 44100, 48000, 96000, 192000],
-            unit: "kilohertzValue",
+            unit: 'kilohertzValue',
             scale: 1000,
           },
           bufferFrames: {
-            label: "audioBuffer",
+            label: 'audioBuffer',
             values: [0, 32, 64, 128, 256, 512, 1024],
-            unit: "framesValue",
+            unit: 'framesValue',
             scale: 1,
           },
         }).map(([name, { label }]) => ({
           name: `audio.configuration.${name}`,
-          kind: "select" as const,
+          kind: 'select' as const,
           label: tr(label),
-          span: { base: "full", sm: 4 } as const,
+          span: { base: 'full', sm: 4 } as const,
           props: {
             options:
-              name === "sampleRate"
+              name === 'sampleRate'
                 ? status.options.sampleRates
                 : status.options.periods,
           },
         })),
         {
-          name: "audio.configureDevices",
-          kind: "custom",
+          name: 'audio.configureDevices',
+          kind: 'custom',
           render: () => (
             <Button
               size="sm"
               icon="sliders"
               disabled={
                 !status.audioAvailable ||
-                values.audio.configuration.backend !== "ASIO"
+                values.audio.configuration.backend !== 'ASIO'
               }
-              label={tr("audioConfigureDevices")}
+              label={tr('audioConfigureDevices')}
               onClick={status.onOpenAsioControlPanel}
             />
           ),
@@ -138,67 +141,67 @@ export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">
       ],
     },
     audioLevels: {
-      span: { base: "full", md: 6, lg: 4 },
-      icon: "levels",
+      span: { base: 'full', md: 6, lg: 4 },
+      icon: 'levels',
       fields: [
         {
-          name: "audio.voice.gain",
-          kind: "rotary",
-          label: tr("microphoneKnob"),
+          name: 'audio.voice.gain',
+          kind: 'rotary',
+          label: tr('microphoneKnob'),
           span: 5,
           props: { ...rotaryProps, max: 4, resetValue: 1 },
         },
         {
-          name: "audio.voice.monitoring",
-          kind: "custom",
+          name: 'audio.voice.monitoring',
+          kind: 'custom',
           span: 2,
           render: (field) => (
             <FormButton
               icon="mic"
-              label={tr("inputMonitoring")}
-              caption={tr("monitoring")}
+              label={tr('inputMonitoring')}
+              caption={tr('monitoring')}
               disabled={!status.canToggle}
               aria-pressed={Boolean(field.value)}
-              variant={field.value ? "primary" : "secondary"}
+              variant={field.value ? 'primary' : 'secondary'}
               onClick={() => field.onValueChange(!field.value)}
             />
           ),
         },
         {
-          name: "audio.voice.effects.noiseSuppression",
-          kind: "rotary",
-          label: tr("noiseKnob"),
+          name: 'audio.voice.effects.noiseSuppression',
+          kind: 'rotary',
+          label: tr('noiseKnob'),
           span: 5,
           props: { ...rotaryProps, max: 1, resetValue: 0 },
         },
       ],
     },
     audioDevicesAndMonitoring: {
-      span: { base: "full", lg: 3 },
-      icon: "headphones",
+      span: { base: 'full', lg: 3 },
+      icon: 'headphones',
       fields: [
         ...Object.entries({
-          inputDeviceId: { label: "audioInputDevice", span: "full" },
+          inputDeviceId: { label: 'audioInputDevice', span: 'full' },
           outputDeviceId: {
-            label: "audioOutputDevice",
-            span: { base: "full", sm: 10 },
+            label: 'audioOutputDevice',
+            span: { base: 'full', sm: 10 },
           },
         } as const).map(([name, { label, span }]) => ({
           name: `audio.configuration.${name}`,
-          kind: "select" as const,
+          kind: 'select' as const,
           label: tr(label),
           span,
           props: status.deviceOptions(
-            name === "inputDeviceId" ? "input" : "output",
+            name === 'inputDeviceId' ? 'input' : 'output',
             values.audio.configuration[
-              name as "inputDeviceId" | "outputDeviceId"
-            ] ?? "",
+              name as 'inputDeviceId' | 'outputDeviceId'
+            ] ?? '',
           ),
         })),
         {
-          name: "audio.playTestSound",
-          kind: "custom",
-          span: { base: "full", sm: 2 },
+          name: 'audio.playTestSound',
+          kind: 'custom',
+          span: { base: 'full', sm: 2 },
           render: () => (
             <Stack justify="center">
               <FormButton
@@ -212,17 +215,17 @@ export const blocks = (values: Pick<SettingsFormValues, "audio" | "audioStatus">
           ),
         },
         ...Object.entries({
-          "audio.releaseAsioInBackground": {
-            label: "releaseAsioInBackground",
-            backend: "ASIO",
+          'audio.releaseAsioInBackground': {
+            label: 'releaseAsioInBackground',
+            backend: 'ASIO',
           },
-          "audio.configuration.lowLatencyInput": {
-            label: "lowLatencyMicrophone",
-            backend: "WASAPI Shared",
+          'audio.configuration.lowLatencyInput': {
+            label: 'lowLatencyMicrophone',
+            backend: 'WASAPI Shared',
           },
         }).map(([name, { label, backend }]) => ({
           name,
-          kind: "switch" as const,
+          kind: 'switch' as const,
           label: tr(label),
           showWhen: (values: SettingsFormValues) =>
             values.audio.configuration.backend === backend,

@@ -1,6 +1,6 @@
-import { renderHook } from "@testing-library/react";
-import { expect, it, vi } from "vitest";
-import { useKaraokeShortcuts } from "./useKaraokeShortcuts";
+import { renderHook } from '@testing-library/react';
+import { expect, it, vi } from 'vitest';
+import { useKaraokeShortcuts } from './useKaraokeShortcuts';
 
 const makeSession = (overrides: Record<string, unknown> = {}) => ({
   interactive: true,
@@ -26,7 +26,7 @@ const press = (
   init: KeyboardEventInit = {},
   target: EventTarget = window,
 ) => {
-  const event = new KeyboardEvent("keydown", {
+  const event = new KeyboardEvent('keydown', {
     key,
     cancelable: true,
     bubbles: true,
@@ -41,35 +41,35 @@ const mount = (session: ReturnType<typeof makeSession>, exit = vi.fn()) => {
   return exit;
 };
 
-it("plays, pauses, seeks and sets the playback level from the keyboard", () => {
+it('plays, pauses, seeks and sets the playback level from the keyboard', () => {
   const session = makeSession();
   mount(session);
-  expect(press(" ").defaultPrevented).toBe(true);
-  press("k");
-  press("ArrowRight");
-  press("ArrowLeft", { shiftKey: true });
-  press("Home");
-  press("ArrowUp");
-  press("ArrowDown");
+  expect(press(' ').defaultPrevented).toBe(true);
+  press('k');
+  press('ArrowRight');
+  press('ArrowLeft', { shiftKey: true });
+  press('Home');
+  press('ArrowUp');
+  press('ArrowDown');
   expect(session.togglePlay).toHaveBeenCalledTimes(2);
   expect(session.seek.mock.calls).toEqual([[35], [15], [0]]);
   expect(session.changeGain.mock.calls).toEqual([
-    ["master", 0.85],
-    ["master", 0.75],
+    ['master', 0.85],
+    ['master', 0.75],
   ]);
 });
 
-it("changes key, tempo, notes, text and hearing yourself, and leaves with Escape", () => {
+it('changes key, tempo, notes, text and hearing yourself, and leaves with Escape', () => {
   const session = makeSession();
   const exit = mount(session);
-  press("]");
-  press("[");
-  press("+");
-  press("-");
-  press("n");
-  press("T");
-  press("m");
-  press("Escape");
+  press(']');
+  press('[');
+  press('+');
+  press('-');
+  press('n');
+  press('T');
+  press('m');
+  press('Escape');
   expect(session.changeKey.mock.calls).toEqual([[1], [-1]]);
   expect(session.changeSpeed.mock.calls).toEqual([[1.05], [0.95]]);
   expect(session.setShowNotes).toHaveBeenCalledWith(false);
@@ -78,18 +78,18 @@ it("changes key, tempo, notes, text and hearing yourself, and leaves with Escape
   expect(exit).toHaveBeenCalledOnce();
 });
 
-it("obeys room rights and leaves keys to a focused field or slider", () => {
+it('obeys room rights and leaves keys to a focused field or slider', () => {
   const session = makeSession({ interactive: false, practiceLocked: true });
   mount(session);
-  press("ArrowRight");
-  press("]");
-  press("+");
+  press('ArrowRight');
+  press(']');
+  press('+');
   expect(session.seek).not.toHaveBeenCalled();
   expect(session.changeKey).not.toHaveBeenCalled();
   expect(session.changeSpeed).not.toHaveBeenCalled();
-  const input = document.createElement("input");
+  const input = document.createElement('input');
   document.body.append(input);
-  press(" ", {}, input);
+  press(' ', {}, input);
   expect(session.togglePlay).not.toHaveBeenCalled();
   input.remove();
 });

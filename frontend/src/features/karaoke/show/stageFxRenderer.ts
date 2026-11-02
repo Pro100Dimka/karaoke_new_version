@@ -1,9 +1,15 @@
-import { approach, light, type FxColor } from "./fxPalette";
-import { LightBatch, beamVertexFloats, spriteFloats, spriteKind, type Rgb } from "./gl/lightBatch";
-import { CanvasLightRenderer, type Rect } from "./gl/canvasLightRenderer";
-import { ParticlePool } from "./particlePool";
-import type { ShowEngine } from "./showEngine";
-import type { FxCommand } from "./visualDirector";
+import { approach, light, type FxColor } from './fxPalette';
+import {
+  LightBatch,
+  beamVertexFloats,
+  spriteFloats,
+  spriteKind,
+  type Rgb,
+} from './gl/lightBatch';
+import { CanvasLightRenderer, type Rect } from './gl/canvasLightRenderer';
+import { ParticlePool } from './particlePool';
+import type { ShowEngine } from './showEngine';
+import type { FxCommand } from './visualDirector';
 
 interface Timed {
   start: number;
@@ -57,7 +63,8 @@ export class StageFxRenderer {
   private light: CanvasLightRenderer | undefined;
   private worker: Worker | undefined;
   private workerReady = false;
-  private workerBuffers: { sprites: Float32Array; beams: Float32Array } | undefined;
+  private workerBuffers:
+    { sprites: Float32Array; beams: Float32Array } | undefined;
   private pixelWidth = 1;
   private pixelHeight = 1;
   private batch = new LightBatch(1400, 16);
@@ -92,31 +99,40 @@ export class StageFxRenderer {
     private engine: ShowEngine,
     private host: HTMLElement,
   ) {
-    if (typeof Worker !== "undefined" && canvas.transferControlToOffscreen) {
-      const worker = new Worker(new URL("./gl/lightWorker.ts", import.meta.url), { type: "module" });
+    if (typeof Worker !== 'undefined' && canvas.transferControlToOffscreen) {
+      const worker = new Worker(
+        new URL('./gl/lightWorker.ts', import.meta.url),
+        { type: 'module' },
+      );
       const offscreen = canvas.transferControlToOffscreen();
       this.worker = worker;
       worker.onmessage = (event: MessageEvent) => {
-        if (event.data.type === "ready") {
+        if (event.data.type === 'ready') {
           this.workerReady = true;
           this.workerBuffers = {
             sprites: new Float32Array(this.batch.sprites.length),
             beams: new Float32Array(this.batch.beams.length),
           };
-        } else if (event.data.type === "frame") {
+        } else if (event.data.type === 'frame') {
           this.workerBuffers = {
             sprites: new Float32Array(event.data.sprites),
             beams: new Float32Array(event.data.beams),
           };
         }
       };
-      worker.postMessage({ type: "init", canvas: offscreen }, [offscreen]);
+      worker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
     } else {
       this.light = CanvasLightRenderer.create(canvas);
     }
     this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
     const { signal } = this.events;
-    window.addEventListener("resize", () => { this.sizeAt = -Infinity; }, { signal });
+    window.addEventListener(
+      'resize',
+      () => {
+        this.sizeAt = -Infinity;
+      },
+      { signal },
+    );
   }
 
   start(): void {
@@ -141,7 +157,8 @@ export class StageFxRenderer {
     this.events.abort();
     this.light?.dispose();
     this.worker?.terminate();
-    for (const [name, { element }] of this.styles) element.style.removeProperty(name);
+    for (const [name, { element }] of this.styles)
+      element.style.removeProperty(name);
     this.styles.clear();
     delete this.host.dataset.showSweep;
   }
@@ -174,13 +191,13 @@ export class StageFxRenderer {
       Math.hypot(this.width, this.height) *
       (this.anchors.consoleVisible ? 0.6 : 0.75);
     switch (command.kind) {
-      case "beatPulse":
-      case "noteGlow":
-      case "phraseSweep":
-      case "crossLight":
-      case "laserSweep":
+      case 'beatPulse':
+      case 'noteGlow':
+      case 'phraseSweep':
+      case 'crossLight':
+      case 'laserSweep':
         return;
-      case "chargeRelease":
+      case 'chargeRelease':
         this.rings.push({
           x: voice.x,
           y: voice.y,
@@ -199,15 +216,15 @@ export class StageFxRenderer {
           duration: 600,
           strength: 1.4 * s,
         });
-        this.burst(voice.x, voice.y, 16 * s, 140, ["pink", "white"]);
+        this.burst(voice.x, voice.y, 16 * s, 140, ['pink', 'white']);
         return;
-      case "phraseBloom":
+      case 'phraseBloom':
         this.sweepConsole();
         return;
-      case "lightWave":
+      case 'lightWave':
         this.flash = Math.max(this.flash, 0.25 * s);
         return;
-      case "stageExpansion":
+      case 'stageExpansion':
         this.flash = Math.max(this.flash, 0.5 * s);
         this.rings.push({
           x: this.width / 2,
@@ -223,12 +240,12 @@ export class StageFxRenderer {
           this.height,
           60 * s,
           420,
-          ["pink", "white", "violet", "gold"],
+          ['pink', 'white', 'violet', 'gold'],
           true,
         );
         this.depth = Math.max(this.depth, s);
         return;
-      case "shockwave":
+      case 'shockwave':
         this.rings.push({
           x: voice.x,
           y: voice.y,
@@ -250,14 +267,14 @@ export class StageFxRenderer {
         this.flash = Math.max(this.flash, 0.4 * s);
         this.depth = Math.max(this.depth, 0.8 * s);
         return;
-      case "firework":
+      case 'firework':
         this.starburst(s);
         return;
-      case "starRain":
+      case 'starRain':
         this.rain = { start: now, duration: 3200, strength: s };
         return;
-      case "noteSparks":
-      case "noteRing":
+      case 'noteSparks':
+      case 'noteRing':
         // Drawn on the note itself by the melody roll's own layer.
         return;
     }
@@ -284,7 +301,7 @@ export class StageFxRenderer {
         vy: Math.sin(angle) * velocity,
         life: random(0.9, 1.8),
         size: random(5, 11),
-        color: colors[i % colors.length] ?? "white",
+        color: colors[i % colors.length] ?? 'white',
         gravity: 60,
         drag: 0.3,
         twinkle: i % 3 === 0,
@@ -297,10 +314,10 @@ export class StageFxRenderer {
     const { x, y } = this.distantSpot();
     const now = performance.now();
     const palettes = [
-      ["gold", "white"],
-      ["pink", "white"],
-      ["violet", "pink"],
-      ["cyan", "white"],
+      ['gold', 'white'],
+      ['pink', 'white'],
+      ['violet', 'pink'],
+      ['cyan', 'white'],
     ] as const;
     const palette =
       palettes[Math.floor(Math.random() * palettes.length)] ?? palettes[0];
@@ -358,7 +375,7 @@ export class StageFxRenderer {
 
   private sweepConsole(): void {
     this.sweepToggle = !this.sweepToggle;
-    this.host.dataset.showSweep = this.sweepToggle ? "a" : "b";
+    this.host.dataset.showSweep = this.sweepToggle ? 'a' : 'b';
   }
 
   private readAnchors(now: number): void {
@@ -368,11 +385,11 @@ export class StageFxRenderer {
       const rect = this.host.querySelector(selector)?.getBoundingClientRect();
       return rect && rect.width > 0 ? rect : undefined;
     };
-    const consoleCard = box(".karaokeConsoleCard");
+    const consoleCard = box('.karaokeConsoleCard');
     this.anchors = {
-      lyrics: box(".ad-lyrics-current"),
-      roll: box(".pianoRoll .ad-melody-roll-lane"),
-      rollPanel: box(":scope > .pianoRoll"),
+      lyrics: box('.ad-lyrics-current'),
+      roll: box('.pianoRoll .ad-melody-roll-lane'),
+      rollPanel: box(':scope > .pianoRoll'),
       consoleVisible: Boolean(consoleCard && consoleCard.top < this.height - 4),
     };
   }
@@ -390,7 +407,10 @@ export class StageFxRenderer {
     const height = Math.max(1, Math.round(this.height * ratio));
     this.pixelWidth = width;
     this.pixelHeight = height;
-    if (!this.worker && (this.canvas.width !== width || this.canvas.height !== height)) {
+    if (
+      !this.worker &&
+      (this.canvas.width !== width || this.canvas.height !== height)
+    ) {
       this.canvas.width = width;
       this.canvas.height = height;
     }
@@ -481,18 +501,34 @@ export class StageFxRenderer {
     }
     this.pool.emit(batch, time);
     const view = { width: this.width, height: this.height };
-    const protect = { lyrics: rectOf(this.anchors.lyrics), roll: rectOf(this.anchors.rollPanel) };
+    const protect = {
+      lyrics: rectOf(this.anchors.lyrics),
+      roll: rectOf(this.anchors.rollPanel),
+    };
     const bloom = 0.85 + this.flash * 0.6;
     if (this.worker && this.workerBuffers) {
       const { sprites, beams } = this.workerBuffers;
       sprites.set(batch.sprites.subarray(0, batch.spriteCount * spriteFloats));
-      beams.set(batch.beams.subarray(0, batch.beamCount * 3 * beamVertexFloats));
+      beams.set(
+        batch.beams.subarray(0, batch.beamCount * 3 * beamVertexFloats),
+      );
       this.workerBuffers = undefined;
-      this.worker.postMessage({
-        type: "frame", sprites: sprites.buffer, beams: beams.buffer,
-        spriteCount: batch.spriteCount, beamCount: batch.beamCount,
-        width: this.pixelWidth, height: this.pixelHeight, time, view, protect, bloom,
-      }, [sprites.buffer, beams.buffer]);
+      this.worker.postMessage(
+        {
+          type: 'frame',
+          sprites: sprites.buffer,
+          beams: beams.buffer,
+          spriteCount: batch.spriteCount,
+          beamCount: batch.beamCount,
+          width: this.pixelWidth,
+          height: this.pixelHeight,
+          time,
+          view,
+          protect,
+          bloom,
+        },
+        [sprites.buffer, beams.buffer],
+      );
     } else {
       this.light?.render(batch, time, view, protect, bloom);
     }
@@ -510,7 +546,7 @@ export class StageFxRenderer {
         vy: random(30, 80) * (this.motion ? 1 : 0.4),
         life: random(3, 4.5),
         size: random(3, 6),
-        color: Math.random() < 0.5 ? "white" : "gold",
+        color: Math.random() < 0.5 ? 'white' : 'gold',
         twinkle: true,
       });
     }
@@ -539,16 +575,20 @@ export class StageFxRenderer {
   /** Backing-track motion belongs only to the painted lyrics. */
   private applyStyles(): void {
     const beat = this.engine.state.musicBeat ?? 0;
-    this.setStyle("--show-music-beat", (beat * 0.4).toFixed(5), ".ad-lyrics-current");
     this.setStyle(
-      "--show-console-glow",
-      (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),
-      ".karaokeConsoleCard",
+      '--show-music-beat',
+      (beat * 0.4).toFixed(5),
+      '.ad-lyrics-current',
     );
     this.setStyle(
-      "--show-roll-glow",
+      '--show-console-glow',
+      (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),
+      '.karaokeConsoleCard',
+    );
+    this.setStyle(
+      '--show-roll-glow',
       this.engine.state.ambient.rollGlow.toFixed(3),
-      ".pianoRollLane",
+      '.pianoRollLane',
     );
   }
 
@@ -556,7 +596,8 @@ export class StageFxRenderer {
     const element = this.host.querySelector<HTMLElement>(selector);
     const previous = this.styles.get(name);
     if (previous?.element === element && previous.value === value) return;
-    if (previous && previous.element !== element) previous.element.style.removeProperty(name);
+    if (previous && previous.element !== element)
+      previous.element.style.removeProperty(name);
     if (!element) {
       this.styles.delete(name);
       return;

@@ -1,8 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
-import { createLatestSnapshotQueue } from "../../application/room/latestSnapshotQueue";
+import { describe, expect, it, vi } from 'vitest';
+import { createLatestSnapshotQueue } from '../../application/room/latestSnapshotQueue';
 
-describe("latest room snapshot queue", () => {
-  it("coalesces a burst without dropping the newest snapshot", async () => {
+describe('latest room snapshot queue', () => {
+  it('coalesces a burst without dropping the newest snapshot', async () => {
     let releaseFirst!: () => void;
     const firstBlocked = new Promise<void>((resolve) => {
       releaseFirst = resolve;

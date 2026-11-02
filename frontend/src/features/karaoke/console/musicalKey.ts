@@ -1,37 +1,37 @@
-import type { EditorNote } from "../../../application/editor/editorModel";
+import type { EditorNote } from '../../../application/editor/editorModel';
 
 const noteNames = [
-  "C",
-  "C♯",
-  "D",
-  "D♯",
-  "E",
-  "F",
-  "F♯",
-  "G",
-  "G♯",
-  "A",
-  "A♯",
-  "B",
+  'C',
+  'C♯',
+  'D',
+  'D♯',
+  'E',
+  'F',
+  'F♯',
+  'G',
+  'G♯',
+  'A',
+  'A♯',
+  'B',
 ] as const;
 const pitchClasses: Readonly<Record<string, number>> = {
   C: 0,
-  "C#": 1,
+  'C#': 1,
   Db: 1,
   D: 2,
-  "D#": 3,
+  'D#': 3,
   Eb: 3,
   E: 4,
   Fb: 4,
-  "E#": 5,
+  'E#': 5,
   F: 5,
-  "F#": 6,
+  'F#': 6,
   Gb: 6,
   G: 7,
-  "G#": 8,
+  'G#': 8,
   Ab: 8,
   A: 9,
-  "A#": 10,
+  'A#': 10,
   Bb: 10,
   B: 11,
   Cb: 11,
@@ -51,18 +51,18 @@ interface MusicalKey {
 const modulo = (value: number): number => ((value % 12) + 12) % 12;
 
 const parseKey = (value: string | undefined): MusicalKey | null => {
-  const normalized = value?.trim().replaceAll("♯", "#").replaceAll("♭", "b");
+  const normalized = value?.trim().replaceAll('♯', '#').replaceAll('♭', 'b');
   if (!normalized || /^(unknown|n\/?a|none|-+)$/i.test(normalized)) return null;
   const match =
     /^([A-Ga-g])([#b]?)(?:\s*(major|maj|minor|min|m))?(?:\s|$)/i.exec(
       normalized,
     );
   if (!match) return null;
-  const rootName = `${match[1]?.toUpperCase()}${match[2] ?? ""}`;
+  const rootName = `${match[1]?.toUpperCase()}${match[2] ?? ''}`;
   const root = pitchClasses[rootName];
   if (root === undefined) return null;
-  const mode = (match[3] ?? "").toLowerCase();
-  return { root, minor: mode === "m" || mode === "min" || mode === "minor" };
+  const mode = (match[3] ?? '').toLowerCase();
+  return { root, minor: mode === 'm' || mode === 'min' || mode === 'minor' };
 };
 
 const inferKey = (notes: readonly EditorNote[]): MusicalKey => {
@@ -103,5 +103,5 @@ export const musicalKeyLabel = (
 ): string => {
   const key = parseKey(sourceKey) ?? inferKey(notes);
   const name = noteNames[modulo(key.root + Math.round(semitoneShift))];
-  return `${name}${key.minor ? "m" : ""}`;
+  return `${name}${key.minor ? 'm' : ''}`;
 };

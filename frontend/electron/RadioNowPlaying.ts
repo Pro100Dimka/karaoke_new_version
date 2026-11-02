@@ -1,4 +1,4 @@
-import type { DesktopShell, ShellStatus } from "./DesktopShell";
+import type { DesktopShell, ShellStatus } from './DesktopShell';
 
 /** How often the playing station is asked what it plays. */
 const pollMilliseconds = 20_000;
@@ -17,10 +17,13 @@ export interface RadioTrack {
 export const radioTrackFrom = (metadata: string): RadioTrack | null => {
   const streamTitle = /StreamTitle='(.*?)';/s.exec(metadata)?.[1]?.trim();
   if (!streamTitle) return null;
-  const split = streamTitle.indexOf(" - ");
+  const split = streamTitle.indexOf(' - ');
   if (split <= 0) return { title: streamTitle.slice(0, 200) };
   const artist = streamTitle.slice(0, split).trim().slice(0, 200);
-  const title = streamTitle.slice(split + 3).trim().slice(0, 200);
+  const title = streamTitle
+    .slice(split + 3)
+    .trim()
+    .slice(0, 200);
   return title ? { title, ...(artist ? { artist } : {}) } : { title: artist };
 };
 
@@ -33,11 +36,16 @@ export const readStreamTitle = async (
   fetchImpl: typeof fetch = fetch,
 ): Promise<RadioTrack | null> => {
   const response = await fetchImpl(url, {
-    headers: { "Icy-MetaData": "1", "User-Agent": "AD-Voice" },
+    headers: { 'Icy-MetaData': '1', 'User-Agent': 'AD-Voice' },
     signal: AbortSignal.timeout(15_000),
   });
-  const metaint = Number(response.headers.get("icy-metaint"));
-  if (!response.ok || !response.body || !Number.isInteger(metaint) || metaint <= 0) {
+  const metaint = Number(response.headers.get('icy-metaint'));
+  if (
+    !response.ok ||
+    !response.body ||
+    !Number.isInteger(metaint) ||
+    metaint <= 0
+  ) {
     await response.body?.cancel().catch(() => undefined);
     return null;
   }
@@ -51,7 +59,9 @@ export const readStreamTitle = async (
       if (buffer.length <= metaint) continue;
       const length = buffer[metaint]! * 16;
       if (buffer.length < metaint + 1 + length) continue;
-      return radioTrackFrom(buffer.subarray(metaint + 1, metaint + 1 + length).toString("utf8"));
+      return radioTrackFrom(
+        buffer.subarray(metaint + 1, metaint + 1 + length).toString('utf8'),
+      );
     }
     return null;
   } finally {
@@ -60,23 +70,30 @@ export const readStreamTitle = async (
 };
 
 const playing = (status: ShellStatus): string | null =>
-  status.radio.enabled && status.radio.available && status.radio.streamUrl ? status.radio.streamUrl : null;
+  status.radio.enabled && status.radio.available && status.radio.streamUrl
+    ? status.radio.streamUrl
+    : null;
 
 /**
  * Tells the interface what the radio plays (artist and title), for its volume popup, the tray and
  * Discord: asks the playing station every 20 s while the radio plays, and clears it when it stops.
  */
-export const startRadioNowPlaying = (shell: DesktopShell, fetchImpl: typeof fetch = fetch) => {
+export const startRadioNowPlaying = (
+  shell: DesktopShell,
+  fetchImpl: typeof fetch = fetch,
+) => {
   let url: string | null = null;
   let timer: NodeJS.Timeout | undefined;
-  let last = "";
+  let last = '';
   let generation = 0;
 
   const announce = (track: RadioTrack | null) => {
     const key = JSON.stringify(track);
     if (key === last) return;
     last = key;
-    shell.send(track ? { type: "radioTrack", ...track } : { type: "radioTrack" });
+    shell.send(
+      track ? { type: 'radioTrack', ...track } : { type: 'radioTrack' },
+    );
   };
 
   const poll = async (current: number, station: string) => {

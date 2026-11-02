@@ -1,19 +1,25 @@
-import { friendRelations } from "../../../../providers/social";
-import { socialClient } from "../../../../services/socialClient";
-import { observer } from "mobx-react-lite";
-import { store } from "../../../../providers/store";
-import { ru } from "../../../../i18n/messages.ru";
-import { useEffect, useState } from "react";
-import { IconButton, ProgressBar, Typography, tr, useLocale } from "@neo-ui-kit/react";
+import { friendRelations } from '../../../../providers/social';
+import { socialClient } from '../../../../services/socialClient';
+import { observer } from 'mobx-react-lite';
+import { store } from '../../../../providers/store';
+import { ru } from '../../../../i18n/messages.ru';
+import { useEffect, useState } from 'react';
+import {
+  IconButton,
+  ProgressBar,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
 import type {
   RoomStay,
   RoomStayPerson,
   SocialRelation,
-} from "../../../../contracts/social";
+} from '../../../../contracts/social';
 
-import { PersonRow } from "../../../../features/social/PersonRow";
-import { durationText } from "../../../../features/social/socialFormat";
-import { useSocialAction } from "../../../../features/social/useSocialAction";
+import { PersonRow } from '../../../../features/social/PersonRow';
+import { durationText } from '../../../../features/social/socialFormat';
+import { useSocialAction } from '../../../../features/social/useSocialAction';
 
 /**
  * The rooms this person was in: when, for how long, and with whom. Anyone who is not a friend yet
@@ -54,8 +60,8 @@ export const RoomHistory = observer(() => {
   const personActions = ({ person, displayName }: RoomStayPerson) => {
     if (!person) return undefined;
     const relation = relations[person.accountId] ?? person.relation;
-    if (relation === "Friend" || relation === "Self") return undefined;
-    if (relation === "Requested")
+    if (relation === 'Friend' || relation === 'Self') return undefined;
+    if (relation === 'Requested')
       return (
         <IconButton
           size="sm"
@@ -76,7 +82,9 @@ export const RoomHistory = observer(() => {
   };
 
   if (failed)
-    return <Typography tone="muted">{tr(ru.roomNetworkUnavailable)}</Typography>;
+    return (
+      <Typography tone="muted">{tr(ru.roomNetworkUnavailable)}</Typography>
+    );
   if (!stays)
     return <ProgressBar indeterminate label={tr(ru.friendsTabHistory)} />;
   if (stays.length === 0)
@@ -87,8 +95,8 @@ export const RoomHistory = observer(() => {
         <li key={stay.roomId} className="roomStay">
           <Typography as="strong" variant="title">
             {new Date(stay.joinedAt).toLocaleString(preferences.language, {
-              dateStyle: "medium",
-              timeStyle: "short",
+              dateStyle: 'medium',
+              timeStyle: 'short',
             })}
           </Typography>
           <Typography variant="body-sm" tone="muted">

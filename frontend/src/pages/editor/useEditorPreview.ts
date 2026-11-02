@@ -1,5 +1,5 @@
-import { audioClient } from "../../services/audioClient";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { audioClient } from '../../services/audioClient';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const pollMilliseconds = 16;
 
@@ -23,17 +23,24 @@ export const useEditorPreview = (
     const timer = window.setInterval(() => {
       if (inFlight.current) return;
       inFlight.current = true;
-      void audioClient.snapshot()
+      void audioClient
+        .snapshot()
         .then((snapshot) => {
           if (!active) return;
           setPosition(snapshot.positionSeconds);
-          if (["finished", "ready"].includes(snapshot.state))
-            setPlaying(false);
+          if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
         })
-        .catch(() => { if (active) setPlaying(false); })
-        .finally(() => { inFlight.current = false; });
+        .catch(() => {
+          if (active) setPlaying(false);
+        })
+        .finally(() => {
+          inFlight.current = false;
+        });
     }, pollMilliseconds);
-    return () => { active = false; window.clearInterval(timer); };
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, [audioReady, playing]);
 
   const togglePlay = useCallback(async () => {

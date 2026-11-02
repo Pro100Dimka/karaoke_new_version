@@ -1,6 +1,6 @@
-import { CollapsibleSection, TextArea, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
-import { useEnvironmentJson } from "./useEnvironmentJson";
+import { CollapsibleSection, TextArea, tr, useLocale } from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
+import { useEnvironmentJson } from './useEnvironmentJson';
 
 export const EnvironmentJson = ({
   values,

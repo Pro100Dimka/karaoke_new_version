@@ -1,15 +1,17 @@
-import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
   createPercussionReaction,
   toSpectrumFrame,
   useSpectrumFeed,
   type SpectrumFrame,
-} from "./useSpectrumFeed";
+} from './useSpectrumFeed';
 
 const { spectrum } = vi.hoisted(() => ({ spectrum: vi.fn() }));
-vi.mock("../../services/audioClient", () => ({ audioClient: { spectrum } }));
-vi.mock("../../providers/store", () => ({ store: { application: { services: { audio: { kind: "ready" } } } } }));
+vi.mock('../../services/audioClient', () => ({ audioClient: { spectrum } }));
+vi.mock('../../providers/store', () => ({
+  store: { application: { services: { audio: { kind: 'ready' } } } },
+}));
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -17,7 +19,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-it("creates distinct kick and snare impulses and lets both decay smoothly", () => {
+it('creates distinct kick and snare impulses and lets both decay smoothly', () => {
   const reaction = createPercussionReaction();
   reaction.next(Array(18).fill(0));
   const kick = reaction.next([0.9, 0.8, 0.7, 0.5, ...Array(14).fill(0)]);
@@ -34,11 +36,11 @@ it("creates distinct kick and snare impulses and lets both decay smoothly", () =
   expect(release.pulse).toBeLessThanOrEqual(Math.max(kick.pulse, snare.pulse));
 });
 
-it("uses the final spectrum as a compatibility fallback for an older AudioService", () => {
+it('uses the final spectrum as a compatibility fallback for an older AudioService', () => {
   expect(toSpectrumFrame([0.7, 0.5], []).backingBands).toEqual([0.7, 0.5]);
 });
 
-it("ignores held tones and isolated harmonic movement but reacts to a broadband drum attack", () => {
+it('ignores held tones and isolated harmonic movement but reacts to a broadband drum attack', () => {
   const reaction = createPercussionReaction();
   const held = Array(18).fill(0.3);
   reaction.next(held);
@@ -61,7 +63,7 @@ it("ignores held tones and isolated harmonic movement but reacts to a broadband 
   expect(reaction.next(snare, 0.1).snare).toBeGreaterThan(0.5);
 });
 
-it("ignores an in-flight spectrum after polling is disabled", async () => {
+it('ignores an in-flight spectrum after polling is disabled', async () => {
   let resolve: (value: {
     bands: number[];
     backingBands: number[];
@@ -86,7 +88,7 @@ it("ignores an in-flight spectrum after polling is disabled", async () => {
   expect(spectrum).toHaveBeenCalledOnce();
 });
 
-it("keeps one IPC request in flight across callback changes and restarts", async () => {
+it('keeps one IPC request in flight across callback changes and restarts', async () => {
   const replies: Array<
     (value: { bands: number[]; backingBands: number[] }) => void
   > = [];
@@ -121,7 +123,7 @@ it("keeps one IPC request in flight across callback changes and restarts", async
   expect(onFrame).toHaveBeenCalledOnce();
 });
 
-it("samples silence rarely once visuals have settled and returns to full rate on the first sound", async () => {
+it('samples silence rarely once visuals have settled and returns to full rate on the first sound', async () => {
   let level = 0;
   spectrum.mockImplementation(async () => ({
     bands: [level],

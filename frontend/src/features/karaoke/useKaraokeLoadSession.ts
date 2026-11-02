@@ -1,20 +1,23 @@
-import { store } from "../../providers/store";
-import { editorApi } from "../../pages/editor/editorApi";
-import { audioClient } from "../../services/audioClient";
-import { pythonClient } from "../../services/pythonClient";
-import { useEffect, useRef, useState } from "react";
+import { store } from '../../providers/store';
+import { editorApi } from '../../pages/editor/editorApi';
+import { audioClient } from '../../services/audioClient';
+import { pythonClient } from '../../services/pythonClient';
+import { useEffect, useRef, useState } from 'react';
 
 import type {
   AudioCapabilities,
   MixerChannelGains,
-} from "../../contracts/models";
-import type { EditorDocument } from "../../application/editor/editorModel";
-import type { SongPreferences } from "../../application/library/songPreferences";
-import type { KaraokeLoad } from "../../application/karaoke/karaokeLoader";
-import { prepareKaraokeSession } from "../../application/karaoke/KaraokePreparation";
-import type { KaraokeOpenMode } from "./useKaraokeSession";
+} from '../../contracts/models';
+import type { EditorDocument } from '../../application/editor/editorModel';
+import type { SongPreferences } from '../../application/library/songPreferences';
+import type { KaraokeLoad } from '../../application/karaoke/karaokeLoader';
+import { prepareKaraokeSession } from '../../application/karaoke/KaraokePreparation';
+import type { KaraokeOpenMode } from './useKaraokeSession';
 
-const noMicrophone: AudioCapabilities = { microphone: "missing", keyboardLighting: false };
+const noMicrophone: AudioCapabilities = {
+  microphone: 'missing',
+  keyboardLighting: false,
+};
 
 export const useKaraokeLoadSession = (
   songId: string,
@@ -25,8 +28,8 @@ export const useKaraokeLoadSession = (
   onRestart: () => void = () => undefined,
 ) => {
   const { pythonEpoch } = store.application.services;
-  const preparedSession = useRef("");
-  const [load, setLoad] = useState<KaraokeLoad>({ kind: "loading" });
+  const preparedSession = useRef('');
+  const [load, setLoad] = useState<KaraokeLoad>({ kind: 'loading' });
   const [document, setDocument] = useState<EditorDocument | null>(null);
   const [songPrefs, setSongPrefs] = useState<SongPreferences | null>(null);
   const [capabilities, setCapabilities] =
@@ -41,7 +44,7 @@ export const useKaraokeLoadSession = (
         .then((song) => {
           if (active)
             setLoad((current) =>
-              current.kind === "ready" && current.song.id === songId
+              current.kind === 'ready' && current.song.id === songId
                 ? {
                     ...current,
                     song: {
@@ -58,13 +61,17 @@ export const useKaraokeLoadSession = (
         active = false;
       };
     }
-    preparedSession.current = "";
-    setLoad({ kind: "loading" });
+    preparedSession.current = '';
+    setLoad({ kind: 'loading' });
     setDocument(null);
     setSongPrefs(null);
     onRestart();
     void prepareKaraokeSession({
-      songId, gains, backend: pythonClient, repository: editorApi, audio: audioClient,
+      songId,
+      gains,
+      backend: pythonClient,
+      repository: editorApi,
+      audio: audioClient,
       isCurrent: () => active,
       onResolved: (resolved) => {
         setLoad(resolved.load);

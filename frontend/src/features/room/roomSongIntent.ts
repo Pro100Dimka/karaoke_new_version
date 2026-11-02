@@ -1,12 +1,12 @@
-import type { RoomStateDto } from "../../contracts/models";
-import { canControlRoom } from "../../application/room/roomModel";
+import type { RoomStateDto } from '../../contracts/models';
+import { canControlRoom } from '../../application/room/roomModel';
 
-export type RoomSongPlayIntent = "play-local" | "select-room" | "wait-for-host";
+export type RoomSongPlayIntent = 'play-local' | 'select-room' | 'wait-for-host';
 
 /** A card Play click must have one authority while a room is active. */
 export const roomSongPlayIntent = (
   room: RoomStateDto | null,
 ): RoomSongPlayIntent => {
-  if (!room) return "play-local";
-  return canControlRoom(room) ? "select-room" : "wait-for-host";
+  if (!room) return 'play-local';
+  return canControlRoom(room) ? 'select-room' : 'wait-for-host';
 };

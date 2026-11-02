@@ -1,6 +1,6 @@
-import type { ParticipantDto, RoomStateDto } from "../contracts/models";
-import { readText, writeText } from "../shared/storage/localStore";
-import { sharedStateOf } from "../application/room/roomModel";
+import type { ParticipantDto, RoomStateDto } from '../contracts/models';
+import { readText, writeText } from '../shared/storage/localStore';
+import { sharedStateOf } from '../application/room/roomModel';
 
 export interface BackendRoomParticipant {
   participantId: string;
@@ -62,31 +62,31 @@ export interface RoomRequestTiming {
  * stored random id only stands in where there is no desktop bridge (tests, a plain browser).
  */
 export const participantId = ((): string => {
-  if (typeof window !== "undefined" && window.desktop?.roomParticipantId)
+  if (typeof window !== 'undefined' && window.desktop?.roomParticipantId)
     return window.desktop.roomParticipantId;
   // The key predates versioned storage keys; it stays as it is so a saved id is not lost.
-  const key = "adVoice.participantId";
-  const stored = typeof window === "undefined" ? null : readText(key);
+  const key = 'adVoice.participantId';
+  const stored = typeof window === 'undefined' ? null : readText(key);
   if (stored) return stored;
   const created = crypto.randomUUID();
-  if (typeof window !== "undefined") writeText(key, created);
+  if (typeof window !== 'undefined') writeText(key, created);
   return created;
 })();
 
-export const readinessOf = (value: string): ParticipantDto["readiness"] => {
+export const readinessOf = (value: string): ParticipantDto['readiness'] => {
   const known = {
-    missingsong: "missing",
-    downloading: "downloading",
-    importing: "verifying",
-    preparing: "audio",
-    ready: "ready",
-    failed: "failed",
-    disconnected: "disconnected",
+    missingsong: 'missing',
+    downloading: 'downloading',
+    importing: 'verifying',
+    preparing: 'audio',
+    ready: 'ready',
+    failed: 'failed',
+    disconnected: 'disconnected',
   } as const;
   return (
-    (known as Record<string, ParticipantDto["readiness"]>)[
+    (known as Record<string, ParticipantDto['readiness']>)[
       value.toLowerCase()
-    ] ?? "preparing"
+    ] ?? 'preparing'
   );
 };
 
@@ -98,13 +98,13 @@ export const mapRoom = (
   hostId: room.hostId,
   songId: room.songId ?? undefined,
   revision: room.revision ?? undefined,
-  role: room.hostId === participantId ? "host" : "participant",
+  role: room.hostId === participantId ? 'host' : 'participant',
   participants: room.participants.map((participant) => ({
     id: participant.participantId,
     name: participant.displayName,
-    role: participant.role.toLowerCase() === "host" ? "host" : "participant",
+    role: participant.role.toLowerCase() === 'host' ? 'host' : 'participant',
     self: participant.participantId === participantId,
-    connected: participant.connectionState.toLowerCase() === "connected",
+    connected: participant.connectionState.toLowerCase() === 'connected',
     muted: false,
     volume: 1,
     readiness: readinessOf(participant.readinessState),
@@ -113,7 +113,7 @@ export const mapRoom = (
       Math.min(
         100,
         participant.transferProgress ??
-          (participant.readinessState.toLowerCase() === "ready" ? 100 : 0),
+          (participant.readinessState.toLowerCase() === 'ready' ? 100 : 0),
       ),
     ),
     voiceLatencyMs: Math.max(0, Math.min(500, participant.voiceLatencyMs ?? 0)),
@@ -122,9 +122,9 @@ export const mapRoom = (
   })),
   roomPlayoutDelayMs: Math.max(0, Math.min(250, room.roomPlayoutDelayMs ?? 60)),
   transferProgress: Math.max(0, Math.min(100, room.transferProgress ?? 100)),
-  playbackLocked: room.playbackState.toLowerCase() === "playing",
+  playbackLocked: room.playbackState.toLowerCase() === 'playing',
   playbackState:
-    room.playbackState.toLowerCase() as RoomStateDto["playbackState"],
+    room.playbackState.toLowerCase() as RoomStateDto['playbackState'],
   playbackStartedAt: room.playbackStartedAt ?? undefined,
   playbackPositionSeconds: room.playbackPositionSeconds,
   serverNow: room.serverNow,

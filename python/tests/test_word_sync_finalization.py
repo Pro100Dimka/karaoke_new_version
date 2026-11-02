@@ -3,12 +3,74 @@ from __future__ import annotations
 import pytest
 
 from backend.ai.domain import PitchPoint
-from backend.ai_worker.ctc import AlignedWord, ordered
+from backend.ai_worker.ctc import AlignedWord, _evenly, ordered
 from backend.ai_worker.recognition import alignment_payload, rate_review_indices
 from backend.infrastructure.command_ai_provider import _word
 from backend.lyrics.codec import decode_document, encode_document
 from backend.processing.algorithms import MusicMetadata, construct_document
 from backend.processing.reporting import alignment_warnings
+from tools.audit_lyrics_sync import audit
+
+
+@pytest.mark.parametrize("text", [("дом", "там", "да"), ("дім", "там", "так")])
+def test_unaligned_neighbour_cannot_clip_a_supported_core(text):
+    source = [
+        AlignedWord(text[0], 1.0, 1.3, (1.0, 1.06, 1.22), 0.9),
+        AlignedWord(text[1], 1.1, 1.6, (1.1, 1.32, 1.5), 0.0),
+        AlignedWord(text[2], 1.6, 1.9, (), 0.9),
+    ]
+    result = ordered(source)
+    assert result[0] == source[0]
+    assert (result[1].start, result[1].end) == (1.3, 1.6)
+    assert "ApproximateLetterTiming" in result[1].diagnostics
+    assert "BoundaryConflict" in result[1].diagnostics
+    assert result[2] == source[2]
+    assert ordered(result) == result
+
+
+def test_proportional_fallback_never_claims_acoustic_letter_precision():
+    words = _evenly(["мій", "дім"], 1.0, 2.0)
+    payload = alignment_payload(ordered(words), {})["words"]
+    assert all("ApproximateLetterTiming" in word["diagnostics"] for word in payload)
+    assert all(word["confidence"] == 0 for word in payload)
+
+
+def test_a_fallback_repair_cannot_push_a_following_supported_word():
+    words = [AlignedWord("а", 1.0, 1.3, (1.0,), 0.9),
+             AlignedWord("і", 1.1, 1.6, (1.1,), 0),
+             AlignedWord("я", 1.2, 1.8, (1.2,), 0.9)]
+    result = ordered(words)
+    assert result[2] == words[2]
+    assert all(a.end <= b.start for a, b in zip(result, result[1:]))
+    assert "BoundaryConflict" in result[0].diagnostics
+
+
+def test_audit_requires_independent_occurrence_labels_for_accuracy():
+    word = dict(text="дім", start=1.0, end=1.3, letters=[1.0, 1.06, 1.22], notes=[])
+    document = dict(title="t", artist="a", duration=2, lyrics="дім", words=[word])
+    assert audit(document)["summary"]["accuracy"] is None
+    reference = dict(independent=True, source="manually labelled fixture",
+                     words=[dict(index=0, text="дім", start=1.1, end=1.5)])
+    result = audit(document, reference=reference)
+    assert len(result["words"]) == 1
+    assert result["summary"]["accuracy"]["medianMs"] == pytest.approx(150)
+    assert result["summary"]["accuracy"]["maxMs"] == pytest.approx(200)
+    with pytest.raises(ValueError, match="independent"):
+        audit(document, reference={**reference, "independent": False})
+    with pytest.raises(ValueError, match="occurrence"):
+        audit(document, reference={**reference, "words": [{**reference["words"][0], "text": "інше"}]})
+
+
+def test_audit_reports_all_letters_and_unassigned_pitch_without_claiming_errors():
+    document = dict(title="t", duration=2, lyrics="так", words=[
+        dict(text="так", start=1.0, end=1.3, letters=[1.0, 1.1, 1.1], notes=[]),
+    ])
+    point = dict(time=1.1, frequency=220, confidence=0.9, audioActive=True)
+    result = audit(document, pitch={"points": [point]})
+    assert len(result["words"][0]["letters"]) == 3
+    assert result["summary"]["diagnostics"] == {"ZeroSoundingLetterCandidate": 1}
+    assert result["summary"]["unassignedConfidentPitchPoints"] == [point]
+    assert result["summary"]["accuracy"] is None
 
 
 @pytest.mark.parametrize("text", [("дом", "там"), ("дім", "там")])

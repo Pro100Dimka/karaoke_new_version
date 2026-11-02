@@ -1,10 +1,10 @@
-import type { RoomStateDto, SongDto } from "../../contracts/models";
-import { routes } from "../../shared/routes";
-import { roomProjectNeedsDownload } from "./roomModel";
+import type { RoomStateDto, SongDto } from '../../contracts/models';
+import { routes } from '../../shared/routes';
+import { roomProjectNeedsDownload } from './roomModel';
 
 export type RoomKaraokeNavigation =
-  | { kind: "stay" }
-  | { kind: "open" | "download"; songId: string; revision: number };
+  | { kind: 'stay' }
+  | { kind: 'open' | 'download'; songId: string; revision: number };
 
 /** Decides how this participant joins an authoritative room playback without route-specific side effects. */
 export const roomKaraokeNavigation = (
@@ -15,21 +15,21 @@ export const roomKaraokeNavigation = (
   completedProjectKey?: string,
 ): RoomKaraokeNavigation => {
   if (!room.songId || room.revision === undefined) {
-    return { kind: "stay" };
+    return { kind: 'stay' };
   }
   if (completedProjectKey === `${room.songId}:${room.revision}`)
-    return { kind: "stay" };
+    return { kind: 'stay' };
   const localSongId = importedLocalSongId ?? room.songId;
   if (roomProjectNeedsDownload(room, library, importedLocalSongId)) {
-    return { kind: "download", songId: room.songId, revision: room.revision };
+    return { kind: 'download', songId: room.songId, revision: room.revision };
   }
-  if (pathname === routes.karaoke(localSongId)) return { kind: "stay" };
+  if (pathname === routes.karaoke(localSongId)) return { kind: 'stay' };
   const projectReadyPhases = new Set<
-    RoomStateDto["participants"][number]["readiness"]
-  >(["preparing", "audio", "ready"]);
+    RoomStateDto['participants'][number]['readiness']
+  >(['preparing', 'audio', 'ready']);
   const everyConnectedParticipantHasProject = room.participants
     .filter((person) => person.connected)
     .every((person) => projectReadyPhases.has(person.readiness));
-  if (!everyConnectedParticipantHasProject) return { kind: "stay" };
-  return { kind: "open", songId: localSongId, revision: room.revision };
+  if (!everyConnectedParticipantHasProject) return { kind: 'stay' };
+  return { kind: 'open', songId: localSongId, revision: room.revision };
 };

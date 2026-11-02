@@ -1,7 +1,7 @@
-import type { RoomTimingReport } from "../../contracts/clients";
-import type { MessageKey } from "../../i18n/messages";
-import { ru } from "../../i18n/messages.ru";
-import { Typography, tr, useLocale } from "@neo-ui-kit/react";
+import type { RoomTimingReport } from '../../contracts/clients';
+import type { MessageKey } from '../../i18n/messages';
+import { ru } from '../../i18n/messages.ru';
+import { Typography, tr, useLocale } from '@neo-ui-kit/react';
 
 // Up to this voice delay everyone hears everyone as if in one room.
 const closeRoomMs = 30;
@@ -11,12 +11,12 @@ const farRoomMs = 100;
 /** Which room quality message applies to this singer's measured timing. */
 export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
   if (Object.values(timing.remotes).some((remote) => remote.excluded))
-    return "roomQualityFar";
-  if ((timing.roomPlayoutDelayMs ?? 0) > 0) return "roomQualitySynchronized";
-  if (timing.voiceDelayMs > farRoomMs) return "roomQualityFar";
-  if (timing.followMs > 0) return "roomQualityFollower";
-  if (timing.voiceDelayMs > closeRoomMs) return "roomQualityNoticeable";
-  return "roomQualityClose";
+    return 'roomQualityFar';
+  if ((timing.roomPlayoutDelayMs ?? 0) > 0) return 'roomQualitySynchronized';
+  if (timing.voiceDelayMs > farRoomMs) return 'roomQualityFar';
+  if (timing.followMs > 0) return 'roomQualityFollower';
+  if (timing.voiceDelayMs > closeRoomMs) return 'roomQualityNoticeable';
+  return 'roomQualityClose';
 };
 
 /** One line telling the singer how the room will sound for them right now. */
@@ -30,7 +30,7 @@ export const RoomSyncQuality = ({ timing }: { timing: RoomTimingReport }) => {
     <Typography
       as="span"
       variant="caption"
-      tone={key === "roomQualityFar" ? "danger" : "muted"}
+      tone={key === 'roomQualityFar' ? 'danger' : 'muted'}
     >
       {tr(ru[key], { ms })}
     </Typography>

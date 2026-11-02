@@ -1,9 +1,9 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState } from 'react';
 import type {
   EffectPreset,
   VoiceEffectId,
   VoiceEffectValues,
-} from "./voiceEffects";
+} from './voiceEffects';
 
 /**
  * The karaoke voice-effect knobs and presets. The values are the singer's stored ones, the same the

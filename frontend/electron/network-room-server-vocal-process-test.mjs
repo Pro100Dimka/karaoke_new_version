@@ -1,24 +1,24 @@
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createRoomServerProxy } from "./room-network-proxy.mjs";
-import { summarizeRoute } from "./room-network-stats.mjs";
-import { measuredVoiceLatencyMs } from "./room-production-timing.mjs";
-import { classifyRoomE2eFailure } from "./room-e2e-classification.mjs";
-import { classifyLateCutPhase } from "./room-e2e-phase.mjs";
-import { estimateOffsetMs } from "./room-audio-alignment.mjs";
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createRoomServerProxy } from './room-network-proxy.mjs';
+import { summarizeRoute } from './room-network-stats.mjs';
+import { measuredVoiceLatencyMs } from './room-production-timing.mjs';
+import { classifyRoomE2eFailure } from './room-e2e-classification.mjs';
+import { classifyLateCutPhase } from './room-e2e-phase.mjs';
+import { estimateOffsetMs } from './room-audio-alignment.mjs';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
+  '..',
+  '..',
 );
-const scenario = process.argv[2] ?? "normal";
+const scenario = process.argv[2] ?? 'normal';
 const seed = Number(
-  process.argv.find((value) => value.startsWith("--seed="))?.slice(7) ?? 0,
+  process.argv.find((value) => value.startsWith('--seed='))?.slice(7) ?? 0,
 );
 const scenarioDelays = {
   ideal: { upstream: 0, downstream: 0, jitter: 0 },
@@ -26,7 +26,7 @@ const scenarioDelays = {
   wifi: { upstream: 20, downstream: 28, jitter: 8 },
   asymmetric: { upstream: 8, downstream: 34, jitter: 4 },
   spikes: { upstream: 15, downstream: 22, jitter: 18 },
-  "near-deadline": { upstream: 25, downstream: 32, jitter: 3 },
+  'near-deadline': { upstream: 25, downstream: 32, jitter: 3 },
   heterogeneous: { upstream: 12, downstream: 18, jitter: 2 },
 };
 if (!scenarioDelays[scenario])
@@ -35,8 +35,8 @@ const impairmentProfile = scenarioDelays[scenario];
 const audioExecutable = (
   await Promise.all(
     [
-      "AudioService\\build\\Release\\AudioService.exe",
-      "AudioService\\build\\Debug\\AudioService.exe",
+      'AudioService\\build\\Release\\AudioService.exe',
+      'AudioService\\build\\Debug\\AudioService.exe',
     ].map(async (item) => {
       const candidate = path.join(root, item);
       return await fs
@@ -48,22 +48,22 @@ const audioExecutable = (
 ).find(Boolean);
 if (!audioExecutable)
   throw new Error(
-    "Build AudioService before running the Room Server process test",
+    'Build AudioService before running the Room Server process test',
   );
 const songRoots = [
-  "AD Voice Dev",
-  "AD Voice Multi 2",
-  "AD Voice",
-  "ad-voice-frontend",
+  'AD Voice Dev',
+  'AD Voice Multi 2',
+  'AD Voice',
+  'ad-voice-frontend',
 ].map((profile) =>
-  path.join(process.env.APPDATA ?? "", profile, "backend-data", "songs"),
+  path.join(process.env.APPDATA ?? '', profile, 'backend-data', 'songs'),
 );
 let referenceVocal;
 for (const songRoot of songRoots) {
   try {
     const songFiles = await fs.readdir(songRoot, { recursive: true });
     const relative = songFiles.find((file) =>
-      file.endsWith("reference-vocal.wav"),
+      file.endsWith('reference-vocal.wav'),
     );
     if (relative) {
       referenceVocal = path.join(songRoot, relative);
@@ -75,29 +75,29 @@ for (const songRoot of songRoots) {
 }
 if (!referenceVocal)
   throw new Error(
-    "No reference-vocal.wav found in any local application profile",
+    'No reference-vocal.wav found in any local application profile',
   );
 const backingTrack = path.join(
   path.dirname(referenceVocal),
-  "instrumental.wav",
+  'instrumental.wav',
 );
 const artifactRoot = path.join(
   root,
-  "artifacts",
-  "room-e2e",
-  new Date().toISOString().replace(/[:.]/g, "-"),
+  'artifacts',
+  'room-e2e',
+  new Date().toISOString().replace(/[:.]/g, '-'),
 );
 await fs.mkdir(artifactRoot, { recursive: true });
-const pilotVocal = path.join(artifactRoot, "pilot-reference-vocal.wav");
+const pilotVocal = path.join(artifactRoot, 'pilot-reference-vocal.wav');
 const referenceBytes = await fs.readFile(referenceVocal);
 const pilotBytes = Buffer.from(referenceBytes);
 let pilotOffset = 12,
   pilotDataOffset = 0,
   pilotDataSize = 0;
 while (pilotOffset + 8 <= pilotBytes.length) {
-  const id = pilotBytes.toString("ascii", pilotOffset, pilotOffset + 4);
+  const id = pilotBytes.toString('ascii', pilotOffset, pilotOffset + 4);
   const size = pilotBytes.readUInt32LE(pilotOffset + 4);
-  if (id === "data") {
+  if (id === 'data') {
     pilotDataOffset = pilotOffset + 8;
     pilotDataSize = size;
     break;
@@ -112,36 +112,36 @@ for (let frame = 0; frame + 1 < pilotDataSize / 2; frame += 24_000) {
   );
 }
 await fs.writeFile(pilotVocal, pilotBytes);
-const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "room-server-e2e-"));
+const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'room-server-e2e-'));
 const freePort = async () => {
-  const { createServer } = await import("node:net");
+  const { createServer } = await import('node:net');
   const server = createServer();
-  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   await new Promise((resolve) => server.close(resolve));
   return port;
 };
 const httpPort = await freePort();
 const relayPort = await freePort();
-const python = path.join(root, "python", ".venv", "Scripts", "python.exe");
-const server = spawn(python, ["-m", "backend.room_server_main"], {
-  cwd: path.join(root, "python"),
+const python = path.join(root, 'python', '.venv', 'Scripts', 'python.exe');
+const server = spawn(python, ['-m', 'backend.room_server_main'], {
+  cwd: path.join(root, 'python'),
   windowsHide: true,
   env: {
     ...process.env,
-    PYTHONPATH: path.join(root, "python"),
+    PYTHONPATH: path.join(root, 'python'),
     AD_VOICE_ROOM_SERVER_PORT: String(httpPort),
     AD_VOICE_ROOM_SERVER_RELAY_PORT: String(relayPort),
     AD_VOICE_ROOM_SERVER_DATA: tempRoot,
   },
 });
-server.stderr.on("data", (chunk) =>
+server.stderr.on('data', (chunk) =>
   process.stderr.write(`[room-server] ${chunk}`),
 );
 const stop = (child) =>
   new Promise((resolve) => {
     if (child.exitCode !== null) return resolve();
-    child.once("exit", resolve);
+    child.once('exit', resolve);
     child.kill();
   });
 const request = async (url, options) => {
@@ -151,14 +151,14 @@ const request = async (url, options) => {
   });
   if (!response.ok)
     throw new Error(
-      `${options?.method ?? "GET"} ${url}: ${response.status} ${await response.text()}`,
+      `${options?.method ?? 'GET'} ${url}: ${response.status} ${await response.text()}`,
     );
   return response.status === 204 ? null : response.json();
 };
 let ready = false;
 for (let attempt = 0; attempt < 80; attempt++) {
   try {
-    await request("/health/ready");
+    await request('/health/ready');
     ready = true;
     break;
   } catch {
@@ -170,67 +170,67 @@ console.error(`Room Server ready on ${httpPort}, relay ${relayPort}`);
 // The Room Server accepts a participant id only with its owner's room key (see RoomIdentity.ts).
 const roomKeys = new Map();
 const roomParticipant = (name) => {
-  const key = createHash("sha256").update(`room-e2e-key:${name}`).digest("hex");
-  const id = createHash("sha256")
+  const key = createHash('sha256').update(`room-e2e-key:${name}`).digest('hex');
+  const id = createHash('sha256')
     .update(`ad-voice-room-participant:${key}`)
-    .digest("hex")
+    .digest('hex')
     .slice(0, 32);
   roomKeys.set(id, key);
   return id;
 };
 const json = (body) => ({
   headers: {
-    "content-type": "application/json",
+    'content-type': 'application/json',
     ...(roomKeys.has(body?.participantId)
-      ? { "X-AD-Voice-Room-Key": roomKeys.get(body.participantId) }
+      ? { 'X-AD-Voice-Room-Key': roomKeys.get(body.participantId) }
       : {}),
   },
   body: JSON.stringify(body),
 });
-const participantA = roomParticipant("A"),
-  participantB = roomParticipant("B"),
-  participantC = roomParticipant("C");
-const room = await request("/rooms", {
-  method: "POST",
-  ...json({ participantId: participantA, displayName: "A" }),
+const participantA = roomParticipant('A'),
+  participantB = roomParticipant('B'),
+  participantC = roomParticipant('C');
+const room = await request('/rooms', {
+  method: 'POST',
+  ...json({ participantId: participantA, displayName: 'A' }),
 });
 console.error(`Room created: ${room.roomId}`);
 await request(`/rooms/${room.roomId}/join`, {
-  method: "POST",
-  ...json({ participantId: participantB, displayName: "B" }),
+  method: 'POST',
+  ...json({ participantId: participantB, displayName: 'B' }),
 });
-if (scenario === "heterogeneous")
+if (scenario === 'heterogeneous')
   await request(`/rooms/${room.roomId}/join`, {
-    method: "POST",
-    ...json({ participantId: participantC, displayName: "C" }),
+    method: 'POST',
+    ...json({ participantId: participantC, displayName: 'C' }),
   });
-console.error("Room joined");
-const tokenA = await request("/voice/join", {
-  method: "POST",
+console.error('Room joined');
+const tokenA = await request('/voice/join', {
+  method: 'POST',
   ...json({
     roomId: room.roomId,
     participantId: participantA,
-    machineId: "room-e2e-A",
+    machineId: 'room-e2e-A',
   }),
 });
-console.error("Voice A joined");
-const tokenB = await request("/voice/join", {
-  method: "POST",
+console.error('Voice A joined');
+const tokenB = await request('/voice/join', {
+  method: 'POST',
   ...json({
     roomId: room.roomId,
     participantId: participantB,
-    machineId: "room-e2e-B",
+    machineId: 'room-e2e-B',
   }),
 });
-console.error("Voice B joined");
+console.error('Voice B joined');
 console.error(`Tokens: ${tokenA.voiceToken} ${tokenB.voiceToken}`);
-if (scenario === "heterogeneous")
-  await request("/voice/join", {
-    method: "POST",
+if (scenario === 'heterogeneous')
+  await request('/voice/join', {
+    method: 'POST',
     ...json({
       roomId: room.roomId,
       participantId: participantC,
-      machineId: "room-e2e-C",
+      machineId: 'room-e2e-C',
     }),
   });
 let impairmentTick = Number.isFinite(seed) ? seed : 0;
@@ -252,15 +252,15 @@ console.error(`Proxy ready on ${proxy.port}`);
 const clients = [
   {
     id: participantA,
-    remote: "__room_server_mix__",
+    remote: '__room_server_mix__',
     token: tokenA.voiceToken,
-    output: path.join(artifactRoot, "client-a.wav"),
+    output: path.join(artifactRoot, 'client-a.wav'),
   },
   {
     id: participantB,
-    remote: "__room_server_mix__",
+    remote: '__room_server_mix__',
     token: tokenB.voiceToken,
-    output: path.join(artifactRoot, "client-b.wav"),
+    output: path.join(artifactRoot, 'client-b.wav'),
   },
 ];
 const run = (
@@ -274,44 +274,44 @@ const run = (
     const child = spawn(
       audioExecutable,
       [
-        "--network-test-client",
-        "--input",
+        '--network-test-client',
+        '--input',
         pilotVocal,
-        ...(backingTrack ? ["--backing", backingTrack] : []),
-        "--output",
+        ...(backingTrack ? ['--backing', backingTrack] : []),
+        '--output',
         client.output,
-        "--local-id",
+        '--local-id',
         client.id,
-        "--remote-id",
+        '--remote-id',
         client.remote,
-        "--remote-port",
+        '--remote-port',
         String(proxy.port),
-        "--token",
+        '--token',
         client.token,
-        "--start-at-ms",
+        '--start-at-ms',
         String(startAtMs),
-        "--room-server-unix-ms",
+        '--room-server-unix-ms',
         String(roomServerUnixMs),
-        "--duration-seconds",
+        '--duration-seconds',
         String(durationSeconds),
-        "--warmup-seconds",
-        "0",
+        '--warmup-seconds',
+        '0',
         ...(roomDelayMs
-          ? ["--room-playout-delay-ms", String(Math.round(roomDelayMs))]
+          ? ['--room-playout-delay-ms', String(Math.round(roomDelayMs))]
           : []),
       ],
       { windowsHide: true },
     );
-    let stdout = "",
-      stderr = "";
-    child.stdout.on("data", (chunk) => {
+    let stdout = '',
+      stderr = '';
+    child.stdout.on('data', (chunk) => {
       stdout += chunk;
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr.on('data', (chunk) => {
       stderr += chunk;
     });
-    child.once("error", reject);
-    child.once("exit", (code) =>
+    child.once('error', reject);
+    child.once('exit', (code) =>
       code === 0
         ? resolve(JSON.parse(stdout))
         : reject(new Error(`${client.id} exited ${code}: ${stderr || stdout}`)),
@@ -324,13 +324,13 @@ const readWav = async (file) => {
     rate = 0,
     data;
   while (offset + 8 <= bytes.length) {
-    const id = bytes.toString("ascii", offset, offset + 4);
+    const id = bytes.toString('ascii', offset, offset + 4);
     const size = bytes.readUInt32LE(offset + 4);
-    if (id === "fmt ") {
+    if (id === 'fmt ') {
       channels = bytes.readUInt16LE(offset + 10);
       rate = bytes.readUInt32LE(offset + 12);
     }
-    if (id === "data") data = bytes.subarray(offset + 8, offset + 8 + size);
+    if (id === 'data') data = bytes.subarray(offset + 8, offset + 8 + size);
     offset += 8 + size + (size & 1);
   }
   if (!data || !channels || !rate)
@@ -387,7 +387,7 @@ const markerSkew = (left, right, rate) => {
   };
 };
 try {
-  console.error("Starting AudioService clients");
+  console.error('Starting AudioService clients');
   const startLeadMs = Number(process.env.ROOM_E2E_START_LEAD_MS ?? 3_000);
   const warmupStartAtMs = Date.now() + startLeadMs;
   const warmupReports = await Promise.all(
@@ -416,7 +416,7 @@ try {
   const returnRequirementMs = measuredDownstream.p99Ms ?? undefined;
   const arrivalRequirementMs = measuredUpstream.p99Ms ?? undefined;
   await request(`/rooms/${room.roomId}/timing`, {
-    method: "POST",
+    method: 'POST',
     ...json({
       participantId: participantA,
       voiceLatencyMs: requestedVoiceLatencyMs,
@@ -425,7 +425,7 @@ try {
     }),
   });
   await request(`/rooms/${room.roomId}/timing`, {
-    method: "POST",
+    method: 'POST',
     ...json({
       participantId: participantB,
       voiceLatencyMs: requestedVoiceLatencyMs,
@@ -433,9 +433,9 @@ try {
       arrivalRequirementMs,
     }),
   });
-  if (scenario === "heterogeneous")
+  if (scenario === 'heterogeneous')
     await request(`/rooms/${room.roomId}/timing`, {
-      method: "POST",
+      method: 'POST',
       ...json({ participantId: participantC, voiceLatencyMs: 90 }),
     });
   const roomState = await request(`/rooms/${room.roomId}`);
@@ -451,8 +451,8 @@ try {
       ),
     ),
   );
-  const relayMetrics = await request("/voice/metrics", {
-    method: "POST",
+  const relayMetrics = await request('/voice/metrics', {
+    method: 'POST',
     ...json({
       roomId: room.roomId,
       participantId: participantA,
@@ -493,7 +493,7 @@ try {
     ]),
   );
   const heterogeneousPass =
-    scenario !== "heterogeneous" ||
+    scenario !== 'heterogeneous' ||
     (participants[participantC]?.voiceEligible === false &&
       participants[participantA]?.voiceEligible === true &&
       participants[participantB]?.voiceEligible === true);
@@ -539,10 +539,10 @@ try {
     ...item,
     phase:
       item.position < mainStartFrame + 4_800
-        ? "STARTUP"
+        ? 'STARTUP'
         : item.position >= mainStartFrame + 4 * 48_000 - 4_800
-          ? "DRAIN"
-          : "ACTIVE",
+          ? 'DRAIN'
+          : 'ACTIVE',
   }));
   const trace = relayMetrics.position_trace ?? [];
   const ingressTrace = relayMetrics.ingress_trace ?? [];
@@ -625,15 +625,15 @@ try {
             const classification =
               exact.length === 0
                 ? nearby.length === 0
-                  ? "PARTIAL_NO_INGRESS"
-                  : "PARTIAL_TIMESTAMP_MISMATCH"
+                  ? 'PARTIAL_NO_INGRESS'
+                  : 'PARTIAL_TIMESTAMP_MISMATCH'
                 : exact.every(
                       (packet) =>
                         item.deadline_now !== null &&
                         packet.arrival_now > item.deadline_now,
                     )
-                  ? "PARTIAL_ARRIVED_AFTER_CLOSE"
-                  : "PARTIAL_NOT_INSERTED";
+                  ? 'PARTIAL_ARRIVED_AFTER_CLOSE'
+                  : 'PARTIAL_NOT_INSERTED';
             return { participant, classification, exact, nearby };
           });
           return {
@@ -645,7 +645,7 @@ try {
           };
         })();
   const proxyPacketSummary = proxy.packetTrace.reduce((summary, item) => {
-    const key = `${item.direction}:${item.dropped ? "dropped" : "forwarded"}`;
+    const key = `${item.direction}:${item.dropped ? 'dropped' : 'forwarded'}`;
     summary[key] = (summary[key] ?? 0) + 1;
     return summary;
   }, {});
@@ -654,7 +654,7 @@ try {
     source: roomState.roomTimingSource,
     returnRequirementMs,
     arrivalRequirementMs,
-    relay: process.env.AD_VOICE_NATIVE_RELAY_EXECUTABLE ? "native" : "python",
+    relay: process.env.AD_VOICE_NATIVE_RELAY_EXECUTABLE ? 'native' : 'python',
   };
   const report = {
     scenario,
@@ -678,7 +678,7 @@ try {
     roomId: room.roomId,
     server: `http://127.0.0.1:${httpPort}`,
     relayPort,
-    route: "client -> Room Server UDP relay -> client",
+    route: 'client -> Room Server UDP relay -> client',
     targetDelayMs: roomState.roomPlayoutDelayMs,
     proxyPackets: {
       upstream: proxy.upstreamPackets,
@@ -695,34 +695,34 @@ try {
       heterogeneousPass &&
       audioAligned &&
       ![
-        "NETWORK_DEADLINE_MISS",
-        "SERVER_MIX_EMPTY",
-        "SERVER_MIX_INCOMPLETE",
-        "PILOT_NOT_DETECTED",
-        "ALIGNMENT_EXCEEDED",
-        "DELIVERY_FAILURE",
-        "MUSICAL_POSITION_MISMATCH",
+        'NETWORK_DEADLINE_MISS',
+        'SERVER_MIX_EMPTY',
+        'SERVER_MIX_INCOMPLETE',
+        'PILOT_NOT_DETECTED',
+        'ALIGNMENT_EXCEEDED',
+        'DELIVERY_FAILURE',
+        'MUSICAL_POSITION_MISMATCH',
       ].includes(failureReason) &&
       processReports.every(
         (item) =>
           item.packetsReceived > 0 &&
           item.roomPlayoutDelayMs === Math.round(roomState.roomPlayoutDelayMs),
       )
-        ? "PASS"
-        : "FAIL",
+        ? 'PASS'
+        : 'FAIL',
     referenceVocal,
     backingTrack,
     artifactRoot,
   };
   await fs.writeFile(
-    path.join(artifactRoot, "diagnostics.json"),
+    path.join(artifactRoot, 'diagnostics.json'),
     `${JSON.stringify(report, null, 2)}\n`,
-    "utf8",
+    'utf8',
   );
   await fs.writeFile(
-    path.join(artifactRoot, "report.md"),
-    `# Room Server vocal process test\n\n- Route: client → Room Server → client\n- Room: ${room.roomId}\n- Scenario: ${scenario}\n- Selected Room Server deadline: ${roomState.roomPlayoutDelayMs} ms\n- Applied AudioService deadline: ${report.processReports.map((item) => item.roomPlayoutDelayMs).join(" / ")} ms\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`,
-    "utf8",
+    path.join(artifactRoot, 'report.md'),
+    `# Room Server vocal process test\n\n- Route: client → Room Server → client\n- Room: ${room.roomId}\n- Scenario: ${scenario}\n- Selected Room Server deadline: ${roomState.roomPlayoutDelayMs} ms\n- Applied AudioService deadline: ${report.processReports.map((item) => item.roomPlayoutDelayMs).join(' / ')} ms\n\n\`\`\`json\n${JSON.stringify(report, null, 2)}\n\`\`\`\n`,
+    'utf8',
   );
   console.log(JSON.stringify(report));
 } catch (error) {

@@ -1422,7 +1422,7 @@ style={{ width: `${progress}%` }}
 ## 232. Не писать много ternary props:
 
 ```tsx
-<Button appearance={a ? "primary" : b ? "secondary" : "subtle"} />
+<Button appearance={a ? 'primary' : b ? 'secondary' : 'subtle'} />
 ```
 
 ---
@@ -2086,13 +2086,13 @@ div2
 
 ```tsx
 {
-  t("hello");
+  t('hello');
 }
 {
   name;
 }
 {
-  t("today");
+  t('today');
 }
 ```
 
@@ -2597,7 +2597,7 @@ Wrapper2
 ## 443. Variant prop должен быть закрытым union
 
 ```ts
-type Variant = "default" | "compact";
+type Variant = 'default' | 'compact';
 ```
 
 ---

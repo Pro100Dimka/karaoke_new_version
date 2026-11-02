@@ -1,5 +1,5 @@
-import type { RoomStateDto } from "../../contracts/models";
-import { toAppError } from "../../shared/errors";
+import type { RoomStateDto } from '../../contracts/models';
+import { toAppError } from '../../shared/errors';
 
 export interface RoomProjectDownloadRequest {
   roomId: string;
@@ -18,8 +18,8 @@ interface DownloadOptions {
 }
 
 const activeTransferReadiness = new Set<
-  RoomStateDto["participants"][number]["readiness"]
->(["downloading", "verifying", "audio"]);
+  RoomStateDto['participants'][number]['readiness']
+>(['downloading', 'verifying', 'audio']);
 
 /** Room snapshots are authoritative for shared state, but do not contain renderer-local byte counters. */
 export const preserveLocalRoomTransfer = (
@@ -29,7 +29,7 @@ export const preserveLocalRoomTransfer = (
   const self = snapshot.participants.find((participant) => participant.self);
   // A failed transfer keeps its failure (and a conflict, its choice) until the singer acts on it;
   // the room's snapshot knows only the last progress it heard.
-  if (self?.readiness === "failed")
+  if (self?.readiness === 'failed')
     return roomTransferFailure(snapshot, previous.transferConflict);
   if (
     !previous.transferId ||
@@ -52,11 +52,11 @@ export const preserveLocalRoomTransfer = (
 
 const transferErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
-  if (error && typeof error === "object" && "message" in error) {
+  if (error && typeof error === 'object' && 'message' in error) {
     const message = (error as { message?: unknown }).message;
-    return typeof message === "string" ? message : "";
+    return typeof message === 'string' ? message : '';
   }
-  return typeof error === "string" ? error : "";
+  return typeof error === 'string' ? error : '';
 };
 
 const projectIsStillPublishing = (error: unknown): boolean =>
@@ -81,7 +81,7 @@ export const roomTransferFailure = (
 
 /** The import met a local project whose revision diverged from the host's (backend PackageConflict). */
 export const isProjectConflict = (error: unknown): boolean =>
-  toAppError(error).code === "PackageConflict";
+  toAppError(error).code === 'PackageConflict';
 
 /** A library item is advertised before its archive necessarily finishes exporting on its owner. */
 export const downloadAvailableRoomProject = async (
@@ -109,12 +109,12 @@ export const downloadAvailableRoomProject = async (
               options.cancel?.();
               reject(options.signal?.reason);
             };
-            options.signal?.addEventListener("abort", onAbort, { once: true });
+            options.signal?.addEventListener('abort', onAbort, { once: true });
             timeout = setTimeout(() => {
               options.cancel?.();
               reject(
                 new Error(
-                  "Room project download timed out before receiving data",
+                  'Room project download timed out before receiving data',
                 ),
               );
             }, attemptTimeoutMilliseconds);
@@ -122,12 +122,12 @@ export const downloadAvailableRoomProject = async (
         ]);
       } finally {
         if (timeout !== undefined) clearTimeout(timeout);
-        if (onAbort) options.signal?.removeEventListener("abort", onAbort);
+        if (onAbort) options.signal?.removeEventListener('abort', onAbort);
       }
     } catch (error) {
       if (!projectIsStillPublishing(error) || attempt === attempts) throw error;
       await wait(intervalMilliseconds);
     }
   }
-  throw new Error("Room project did not become available");
+  throw new Error('Room project did not become available');
 };

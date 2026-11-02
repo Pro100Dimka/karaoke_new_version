@@ -1,21 +1,24 @@
-import { store } from "../../providers/store";
-import { QueryProvider } from "../../test/QueryProvider";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { useEffect, type ReactNode } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { roomSession } from "../../providers/application";
-import { audioClient } from "../../services/audioClient";
-import { roomClient } from "../../services/roomClient";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
-import { loadPreferences, savePreferences } from "../../shared/preferences/preferences";
-import { useKaraokeControls } from "./useKaraokeControls";
-import { clearStorage } from "../../shared/storage/localStore";
-import { unverifiedAsioMonitoring } from "../../contracts/models";
+import { store } from '../../providers/store';
+import { QueryProvider } from '../../test/QueryProvider';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { useEffect, type ReactNode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { roomSession } from '../../providers/application';
+import { audioClient } from '../../services/audioClient';
+import { roomClient } from '../../services/roomClient';
+import { recordingCoordinator } from '../../services/recordingCoordinator';
+import {
+  loadPreferences,
+  savePreferences,
+} from '../../shared/preferences/preferences';
+import { useKaraokeControls } from './useKaraokeControls';
+import { clearStorage } from '../../shared/storage/localStore';
+import { unverifiedAsioMonitoring } from '../../contracts/models';
 
 const notify = vi.hoisted(() => vi.fn());
-vi.mock("../../providers/notifications", () => ({ useNotify: () => notify }));
+vi.mock('../../providers/notifications', () => ({ useNotify: () => notify }));
 
-vi.mock("../../services/audioClient", () => ({
+vi.mock('../../services/audioClient', () => ({
   audioClient: {
     seek: vi.fn(async (seconds: number) => ({ positionSeconds: seconds })),
     setPlaybackRate: vi.fn(async () => undefined),
@@ -25,17 +28,17 @@ vi.mock("../../services/audioClient", () => ({
   },
 }));
 
-vi.mock("../../services/roomClient", () => ({
+vi.mock('../../services/roomClient', () => ({
   roomClient: {
     roomControl: vi.fn(async () => ({
-      code: "ROOM",
-      role: "host",
+      code: 'ROOM',
+      role: 'host',
       participants: [],
       playbackLocked: false,
     })),
     updateSharedState: vi.fn(async (_code: string, state: object) => ({
-      code: "ROOM",
-      role: "host",
+      code: 'ROOM',
+      role: 'host',
       participants: [],
       playbackLocked: false,
       ...state,
@@ -43,7 +46,7 @@ vi.mock("../../services/roomClient", () => ({
   },
 }));
 
-vi.mock("../../services/recordingCoordinator", () => ({
+vi.mock('../../services/recordingCoordinator', () => ({
   recordingCoordinator: { updatePlaybackAdjustment: vi.fn() },
 }));
 
@@ -56,9 +59,9 @@ const RoomSeed = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!room)
       session.setSnapshot({
-        code: "ROOM",
-        hostId: "self",
-        role: "host",
+        code: 'ROOM',
+        hostId: 'self',
+        role: 'host',
         participants: [],
         playbackLocked: false,
       });
@@ -76,9 +79,9 @@ const ParticipantRoomSeed = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!room)
       session.setSnapshot({
-        code: "ROOM",
-        hostId: "host",
-        role: "participant",
+        code: 'ROOM',
+        hostId: 'host',
+        role: 'participant',
         participants: [],
         playbackLocked: false,
       });
@@ -91,53 +94,70 @@ const participantRoomWrapper = ({ children }: { children: ReactNode }) => (
   </QueryProvider>
 );
 
-describe("useKaraokeControls", () => {
+describe('useKaraokeControls', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearStorage();
   });
 
-  it.each([false, true])("persists a monitoring change from %s for the next karaoke session", async (monitoring) => {
-    savePreferences({ ...loadPreferences(), karaokeMonitoring: monitoring });
-    const setMonitoring = vi.fn();
+  it.each([false, true])(
+    'persists a monitoring change from %s for the next karaoke session',
+    async (monitoring) => {
+      savePreferences({ ...loadPreferences(), karaokeMonitoring: monitoring });
+      const setMonitoring = vi.fn();
+      const { result } = renderHook(
+        () =>
+          useKaraokeControls({
+            position: { current: 0 },
+            speed: { current: 1 },
+            key: { current: 0 },
+            monitoring,
+            microphoneReady: true,
+            setPosition: vi.fn(),
+            setSpeed: vi.fn(),
+            setKeyShift: vi.fn(),
+            setGains: vi.fn(),
+            setMonitoring,
+          }),
+        { wrapper },
+      );
+
+      await act(() => result.current.toggleMonitoring());
+
+      expect(setMonitoring).toHaveBeenCalledWith(!monitoring);
+      expect(loadPreferences().karaokeMonitoring).toBe(!monitoring);
+    },
+  );
+
+  it('shows why monitoring was blocked before audio became audible', async () => {
+    vi.mocked(audioClient.setMonitoring).mockRejectedValueOnce(
+      new Error(unverifiedAsioMonitoring),
+    );
     const { result } = renderHook(
       () =>
         useKaraokeControls({
           position: { current: 0 },
           speed: { current: 1 },
           key: { current: 0 },
-          monitoring,
+          monitoring: false,
           microphoneReady: true,
           setPosition: vi.fn(),
           setSpeed: vi.fn(),
           setKeyShift: vi.fn(),
           setGains: vi.fn(),
-          setMonitoring,
+          setMonitoring: vi.fn(),
         }),
       { wrapper },
     );
-
     await act(() => result.current.toggleMonitoring());
-
-    expect(setMonitoring).toHaveBeenCalledWith(!monitoring);
-    expect(loadPreferences().karaokeMonitoring).toBe(!monitoring);
-  });
-
-  it("shows why monitoring was blocked before audio became audible", async () => {
-    vi.mocked(audioClient.setMonitoring).mockRejectedValueOnce(
-      new Error(unverifiedAsioMonitoring));
-    const { result } = renderHook(() => useKaraokeControls({
-      position: { current: 0 }, speed: { current: 1 }, key: { current: 0 },
-      monitoring: false, microphoneReady: true,
-      setPosition: vi.fn(), setSpeed: vi.fn(), setKeyShift: vi.fn(),
-      setGains: vi.fn(), setMonitoring: vi.fn(),
-    }), { wrapper });
-    await act(() => result.current.toggleMonitoring());
-    expect(notify).toHaveBeenCalledWith(expect.stringContaining("ASIO4ALL"), "error");
+    expect(notify).toHaveBeenCalledWith(
+      expect.stringContaining('ASIO4ALL'),
+      'error',
+    );
     expect(loadPreferences().karaokeMonitoring).toBe(false);
   });
 
-  it("allows seeking while a karaoke take is being recorded", async () => {
+  it('allows seeking while a karaoke take is being recorded', async () => {
     const position = { current: 12 };
     const setPosition = vi.fn();
     const { result } = renderHook(
@@ -164,7 +184,7 @@ describe("useKaraokeControls", () => {
     expect(setPosition).toHaveBeenCalledWith(42);
   });
 
-  it("keeps tempo and key session-only and allows changing them during recording", async () => {
+  it('keeps tempo and key session-only and allows changing them during recording', async () => {
     const key = { current: 0 };
     const speed = { current: 1 };
     const { result } = renderHook(
@@ -186,7 +206,7 @@ describe("useKaraokeControls", () => {
 
     await act(() => result.current.changeSpeed(0.85));
     await act(() => result.current.changeKey(-2));
-    await act(() => result.current.changeGain("reference", 0.37));
+    await act(() => result.current.changeGain('reference', 0.37));
 
     await waitFor(() =>
       expect(loadPreferences()).toMatchObject({
@@ -204,7 +224,7 @@ describe("useKaraokeControls", () => {
     });
   });
 
-  it("routes host seeking through the authoritative room instead of local audio", async () => {
+  it('routes host seeking through the authoritative room instead of local audio', async () => {
     const { result } = renderHook(
       () =>
         useKaraokeControls({
@@ -225,7 +245,7 @@ describe("useKaraokeControls", () => {
 
     await act(() => result.current.seek(42));
 
-    expect(roomClient.roomControl).toHaveBeenCalledWith("ROOM", "Seek", 42);
+    expect(roomClient.roomControl).toHaveBeenCalledWith('ROOM', 'Seek', 42);
     expect(audioClient.seek).not.toHaveBeenCalled();
   });
 
@@ -247,13 +267,13 @@ describe("useKaraokeControls", () => {
       { wrapper: roomWrapper },
     );
 
-    await act(() => result.current.changeGain("reference", 0.45));
+    await act(() => result.current.changeGain('reference', 0.45));
 
-    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.45);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('reference', 0.45);
     expect(roomClient.updateSharedState).not.toHaveBeenCalled();
   });
 
-  it("keeps music, original vocal and melody volumes personal for a room participant", async () => {
+  it('keeps music, original vocal and melody volumes personal for a room participant', async () => {
     const setGains = vi.fn();
     const { result } = renderHook(
       () =>
@@ -273,15 +293,15 @@ describe("useKaraokeControls", () => {
     );
     await waitFor(() => expect(result.current).toBeDefined());
 
-    await act(() => result.current.changeGain("reference", 0.45));
+    await act(() => result.current.changeGain('reference', 0.45));
 
     expect(setGains).toHaveBeenCalled();
-    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.45);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('reference', 0.45);
     expect(loadPreferences().referenceGain).toBe(0.45);
     expect(roomClient.updateSharedState).not.toHaveBeenCalled();
   });
 
-  it("applies several personal song-channel changes without publishing room state", async () => {
+  it('applies several personal song-channel changes without publishing room state', async () => {
     const { result } = renderHook(
       () =>
         useKaraokeControls({
@@ -301,15 +321,15 @@ describe("useKaraokeControls", () => {
 
     await act(async () => {
       await Promise.all([
-        result.current.changeGain("music", 0.41),
-        result.current.changeGain("reference", 0.32),
-        result.current.changeGain("melody", 0.23),
+        result.current.changeGain('music', 0.41),
+        result.current.changeGain('reference', 0.32),
+        result.current.changeGain('melody', 0.23),
       ]);
     });
 
-    expect(audioClient.setMixer).toHaveBeenCalledWith("music", 0.41);
-    expect(audioClient.setMixer).toHaveBeenCalledWith("reference", 0.32);
-    expect(audioClient.setMixer).toHaveBeenCalledWith("melody", 0.23);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('music', 0.41);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('reference', 0.32);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('melody', 0.23);
     expect(roomClient.updateSharedState).not.toHaveBeenCalled();
   });
 });

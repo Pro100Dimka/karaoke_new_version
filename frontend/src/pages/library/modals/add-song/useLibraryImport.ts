@@ -1,14 +1,17 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { importSong, refreshSongs } from "../../../../api/api-service";
-import { pythonClient } from "../../../../services/pythonClient";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { desktopClient as libraryFiles } from "../../../../services/desktopClient";
-import { useNotify } from "../../../../providers/notifications";
-import type { ImportMetadata, ImportOptions } from "../../../../contracts/clients";
-import { ru } from "../../../../i18n/messages.ru";
-import { errorMessageKey, toAppError } from "../../../../shared/errors";
-import { isSupportedAudio } from "./importModel";
-import { useGuardedAction } from "../../songs/useGuardedAction";
+import { useQueryClient } from '@tanstack/react-query';
+import { importSong, refreshSongs } from '../../../../api/api-service';
+import { pythonClient } from '../../../../services/pythonClient';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { desktopClient as libraryFiles } from '../../../../services/desktopClient';
+import { useNotify } from '../../../../providers/notifications';
+import type {
+  ImportMetadata,
+  ImportOptions,
+} from '../../../../contracts/clients';
+import { ru } from '../../../../i18n/messages.ru';
+import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { isSupportedAudio } from './importModel';
+import { useGuardedAction } from '../../songs/useGuardedAction';
 
 /** Picked and dropped files share import progress in the query cache. */
 export const useLibraryImport = () => {
@@ -17,20 +20,28 @@ export const useLibraryImport = () => {
   useLocale();
   const notify = useNotify();
 
-  const importAndProcess = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
+  const importAndProcess = async (
+    path: string,
+    metadata: ImportMetadata,
+    options?: ImportOptions,
+  ) => {
     const song = await importSong(client, path, metadata, options);
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
     void guarded(async () => {
-      if (song.status !== "not-processed") return;
+      if (song.status !== 'not-processed') return;
       await pythonClient.processSong(song.id);
       await refreshSongs(client);
-      notify(tr(ru.processingStarted), "info");
+      notify(tr(ru.processingStarted), 'info');
     });
   };
 
-  const handleImport = async (path: string, metadata: ImportMetadata, options?: ImportOptions) => {
+  const handleImport = async (
+    path: string,
+    metadata: ImportMetadata,
+    options?: ImportOptions,
+  ) => {
     await importAndProcess(path, metadata, options);
-    notify(tr(ru.songImported), "success");
+    notify(tr(ru.songImported), 'success');
   };
 
   // Several files picked or dropped at once are all added and queued for processing, one after another.
@@ -39,18 +50,21 @@ export const useLibraryImport = () => {
     const failed: string[] = [];
     for (const path of paths) {
       const name = path.split(/[\\/]/).pop() ?? path;
-      const dot = name.lastIndexOf(".");
-      if (!isSupportedAudio(dot < 0 ? "" : name.slice(dot + 1))) {
+      const dot = name.lastIndexOf('.');
+      if (!isSupportedAudio(dot < 0 ? '' : name.slice(dot + 1))) {
         failed.push(name);
         continue;
       }
       try {
         await importAndProcess(path, {});
         imported += 1;
-      } catch { failed.push(name); }
+      } catch {
+        failed.push(name);
+      }
     }
-    if (imported) notify(tr(ru.songsImported, { count: imported }), "success");
-    if (failed.length) notify(tr(ru.songsImportFailed, { names: failed.join(", ") }), "error");
+    if (imported) notify(tr(ru.songsImported, { count: imported }), 'success');
+    if (failed.length)
+      notify(tr(ru.songsImportFailed, { names: failed.join(', ') }), 'error');
   };
 
   // The system file dialog already restricts the choice to supported audio extensions, so there is
@@ -67,7 +81,10 @@ export const useLibraryImport = () => {
       try {
         await handleImport(path, {});
       } catch (error) {
-        notify(tr(ru[errorMessageKey(toAppError(error)) ?? "importFailed"]), "error");
+        notify(
+          tr(ru[errorMessageKey(toAppError(error)) ?? 'importFailed']),
+          'error',
+        );
       }
     });
 
@@ -75,6 +92,7 @@ export const useLibraryImport = () => {
     addSong,
     handleImport,
     /** Files opened with the app ("Open with" in Explorer) are added like several dropped files. */
-    importFiles: (paths: readonly string[]) => (paths.length ? guarded(() => importMany(paths)) : undefined),
+    importFiles: (paths: readonly string[]) =>
+      paths.length ? guarded(() => importMany(paths)) : undefined,
   };
 };

@@ -1,10 +1,10 @@
-import { store } from "../../../../../providers/store";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNotify } from "../../../../../providers/notifications";
-import type { RuntimeAudioConfiguration } from "../../../../../contracts/models";
-import { ru } from "../../../../../i18n/messages.ru";
-import { audioClient as audio } from "../../../../../services/audioClient";
+import { store } from '../../../../../providers/store';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useNotify } from '../../../../../providers/notifications';
+import type { RuntimeAudioConfiguration } from '../../../../../contracts/models';
+import { ru } from '../../../../../i18n/messages.ru';
+import { audioClient as audio } from '../../../../../services/audioClient';
 
 const reasonOf = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
@@ -18,7 +18,7 @@ export const useAcousticCalibration = (
   const notify = useNotify();
   const { preferences, updatePreferences } = store;
   const [measuring, setMeasuring] = useState(false);
-  const activeContext = runtime.calibrationContext ?? "";
+  const activeContext = runtime.calibrationContext ?? '';
   const mounted = useRef(false);
   const pending = useRef(false);
   const current = useRef({ preferences, activeContext });
@@ -59,17 +59,21 @@ export const useAcousticCalibration = (
             [measured.fingerprint]: measured.milliseconds,
           },
         });
-      notify(tr(ru.acousticLatencyMeasured, { value: milliseconds }), "success");
+      notify(
+        tr(ru.acousticLatencyMeasured, { value: milliseconds }),
+        'success',
+      );
     } catch (error) {
       if (!mounted.current || current.current.activeContext !== activeContext)
         return;
       // Playing a song ends the optional measurement on purpose; that is not a failure.
       if (
         error instanceof Error &&
-        error.name === "AcousticMeasurementCancelled"
+        error.name === 'AcousticMeasurementCancelled'
       )
-        notify(tr(ru.acousticLatencyCancelled), "info");
-      else notify(`${tr(ru.acousticLatencyFailed)}: ${reasonOf(error)}`, "error");
+        notify(tr(ru.acousticLatencyCancelled), 'info');
+      else
+        notify(`${tr(ru.acousticLatencyFailed)}: ${reasonOf(error)}`, 'error');
     } finally {
       pending.current = false;
       if (mounted.current) setMeasuring(false);

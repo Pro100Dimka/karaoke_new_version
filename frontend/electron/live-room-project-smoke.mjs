@@ -1,18 +1,18 @@
-import { mkdir, rm, stat } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { mkdir, rm, stat } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const developerBackend =
-  process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? "http://127.0.0.1:8767";
+  process.env.AD_VOICE_SMOKE_DEVELOPER_BACKEND ?? 'http://127.0.0.1:8767';
 const installedBackend =
-  process.env.AD_VOICE_SMOKE_INSTALLED_BACKEND ?? "http://127.0.0.1:8765";
+  process.env.AD_VOICE_SMOKE_INSTALLED_BACKEND ?? 'http://127.0.0.1:8765';
 const roomServer =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
+  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
 
 const json = async (base, route, init = {}) => {
   const response = await fetch(`${base}${route}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init.headers },
+    headers: { 'Content-Type': 'application/json', ...init.headers },
   });
   if (!response.ok)
     throw new Error(
@@ -24,8 +24,8 @@ const json = async (base, route, init = {}) => {
 const waitForJob = async (base, jobId) => {
   for (let attempt = 0; attempt < 240; attempt += 1) {
     const job = await json(base, `/jobs/${encodeURIComponent(jobId)}`);
-    if (job.state === "Succeeded") return job.report ?? {};
-    if (["Failed", "Cancelled", "Interrupted"].includes(job.state)) {
+    if (job.state === 'Succeeded') return job.report ?? {};
+    if (['Failed', 'Cancelled', 'Interrupted'].includes(job.state)) {
       throw new Error(
         `Job ${jobId} ${job.state}: ${JSON.stringify(job.error ?? {})}`,
       );
@@ -44,36 +44,36 @@ let importedSongId;
 
 try {
   const [developerSongs, installedSongs] = await Promise.all([
-    json(developerBackend, "/songs?limit=200"),
-    json(installedBackend, "/songs?limit=200"),
+    json(developerBackend, '/songs?limit=200'),
+    json(installedBackend, '/songs?limit=200'),
   ]);
   const installedIds = new Set(installedSongs.items.map((song) => song.songId));
   const song = developerSongs.items.find(
     (candidate) =>
-      candidate.status === "Ready" &&
+      candidate.status === 'Ready' &&
       candidate.activeRevision > 0 &&
       !installedIds.has(candidate.songId),
   );
   if (!song)
-    throw new Error("No ready developer-only song is available for transfer");
+    throw new Error('No ready developer-only song is available for transfer');
 
-  const room = await json(roomServer, "/rooms", {
-    method: "POST",
+  const room = await json(roomServer, '/rooms', {
+    method: 'POST',
     body: JSON.stringify({
       participantId: hostId,
-      displayName: "Project Host",
+      displayName: 'Project Host',
     }),
   });
   roomId = room.roomId;
   await json(roomServer, `/rooms/${roomId}/join`, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({
       participantId: guestId,
-      displayName: "Project Guest",
+      displayName: 'Project Guest',
     }),
   });
   const published = await json(roomServer, `/rooms/${roomId}/library`, {
-    method: "POST",
+    method: 'POST',
     body: JSON.stringify({
       participantId: hostId,
       songs: [
@@ -93,24 +93,24 @@ try {
   const exportJob = await json(
     developerBackend,
     `/packages/export/${encodeURIComponent(song.songId)}?revision=${song.activeRevision}`,
-    { method: "POST" },
+    { method: 'POST' },
   );
   const exported = await waitForJob(developerBackend, exportJob.jobId);
-  if (typeof exported.path !== "string")
-    throw new Error("Export did not return an archive path");
+  if (typeof exported.path !== 'string')
+    throw new Error('Export did not return an archive path');
 
   const uploadResponse = await fetch(
     `${roomServer}/rooms/${roomId}/projects/${encodeURIComponent(song.songId)}/${song.activeRevision}`,
     {
-      method: "PUT",
+      method: 'PUT',
       headers: {
-        "X-Participant-Id": hostId,
-        "Content-Type": "application/zip",
+        'X-Participant-Id': hostId,
+        'Content-Type': 'application/zip',
       },
-      body: await import("node:fs").then(({ createReadStream }) =>
+      body: await import('node:fs').then(({ createReadStream }) =>
         createReadStream(exported.path),
       ),
-      duplex: "half",
+      duplex: 'half',
     },
   );
   if (!uploadResponse.ok)
@@ -123,12 +123,12 @@ try {
   );
   const downloadResponse = await fetch(
     `${roomServer}/rooms/${roomId}/projects/${encodeURIComponent(song.songId)}/${song.activeRevision}`,
-    { headers: { "X-Participant-Id": guestId } },
+    { headers: { 'X-Participant-Id': guestId } },
   );
   if (!downloadResponse.ok)
     throw new Error(`Project download failed (${downloadResponse.status})`);
-  await import("node:stream/promises").then(({ pipeline }) =>
-    Promise.all([import("node:stream"), import("node:fs")]).then(
+  await import('node:stream/promises').then(({ pipeline }) =>
+    Promise.all([import('node:stream'), import('node:fs')]).then(
       ([{ Readable }, { createWriteStream }]) =>
         pipeline(
           Readable.fromWeb(downloadResponse.body),
@@ -137,10 +137,10 @@ try {
     ),
   );
 
-  const importJob = await json(installedBackend, "/packages/import", {
-    method: "POST",
-    headers: { "Idempotency-Key": crypto.randomUUID() },
-    body: JSON.stringify({ path: downloadedPath, decision: "SafeOnly" }),
+  const importJob = await json(installedBackend, '/packages/import', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+    body: JSON.stringify({ path: downloadedPath, decision: 'SafeOnly' }),
   });
   const imported = await waitForJob(installedBackend, importJob.jobId);
   importedSongId = imported.songId;
@@ -153,12 +153,12 @@ try {
     stat(downloadedPath),
   ]);
   if (exportedFile.size !== downloadedFile.size)
-    throw new Error("Downloaded archive size differs from the export");
+    throw new Error('Downloaded archive size differs from the export');
   if (
     installedSong.title !== song.title ||
     installedSong.artist !== song.artist
   ) {
-    throw new Error("Imported song metadata differs from the shared song");
+    throw new Error('Imported song metadata differs from the shared song');
   }
 
   console.log(
@@ -178,12 +178,12 @@ try {
     await json(
       installedBackend,
       `/songs/${encodeURIComponent(importedSongId)}`,
-      { method: "DELETE" },
+      { method: 'DELETE' },
     ).catch(() => undefined);
   }
   if (roomId) {
     await json(roomServer, `/rooms/${roomId}/leave`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify({ participantId: hostId }),
     }).catch(() => undefined);
   }

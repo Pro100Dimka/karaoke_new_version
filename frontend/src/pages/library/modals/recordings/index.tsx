@@ -1,16 +1,24 @@
-import { observer } from "mobx-react-lite";
-import { useSongRecordings } from "./useSongRecordings";
-import { PerformanceAnalysisModal } from "../analysis";
-import { ru } from "../../../../i18n/messages.ru";
-import { useMemo, useState } from "react";
-import { Dialog, Icon, Planet, SegmentedControl, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import type { RecordingDto, SongDto } from "../../../../contracts/models";
-import { formatBytes } from "../../../../shared/utils/format";
-import { RecordingCard } from "./RecordingCard";
-import { defaultTakeName, numberTakes } from "./takeNames";
-import "./recordings.css";
+import { observer } from 'mobx-react-lite';
+import { useSongRecordings } from './useSongRecordings';
+import { PerformanceAnalysisModal } from '../analysis';
+import { ru } from '../../../../i18n/messages.ru';
+import { useMemo, useState } from 'react';
+import {
+  Dialog,
+  Icon,
+  Planet,
+  SegmentedControl,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { RecordingDto, SongDto } from '../../../../contracts/models';
+import { formatBytes } from '../../../../shared/utils/format';
+import { RecordingCard } from './RecordingCard';
+import { defaultTakeName, numberTakes } from './takeNames';
+import './recordings.css';
 
-type View = "list" | "grid";
+type View = 'list' | 'grid';
 
 /** "Performances" written by hand in the corner of the header. */
 const PerformancesSignature = () => (
@@ -37,129 +45,179 @@ const PerformancesSignature = () => (
 );
 
 /** A song's takes: listen, rename, analyze, reveal or delete each, as a list or a grid. */
-export const RecordingsModal = observer(({ requestedSong, onRequestHandled, onAnalysisReady }: {
-  requestedSong: SongDto | null;
-  onRequestHandled(): void;
-  onAnalysisReady(recordingId: string | null): void;
-}) => {
-  const actions = useSongRecordings(requestedSong, onRequestHandled, onAnalysisReady);
-  const { song, recordings, close: onClose, analyze: onAnalyze, remove: onDelete,
-    rename: onRename, analysisProgress: progress, analysisFailures: failures,
-    cancelAnalysis: onCancelAnalysis } = actions;
-  useLocale();
-  const [view, setView] = useState<View>("list");
-  const numbers = useMemo(() => numberTakes(recordings), [recordings]);
-  const versions = useMemo(() => {
-    const grouped = new Map<string, RecordingDto[]>();
-    for (const recording of recordings) {
-      if (!recording.sourceRecordingId) continue;
-      const items = grouped.get(recording.sourceRecordingId);
-      if (items) items.push(recording);
-      else grouped.set(recording.sourceRecordingId, [recording]);
-    }
-    return grouped;
-  }, [recordings]);
-  const performances = useMemo(() => {
-    const ids = new Set(recordings.map((recording) => recording.id));
-    return recordings.filter((recording) => !recording.sourceRecordingId || !ids.has(recording.sourceRecordingId));
-  }, [recordings]);
-  const totalSize = recordings.reduce(
-    (sum, recording) => sum + recording.sizeBytes,
-    0,
-  );
-  const nameOf = (recording: RecordingDto) =>
-    recording.displayName ||
-    (recording.sourceRecordingId ? tr(ru.studioMasterTitle) :
-      defaultTakeName( numbers.get(recording.id) ?? 1, recording.createdAt));
+export const RecordingsModal = observer(
+  ({
+    requestedSong,
+    onRequestHandled,
+    onAnalysisReady,
+  }: {
+    requestedSong: SongDto | null;
+    onRequestHandled(): void;
+    onAnalysisReady(recordingId: string | null): void;
+  }) => {
+    const actions = useSongRecordings(
+      requestedSong,
+      onRequestHandled,
+      onAnalysisReady,
+    );
+    const {
+      song,
+      recordings,
+      close: onClose,
+      analyze: onAnalyze,
+      remove: onDelete,
+      rename: onRename,
+      analysisProgress: progress,
+      analysisFailures: failures,
+      cancelAnalysis: onCancelAnalysis,
+    } = actions;
+    useLocale();
+    const [view, setView] = useState<View>('list');
+    const numbers = useMemo(() => numberTakes(recordings), [recordings]);
+    const versions = useMemo(() => {
+      const grouped = new Map<string, RecordingDto[]>();
+      for (const recording of recordings) {
+        if (!recording.sourceRecordingId) continue;
+        const items = grouped.get(recording.sourceRecordingId);
+        if (items) items.push(recording);
+        else grouped.set(recording.sourceRecordingId, [recording]);
+      }
+      return grouped;
+    }, [recordings]);
+    const performances = useMemo(() => {
+      const ids = new Set(recordings.map((recording) => recording.id));
+      return recordings.filter(
+        (recording) =>
+          !recording.sourceRecordingId || !ids.has(recording.sourceRecordingId),
+      );
+    }, [recordings]);
+    const totalSize = recordings.reduce(
+      (sum, recording) => sum + recording.sizeBytes,
+      0,
+    );
+    const nameOf = (recording: RecordingDto) =>
+      recording.displayName ||
+      (recording.sourceRecordingId
+        ? tr(ru.studioMasterTitle)
+        : defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt));
 
-  return (<>
-    {song && <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      className="recordingsDialog"
-      width="large"
-      icon="music"
-      title={
-        <>
-          <Typography
-            as="span"
-            variant="eyebrow"
-            tone="accent"
-            className="recordingsEyebrow"
+    return (
+      <>
+        {song && (
+          <Dialog
+            open
+            onOpenChange={(open) => {
+              if (!open) onClose();
+            }}
+            className="recordingsDialog"
+            width="large"
+            icon="music"
+            title={
+              <>
+                <Typography
+                  as="span"
+                  variant="eyebrow"
+                  tone="accent"
+                  className="recordingsEyebrow"
+                >
+                  {tr(ru.songPerformances)}
+                </Typography>
+                {song.title}
+              </>
+            }
+            description={tr(ru.recordingsHint)}
+            closeLabel={tr(ru.closeDialog)}
+            cancelLabel={false}
+            confirmLabel={false}
+            art={
+              <>
+                <Planet className="recordingsPlanet" />
+                <PerformancesSignature />
+              </>
+            }
           >
-            {tr(ru.songPerformances)}
-          </Typography>
-          {song.title}
-        </>
-      }
-      description={tr(ru.recordingsHint)}
-      closeLabel={tr(ru.closeDialog)}
-      cancelLabel={false}
-      confirmLabel={false}
-      art={
-        <>
-          <Planet className="recordingsPlanet" />
-          <PerformancesSignature />
-        </>
-      }
-    >
-      <div className="recordingsBody">
-        {recordings.length > 0 ? (
-          <ul
-            className="recordingsList"
-            data-view={view}
-            aria-label={tr(ru.recordings)}
-          >
-            {performances.map((recording, index) => (
-              <RecordingCard
-                key={recording.id}
-                recording={recording}
-                versions={versions.get(recording.id)}
-                index={index}
-                name={nameOf(recording)}
-                onRename={(value) => onRename(recording, value)}
-                onAnalyze={onAnalyze}
-                progress={progress}
-                failures={failures}
-                onCancelAnalysis={onCancelAnalysis}
-                onDelete={onDelete}
-              />
-            ))}
-          </ul>
-        ) : (
-          <Typography tone="muted" className="recordingsEmpty">
-            {tr(ru.noRecordings)}
-          </Typography>
+            <div className="recordingsBody">
+              {recordings.length > 0 ? (
+                <ul
+                  className="recordingsList"
+                  data-view={view}
+                  aria-label={tr(ru.recordings)}
+                >
+                  {performances.map((recording, index) => (
+                    <RecordingCard
+                      key={recording.id}
+                      recording={recording}
+                      versions={versions.get(recording.id)}
+                      index={index}
+                      name={nameOf(recording)}
+                      onRename={(value) => onRename(recording, value)}
+                      onAnalyze={onAnalyze}
+                      progress={progress}
+                      failures={failures}
+                      onCancelAnalysis={onCancelAnalysis}
+                      onDelete={onDelete}
+                    />
+                  ))}
+                </ul>
+              ) : (
+                <Typography tone="muted" className="recordingsEmpty">
+                  {tr(ru.noRecordings)}
+                </Typography>
+              )}
+              <footer className="recordingsFooter">
+                <SegmentedControl<View>
+                  size="sm"
+                  label={tr(ru.recordings)}
+                  value={view}
+                  onValueChange={setView}
+                  items={[
+                    {
+                      value: 'list',
+                      label: tr(ru.recordingsListView),
+                      icon: 'list',
+                    },
+                    {
+                      value: 'grid',
+                      label: tr(ru.recordingsGridView),
+                      icon: 'grid',
+                    },
+                  ]}
+                />
+                <Typography variant="caption" tone="muted">
+                  {tr(ru.recordingsCount, { count: performances.length })}
+                </Typography>
+                <Typography variant="caption" className="recordingsSize">
+                  <Icon name="database" />
+                  {tr(ru.recordingsTotalSize, { size: formatBytes(totalSize) })}
+                </Typography>
+              </footer>
+            </div>
+          </Dialog>
         )}
-        <footer className="recordingsFooter">
-          <SegmentedControl<View>
-            size="sm"
-            label={tr(ru.recordings)}
-            value={view}
-            onValueChange={setView}
-            items={[
-              { value: "list", label: tr(ru.recordingsListView), icon: "list" },
-              { value: "grid", label: tr(ru.recordingsGridView), icon: "grid" },
-            ]}
-          />
-          <Typography variant="caption" tone="muted">
-            {tr(ru.recordingsCount, { count: performances.length })}
-          </Typography>
-          <Typography variant="caption" className="recordingsSize">
-            <Icon name="database" />
-            {tr(ru.recordingsTotalSize, { size: formatBytes(totalSize) })}
-          </Typography>
-        </footer>
-      </div>
-    </Dialog>}
-    <PerformanceAnalysisModal analysis={actions.analysis} song={actions.analysisSong}
-      recordingId={actions.analysisRecordId ?? undefined}
-      pending={actions.analysisRecordId ? progress[actions.analysisRecordId] : undefined}
-      failure={actions.analysisRecordId ? failures[actions.analysisRecordId] : undefined}
-      onCancelAnalysis={onCancelAnalysis} recordings={recordings} onDelete={onDelete}
-      onCreateStudioMaster={recording => void actions.createStudioMaster(recording)}
-      studioMaster={actions.studioMaster} onClose={actions.closeAnalysis} />
-  </>);
-});
+        <PerformanceAnalysisModal
+          analysis={actions.analysis}
+          song={actions.analysisSong}
+          recordingId={actions.analysisRecordId ?? undefined}
+          pending={
+            actions.analysisRecordId
+              ? progress[actions.analysisRecordId]
+              : undefined
+          }
+          failure={
+            actions.analysisRecordId
+              ? failures[actions.analysisRecordId]
+              : undefined
+          }
+          onCancelAnalysis={onCancelAnalysis}
+          recordings={recordings}
+          onDelete={onDelete}
+          onCreateStudioMaster={(recording) =>
+            void actions.createStudioMaster(recording)
+          }
+          studioMaster={actions.studioMaster}
+          onClose={actions.closeAnalysis}
+        />
+      </>
+    );
+  },
+);

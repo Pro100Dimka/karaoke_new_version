@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { pythonClient } from "./pythonClient";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { pythonClient } from './pythonClient';
 
 type Call = {
   method: string;
@@ -23,14 +23,14 @@ const installBridge = (
   return calls;
 };
 
-describe("pythonClient contract", () => {
-  it.each(["export", "import"] as const)(
-    "follows library %s progress until the completed report",
+describe('pythonClient contract', () => {
+  it.each(['export', 'import'] as const)(
+    'follows library %s progress until the completed report',
     async (action) => {
       let reads = 0;
       const progress = vi.fn();
       const report: Record<string, unknown> = {
-        export: { path: "E:/exports/library.zip" },
+        export: { path: 'E:/exports/library.zip' },
         import: { imported: 2, skipped: 1 },
       }[action];
       const calls = installBridge((call) => {
@@ -38,296 +38,416 @@ describe("pythonClient contract", () => {
           return {
             ok: true,
             status: 202,
-            body: { jobId: "library-job", state: "Queued" },
+            body: { jobId: 'library-job', state: 'Queued' },
           };
         return {
           ok: true,
           status: 200,
           body: {
-            jobId: "library-job",
-            state: ++reads >= 2 ? "Succeeded" : "Running",
+            jobId: 'library-job',
+            state: ++reads >= 2 ? 'Succeeded' : 'Running',
             overallProgress: reads >= 2 ? 1 : 0.25,
             report,
           },
         };
       });
       const result =
-        action === "export"
+        action === 'export'
           ? await pythonClient.exportLibrary(progress)
           : await pythonClient.importLibrary(
-              "E:/downloads/library.zip",
+              'E:/downloads/library.zip',
               progress,
             );
-      expect(result).toEqual(action === "export" ? report.path : report);
+      expect(result).toEqual(action === 'export' ? report.path : report);
       expect(progress.mock.calls.map(([job]) => job.progress)).toEqual([
         25, 100,
       ]);
       expect(calls[0]).toMatchObject({
-        method: "POST",
+        method: 'POST',
         path: `/packages/library/${action}`,
-        ...(action === "import"
-          ? { body: { path: "E:/downloads/library.zip" } }
+        ...(action === 'import'
+          ? { body: { path: 'E:/downloads/library.zip' } }
           : {}),
       });
     },
   );
 
-  it("rejects a failed library export instead of returning an archive path", async () => {
+  it('rejects a failed library export instead of returning an archive path', async () => {
     installBridge((call) => ({
       ok: true,
       status: 200,
       body:
-        call.method === "POST"
-          ? { jobId: "library-job", state: "Queued" }
+        call.method === 'POST'
+          ? { jobId: 'library-job', state: 'Queued' }
           : {
-              jobId: "library-job",
-              state: "Failed",
-              error: { code: "StorageUnavailable", message: "Disk full" },
+              jobId: 'library-job',
+              state: 'Failed',
+              error: { code: 'StorageUnavailable', message: 'Disk full' },
             },
     }));
     await expect(pythonClient.exportLibrary()).rejects.toMatchObject({
-      code: "StorageUnavailable",
-      message: "Disk full",
+      code: 'StorageUnavailable',
+      message: 'Disk full',
     });
   });
 
   const model = {
-    id: "test-model",
-    purpose: "ASR",
-    version: "1",
+    id: 'test-model',
+    purpose: 'ASR',
+    version: '1',
     sizeBytes: 100,
     requiredDiskBytes: 268435656,
-    state: "not-installed",
+    state: 'not-installed',
     selected: true,
   } as const;
 
-  it("reuses backend job waiting to report a model download through completion", async () => {
+  it('reuses backend job waiting to report a model download through completion', async () => {
     const progress = vi.fn();
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path.endsWith("/download")
-        ? { jobId: "model-job", state: "Queued" }
-        : { jobId: "model-job", state: "Succeeded", overallProgress: 1 },
+      body: call.path.endsWith('/download')
+        ? { jobId: 'model-job', state: 'Queued' }
+        : { jobId: 'model-job', state: 'Succeeded', overallProgress: 1 },
     }));
     await expect(
       pythonClient.downloadModel(model, progress),
-    ).resolves.toMatchObject({ id: "model-job", state: "completed" });
+    ).resolves.toMatchObject({ id: 'model-job', state: 'completed' });
     expect(progress).toHaveBeenCalledWith(
-      expect.objectContaining({ id: "model-job", state: "queued" }),
+      expect.objectContaining({ id: 'model-job', state: 'queued' }),
     );
     expect(progress).toHaveBeenLastCalledWith(
-      expect.objectContaining({ state: "completed", progress: 100 }),
+      expect.objectContaining({ state: 'completed', progress: 100 }),
     );
     expect(calls.map((call) => call.path)).toEqual([
-      "/models/test-model/1/download",
-      "/jobs/model-job",
+      '/models/test-model/1/download',
+      '/jobs/model-job',
     ]);
   });
 
-  it("keeps the existing immediate model-download contract without a progress callback", async () => {
+  it('keeps the existing immediate model-download contract without a progress callback', async () => {
     const calls = installBridge(() => ({
       status: 202,
       ok: true,
-      body: { jobId: "model-job", state: "Queued" },
+      body: { jobId: 'model-job', state: 'Queued' },
     }));
     await expect(pythonClient.downloadModel(model)).resolves.toMatchObject({
-      state: "queued",
+      state: 'queued',
     });
     expect(calls).toHaveLength(1);
   });
 
   it.each([
     [
-      "Failed",
-      { message: "Checksum mismatch" },
-      { message: "Checksum mismatch" },
+      'Failed',
+      { message: 'Checksum mismatch' },
+      { message: 'Checksum mismatch' },
     ],
-    ["Cancelled", null, { name: "AbortError" }],
-  ])("preserves model download outcome %s", async (state, error, expected) => {
+    ['Cancelled', null, { name: 'AbortError' }],
+  ])('preserves model download outcome %s', async (state, error, expected) => {
     installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path.endsWith("/download")
-        ? { jobId: "model-job", state: "Queued" }
-        : { jobId: "model-job", state, error, overallProgress: 0 },
+      body: call.path.endsWith('/download')
+        ? { jobId: 'model-job', state: 'Queued' }
+        : { jobId: 'model-job', state, error, overallProgress: 0 },
     }));
     await expect(
       pythonClient.downloadModel(model, vi.fn()),
     ).rejects.toMatchObject(expected);
   });
 
-  it("reports the job identity and analysis stage while waiting", async () => {
+  it('reports the job identity and analysis stage while waiting', async () => {
     const progress = vi.fn();
-    installBridge((call) => ({ status: 200, ok: true, body:
-      call.path.endsWith("/analysis") ? { jobId: "job" } :
-      call.path === "/jobs/job" ? { jobId: "job", state: "Succeeded", stage: "Scoring", overallProgress: 1 } :
-      [{ analysisId: "result", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 100 }],
+    installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body: call.path.endsWith('/analysis')
+        ? { jobId: 'job' }
+        : call.path === '/jobs/job'
+          ? {
+              jobId: 'job',
+              state: 'Succeeded',
+              stage: 'Scoring',
+              overallProgress: 1,
+            }
+          : [
+              {
+                analysisId: 'result',
+                recordingId: 'take',
+                state: 'Succeeded',
+                pitchAccuracyPercent: 100,
+              },
+            ],
     }));
-    await pythonClient.analyzeRecording("take", progress);
-    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ recordingId: "take", jobId: "job", stage: "Scoring", progress: 100 }));
+    await pythonClient.analyzeRecording('take', progress);
+    expect(progress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recordingId: 'take',
+        jobId: 'job',
+        stage: 'Scoring',
+        progress: 100,
+      }),
+    );
   });
 
   it("opens the newest successful analysis in the backend's newest-first history", async () => {
-    installBridge(() => ({ status: 200, ok: true, body: [
-      { analysisId: "running", recordingId: "take", state: "Running" },
-      { analysisId: "new", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 95, rhythmAccuracyPercent: 94, noteStabilityPercent: 93 },
-      { analysisId: "old", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 2, rhythmAccuracyPercent: 3, noteStabilityPercent: 4 },
-    ] }));
-    await expect(pythonClient.latestAnalysis("take")).resolves.toMatchObject({ pitch: 95, rhythm: 94, stability: 93 });
-  });
-
-  it("opens the analysis returned by its completed job rather than another result in history", async () => {
-    installBridge((call) => ({ status: 200, ok: true, body:
-      call.path === "/recordings/take/analysis" ? { jobId: "job" } :
-      call.path === "/jobs/job" ? { jobId: "job", state: "Succeeded", report: { analysisId: "wanted" } } : [
-        { analysisId: "other", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 95 },
-        { analysisId: "wanted", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 88 },
-        { analysisId: "old", recordingId: "take", state: "Succeeded", pitchAccuracyPercent: 2 },
-      ] }));
-    await expect(pythonClient.analyzeRecording("take")).resolves.toMatchObject({ pitch: 88 });
-  });
-  it("preserves the reason an offline performance cannot be scored reliably", async () => {
-    installBridge((call) => ({ status: 200, ok: true, body: call.path.startsWith("/jobs/")
-      ? { jobId: "analysis-job", state: "Failed", error: { code: "AnalysisPitchUncertain", message: "Too little reliable pitch" } }
-      : { jobId: "analysis-job" } }));
-    await expect(pythonClient.analyzeRecording("take")).rejects.toMatchObject({
-      code: "AnalysisPitchUncertain", source: "python",
+    installBridge(() => ({
+      status: 200,
+      ok: true,
+      body: [
+        { analysisId: 'running', recordingId: 'take', state: 'Running' },
+        {
+          analysisId: 'new',
+          recordingId: 'take',
+          state: 'Succeeded',
+          pitchAccuracyPercent: 95,
+          rhythmAccuracyPercent: 94,
+          noteStabilityPercent: 93,
+        },
+        {
+          analysisId: 'old',
+          recordingId: 'take',
+          state: 'Succeeded',
+          pitchAccuracyPercent: 2,
+          rhythmAccuracyPercent: 3,
+          noteStabilityPercent: 4,
+        },
+      ],
+    }));
+    await expect(pythonClient.latestAnalysis('take')).resolves.toMatchObject({
+      pitch: 95,
+      rhythm: 94,
+      stability: 93,
     });
   });
-  it("keeps waiting for CPU vocal analysis beyond five minutes", async () => {
+
+  it('opens the analysis returned by its completed job rather than another result in history', async () => {
+    installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body:
+        call.path === '/recordings/take/analysis'
+          ? { jobId: 'job' }
+          : call.path === '/jobs/job'
+            ? {
+                jobId: 'job',
+                state: 'Succeeded',
+                report: { analysisId: 'wanted' },
+              }
+            : [
+                {
+                  analysisId: 'other',
+                  recordingId: 'take',
+                  state: 'Succeeded',
+                  pitchAccuracyPercent: 95,
+                },
+                {
+                  analysisId: 'wanted',
+                  recordingId: 'take',
+                  state: 'Succeeded',
+                  pitchAccuracyPercent: 88,
+                },
+                {
+                  analysisId: 'old',
+                  recordingId: 'take',
+                  state: 'Succeeded',
+                  pitchAccuracyPercent: 2,
+                },
+              ],
+    }));
+    await expect(pythonClient.analyzeRecording('take')).resolves.toMatchObject({
+      pitch: 88,
+    });
+  });
+  it('preserves the reason an offline performance cannot be scored reliably', async () => {
+    installBridge((call) => ({
+      status: 200,
+      ok: true,
+      body: call.path.startsWith('/jobs/')
+        ? {
+            jobId: 'analysis-job',
+            state: 'Failed',
+            error: {
+              code: 'AnalysisPitchUncertain',
+              message: 'Too little reliable pitch',
+            },
+          }
+        : { jobId: 'analysis-job' },
+    }));
+    await expect(pythonClient.analyzeRecording('take')).rejects.toMatchObject({
+      code: 'AnalysisPitchUncertain',
+      source: 'python',
+    });
+  });
+  it('keeps waiting for CPU vocal analysis beyond five minutes', async () => {
     vi.useFakeTimers();
     let now = 0;
-    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
     let polls = 0;
     installBridge((call) => {
-      let body: unknown = { jobId: "analysis-job" };
-      if (call.path === "/jobs/analysis-job") {
+      let body: unknown = { jobId: 'analysis-job' };
+      if (call.path === '/jobs/analysis-job') {
         polls += 1;
         now = 301_000;
-        body = { jobId: "analysis-job", state: polls === 1 ? "Running" : "Succeeded" };
+        body = {
+          jobId: 'analysis-job',
+          state: polls === 1 ? 'Running' : 'Succeeded',
+        };
       }
-      if (call.path.endsWith("/analyses")) body = [{
-        analysisId: "result", recordingId: "take", state: "Succeeded",
-        pitchAccuracyPercent: 100, rhythmAccuracyPercent: 100, noteStabilityPercent: 100,
-        sectionResults: [], problemRegions: [],
-      }];
+      if (call.path.endsWith('/analyses'))
+        body = [
+          {
+            analysisId: 'result',
+            recordingId: 'take',
+            state: 'Succeeded',
+            pitchAccuracyPercent: 100,
+            rhythmAccuracyPercent: 100,
+            noteStabilityPercent: 100,
+            sectionResults: [],
+            problemRegions: [],
+          },
+        ];
       return { status: 200, ok: true, body };
     });
     try {
-      const result = pythonClient.analyzeRecording("take").then(
-        (value) => ({ value }), (error: unknown) => ({ error }),
+      const result = pythonClient.analyzeRecording('take').then(
+        (value) => ({ value }),
+        (error: unknown) => ({ error }),
       );
       await vi.advanceTimersByTimeAsync(1000);
-      expect(await result).toMatchObject({ value: { recordingId: "take" } });
+      expect(await result).toMatchObject({ value: { recordingId: 'take' } });
       expect(polls).toBe(2);
     } finally {
       clock.mockRestore();
       vi.useRealTimers();
     }
   });
-  it("realigns existing lyrics from the vocal stem with its own processing endpoint", async () => {
+  it('realigns existing lyrics from the vocal stem with its own processing endpoint', async () => {
     const calls = installBridge(() => ({
-      status: 202, ok: true, body: { jobId: "lyrics-1", state: "Queued" },
+      status: 202,
+      ok: true,
+      body: { jobId: 'lyrics-1', state: 'Queued' },
     }));
-    expect(await pythonClient.processSong("a/b", "lyrics")).toMatchObject({
-      id: "lyrics-1", songId: "a/b", state: "queued",
+    expect(await pythonClient.processSong('a/b', 'lyrics')).toMatchObject({
+      id: 'lyrics-1',
+      songId: 'a/b',
+      state: 'queued',
     });
-    expect(calls).toEqual([{
-      method: "POST", path: "/songs/a%2Fb/processing/lyrics",
-      body: { mode: "Auto", onlineLyrics: true },
-      headers: { "Idempotency-Key": "key-1" },
-    }]);
-  });
-
-  it("keeps the lyrics realignment operation when loading jobs for retry", async () => {
-    installBridge(() => ({ status: 200, ok: true, body: { items: [{
-      jobId: "lyrics-1", type: "SongProcessing", entityId: "s", state: "Failed",
-      stage: "ForcedAlignment", stageProgress: 0, overallProgress: 0,
-      error: null, report: { timingOperation: "lyrics" },
-    }], limit: 100, offset: 0 } }));
-    expect(await pythonClient.listJobs()).toEqual([
-      expect.objectContaining({ id: "lyrics-1", timingOperation: "lyrics" }),
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        path: '/songs/a%2Fb/processing/lyrics',
+        body: { mode: 'Auto', onlineLyrics: true },
+        headers: { 'Idempotency-Key': 'key-1' },
+      },
     ]);
   });
 
-  it("propagates the authoritative backend instance identity", async () => {
+  it('keeps the lyrics realignment operation when loading jobs for retry', async () => {
+    installBridge(() => ({
+      status: 200,
+      ok: true,
+      body: {
+        items: [
+          {
+            jobId: 'lyrics-1',
+            type: 'SongProcessing',
+            entityId: 's',
+            state: 'Failed',
+            stage: 'ForcedAlignment',
+            stageProgress: 0,
+            overallProgress: 0,
+            error: null,
+            report: { timingOperation: 'lyrics' },
+          },
+        ],
+        limit: 100,
+        offset: 0,
+      },
+    }));
+    expect(await pythonClient.listJobs()).toEqual([
+      expect.objectContaining({ id: 'lyrics-1', timingOperation: 'lyrics' }),
+    ]);
+  });
+
+  it('propagates the authoritative backend instance identity', async () => {
     installBridge((call) => ({
       status: 200,
       ok: true,
       body:
-        call.path === "/health/ready"
-          ? { ok: true, instanceId: "backend-generation" }
-          : { backendVersion: "1", apiVersion: 1 },
+        call.path === '/health/ready'
+          ? { ok: true, instanceId: 'backend-generation' }
+          : { backendVersion: '1', apiVersion: 1 },
     }));
     expect(await pythonClient.health()).toMatchObject({
-      instanceId: "backend-generation",
+      instanceId: 'backend-generation',
     });
   });
-  beforeEach(() => vi.stubGlobal("crypto", { randomUUID: () => "key-1" }));
+  beforeEach(() => vi.stubGlobal('crypto', { randomUUID: () => 'key-1' }));
   afterEach(() => {
     vi.unstubAllGlobals();
-    Reflect.deleteProperty(window, "desktop");
+    Reflect.deleteProperty(window, 'desktop');
   });
 
-  it("deletes a song with DELETE on its encoded path", async () => {
+  it('deletes a song with DELETE on its encoded path', async () => {
     const calls = installBridge(() => ({ status: 204, ok: true, body: null }));
-    await pythonClient.deleteSong("a/b");
+    await pythonClient.deleteSong('a/b');
     expect(calls).toEqual([
       {
-        method: "DELETE",
-        path: "/songs/a%2Fb",
+        method: 'DELETE',
+        path: '/songs/a%2Fb',
         body: undefined,
         headers: undefined,
       },
     ]);
   });
 
-  it("sends the source path with an idempotency key when importing", async () => {
+  it('sends the source path with an idempotency key when importing', async () => {
     const calls = installBridge((call) => ({
-      status: call.path === "/songs/imports" ? 202 : 200,
+      status: call.path === '/songs/imports' ? 202 : 200,
       ok: true,
       body:
-        call.path === "/songs/imports"
-          ? { jobId: "import-1", state: "Queued" }
-          : call.path === "/jobs/import-1"
+        call.path === '/songs/imports'
+          ? { jobId: 'import-1', state: 'Queued' }
+          : call.path === '/jobs/import-1'
             ? {
-                jobId: "import-1",
-                type: "SongImport",
-                state: "Succeeded",
+                jobId: 'import-1',
+                type: 'SongImport',
+                state: 'Succeeded',
                 entityId: null,
-                stage: "Saving",
+                stage: 'Saving',
                 stageProgress: 1,
                 overallProgress: 1,
                 error: null,
-                report: { songId: "s" },
+                report: { songId: 's' },
               }
             : {
-                songId: "s",
-                title: "T",
-                artist: "A",
-                status: "Imported",
+                songId: 's',
+                title: 'T',
+                artist: 'A',
+                status: 'Imported',
                 activeRevision: 1,
-                createdAt: "2026-01-01T00:00:00Z",
+                createdAt: '2026-01-01T00:00:00Z',
               },
     }));
-    await pythonClient.importSong("C:/song.mp3");
+    await pythonClient.importSong('C:/song.mp3');
     expect(calls[0]).toMatchObject({
-      method: "POST",
-      path: "/songs/imports",
-      body: { sourcePath: "C:/song.mp3" },
-      headers: { "Idempotency-Key": "key-1" },
+      method: 'POST',
+      path: '/songs/imports',
+      body: { sourcePath: 'C:/song.mp3' },
+      headers: { 'Idempotency-Key': 'key-1' },
     });
   });
 
-  it("follows an import by its pushed changes and cancels it at once when aborted", async () => {
+  it('follows an import by its pushed changes and cancels it at once when aborted', async () => {
     let push: (event: unknown) => void = () => undefined;
     const running = {
-      jobId: "import-1",
-      type: "SongImport",
-      state: "Running",
+      jobId: 'import-1',
+      type: 'SongImport',
+      state: 'Running',
       entityId: null,
-      stage: "Decoding",
+      stage: 'Decoding',
       stageProgress: 0.5,
       overallProgress: 0.5,
       error: null,
@@ -336,8 +456,8 @@ describe("pythonClient contract", () => {
       status: 200,
       ok: true,
       body:
-        call.path === "/songs/imports"
-          ? { jobId: "import-1", state: "Queued" }
+        call.path === '/songs/imports'
+          ? { jobId: 'import-1', state: 'Queued' }
           : running,
     }));
     Object.assign(window.desktop!, {
@@ -351,7 +471,7 @@ describe("pythonClient contract", () => {
     const controller = new AbortController();
     const progress = vi.fn();
     const importing = pythonClient.importSong(
-      "C:/song.mp3",
+      'C:/song.mp3',
       {},
       { signal: controller.signal, onProgress: progress },
     );
@@ -361,191 +481,191 @@ describe("pythonClient contract", () => {
       ),
     );
 
-    push({ type: "job.changed", data: { jobId: "import-1" } });
+    push({ type: 'job.changed', data: { jobId: 'import-1' } });
     await vi.waitFor(() =>
       expect(
-        calls.filter((call) => call.path === "/jobs/import-1"),
+        calls.filter((call) => call.path === '/jobs/import-1'),
       ).toHaveLength(2),
     );
 
     const startedAt = Date.now();
     controller.abort();
-    await expect(importing).rejects.toMatchObject({ name: "AbortError" });
+    await expect(importing).rejects.toMatchObject({ name: 'AbortError' });
     expect(Date.now() - startedAt).toBeLessThan(1000);
     expect(calls.at(-1)).toMatchObject({
-      method: "POST",
-      path: "/jobs/import-1/cancel",
+      method: 'POST',
+      path: '/jobs/import-1/cancel',
     });
   });
 
-  it("sends the title and artist the user entered when importing", async () => {
+  it('sends the title and artist the user entered when importing', async () => {
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
       body:
-        call.path === "/songs/imports"
-          ? { jobId: "import-1", state: "Queued" }
-          : call.path === "/jobs/import-1"
+        call.path === '/songs/imports'
+          ? { jobId: 'import-1', state: 'Queued' }
+          : call.path === '/jobs/import-1'
             ? {
-                jobId: "import-1",
-                type: "SongImport",
-                state: "Succeeded",
+                jobId: 'import-1',
+                type: 'SongImport',
+                state: 'Succeeded',
                 entityId: null,
-                stage: "Saving",
+                stage: 'Saving',
                 stageProgress: 1,
                 overallProgress: 1,
                 error: null,
-                report: { songId: "s" },
+                report: { songId: 's' },
               }
             : {
-                songId: "s",
-                title: "T",
-                artist: "A",
-                status: "Imported",
+                songId: 's',
+                title: 'T',
+                artist: 'A',
+                status: 'Imported',
                 activeRevision: 1,
-                createdAt: "2026-01-01T00:00:00Z",
+                createdAt: '2026-01-01T00:00:00Z',
               },
     }));
-    await pythonClient.importSong("C:/song.mp3", {
-      title: "Кофе",
-      artist: "Нервы",
+    await pythonClient.importSong('C:/song.mp3', {
+      title: 'Кофе',
+      artist: 'Нервы',
     });
     expect(calls[0]).toMatchObject({
-      body: { sourcePath: "C:/song.mp3", title: "Кофе", artist: "Нервы" },
+      body: { sourcePath: 'C:/song.mp3', title: 'Кофе', artist: 'Нервы' },
     });
   });
 
-  it("follows the cursor until the song list is exhausted", async () => {
+  it('follows the cursor until the song list is exhausted', async () => {
     const song = {
-      songId: "s",
-      title: "T",
-      artist: "A",
-      status: "Ready",
+      songId: 's',
+      title: 'T',
+      artist: 'A',
+      status: 'Ready',
       activeRevision: 1,
-      createdAt: "2026-01-01T00:00:00Z",
+      createdAt: '2026-01-01T00:00:00Z',
     };
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
-      body: call.path.includes("cursor=c1")
+      body: call.path.includes('cursor=c1')
         ? { items: [song], nextCursor: null }
-        : { items: [song], nextCursor: "c1" },
+        : { items: [song], nextCursor: 'c1' },
     }));
     const songs = await pythonClient.listSongs();
     expect(songs).toHaveLength(2);
     expect(
       calls
         .map((call) => call.path)
-        .filter((path) => path.startsWith("/songs")),
-    ).toEqual(["/songs?limit=200", "/songs?limit=200&cursor=c1"]);
+        .filter((path) => path.startsWith('/songs')),
+    ).toEqual(['/songs?limit=200', '/songs?limit=200&cursor=c1']);
   });
 
-  it("maps an error response to an AppError with the backend code and request id", async () => {
+  it('maps an error response to an AppError with the backend code and request id', async () => {
     installBridge(() => ({
       status: 409,
       ok: false,
-      body: { code: "RevisionConflict", message: "stale", requestId: "r-1" },
+      body: { code: 'RevisionConflict', message: 'stale', requestId: 'r-1' },
     }));
-    await expect(pythonClient.getSong("s")).rejects.toMatchObject({
-      code: "RevisionConflict",
-      message: "stale",
-      source: "python",
-      correlationId: "r-1",
+    await expect(pythonClient.getSong('s')).rejects.toMatchObject({
+      code: 'RevisionConflict',
+      message: 'stale',
+      source: 'python',
+      correlationId: 'r-1',
     });
   });
 
-  it("falls back to an HTTP code when the error body is not an object", async () => {
+  it('falls back to an HTTP code when the error body is not an object', async () => {
     installBridge(() => ({ status: 503, ok: false, body: null }));
-    await expect(pythonClient.getSong("s")).rejects.toMatchObject({
-      code: "Http503",
-      source: "python",
+    await expect(pythonClient.getSong('s')).rejects.toMatchObject({
+      code: 'Http503',
+      source: 'python',
     });
   });
 
-  it("waits for package export and returns the generated archive path", async () => {
+  it('waits for package export and returns the generated archive path', async () => {
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
       body:
-        call.path === "/packages/export/song-1?revision=3"
-          ? { jobId: "job-export", state: "Queued" }
+        call.path === '/packages/export/song-1?revision=3'
+          ? { jobId: 'job-export', state: 'Queued' }
           : {
-              jobId: "job-export",
-              state: "Succeeded",
-              report: { path: "D:/packages/song-1.zip" },
+              jobId: 'job-export',
+              state: 'Succeeded',
+              report: { path: 'D:/packages/song-1.zip' },
             },
     }));
 
-    await expect(pythonClient.exportProject("song-1", 3)).resolves.toBe(
-      "D:/packages/song-1.zip",
+    await expect(pythonClient.exportProject('song-1', 3)).resolves.toBe(
+      'D:/packages/song-1.zip',
     );
     expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
-      "POST /packages/export/song-1?revision=3",
-      "GET /jobs/job-export",
+      'POST /packages/export/song-1?revision=3',
+      'GET /jobs/job-export',
     ]);
   });
 
-  it("waits for a downloaded package import and returns the imported song", async () => {
+  it('waits for a downloaded package import and returns the imported song', async () => {
     const song = {
-      songId: "song-2",
-      title: "Shared",
-      artist: "Friend",
-      status: "Ready",
+      songId: 'song-2',
+      title: 'Shared',
+      artist: 'Friend',
+      status: 'Ready',
       activeRevision: 4,
-      createdAt: "2026-01-01T00:00:00Z",
+      createdAt: '2026-01-01T00:00:00Z',
     };
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
       body:
-        call.path === "/packages/import"
-          ? { jobId: "job-import", state: "Queued" }
-          : call.path === "/jobs/job-import"
+        call.path === '/packages/import'
+          ? { jobId: 'job-import', state: 'Queued' }
+          : call.path === '/jobs/job-import'
             ? {
-                jobId: "job-import",
-                state: "Succeeded",
-                report: { songId: "song-2" },
+                jobId: 'job-import',
+                state: 'Succeeded',
+                report: { songId: 'song-2' },
               }
             : song,
     }));
 
     await expect(
-      pythonClient.importProject("D:/downloads/song-2.zip"),
-    ).resolves.toMatchObject({ id: "song-2", activeRevision: 4 });
+      pythonClient.importProject('D:/downloads/song-2.zip'),
+    ).resolves.toMatchObject({ id: 'song-2', activeRevision: 4 });
     expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
-      "POST /packages/import",
-      "GET /jobs/job-import",
-      "GET /songs/song-2",
+      'POST /packages/import',
+      'GET /jobs/job-import',
+      'GET /songs/song-2',
     ]);
   });
 
-  it("can accept an older exact room revision when local history is newer", async () => {
+  it('can accept an older exact room revision when local history is newer', async () => {
     const song = {
-      songId: "song-2",
-      title: "Shared",
-      artist: "Friend",
-      status: "Ready",
+      songId: 'song-2',
+      title: 'Shared',
+      artist: 'Friend',
+      status: 'Ready',
       activeRevision: 3,
-      createdAt: "2026-01-01T00:00:00Z",
+      createdAt: '2026-01-01T00:00:00Z',
     };
     const calls = installBridge((call) => ({
       status: 200,
       ok: true,
       body:
-        call.path === "/packages/import"
-          ? { jobId: "job-import", state: "Queued" }
-          : call.path === "/jobs/job-import"
+        call.path === '/packages/import'
+          ? { jobId: 'job-import', state: 'Queued' }
+          : call.path === '/jobs/job-import'
             ? {
-                jobId: "job-import",
-                state: "Succeeded",
-                report: { songId: "song-2" },
+                jobId: 'job-import',
+                state: 'Succeeded',
+                report: { songId: 'song-2' },
               }
             : song,
     }));
 
-    await pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder");
+    await pythonClient.importProject('D:/downloads/song-2.zip', 'AcceptOlder');
     expect(calls[0]).toMatchObject({
-      body: { path: "D:/downloads/song-2.zip", decision: "AcceptOlder" },
+      body: { path: 'D:/downloads/song-2.zip', decision: 'AcceptOlder' },
     });
   });
 
@@ -554,25 +674,25 @@ describe("pythonClient contract", () => {
       status: 200,
       ok: true,
       body:
-        call.path === "/packages/import"
-          ? { jobId: "job-import", state: "Queued" }
+        call.path === '/packages/import'
+          ? { jobId: 'job-import', state: 'Queued' }
           : {
-              jobId: "job-import",
-              state: "Failed",
+              jobId: 'job-import',
+              state: 'Failed',
               error: {
-                code: "PackageConflict",
-                message: "Package conflicts with local project",
-                details: { conflict: "DivergentRevision" },
+                code: 'PackageConflict',
+                message: 'Package conflicts with local project',
+                details: { conflict: 'DivergentRevision' },
               },
             },
     }));
 
     await expect(
-      pythonClient.importProject("D:/downloads/song-2.zip", "AcceptOlder"),
+      pythonClient.importProject('D:/downloads/song-2.zip', 'AcceptOlder'),
     ).rejects.toMatchObject({
-      code: "PackageConflict",
-      details: JSON.stringify({ conflict: "DivergentRevision" }),
-      source: "python",
+      code: 'PackageConflict',
+      details: JSON.stringify({ conflict: 'DivergentRevision' }),
+      source: 'python',
     });
   });
 });

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { mirrorAppearance } from "../../../shared/ui/useDetachedPanel";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { mirrorAppearance } from '../../../shared/ui/useDetachedPanel';
 
 /** Must match electron/PanelWindows.ts: names starting so open full screen on the other display. */
-export const tvWindowName = "ad-voice-panel:stage-screen";
+export const tvWindowName = 'ad-voice-panel:stage-screen';
 let opening = 0;
 
 export interface TvScreen {
@@ -36,17 +36,21 @@ export const useTvWindow = (onClosed: () => void) => {
     }
     // A fresh name each time: a window of the same name that is still closing would otherwise be reused.
     opening += 1;
-    const tv = window.open("about:blank", `${tvWindowName}-${opening}`, "width=1280,height=720");
+    const tv = window.open(
+      'about:blank',
+      `${tvWindowName}-${opening}`,
+      'width=1280,height=720',
+    );
     if (!tv) return null;
     tv.document.title = title;
     const stopMirroring = mirrorAppearance(document, tv.document);
     // An attribute, not a class: the app's root attributes mirrored onto this window replace its class.
-    tv.document.documentElement.setAttribute("data-tv-screen", "");
-    const container = tv.document.createElement("div");
-    container.className = "tvScreen";
+    tv.document.documentElement.setAttribute('data-tv-screen', '');
+    const container = tv.document.createElement('div');
+    container.className = 'tvScreen';
     tv.document.body.append(container);
     const next = { window: tv, container };
-    tv.addEventListener("pagehide", () => {
+    tv.addEventListener('pagehide', () => {
       stopMirroring();
       if (opened.current !== next) return;
       opened.current = null;

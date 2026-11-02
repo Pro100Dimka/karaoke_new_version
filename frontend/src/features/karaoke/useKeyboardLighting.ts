@@ -1,7 +1,7 @@
-import { keyboardLightingClient } from "../../services/keyboardLightingClient";
-import { useEffect } from "react";
-import type { ThemeName } from "../../contracts/models";
-import type { KeyboardLightingPreferences } from "../../shared/preferences/preferences";
+import { keyboardLightingClient } from '../../services/keyboardLightingClient';
+import { useEffect } from 'react';
+import type { ThemeName } from '../../contracts/models';
+import type { KeyboardLightingPreferences } from '../../shared/preferences/preferences';
 
 export const useKeyboardLighting = (
   preferences: KeyboardLightingPreferences,
@@ -14,8 +14,8 @@ export const useKeyboardLighting = (
   useEffect(() => {
     if (!preferences.enabled) return;
     const effective =
-      preferences.mode === "music" && !playing
-        ? { ...preferences, mode: "theme" as const }
+      preferences.mode === 'music' && !playing
+        ? { ...preferences, mode: 'theme' as const }
         : preferences;
     void keyboardLightingClient
       .apply(effective, theme, frame)
@@ -24,9 +24,9 @@ export const useKeyboardLighting = (
 
   useEffect(
     () => () => {
-      if (preferences.enabled && preferences.mode === "music") {
+      if (preferences.enabled && preferences.mode === 'music') {
         void keyboardLightingClient
-          .apply({ ...preferences, mode: "theme" }, theme)
+          .apply({ ...preferences, mode: 'theme' }, theme)
           .catch(() => undefined);
       }
     },

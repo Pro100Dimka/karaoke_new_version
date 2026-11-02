@@ -1,4 +1,4 @@
-import type { RoomSongDto, SongDto } from "../../contracts/models";
+import type { RoomSongDto, SongDto } from '../../contracts/models';
 
 const asRemoteSong = (song: RoomSongDto): SongDto => ({
   id: song.songId,
@@ -6,11 +6,11 @@ const asRemoteSong = (song: RoomSongDto): SongDto => ({
   artist: song.artist,
   album: song.album,
   genre: song.genre,
-  language: "Auto",
-  status: "ready",
+  language: 'Auto',
+  status: 'ready',
   durationSeconds: song.durationSeconds,
-  createdAt: "1970-01-01T00:00:00.000Z",
-  coverState: "Fallback",
+  createdAt: '1970-01-01T00:00:00.000Z',
+  coverState: 'Fallback',
   activeRevision: song.revision,
   projectFormatVersion: 1,
   roomOwnerId: song.ownerParticipantId,
@@ -26,12 +26,12 @@ export const mergeRoomLibrary = (
   for (const shared of sharedSongs) {
     if (shared.ownerParticipantId === selfParticipantId) continue;
     const local = merged.get(shared.songId);
-    if (local?.activeRevision === shared.revision && local.status === "ready")
+    if (local?.activeRevision === shared.revision && local.status === 'ready')
       continue;
     if (
       !local ||
       shared.revision > local.activeRevision ||
-      local.status !== "ready"
+      local.status !== 'ready'
     ) {
       merged.set(shared.songId, asRemoteSong(shared));
     }

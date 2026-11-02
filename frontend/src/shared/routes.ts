@@ -1,11 +1,11 @@
 const routeSegments = {
-  karaoke: "karaoke",
-  editor: "editor",
+  karaoke: 'karaoke',
+  editor: 'editor',
 } as const;
 
 export const routePatterns = {
-  library: "/",
-  help: "/help",
+  library: '/',
+  help: '/help',
   karaoke: `/${routeSegments.karaoke}/:songId`,
   editor: `/${routeSegments.editor}/:songId`,
 } as const;

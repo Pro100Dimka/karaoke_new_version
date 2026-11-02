@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useContext } from 'react';
 
 /**
  * The window a screen of the app is shown in: the app's own, or one it renders into (Karaoke on a

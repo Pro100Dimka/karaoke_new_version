@@ -7,11 +7,11 @@ const blobOf = (
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob | null> =>
-  new Promise((resolve) => canvas.toBlob(resolve, "image/webp", quality));
+  new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', quality));
 
 const base64Of = async (blob: Blob): Promise<string> => {
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
+  let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
 };
@@ -25,13 +25,13 @@ export const avatarFromFile = async (
 ): Promise<{ mime: string; data: string }> => {
   const image = await createImageBitmap(file);
   const side = Math.min(image.width, image.height);
-  const canvas = document.createElement("canvas");
+  const canvas = document.createElement('canvas');
   canvas.width = avatarPixels;
   canvas.height = avatarPixels;
   try {
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Canvas is unavailable");
-    context.imageSmoothingQuality = "high";
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas is unavailable');
+    context.imageSmoothingQuality = 'high';
     context.drawImage(
       image,
       (image.width - side) / 2,
@@ -46,9 +46,9 @@ export const avatarFromFile = async (
     for (const quality of qualities) {
       const blob = await blobOf(canvas, quality);
       if (blob && blob.size <= maximumBytes)
-        return { mime: "image/webp", data: await base64Of(blob) };
+        return { mime: 'image/webp', data: await base64Of(blob) };
     }
-    throw new Error("The photo is too large");
+    throw new Error('The photo is too large');
   } finally {
     image.close();
   }

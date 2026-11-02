@@ -1,23 +1,29 @@
-import { Button, MessageBar, ProgressBar, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
-import { EnvironmentGroupCard } from "./EnvironmentGroupCard";
-import { EnvironmentJson } from "./EnvironmentJson";
-import type { EnvironmentGroup } from "./environmentModel";
-import { groupEntries } from "./environmentPresentation";
-import "./secrets.css";
-import { useEnvironmentSettings } from "./useEnvironmentSettings";
+import {
+  Button,
+  MessageBar,
+  ProgressBar,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
+import { EnvironmentGroupCard } from './EnvironmentGroupCard';
+import { EnvironmentJson } from './EnvironmentJson';
+import type { EnvironmentGroup } from './environmentModel';
+import { groupEntries } from './environmentPresentation';
+import './secrets.css';
+import { useEnvironmentSettings } from './useEnvironmentSettings';
 
 /** Kaggle and the room server share the first row; the wider groups follow full width. */
 const userRows: readonly (readonly EnvironmentGroup[])[] = [
-  ["kaggle", "room"],
-  ["recognition"],
+  ['kaggle', 'room'],
+  ['recognition'],
 ];
 /**
  * Updating the Room Server over SSH and editing the raw environment JSON are developer tools: a
  * released app does not show a user where its maintainers' SSH keys live or let them hand-edit it.
  */
 const developerTools = import.meta.env.DEV;
-const rows = developerTools ? [...userRows, ["deployment"] as const] : userRows;
+const rows = developerTools ? [...userRows, ['deployment'] as const] : userRows;
 
 export const SecretsSettings = () => {
   useLocale();
@@ -59,11 +65,11 @@ export const SecretsSettings = () => {
     <section
       aria-label={tr(ru.environmentKeys)}
       className="environmentForm"
-      style={{ display: "grid", gap: "var(--ad-space-4)" }}
+      style={{ display: 'grid', gap: 'var(--ad-space-4)' }}
     >
       {visible.map((row) => (
         <div
-          key={row.join("-")}
+          key={row.join('-')}
           className="environmentRow"
           data-columns={row.length}
         >

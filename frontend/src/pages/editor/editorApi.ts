@@ -1,7 +1,10 @@
-import { bridgedHttp } from "../../services/desktopBridge";
-import { libraryChanged } from "../../services/backendEvents";
-import type { SongDto } from "../../contracts/models";
-import type { EditorDocument, EditorNote } from "../../application/editor/editorModel";
+import { bridgedHttp } from '../../services/desktopBridge';
+import { libraryChanged } from '../../services/backendEvents';
+import type { SongDto } from '../../contracts/models';
+import type {
+  EditorDocument,
+  EditorNote,
+} from '../../application/editor/editorModel';
 
 interface BackendNote {
   note: number;
@@ -89,24 +92,30 @@ const backendDocument = (song: SongDto, document: EditorDocument) => {
     duration: song.durationSeconds,
     bpm: document.bpm ?? null,
     key: document.key ?? null,
-    ...(document.vocalActivity ? { vocalActivity: document.vocalActivity } : {}),
+    ...(document.vocalActivity
+      ? { vocalActivity: document.vocalActivity }
+      : {}),
     ...(document.rhythm ? { rhythm: document.rhythm } : {}),
     lyrics:
       document.lyrics && wordCount(document.lyrics) === document.words.length
         ? document.lyrics
-        : document.words.map((word) => word.text).join(" "),
+        : document.words.map((word) => word.text).join(' '),
     words: document.words.map((word) => ({
       text: word.text,
       start: word.start,
       end: word.end,
-      letters: word.letters?.map(
-        (fraction) => Math.min(word.end, Math.max(word.start,
-          word.start + fraction * (word.end - word.start),
-        )),
+      letters: word.letters?.map((fraction) =>
+        Math.min(
+          word.end,
+          Math.max(word.start, word.start + fraction * (word.end - word.start)),
+        ),
       ),
       notes: (notesByWord.get(word.id) ?? [])
         .sort((a, b) => a.start - b.start)
-        .map((note) => ({ note: note.pitch, start: note.start, end: note.end,
+        .map((note) => ({
+          note: note.pitch,
+          start: note.start,
+          end: note.end,
           ...(note.contour?.length ? { contour: note.contour } : {}),
         })),
     })),
@@ -118,16 +127,16 @@ export const createEditorApi = (
 ) => ({
   async load(songId: string): Promise<EditorDocument> {
     return toEditorDocument(
-      await request({
-        method: "GET",
+      (await request({
+        method: 'GET',
         path: `/songs/${encodeURIComponent(songId)}/editor`,
-      }) as BackendEditor,
+      })) as BackendEditor,
     );
   },
 
   async reset(songId: string, expectedRevision: number): Promise<number> {
     const result = await request({
-      method: "POST",
+      method: 'POST',
       path: `/songs/${encodeURIComponent(songId)}/editor/reset`,
       body: { expectedRevision },
     });
@@ -140,7 +149,7 @@ export const createEditorApi = (
     expectedRevision: number,
   ): Promise<number> {
     const result = await request({
-      method: "PUT",
+      method: 'PUT',
       path: `/songs/${encodeURIComponent(song.id)}/editor`,
       body: { expectedRevision, document: backendDocument(song, document) },
     });
@@ -149,7 +158,11 @@ export const createEditorApi = (
 });
 
 export const editorApi = createEditorApi(async (request) => {
-  const result = await bridgedHttp("pythonRequest", request, "Editor backend request failed");
-  if (request.method !== "GET") libraryChanged();
+  const result = await bridgedHttp(
+    'pythonRequest',
+    request,
+    'Editor backend request failed',
+  );
+  if (request.method !== 'GET') libraryChanged();
   return result;
 });

@@ -6,6 +6,24 @@ import pytest
 from backend.ai_worker.ctc import AlignedWord, with_voice_onsets
 
 
+def test_no_measured_onset_does_not_apply_a_fixed_shift() -> None:
+    word = AlignedWord("і", 1.0, 1.04, (1.0,), 0.9)
+    result = with_voice_onsets([word], np.empty(0), np.ones(200, dtype=bool))
+    assert result[0].start == word.start
+    assert result[0].end == word.end
+    assert result[0].letters == word.letters
+    assert "OnsetReviewRequired" in result[0].diagnostics
+
+
+def test_a_measured_level_rise_calibrates_when_activity_has_no_pause() -> None:
+    time = np.arange(3 * 16_000) / 16_000
+    samples = (np.sin(2 * np.pi * 220 * time) * np.where(time < 1, 0.001, 0.2)).astype(np.float32)
+    word = AlignedWord("так", 1.2, 1.8, (1.2, 1.4, 1.6), 0.9)
+    result = with_voice_onsets([word], samples, np.ones(301, dtype=bool))
+    assert result[0].start == pytest.approx(1.0, abs=0.02)
+    assert result[0].end == word.end
+
+
 def _activity(*intervals: tuple[float, float]) -> np.ndarray:
     frames = np.zeros(720, dtype=bool)
     for start, end in intervals:

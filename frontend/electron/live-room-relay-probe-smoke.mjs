@@ -1,14 +1,14 @@
-import dgram from "node:dgram";
-import { relayProbePacket } from "./multi-electron-room-plan.mjs";
+import dgram from 'node:dgram';
+import { relayProbePacket } from './multi-electron-room-plan.mjs';
 
 const base =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
-const host = process.env.AD_VOICE_ROOM_SERVER_HOST ?? "130.61.169.61";
+  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
+const host = process.env.AD_VOICE_ROOM_SERVER_HOST ?? '130.61.169.61';
 const participantId = `relay-probe-${crypto.randomUUID()}`;
 const request = async (method, route, body) => {
   const response = await fetch(`${base}${route}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error(`${route} failed (${response.status})`);
@@ -29,18 +29,18 @@ const packet = (sequence, token) =>
     BigInt(`0x${token}`),
   );
 
-const room = await request("POST", "/rooms", {
+const room = await request('POST', '/rooms', {
   participantId,
-  displayName: "Relay Probe",
+  displayName: 'Relay Probe',
 });
-const voice = await request("POST", "/voice/join", {
+const voice = await request('POST', '/voice/join', {
   roomId: room.roomId,
   participantId,
 });
-const socket = dgram.createSocket("udp4");
+const socket = dgram.createSocket('udp4');
 const sentAt = new Map();
 let measuredRtt = 0;
-socket.on("message", (message) => {
+socket.on('message', (message) => {
   const sequence = message.readUInt32LE(8);
   const start = sentAt.get(sequence);
   if (start) measuredRtt = performance.now() - start;
@@ -53,13 +53,13 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   if (!(measuredRtt > 0))
-    throw new Error("Oracle relay did not return an RTT probe");
+    throw new Error('Oracle relay did not return an RTT probe');
   console.log(
     JSON.stringify({ roomId: room.roomId, roundTripMs: measuredRtt }),
   );
 } finally {
   socket.close();
-  await request("POST", `/rooms/${room.roomId}/leave`, { participantId }).catch(
+  await request('POST', `/rooms/${room.roomId}/leave`, { participantId }).catch(
     () => undefined,
   );
 }

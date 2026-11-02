@@ -125,7 +125,7 @@ value ??= fallback;
 Использовать:
 
 ```ts
-name ||= "Anonymous";
+name ||= 'Anonymous';
 ```
 
 только если:
@@ -237,7 +237,7 @@ String(value);
 Использовать для простого выбора значения:
 
 ```ts
-const status = active ? "active" : "inactive";
+const status = active ? 'active' : 'inactive';
 ```
 
 ---
@@ -358,8 +358,8 @@ if (allowedStates.has(state)) {
 
 ```ts
 const labels = {
-  ready: "Ready",
-  failed: "Failed",
+  ready: 'Ready',
+  failed: 'Failed',
 };
 ```
 
@@ -510,7 +510,7 @@ const all = [...left, ...right];
 Использовать:
 
 ```ts
-const next = { ...current, status: "ready" };
+const next = { ...current, status: 'ready' };
 ```
 
 для простого immutable update.
@@ -829,7 +829,7 @@ const isError = (value: unknown): value is Error => value instanceof Error;
 Всегда:
 
 ```ts
-throw new Error("message");
+throw new Error('message');
 ```
 
 или domain error.
@@ -1051,7 +1051,7 @@ alias
 Для frontend state часто достаточно:
 
 ```ts
-type Status = "idle" | "loading" | "ready";
+type Status = 'idle' | 'loading' | 'ready';
 ```
 
 ---
@@ -1069,7 +1069,7 @@ type Status = "idle" | "loading" | "ready";
 Использовать для immutable literal arrays/objects.
 
 ```ts
-const roles = ["host", "guest"] as const;
+const roles = ['host', 'guest'] as const;
 ```
 
 ---
@@ -1243,7 +1243,7 @@ TKey;
 Например:
 
 ```ts
-type SongId = string & { readonly __brand: "SongId" };
+type SongId = string & { readonly __brand: 'SongId' };
 ```
 
 только если путаница ID реальна.
@@ -1260,8 +1260,8 @@ type SongId = string & { readonly __brand: "SongId" };
 
 ```ts
 const labels = {
-  ready: "Ready",
-  failed: "Failed",
+  ready: 'Ready',
+  failed: 'Failed',
 } satisfies Record<Status, string>;
 ```
 
@@ -2279,7 +2279,7 @@ Imports группировать единообразно.
 # 340. Type-only imports:
 
 ```ts
-import type { Song } from "./model";
+import type { Song } from './model';
 ```
 
 ---
@@ -3183,7 +3183,7 @@ loadSong(id, {
 # 510. Не аннотировать очевидное:
 
 ```ts
-const name: string = "A";
+const name: string = 'A';
 ```
 
 ---
@@ -4084,7 +4084,7 @@ setData(result);
 
 ```ts
 setState({
-  status: "ready",
+  status: 'ready',
   data: result,
 });
 ```
@@ -4332,7 +4332,7 @@ hasError
 если есть:
 
 ```ts
-status === "error";
+status === 'error';
 ```
 
 ---
@@ -4398,7 +4398,7 @@ reload
 ## 86. Простое:
 
 ```ts
-const isReady = song.status === "ready";
+const isReady = song.status === 'ready';
 ```
 
 не требует `useMemo`.

@@ -1,13 +1,15 @@
-import type { SongDto, SongLanguage, SongSearch } from "../../../contracts/models";
 import type {
-  LibrarySort,
-} from "../../../shared/preferences/preferences";
-import { normalizeSearch } from "../../../shared/utils/format";
+  SongDto,
+  SongLanguage,
+  SongSearch,
+} from '../../../contracts/models';
+import type { LibrarySort } from '../../../shared/preferences/preferences';
+import { normalizeSearch } from '../../../shared/utils/format';
 
 export type { LibrarySort };
-export type LibraryLanguageFilter = SongLanguage | "all";
-export type LibraryDurationFilter = "all" | "short" | "medium" | "long";
-export type LibraryArtworkFilter = "all" | "with" | "without";
+export type LibraryLanguageFilter = SongLanguage | 'all';
+export type LibraryDurationFilter = 'all' | 'short' | 'medium' | 'long';
+export type LibraryArtworkFilter = 'all' | 'with' | 'without';
 export type LibraryFilter = SongSearch;
 
 export type LastPlayed = Readonly<Record<string, number>>;
@@ -31,7 +33,10 @@ const primary: Record<LibrarySort, CompareSongs> = {
   bpm: (a, b) => (a.detectedBpm ?? -1) - (b.detectedBpm ?? -1),
 };
 
-const durationMatches: Record<LibraryDurationFilter, (seconds: number) => boolean> = {
+const durationMatches: Record<
+  LibraryDurationFilter,
+  (seconds: number) => boolean
+> = {
   all: () => true,
   short: (seconds) => seconds < 180,
   medium: (seconds) => seconds >= 180 && seconds <= 300,
@@ -47,21 +52,21 @@ export const selectLibrarySongs = (
   const compare = primary[filter.sort];
   return songs
     .filter((song) => {
-      if (filter.status !== "all" && song.status !== filter.status)
+      if (filter.status !== 'all' && song.status !== filter.status)
         return false;
-      if (filter.language !== "all" && song.language !== filter.language)
+      if (filter.language !== 'all' && song.language !== filter.language)
         return false;
       if (!durationMatches[filter.duration](song.durationSeconds)) return false;
-      if (filter.artwork === "with" && !song.artworkUrl) return false;
-      if (filter.artwork === "without" && song.artworkUrl) return false;
+      if (filter.artwork === 'with' && !song.artworkUrl) return false;
+      if (filter.artwork === 'without' && song.artworkUrl) return false;
       if (!query) return true;
-      return [song.title, song.artist, song.filename ?? ""].some((value) =>
+      return [song.title, song.artist, song.filename ?? ''].some((value) =>
         normalizeSearch(value).includes(query),
       );
     })
     .sort(
       (a, b) =>
-        (filter.direction === "asc" ? 1 : -1) * compare(a, b, played) ||
+        (filter.direction === 'asc' ? 1 : -1) * compare(a, b, played) ||
         stableTail(a, b),
     );
 };

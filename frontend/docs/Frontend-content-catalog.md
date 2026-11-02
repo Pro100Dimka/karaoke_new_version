@@ -59,15 +59,15 @@ Electron runtime может предоставить отдельный scene me
 
 Текущий код использует `Icon` и `icon`-props из `@neo-ui-kit/react`, без прямого импорта `lucide-react`. Ниже в каталоге и старых разделах spec сохранены семантические имена Lucide для назначения значков; это не названия импортируемых компонентов. Основные соответствия в текущем UI:
 
-| Назначение / старое имя | Kit name |
-| --- | --- |
-| Play / Pause / Square | `play` / `pause` / `stop` |
-| Settings2 / Cog | `settings` |
-| AudioWaveform / RotateCcw | `wave` / `reset` |
-| FolderOpen / Trash2 / Ellipsis | `folder` / `trash` / `more` |
+| Назначение / старое имя           | Kit name                      |
+| --------------------------------- | ----------------------------- |
+| Play / Pause / Square             | `play` / `pause` / `stop`     |
+| Settings2 / Cog                   | `settings`                    |
+| AudioWaveform / RotateCcw         | `wave` / `reset`              |
+| FolderOpen / Trash2 / Ellipsis    | `folder` / `trash` / `more`   |
 | Plus / Search / SlidersHorizontal | `plus` / `search` / `sliders` |
-| Music2 / Piano | `music` / `note` |
-| Minus / Maximize2 / X | `minus` / `fit` / `close` |
+| Music2 / Piano                    | `music` / `note`              |
+| Minus / Maximize2 / X             | `minus` / `fit` / `close`     |
 
 Для новой кнопки выбирается существующее имя из типизированного kit API и назначения в соответствующем компоненте. Семантический словарь старых обозначений:
 

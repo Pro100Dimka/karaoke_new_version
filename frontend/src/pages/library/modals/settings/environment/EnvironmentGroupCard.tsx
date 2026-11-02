@@ -1,34 +1,46 @@
-import { Badge, Button, Card, NeonWaves, ProgressBar, ServerArt, Spectrum, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
-import type { KaggleSettings } from "./useEnvironmentSettings";
+import {
+  Badge,
+  Button,
+  Card,
+  NeonWaves,
+  ProgressBar,
+  ServerArt,
+  Spectrum,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
+import type { KaggleSettings } from './useEnvironmentSettings';
 import {
   groupState,
   type DisplayEntry,
   type EnvironmentGroup,
-} from "./environmentModel";
-import { EnvironmentField } from "./EnvironmentField";
-import { formatElapsed, groupUi } from "./environmentPresentation";
+} from './environmentModel';
+import { EnvironmentField } from './EnvironmentField';
+import { formatElapsed, groupUi } from './environmentPresentation';
 
 const kaggleActions = [
-  { action: "login", icon: "login", label: "kaggleLogin", variant: undefined },
+  { action: 'login', icon: 'login', label: 'kaggleLogin', variant: undefined },
   {
-    action: "deploy",
-    icon: "rocket",
-    label: "kaggleDeploy",
-    variant: "primary",
+    action: 'deploy',
+    icon: 'rocket',
+    label: 'kaggleDeploy',
+    variant: 'primary',
   },
 ] as const;
 
 /** The picture in each group's header; the cards keep the scenes they had before. */
 const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
-  if (group === "kaggle")
+  if (group === 'kaggle')
     return (
       <>
         <NeonWaves strands={16} phase={0} stars={false} />
         <Badge tone="info">GPU</Badge>
       </>
     );
-  if (group === "recognition")
+  if (group === 'recognition')
     return (
       <>
         <NeonWaves strands={20} phase={1.64} stars={false} />
@@ -39,10 +51,10 @@ const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
     <>
       <NeonWaves
         strands={16}
-        phase={group === "room" ? 0.82 : 2.46}
+        phase={group === 'room' ? 0.82 : 2.46}
         stars={false}
       />
-      <ServerArt upload={group === "deployment"} />
+      <ServerArt upload={group === 'deployment'} />
     </>
   );
 };
@@ -59,7 +71,7 @@ const KaggleControls = ({
   const { kaggleAction, kaggleElapsedSeconds, runKaggleAction } = kaggle;
   return (
     <>
-      {kaggleAction === "deploy" && (
+      {kaggleAction === 'deploy' && (
         <Stack gap={1} role="status">
           <ProgressBar
             indeterminate
@@ -124,7 +136,7 @@ export const EnvironmentGroupCard = ({
       icon={ui.icon}
       title={tr(ru[ui.title])}
       description={tr(ru[ui.hint])}
-      style={{ background: "unset!important", boxShadow: "unset!important" }}
+      style={{ background: 'unset!important', boxShadow: 'unset!important' }}
       actions={
         <span className="environmentGroupArt" aria-hidden="true">
           <GroupArt group={group} />
@@ -142,10 +154,10 @@ export const EnvironmentGroupCard = ({
             />
           ))}
         </div>
-        {group === "kaggle" && (
+        {group === 'kaggle' && (
           <KaggleControls
             kaggle={kaggle}
-            ready={state === "valid" || state === "checking"}
+            ready={state === 'valid' || state === 'checking'}
           />
         )}
       </Stack>

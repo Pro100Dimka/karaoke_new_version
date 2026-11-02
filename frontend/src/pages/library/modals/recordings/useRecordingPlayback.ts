@@ -1,6 +1,6 @@
-import { audioClient as preview } from "../../../../services/audioClient";
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { RecordingDto } from "../../../../contracts/models";
+import { audioClient as preview } from '../../../../services/audioClient';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { RecordingDto } from '../../../../contracts/models';
 
 const pollMilliseconds = 16;
 
@@ -12,7 +12,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const owns = useRef(false);
-  const owner = useRef(Symbol("recording-preview"));
+  const owner = useRef(Symbol('recording-preview'));
   const generation = useRef(0);
   const polling = useRef(false);
   const pendingSeek = useRef<number | null>(null);
@@ -46,14 +46,19 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
     }
   }, [id, playing, release, preview]);
 
-  const seek = useCallback(async (seconds: number) => {
-    setPosition(seconds);
-    if (!owns.current) {
-      pendingSeek.current = seconds;
-      return;
-    }
-    await preview.seekRecordingPreview(seconds, owner.current).catch(() => undefined);
-  }, [preview]);
+  const seek = useCallback(
+    async (seconds: number) => {
+      setPosition(seconds);
+      if (!owns.current) {
+        pendingSeek.current = seconds;
+        return;
+      }
+      await preview
+        .seekRecordingPreview(seconds, owner.current)
+        .catch(() => undefined);
+    },
+    [preview],
+  );
 
   useEffect(() => {
     if (!playing) return;
@@ -65,7 +70,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
         .recordingPreviewStatus(owner.current)
         .then((status) => {
           if (!active) return;
-          if (status.recordingId !== id || status.state === "finished")
+          if (status.recordingId !== id || status.state === 'finished')
             release();
           else setPosition(status.positionSeconds);
         })

@@ -1,14 +1,14 @@
-import { observer } from "mobx-react-lite";
-import { store } from "../providers/store";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { roomSession } from "../providers/application";
-import { useCloseGuard } from "../providers/close-guards";
-import { ask } from "../providers/dialog";
-import { ru } from "../i18n/messages.ru";
-import { audioClient } from "../services/audioClient";
-import { pythonClient } from "../services/pythonClient";
+import { observer } from 'mobx-react-lite';
+import { store } from '../providers/store';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { roomSession } from '../providers/application';
+import { useCloseGuard } from '../providers/close-guards';
+import { ask } from '../providers/dialog';
+import { ru } from '../i18n/messages.ru';
+import { audioClient } from '../services/audioClient';
+import { pythonClient } from '../services/pythonClient';
 
-const activeStates = new Set(["queued", "processing", "cancelling"]);
+const activeStates = new Set(['queued', 'processing', 'cancelling']);
 const cancelWaitMilliseconds = 500;
 const cancelWaitAttempts = 120;
 
@@ -28,11 +28,15 @@ export const AppCloseFlow = observer(() => {
         title: tr(ru.closeWithProcessingTitle),
         body: tr(ru.closeWithProcessingBody, { count: active.length }),
         actions: [
-          { id: "keep", label: tr(ru.keepOpen) },
-          { id: "exit", label: tr(ru.cancelJobsAndExit), appearance: "primary" },
+          { id: 'keep', label: tr(ru.keepOpen) },
+          {
+            id: 'exit',
+            label: tr(ru.cancelJobsAndExit),
+            appearance: 'primary',
+          },
         ],
       });
-      if (choice !== "exit") return false;
+      if (choice !== 'exit') return false;
       await Promise.all(
         active.map((job) =>
           pythonClient.cancelJob(job.id).catch(() => undefined),

@@ -1,7 +1,7 @@
-import type { RoomCommand } from "../../contracts/clients";
-import type { RoomStateDto } from "../../contracts/models";
-import type { KaraokeOpenMode, KaraokeState } from "../karaoke/karaokeMachine";
-import { canControlRoom, playbackPlan } from "./roomModel";
+import type { RoomCommand } from '../../contracts/clients';
+import type { RoomStateDto } from '../../contracts/models';
+import type { KaraokeOpenMode, KaraokeState } from '../karaoke/karaokeMachine';
+import { canControlRoom, playbackPlan } from './roomModel';
 
 export const roomPlaybackSnapshotKey = (room: RoomStateDto): string =>
   [
@@ -18,21 +18,21 @@ export const roomPlaybackSnapshotKey = (room: RoomStateDto): string =>
       .map(
         (participant) => `${participant.id}=${participant.voiceLatencyMs ?? 0}`,
       )
-      .join(","),
-  ].join(":");
+      .join(','),
+  ].join(':');
 
 export const roomSelectionEnded = (
   mode: KaraokeOpenMode,
   roomSongId: string | undefined,
-  local: KaraokeState["kind"],
+  local: KaraokeState['kind'],
 ): boolean =>
-  mode === "RoomPrepared" &&
+  mode === 'RoomPrepared' &&
   roomSongId === undefined &&
-  (local === "ready" || local === "playing" || local === "paused");
+  (local === 'ready' || local === 'playing' || local === 'paused');
 
 export const roomToggleCommand = (room: RoomStateDto): RoomCommand | null => {
   if (!canControlRoom(room)) return null;
-  return room.playbackState === "playing" ? "Pause" : "Start";
+  return room.playbackState === 'playing' ? 'Pause' : 'Start';
 };
 interface RoomPlaybackAudio {
   seek(seconds: number): Promise<unknown>;
@@ -50,16 +50,16 @@ const maximumUncorrectedDriftSeconds = 0.02;
 /** Applies one authoritative room snapshot to the local audio engine. Future starts return their countdown delay. */
 export const synchronizeRoomPlayback = async (
   room: RoomStateDto,
-  local: KaraokeState["kind"],
+  local: KaraokeState['kind'],
   localPosition: number,
   audio: RoomPlaybackAudio,
-  onEvent: (event: "PLAY" | "PAUSE" | "FINISH") => void,
+  onEvent: (event: 'PLAY' | 'PAUSE' | 'FINISH') => void,
   isCurrent: () => boolean = () => true,
-  nativeState: KaraokeState["kind"] = local,
+  nativeState: KaraokeState['kind'] = local,
 ): Promise<number | undefined> => {
   if (!isCurrent()) return undefined;
   const plan = playbackPlan(room);
-  if (plan.kind === "schedule") {
+  if (plan.kind === 'schedule') {
     const startAtMilliseconds = performance.now() + plan.delayMilliseconds;
     await audio.play({
       startAtMilliseconds,
@@ -68,25 +68,25 @@ export const synchronizeRoomPlayback = async (
     return Math.max(0, startAtMilliseconds - performance.now());
   }
   if (
-    plan.kind === "stop" ||
-    (nativeState === "finished" && local === "playing")
+    plan.kind === 'stop' ||
+    (nativeState === 'finished' && local === 'playing')
   ) {
-    if (local === "playing" || local === "paused") onEvent("FINISH");
+    if (local === 'playing' || local === 'paused') onEvent('FINISH');
     return undefined;
   }
-  if (plan.kind === "pause") {
-    if (nativeState === "playing") await audio.pause();
+  if (plan.kind === 'pause') {
+    if (nativeState === 'playing') await audio.pause();
     if (!isCurrent()) return undefined;
     if (
-      nativeState === "playing" ||
+      nativeState === 'playing' ||
       Math.abs(localPosition - plan.positionSeconds) > 0.0001
     )
       await audio.seek(plan.positionSeconds);
-    if (isCurrent() && local === "playing") onEvent("PAUSE");
+    if (isCurrent() && local === 'playing') onEvent('PAUSE');
     return undefined;
   }
   if (
-    nativeState !== "playing" ||
+    nativeState !== 'playing' ||
     Math.abs(localPosition - plan.positionSeconds) >
       maximumUncorrectedDriftSeconds
   ) {
@@ -102,6 +102,6 @@ export const synchronizeRoomPlayback = async (
     });
     return Math.max(0, startAtMilliseconds - performance.now());
   }
-  if (isCurrent() && local !== "playing") onEvent("PLAY");
+  if (isCurrent() && local !== 'playing') onEvent('PLAY');
   return undefined;
 };

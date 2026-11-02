@@ -19,20 +19,21 @@ import type {
   SongDto,
   SongSearch,
   SongLanguage,
-} from "./models";
+} from './models';
 
 export type RoomReadiness =
-  | "MissingSong"
-  | "Downloading"
-  | "Importing"
-  | "Preparing"
-  | "Ready"
-  | "Failed";
+  | 'MissingSong'
+  | 'Downloading'
+  | 'Importing'
+  | 'Preparing'
+  | 'Ready'
+  | 'Failed';
 /** The relay's per-recipient mix-minus is one logical remote voice on each client. */
-export const roomServerMixParticipantId = "__room_server_mix__";
-export type RoomCommand = "Start" | "Pause" | "Seek" | "Stop";
+export const roomServerMixParticipantId = '__room_server_mix__';
+export type RoomCommand = 'Start' | 'Pause' | 'Seek' | 'Stop';
 /** Where the applied acoustic correction came from; NONE while the path has none. */
-export type AcousticCalibrationOrigin = "NONE" | "PROFILE" | "TEST_SIGNAL" | "SONG";
+export type AcousticCalibrationOrigin =
+  'NONE' | 'PROFILE' | 'TEST_SIGNAL' | 'SONG';
 
 export interface AcousticCalibrationState {
   fingerprint: string;
@@ -57,7 +58,7 @@ export interface RoomSharedState {
   melodyGain: number;
 }
 export type MixerChannel =
-  "mic" | "music" | "reference" | "melody" | "remote" | "master";
+  'mic' | 'music' | 'reference' | 'melody' | 'remote' | 'master';
 
 export interface RemoteVoiceTiming {
   jitterMs: number;
@@ -77,10 +78,11 @@ export interface RoomRouteStages {
   arrivalRequirementMs: number;
 }
 
-export type RoomRequirementSource = "UNKNOWN" | "BOOTSTRAP" | "SHORT_WINDOW" | "STABLE_HISTORY";
+export type RoomRequirementSource =
+  'UNKNOWN' | 'BOOTSTRAP' | 'SHORT_WINDOW' | 'STABLE_HISTORY';
 
 export interface RoomTimingReport {
-  voiceRoute?: "checking" | "direct" | "relay";
+  voiceRoute?: 'checking' | 'direct' | 'relay';
   /** Changes whenever the native device/format session is rebuilt. */
   generationId?: number;
   roundTripMs: number;
@@ -119,7 +121,7 @@ export interface RoomTimingReport {
 export interface SongPatch {
   title?: string;
   artist?: string;
-  language?: SongDto["language"];
+  language?: SongDto['language'];
   coverPath?: string;
 }
 export interface ImportProgress {
@@ -133,20 +135,27 @@ export interface ImportOptions {
 }
 
 export type ProjectCompatibility =
-  "Current" | "Upgradeable" | "TooNew" | "Unsupported" | "Invalid";
+  'Current' | 'Upgradeable' | 'TooNew' | 'Unsupported' | 'Invalid';
 export type ProjectImportDecision =
-  "SafeOnly" | "AcceptOlder" | "AcceptDivergent";
+  'SafeOnly' | 'AcceptOlder' | 'AcceptDivergent';
 
 export interface PythonClient {
   health(): Promise<{
-    status: "ready" | "unavailable";
+    status: 'ready' | 'unavailable';
     version: string;
     apiVersion: number;
     instanceId?: string;
   }>;
   listSongs(): Promise<readonly SongDto[]>;
-  searchSongs(filter: SongSearch, cursor: string | null): Promise<{ items: readonly SongDto[]; nextCursor: string | null }>;
-  songSummary(): Promise<{ total: number; ready: number; languages: readonly SongLanguage[] }>;
+  searchSongs(
+    filter: SongSearch,
+    cursor: string | null,
+  ): Promise<{ items: readonly SongDto[]; nextCursor: string | null }>;
+  songSummary(): Promise<{
+    total: number;
+    ready: number;
+    languages: readonly SongLanguage[];
+  }>;
   getSong(songId: string): Promise<SongDto>;
   importSong(
     path: string,
@@ -163,7 +172,7 @@ export interface PythonClient {
     path: string,
     decision?: ProjectImportDecision,
   ): Promise<SongDto>;
-  processSong(songId: string, mode?: "lyrics"): Promise<ProcessingJobDto>;
+  processSong(songId: string, mode?: 'lyrics'): Promise<ProcessingJobDto>;
   cancelProcessing(jobId: string): Promise<void>;
   updateSong(songId: string, patch: SongPatch): Promise<SongDto>;
   removeSongCover(songId: string): Promise<SongDto>;
@@ -175,7 +184,10 @@ export interface PythonClient {
   retryRecordingPreparation(recordingId: string): Promise<RecordingDto>;
   listRecordings(songId: string): Promise<readonly RecordingDto[]>;
   getRecording(recordingId: string): Promise<RecordingDto>;
-  analyzeRecording(recordingId: string, onProgress?: (progress: RecordingAnalysisProgress) => void): Promise<AnalysisDto>;
+  analyzeRecording(
+    recordingId: string,
+    onProgress?: (progress: RecordingAnalysisProgress) => void,
+  ): Promise<AnalysisDto>;
   deleteRecording(recordingId: string): Promise<void>;
   renameRecording(
     recordingId: string,
@@ -188,7 +200,7 @@ export interface PythonClient {
   ): Promise<RecordingDto>;
   getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
   updateAiProcessingSettings(value: {
-    processingBackend: "Local" | "Kaggle";
+    processingBackend: 'Local' | 'Kaggle';
     kaggleUrl?: string;
     kaggleToken?: string;
   }): Promise<AiProcessingSettingsDto>;
@@ -209,9 +221,13 @@ export interface PythonClient {
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
-  freeStorageBytes(area?: "data" | "models"): Promise<number>;
+  freeStorageBytes(area?: 'data' | 'models'): Promise<number>;
   /** Newest first; `types` limits the page (and its total) to those event kinds. */
-  history(limit: number, offset: number, types?: readonly string[]): Promise<HistoryPageDto>;
+  history(
+    limit: number,
+    offset: number,
+    types?: readonly string[],
+  ): Promise<HistoryPageDto>;
   clearCache(): Promise<number>;
   clearTemporaryFiles(): Promise<number>;
 }
@@ -263,7 +279,7 @@ export interface RoomClient {
     voiceLatencyMs: number,
     routeStages?: RoomRouteStages,
     routeCalibrated?: boolean,
-    voiceRoute?: "direct" | "relay",
+    voiceRoute?: 'direct' | 'relay',
   ): Promise<RoomStateDto>;
   voiceLevels(): Promise<Readonly<Record<string, number>>>;
   /** Uploads this computer's audio diagnostics to the room server's per-room log. */
@@ -298,7 +314,11 @@ export interface PlaybackSchedule {
 }
 
 export interface AudioServiceClient {
-  health(): Promise<{ status: "ready" | "unavailable"; version: string; instanceId?: string }>;
+  health(): Promise<{
+    status: 'ready' | 'unavailable';
+    version: string;
+    instanceId?: string;
+  }>;
   listDevices(): Promise<readonly DeviceDto[]>;
   capabilities(): Promise<AudioCapabilities>;
   configurationCapabilities(
@@ -322,18 +342,26 @@ export interface AudioServiceClient {
    * Plays quiet chirps and finds them in the microphone; resolves with the hidden delay in ms and
    * the fingerprint of the device path it belongs to (endpoints, rates, periods, buffers).
    */
-  measureAcousticLatency(): Promise<{ milliseconds: number; fingerprint: string }>;
+  measureAcousticLatency(): Promise<{
+    milliseconds: number;
+    fingerprint: string;
+  }>;
   /**
    * Hands AudioService the delays saved per device path; it applies the matching one whenever that
    * path is opened, before audio starts. Resolves whether the path open now was just restored.
    */
-  rememberAcousticLatencies(stored: Readonly<Record<string, number>>): Promise<boolean>;
+  rememberAcousticLatencies(
+    stored: Readonly<Record<string, number>>,
+  ): Promise<boolean>;
   /** What AudioService knows about the acoustic part of the device path it has open now. */
   acousticCalibrationState(): Promise<AcousticCalibrationState>;
   /** Called when "minimum microphone latency" stayed off because the microphone was unavailable
    * exclusively; the microphone keeps working in shared mode. Returns the unsubscribe. */
   onLowLatencyMicrophoneFallback(
-    listener: (fallback: { reason: string; microphoneAvailable: boolean }) => void,
+    listener: (fallback: {
+      reason: string;
+      microphoneAvailable: boolean;
+    }) => void,
   ): () => void;
   applyConfiguration(
     configuration: RequestedAudioConfiguration,
@@ -368,7 +396,7 @@ export interface AudioServiceClient {
   setParticipantEffect(
     participantId: string,
     effect:
-      "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune",
+      'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune',
     value: number,
   ): Promise<void>;
   roomLevels(): Promise<{
@@ -406,7 +434,7 @@ export interface AudioServiceClient {
 /** State of the take that AudioService currently holds for preview; `recordingId` is null when none was loaded. */
 export interface RecordingPreviewStatus {
   recordingId: string | null;
-  state: "ready" | "playing" | "paused" | "finished";
+  state: 'ready' | 'playing' | 'paused' | 'finished';
   positionSeconds: number;
 }
 

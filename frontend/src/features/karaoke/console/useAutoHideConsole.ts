@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const idleHideMs = 2200;
 const checkIntervalMs = 250;
@@ -30,15 +30,15 @@ export const useAutoHideConsole = (
       pointer.current = [event.clientX, event.clientY];
       reveal();
     };
-    host.addEventListener("pointermove", onPointerMove);
-    host.addEventListener("pointerdown", reveal);
-    host.addEventListener("keydown", reveal);
-    host.document.addEventListener("fullscreenchange", reveal);
+    host.addEventListener('pointermove', onPointerMove);
+    host.addEventListener('pointerdown', reveal);
+    host.addEventListener('keydown', reveal);
+    host.document.addEventListener('fullscreenchange', reveal);
     return () => {
-      host.removeEventListener("pointermove", onPointerMove);
-      host.removeEventListener("pointerdown", reveal);
-      host.removeEventListener("keydown", reveal);
-      host.document.removeEventListener("fullscreenchange", reveal);
+      host.removeEventListener('pointermove', onPointerMove);
+      host.removeEventListener('pointerdown', reveal);
+      host.removeEventListener('keydown', reveal);
+      host.document.removeEventListener('fullscreenchange', reveal);
     };
   }, [reveal, host]);
 

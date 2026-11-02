@@ -1,52 +1,71 @@
-import { useQueryClient } from "@tanstack/react-query";
-import { pythonClient } from "../../../../services/pythonClient";
-import { refreshSongs } from "../../../../api/api-service";
-import { useSongActions } from "../../songs/useSongActions";
-import { useGuardedAction } from "../../songs/useGuardedAction";
-import { desktopClient as files } from "../../../../services/desktopClient";
-import { useRouter, Button, Dialog, Grid, IconButton, KeyValueList, MessageBar, NumberField, Select, SplitButton, TextField, useForm, tr, useLocale } from "@neo-ui-kit/react";
-import { useState } from "react";
+import { useQueryClient } from '@tanstack/react-query';
+import { pythonClient } from '../../../../services/pythonClient';
+import { refreshSongs } from '../../../../api/api-service';
+import { useSongActions } from '../../songs/useSongActions';
+import { useGuardedAction } from '../../songs/useGuardedAction';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import {
+  useRouter,
+  Button,
+  Dialog,
+  Grid,
+  IconButton,
+  KeyValueList,
+  MessageBar,
+  NumberField,
+  Select,
+  SplitButton,
+  TextField,
+  useForm,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { useState } from 'react';
 
-import { routes } from "../../../../shared/routes";
-import type { SongDto, SongLanguage } from "../../../../contracts/models";
-import { ru } from "../../../../i18n/messages.ru";
-import { songStatusPresentation } from "../../songs/songPresentation";
+import { routes } from '../../../../shared/routes';
+import type { SongDto, SongLanguage } from '../../../../contracts/models';
+import { ru } from '../../../../i18n/messages.ru';
+import { songStatusPresentation } from '../../songs/songPresentation';
 import {
   loadSongPreferences,
   practiceSpeeds,
   saveSongPreferences,
   type VocalRange,
-} from "../../../../application/library/songPreferences";
+} from '../../../../application/library/songPreferences';
 import {
   detectedSongMetadata,
   languageLabels,
-} from "../../songs/songMetadataPresentation";
+} from '../../songs/songMetadataPresentation';
 
 const ranges = [
-  "auto",
-  "octave",
-  "twoOctaves",
+  'auto',
+  'octave',
+  'twoOctaves',
 ] as const satisfies readonly VocalRange[];
 const rangeLabel = {
-  auto: "rangeAuto",
-  octave: "rangeOctave",
-  twoOctaves: "rangeTwoOctaves",
+  auto: 'rangeAuto',
+  octave: 'rangeOctave',
+  twoOctaves: 'rangeTwoOctaves',
 } as const;
 const coverLabel = {
-  Custom: "coverCustom",
-  Embedded: "coverEmbedded",
-  Fallback: "coverFallback",
+  Custom: 'coverCustom',
+  Embedded: 'coverEmbedded',
+  Fallback: 'coverFallback',
 } as const;
 const textFields = [
-  { name: "title", label: "title" },
-  { name: "artist", label: "artist" },
+  { name: 'title', label: 'title' },
+  { name: 'artist', label: 'artist' },
 ] as const;
 const practiceSpeedOptions = practiceSpeeds.map((speed) => ({
   value: String(speed),
   label: `${speed.toFixed(2)}×`,
 }));
 
-export const SongSettingsModal = ({ song, onClose, onChange }: {
+export const SongSettingsModal = ({
+  song,
+  onClose,
+  onChange,
+}: {
   song: SongDto;
   onClose(): void;
   onChange(song: SongDto): void;
@@ -54,21 +73,24 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
   const client = useQueryClient();
   const guarded = useGuardedAction();
   const { confirmDelete } = useSongActions(onClose);
-  const onRemoveCover = (target: SongDto) => guarded(async () => {
-    const saved = await pythonClient.removeSongCover(target.id);
-    onChange(saved);
-    await refreshSongs(client);
-  });
+  const onRemoveCover = (target: SongDto) =>
+    guarded(async () => {
+      const saved = await pythonClient.removeSongCover(target.id);
+      onChange(saved);
+      await refreshSongs(client);
+    });
   const { navigate } = useRouter();
   useLocale();
   const status = songStatusPresentation[song.status];
   const coverState = tr(
-    ru[song.artworkUrl && song.coverState === "Fallback"
-      ? "coverOnline"
-      : coverLabel[song.coverState]],
+    ru[
+      song.artworkUrl && song.coverState === 'Fallback'
+        ? 'coverOnline'
+        : coverLabel[song.coverState]
+    ],
   );
   const detected = detectedSongMetadata(song);
-  const busy = ["queued", "processing"].includes(song.status);
+  const busy = ['queued', 'processing'].includes(song.status);
 
   const [failure, setFailure] = useState<string>();
   const form = useForm({
@@ -76,7 +98,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
       title: song.title,
       artist: song.artist,
       language: song.language,
-      coverPath: "",
+      coverPath: '',
       ...loadSongPreferences(song.id),
     },
     reinitialize: false,
@@ -102,7 +124,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
     form.setValue(field, value);
   const pickCover = async () => {
     const picked = await files.pickImageFile();
-    if (picked) form.setValue("coverPath", picked);
+    if (picked) form.setValue('coverPath', picked);
   };
 
   return (
@@ -145,7 +167,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
               value: value as SongLanguage,
               label: tr(ru[label]),
             }))}
-            onValueChange={set("language")}
+            onValueChange={set('language')}
           />
           <TextField
             label={tr(ru.coverArtwork)}
@@ -167,10 +189,10 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
             type="url"
             label={tr(ru.videoUrl)}
             value={form.values.videoUrl}
-            onValueChange={set("videoUrl")}
+            onValueChange={set('videoUrl')}
             placeholder={song.videoUrl}
             description={tr(
-              ru[song.videoUrl ? "discoveredVideoHelp" : "videoOverrideHelp"],
+              ru[song.videoUrl ? 'discoveredVideoHelp' : 'videoOverrideHelp'],
             )}
           />
           <NumberField
@@ -179,7 +201,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
             max={12}
             value={form.values.defaultKey}
             onValueChange={(value) =>
-              set("defaultKey")(
+              set('defaultKey')(
                 Math.max(-12, Math.min(12, Math.round(Number(value) || 0))),
               )
             }
@@ -188,7 +210,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
             label={tr(ru.defaultPracticeSpeed)}
             value={String(form.values.defaultSpeed)}
             options={practiceSpeedOptions}
-            onValueChange={(value) => set("defaultSpeed")(Number(value))}
+            onValueChange={(value) => set('defaultSpeed')(Number(value))}
           />
           <Select<VocalRange>
             label={tr(ru.defaultVocalRange)}
@@ -197,7 +219,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
               value: item,
               label: tr(ru[rangeLabel[item]]),
             }))}
-            onValueChange={set("vocalRange")}
+            onValueChange={set('vocalRange')}
           />
         </Grid>
         {song.artworkUrl && (
@@ -220,7 +242,7 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
           <Button
             size="sm"
             icon="note"
-            disabled={song.status !== "ready"}
+            disabled={song.status !== 'ready'}
             onClick={() => {
               onClose();
               navigate(routes.editor(song.id));
@@ -232,34 +254,36 @@ export const SongSettingsModal = ({ song, onClose, onChange }: {
             size="sm"
             icon="folder"
             label={tr(ru.openFolder)}
-            onClick={() => void files.revealProject(song.id, song.activeRevision)}
+            onClick={() =>
+              void files.revealProject(song.id, song.activeRevision)
+            }
             items={[
               ...(song.detectedBpm !== undefined || song.detectedKey
                 ? [
                     {
-                      id: "detected",
+                      id: 'detected',
                       label: tr(ru.useDetectedValue),
                       onSelect: () => {
-                        form.setValue("defaultKey", 0);
-                        form.setValue("defaultSpeed", 1);
+                        form.setValue('defaultKey', 0);
+                        form.setValue('defaultSpeed', 1);
                       },
                     },
                   ]
                 : []),
-              ...(song.coverState === "Custom"
+              ...(song.coverState === 'Custom'
                 ? [
                     {
-                      id: "cover",
+                      id: 'cover',
                       label: tr(ru.removeCustomCover),
                       onSelect: () => void onRemoveCover(song),
                     },
                   ]
                 : []),
-              { id: "separator", separator: true },
+              { id: 'separator', separator: true },
               {
-                id: "delete",
+                id: 'delete',
                 label: tr(ru.deleteSong),
-                icon: "trash",
+                icon: 'trash',
                 danger: true,
                 disabled: busy,
                 onSelect: () => void confirmDelete(song),

@@ -63,10 +63,14 @@ const ModelDownload = (props: ModelCardProps) => {
     enabled: isModelBusy(model),
   });
   const notify = useNotify();
-  const cancel = useMutation({ mutationFn: (id: string) => pythonClient.cancelJob(id),
-    onSuccess: () => refetch(), onError: (error) => notify(error.message, 'error') });
+  const cancel = useMutation({
+    mutationFn: (id: string) => pythonClient.cancelJob(id),
+    onSuccess: () => refetch(),
+    onError: (error) => notify(error.message, 'error'),
+  });
   const unavailable = progressError || !!error;
-  const activeJob = isModelBusy(model) && job && isActiveJob(job) ? job : undefined;
+  const activeJob =
+    isModelBusy(model) && job && isActiveJob(job) ? job : undefined;
   const installed = model.state === 'Ready';
   const busy = !!activeJob || isModelBusy(model);
   const verifying =
@@ -134,9 +138,16 @@ const ModelDownload = (props: ModelCardProps) => {
                 })
               : tr(phase?.[2] ?? 'modelProgressWaiting')}
           </Typography>
-          {activeJob && <Button size="sm" variant="ghost" icon="close" label={tr('cancel')}
-            disabled={cancel.isPending || activeJob.state === 'Cancelling'}
-            onClick={() => cancel.mutate(activeJob.jobId)} />}
+          {activeJob && (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon="close"
+              label={tr('cancel')}
+              disabled={cancel.isPending || activeJob.state === 'Cancelling'}
+              onClick={() => cancel.mutate(activeJob.jobId)}
+            />
+          )}
           {error && (
             <Button
               size="sm"

@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { DeviceDto } from "../../../../../contracts/models";
-import { audioClient as audio } from "../../../../../services/audioClient";
-import { desktopClient as desktop } from "../../../../../services/desktopClient";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { DeviceDto } from '../../../../../contracts/models';
+import { audioClient as audio } from '../../../../../services/audioClient';
+import { desktopClient as desktop } from '../../../../../services/desktopClient';
 
 type SetupState = {
-  phase: "idle" | "downloading" | "launched" | "detected" | "failed";
+  phase: 'idle' | 'downloading' | 'launched' | 'detected' | 'failed';
   error?: string;
 };
 
 export const useAsioSetup = (
   onAsioDriverDetected: (device: DeviceDto) => void,
 ) => {
-  const [setup, setSetup] = useState<SetupState>({ phase: "idle" });
+  const [setup, setSetup] = useState<SetupState>({ phase: 'idle' });
   const mounted = useRef(false);
   const checking = useRef(false);
   const detectedCallback = useRef(onAsioDriverDetected);
@@ -31,7 +31,7 @@ export const useAsioSetup = (
     checking.current = true;
     try {
       const drivers = (await audio.listDevices()).filter(
-        (device) => device.backend === "ASIO",
+        (device) => device.backend === 'ASIO',
       );
       if (!mounted.current) return false;
       const driver =
@@ -43,7 +43,7 @@ export const useAsioSetup = (
         return false;
       }
       detectedCallback.current(driver);
-      setSetup({ phase: "detected" });
+      setSetup({ phase: 'detected' });
       return true;
     } catch (reason) {
       if (mounted.current)
@@ -58,7 +58,7 @@ export const useAsioSetup = (
   }, [audio]);
 
   useEffect(() => {
-    if (setup.phase !== "launched") return;
+    if (setup.phase !== 'launched') return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -73,15 +73,15 @@ export const useAsioSetup = (
   }, [setup.phase, detect]);
 
   const install = async () => {
-    setSetup({ phase: "downloading" });
+    setSetup({ phase: 'downloading' });
     try {
       await desktop.installAsio4All();
       if (!mounted.current) return;
-      setSetup({ phase: "launched" });
+      setSetup({ phase: 'launched' });
     } catch (reason) {
       if (!mounted.current) return;
       setSetup({
-        phase: "failed",
+        phase: 'failed',
         error: reason instanceof Error ? reason.message : String(reason),
       });
     }

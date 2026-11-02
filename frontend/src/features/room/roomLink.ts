@@ -1,6 +1,6 @@
-import type { RoomTimingReport } from "../../contracts/clients";
+import type { RoomTimingReport } from '../../contracts/clients';
 
-export type VoiceRoute = "direct" | "relay";
+export type VoiceRoute = 'direct' | 'relay';
 
 export interface RoomLinkState {
   /** How most voice packets reached this listener; undefined before any arrived. */
@@ -18,7 +18,7 @@ const acceptedCutsPerThousand = 5;
 
 const total = (
   report: RoomTimingReport,
-  field: "relayPackets" | "directPackets" | "lateCuts",
+  field: 'relayPackets' | 'directPackets' | 'lateCuts',
 ) =>
   Object.values(report.remotes).reduce(
     (sum, remote) => sum + (remote[field] || 0),
@@ -30,16 +30,16 @@ export const roomLink = (
   earlier: RoomTimingReport | undefined,
   current: RoomTimingReport,
 ): RoomLinkState => {
-  const since = (field: "relayPackets" | "directPackets" | "lateCuts") =>
+  const since = (field: 'relayPackets' | 'directPackets' | 'lateCuts') =>
     Math.max(0, total(current, field) - (earlier ? total(earlier, field) : 0));
-  const relay = since("relayPackets");
-  const direct = since("directPackets");
+  const relay = since('relayPackets');
+  const direct = since('directPackets');
   return {
     route:
-      relay + direct === 0 ? undefined : direct >= relay ? "direct" : "relay",
+      relay + direct === 0 ? undefined : direct >= relay ? 'direct' : 'relay',
     unstable:
       earlier !== undefined &&
-      since("lateCuts") * 1000 > (relay + direct) * acceptedCutsPerThousand,
+      since('lateCuts') * 1000 > (relay + direct) * acceptedCutsPerThousand,
     deviceStarving:
       earlier !== undefined &&
       current.deviceStarvedFrames > earlier.deviceStarvedFrames,

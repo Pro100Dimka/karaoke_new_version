@@ -2,7 +2,7 @@ import {
   spawn,
   spawnSync,
   type ChildProcessWithoutNullStreams,
-} from "node:child_process";
+} from 'node:child_process';
 
 /**
  * How a crashed service is restarted. The first restart comes quickly (a one-off crash costs half a
@@ -53,29 +53,31 @@ export class ServiceProcess {
       cwd: this.cwd,
       env: this.env,
       windowsHide: true,
-      stdio: "pipe",
+      stdio: 'pipe',
     });
     this.child = child;
     this.startedAt = Date.now();
     this.observer.started?.();
-    child.stdout.on("data", (data: Buffer) => {
+    child.stdout.on('data', (data: Buffer) => {
       if (this.child !== child || this.stopping) return;
       this.observer.stdout?.(data);
       process.stdout.write(data);
     });
-    child.stderr.on("data", (data: Buffer) => {
+    child.stderr.on('data', (data: Buffer) => {
       if (this.child !== child || this.stopping) return;
       this.observer.stderr?.(data);
       process.stderr.write(data);
     });
-    child.once("exit", (code, signal) => {
+    child.once('exit', (code, signal) => {
       if (this.child !== child || this.stopping) return;
       this.observer.exited?.(code, signal);
       this.restartAfter(child);
     });
     // A failed launch (missing executable) emits "error" and never "exit"; unhandled it would abort the main process.
-    child.once("error", (error) => {
-      const message = Buffer.from(`Service failed to start: ${this.command}: ${error.message}\n`);
+    child.once('error', (error) => {
+      const message = Buffer.from(
+        `Service failed to start: ${this.command}: ${error.message}\n`,
+      );
       this.observer.stderr?.(message);
       process.stderr.write(message);
       this.restartAfter(child);
@@ -117,7 +119,7 @@ export class ServiceProcess {
       this.stopPromise = new Promise<void>((resolve) => {
         const finish = () => {
           clearTimeout(timer);
-          child.removeListener("exit", finish);
+          child.removeListener('exit', finish);
           if (this.child === child) this.child = null;
           this.finishStop = null;
           resolve();
@@ -126,7 +128,7 @@ export class ServiceProcess {
           void this.stop();
         }, 10_000);
         this.finishStop = finish;
-        child.once("exit", finish);
+        child.once('exit', finish);
         void Promise.resolve()
           .then(shutdown)
           .catch(() => {
@@ -136,9 +138,9 @@ export class ServiceProcess {
       return this.stopPromise;
     }
     this.child = null;
-    if (process.platform === "win32") {
+    if (process.platform === 'win32') {
       // A venv python.exe is a launcher; kill the whole tree so no orphan keeps the port or lock.
-      spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
         windowsHide: true,
       });
     } else {

@@ -5,35 +5,35 @@ import type {
   SocialMe,
   SocialPerson,
   SocialRelation,
-} from "../contracts/social";
-import { bridgedHttp } from "./desktopBridge";
-import { desktopClient } from "./desktopClient";
-import { readJson, writeJson } from "../shared/storage/localStore";
+} from '../contracts/social';
+import { bridgedHttp } from './desktopBridge';
+import { desktopClient } from './desktopClient';
+import { readJson, writeJson } from '../shared/storage/localStore';
 
 const request = <T>(
-  method: PythonBridgeRequest["method"],
+  method: PythonBridgeRequest['method'],
   path: string,
   body?: unknown,
 ): Promise<T> =>
   bridgedHttp<T>(
-    "roomRequest",
+    'roomRequest',
     { method, path: `/social${path}`, body },
-    "Room server request failed",
+    'Room server request failed',
   );
 
 const isInbox = (message: unknown): message is SocialInbox =>
   !!message &&
-  typeof message === "object" &&
-  ((message as { type?: unknown }).type === "inbox" ||
-    (message as { type?: unknown }).type === "offline");
+  typeof message === 'object' &&
+  ((message as { type?: unknown }).type === 'inbox' ||
+    (message as { type?: unknown }).type === 'offline');
 
 // Photos are fetched once per account and version; a new version (a changed photo) is fetched anew.
 const avatars = new Map<string, Promise<string>>();
-const requestedRoomsKey = "ad-voice.requested-rooms";
+const requestedRoomsKey = 'ad-voice.requested-rooms';
 const requestedRooms = (): string[] => {
   const value = readJson(requestedRoomsKey);
   return Array.isArray(value)
-    ? value.filter((room): room is string => typeof room === "string")
+    ? value.filter((room): room is string => typeof room === 'string')
     : [];
 };
 const saveRequestedRooms = (rooms: string[]) =>
@@ -60,65 +60,65 @@ export const socialClient = {
   },
   setPresence: (presence: SocialPresenceUpdate): Promise<void> =>
     desktopClient.socialPresence(presence),
-  me: (): Promise<SocialMe> => request("GET", "/me"),
+  me: (): Promise<SocialMe> => request('GET', '/me'),
   requestFriend: (target: { friendCode: string } | { accountId: string }) =>
     request<{ relation: SocialRelation; person: SocialPerson }>(
-      "POST",
-      "/friends/requests",
+      'POST',
+      '/friends/requests',
       target,
     ),
   acceptFriend: (accountId: string) =>
     request<void>(
-      "POST",
+      'POST',
       `/friends/requests/${encodeURIComponent(accountId)}/accept`,
     ),
   declineFriend: (accountId: string) =>
     request<void>(
-      "POST",
+      'POST',
       `/friends/requests/${encodeURIComponent(accountId)}/decline`,
     ),
   cancelRequest: (accountId: string) =>
     request<void>(
-      "DELETE",
+      'DELETE',
       `/friends/requests/${encodeURIComponent(accountId)}`,
     ),
   removeFriend: (accountId: string) =>
-    request<void>("DELETE", `/friends/${encodeURIComponent(accountId)}`),
+    request<void>('DELETE', `/friends/${encodeURIComponent(accountId)}`),
   invite: (accountId: string, roomId: string) =>
-    request<void>("POST", "/invites", { accountId, roomId }),
+    request<void>('POST', '/invites', { accountId, roomId }),
   requestRoomJoin: async (accountId: string, roomId: string): Promise<void> => {
-    await request<void>("POST", "/join-requests", { accountId, roomId });
+    await request<void>('POST', '/join-requests', { accountId, roomId });
     saveRequestedRooms([...requestedRooms(), roomId]);
   },
   /** Host approval uses the existing authenticated invitation, but a requested invite is auto-accepted. */
   approveJoinRequest: (accountId: string, roomId: string) =>
-    request<void>("POST", "/invites", { accountId, roomId }),
+    request<void>('POST', '/invites', { accountId, roomId }),
   isRequestedRoom: (roomId: string): boolean =>
     requestedRooms().includes(roomId),
   clearRequestedRoom: (roomId: string): void =>
     saveRequestedRooms(requestedRooms().filter((id) => id !== roomId)),
   acceptInvite: (inviteId: string) =>
     request<{ roomId: string }>(
-      "POST",
+      'POST',
       `/invites/${encodeURIComponent(inviteId)}/accept`,
     ),
   declineInvite: (inviteId: string) =>
-    request<void>("POST", `/invites/${encodeURIComponent(inviteId)}/decline`),
-  history: (): Promise<RoomStay[]> => request("GET", "/history"),
+    request<void>('POST', `/invites/${encodeURIComponent(inviteId)}/decline`),
+  history: (): Promise<RoomStay[]> => request('GET', '/history'),
   people: (participantIds: string[]): Promise<ParticipantPerson[]> =>
-    request("POST", "/people", { participantIds }),
+    request('POST', '/people', { participantIds }),
   setAvatar: (mime: string, data: string): Promise<SocialMe> =>
-    request("PUT", "/avatar", { mime, data }),
-  clearAvatar: (): Promise<SocialMe> => request("DELETE", "/avatar"),
+    request('PUT', '/avatar', { mime, data }),
+  clearAvatar: (): Promise<SocialMe> => request('DELETE', '/avatar'),
   transfer: (transferCode: string): Promise<SocialMe> =>
-    request("POST", "/transfer", { transferCode }),
+    request('POST', '/transfer', { transferCode }),
   /** A person's photo as a data URL. */
   avatar(accountId: string, version: number): Promise<string> {
     const key = `${accountId}:${version}`;
     let photo = avatars.get(key);
     if (!photo) {
       photo = request<{ mime: string; data: string }>(
-        "GET",
+        'GET',
         `/avatars/${encodeURIComponent(accountId)}`,
       ).then(({ mime, data }) => `data:${mime};base64,${data}`);
       photo.catch(() => avatars.delete(key));

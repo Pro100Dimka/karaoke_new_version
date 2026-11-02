@@ -1,16 +1,16 @@
-import { Grid } from "@neo-ui-kit/react";
+import { Grid } from '@neo-ui-kit/react';
 import {
   elementScroll,
   observeElementOffset,
   observeElementRect,
   Virtualizer,
   type VirtualItem,
-} from "@tanstack/react-virtual";
-import { action, observableRef } from "mobx";
-import { observer, useLocalObservable } from "mobx-react-lite";
-import type { ReactNode, RefObject } from "react";
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { SongDto } from "../../../../contracts/models";
+} from '@tanstack/react-virtual';
+import { action, observableRef } from 'mobx';
+import { observer, useLocalObservable } from 'mobx-react-lite';
+import type { ReactNode, RefObject } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { SongDto } from '../../../../contracts/models';
 
 interface SongGridProps {
   items: readonly SongDto[];
@@ -91,7 +91,7 @@ export const VirtualGrid = observer(
         if (!probe) return;
         Object.assign(layout, {
           columns:
-            getComputedStyle(probe).gridTemplateColumns.split(" ").length,
+            getComputedStyle(probe).gridTemplateColumns.split(' ').length,
           margin:
             grid.getBoundingClientRect().top -
             scroll.getBoundingClientRect().top +
@@ -120,7 +120,7 @@ export const VirtualGrid = observer(
         role="list"
         aria-label={label}
         style={{
-          position: "relative",
+          position: 'relative',
           height,
           minWidth: 0,
         }}
@@ -131,10 +131,10 @@ export const VirtualGrid = observer(
             data-index={row.index}
             ref={virtualizer.measureElement}
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: 0,
               left: 0,
-              width: "100%",
+              width: '100%',
               transform: `translateY(${row.start - layout.margin}px)`,
             }}
           >

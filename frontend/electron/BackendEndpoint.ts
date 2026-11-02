@@ -1,5 +1,5 @@
-import type { ServiceObserver } from "./ServiceProcess";
-import { EventEmitter, once } from "node:events";
+import type { ServiceObserver } from './ServiceProcess';
+import { EventEmitter, once } from 'node:events';
 
 const maximumAnnouncementBytes = 128;
 const requestTimeoutMilliseconds = 30_000;
@@ -8,7 +8,7 @@ const kaggleDeploymentTimeoutMilliseconds = 16 * 60_000;
 /** The child announces its actual listening socket after Uvicorn startup. */
 export class BackendEndpoint implements ServiceObserver {
   private port: number | null = null;
-  private pending = "";
+  private pending = '';
   private oversized = false;
   private lifetime = new AbortController();
   private readiness = new EventEmitter();
@@ -18,7 +18,7 @@ export class BackendEndpoint implements ServiceObserver {
     this.lifetime.abort();
     this.lifetime = new AbortController();
     this.port = null;
-    this.pending = "";
+    this.pending = '';
     this.oversized = false;
   }
 
@@ -28,27 +28,27 @@ export class BackendEndpoint implements ServiceObserver {
 
   stdout(data: Buffer): void {
     if (this.port !== null) return;
-    const text = data.toString("latin1");
+    const text = data.toString('latin1');
     for (let offset = 0; offset < text.length;) {
-      const newline = text.indexOf("\n", offset);
+      const newline = text.indexOf('\n', offset);
       const end = newline < 0 ? text.length : newline;
       if (!this.oversized) {
         this.oversized =
           this.pending.length + end - offset > maximumAnnouncementBytes;
         this.pending = this.oversized
-          ? ""
+          ? ''
           : this.pending + text.slice(offset, end);
       }
       if (newline < 0) break;
       const match =
         !this.oversized &&
         /^AD_VOICE_BACKEND_READY:([0-9]{1,5})\r?$/.exec(this.pending);
-      this.pending = "";
+      this.pending = '';
       this.oversized = false;
       if (match && Number(match[1]) > 0 && Number(match[1]) <= 65535) {
         this.port = Number(match[1]);
         this.announced = true;
-        this.readiness.emit("ready");
+        this.readiness.emit('ready');
         return;
       }
       offset = end + 1;
@@ -70,17 +70,21 @@ export class BackendEndpoint implements ServiceObserver {
     init: RequestInit = {},
   ): Promise<{ status: number; ok: boolean; body: unknown }> {
     const timeout =
-      path === "/settings/kaggle/deploy"
+      path === '/settings/kaggle/deploy'
         ? kaggleDeploymentTimeoutMilliseconds
         : requestTimeoutMilliseconds;
     const signal = AbortSignal.any([
       this.lifetime.signal,
       AbortSignal.timeout(timeout),
     ]);
-    if (this.port === null && !this.announced && ["/version", "/health/ready"].includes(path))
-      await once(this.readiness, "ready", { signal });
+    if (
+      this.port === null &&
+      !this.announced &&
+      ['/version', '/health/ready'].includes(path)
+    )
+      await once(this.readiness, 'ready', { signal });
     if (this.port === null)
-      throw new Error("Python backend is starting or stopped");
+      throw new Error('Python backend is starting or stopped');
     const response = await fetch(`http://127.0.0.1:${this.port}${path}`, {
       ...init,
       signal,

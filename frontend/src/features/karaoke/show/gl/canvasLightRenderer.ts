@@ -1,4 +1,9 @@
-import { beamVertexFloats, spriteFloats, spriteKind, type LightBatch } from "./lightBatch";
+import {
+  beamVertexFloats,
+  spriteFloats,
+  spriteKind,
+  type LightBatch,
+} from './lightBatch';
 export interface Rect {
   left: number;
   top: number;
@@ -13,42 +18,55 @@ export class CanvasLightRenderer {
   private stamps = new Map<string, Canvas>();
 
   static create(canvas: Canvas): CanvasLightRenderer | undefined {
-    const context = canvas.getContext("2d", { alpha: true }) as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    const context = canvas.getContext('2d', { alpha: true }) as
+      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
     return context ? new CanvasLightRenderer(canvas, context) : undefined;
   }
 
   private constructor(
     private canvas: Canvas,
-    private context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    private context:
+      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   ) {}
 
-  private stamp(red: number, green: number, blue: number, beam = false): Canvas {
-    const color = [red, green, blue].map((value) => Math.round(Math.min(1, Math.max(0, value)) * 255));
-    const key = `${beam ? "beam" : "glow"}:${color.join(",")}`;
+  private stamp(
+    red: number,
+    green: number,
+    blue: number,
+    beam = false,
+  ): Canvas {
+    const color = [red, green, blue].map((value) =>
+      Math.round(Math.min(1, Math.max(0, value)) * 255),
+    );
+    const key = `${beam ? 'beam' : 'glow'}:${color.join(',')}`;
     const cached = this.stamps.get(key);
     if (cached) return cached;
-    const stamp = typeof OffscreenCanvas !== "undefined"
-      ? new OffscreenCanvas(128, 128)
-      : document.createElement("canvas");
+    const stamp =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(128, 128)
+        : document.createElement('canvas');
     stamp.width = 128;
     stamp.height = beam ? 256 : 128;
-    const context = stamp.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+    const context = stamp.getContext('2d') as
+      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
     if (beam) {
       const pixels = context.createImageData(stamp.width, stamp.height);
       for (let y = 0; y < stamp.height; y++) {
         const along = (y + 0.5) / stamp.height;
-        const radius = Math.max(1, along * stamp.width / 2);
+        const radius = Math.max(1, (along * stamp.width) / 2);
         for (let x = 0; x < stamp.width; x++) {
           const across = (x + 0.5 - stamp.width / 2) / radius;
           const offset = (y * stamp.width + x) * 4;
           pixels.data.set(color, offset);
-          pixels.data[offset + 3] = Math.round(250 * Math.max(0, 1 - across * across) ** 2 * (1 - along) ** 1.1);
+          pixels.data[offset + 3] = Math.round(
+            250 * Math.max(0, 1 - across * across) ** 2 * (1 - along) ** 1.1,
+          );
         }
       }
       context.putImageData(pixels, 0, 0);
     } else {
       const gradient = context.createRadialGradient(64, 64, 0, 64, 64, 64);
-      const rgb = color.join(",");
+      const rgb = color.join(',');
       gradient.addColorStop(0, `rgba(${rgb},0.9)`);
       gradient.addColorStop(0.12, `rgba(${rgb},0.62)`);
       gradient.addColorStop(0.42, `rgba(${rgb},0.13)`);
@@ -56,7 +74,8 @@ export class CanvasLightRenderer {
       context.fillStyle = gradient;
       context.fillRect(0, 0, 128, 128);
     }
-    if (this.stamps.size >= 64) this.stamps.delete(this.stamps.keys().next().value!);
+    if (this.stamps.size >= 64)
+      this.stamps.delete(this.stamps.keys().next().value!);
     this.stamps.set(key, stamp);
     return stamp;
   }
@@ -71,20 +90,41 @@ export class CanvasLightRenderer {
     const context = this.context;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    context.setTransform(this.canvas.width / view.width, 0, 0, this.canvas.height / view.height, 0, 0);
-    context.globalCompositeOperation = "lighter";
+    context.setTransform(
+      this.canvas.width / view.width,
+      0,
+      0,
+      this.canvas.height / view.height,
+      0,
+      0,
+    );
+    context.globalCompositeOperation = 'lighter';
 
     for (let i = 0; i < batch.beamCount; i++) {
       const offset = i * 3 * beamVertexFloats;
       const beams = batch.beams;
-      const x = beams[offset]!, y = beams[offset + 1]!;
-      const leftX = beams[offset + 8]!, leftY = beams[offset + 9]!;
-      const rightX = beams[offset + 16]!, rightY = beams[offset + 17]!;
-      const stamp = this.stamp(beams[offset + 4]!, beams[offset + 5]!, beams[offset + 6]!, true);
+      const x = beams[offset]!,
+        y = beams[offset + 1]!;
+      const leftX = beams[offset + 8]!,
+        leftY = beams[offset + 9]!;
+      const rightX = beams[offset + 16]!,
+        rightY = beams[offset + 17]!;
+      const stamp = this.stamp(
+        beams[offset + 4]!,
+        beams[offset + 5]!,
+        beams[offset + 6]!,
+        true,
+      );
       const strength = Math.min(0.55, beams[offset + 7]! * 0.65);
       context.save();
-      context.transform((rightX - leftX) / 2, (rightY - leftY) / 2,
-        (leftX + rightX) / 2 - x, (leftY + rightY) / 2 - y, x, y);
+      context.transform(
+        (rightX - leftX) / 2,
+        (rightY - leftY) / 2,
+        (leftX + rightX) / 2 - x,
+        (leftY + rightY) / 2 - y,
+        x,
+        y,
+      );
       context.globalAlpha = strength;
       context.drawImage(stamp, -1, 0, 2, 1);
       context.restore();
@@ -93,27 +133,40 @@ export class CanvasLightRenderer {
     for (let i = 0; i < batch.spriteCount; i++) {
       const offset = i * spriteFloats;
       const sprites = batch.sprites;
-      const x = sprites[offset]!, y = sprites[offset + 1]!, size = sprites[offset + 2]!;
-      const kind = sprites[offset + 3]!, intensity = sprites[offset + 7]!;
+      const x = sprites[offset]!,
+        y = sprites[offset + 1]!,
+        size = sprites[offset + 2]!;
+      const kind = sprites[offset + 3]!,
+        intensity = sprites[offset + 7]!;
       if (kind === spriteKind.ring) {
-        const color = [sprites[offset + 4]!, sprites[offset + 5]!, sprites[offset + 6]!]
-          .map((value) => Math.round(Math.min(1, Math.max(0, value)) * 255));
-        context.strokeStyle = `rgba(${color.join(",")},${Math.min(0.7, intensity * 0.45)})`;
+        const color = [
+          sprites[offset + 4]!,
+          sprites[offset + 5]!,
+          sprites[offset + 6]!,
+        ].map((value) => Math.round(Math.min(1, Math.max(0, value)) * 255));
+        context.strokeStyle = `rgba(${color.join(',')},${Math.min(0.7, intensity * 0.45)})`;
         context.lineWidth = Math.max(1.5, size * sprites[offset + 9]! * 0.5);
         context.beginPath();
         context.arc(x, y, size * sprites[offset + 8]!, 0, Math.PI * 2);
         context.stroke();
         continue;
       }
-      const stamp = this.stamp(sprites[offset + 4]!, sprites[offset + 5]!, sprites[offset + 6]!);
-      context.globalAlpha = Math.min(0.8, intensity * (kind === spriteKind.bokeh ? 0.25 : 0.45));
+      const stamp = this.stamp(
+        sprites[offset + 4]!,
+        sprites[offset + 5]!,
+        sprites[offset + 6]!,
+      );
+      context.globalAlpha = Math.min(
+        0.8,
+        intensity * (kind === spriteKind.bokeh ? 0.25 : 0.45),
+      );
       context.drawImage(stamp, x - size, y - size, size * 2, size * 2);
     }
     context.globalAlpha = 1;
     for (const rect of [protect.lyrics, protect.roll]) {
       if (rect) context.clearRect(rect.left, rect.top, rect.width, rect.height);
     }
-    context.globalCompositeOperation = "source-over";
+    context.globalCompositeOperation = 'source-over';
   }
 
   dispose(): void {

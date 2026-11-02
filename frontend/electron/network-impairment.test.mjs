@@ -1,12 +1,12 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import test from 'node:test';
 import {
   createImpairment,
   createImpairmentSequence,
   latencyAt,
-} from "./network-impairment.mjs";
+} from './network-impairment.mjs';
 
-test("local two-PC impairment replays exactly one seeded network sequence", () => {
+test('local two-PC impairment replays exactly one seeded network sequence', () => {
   const profile = { latencyMs: 65, jitterMs: 12, loss: 0.01, duplicate: 0.001 };
   assert.deepEqual(
     createImpairmentSequence(profile, 12345, 1000),
@@ -14,7 +14,7 @@ test("local two-PC impairment replays exactly one seeded network sequence", () =
   );
 });
 
-test("local two-PC impairment models a latency jump and recovery", () => {
+test('local two-PC impairment models a latency jump and recovery', () => {
   const stages = [
     { untilMs: 10_000, latencyMs: 20 },
     { untilMs: 20_000, latencyMs: 100 },
@@ -30,7 +30,7 @@ test("local two-PC impairment models a latency jump and recovery", () => {
   );
 });
 
-test("local two-PC impairment deterministically models packet reordering", () => {
+test('local two-PC impairment deterministically models packet reordering', () => {
   const profile = {
     latencyMs: 20,
     jitterMs: 0,
@@ -43,7 +43,7 @@ test("local two-PC impairment deterministically models packet reordering", () =>
   assert.ok(packet.delayMs > profile.latencyMs);
 });
 
-test("a ten-second network outage drops every packet and then recovers", () => {
+test('a ten-second network outage drops every packet and then recovers', () => {
   const impairment = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 20 }],
@@ -60,7 +60,7 @@ test("a ten-second network outage drops every packet and then recovers", () => {
   assert.equal(impairment(11_000).dropped, false);
 });
 
-test("burst loss drops consecutive packets instead of independent random packets", () => {
+test('burst loss drops consecutive packets instead of independent random packets', () => {
   const impairment = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 20 }],
@@ -99,7 +99,7 @@ test("burst loss drops consecutive packets instead of independent random packets
   ]);
 });
 
-test("clock drift, latency jump, jitter and loss coexist in one deterministic profile", () => {
+test('clock drift, latency jump, jitter and loss coexist in one deterministic profile', () => {
   const profile = {
     stages: [
       { untilMs: 1_000, latencyMs: 20 },
@@ -119,7 +119,7 @@ test("clock drift, latency jump, jitter and loss coexist in one deterministic pr
   assert.ok(a[1].delayMs > a[0].delayMs && a[2].clockSkewMs > a[0].clockSkewMs);
 });
 
-test("opposite directions can use strongly asymmetric routes", () => {
+test('opposite directions can use strongly asymmetric routes', () => {
   const outbound = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 15 }],
@@ -142,7 +142,7 @@ test("opposite directions can use strongly asymmetric routes", () => {
   assert.equal(inbound(0).delayMs, 180);
 });
 
-test("a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers", () => {
+test('a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers', () => {
   const impairment = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 20 }],
@@ -159,7 +159,7 @@ test("a scheduled CPU stall delays packets by 20 to 500 milliseconds and recover
   assert.equal(impairment(1_500).delayMs, 20);
 });
 
-test("bandwidth shaping creates a bounded busy-Wi-Fi queue", () => {
+test('bandwidth shaping creates a bounded busy-Wi-Fi queue', () => {
   const impairment = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 20 }],
@@ -177,7 +177,7 @@ test("bandwidth shaping creates a bounded busy-Wi-Fi queue", () => {
   assert.ok(Math.max(...packets.map((packet) => packet.queueDelayMs)) <= 100);
 });
 
-test("fault injection marks corrupted, stale and wrong-token packets deterministically", () => {
+test('fault injection marks corrupted, stale and wrong-token packets deterministically', () => {
   const impairment = createImpairment(
     {
       stages: [{ untilMs: Number.POSITIVE_INFINITY, latencyMs: 20 }],

@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
-import { Typography } from "@neo-ui-kit/react";
-import type { SocialPresence } from "../../contracts/social";
-import { PersonAvatar } from "./PersonAvatar";
+import type { ReactNode } from 'react';
+import { Typography } from '@neo-ui-kit/react';
+import type { SocialPresence } from '../../contracts/social';
+import { PersonAvatar } from './PersonAvatar';
 
 /** One person in a list: photo, name, a line about them, and what can be done. */
 export const PersonRow = ({

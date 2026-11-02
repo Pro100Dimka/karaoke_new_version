@@ -1,50 +1,50 @@
-import { spawn } from "node:child_process";
-import dgram from "node:dgram";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createImpairment } from "./network-impairment.mjs";
+import { spawn } from 'node:child_process';
+import dgram from 'node:dgram';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createImpairment } from './network-impairment.mjs';
 
-const argument = process.argv.find((value) => value.startsWith("--minutes="));
-const minutes = argument ? Number(argument.slice("--minutes=".length)) : 30;
+const argument = process.argv.find((value) => value.startsWith('--minutes='));
+const minutes = argument ? Number(argument.slice('--minutes='.length)) : 30;
 if (!Number.isFinite(minutes) || minutes <= 0)
-  throw new Error("--minutes must be a positive number");
+  throw new Error('--minutes must be a positive number');
 const durationSeconds = Math.max(1, Math.round(minutes * 60));
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
+  '..',
+  '..',
 );
 const executable = path.join(
   root,
-  "AudioService",
-  "build",
-  "Release",
-  "AudioService.exe",
+  'AudioService',
+  'build',
+  'Release',
+  'AudioService.exe',
 );
 await fs.access(executable);
 const songRoot = path.join(
-  process.env.APPDATA ?? "",
-  "ad-voice-frontend",
-  "backend-data",
-  "songs",
+  process.env.APPDATA ?? '',
+  'ad-voice-frontend',
+  'backend-data',
+  'songs',
 );
 const songFiles = await fs.readdir(songRoot, { recursive: true });
 const relativeVocal = songFiles.find((file) =>
-  file.endsWith("reference-vocal.wav"),
+  file.endsWith('reference-vocal.wav'),
 );
 if (!relativeVocal)
   throw new Error(`No reference-vocal.wav found under ${songRoot}`);
 const referenceVocal = path.join(songRoot, relativeVocal);
 const artifactRoot = path.join(
   root,
-  "AudioService",
-  "build",
-  "network-soak-test",
+  'AudioService',
+  'build',
+  'network-soak-test',
 );
 await fs.mkdir(artifactRoot, { recursive: true });
 
-const ids = ["soak-A", "soak-B"];
+const ids = ['soak-A', 'soak-B'];
 const participantKey = (id) => {
   let hash = 2166136261;
   for (const byte of new TextEncoder().encode(id)) {
@@ -106,7 +106,7 @@ const metrics = {
   maximumScheduled: 0,
 };
 const timers = new Set();
-const proxy = dgram.createSocket("udp4");
+const proxy = dgram.createSocket('udp4');
 const schedule = (packet, endpoint, delayMs) => {
   const timer = setTimeout(() => {
     timers.delete(timer);
@@ -115,7 +115,7 @@ const schedule = (packet, endpoint, delayMs) => {
   timers.add(timer);
   metrics.maximumScheduled = Math.max(metrics.maximumScheduled, timers.size);
 };
-proxy.on("message", (message, sourceEndpoint) => {
+proxy.on('message', (message, sourceEndpoint) => {
   if (message.length < 44) return;
   const sourceId = keys.get(message.readUInt32LE(12));
   if (!sourceId) return;
@@ -138,7 +138,7 @@ proxy.on("message", (message, sourceEndpoint) => {
     metrics.duplicated += 1;
   }
 });
-await new Promise((resolve) => proxy.bind(0, "127.0.0.1", resolve));
+await new Promise((resolve) => proxy.bind(0, '127.0.0.1', resolve));
 
 const children = new Set();
 const runClient = (id) => {
@@ -147,38 +147,38 @@ const runClient = (id) => {
   const child = spawn(
     executable,
     [
-      "--network-test-client",
-      "--input",
+      '--network-test-client',
+      '--input',
       referenceVocal,
-      "--output",
+      '--output',
       outputPath,
-      "--local-id",
+      '--local-id',
       id,
-      "--remote-id",
+      '--remote-id',
       remoteId,
-      "--remote-port",
+      '--remote-port',
       String(proxy.address().port),
-      "--token",
-      "123456789abcdef0",
-      "--start-at-ms",
+      '--token',
+      '123456789abcdef0',
+      '--start-at-ms',
       String(startAtMs),
-      "--duration-seconds",
+      '--duration-seconds',
       String(durationSeconds),
     ],
     { windowsHide: true },
   );
   children.add(child);
-  let stdout = "",
-    stderr = "";
-  child.stdout.on("data", (chunk) => {
+  let stdout = '',
+    stderr = '';
+  child.stdout.on('data', (chunk) => {
     stdout += chunk;
   });
-  child.stderr.on("data", (chunk) => {
+  child.stderr.on('data', (chunk) => {
     stderr += chunk;
   });
   return new Promise((resolve, reject) => {
-    child.once("error", reject);
-    child.once("exit", (code) => {
+    child.once('error', reject);
+    child.once('exit', (code) => {
       children.delete(child);
       if (code === 0) resolve({ report: JSON.parse(stdout), outputPath });
       else reject(new Error(`${id} exited ${code}: ${stderr || stdout}`));
@@ -207,7 +207,7 @@ try {
     throw new Error(
       `Network soak failed: ${JSON.stringify({ reports, metrics })}`,
     );
-  const reportPath = path.join(artifactRoot, "network-soak-report.json");
+  const reportPath = path.join(artifactRoot, 'network-soak-report.json');
   const report = {
     minutes,
     durationSeconds,
@@ -219,7 +219,7 @@ try {
   await fs.writeFile(
     reportPath,
     `${JSON.stringify(report, null, 2)}\n`,
-    "utf8",
+    'utf8',
   );
   console.log(JSON.stringify(report));
 } finally {

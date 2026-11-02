@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from 'react';
 
 const covers = new Set<symbol>();
 const listeners = new Set<() => void>();

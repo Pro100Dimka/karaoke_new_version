@@ -1,7 +1,7 @@
-import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
-import type { MessageKey } from "../../../i18n/messages";
-import { ru } from "../../../i18n/messages.ru";
-import type { KaraokeState } from "../../../application/karaoke/karaokeMachine";
+import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
+import type { MessageKey } from '../../../i18n/messages';
+import { ru } from '../../../i18n/messages.ru';
+import type { KaraokeState } from '../../../application/karaoke/karaokeMachine';
 
 const skipSeconds = 10;
 
@@ -26,32 +26,32 @@ export const Transport = ({
   onStop,
 }: TransportProps) => {
   useLocale();
-  const playing = state.kind === "playing";
+  const playing = state.kind === 'playing';
   const usable =
-    state.kind === "ready" ||
-    state.kind === "playing" ||
-    state.kind === "paused";
+    state.kind === 'ready' ||
+    state.kind === 'playing' ||
+    state.kind === 'paused';
   const disabled = seekLocked || !usable;
   const actions = [
     {
-      id: "restart",
-      label: "restart",
-      icon: "back",
+      id: 'restart',
+      label: 'restart',
+      icon: 'back',
       primary: false,
       run: () => onSeek(0),
     },
     {
-      id: "play",
-      label: playing ? "pause" : "play",
-      icon: playing ? "pause" : "play",
+      id: 'play',
+      label: playing ? 'pause' : 'play',
+      icon: playing ? 'pause' : 'play',
       primary: true,
       run: onTogglePlay,
     },
-    { id: "stop", label: "stop", icon: "stop", primary: false, run: onStop },
+    { id: 'stop', label: 'stop', icon: 'stop', primary: false, run: onStop },
     {
-      id: "forward",
-      label: "skipForward",
-      icon: "prev",
+      id: 'forward',
+      label: 'skipForward',
+      icon: 'prev',
       primary: false,
       run: () => onSeek(Math.min(duration, position + skipSeconds)),
     },
@@ -73,9 +73,9 @@ export const Transport = ({
         <IconButton
           key={action.id}
           round
-          className={action.id === "forward" ? "transportForward" : undefined}
-          size={action.primary ? "lg" : "md"}
-          variant={action.primary ? "primary" : "secondary"}
+          className={action.id === 'forward' ? 'transportForward' : undefined}
+          size={action.primary ? 'lg' : 'md'}
+          variant={action.primary ? 'primary' : 'secondary'}
           icon={action.icon}
           label={tr(ru[action.label])}
           disabled={disabled}

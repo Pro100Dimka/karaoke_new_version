@@ -1,7 +1,7 @@
-import { renderHook } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
-import type { AcousticCalibrationState } from "../contracts/clients";
-import { useAcousticLatencyAutoSave } from "./useAcousticLatencyAutoSave";
+import { renderHook } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import type { AcousticCalibrationState } from '../contracts/clients';
+import { useAcousticLatencyAutoSave } from './useAcousticLatencyAutoSave';
 
 const mocks = vi.hoisted(() => ({
   state: vi.fn(),
@@ -12,28 +12,31 @@ const mocks = vi.hoisted(() => ({
   updatePreferences: vi.fn(),
   stored: {} as Record<string, number>,
 }));
-vi.mock("../services/audioClient", () => ({
+vi.mock('../services/audioClient', () => ({
   audioClient: {
     acousticCalibrationState: mocks.state,
     rememberAcousticLatencies: mocks.remember,
     measureAcousticLatency: mocks.measure,
   },
 }));
-vi.mock("../providers/application", () => ({
+vi.mock('../providers/application', () => ({
   useApp: () => ({
     preferences: { acousticLatencyMs: mocks.stored },
     updatePreferences: mocks.updatePreferences,
   }),
 }));
-vi.mock("../providers/dialog", () => ({ ask: mocks.ask }));
-vi.mock("../providers/notifications", () => ({ useNotify: () => mocks.notify }));
+vi.mock('../providers/dialog', () => ({ ask: mocks.ask }));
+vi.mock('../providers/notifications', () => ({
+  useNotify: () => mocks.notify,
+}));
 
-
-const path = "WASAPI Shared,{mic},{out},48000,48000,480,480,1056,1056";
-const state = (overrides: Partial<AcousticCalibrationState>): AcousticCalibrationState => ({
+const path = 'WASAPI Shared,{mic},{out},48000,48000,480,480,1056,1056';
+const state = (
+  overrides: Partial<AcousticCalibrationState>,
+): AcousticCalibrationState => ({
   fingerprint: path,
   milliseconds: null,
-  origin: "NONE",
+  origin: 'NONE',
   songPlaying: false,
   songEstimates: 0,
   ...overrides,
@@ -52,18 +55,22 @@ const run = async (checks: number) => {
   hook.unmount();
 };
 
-it("hands the saved calibrations to AudioService as soon as the app starts", async () => {
+it('hands the saved calibrations to AudioService as soon as the app starts', async () => {
   mocks.stored = { [path]: 44.7 };
-  mocks.state.mockResolvedValue(state({ milliseconds: 44.7, origin: "PROFILE" }));
+  mocks.state.mockResolvedValue(
+    state({ milliseconds: 44.7, origin: 'PROFILE' }),
+  );
   await run(1);
   expect(mocks.remember).toHaveBeenCalledWith({ [path]: 44.7 });
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
-it("saves the delay AudioService determined from the song for the path it belongs to", async () => {
-  const other = "WASAPI Exclusive,{mic},{out},48000,48000,480,480,480,480";
+it('saves the delay AudioService determined from the song for the path it belongs to', async () => {
+  const other = 'WASAPI Exclusive,{mic},{out},48000,48000,480,480,480,480';
   mocks.stored = { [other]: 17.6 };
-  mocks.state.mockResolvedValue(state({ milliseconds: 45.23, origin: "SONG", songEstimates: 3 }));
+  mocks.state.mockResolvedValue(
+    state({ milliseconds: 45.23, origin: 'SONG', songEstimates: 3 }),
+  );
   await run(1);
   expect(mocks.updatePreferences).toHaveBeenCalledWith({
     acousticLatencyMs: { [other]: 17.6, [path]: 45.2 },
@@ -72,14 +79,18 @@ it("saves the delay AudioService determined from the song for the path it belong
 
 it("does not resave a restored profile or a value within the estimate's agreement", async () => {
   mocks.stored = { [path]: 45 };
-  mocks.state.mockResolvedValueOnce(state({ milliseconds: 45, origin: "PROFILE" }));
-  mocks.state.mockResolvedValueOnce(state({ milliseconds: 45.6, origin: "SONG" }));
+  mocks.state.mockResolvedValueOnce(
+    state({ milliseconds: 45, origin: 'PROFILE' }),
+  );
+  mocks.state.mockResolvedValueOnce(
+    state({ milliseconds: 45.6, origin: 'SONG' }),
+  );
   await run(2);
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
-it("never asks for an acoustic loop or emits test sounds after an uncorrelated song", async () => {
-  mocks.ask.mockResolvedValue("measure");
+it('never asks for an acoustic loop or emits test sounds after an uncorrelated song', async () => {
+  mocks.ask.mockResolvedValue('measure');
   mocks.state
     .mockResolvedValueOnce(state({ songPlaying: true }))
     .mockResolvedValue(state({}));
@@ -89,7 +100,7 @@ it("never asks for an acoustic loop or emits test sounds after an uncorrelated s
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
-it("never asks during a song, before any song, or when the song already gave the delay", async () => {
+it('never asks during a song, before any song, or when the song already gave the delay', async () => {
   mocks.state
     .mockResolvedValueOnce(state({}))
     .mockResolvedValueOnce(state({ songPlaying: true }))
@@ -99,8 +110,8 @@ it("never asks during a song, before any song, or when the song already gave the
   expect(mocks.measure).not.toHaveBeenCalled();
 });
 
-it("preserves a profile on another device when no estimate exists for the open path", async () => {
-  mocks.stored = { [path + ",old"]: 44.7 };
+it('preserves a profile on another device when no estimate exists for the open path', async () => {
+  mocks.stored = { [path + ',old']: 44.7 };
   mocks.state.mockResolvedValue(state({}));
   await run(3);
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
@@ -108,7 +119,13 @@ it("preserves a profile on another device when no estimate exists for the open p
   expect(mocks.measure).not.toHaveBeenCalled();
 });
 
-vi.mock("../providers/store", () => ({ store: {
-  get preferences() { return { acousticLatencyMs: mocks.stored }; },
-  get updatePreferences() { return mocks.updatePreferences; }
-} }));
+vi.mock('../providers/store', () => ({
+  store: {
+    get preferences() {
+      return { acousticLatencyMs: mocks.stored };
+    },
+    get updatePreferences() {
+      return mocks.updatePreferences;
+    },
+  },
+}));

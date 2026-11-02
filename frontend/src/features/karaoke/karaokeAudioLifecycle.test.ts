@@ -1,13 +1,13 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { audioClient } from "../../services/audioClient";
-import { releaseKaraokeAudio } from "./karaokeAudioLifecycle";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { audioClient } from '../../services/audioClient';
+import { releaseKaraokeAudio } from './karaokeAudioLifecycle';
+import { recordingCoordinator } from '../../services/recordingCoordinator';
 
-vi.mock("../../services/recordingCoordinator", () => ({
+vi.mock('../../services/recordingCoordinator', () => ({
   recordingCoordinator: { stop: vi.fn(async () => undefined) },
 }));
 
-vi.mock("../../services/audioClient", () => ({
+vi.mock('../../services/audioClient', () => ({
   audioClient: {
     setMonitoring: vi.fn(async () => ({ monitoring: false })),
     setDspEnabled: vi.fn(async () => undefined),
@@ -16,7 +16,7 @@ vi.mock("../../services/audioClient", () => ({
   },
 }));
 
-describe("releaseKaraokeAudio", () => {
+describe('releaseKaraokeAudio', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("turns monitoring off but keeps the singer's own voice effects, which belong to the whole app", async () => {
@@ -27,12 +27,12 @@ describe("releaseKaraokeAudio", () => {
     expect(audioClient.stop).toHaveBeenCalledOnce();
   });
 
-  it("restores full master volume so the karaoke master never quietens radio or previews", async () => {
+  it('restores full master volume so the karaoke master never quietens radio or previews', async () => {
     await releaseKaraokeAudio(audioClient, recordingCoordinator);
-    expect(audioClient.setMixer).toHaveBeenCalledWith("master", 1);
+    expect(audioClient.setMixer).toHaveBeenCalledWith('master', 1);
   });
 
-  it("dispatches route shutdown before delayed recording registration can outlive the next route", async () => {
+  it('dispatches route shutdown before delayed recording registration can outlive the next route', async () => {
     let finish!: () => void;
     const pending = new Promise<{ recording: boolean }>((resolve) => {
       finish = () => resolve({ recording: false });

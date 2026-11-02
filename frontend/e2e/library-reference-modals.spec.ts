@@ -1,47 +1,51 @@
-import { expect, test } from "@playwright/test";
-import { installDesktopBridge } from "./desktopBridge";
+import { expect, test } from '@playwright/test';
+import { installDesktopBridge } from './desktopBridge';
 
 /** Replaces the bridge's empty job and recording lists with a busy queue and a song with six takes. */
 const installBusyLibrary = (): void => {
   const original = window.desktop.pythonRequest;
   const states = [
-    "Succeeded",
-    "Succeeded",
-    "Succeeded",
-    "Running",
-    "Queued",
-    "Failed",
-    "Queued",
+    'Succeeded',
+    'Succeeded',
+    'Succeeded',
+    'Running',
+    'Queued',
+    'Failed',
+    'Queued',
   ];
   window.desktop.pythonRequest = async (request) => {
-    if (request.path.startsWith("/jobs?"))
+    if (request.path.startsWith('/jobs?'))
       return {
         status: 200,
         ok: true,
         body: {
           items: states.map((state, index) => ({
             jobId: `job-${index}`,
-            type: "SongProcessing",
+            type: 'SongProcessing',
             state,
-            entityId: "song-1",
-            stage: state === "Running" ? "Separation" : state,
+            entityId: 'song-1',
+            stage: state === 'Running' ? 'Separation' : state,
             stageProgress: 0.56,
             overallProgress:
-              state === "Succeeded" ? 1 : state === "Running" ? 0.56 : 0,
+              state === 'Succeeded' ? 1 : state === 'Running' ? 0.56 : 0,
             error:
-              state === "Failed"
-                ? { code: "ManualLyricsConflict", message: "Manual lyrics must be preserved before processing can continue" }
+              state === 'Failed'
+                ? {
+                    code: 'ManualLyricsConflict',
+                    message:
+                      'Manual lyrics must be preserved before processing can continue',
+                  }
                 : null,
-            report: { processingBackend: index === 3 ? "Kaggle" : "Local" },
-            startedAt: "2026-09-30T12:00:00Z",
-            finishedAt: state === "Succeeded" ? "2026-09-30T12:01:22Z" : null,
+            report: { processingBackend: index === 3 ? 'Kaggle' : 'Local' },
+            startedAt: '2026-09-30T12:00:00Z',
+            finishedAt: state === 'Succeeded' ? '2026-09-30T12:01:22Z' : null,
           })),
           total: 7,
           limit: 200,
           offset: 0,
         },
       };
-    if (request.path.startsWith("/recordings?"))
+    if (request.path.startsWith('/recordings?'))
       return {
         status: 200,
         ok: true,
@@ -54,12 +58,12 @@ const installBusyLibrary = (): void => {
             sampleRate: 48000,
             channels: 2,
             createdAt: `2026-09-${30 - index}T23:19:36Z`,
-            songId: "song-1",
+            songId: 'song-1',
             songRevision: 1,
-            displayName: index === 6 ? "" : `Recording ${index + 1}`,
-            sourceRecordingId: index === 6 ? "rec-0" : undefined,
-            fileStatus: "Ready",
-            analysisStatus: index % 2 ? "Succeeded" : "NotAnalyzed",
+            displayName: index === 6 ? '' : `Recording ${index + 1}`,
+            sourceRecordingId: index === 6 ? 'rec-0' : undefined,
+            fileStatus: 'Ready',
+            analysisStatus: index % 2 ? 'Succeeded' : 'NotAnalyzed',
           })),
           total: 7,
           limit: 200,
@@ -76,82 +80,124 @@ test("processing queue and performances list the backend's jobs and takes", asyn
   await page.addInitScript(installDesktopBridge);
   await page.addInitScript(installBusyLibrary);
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/");
-  await expect(page.getByRole("heading", { name: "A&D Voice" })).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'A&D Voice' })).toBeVisible();
 
   await page
-    .getByRole("button", {
+    .getByRole('button', {
       name: /Очередь обработки|Processing queue|Черга обробки/i,
     })
     .click();
-  const queue = page.getByRole("dialog", {
+  const queue = page.getByRole('dialog', {
     name: /Очередь обработки|Processing queue|Черга обробки/i,
   });
   await expect(
     queue
-      .getByRole("list", {
+      .getByRole('list', {
         name: /Очередь обработки|Processing queue|Черга обробки/i,
       })
-      .locator(":scope > li"),
+      .locator(':scope > li'),
   ).toHaveCount(7);
-  await expect(queue.locator(".processingSteps > li")).toHaveCount(35);
-  await page.screenshot({ path: testInfo.outputPath("processing-modal.png") });
-  await page.keyboard.press("Escape");
+  await expect(queue.locator('.processingSteps > li')).toHaveCount(35);
+  await page.screenshot({ path: testInfo.outputPath('processing-modal.png') });
+  await page.keyboard.press('Escape');
   await expect(queue).toBeHidden();
 
   await page
-    .getByRole("button", { name: /^(Записи|Recordings)$/i })
+    .getByRole('button', { name: /^(Записи|Recordings)$/i })
     .first()
     .click();
-  const performances = page.getByRole("dialog", { name: /Люди/ });
+  const performances = page.getByRole('dialog', { name: /Люди/ });
   await expect(
     performances.getByText(/(Записей|Recordings|Записів): 6/),
   ).toBeVisible();
-  await expect(performances.locator(".recordingsList > li")).toHaveCount(6);
-  await performances.getByRole("tab", { name: "A&D Studio Master", exact: true }).click();
-  await expect(performances.getByRole("tab", { name: "A&D Studio Master", exact: true })).toHaveAttribute("aria-selected", "true");
-  await page.screenshot({ path: testInfo.outputPath("performances-modal.png") });
+  await expect(performances.locator('.recordingsList > li')).toHaveCount(6);
+  await performances
+    .getByRole('tab', { name: 'A&D Studio Master', exact: true })
+    .click();
+  await expect(
+    performances.getByRole('tab', { name: 'A&D Studio Master', exact: true }),
+  ).toHaveAttribute('aria-selected', 'true');
+  await page.screenshot({
+    path: testInfo.outputPath('performances-modal.png'),
+  });
 });
 
-test("performance rotary controls and waveform fit list and grid at every window width", async ({ page }, testInfo) => {
+test('performance rotary controls and waveform fit list and grid at every window width', async ({
+  page,
+}, testInfo) => {
   await page.addInitScript(installDesktopBridge);
   await page.addInitScript(installBusyLibrary);
-  await page.addInitScript(() => localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ language: "en", reducedMotion: true })));
-  await page.goto("/");
-  await page.getByRole("button", { name: "Recordings", exact: true }).first().click();
-  const dialog = page.getByRole("dialog");
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'adVoice.preferences.v1',
+      JSON.stringify({ language: 'en', reducedMotion: true }),
+    ),
+  );
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Recordings', exact: true })
+    .first()
+    .click();
+  const dialog = page.getByRole('dialog');
   for (const width of [1440, 768, 400]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const view of ["List", "Grid"]) {
-      await dialog.getByRole("tab", { name: view, exact: true }).click();
-      const errors = await dialog.locator(".recordingCard").evaluateAll((cards) => cards.flatMap((card) => {
-        const bounds = card.getBoundingClientRect();
-        return [...card.querySelectorAll(".recordingVolume, .recordingActions, .recordingTimeline")].flatMap((element) => {
-          const box = element.getBoundingClientRect();
-          return box.left < bounds.left - 1 || box.right > bounds.right + 1 || box.width < 40
-            ? [`${element.className}: ${Math.round(box.width)}px`] : [];
-        });
-      }));
+    for (const view of ['List', 'Grid']) {
+      await dialog.getByRole('tab', { name: view, exact: true }).click();
+      const errors = await dialog
+        .locator('.recordingCard')
+        .evaluateAll((cards) =>
+          cards.flatMap((card) => {
+            const bounds = card.getBoundingClientRect();
+            return [
+              ...card.querySelectorAll(
+                '.recordingVolume, .recordingActions, .recordingTimeline',
+              ),
+            ].flatMap((element) => {
+              const box = element.getBoundingClientRect();
+              return box.left < bounds.left - 1 ||
+                box.right > bounds.right + 1 ||
+                box.width < 40
+                ? [`${element.className}: ${Math.round(box.width)}px`]
+                : [];
+            });
+          }),
+        );
       expect(errors, `${view} at ${width}px`).toEqual([]);
-      await page.screenshot({ path: testInfo.outputPath(`rotary-${view}-${width}.png`) });
+      await page.screenshot({
+        path: testInfo.outputPath(`rotary-${view}-${width}.png`),
+      });
     }
   }
-  const volume = dialog.getByRole("slider", { name: "Recording volume", exact: true }).first();
-  await expect(volume).toHaveAttribute("aria-valuenow", "1");
+  const volume = dialog
+    .getByRole('slider', { name: 'Recording volume', exact: true })
+    .first();
+  await expect(volume).toHaveAttribute('aria-valuenow', '1');
   await volume.focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(volume).toHaveAttribute("aria-valuenow", "0.99");
+  await page.keyboard.press('ArrowDown');
+  await expect(volume).toHaveAttribute('aria-valuenow', '0.99');
 });
 
-test("processing cleanup survives reloads and controls fit wide and narrow queues", async ({ page }, testInfo) => {
+test('processing cleanup survives reloads and controls fit wide and narrow queues', async ({
+  page,
+}, testInfo) => {
   await page.addInitScript(installDesktopBridge);
   await page.addInitScript(installBusyLibrary);
-  await page.addInitScript(() => localStorage.setItem("adVoice.preferences.v1", JSON.stringify({ language: "en", reducedMotion: true })));
-  await page.goto("/");
-  const openQueue = () => page.getByRole("button", { name: "Processing queue", exact: true }).click();
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'adVoice.preferences.v1',
+      JSON.stringify({ language: 'en', reducedMotion: true }),
+    ),
+  );
+  await page.goto('/');
+  const openQueue = () =>
+    page.getByRole('button', { name: 'Processing queue', exact: true }).click();
   await openQueue();
-  const queue = page.getByRole("dialog", { name: "Processing queue", exact: true });
-  const jobs = queue.locator(".processingList > li");
+  const queue = page.getByRole('dialog', {
+    name: 'Processing queue',
+    exact: true,
+  });
+  const jobs = queue.locator('.processingList > li');
   await expect(jobs).toHaveCount(7);
 
   for (const width of [1280, 720, 400]) {
@@ -160,24 +206,38 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
       const bounds = dialog.getBoundingClientRect();
       const errors: string[] = [];
       const textEdges: number[] = [];
-      for (const card of dialog.querySelectorAll(".processingJob")) {
-        const main = card.querySelector(".processingJobMain")!.getBoundingClientRect();
+      for (const card of dialog.querySelectorAll('.processingJob')) {
+        const main = card
+          .querySelector('.processingJobMain')!
+          .getBoundingClientRect();
         textEdges.push(main.right);
-        const actions = card.querySelector(".processingJobActions")!.getBoundingClientRect();
+        const actions = card
+          .querySelector('.processingJobActions')!
+          .getBoundingClientRect();
         if (main.right > actions.left + 1 && main.bottom > actions.top + 1)
-          errors.push("text and actions overlap");
-        for (const button of card.querySelectorAll("button")) {
+          errors.push('text and actions overlap');
+        for (const button of card.querySelectorAll('button')) {
           const box = button.getBoundingClientRect();
           if (box.left < bounds.left || box.right > bounds.right)
-            errors.push("action outside dialog");
+            errors.push('action outside dialog');
         }
       }
       if (Math.max(...textEdges) - Math.min(...textEdges) > 1)
-        errors.push("job progress columns do not line up");
-      const footer = dialog.querySelector(".processingFooter")!.getBoundingClientRect();
-      if (bounds.bottom - footer.bottom - parseFloat(getComputedStyle(dialog).paddingBottom) > 16)
-        errors.push(`unused space below footer; children: ${[...dialog.children].map((child) => child.className).join(", ")}`);
-      if (dialog.scrollWidth > dialog.clientWidth + 1) errors.push("horizontal dialog overflow");
+        errors.push('job progress columns do not line up');
+      const footer = dialog
+        .querySelector('.processingFooter')!
+        .getBoundingClientRect();
+      if (
+        bounds.bottom -
+          footer.bottom -
+          parseFloat(getComputedStyle(dialog).paddingBottom) >
+        16
+      )
+        errors.push(
+          `unused space below footer; children: ${[...dialog.children].map((child) => child.className).join(', ')}`,
+        );
+      if (dialog.scrollWidth > dialog.clientWidth + 1)
+        errors.push('horizontal dialog overflow');
       return errors;
     });
     expect(overflow, `queue at ${width}px`).toEqual([]);
@@ -185,19 +245,21 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
   }
 
   const clear = async (choice: string, title: string) => {
-    await queue.locator(".processingFooter .ad-split-button-trigger").click();
-    await page.getByRole("menuitem", { name: choice, exact: true }).click();
-    await page.getByRole("dialog", { name: title, exact: true })
-      .getByRole("button", { name: "Clear", exact: true }).click();
+    await queue.locator('.processingFooter .ad-split-button-trigger').click();
+    await page.getByRole('menuitem', { name: choice, exact: true }).click();
+    await page
+      .getByRole('dialog', { name: title, exact: true })
+      .getByRole('button', { name: 'Clear', exact: true })
+      .click();
   };
-  await clear("Completed", "Clear completed jobs?");
+  await clear('Completed', 'Clear completed jobs?');
   await expect(jobs).toHaveCount(4);
   await page.reload();
   await openQueue();
   await expect(jobs).toHaveCount(4);
-  await clear("Failed", "Clear failed jobs?");
+  await clear('Failed', 'Clear failed jobs?');
   await expect(jobs).toHaveCount(3);
-  await clear("All", "Clear the entire queue?");
+  await clear('All', 'Clear the entire queue?');
   await expect(jobs).toHaveCount(0);
   await page.reload();
   await openQueue();
@@ -207,16 +269,21 @@ test("processing cleanup survives reloads and controls fit wide and narrow queue
     const original = window.desktop.pythonRequest;
     window.desktop.pythonRequest = async (request) => {
       const response = await original(request);
-      if (request.path.startsWith("/jobs?")) {
+      if (request.path.startsWith('/jobs?')) {
         const body = response.body as { items: Record<string, unknown>[] };
-        body.items.push({ ...body.items[0], jobId: "new-job", state: "Running", overallProgress: 0.22 });
+        body.items.push({
+          ...body.items[0],
+          jobId: 'new-job',
+          state: 'Running',
+          overallProgress: 0.22,
+        });
       }
       return response;
     };
   });
-  await page.keyboard.press("Escape");
+  await page.keyboard.press('Escape');
   await openQueue();
   await expect(jobs).toHaveCount(1);
-  await expect(queue.getByText("22%", { exact: true })).toHaveCount(0);
-  await expect(queue.locator(".processingJobProgress")).toHaveCount(0);
+  await expect(queue.getByText('22%', { exact: true })).toHaveCount(0);
+  await expect(queue.locator('.processingJobProgress')).toHaveCount(0);
 });

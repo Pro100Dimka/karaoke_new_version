@@ -1,19 +1,19 @@
-import type { BrowserWindow } from "electron";
-import { ipcChannels } from "./ipcChannels";
-import { createSocialSocket, type SocialPresence } from "./SocialSocket";
-import { acceptRoomVoiceLevels } from "./RoomServerTransport";
-import { requireObject } from "./RequestValidation";
-import type { IpcRegistrar } from "./TrustedIpc";
+import type { BrowserWindow } from 'electron';
+import { ipcChannels } from './ipcChannels';
+import { createSocialSocket, type SocialPresence } from './SocialSocket';
+import { acceptRoomVoiceLevels } from './RoomServerTransport';
+import { requireObject } from './RequestValidation';
+import type { IpcRegistrar } from './TrustedIpc';
 
 const optionalId = (value: unknown): string | null =>
-  typeof value === "string" && value.length > 0 && value.length <= 128
+  typeof value === 'string' && value.length > 0 && value.length <= 128
     ? value
     : null;
 
 const requirePresence = (raw: unknown): SocialPresence => {
-  const value = requireObject(raw, "Presence");
-  if (typeof value.displayName !== "string")
-    throw new TypeError("displayName must be a string");
+  const value = requireObject(raw, 'Presence');
+  if (typeof value.displayName !== 'string')
+    throw new TypeError('displayName must be a string');
   return {
     displayName: value.displayName.slice(0, 200),
     participantId: optionalId(value.participantId),
@@ -30,17 +30,17 @@ export const registerSocialChannel = (
   getWindow: () => BrowserWindow | null,
   ipc: IpcRegistrar,
 ) => {
-  let latest: unknown = { type: "offline" };
+  let latest: unknown = { type: 'offline' };
   const socket = createSocialSocket(
-    `${apiBase.replace(/^http/, "ws")}/social/socket`,
+    `${apiBase.replace(/^http/, 'ws')}/social/socket`,
     (message) => {
       acceptRoomVoiceLevels(message);
       const isInbox =
-        message && typeof message === "object" && "notices" in message;
+        message && typeof message === 'object' && 'notices' in message;
       const isOffline =
         message &&
-        typeof message === "object" &&
-        (message as { type?: unknown }).type === "offline";
+        typeof message === 'object' &&
+        (message as { type?: unknown }).type === 'offline';
       if (!isInbox && !isOffline) return;
       // Answers are told once: a renderer that reloads gets the inbox without the ones already shown.
       latest = isInbox ? { ...message, notices: [] } : message;

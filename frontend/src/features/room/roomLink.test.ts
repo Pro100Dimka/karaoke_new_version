@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import type { RoomTimingReport } from "../../contracts/clients";
-import { roomLink } from "./roomLink";
+import { describe, expect, it } from 'vitest';
+import type { RoomTimingReport } from '../../contracts/clients';
+import { roomLink } from './roomLink';
 
 const report = (
   relayPackets: number,
@@ -30,14 +30,14 @@ const report = (
   },
 });
 
-describe("roomLink", () => {
-  it("names the route that delivered most voice since the earlier report", () => {
-    expect(roomLink(report(100, 0), report(110, 4000)).route).toBe("direct");
-    expect(roomLink(report(0, 100), report(4000, 110)).route).toBe("relay");
+describe('roomLink', () => {
+  it('names the route that delivered most voice since the earlier report', () => {
+    expect(roomLink(report(100, 0), report(110, 4000)).route).toBe('direct');
+    expect(roomLink(report(0, 100), report(4000, 110)).route).toBe('relay');
     expect(roomLink(undefined, report(0, 0)).route).toBeUndefined();
   });
 
-  it("flags a stalling link only when more voice is cut than the room delay allows for", () => {
+  it('flags a stalling link only when more voice is cut than the room delay allows for', () => {
     expect(roomLink(report(0, 100, 3), report(0, 900, 3)).unstable).toBe(false);
     // 2 cuts in 800 packets (2.5 per thousand) are within the 0.5% the room delay accepts.
     expect(roomLink(report(0, 100, 3), report(0, 900, 5)).unstable).toBe(false);
@@ -46,7 +46,7 @@ describe("roomLink", () => {
     expect(roomLink(undefined, report(0, 900, 15)).unstable).toBe(false);
   });
 
-  it("flags a sound card that starves on this computer", () => {
+  it('flags a sound card that starves on this computer', () => {
     expect(
       roomLink(report(0, 100, 0, 480), report(0, 900, 0, 480)).deviceStarving,
     ).toBe(false);

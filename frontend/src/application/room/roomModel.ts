@@ -1,13 +1,18 @@
-import { roomServerMixParticipantId, type RoomSharedState } from "../../contracts/clients";
-import type { ParticipantDto, RoomStateDto } from "../../contracts/models";
+import {
+  roomServerMixParticipantId,
+  type RoomSharedState,
+} from '../../contracts/clients';
+import type { ParticipantDto, RoomStateDto } from '../../contracts/models';
 
 /** The room's shared library view and practice settings, with the defaults a fresh room starts from. */
-export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState => ({
+export const sharedStateOf = (
+  room: Partial<RoomSharedState>,
+): RoomSharedState => ({
   radioEnabled: room.radioEnabled ?? false,
-  radioStationId: room.radioStationId ?? "groove-salad",
-  libraryQuery: room.libraryQuery ?? "",
-  libraryStatus: room.libraryStatus ?? "all",
-  librarySort: room.librarySort ?? "recent",
+  radioStationId: room.radioStationId ?? 'groove-salad',
+  libraryQuery: room.libraryQuery ?? '',
+  libraryStatus: room.libraryStatus ?? 'all',
+  librarySort: room.librarySort ?? 'recent',
   playbackRate: room.playbackRate ?? 1,
   keyShift: room.keyShift ?? 0,
   musicGain: room.musicGain ?? 0.82,
@@ -17,8 +22,8 @@ export const sharedStateOf = (room: Partial<RoomSharedState>): RoomSharedState =
 
 /** The host always controls the shared room; other singers only while the host allows collaborative control. */
 export const canControlRoom = (
-  room: Pick<RoomStateDto, "role" | "collaborativeControl">,
-): boolean => room.role === "host" || room.collaborativeControl === true;
+  room: Pick<RoomStateDto, 'role' | 'collaborativeControl'>,
+): boolean => room.role === 'host' || room.collaborativeControl === true;
 
 /** A room snapshot may still exist after the server has removed this client. */
 export const hasCurrentParticipant = (room: RoomStateDto): boolean =>
@@ -29,8 +34,8 @@ export const restoreRoomVoiceAfterReconnect = (
   before: RoomStateDto,
   after: RoomStateDto,
 ): boolean =>
-  before.connectionStatus === "reconnecting" &&
-  after.connectionStatus === "connected" &&
+  before.connectionStatus === 'reconnecting' &&
+  after.connectionStatus === 'connected' &&
   hasCurrentParticipant(after);
 
 /** Countdown starts only after every connected participant is ready and its voice route measured. */
@@ -39,7 +44,7 @@ export const allConnectedReady = (room: RoomStateDto): boolean =>
     .filter((participant) => participant.connected)
     .every(
       (participant) =>
-        participant.readiness === "ready" &&
+        participant.readiness === 'ready' &&
         participant.voiceTimingReady === true,
     );
 export interface ParticipantChange {
@@ -84,7 +89,7 @@ export const roomProjectNeedsDownload = (
   !library.some(
     (song) =>
       (song.id === importedLocalSongId || song.id === room.songId) &&
-      song.status === "ready" &&
+      song.status === 'ready' &&
       song.activeRevision === room.revision,
   );
 
@@ -92,10 +97,10 @@ export const localReadiness = (
   room: RoomStateDto,
   library: readonly LibraryEntry[],
   importedLocalSongId?: string,
-): "Ready" | "MissingSong" =>
+): 'Ready' | 'MissingSong' =>
   roomProjectNeedsDownload(room, library, importedLocalSongId)
-    ? "MissingSong"
-    : "Ready";
+    ? 'MissingSong'
+    : 'Ready';
 
 export const reconcileRemoteParticipants = (
   registered: ReadonlySet<string>,
@@ -112,33 +117,33 @@ export const reconcileRemoteParticipants = (
 };
 
 const sharedStatuses = [
-  "all",
-  "ready",
-  "importing",
-  "processing",
-  "queued",
-  "not-processed",
-  "failed",
-  "invalid",
+  'all',
+  'ready',
+  'importing',
+  'processing',
+  'queued',
+  'not-processed',
+  'failed',
+  'invalid',
 ] as const;
 const sharedSorts = [
-  "recent",
-  "title",
-  "artist",
-  "played",
-  "duration",
-  "bpm",
+  'recent',
+  'title',
+  'artist',
+  'played',
+  'duration',
+  'bpm',
 ] as const;
-const sharedDirections = ["asc", "desc"] as const;
+const sharedDirections = ['asc', 'desc'] as const;
 const sharedLanguages = [
-  "all",
-  "Auto",
-  "Ukrainian",
-  "Russian",
-  "English",
+  'all',
+  'Auto',
+  'Ukrainian',
+  'Russian',
+  'English',
 ] as const;
-const sharedDurations = ["all", "short", "medium", "long"] as const;
-const sharedArtwork = ["all", "with", "without"] as const;
+const sharedDurations = ['all', 'short', 'medium', 'long'] as const;
+const sharedArtwork = ['all', 'with', 'without'] as const;
 
 const allowed = <T extends string>(
   value: string | undefined,
@@ -155,46 +160,46 @@ export const encodeSharedLibraryView = (view: {
   direction: string;
 }) => ({
   libraryStatus: [view.status, view.language, view.duration, view.artwork].join(
-    "|",
+    '|',
   ),
-  librarySort: [view.sort, view.direction].join("|"),
+  librarySort: [view.sort, view.direction].join('|'),
 });
 
 export const sharedLibraryView = (room: RoomStateDto) => {
   const [status, language, duration, artwork] = (
-    room.libraryStatus ?? "all"
-  ).split("|");
-  const [sort, direction] = (room.librarySort ?? "recent|desc").split("|");
+    room.libraryStatus ?? 'all'
+  ).split('|');
+  const [sort, direction] = (room.librarySort ?? 'recent|desc').split('|');
   return {
-    query: room.libraryQuery ?? "",
-    status: allowed(status, sharedStatuses, "all"),
-    language: allowed(language, sharedLanguages, "all"),
-    duration: allowed(duration, sharedDurations, "all"),
-    artwork: allowed(artwork, sharedArtwork, "all"),
-    sort: allowed(sort, sharedSorts, "recent"),
-    direction: allowed(direction, sharedDirections, "desc"),
+    query: room.libraryQuery ?? '',
+    status: allowed(status, sharedStatuses, 'all'),
+    language: allowed(language, sharedLanguages, 'all'),
+    duration: allowed(duration, sharedDurations, 'all'),
+    artwork: allowed(artwork, sharedArtwork, 'all'),
+    sort: allowed(sort, sharedSorts, 'recent'),
+    direction: allowed(direction, sharedDirections, 'desc'),
   };
 };
 
 export type RoomPlaybackPlan =
-  | { kind: "stop" }
-  | { kind: "pause"; positionSeconds: number }
-  | { kind: "schedule"; delayMilliseconds: number; positionSeconds: number }
-  | { kind: "play"; positionSeconds: number };
+  | { kind: 'stop' }
+  | { kind: 'pause'; positionSeconds: number }
+  | { kind: 'schedule'; delayMilliseconds: number; positionSeconds: number }
+  | { kind: 'play'; positionSeconds: number };
 
 export const playbackPlan = (room: RoomStateDto): RoomPlaybackPlan => {
   const position = Math.max(0, room.playbackPositionSeconds ?? 0);
-  if (room.playbackState === "paused")
+  if (room.playbackState === 'paused')
     return {
-      kind: "pause",
+      kind: 'pause',
       positionSeconds: position,
     };
   if (
-    room.playbackState !== "playing" ||
+    room.playbackState !== 'playing' ||
     !room.playbackStartedAt ||
     !room.serverNow
   )
-    return { kind: "stop" };
+    return { kind: 'stop' };
   const start = Date.parse(room.playbackStartedAt);
   const snapshotNow = Date.parse(room.serverNow);
   const estimatedServerNow =
@@ -207,12 +212,12 @@ export const playbackPlan = (room: RoomStateDto): RoomPlaybackPlan => {
       : 0;
   if (deltaMilliseconds > 0)
     return {
-      kind: "schedule",
+      kind: 'schedule',
       delayMilliseconds: deltaMilliseconds,
       positionSeconds: position,
     };
   return {
-    kind: "play",
+    kind: 'play',
     positionSeconds:
       position +
       Math.max(0, -deltaMilliseconds / 1000) * (room.playbackRate ?? 1),

@@ -1,12 +1,12 @@
-import { store } from "../../../../../providers/store";
-import { tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
-import { monitoringErrorText } from "../../../../../shared/errors";
-import { useEffect, useRef, useState } from "react";
-import { useNotify } from "../../../../../providers/notifications";
-import { applyVoiceChain } from "../../../../../features/karaoke/console/voiceChain";
-import { audioClient as audio } from "../../../../../services/audioClient";
-import { audioSessionFor } from "./audioSession";
+import { store } from '../../../../../providers/store';
+import { tr, useLocale } from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
+import { monitoringErrorText } from '../../../../../shared/errors';
+import { useEffect, useRef, useState } from 'react';
+import { useNotify } from '../../../../../providers/notifications';
+import { applyVoiceChain } from '../../../../../features/karaoke/console/voiceChain';
+import { audioClient as audio } from '../../../../../services/audioClient';
+import { audioSessionFor } from './audioSession';
 
 const meterIntervalMs = 100;
 const safetyCheckEvery = 5;
@@ -34,7 +34,7 @@ export const useInputMonitoring = (canStart: boolean) => {
       const { notify } = latest.current;
       notify(
         `${tr(ru.inputTestFailed)}: ${monitoringErrorText(error)}`,
-        "error",
+        'error',
       );
     };
     const sample = async () => {
@@ -47,7 +47,7 @@ export const useInputMonitoring = (canStart: boolean) => {
           if (stopped) return;
           if (snapshot.monitoringSafetyTripped) {
             const { notify } = latest.current;
-            notify(tr(ru.monitoringSafetyStopped), "error");
+            notify(tr(ru.monitoringSafetyStopped), 'error');
             setTestingInputState(false);
             return;
           }

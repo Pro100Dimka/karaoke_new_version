@@ -1,14 +1,31 @@
-import { contextBridge, ipcRenderer, webUtils } from "electron";
-import { ipcChannels, roomParticipantArgument } from "./ipcChannels";
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
+import { ipcChannels, roomParticipantArgument } from './ipcChannels';
 
 const desktopApi = {
-  fixedStorageRoot: process.env.AD_VOICE_FIXED_STORAGE === "1",
-  roomE2e: process.env.AD_VOICE_ROOM_E2E === "1",
+  fixedStorageRoot: process.env.AD_VOICE_FIXED_STORAGE === '1',
+  roomE2e: process.env.AD_VOICE_ROOM_E2E === '1',
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),
-  dragWindow: (phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.dragWindow, phase, anchorRatio, anchorY, screenX, screenY),
-  setConsoleBounds: (bounds: { x?: number; y?: number; width?: number; height?: number }): Promise<void> =>
-    ipcRenderer.invoke(ipcChannels.setConsoleBounds, bounds),
+  dragWindow: (
+    phase: 'start' | 'move' | 'end',
+    anchorRatio?: number,
+    anchorY?: number,
+    screenX?: number,
+    screenY?: number,
+  ): Promise<void> =>
+    ipcRenderer.invoke(
+      ipcChannels.dragWindow,
+      phase,
+      anchorRatio,
+      anchorY,
+      screenX,
+      screenY,
+    ),
+  setConsoleBounds: (bounds: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  }): Promise<void> => ipcRenderer.invoke(ipcChannels.setConsoleBounds, bounds),
 
   toggleMaximize: (): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.toggleMaximize),
@@ -154,7 +171,8 @@ const desktopApi = {
 
   /** Commands from the taskbar, tray, jump list, links and hotkeys; queued ones arrive once subscribed. */
   onShellCommand: (listener: (command: unknown) => void): (() => void) => {
-    const handler = (_event: unknown, command: unknown): void => listener(command);
+    const handler = (_event: unknown, command: unknown): void =>
+      listener(command);
     ipcRenderer.on(ipcChannels.shellCommand, handler);
     void ipcRenderer.invoke(ipcChannels.shellReady, true);
     return () => {
@@ -168,7 +186,8 @@ const desktopApi = {
     ipcRenderer.invoke(ipcChannels.notify, notification),
 
   /** Restarts into a downloaded, verified update; false when none is ready. */
-  installUpdate: (): Promise<boolean> => ipcRenderer.invoke(ipcChannels.installUpdate),
+  installUpdate: (): Promise<boolean> =>
+    ipcRenderer.invoke(ipcChannels.installUpdate),
 
   saveTextFile: (defaultName: string, content: string): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.saveTextFile, { defaultName, content }),
@@ -230,10 +249,10 @@ const desktopApi = {
   },
 };
 
-contextBridge.exposeInMainWorld("desktop", {
+contextBridge.exposeInMainWorld('desktop', {
   ...desktopApi,
   roomParticipantId:
     process.argv
       .find((argument) => argument.startsWith(roomParticipantArgument))
-      ?.slice(roomParticipantArgument.length) ?? "",
+      ?.slice(roomParticipantArgument.length) ?? '',
 });

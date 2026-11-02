@@ -41,6 +41,9 @@
   gap: var(--ad-space-2);
 }
 
-
-
-.songSettingsCover { inline-size: min(100%, 18rem); max-block-size: 15rem; object-fit: contain; border-radius: var(--ad-radius); }
+.songSettingsCover {
+  inline-size: min(100%, 18rem);
+  max-block-size: 15rem;
+  object-fit: contain;
+  border-radius: var(--ad-radius);
+}

@@ -1,7 +1,7 @@
-import { createPortal } from "react-dom";
-import { titleBarLeadingId } from "../../app/TitleBar";
-import { ru } from "../../i18n/messages.ru";
-import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
+import { createPortal } from 'react-dom';
+import { titleBarLeadingId } from '../../app/TitleBar';
+import { ru } from '../../i18n/messages.ru';
+import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */
@@ -35,8 +35,10 @@ export const KaraokeHeader = ({
           <IconButton
             round
             size="lg"
-            icon={consoleToggle.visible ? "down" : "up"}
-            label={tr(ru[consoleToggle.visible ? "hideConsole" : "showConsole"])}
+            icon={consoleToggle.visible ? 'down' : 'up'}
+            label={tr(
+              ru[consoleToggle.visible ? 'hideConsole' : 'showConsole'],
+            )}
             onClick={consoleToggle.onToggle}
           />
         )}

@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 
 export interface IpcRegistrar {
   handle(
@@ -12,17 +12,17 @@ export const createTrustedIpc = (
   rendererUrl: string,
 ) => {
   const entry = new URL(rendererUrl);
-  entry.hash = "";
+  entry.hash = '';
   const isRendererUrl = (value: string): boolean => {
     try {
       const url = new URL(value);
-      url.hash = "";
+      url.hash = '';
       return url.href === entry.href;
     } catch {
       return false;
     }
   };
-  const handle: IpcRegistrar["handle"] = (channel, listener) => {
+  const handle: IpcRegistrar['handle'] = (channel, listener) => {
     ipcMain.handle(channel, (event, ...args: unknown[]) => {
       const window = getWindow();
       if (
@@ -34,7 +34,7 @@ export const createTrustedIpc = (
         event.senderFrame !== event.sender.mainFrame ||
         !isRendererUrl(event.senderFrame.url)
       ) {
-        throw new Error("Untrusted IPC sender");
+        throw new Error('Untrusted IPC sender');
       }
       return listener(event, ...args);
     });

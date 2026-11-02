@@ -1,4 +1,4 @@
-import "../../i18n/messages";
+import '../../i18n/messages';
 import { addMessages, LocaleProvider } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, type PropsWithChildren } from 'react';

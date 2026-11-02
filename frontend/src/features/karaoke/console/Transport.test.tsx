@@ -1,15 +1,15 @@
-import { QueryProvider } from "../../../test/QueryProvider";
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { QueryProvider } from '../../../test/QueryProvider';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
-import { Transport } from "./Transport";
+import { Transport } from './Transport';
 
-describe("Transport room readiness", () => {
-  it("disables every transport action while another participant is still preparing", () => {
+describe('Transport room readiness', () => {
+  it('disables every transport action while another participant is still preparing', () => {
     render(
       <QueryProvider application>
         <Transport
-          state={{ kind: "playing" }}
+          state={{ kind: 'playing' }}
           position={12}
           duration={180}
           seekLocked
@@ -20,7 +20,7 @@ describe("Transport room readiness", () => {
       </QueryProvider>,
     );
 
-    for (const button of screen.getAllByRole("button"))
+    for (const button of screen.getAllByRole('button'))
       expect(button).toBeDisabled();
   });
 });

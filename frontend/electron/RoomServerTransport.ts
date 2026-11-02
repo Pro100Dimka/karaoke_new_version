@@ -1,7 +1,7 @@
-import { sendAudioRequest } from "./AudioServiceTransport";
-import { withRoomKey } from "./RoomIdentity";
-import { createHash } from "node:crypto";
-import { hostname } from "node:os";
+import { sendAudioRequest } from './AudioServiceTransport';
+import { withRoomKey } from './RoomIdentity';
+import { createHash } from 'node:crypto';
+import { hostname } from 'node:os';
 
 export interface RoomServerRequest {
   method: string;
@@ -29,14 +29,14 @@ const legacyRoomServerUrl = (() => {
 const roomServerHost =
   process.env.AD_VOICE_ROOM_SERVER_HOST ??
   legacyRoomServerUrl?.hostname ??
-  "130.61.169.61";
+  '130.61.169.61';
 const roomServerPort =
-  process.env.AD_VOICE_ROOM_SERVER_PORT ?? legacyRoomServerUrl?.port ?? "8081";
+  process.env.AD_VOICE_ROOM_SERVER_PORT ?? legacyRoomServerUrl?.port ?? '8081';
 const roomServerProtocol =
-  legacyRoomServerUrl?.protocol === "https:" ? "https:" : "http:";
+  legacyRoomServerUrl?.protocol === 'https:' ? 'https:' : 'http:';
 export const roomServerApiBase = `${roomServerProtocol}//${roomServerHost}:${roomServerPort}`;
 const roomServerRelayPort = Number(
-  process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? "40000",
+  process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? '40000',
 );
 
 let profileServerLogsDisabled = false;
@@ -49,8 +49,9 @@ export const roomServerRequest = async (
   request: RoomServerRequest,
 ): Promise<RoomServerResponse> => {
   if (
-    (profileServerLogsDisabled || process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined) &&
-    request.method.toUpperCase() === "POST" &&
+    (profileServerLogsDisabled ||
+      process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined) &&
+    request.method.toUpperCase() === 'POST' &&
     (/^\/app-logs(?:\?|$)/.test(request.path) ||
       /^\/rooms\/[^/?]+\/diagnostics(?:\?|$)/.test(request.path))
   )
@@ -60,7 +61,7 @@ export const roomServerRequest = async (
   // Room changes use a 25-second server long poll; ordinary control requests should fail sooner.
   const timeoutMs = /\/changes(?:\?|$)/.test(request.path) ? 35_000 : 10_000;
   const timeout = setTimeout(
-    () => controller.abort(new Error("Room server request timed out")),
+    () => controller.abort(new Error('Room server request timed out')),
     timeoutMs,
   );
   try {
@@ -68,7 +69,7 @@ export const roomServerRequest = async (
       method: request.method,
       // Every room request carries this profile's room key: the server accepts a participant id only from its owner.
       headers: await withRoomKey({
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...request.headers,
       }),
       body:
@@ -81,11 +82,11 @@ export const roomServerRequest = async (
   } catch (error) {
     // The shared room server being unreachable is an expected state (offline, DNS hiccup), reported as data.
     const message =
-      error instanceof Error ? error.message : "Room server is unreachable";
+      error instanceof Error ? error.message : 'Room server is unreachable';
     return {
       status: 503,
       ok: false,
-      body: { code: "RoomServerUnavailable", message },
+      body: { code: 'RoomServerUnavailable', message },
     };
   } finally {
     clearTimeout(timeout);
@@ -100,9 +101,9 @@ interface ActiveVoiceSession {
   generation: number;
 }
 
-const machineId = createHash("sha256")
+const machineId = createHash('sha256')
   .update(hostname())
-  .digest("hex")
+  .digest('hex')
   .slice(0, 32);
 let activeVoice: ActiveVoiceSession | undefined;
 let latestVoiceLevels: Record<string, number> = {};
@@ -114,14 +115,19 @@ let pendingTransitions = 0;
 const maximumPendingTransitions = 32;
 const pendingGains = new Map<
   string,
-  { session: ActiveVoiceSession; latest: number; revision: number; promise: Promise<void> }
+  {
+    session: ActiveVoiceSession;
+    latest: number;
+    revision: number;
+    promise: Promise<void>;
+  }
 >();
 
 const transition = <T>(
   operation: (generation: number) => Promise<T>,
 ): Promise<T> => {
   if (pendingTransitions >= maximumPendingTransitions)
-    return Promise.reject(new Error("Too many pending voice transitions"));
+    return Promise.reject(new Error('Too many pending voice transitions'));
   pendingTransitions += 1;
   const generation = ++voiceGeneration;
   const result = transitionTail.then(() => operation(generation));
@@ -136,7 +142,7 @@ const transition = <T>(
 
 const requireCurrent = (generation: number) => {
   if (generation !== voiceGeneration)
-    throw new Error("Room voice transition was superseded");
+    throw new Error('Room voice transition was superseded');
 };
 
 const requireOk = (response: RoomServerResponse): void => {
@@ -151,13 +157,13 @@ const closeActiveVoice = async (force = false): Promise<void> => {
   pushedVoiceLevels = false;
   nextLegacyLevelsRequestAt = 0;
   if (session || force)
-    await sendAudioRequest({ command: "LeaveMediaSession" }).catch(
+    await sendAudioRequest({ command: 'LeaveMediaSession' }).catch(
       () => undefined,
     );
   if (session)
     await roomServerRequest({
-      method: "POST",
-      path: "/voice/leave",
+      method: 'POST',
+      path: '/voice/leave',
       body: { participantId: session.participantId },
     });
 };
@@ -173,23 +179,28 @@ export const joinRoomVoice = (
     let registered = false;
     try {
       const registration = await roomServerRequest({
-        method: "POST",
-        path: "/voice/join",
+        method: 'POST',
+        path: '/voice/join',
         body: { roomId, participantId, machineId },
       });
       requireOk(registration);
       registered = true;
       const voiceToken =
-        registration.body && typeof registration.body === "object"
+        registration.body && typeof registration.body === 'object'
           ? (registration.body as Record<string, unknown>).voiceToken
           : undefined;
-      if (typeof voiceToken !== "string" || !/^[0-9a-f]{16}$/i.test(voiceToken))
-        throw new Error("Room voice registration returned an invalid token");
+      if (typeof voiceToken !== 'string' || !/^[0-9a-f]{16}$/i.test(voiceToken))
+        throw new Error('Room voice registration returned an invalid token');
       requireCurrent(generation);
-      const session: ActiveVoiceSession = { roomId, participantId, voiceToken, generation };
+      const session: ActiveVoiceSession = {
+        roomId,
+        participantId,
+        voiceToken,
+        generation,
+      };
       activeVoice = session;
       const response = await sendAudioRequest({
-        command: "JoinMediaSession",
+        command: 'JoinMediaSession',
         args: {
           localParticipantId: participantId,
           // Every desktop instance needs its own source port. The OS-selected ephemeral port is
@@ -201,15 +212,15 @@ export const joinRoomVoice = (
         },
       });
       if (response.status !== 0)
-        throw new Error(response.text || "AudioService rejected voice session");
+        throw new Error(response.text || 'AudioService rejected voice session');
       requireCurrent(generation);
       return response;
     } catch (error) {
       if (activeVoice?.generation === generation) await closeActiveVoice();
       else if (registered)
         await roomServerRequest({
-          method: "POST",
-          path: "/voice/leave",
+          method: 'POST',
+          path: '/voice/leave',
           body: { participantId },
         });
       throw error;
@@ -222,7 +233,7 @@ export const leaveRoomVoice = (): Promise<void> =>
     await closeActiveVoice(true);
   });
 
-export const roomVoiceRoute = (): "relay" => "relay";
+export const roomVoiceRoute = (): 'relay' => 'relay';
 
 export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   const session = activeVoice;
@@ -232,8 +243,8 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
     return { ...latestVoiceLevels };
   nextLegacyLevelsRequestAt = now + 1_000;
   const response = await roomServerRequest({
-    method: "POST",
-    path: "/voice/levels",
+    method: 'POST',
+    path: '/voice/levels',
     body: {
       roomId: session.roomId,
       participantId: session.participantId,
@@ -245,12 +256,12 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
     activeVoice?.generation !== session.generation ||
     !response.ok ||
     !response.body ||
-    typeof response.body !== "object"
+    typeof response.body !== 'object'
   )
     return { ...latestVoiceLevels };
   latestVoiceLevels = Object.fromEntries(
     Object.entries(response.body as Record<string, unknown>).filter(
-      (entry): entry is [string, number] => typeof entry[1] === "number",
+      (entry): entry is [string, number] => typeof entry[1] === 'number',
     ),
   );
   return { ...latestVoiceLevels };
@@ -261,7 +272,8 @@ export const setRoomVoiceParticipantGain = (
   gain: number,
 ): Promise<void> => {
   const session = activeVoice;
-  if (!session) return Promise.reject(new Error("Room voice session is not active"));
+  if (!session)
+    return Promise.reject(new Error('Room voice session is not active'));
   const bounded = Math.max(0, Math.min(2, gain));
   const existing = pendingGains.get(sourceParticipantId);
   if (existing?.session === session) {
@@ -269,16 +281,24 @@ export const setRoomVoiceParticipantGain = (
     existing.revision += 1;
     return existing.promise;
   }
-  const pending = { session, latest: bounded, revision: 0, promise: Promise.resolve() };
+  const pending = {
+    session,
+    latest: bounded,
+    revision: 0,
+    promise: Promise.resolve(),
+  };
   pendingGains.set(sourceParticipantId, pending);
   pending.promise = (async () => {
     try {
-      while (activeVoice === session && voiceGeneration === session.generation) {
+      while (
+        activeVoice === session &&
+        voiceGeneration === session.generation
+      ) {
         const next = pending.latest;
         const revision = pending.revision;
         const response = await roomServerRequest({
-          method: "POST",
-          path: "/voice/participant-gain",
+          method: 'POST',
+          path: '/voice/participant-gain',
           body: {
             roomId: session.roomId,
             participantId: session.participantId,
@@ -287,7 +307,8 @@ export const setRoomVoiceParticipantGain = (
             gain: next,
           },
         });
-        if (activeVoice !== session || voiceGeneration !== session.generation) return;
+        if (activeVoice !== session || voiceGeneration !== session.generation)
+          return;
         if (pending.revision === revision) {
           requireOk(response);
           return;
@@ -303,18 +324,18 @@ export const setRoomVoiceParticipantGain = (
 
 /** Accepts the transient room message carried by the already-open social WebSocket. */
 export const acceptRoomVoiceLevels = (message: unknown): void => {
-  if (!activeVoice || !message || typeof message !== "object") return;
+  if (!activeVoice || !message || typeof message !== 'object') return;
   const value = message as Record<string, unknown>;
   if (
-    value.type !== "voiceLevels" ||
+    value.type !== 'voiceLevels' ||
     value.roomId !== activeVoice.roomId ||
     !value.levels ||
-    typeof value.levels !== "object"
+    typeof value.levels !== 'object'
   )
     return;
   latestVoiceLevels = Object.fromEntries(
     Object.entries(value.levels as Record<string, unknown>).filter(
-      (entry): entry is [string, number] => typeof entry[1] === "number",
+      (entry): entry is [string, number] => typeof entry[1] === 'number',
     ),
   );
   pushedVoiceLevels = true;

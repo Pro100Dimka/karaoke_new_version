@@ -1,7 +1,10 @@
-import type { PlaybackAdjustment, RecordingStatus } from "../application/karaoke/KaraokePorts";
-import { command } from "./audioSession";
-import { desktopBridge } from "./desktopBridge";
-import type { KaraokeNoteScore, SongDto } from "../contracts/models";
+import type {
+  PlaybackAdjustment,
+  RecordingStatus,
+} from '../application/karaoke/KaraokePorts';
+import { command } from './audioSession';
+import { desktopBridge } from './desktopBridge';
+import type { KaraokeNoteScore, SongDto } from '../contracts/models';
 
 interface RecordingTarget {
   recordingId: string;
@@ -27,21 +30,21 @@ interface NativeRecordingResult {
 const nativeRecordingResult = (text: string): NativeRecordingResult => {
   const value = JSON.parse(text) as Partial<NativeRecordingResult> | null;
   const numericFields = [
-    "sampleRate",
-    "channels",
-    "durationFrames",
-    "startSessionFrame",
-    "stopSessionFrame",
-    "startPlaybackPosition",
-    "overrunCount",
-    "gapMetadataDropped",
-    "staleBlocks",
+    'sampleRate',
+    'channels',
+    'durationFrames',
+    'startSessionFrame',
+    'stopSessionFrame',
+    'startPlaybackPosition',
+    'overrunCount',
+    'gapMetadataDropped',
+    'staleBlocks',
   ] as const;
   const validNumber = (number: unknown): number is number =>
-    typeof number === "number" && Number.isSafeInteger(number) && number >= 0;
+    typeof number === 'number' && Number.isSafeInteger(number) && number >= 0;
   if (
     !value ||
-    typeof value !== "object" ||
+    typeof value !== 'object' ||
     !numericFields.every((field) => validNumber(value[field])) ||
     !value.sampleRate ||
     !value.channels ||
@@ -52,7 +55,7 @@ const nativeRecordingResult = (text: string): NativeRecordingResult => {
         gap && validNumber(gap.startFrame) && validNumber(gap.frameCount),
     )
   ) {
-    throw new Error("AudioService returned invalid recording metadata");
+    throw new Error('AudioService returned invalid recording metadata');
   }
   return value as NativeRecordingResult;
 };
@@ -76,7 +79,8 @@ let generation = 0;
 const audio: typeof command = async (...args) => {
   const current = generation;
   const result = await command(...args);
-  if (current !== generation) throw new Error("Recording audio session was interrupted");
+  if (current !== generation)
+    throw new Error('Recording audio session was interrupted');
   return result;
 };
 
@@ -87,15 +91,17 @@ const transition = (
   work: () => Promise<RecordingStatus>,
 ): Promise<RecordingStatus> => {
   const current = generation;
-  const isStop = key === "stop";
+  const isStop = key === 'stop';
   key = `${current}:${key}`;
   if (flight?.key === key) return flight.promise;
   if (pendingTransitions >= 32)
-    return Promise.reject(new Error("Recording command queue is full"));
+    return Promise.reject(new Error('Recording command queue is full'));
   pendingTransitions++;
   const promise = (flight?.promise ?? Promise.resolve())
     .catch(() => undefined)
-    .then(() => current === generation || isStop ? work() : { recording: false });
+    .then(() =>
+      current === generation || isStop ? work() : { recording: false },
+    );
   flight = { key, promise };
   const settled = () => {
     pendingTransitions--;
@@ -107,17 +113,17 @@ const transition = (
 
 const python = async <T>(request: PythonBridgeRequest): Promise<T> => {
   const response = await desktopBridge().pythonRequest(request);
-  if (!response.ok) throw new Error("Python backend request failed");
+  if (!response.ok) throw new Error('Python backend request failed');
   return response.body as T;
 };
 
 const discardTarget = async (target: RecordingTarget): Promise<void> => {
   const response = await desktopBridge().pythonRequest({
-    method: "DELETE",
+    method: 'DELETE',
     path: `/recordings/${encodeURIComponent(target.recordingId)}`,
   });
   if (!response.ok && response.status !== 404)
-    throw new Error("Empty recording cleanup failed");
+    throw new Error('Empty recording cleanup failed');
 };
 
 /** Seconds of audio in the take so far: wall time since the start without the paused stretches. */
@@ -146,22 +152,25 @@ const stop = async (): Promise<RecordingStatus> => {
   if (current.interrupted) {
     // A transport failure can leave the original writer alive. Close it before recovery.
     // A restarted service has nothing to stop; recovery independently requires an exclusive file lock.
-    await audio("StopRecording").catch(() => undefined);
-    await python({ method: "POST", path: `/recordings/${encodeURIComponent(current.target.recordingId)}/recover` });
+    await audio('StopRecording').catch(() => undefined);
+    await python({
+      method: 'POST',
+      path: `/recordings/${encodeURIComponent(current.target.recordingId)}/recover`,
+    });
     active = null;
     return { recording: false };
   }
   if (!current.prepared) {
     // Prepare may have succeeded before its IPC reply was lost. Close it before deleting only an empty target.
-    await audio("StopRecording").catch(() => undefined);
+    await audio('StopRecording').catch(() => undefined);
     await discardTarget(current.target);
     active = null;
     return { recording: false };
   }
   current.finalizedPath ??=
-    (await audio("StopRecording")) || current.target.filePath;
+    (await audio('StopRecording')) || current.target.filePath;
   current.nativeResult ??= nativeRecordingResult(
-    await audio("GetRecordingState", { details: true }),
+    await audio('GetRecordingState', { details: true }),
   );
   if (current.nativeResult.durationFrames === 0) {
     await discardTarget(current.target);
@@ -176,12 +185,12 @@ const stop = async (): Promise<RecordingStatus> => {
     Math.abs(native.durationFrames / native.sampleRate - info.durationSeconds) >
       1 / info.sampleRate
   ) {
-    throw new Error("Recording metadata does not match the saved audio");
+    throw new Error('Recording metadata does not match the saved audio');
   }
   await python({
-    method: "POST",
-    path: "/recordings",
-    headers: { "Idempotency-Key": current.target.recordingId },
+    method: 'POST',
+    path: '/recordings',
+    headers: { 'Idempotency-Key': current.target.recordingId },
     body: {
       recordingId: current.target.recordingId,
       filePath: current.finalizedPath,
@@ -224,7 +233,8 @@ export const recordingCoordinator = {
     return transition(`start:${song.id}:${song.activeRevision}`, async () => {
       const requestedGeneration = generation;
       if (
-        active?.interrupted || active?.finalizedPath ||
+        active?.interrupted ||
+        active?.finalizedPath ||
         (active &&
           (active.song.id !== song.id ||
             active.song.activeRevision !== song.activeRevision))
@@ -234,8 +244,8 @@ export const recordingCoordinator = {
       if (!active) {
         const current = generation;
         const target = await python<RecordingTarget>({
-          method: "POST",
-          path: "/recordings/target",
+          method: 'POST',
+          path: '/recordings/target',
           body: { songId: song.id, songRevision: song.activeRevision },
         });
         active = {
@@ -254,26 +264,33 @@ export const recordingCoordinator = {
             noteStabilityPercent: 0,
           },
         };
-        if (active.interrupted) throw new Error("Recording audio session was interrupted");
+        if (active.interrupted)
+          throw new Error('Recording audio session was interrupted');
       }
       if (!active.prepared) {
-        await audio("PrepareRecording", {
+        await audio('PrepareRecording', {
           id: active.target.recordingId,
           path: active.target.filePath,
-          tap: "performance",
+          tap: 'performance',
           backing: true,
         });
         active.prepared = true;
       }
       if (active.startedAt !== null) return { recording: true };
-      await audio("StartRecording");
+      await audio('StartRecording');
       active.startedAt = performance.now();
       return { recording: true };
     });
   },
 
   updatePlaybackAdjustment(adjustment: PlaybackAdjustment) {
-    if (!active || active.interrupted || active.startedAt === null || active.finalizedPath) return;
+    if (
+      !active ||
+      active.interrupted ||
+      active.startedAt === null ||
+      active.finalizedPath
+    )
+      return;
     active.playbackAdjustments.push({
       elapsedSeconds: takeSeconds(active),
       ...adjustment,
@@ -285,7 +302,7 @@ export const recordingCoordinator = {
    * neither saved nor scored against the note the song stopped on.
    */
   pause() {
-    return transition("pause", async () => {
+    return transition('pause', async () => {
       if (
         !active ||
         active.interrupted ||
@@ -295,7 +312,7 @@ export const recordingCoordinator = {
       ) {
         return { recording: active !== null };
       }
-      await audio("PauseRecording");
+      await audio('PauseRecording');
       active.pausedAt = performance.now();
       return { recording: true };
     });
@@ -303,10 +320,15 @@ export const recordingCoordinator = {
 
   /** The song plays again, possibly from another moment than where it was paused. */
   resume(adjustment: PlaybackAdjustment) {
-    return transition("resume", async () => {
-      if (!active || active.interrupted || active.pausedAt === null || active.finalizedPath)
+    return transition('resume', async () => {
+      if (
+        !active ||
+        active.interrupted ||
+        active.pausedAt === null ||
+        active.finalizedPath
+      )
         return { recording: active !== null };
-      await audio("ResumeRecording");
+      await audio('ResumeRecording');
       active.pausedMilliseconds += performance.now() - active.pausedAt;
       active.pausedAt = null;
       active.playbackAdjustments.push({
@@ -363,6 +385,6 @@ export const recordingCoordinator = {
   },
 
   stop() {
-    return transition("stop", stop);
+    return transition('stop', stop);
   },
 };

@@ -1,14 +1,14 @@
-import { QueryProvider } from "../../test/QueryProvider";
-import { act, renderHook } from "@testing-library/react";
-import { useRef, type ReactNode } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { QueryProvider } from '../../test/QueryProvider';
+import { act, renderHook } from '@testing-library/react';
+import { useRef, type ReactNode } from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   loadPreferences,
   type PianoRollLayout,
-} from "../../shared/preferences/preferences";
-import { usePianoRollLayout } from "./usePianoRollLayout";
-import { clearStorage } from "../../shared/storage/localStore";
+} from '../../shared/preferences/preferences';
+import { usePianoRollLayout } from './usePianoRollLayout';
+import { clearStorage } from '../../shared/storage/localStore';
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryProvider application>{children}</QueryProvider>
@@ -50,37 +50,37 @@ const requireLayout = (result: {
 }): PianoRollLayout => {
   const { layout } = result.current;
   expect(layout).not.toBeNull();
-  if (!layout) throw new Error("layout unexpectedly null");
+  if (!layout) throw new Error('layout unexpectedly null');
   return layout;
 };
 
-describe("usePianoRollLayout", () => {
+describe('usePianoRollLayout', () => {
   beforeEach(() => {
     clearStorage();
     // A cramped viewport makes every resize immediately hit the window-edge clamp, which is a separate
     // concern from the anchor math these tests target; a realistic desktop size keeps them independent.
-    Object.defineProperty(window, "innerWidth", {
+    Object.defineProperty(window, 'innerWidth', {
       value: 1920,
       configurable: true,
     });
-    Object.defineProperty(window, "innerHeight", {
+    Object.defineProperty(window, 'innerHeight', {
       value: 1080,
       configurable: true,
     });
   });
 
   afterEach(() => {
-    Object.defineProperty(window, "innerWidth", {
+    Object.defineProperty(window, 'innerWidth', {
       value: 1024,
       configurable: true,
     });
-    Object.defineProperty(window, "innerHeight", {
+    Object.defineProperty(window, 'innerHeight', {
       value: 768,
       configurable: true,
     });
   });
 
-  it("a plain click selects the panel without moving or saving a layout", () => {
+  it('a plain click selects the panel without moving or saving a layout', () => {
     const { result } = renderLayout();
     expect(result.current.active).toBe(false);
 
@@ -93,7 +93,7 @@ describe("usePianoRollLayout", () => {
     expect(loadPreferences().pianoRollLayout).toBeNull();
   });
 
-  it("a real drag moves the panel and saves the new layout for next time", () => {
+  it('a real drag moves the panel and saves the new layout for next time', () => {
     const { result } = renderLayout();
 
     drag(result, [100, 50], [160, 90]);
@@ -105,17 +105,17 @@ describe("usePianoRollLayout", () => {
     });
   });
 
-  it("resizing from the bottom-right corner grows the panel and clamps it to the minimum size", () => {
+  it('resizing from the bottom-right corner grows the panel and clamps it to the minimum size', () => {
     const { result } = renderLayout();
 
-    act(() => result.current.beginResize("se")(spanEvent(0)));
+    act(() => result.current.beginResize('se')(spanEvent(0)));
     act(() => result.current.handleMove(fakeEvent(80, 40)));
     act(() => result.current.handleUp());
 
     expect(result.current.layout?.width).toBeGreaterThan(920);
     expect(result.current.layout?.height).toBeGreaterThan(180);
 
-    act(() => result.current.beginResize("se")(spanEvent(0)));
+    act(() => result.current.beginResize('se')(spanEvent(0)));
     act(() => result.current.handleMove(fakeEvent(-2000, -2000)));
     act(() => result.current.handleUp());
 
@@ -123,11 +123,11 @@ describe("usePianoRollLayout", () => {
     expect(result.current.layout?.height).toBeGreaterThanOrEqual(100);
   });
 
-  it("resizing from a single edge only changes that one axis, anchored on the opposite side", () => {
+  it('resizing from a single edge only changes that one axis, anchored on the opposite side', () => {
     const { result } = renderLayout();
 
     // The east edge only grows width; the panel's own left edge (its anchor) never moves.
-    act(() => result.current.beginResize("e")(spanEvent(0, 0)));
+    act(() => result.current.beginResize('e')(spanEvent(0, 0)));
     act(() => result.current.handleMove(fakeEvent(50, 0)));
     act(() => result.current.handleUp());
     expect(result.current.layout).toMatchObject({
@@ -142,7 +142,7 @@ describe("usePianoRollLayout", () => {
     const rightEdge = beforeWest.left + beforeWest.width;
 
     // The west edge grows width by moving further left; the right edge (left + width) stays put.
-    act(() => result.current.beginResize("w")(spanEvent(0, 0)));
+    act(() => result.current.beginResize('w')(spanEvent(0, 0)));
     act(() => result.current.handleMove(fakeEvent(-30, 0)));
     act(() => result.current.handleUp());
     const afterWest = requireLayout(result);
@@ -150,13 +150,13 @@ describe("usePianoRollLayout", () => {
     expect(afterWest.width).toBe(1000);
   });
 
-  it("resizing from the top edge keeps the bottom edge anchored", () => {
+  it('resizing from the top edge keeps the bottom edge anchored', () => {
     const { result } = renderLayout();
     drag(result, [0, 0], [0, 200]); // away from the window's top edge first
 
     const beforeNorth = requireLayout(result);
     const bottomEdge = beforeNorth.top + beforeNorth.height;
-    act(() => result.current.beginResize("n")(spanEvent(0, 0)));
+    act(() => result.current.beginResize('n')(spanEvent(0, 0)));
     act(() => result.current.handleMove(fakeEvent(0, -40)));
     act(() => result.current.handleUp());
 
@@ -165,11 +165,11 @@ describe("usePianoRollLayout", () => {
     expect(afterNorth.top + afterNorth.height).toBe(bottomEdge);
   });
 
-  it("resizing from a corner changes both axes at once", () => {
+  it('resizing from a corner changes both axes at once', () => {
     const { result } = renderLayout();
     drag(result, [0, 0], [300, 300]); // away from both window edges first
 
-    act(() => result.current.beginResize("nw")(spanEvent(0, 0)));
+    act(() => result.current.beginResize('nw')(spanEvent(0, 0)));
     act(() => result.current.handleMove(fakeEvent(-20, -25)));
     act(() => result.current.handleUp());
 
@@ -181,7 +181,7 @@ describe("usePianoRollLayout", () => {
     });
   });
 
-  it("reapplies a previously saved layout on the next session", () => {
+  it('reapplies a previously saved layout on the next session', () => {
     const first = renderLayout();
     drag(first.result, [0, 0], [40, 20]);
     first.unmount();

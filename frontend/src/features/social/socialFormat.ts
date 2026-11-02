@@ -1,19 +1,19 @@
-import { tr } from "@neo-ui-kit/react";
-import { ru } from "../../i18n/messages.ru";
-import type { Language } from "../../contracts/models";
-import type { SocialPerson } from "../../contracts/social";
-import type { MessageKey } from "../../i18n/messages";
+import { tr } from '@neo-ui-kit/react';
+import { ru } from '../../i18n/messages.ru';
+import type { Language } from '../../contracts/models';
+import type { SocialPerson } from '../../contracts/social';
+import type { MessageKey } from '../../i18n/messages';
 
 const presenceKeys = {
-  Online: "presenceOnline",
-  InRoom: "presenceInRoom",
-  Offline: "presenceOffline",
-} as const satisfies Record<SocialPerson["presence"], MessageKey>;
+  Online: 'presenceOnline',
+  InRoom: 'presenceInRoom',
+  Offline: 'presenceOffline',
+} as const satisfies Record<SocialPerson['presence'], MessageKey>;
 
 const relativeSteps = [
-  ["day", 86_400],
-  ["hour", 3_600],
-  ["minute", 60],
+  ['day', 86_400],
+  ['hour', 3_600],
+  ['minute', 60],
 ] as const;
 
 /** "5 minutes ago", "yesterday"; in the app's language. */
@@ -23,9 +23,9 @@ export const since = (
   now = Date.now(),
 ): string => {
   const seconds = Math.max(0, (now - Date.parse(iso)) / 1000);
-  const format = new Intl.RelativeTimeFormat(language, { numeric: "auto" });
+  const format = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
   const [unit, size] = relativeSteps.find(([, step]) => seconds >= step) ?? [
-    "minute",
+    'minute',
     60,
   ];
   return format.format(-Math.floor(seconds / size), unit);
@@ -36,7 +36,7 @@ export const presenceText = (
   person: SocialPerson,
   language: Language,
 ): string =>
-  person.presence === "Offline" && person.lastSeenAt
+  person.presence === 'Offline' && person.lastSeenAt
     ? tr(ru.lastSeen, { when: since(person.lastSeenAt, language) })
     : tr(ru[presenceKeys[person.presence]]);
 

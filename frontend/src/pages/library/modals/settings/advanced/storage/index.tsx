@@ -1,24 +1,34 @@
-import { Button, Card, CollapsibleSection, DatabaseArt, KeyValueList, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import type { StorageUsageDto } from "../../../../../../contracts/models";
-import type { MessageKey } from "../../../../../../i18n/messages";
-import { ru } from "../../../../../../i18n/messages.ru";
-import { formatBytes } from "../../../../../../shared/utils/format";
-import { useStorageCleanup } from "./useStorageCleanup";
+import {
+  Button,
+  Card,
+  CollapsibleSection,
+  DatabaseArt,
+  KeyValueList,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { StorageUsageDto } from '../../../../../../contracts/models';
+import type { MessageKey } from '../../../../../../i18n/messages';
+import { ru } from '../../../../../../i18n/messages.ru';
+import { formatBytes } from '../../../../../../shared/utils/format';
+import { useStorageCleanup } from './useStorageCleanup';
 
 const parts = [
-  ["songs", "storageSongs"],
-  ["models", "storageModels"],
-  ["cache", "storageCache"],
-  ["recordings", "storageRecordings"],
-  ["temp", "storageTemp"],
+  ['songs', 'storageSongs'],
+  ['models', 'storageModels'],
+  ['cache', 'storageCache'],
+  ['recordings', 'storageRecordings'],
+  ['temp', 'storageTemp'],
 ] as const satisfies readonly (readonly [keyof StorageUsageDto, MessageKey])[];
 
 const cleanups = [
-  { kind: "cache", label: "clearCache", icon: "trash" },
+  { kind: 'cache', label: 'clearCache', icon: 'trash' },
   {
-    kind: "temp",
-    label: "removeTemporaryFiles",
-    icon: "history",
+    kind: 'temp',
+    label: 'removeTemporaryFiles',
+    icon: 'history',
   },
 ] as const;
 
@@ -42,9 +52,9 @@ export const StoragePanel = ({
       border
       className="advancedStorageCard"
       style={{
-        background: "unset!important",
-        boxShadow: "unset!important",
-        height: "100%",
+        background: 'unset!important',
+        boxShadow: 'unset!important',
+        height: '100%',
       }}
       icon="database"
       title={tr(ru.storage)}

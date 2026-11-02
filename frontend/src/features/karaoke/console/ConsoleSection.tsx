@@ -1,5 +1,5 @@
-import { Card } from "@neo-ui-kit/react";
-import type { ReactNode } from "react";
+import { Card } from '@neo-ui-kit/react';
+import type { ReactNode } from 'react';
 
 /** A titled glass panel of the lower console row: song channels, effects, parameters or mode. */
 export const ConsoleSection = ({

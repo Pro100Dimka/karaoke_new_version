@@ -1,18 +1,18 @@
-import { _electron as electron } from "playwright";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { clientSongs } from "./smoke-catalog.mjs";
+import { _electron as electron } from 'playwright';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { clientSongs } from './smoke-catalog.mjs';
 
 const frontend = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
+  '..',
 );
-const root = path.resolve(frontend, "..");
+const root = path.resolve(frontend, '..');
 const roomServer =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
+  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
 const portable =
   process.env.AD_VOICE_SMOKE_PACKAGED_EXE ??
-  path.join(root, "release", "app", "AD Voice", "AD Voice.exe");
+  path.join(root, 'release', 'app', 'AD Voice', 'AD Voice.exe');
 const roomButton = /Онлайн-комната|Online room|Онлайн-кімната/i;
 const createButton = /Создать комнату|Create room|Створити кімнату/i;
 const joinButton = /Войти в комнату|Join room|Увійти до кімнати/i;
@@ -23,16 +23,16 @@ const mainWindow = async (app) => {
   for (let attempt = 0; attempt < 180; attempt += 1) {
     const page = app
       .windows()
-      .find((candidate) => !candidate.url().includes("splash.html"));
+      .find((candidate) => !candidate.url().includes('splash.html'));
     if (page) {
       await page
-        .getByRole("button", { name: roomButton })
+        .getByRole('button', { name: roomButton })
         .waitFor({ timeout: 90_000 });
       return page;
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
-  throw new Error("AD Voice main window did not become ready");
+  throw new Error('AD Voice main window did not become ready');
 };
 
 let hostApp;
@@ -42,7 +42,7 @@ let guestProcess;
 try {
   hostApp = await electron.launch({
     cwd: frontend,
-    args: ["."],
+    args: ['.'],
     env: { ...process.env },
   });
   guestApp = await electron.launch({
@@ -55,16 +55,16 @@ try {
     mainWindow(hostApp),
     mainWindow(guestApp),
   ]);
-  host.on("console", (message) =>
+  host.on('console', (message) =>
     console.log(`[host:${message.type()}] ${message.text()}`),
   );
-  guest.on("console", (message) =>
+  guest.on('console', (message) =>
     console.log(`[guest:${message.type()}] ${message.text()}`),
   );
-  host.on("pageerror", (error) =>
+  host.on('pageerror', (error) =>
     console.log(`[host:pageerror] ${error.message}`),
   );
-  guest.on("pageerror", (error) =>
+  guest.on('pageerror', (error) =>
     console.log(`[guest:pageerror] ${error.message}`),
   );
   const [hostSongs, guestSongs] = await Promise.all([
@@ -73,48 +73,48 @@ try {
   ]);
   const guestIds = new Set(guestSongs.map((song) => song.songId));
   const songKey = (song) =>
-    `${song.title}\u0000${song.artist}`.toLocaleLowerCase("ru");
+    `${song.title}\u0000${song.artist}`.toLocaleLowerCase('ru');
   const guestSongKeys = new Set(guestSongs.map(songKey));
   const selected = hostSongs.find(
     (song) =>
-      song.status === "Ready" &&
+      song.status === 'Ready' &&
       !guestIds.has(song.songId) &&
       !guestSongKeys.has(songKey(song)),
   );
   if (!selected)
     throw new Error(
-      "No ready host-only song exists for the transfer smoke test",
+      'No ready host-only song exists for the transfer smoke test',
     );
 
-  await host.getByRole("button", { name: roomButton }).click();
-  await host.getByLabel(/Имя|Name|Ім'я/i).fill("Smoke Host");
-  await host.getByRole("button", { name: createButton }).click();
-  await host.getByRole("complementary", { name: roomButton }).waitFor();
-  const code = uuid.exec(await host.locator("body").innerText())?.[0];
-  if (!code) throw new Error("Created room code was not shown");
+  await host.getByRole('button', { name: roomButton }).click();
+  await host.getByLabel(/Имя|Name|Ім'я/i).fill('Smoke Host');
+  await host.getByRole('button', { name: createButton }).click();
+  await host.getByRole('complementary', { name: roomButton }).waitFor();
+  const code = uuid.exec(await host.locator('body').innerText())?.[0];
+  if (!code) throw new Error('Created room code was not shown');
 
-  await guest.getByRole("button", { name: roomButton }).click();
-  await guest.getByRole("button", { name: joinButton }).first().click();
-  await guest.getByLabel(/Имя|Name|Ім'я/i).fill("Smoke Guest");
+  await guest.getByRole('button', { name: roomButton }).click();
+  await guest.getByRole('button', { name: joinButton }).first().click();
+  await guest.getByLabel(/Имя|Name|Ім'я/i).fill('Smoke Guest');
   await guest.getByLabel(/Код комнаты|Room code|Код кімнати/i).fill(code);
-  await guest.getByRole("button", { name: joinButton }).last().click();
-  await guest.getByRole("complementary", { name: roomButton }).waitFor();
+  await guest.getByRole('button', { name: joinButton }).last().click();
+  await guest.getByRole('complementary', { name: roomButton }).waitFor();
 
   await host
-    .getByRole("textbox", {
+    .getByRole('textbox', {
       name: /Название, исполнитель или файл|Search|Назва, виконавець або файл/i,
     })
     .fill(selected.title);
   const hostCard = host
-    .locator(".songCard")
+    .locator('.songCard')
     .filter({ hasText: selected.title })
     .first();
   const guestCard = guest
-    .locator(".songCard")
+    .locator('.songCard')
     .filter({ hasText: selected.title })
     .first();
   await hostCard.waitFor({ timeout: 30_000 });
-  await hostCard.getByRole("button", { name: playButton }).click();
+  await hostCard.getByRole('button', { name: playButton }).click();
   await guestCard.waitFor({ timeout: 30_000 });
   await host.waitForURL(new RegExp(`/karaoke/${selected.songId}`), {
     timeout: 30_000,
@@ -131,8 +131,8 @@ try {
         (song) => song.songId === selected.songId,
       )?.ownerParticipantId,
       guestUrl: guest.url(),
-      guestTransferText: (await guest.locator("body").innerText())
-        .split("\n")
+      guestTransferText: (await guest.locator('body').innerText())
+        .split('\n')
         .filter((line) => /загруз|transfer|импорт/i.test(line))
         .slice(-5),
     }),
@@ -140,7 +140,7 @@ try {
   await guest.waitForURL(/#\/karaoke\/[^/]+$/, { timeout: 172_000 });
 
   const importedSongId = decodeURIComponent(
-    new URL(guest.url()).hash.match(/^#\/karaoke\/([^/?#]+)/)?.[1] ?? "",
+    new URL(guest.url()).hash.match(/^#\/karaoke\/([^/?#]+)/)?.[1] ?? '',
   );
   const guestSongsAfterImport = await clientSongs(guest);
   const imported = guestSongsAfterImport.find(
@@ -153,10 +153,10 @@ try {
       importedStatus: imported?.status,
     }),
   );
-  if (!imported || imported.status !== "Ready")
-    throw new Error("Downloaded project was not imported as Ready");
+  if (!imported || imported.status !== 'Ready')
+    throw new Error('Downloaded project was not imported as Ready');
   if (imported.activeRevision !== selected.activeRevision)
-    throw new Error("Downloaded project revision does not match the room");
+    throw new Error('Downloaded project revision does not match the room');
   await new Promise((resolve) => setTimeout(resolve, 5_000));
   if (!new RegExp(`#/karaoke/${selected.songId}$`).test(host.url())) {
     throw new Error(
@@ -170,15 +170,15 @@ try {
   }
   const unavailable = /Сеть недоступна|Network unavailable|Мережа недоступна/i;
   if (
-    unavailable.test(await host.locator("body").innerText()) ||
-    unavailable.test(await guest.locator("body").innerText())
+    unavailable.test(await host.locator('body').innerText()) ||
+    unavailable.test(await guest.locator('body').innerText())
   ) {
     throw new Error(
-      "A room client reported the network unavailable after a successful transfer",
+      'A room client reported the network unavailable after a successful transfer',
     );
   }
   await host
-    .getByRole("button", { name: /Библиотека|Library|Бібліотека/i })
+    .getByRole('button', { name: /Библиотека|Library|Бібліотека/i })
     .first()
     .click();
   await Promise.all([
@@ -190,7 +190,7 @@ try {
   );
   if (exitedRoom.songId !== null || exitedRoom.revision !== null) {
     throw new Error(
-      "The room song remained selected after the synchronized Back action",
+      'The room song remained selected after the synchronized Back action',
     );
   }
   console.log(

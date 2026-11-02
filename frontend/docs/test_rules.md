@@ -1249,7 +1249,7 @@ UI заново получает authoritative job state.
 
 ```ts
 makeSong({
-  status: "ready",
+  status: 'ready',
 });
 ```
 

@@ -1,11 +1,14 @@
-import { audioClient as audio } from "../../services/audioClient";
-import { useEffect, useRef } from "react";
+import { audioClient as audio } from '../../services/audioClient';
+import { useEffect, useRef } from 'react';
 import {
-  RoomPlaybackSynchronizer, type RoomPlaybackObservation,
-} from "../../application/room/RoomPlaybackSynchronizer";
+  RoomPlaybackSynchronizer,
+  type RoomPlaybackObservation,
+} from '../../application/room/RoomPlaybackSynchronizer';
 
 /** Subscribes the local AudioService to the room application's playback coordinator. */
-export const useSynchronizedRoomPlayback = (options: RoomPlaybackObservation): void => {
+export const useSynchronizedRoomPlayback = (
+  options: RoomPlaybackObservation,
+): void => {
   const synchronizer = useRef<RoomPlaybackSynchronizer>(null);
   synchronizer.current ??= new RoomPlaybackSynchronizer(audio);
   const observation = synchronizer.current.receive(options);

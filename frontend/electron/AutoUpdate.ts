@@ -1,20 +1,25 @@
-import { app } from "electron";
-import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
+import { app } from 'electron';
+import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 /** Where releases are published: GitHub Releases of this repository, with the installer attached. */
-export const updateRepository = "Pro100Dimka/karaoke_new_version";
-export const installerAssetName = "AD-Voice-Setup.exe";
+export const updateRepository = 'Pro100Dimka/karaoke_new_version';
+export const installerAssetName = 'AD-Voice-Setup.exe';
 const checkEveryMilliseconds = 6 * 60 * 60 * 1000;
 
 /** `1.2.10` > `1.2.9`; a leading `v` and anything after `-`/`+` are ignored. */
 export const isNewerVersion = (candidate: string, current: string): boolean => {
   const parts = (value: string) =>
-    value.trim().replace(/^v/i, "").split(/[-+]/)[0]!.split(".").map((part) => Number.parseInt(part, 10) || 0);
+    value
+      .trim()
+      .replace(/^v/i, '')
+      .split(/[-+]/)[0]!
+      .split('.')
+      .map((part) => Number.parseInt(part, 10) || 0);
   const [a, b] = [parts(candidate), parts(current)];
   for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
     const difference = (a[index] ?? 0) - (b[index] ?? 0);
@@ -32,23 +37,51 @@ export interface ReleaseInstaller {
 }
 
 /** The installer of GitHub's "latest release" response, if it is newer than this app. */
-export const installerFromRelease = (release: unknown, currentVersion: string): ReleaseInstaller | undefined => {
-  if (!release || typeof release !== "object") return undefined;
-  const { tag_name: tag, draft, prerelease, assets } = release as Record<string, unknown>;
-  if (typeof tag !== "string" || draft === true || prerelease === true || !Array.isArray(assets)) return undefined;
+export const installerFromRelease = (
+  release: unknown,
+  currentVersion: string,
+): ReleaseInstaller | undefined => {
+  if (!release || typeof release !== 'object') return undefined;
+  const {
+    tag_name: tag,
+    draft,
+    prerelease,
+    assets,
+  } = release as Record<string, unknown>;
+  if (
+    typeof tag !== 'string' ||
+    draft === true ||
+    prerelease === true ||
+    !Array.isArray(assets)
+  )
+    return undefined;
   if (!isNewerVersion(tag, currentVersion)) return undefined;
   const asset = assets.find(
     (item): item is Record<string, unknown> =>
-      !!item && typeof item === "object" && (item as Record<string, unknown>).name === installerAssetName,
+      !!item &&
+      typeof item === 'object' &&
+      (item as Record<string, unknown>).name === installerAssetName,
   );
-  if (!asset || typeof asset.browser_download_url !== "string" || typeof asset.size !== "number") return undefined;
+  if (
+    !asset ||
+    typeof asset.browser_download_url !== 'string' ||
+    typeof asset.size !== 'number'
+  )
+    return undefined;
   const url = new URL(asset.browser_download_url);
   // Only GitHub's own download hosts: a tampered response cannot point the updater elsewhere.
-  if (url.protocol !== "https:" || !["github.com", "objects.githubusercontent.com"].includes(url.hostname)) return undefined;
-  const digest = typeof asset.digest === "string" ? /^sha256:([0-9a-f]{64})$/i.exec(asset.digest)?.[1] : undefined;
+  if (
+    url.protocol !== 'https:' ||
+    !['github.com', 'objects.githubusercontent.com'].includes(url.hostname)
+  )
+    return undefined;
+  const digest =
+    typeof asset.digest === 'string'
+      ? /^sha256:([0-9a-f]{64})$/i.exec(asset.digest)?.[1]
+      : undefined;
   if (!digest) return undefined;
   return {
-    version: tag.replace(/^v/i, ""),
+    version: tag.replace(/^v/i, ''),
     url: url.toString(),
     size: asset.size,
     sha256: digest.toLowerCase(),
@@ -57,9 +90,9 @@ export const installerFromRelease = (release: unknown, currentVersion: string): 
 
 /** What the start-up screen shows while an update is put in place before the app opens. */
 export type LaunchUpdateState =
-  | { phase: "checking" }
-  | { phase: "downloading"; version: string; percent: number }
-  | { phase: "installing"; version: string };
+  | { phase: 'checking' }
+  | { phase: 'downloading'; version: string; percent: number }
+  | { phase: 'installing'; version: string };
 
 interface UpdaterOptions {
   /** A newer version was downloaded and verified while the app runs: it installs at the next start. */
@@ -72,7 +105,7 @@ interface UpdaterOptions {
   progress?: (percent: number) => void;
   /** The download failed or did not match the release. */
   installFailed?: () => void;
-  log: (level: "info" | "warning", message: string) => void;
+  log: (level: 'info' | 'warning', message: string) => void;
   /** Starts the app's normal exit; the installer runs once it has finished. */
   quit: () => void;
   fetchImpl?: typeof fetch;
@@ -81,12 +114,23 @@ interface UpdaterOptions {
 }
 
 /** The newer release's installer, or undefined when there is none or GitHub cannot be reached in time. */
-const latestInstaller = async (fetchImpl: typeof fetch, timeoutMilliseconds: number) => {
-  const response = await fetchImpl(`https://api.github.com/repos/${updateRepository}/releases/latest`, {
-    headers: { Accept: "application/vnd.github+json", "User-Agent": "AD-Voice-Updater" },
-    signal: AbortSignal.timeout(timeoutMilliseconds),
-  });
-  return response.ok ? installerFromRelease(await response.json(), app.getVersion()) : undefined;
+const latestInstaller = async (
+  fetchImpl: typeof fetch,
+  timeoutMilliseconds: number,
+) => {
+  const response = await fetchImpl(
+    `https://api.github.com/repos/${updateRepository}/releases/latest`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'AD-Voice-Updater',
+      },
+      signal: AbortSignal.timeout(timeoutMilliseconds),
+    },
+  );
+  return response.ok
+    ? installerFromRelease(await response.json(), app.getVersion())
+    : undefined;
 };
 
 /**
@@ -106,9 +150,9 @@ export const fetchInstaller = async (
   const file = path.join(directory, `AD-Voice-Setup-${installer.version}.exe`);
   try {
     if (fs.statSync(file).size === installer.size) {
-      const hash = createHash("sha256");
+      const hash = createHash('sha256');
       for await (const chunk of fs.createReadStream(file)) hash.update(chunk);
-      if (hash.digest("hex") === expected) return file;
+      if (hash.digest('hex') === expected) return file;
     }
   } catch {
     // Not downloaded yet.
@@ -123,25 +167,30 @@ export const fetchInstaller = async (
       } catch {
         // Removed at a later update.
       }
-  const download = await fetchImpl(installer.url, { signal: AbortSignal.timeout(60 * 60_000) });
+  const download = await fetchImpl(installer.url, {
+    signal: AbortSignal.timeout(60 * 60_000),
+  });
   if (!download.ok || !download.body) return null;
-  const hash = createHash("sha256");
+  const hash = createHash('sha256');
   let size = 0;
   let shown = -1;
   await pipeline(
-    Readable.fromWeb(download.body as import("node:stream/web").ReadableStream),
+    Readable.fromWeb(download.body as import('node:stream/web').ReadableStream),
     async function* (chunks: AsyncIterable<Buffer>) {
       for await (const chunk of chunks) {
         hash.update(chunk);
         size += chunk.length;
-        const percent = Math.min(100, Math.floor((size * 100) / installer.size));
+        const percent = Math.min(
+          100,
+          Math.floor((size * 100) / installer.size),
+        );
         if (percent !== shown) onPercent((shown = percent));
         yield chunk;
       }
     },
     fs.createWriteStream(`${file}.part`),
   );
-  if (size !== installer.size || hash.digest("hex") !== expected) {
+  if (size !== installer.size || hash.digest('hex') !== expected) {
     fs.rmSync(`${file}.part`, { force: true });
     return null;
   }
@@ -154,9 +203,9 @@ export const fetchInstaller = async (
  * the app again when installation finishes.
  */
 const runInstaller = (file: string): void => {
-  spawn(file, ["/SILENT", "/NORESTART", "/CLOSEAPPLICATIONS"], {
+  spawn(file, ['/SILENT', '/NORESTART', '/CLOSEAPPLICATIONS'], {
     detached: true,
-    stdio: "ignore",
+    stdio: 'ignore',
   }).unref();
 };
 
@@ -179,20 +228,29 @@ export const startAutoUpdate = ({
   installFailed = () => undefined,
 }: UpdaterOptions) => {
   if (!app.isPackaged)
-    return { beforeLaunch: async () => false, install: () => false, cancelInstall: () => undefined, stop: () => undefined, scheduleChecks: () => undefined };
-  const updates = directory ?? path.join(app.getPath("userData"), "updates");
+    return {
+      beforeLaunch: async () => false,
+      install: () => false,
+      cancelInstall: () => undefined,
+      stop: () => undefined,
+      scheduleChecks: () => undefined,
+    };
+  const updates = directory ?? path.join(app.getPath('userData'), 'updates');
   let downloaded: ReleaseInstaller | null = null;
   // The newer release is also available for a manual retry after a download failure.
   let offered: ReleaseInstaller | null = null;
   let checking = false;
   let installOnQuit: (() => void) | undefined;
   const failed = (error: unknown) =>
-    log("warning", `Update check failed: ${error instanceof Error ? error.message : String(error)}`);
+    log(
+      'warning',
+      `Update check failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
 
   const offer = (installer: ReleaseInstaller) => {
     if (offered?.version === installer.version) return;
     offered = installer;
-    log("info", `Update ${installer.version} is available`);
+    log('info', `Update ${installer.version} is available`);
     available(installer.version);
   };
 
@@ -207,10 +265,18 @@ export const startAutoUpdate = ({
       if (!automatic()) return;
       downloading = true;
       downloadProgress(0);
-      const file = await fetchInstaller(fetchImpl, installer, updates, downloadProgress);
-      if (!file) throw new Error(`Update ${installer.version} download failed or did not match the release`);
+      const file = await fetchInstaller(
+        fetchImpl,
+        installer,
+        updates,
+        downloadProgress,
+      );
+      if (!file)
+        throw new Error(
+          `Update ${installer.version} download failed or did not match the release`,
+        );
       downloaded = installer;
-      log("info", `Update ${installer.version} downloaded and verified`);
+      log('info', `Update ${installer.version} downloaded and verified`);
       ready(installer.version);
     } catch (error) {
       failed(error);
@@ -237,19 +303,30 @@ export const startAutoUpdate = ({
      * Before the app opens: installs an already downloaded newer version and reports
      * true once the installer has taken over; false opens the app as usual.
      */
-    async beforeLaunch(progress: (state: LaunchUpdateState) => void): Promise<boolean> {
+    async beforeLaunch(
+      progress: (state: LaunchUpdateState) => void,
+    ): Promise<boolean> {
       checking = true;
       try {
         const automaticUpdate = automatic();
         if (automaticUpdate) {
-          const prefix = "AD-Voice-Setup-";
-          const cachedUpdate = fs.existsSync(updates) && fs.readdirSync(updates).some((name) =>
-            name.startsWith(prefix) && name.endsWith(".exe") &&
-            isNewerVersion(name.slice(prefix.length, -4), app.getVersion()),
-          );
+          const prefix = 'AD-Voice-Setup-';
+          const cachedUpdate =
+            fs.existsSync(updates) &&
+            fs
+              .readdirSync(updates)
+              .some(
+                (name) =>
+                  name.startsWith(prefix) &&
+                  name.endsWith('.exe') &&
+                  isNewerVersion(
+                    name.slice(prefix.length, -4),
+                    app.getVersion(),
+                  ),
+              );
           if (!cachedUpdate) return false;
         }
-        progress({ phase: "checking" });
+        progress({ phase: 'checking' });
         const installer = await latestInstaller(fetchImpl, 5_000);
         if (!installer) return false;
         // Updates off: nothing is downloaded or installed; the Library offers the new version.
@@ -258,10 +335,16 @@ export const startAutoUpdate = ({
           return false;
         }
         const { version } = installer;
-        const file = await fetchInstaller(fetchImpl, installer, updates, undefined, false);
+        const file = await fetchInstaller(
+          fetchImpl,
+          installer,
+          updates,
+          undefined,
+          false,
+        );
         if (!file) return false;
-        progress({ phase: "installing", version });
-        log("info", `Installing update ${version} before start`);
+        progress({ phase: 'installing', version });
+        log('info', `Installing update ${version} before start`);
         runInstaller(file);
         return true;
       } catch (error) {
@@ -278,9 +361,9 @@ export const startAutoUpdate = ({
      */
     install(): boolean {
       const exitAndInstall = (file: string) => {
-        if (installOnQuit) app.removeListener("will-quit", installOnQuit);
+        if (installOnQuit) app.removeListener('will-quit', installOnQuit);
         installOnQuit = () => runInstaller(file);
-        app.once("will-quit", installOnQuit);
+        app.once('will-quit', installOnQuit);
         quit();
       };
       const installer = downloaded ?? offered;
@@ -289,7 +372,8 @@ export const startAutoUpdate = ({
       downloadProgress(0);
       void fetchInstaller(fetchImpl, installer, updates, downloadProgress)
         .then((file) => {
-          if (!file) throw new Error("size or SHA-256 does not match the release");
+          if (!file)
+            throw new Error('size or SHA-256 does not match the release');
           downloaded = installer;
           ready(installer.version);
           exitAndInstall(file);
@@ -304,7 +388,7 @@ export const startAutoUpdate = ({
       return true;
     },
     cancelInstall(): void {
-      if (installOnQuit) app.removeListener("will-quit", installOnQuit);
+      if (installOnQuit) app.removeListener('will-quit', installOnQuit);
       installOnQuit = undefined;
       if (downloaded) ready(downloaded.version);
     },

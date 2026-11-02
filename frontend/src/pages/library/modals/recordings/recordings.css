@@ -58,7 +58,7 @@
   list-style: none;
   scrollbar-width: thin;
 }
-.recordingsList[data-view="grid"] {
+.recordingsList[data-view='grid'] {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
 }
 .recordingCard.ad-card {
@@ -67,10 +67,10 @@
   align-items: center;
   gap: var(--ad-space-4);
 }
-.recordingsList[data-view="grid"] .recordingCard.ad-card {
+.recordingsList[data-view='grid'] .recordingCard.ad-card {
   grid-template-columns: auto minmax(0, 1fr);
 }
-.recordingsList[data-view="grid"] .recordingActions {
+.recordingsList[data-view='grid'] .recordingActions {
   grid-column: 1 / -1;
   justify-content: flex-end;
 }

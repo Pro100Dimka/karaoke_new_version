@@ -59,10 +59,15 @@
         inset-inline: 0;
         bottom: 18px;
         margin: 0;
-        font: 600 15px/1.3 "Segoe UI", system-ui, sans-serif;
+        font:
+          600 15px/1.3 'Segoe UI',
+          system-ui,
+          sans-serif;
         color: #fff;
         text-align: center;
-        text-shadow: 0 0 6px #000, 0 0 14px var(--glow);
+        text-shadow:
+          0 0 6px #000,
+          0 0 14px var(--glow);
         white-space: pre-line;
         padding-inline: 16px;
       }
@@ -125,25 +130,25 @@
     <progress id="progress" max="1" hidden aria-label="Progress"></progress>
     <script>
       var query = new URLSearchParams(location.search);
-      var icon = query.get("icon") || "";
-      var glow = query.get("glow") || "#ff153f";
+      var icon = query.get('icon') || '';
+      var glow = query.get('glow') || '#ff153f';
       var channel = function (index) {
         return parseInt(glow.slice(1 + index * 2, 3 + index * 2), 16);
       };
-      document.documentElement.style.setProperty("--glow", glow);
+      document.documentElement.style.setProperty('--glow', glow);
       document.documentElement.style.setProperty(
-        "--glow-soft",
-        "rgba(" + channel(0) + "," + channel(1) + "," + channel(2) + ",0.55)",
+        '--glow-soft',
+        'rgba(' + channel(0) + ',' + channel(1) + ',' + channel(2) + ',0.55)',
       );
-      document.getElementById("icon").setAttribute("href", icon);
-      document.getElementById("mask-icon").setAttribute("href", icon);
+      document.getElementById('icon').setAttribute('href', icon);
+      document.getElementById('mask-icon').setAttribute('href', icon);
       // The desktop shows a line here while an update is installed before the app opens.
       window.setStatus = function (text, value) {
-        document.getElementById("status").textContent = text;
-        var progress = document.getElementById("progress");
+        document.getElementById('status').textContent = text;
+        var progress = document.getElementById('progress');
         progress.hidden = value === undefined;
-        if (typeof value === "number") progress.value = value;
-        else progress.removeAttribute("value");
+        if (typeof value === 'number') progress.value = value;
+        else progress.removeAttribute('value');
       };
     </script>
   </body>

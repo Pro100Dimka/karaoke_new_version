@@ -1,6 +1,6 @@
-import type { MessageKey } from "../../../i18n/messages";
+import type { MessageKey } from '../../../i18n/messages';
 
-export type VoiceEffectId = "echo" | "reverb" | "delay" | "autoTune";
+export type VoiceEffectId = 'echo' | 'reverb' | 'delay' | 'autoTune';
 
 export interface VoiceEffect {
   id: VoiceEffectId;
@@ -13,16 +13,16 @@ export interface VoiceEffect {
   max: number;
   step: number;
   initial: number;
-  accent?: "secondary";
+  accent?: 'secondary';
   /** Delay time alone is inaudible, so only the other effects decide whether the DSP chain is needed. */
   audible: boolean;
 }
 
 export const voiceEffects: readonly VoiceEffect[] = [
   {
-    id: "echo",
-    label: "effectEcho",
-    parameter: "delay.mix",
+    id: 'echo',
+    label: 'effectEcho',
+    parameter: 'delay.mix',
     parameterScale: 1,
     min: 0,
     max: 1,
@@ -31,21 +31,21 @@ export const voiceEffects: readonly VoiceEffect[] = [
     audible: true,
   },
   {
-    id: "reverb",
-    label: "effectReverb",
-    parameter: "reverb.mix",
+    id: 'reverb',
+    label: 'effectReverb',
+    parameter: 'reverb.mix',
     parameterScale: 1,
     min: 0,
     max: 1,
     step: 0.01,
     initial: 0,
-    accent: "secondary",
+    accent: 'secondary',
     audible: true,
   },
   {
-    id: "delay",
-    label: "effectDelay",
-    parameter: "delay.ms",
+    id: 'delay',
+    label: 'effectDelay',
+    parameter: 'delay.ms',
     parameterScale: 500,
     min: 0,
     max: 1,
@@ -54,23 +54,23 @@ export const voiceEffects: readonly VoiceEffect[] = [
     audible: false,
   },
   {
-    id: "autoTune",
-    label: "effectAutoTune",
-    parameter: "autotune.amount",
+    id: 'autoTune',
+    label: 'effectAutoTune',
+    parameter: 'autotune.amount',
     parameterScale: 1,
     min: 0,
     max: 1,
     step: 0.01,
     initial: 0,
-    accent: "secondary",
+    accent: 'secondary',
     audible: true,
   },
 ];
 
 /** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */
 export const effectBaseParameters: Readonly<Record<string, number>> = {
-  "reverb.decay": 0.7,
-  "delay.feedback": 0.35,
+  'reverb.decay': 0.7,
+  'delay.feedback': 0.35,
 };
 
 export type VoiceEffectValues = Record<VoiceEffectId, number>;
@@ -92,65 +92,65 @@ export interface EffectPreset {
 
 export const effectPresets: readonly EffectPreset[] = [
   {
-    id: "classic",
-    label: "presetClassic",
-    symbol: "♬",
+    id: 'classic',
+    label: 'presetClassic',
+    symbol: '♬',
     echo: 0.08,
     reverb: 0.18,
     delay: 0.12,
   },
   {
-    id: "hall",
-    label: "presetHall",
-    symbol: "⌗",
+    id: 'hall',
+    label: 'presetHall',
+    symbol: '⌗',
     echo: 0.1,
     reverb: 0.28,
     delay: 0.16,
   },
   {
-    id: "room",
-    label: "presetRoom",
-    symbol: "◇",
+    id: 'room',
+    label: 'presetRoom',
+    symbol: '◇',
     echo: 0.06,
     reverb: 0.14,
     delay: 0.08,
   },
   {
-    id: "plate",
-    label: "presetPlate",
-    symbol: "◉",
+    id: 'plate',
+    label: 'presetPlate',
+    symbol: '◉',
     echo: 0.04,
     reverb: 0.22,
     delay: 0.05,
   },
   {
-    id: "studio",
-    label: "presetStudio",
-    symbol: "◌",
+    id: 'studio',
+    label: 'presetStudio',
+    symbol: '◌',
     echo: 0.03,
     reverb: 0.1,
     delay: 0.03,
   },
   {
-    id: "pop",
-    label: "presetPop",
-    symbol: "☆",
+    id: 'pop',
+    label: 'presetPop',
+    symbol: '☆',
     echo: 0.1,
     reverb: 0.16,
     delay: 0.1,
   },
   {
-    id: "rock",
-    label: "presetRock",
-    symbol: "ϟ",
+    id: 'rock',
+    label: 'presetRock',
+    symbol: 'ϟ',
     echo: 0.06,
     reverb: 0.12,
     delay: 0.07,
   },
   {
-    id: "club",
-    label: "presetClub",
-    symbol: "◎",
+    id: 'club',
+    label: 'presetClub',
+    symbol: '◎',
     echo: 0.14,
     reverb: 0.24,
     delay: 0.22,

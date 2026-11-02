@@ -49,7 +49,6 @@ _PAUSE_SECONDS = 0.25
 _ONSET_SEARCH_BEFORE_SECONDS = 0.25
 _ONSET_SEARCH_AFTER_SECONDS = 0.1
 _LARGEST_LAG_SECONDS = 0.3
-_DEFAULT_LAG_SECONDS = 0.1
 _VOICE_RATE = 16_000
 _VOICE_HOP = 160
 _NON_LETTERS = re.compile(r"[^a-z']")
@@ -611,7 +610,7 @@ def with_voice_onsets(
     lag = (
         min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags))))
         if lags
-        else _DEFAULT_LAG_SECONDS
+        else 0.0
     )
     result: list[AlignedWord] = []
     floor = 0.0
@@ -629,7 +628,12 @@ def with_voice_onsets(
         shift = start - word.start
         end = max(word.end, start + 0.001)
         letters = _clamped_letters(word.letters, shift, start, end)
-        result.append(replace(word, start=round(start, 3), end=end, letters=letters))
+        diagnostics = word.diagnostics
+        if not found and "OnsetRecovered" not in diagnostics:
+            diagnostics = tuple(dict.fromkeys((*diagnostics, "OnsetReviewRequired")))
+        result.append(
+            replace(word, start=round(start, 3), end=end, letters=letters, diagnostics=diagnostics)
+        )
         floor = start
     return result
 
@@ -908,6 +912,14 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
         starts.append(start)
         # Reserve only one serialized millisecond; real fast words need no 50-ms speech minimum.
         cursor = round(start + 0.001, 3)
+    for index in range(1, len(words)):
+        previous, word = words[index - 1 : index + 1]
+        limit = min(word.end, starts[index + 1] if index + 1 < len(words) else word.end)
+        # A proportional fallback has no acoustic start to justify cutting its
+        # supported neighbour. Use only its own available span; never push the
+        # conflict into a later word. Competing supported cores still need review.
+        if previous.score > 0 and word.score <= 0 and starts[index] < previous.end < limit:
+            starts[index] = round(previous.end, 3)
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         start = starts[index]
@@ -915,13 +927,18 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
         if index + 1 < len(starts):
             end = min(end, starts[index + 1])
         letters = _clamped_letters(word.letters, 0.0, start, end)
+        diagnostics = _ordering_diagnostics(word, start, end)
+        if letters != tuple(round(moment, 3) for moment in word.letters):
+            diagnostics = tuple(
+                dict.fromkeys((*diagnostics, "ApproximateLetterTiming", "LetterTimingReviewRequired"))
+            )
         result.append(
             replace(
                 word,
                 start=round(start, 3),
                 end=round(end, 3),
                 letters=letters,
-                diagnostics=_ordering_diagnostics(word, start, end),
+                diagnostics=diagnostics,
             )
         )
     return result

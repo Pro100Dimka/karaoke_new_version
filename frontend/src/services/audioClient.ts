@@ -1,16 +1,23 @@
-import { desktopBridge } from "./desktopBridge";
-import { measureAcousticLatency } from "./acousticLatency";
-import type { AudioServiceClient, PlaybackSchedule } from "../contracts/clients";
-import { unverifiedAsioMonitoring, type PlaybackSnapshot, type RequestedAudioConfiguration } from "../contracts/models";
+import { desktopBridge } from './desktopBridge';
+import { measureAcousticLatency } from './acousticLatency';
+import type {
+  AudioServiceClient,
+  PlaybackSchedule,
+} from '../contracts/clients';
+import {
+  unverifiedAsioMonitoring,
+  type PlaybackSnapshot,
+  type RequestedAudioConfiguration,
+} from '../contracts/models';
 import {
   audioCapabilitiesFromValues,
   diagnosticNumber,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
-} from "./audioProtocol";
-import { createAudioPlayers } from "./audioPlayers";
-import type { MediaCheckpoint } from "./audioReconfiguration";
-import { mixerGain } from "./mixerLevel";
+} from './audioProtocol';
+import { createAudioPlayers } from './audioPlayers';
+import type { MediaCheckpoint } from './audioReconfiguration';
+import { mixerGain } from './mixerLevel';
 import {
   audioClock,
   audioState,
@@ -26,12 +33,15 @@ import {
   reportMicrophoneMode,
   snapshot,
   waitForReady,
-} from "./audioSession";
-import { isAsio4AllRoute, safeAudioConfiguration } from "../shared/preferences/preferences";
-import { createRoomVoice, restoreVoiceSession } from "./audioRoomVoice";
+} from './audioSession';
+import {
+  isAsio4AllRoute,
+  safeAudioConfiguration,
+} from '../shared/preferences/preferences';
+import { createRoomVoice, restoreVoiceSession } from './audioRoomVoice';
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
-let calibrationContext = "";
+let calibrationContext = '';
 // What AudioService was already told per device path, so unchanged values are not resent.
 const rememberedLatencies = new Map<string, number>();
 // A settings dialog can close/reopen while a switch is still restoring the audio graph.
@@ -40,7 +50,8 @@ let configurationQueue: Promise<unknown> = Promise.resolve();
 const configurationEndpointsAvailable = async (
   configuration: RequestedAudioConfiguration,
 ): Promise<boolean> => {
-  if (!configuration.inputDeviceId && !configuration.outputDeviceId) return true;
+  if (!configuration.inputDeviceId && !configuration.outputDeviceId)
+    return true;
   return endpointsAvailable(await rawDevices(), configuration);
 };
 
@@ -52,11 +63,13 @@ const restoreMediaSession = (checkpoint: MediaCheckpoint | null) =>
     audioState.monitoring,
     {
       ensureSession,
-      resolveArtifacts: (song) => desktopBridge().resolveProjectArtifacts(song.id, song.activeRevision),
+      resolveArtifacts: (song) =>
+        desktopBridge().resolveProjectArtifacts(song.id, song.activeRevision),
       command,
       waitForReady,
       sampleRate: currentSampleRate,
-      play: async (schedule) => command("Play", schedule ? await scheduledStart(schedule) : undefined),
+      play: async (schedule) =>
+        command('Play', schedule ? await scheduledStart(schedule) : undefined),
     },
   );
 
@@ -65,16 +78,19 @@ const activateConfiguration = async (
   configuration: RequestedAudioConfiguration,
   checkpoint: MediaCheckpoint | null,
 ): Promise<void> => {
-  await command("Reconfigure", endpointArgs(configuration));
+  await command('Reconfigure', endpointArgs(configuration));
   audioState.active = configuration;
   await ensureSession();
-  if (configuration.lowLatencyInput) await reportMicrophoneMode().catch(() => undefined);
+  if (configuration.lowLatencyInput)
+    await reportMicrophoneMode().catch(() => undefined);
   await restoreVoiceSession();
   await restoreMediaSession(checkpoint);
 };
 
 /** Where AudioService starts a scheduled song: its clock ticks and the first frame. */
-const scheduledStart = async (schedule: PlaybackSchedule): Promise<AudioBridgeRequest["args"]> => {
+const scheduledStart = async (
+  schedule: PlaybackSchedule,
+): Promise<AudioBridgeRequest['args']> => {
   const values = await diagnostics();
   await refreshClock();
   const clock = audioClock();
@@ -85,45 +101,63 @@ const scheduledStart = async (schedule: PlaybackSchedule): Promise<AudioBridgeRe
     !Number.isFinite(schedule.startAtMilliseconds) ||
     !(sampleRate > 0)
   )
-    throw new Error("AudioService playback clock is unavailable");
-  if (!Number.isFinite(schedule.positionSeconds)) throw new Error("Invalid playback position");
+    throw new Error('AudioService playback clock is unavailable');
+  if (!Number.isFinite(schedule.positionSeconds))
+    throw new Error('Invalid playback position');
   return {
-    startAtTicks: Math.max(0, Math.round((schedule.startAtMilliseconds + clock.offset) * 1e6)),
+    startAtTicks: Math.max(
+      0,
+      Math.round((schedule.startAtMilliseconds + clock.offset) * 1e6),
+    ),
     frame: Math.max(0, Math.round(schedule.positionSeconds * sampleRate)),
   };
 };
 
 const parseBands = (value: string | undefined): number[] =>
-  (value ?? "").split(",").map(Number).filter(Number.isFinite);
+  (value ?? '').split(',').map(Number).filter(Number.isFinite);
 
 export const audioClient: AudioServiceClient = {
   snapshot,
   async health() {
     try {
-      const state = await command("GetServiceState");
-      if (state !== "Running") return { status: "unavailable", version: "1" };
+      const state = await command('GetServiceState');
+      if (state !== 'Running') return { status: 'unavailable', version: '1' };
       let values = await diagnostics();
       // A replacement process is Running with an Idle session. A failed device also leaves the
       // control pipe alive. Reopen either before advertising usable audio; Suspended is deliberate.
-      if (values.SessionState === "Idle" || values.SessionState === "Failed") {
+      if (values.SessionState === 'Idle' || values.SessionState === 'Failed') {
         await ensureSession();
         values = await diagnostics();
       }
-      return { status: "ready", version: "1", instanceId: values.ServiceInstanceId &&
-        [values.ServiceInstanceId, values.generationId].filter(Boolean).join(":") };
+      return {
+        status: 'ready',
+        version: '1',
+        instanceId:
+          values.ServiceInstanceId &&
+          [values.ServiceInstanceId, values.generationId]
+            .filter(Boolean)
+            .join(':'),
+      };
     } catch {
-      return { status: "unavailable", version: "1" };
+      return { status: 'unavailable', version: '1' };
     }
   },
 
   async listDevices() {
-    return (await rawDevices()).map(({ backendIndex: _backendIndex, ...device }) => device);
+    return (await rawDevices()).map(
+      ({ backendIndex: _backendIndex, ...device }) => device,
+    );
   },
 
   async capabilities() {
     const devices = await this.listDevices();
-    const hasMicrophone = devices.some((device) => device.kind === "input" && device.channels > 0);
-    return { microphone: hasMicrophone ? "ready" : "missing", keyboardLighting: false };
+    const hasMicrophone = devices.some(
+      (device) => device.kind === 'input' && device.channels > 0,
+    );
+    return {
+      microphone: hasMicrophone ? 'ready' : 'missing',
+      keyboardLighting: false,
+    };
   },
 
   async runtimeConfiguration() {
@@ -141,30 +175,32 @@ export const audioClient: AudioServiceClient = {
   },
 
   async suspendSession() {
-    await command("SuspendSession");
+    await command('SuspendSession');
   },
 
   async resumeSession() {
-    await command("ResumeSession");
+    await command('ResumeSession');
   },
 
   async setAcousticLatency(milliseconds, context = calibrationContext) {
-    await command("SetAcousticLatency", { ms: milliseconds, context });
+    await command('SetAcousticLatency', { ms: milliseconds, context });
   },
 
   async acousticCalibrationState() {
     const values = await diagnostics();
     const microseconds = Number(values.AcousticLatencyUs);
-    const origins = ["NONE", "PROFILE", "TEST_SIGNAL", "SONG"] as const;
-    const origin = origins.find((name) => name === values.AcousticCalibrationOrigin) ?? "NONE";
+    const origins = ['NONE', 'PROFILE', 'TEST_SIGNAL', 'SONG'] as const;
+    const origin =
+      origins.find((name) => name === values.AcousticCalibrationOrigin) ??
+      'NONE';
     return {
-      fingerprint: values.AcousticCalibrationFingerprint ?? "",
+      fingerprint: values.AcousticCalibrationFingerprint ?? '',
       milliseconds:
-        values.AcousticCalibrationValid === "1" && Number.isFinite(microseconds)
+        values.AcousticCalibrationValid === '1' && Number.isFinite(microseconds)
           ? microseconds / 1000
           : null,
       origin,
-      songPlaying: values.PlaybackState === "3",
+      songPlaying: values.PlaybackState === '3',
       songEstimates: Number(values.AcousticPassiveAccepted) || 0,
     };
   },
@@ -173,16 +209,22 @@ export const audioClient: AudioServiceClient = {
     const values = await diagnostics();
     const open = values.AcousticCalibrationFingerprint;
     // A restarted AudioService forgot everything; its open path then reports no calibration.
-    const forgotten = values.AcousticCalibrationValid !== "1";
+    const forgotten = values.AcousticCalibrationValid !== '1';
     let restored = false;
     for (const [fingerprint, milliseconds] of Object.entries(stored)) {
       // Keys saved before fingerprints named no real device path and cannot be verified.
-      if (!fingerprint.includes(",") || fingerprint.includes("|")) continue;
-      if (rememberedLatencies.get(fingerprint) === milliseconds && !(forgotten && fingerprint === open))
+      if (!fingerprint.includes(',') || fingerprint.includes('|')) continue;
+      if (
+        rememberedLatencies.get(fingerprint) === milliseconds &&
+        !(forgotten && fingerprint === open)
+      )
         continue;
-      const reply = await command("RememberAcousticLatency", { ms: milliseconds, fingerprint });
+      const reply = await command('RememberAcousticLatency', {
+        ms: milliseconds,
+        fingerprint,
+      });
       rememberedLatencies.set(fingerprint, milliseconds);
-      restored ||= reply.trim() === "AcousticLatencyRestored";
+      restored ||= reply.trim() === 'AcousticLatencyRestored';
     }
     return restored;
   },
@@ -190,17 +232,23 @@ export const audioClient: AudioServiceClient = {
   async measureAcousticLatency() {
     await ensureSession();
     const measured = await measureAcousticLatency((name) => command(name));
-    await command("SetAcousticLatency", { ms: measured.milliseconds, context: measured.context });
+    await command('SetAcousticLatency', {
+      ms: measured.milliseconds,
+      context: measured.context,
+    });
     calibrationContext = measured.context;
     // Remembered at once: a device path reopened right after the measurement keeps it.
     if (measured.fingerprint) {
-      await command("RememberAcousticLatency", {
+      await command('RememberAcousticLatency', {
         ms: measured.milliseconds,
         fingerprint: measured.fingerprint,
       });
       rememberedLatencies.set(measured.fingerprint, measured.milliseconds);
     }
-    return { milliseconds: measured.milliseconds, fingerprint: measured.fingerprint };
+    return {
+      milliseconds: measured.milliseconds,
+      fingerprint: measured.fingerprint,
+    };
   },
 
   async applyConfiguration(configuration) {
@@ -231,37 +279,45 @@ export const audioClient: AudioServiceClient = {
   },
 
   async openBackendControlPanel(configuration) {
-    await command("OpenBackendControlPanel", endpointArgs(configuration));
+    await command('OpenBackendControlPanel', endpointArgs(configuration));
   },
 
   async configurationCapabilities(configuration) {
     await configurationQueue;
-    const values = parseKeyValues(await command("GetAudioCapabilities", endpointArgs(configuration)));
+    const values = parseKeyValues(
+      await command('GetAudioCapabilities', endpointArgs(configuration)),
+    );
     return audioCapabilitiesFromValues(values, configuration.backend);
   },
 
   async spectrum() {
-    const values = parseKeyValues(await command("GetSpectrum"));
-    return { bands: parseBands(values.bands), backingBands: parseBands(values.backingBands) };
+    const values = parseKeyValues(await command('GetSpectrum'));
+    return {
+      bands: parseBands(values.bands),
+      backingBands: parseBands(values.backingBands),
+    };
   },
 
   diagnosticsDump: diagnostics,
 
   async testInputLevel() {
     await ensureSession();
-    const values = parseKeyValues(await command("GetInputLevel"));
+    const values = parseKeyValues(await command('GetInputLevel'));
     return diagnosticNumber(values.rms ?? values.peak);
   },
 
   async playTestSound() {
     await ensureSession();
-    await command("PlayOutputTest");
+    await command('PlayOutputTest');
   },
 
   async prepareSong(song) {
     await ensureSession();
-    const artifacts = await desktopBridge().resolveProjectArtifacts(song.id, song.activeRevision);
-    await command("LoadSong", {
+    const artifacts = await desktopBridge().resolveProjectArtifacts(
+      song.id,
+      song.activeRevision,
+    );
+    await command('LoadSong', {
       instrumental: artifacts.instrumental,
       vocals: artifacts.vocals,
       melody: artifacts.melody,
@@ -271,56 +327,70 @@ export const audioClient: AudioServiceClient = {
     audioState.reconfiguration.schedule = undefined;
     audioState.sessionId = crypto.randomUUID();
     await waitForReady();
-    return snapshot("ready");
+    return snapshot('ready');
   },
 
   async play(schedule) {
-    await command("Play", schedule ? await scheduledStart(schedule) : undefined);
+    await command(
+      'Play',
+      schedule ? await scheduledStart(schedule) : undefined,
+    );
     audioState.reconfiguration.schedule = schedule;
-    return snapshot("playing");
+    return snapshot('playing');
   },
 
   async pause() {
-    await command("Pause");
+    await command('Pause');
     audioState.reconfiguration.schedule = undefined;
-    return snapshot("paused");
+    return snapshot('paused');
   },
 
   async seek(positionSeconds) {
     const runtime = await this.runtimeConfiguration();
-    await command("Seek", { frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)) });
+    await command('Seek', {
+      frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
+    });
     audioState.reconfiguration.schedule = undefined;
     return snapshot();
   },
 
   async stop() {
-    await command("Stop");
+    await command('Stop');
     // A stopped song stays loaded otherwise, and its open files keep Windows from deleting or moving it.
-    await command("UnloadSong");
+    await command('UnloadSong');
     audioState.reconfiguration.song = null;
     audioState.reconfiguration.schedule = undefined;
-    return snapshot("finished");
+    return snapshot('finished');
   },
 
   async setMonitoring(enabled) {
     let cautious = false;
-    if (enabled && audioState.active.backend === "ASIO" &&
-      isAsio4AllRoute(audioState.active, await rawDevices())) {
+    if (
+      enabled &&
+      audioState.active.backend === 'ASIO' &&
+      isAsio4AllRoute(audioState.active, await rawDevices())
+    ) {
       const values = await diagnostics();
       cautious = Object.entries(values).some(([key, name]) => {
-        if (!key.startsWith("AsioInputChannelName.") || !/\bmic(rophone)?\b/i.test(name))
+        if (
+          !key.startsWith('AsioInputChannelName.') ||
+          !/\bmic(rophone)?\b/i.test(name)
+        )
           return false;
-        const channel = key.slice("AsioInputChannelName.".length);
+        const channel = key.slice('AsioInputChannelName.'.length);
         return Number(values[`AsioInputChannelRms.${channel}`]) > 0.00001;
       });
       if (!cautious) throw new Error(unverifiedAsioMonitoring);
     }
     if (enabled) {
       for (const [name, value] of audioState.dspParameters)
-        await command("SetDspParameter", { name, value });
-      await command("SetDspEnabled", { enabled: audioState.dspEnabled });
+        await command('SetDspParameter', { name, value });
+      await command('SetDspEnabled', { enabled: audioState.dspEnabled });
     }
-    await command("SetMonitoring", cautious ? { enabled, safety: "asio4all" } : { enabled });
+    await command(
+      'SetMonitoring',
+      cautious ? { enabled, safety: 'asio4all' } : { enabled },
+    );
     audioState.monitoring = enabled;
     return snapshot();
   },
@@ -328,37 +398,39 @@ export const audioClient: AudioServiceClient = {
   async setMixer(channel, position) {
     const gain = mixerGain(channel, position);
     audioState.reconfiguration.mixerGains.set(channel, gain);
-    await command("SetGain", { target: channel, value: gain });
+    await command('SetGain', { target: channel, value: gain });
   },
 
   monitoringEnabled: () => audioState.monitoring,
   microphoneEnabled: () => audioState.microphoneEnabled,
 
   async setMicrophoneEnabled(enabled) {
-    await command("SetMicrophoneEnabled", { enabled });
+    await command('SetMicrophoneEnabled', { enabled });
     audioState.microphoneEnabled = enabled;
   },
 
-  ...createRoomVoice((configuration) => audioClient.applyConfiguration(configuration)),
+  ...createRoomVoice((configuration) =>
+    audioClient.applyConfiguration(configuration),
+  ),
 
   async setPlaybackRate(rate) {
     audioState.reconfiguration.playbackRate = rate;
-    await command("SetPlaybackRate", { value: rate });
+    await command('SetPlaybackRate', { value: rate });
   },
 
   async setPitchShift(semitones) {
     audioState.reconfiguration.pitchShift = semitones;
-    await command("SetTranspose", { semitones });
+    await command('SetTranspose', { semitones });
   },
 
   async setDspParameter(name, value) {
     audioState.dspParameters.set(name, value);
-    await command("SetDspParameter", { name, value });
+    await command('SetDspParameter', { name, value });
   },
 
   async setDspEnabled(enabled) {
     audioState.dspEnabled = enabled;
-    await command("SetDspEnabled", { enabled });
+    await command('SetDspEnabled', { enabled });
   },
 
   ...createAudioPlayers({
@@ -376,4 +448,5 @@ export const getAudioSnapshot = (): Promise<PlaybackSnapshot> => snapshot();
 // The automated Electron room test must exercise this exact production lifecycle rather than
 // reconstructing join/rejoin calls in Playwright. The hook is absent from ordinary app sessions.
 if (window.desktop?.roomE2e)
-  window.roomE2eReconnectVoiceSession = () => audioClient.reconnectVoiceSession();
+  window.roomE2eReconnectVoiceSession = () =>
+    audioClient.reconnectVoiceSession();

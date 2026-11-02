@@ -1,37 +1,50 @@
-import { useLibraryImport } from "./useLibraryImport";
-import { desktopClient as files } from "../../../../services/desktopClient";
-import { useEffect, useRef, useState } from "react";
-import { Button, Dialog, FilePicker, MessageBar, ProgressBar, Stack, Typography, useForm, tr, useLocale } from "@neo-ui-kit/react";
-import type {
-  ImportProgress,
-} from "../../../../contracts/clients";
-import type { MessageKey } from "../../../../i18n/messages";
-import { ru } from "../../../../i18n/messages.ru";
-import { errorMessageKey, toAppError } from "../../../../shared/errors";
-import { formatBytes } from "../../../../shared/utils/format";
-import { isSupportedAudio } from "./importModel";
+import { useLibraryImport } from './useLibraryImport';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Button,
+  Dialog,
+  FilePicker,
+  MessageBar,
+  ProgressBar,
+  Stack,
+  Typography,
+  useForm,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { ImportProgress } from '../../../../contracts/clients';
+import type { MessageKey } from '../../../../i18n/messages';
+import { ru } from '../../../../i18n/messages.ru';
+import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { formatBytes } from '../../../../shared/utils/format';
+import { isSupportedAudio } from './importModel';
 
 type FileState =
-  | { kind: "none" }
-  | { kind: "ready"; info: FileInfo }
-  | { kind: "unsupported"; info: FileInfo }
-  | { kind: "unreadable" };
+  | { kind: 'none' }
+  | { kind: 'ready'; info: FileInfo }
+  | { kind: 'unsupported'; info: FileInfo }
+  | { kind: 'unreadable' };
 const fileErrors = {
   none: null,
   ready: null,
-  unsupported: "errorUnsupportedMedia",
-  unreadable: "errorInvalidMedia",
-} as const satisfies Record<FileState["kind"], MessageKey | null>;
+  unsupported: 'errorUnsupportedMedia',
+  unreadable: 'errorInvalidMedia',
+} as const satisfies Record<FileState['kind'], MessageKey | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
-export const AddSongModal = ({ open, initialPath, onClose }: {
+export const AddSongModal = ({
+  open,
+  initialPath,
+  onClose,
+}: {
   open: boolean;
   initialPath: string;
   onClose(): void;
 }) => {
   const { handleImport: onImport } = useLibraryImport();
   useLocale();
-  const [file, setFile] = useState<FileState>({ kind: "none" });
+  const [file, setFile] = useState<FileState>({ kind: 'none' });
   const [progress, setProgress] = useState<ImportProgress | null>(null);
   const importController = useRef<AbortController | null>(null);
   const [failure, setFailure] = useState<string>();
@@ -40,24 +53,24 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
     initialValues: { path: initialPath },
     reinitialize: false,
     validate: () =>
-      file.kind === "ready" ? {} : { path: tr(ru.chooseAudioFirst) },
+      file.kind === 'ready' ? {} : { path: tr(ru.chooseAudioFirst) },
     onSubmit: async (values, current) => {
       setFailure(undefined);
       const controller = new AbortController();
       importController.current = controller;
-      setProgress({ jobId: "", stage: tr(ru.importing), progress: 0 });
+      setProgress({ jobId: '', stage: tr(ru.importing), progress: 0 });
       try {
         await onImport(
           values.path,
           {},
           { signal: controller.signal, onProgress: setProgress },
         );
-        current.reset({ path: "" });
+        current.reset({ path: '' });
         setProgress(null);
         onClose();
       } catch (failure) {
         setProgress(null);
-        if (failure instanceof DOMException && failure.name === "AbortError") {
+        if (failure instanceof DOMException && failure.name === 'AbortError') {
           setFailure(tr(ru.importCancelled));
           return;
         }
@@ -76,7 +89,7 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
 
   useEffect(() => {
     if (!path) {
-      setFile({ kind: "none" });
+      setFile({ kind: 'none' });
       return;
     }
     let active = true;
@@ -86,11 +99,11 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
         (info) =>
           active &&
           setFile({
-            kind: isSupportedAudio(info.extension) ? "ready" : "unsupported",
+            kind: isSupportedAudio(info.extension) ? 'ready' : 'unsupported',
             info,
           }),
       )
-      .catch(() => active && setFile({ kind: "unreadable" }));
+      .catch(() => active && setFile({ kind: 'unreadable' }));
     return () => {
       active = false;
     };
@@ -98,7 +111,7 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
 
   const pickAudio = async () => {
     const picked = await files.pickAudioFile();
-    if (picked) setValue("path", picked);
+    if (picked) setValue('path', picked);
   };
   const handleClose = () => {
     setFailure(undefined);
@@ -107,7 +120,7 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
     onClose();
   };
   const info =
-    file.kind === "ready" || file.kind === "unsupported" ? file.info : null;
+    file.kind === 'ready' || file.kind === 'unsupported' ? file.info : null;
   const fileError = fileErrors[file.kind];
 
   return (
@@ -142,7 +155,7 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
         />
         {info && (
           <Typography variant="caption" tone="muted" className="importInfo">
-            {tr(ru.importFormat, { value: info.extension.toUpperCase() })} ·{" "}
+            {tr(ru.importFormat, { value: info.extension.toUpperCase() })} ·{' '}
             {tr(ru.importSize, { value: formatBytes(info.sizeBytes) })}
           </Typography>
         )}
@@ -163,13 +176,13 @@ export const AddSongModal = ({ open, initialPath, onClose }: {
               else handleClose();
             }}
           >
-            {tr(ru[form.submitting ? "cancelImport" : "cancel"])}
+            {tr(ru[form.submitting ? 'cancelImport' : 'cancel'])}
           </Button>
           <Button
             type="submit"
             variant="primary"
             icon="plus"
-            disabled={form.submitting || file.kind !== "ready"}
+            disabled={form.submitting || file.kind !== 'ready'}
           >
             {tr(ru.addSong)}
           </Button>

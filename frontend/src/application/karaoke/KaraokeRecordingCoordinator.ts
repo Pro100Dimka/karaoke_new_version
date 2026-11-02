@@ -1,41 +1,54 @@
-import type { SongDto } from "../../contracts/models";
+import type { SongDto } from '../../contracts/models';
 import type {
-  KaraokeAudioPort, KaraokeBackendPort, KaraokeRecordingPort,
+  KaraokeAudioPort,
+  KaraokeBackendPort,
+  KaraokeRecordingPort,
   PlaybackAdjustment,
-} from "./KaraokePorts";
+} from './KaraokePorts';
 
 export const minimumRecordingBytes = 200 * 1024 * 1024;
 
 export type RecordingStart =
-  | { kind: "started" }
-  | { kind: "insufficientDisk"; free: number; generation: number }
-  | { kind: "cancelled" }
-  | { kind: "failed" };
+  | { kind: 'started' }
+  | { kind: 'insufficientDisk'; free: number; generation: number }
+  | { kind: 'cancelled' }
+  | { kind: 'failed' };
 
 /** Owns recording preflight and cancellation for one local karaoke route. */
 export class KaraokeRecordingCoordinator {
   private generation = 0;
 
   constructor(
-    private readonly backend: Pick<KaraokeBackendPort, "freeStorageBytes">,
+    private readonly backend: Pick<KaraokeBackendPort, 'freeStorageBytes'>,
     private readonly recording: KaraokeRecordingPort,
-    private readonly audio: Pick<KaraokeAudioPort, "stop">,
+    private readonly audio: Pick<KaraokeAudioPort, 'stop'>,
   ) {}
 
-  invalidate(): void { this.generation++; }
-  isCurrent(generation: number): boolean { return generation === this.generation; }
+  invalidate(): void {
+    this.generation++;
+  }
+  isCurrent(generation: number): boolean {
+    return generation === this.generation;
+  }
 
-  async start(song: SongDto, adjustment: PlaybackAdjustment): Promise<RecordingStart> {
+  async start(
+    song: SongDto,
+    adjustment: PlaybackAdjustment,
+  ): Promise<RecordingStart> {
     const generation = this.generation;
     try {
       const free = await this.backend.freeStorageBytes();
-      if (!this.isCurrent(generation)) return { kind: "cancelled" };
+      if (!this.isCurrent(generation)) return { kind: 'cancelled' };
       if (free < minimumRecordingBytes)
-        return { kind: "insufficientDisk", free, generation };
+        return { kind: 'insufficientDisk', free, generation };
       await this.recording.start(song, adjustment);
-      return this.isCurrent(generation) ? { kind: "started" } : { kind: "cancelled" };
+      return this.isCurrent(generation)
+        ? { kind: 'started' }
+        : { kind: 'cancelled' };
     } catch {
-      return this.isCurrent(generation) ? { kind: "failed" } : { kind: "cancelled" };
+      return this.isCurrent(generation)
+        ? { kind: 'failed' }
+        : { kind: 'cancelled' };
     }
   }
 

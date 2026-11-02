@@ -9,16 +9,26 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { getErrorMessage } from 'react-error-boundary';
-import infoUrl from "../assets/sounds/notice-info.ogg";
-import successUrl from "../assets/sounds/notice-success.ogg";
-import warningUrl from "../assets/sounds/notice-warning.ogg";
-import errorUrl from "../assets/sounds/notice-error.ogg";
-import invitationUrl from "../assets/sounds/notice-invitation.ogg";
+import infoUrl from '../assets/sounds/notice-info.ogg';
+import successUrl from '../assets/sounds/notice-success.ogg';
+import warningUrl from '../assets/sounds/notice-warning.ogg';
+import errorUrl from '../assets/sounds/notice-error.ogg';
+import invitationUrl from '../assets/sounds/notice-invitation.ogg';
 
-export type NotificationIntent = "info" | "success" | "warning" | "error";
-type Notify = (message: string, intent?: NotificationIntent, options?: { silent?: boolean }) => void;
+export type NotificationIntent = 'info' | 'success' | 'warning' | 'error';
+type Notify = (
+  message: string,
+  intent?: NotificationIntent,
+  options?: { silent?: boolean },
+) => void;
 
-const soundUrls = { info: infoUrl, success: successUrl, warning: warningUrl, error: errorUrl, invitation: invitationUrl };
+const soundUrls = {
+  info: infoUrl,
+  success: successUrl,
+  warning: warningUrl,
+  error: errorUrl,
+  invitation: invitationUrl,
+};
 let sounding: HTMLAudioElement | undefined;
 
 /** Short, bounded interface sounds; a new notice replaces the tail instead of building a noisy queue. */
@@ -29,8 +39,11 @@ export const playNotificationSound = (kind: keyof typeof soundUrls): void => {
   void sounding.play().catch(() => undefined);
 };
 
-
-interface Notification { message: string; tone: NotificationIntent; id: number }
+interface Notification {
+  message: string;
+  tone: NotificationIntent;
+  id: number;
+}
 
 const Context = createContext<Notify>(console.error);
 export const useNotify = () => use(Context);
@@ -50,7 +63,11 @@ export const NotificationsProvider = ({ children }: PropsWithChildren) => {
   const [container] = useState(() => document.createElement('div'));
   const [toast, setToast] = useState<Notification>();
   const notify = useCallback(
-    (message: string, tone: NotificationIntent = 'success', options?: { silent?: boolean }) => {
+    (
+      message: string,
+      tone: NotificationIntent = 'success',
+      options?: { silent?: boolean },
+    ) => {
       if (!options?.silent) playNotificationSound(tone);
       setToast((previous) => ({ message, tone, id: (previous?.id ?? 0) + 1 }));
     },

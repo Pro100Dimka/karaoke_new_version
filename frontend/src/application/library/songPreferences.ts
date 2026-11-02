@@ -3,9 +3,9 @@ import {
   readJson,
   storageKey,
   writeJson,
-} from "../../shared/storage/localStore";
+} from '../../shared/storage/localStore';
 
-export type VocalRange = "auto" | "octave" | "twoOctaves";
+export type VocalRange = 'auto' | 'octave' | 'twoOctaves';
 
 /** Per-song presentation defaults that the backend does not own; applied without reprocessing. */
 export interface SongPreferences {
@@ -16,14 +16,14 @@ export interface SongPreferences {
 }
 
 export const defaultSongPreferences: SongPreferences = {
-  videoUrl: "",
+  videoUrl: '',
   defaultKey: 0,
   defaultSpeed: 1,
-  vocalRange: "auto",
+  vocalRange: 'auto',
 };
 export const practiceSpeeds = [0.5, 0.65, 0.75, 0.85, 1] as const;
 
-const key = storageKey("songPreferences");
+const key = storageKey('songPreferences');
 
 const readAll = (): Record<string, Partial<SongPreferences>> => {
   const raw = readJson(key);
@@ -34,20 +34,20 @@ export const loadSongPreferences = (songId: string): SongPreferences => {
   const stored = readAll()[songId] ?? {};
   return {
     videoUrl:
-      typeof stored.videoUrl === "string"
+      typeof stored.videoUrl === 'string'
         ? stored.videoUrl
         : defaultSongPreferences.videoUrl,
     defaultKey:
-      typeof stored.defaultKey === "number" && Math.abs(stored.defaultKey) <= 12
+      typeof stored.defaultKey === 'number' && Math.abs(stored.defaultKey) <= 12
         ? Math.round(stored.defaultKey)
         : defaultSongPreferences.defaultKey,
     defaultSpeed:
       practiceSpeeds.find((speed) => speed === stored.defaultSpeed) ??
       defaultSongPreferences.defaultSpeed,
     vocalRange:
-      stored.vocalRange === "octave" || stored.vocalRange === "twoOctaves"
+      stored.vocalRange === 'octave' || stored.vocalRange === 'twoOctaves'
         ? stored.vocalRange
-        : "auto",
+        : 'auto',
   };
 };
 

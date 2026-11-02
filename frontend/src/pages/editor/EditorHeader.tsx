@@ -1,7 +1,16 @@
-import { createPortal } from "react-dom";
-import { Badge, Button, IconButton, Planet, Toolbar, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import { titleBarLeadingId } from "../../app/TitleBar";
-import { ru } from "../../i18n/messages.ru";
+import { createPortal } from 'react-dom';
+import {
+  Badge,
+  Button,
+  IconButton,
+  Planet,
+  Toolbar,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { titleBarLeadingId } from '../../app/TitleBar';
+import { ru } from '../../i18n/messages.ru';
 
 interface EditorHeaderProps {
   title: string;

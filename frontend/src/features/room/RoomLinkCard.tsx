@@ -1,13 +1,24 @@
-import { ru } from "../../i18n/messages.ru";
-import { monitoringErrorText } from "../../shared/errors";
-import { useEffect, useRef, useState } from "react";
-import { Badge, Card, Icon, SignalBars, Sparkline, Switch, Tooltip, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import type { RoomTimingReport } from "../../contracts/clients";
-import type { MessageKey } from "../../i18n/messages";
-import { useRoomVoice } from "../../providers/application";
-import { useNotify } from "../../providers/notifications";
-import { roomLink, type RoomLinkState } from "./roomLink";
-import { roomQualityMessage, RoomSyncQuality } from "./RoomSyncQuality";
+import { ru } from '../../i18n/messages.ru';
+import { monitoringErrorText } from '../../shared/errors';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Badge,
+  Card,
+  Icon,
+  SignalBars,
+  Sparkline,
+  Switch,
+  Tooltip,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { RoomTimingReport } from '../../contracts/clients';
+import type { MessageKey } from '../../i18n/messages';
+import { useRoomVoice } from '../../providers/application';
+import { useNotify } from '../../providers/notifications';
+import { roomLink, type RoomLinkState } from './roomLink';
+import { roomQualityMessage, RoomSyncQuality } from './RoomSyncQuality';
 
 // Route and stability are judged over about ten seconds, so the line does not flicker.
 const linkWindowReports = 5;
@@ -17,14 +28,14 @@ const traceReports = 60;
 type Quality = { key: MessageKey; bars: number; bad: boolean };
 
 const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
-  if (link.deviceStarving) return { key: "linkOverloaded", bars: 1, bad: true };
-  if (link.unstable) return { key: "linkUnstable", bars: 2, bad: true };
+  if (link.deviceStarving) return { key: 'linkOverloaded', bars: 1, bad: true };
+  if (link.unstable) return { key: 'linkUnstable', bars: 2, bad: true };
   const message = roomQualityMessage(timing);
-  if (message === "roomQualityFar")
-    return { key: "linkHigh", bars: 2, bad: true };
-  return message === "roomQualityClose"
-    ? { key: "linkExcellent", bars: 4, bad: false }
-    : { key: "linkGood", bars: 3, bad: false };
+  if (message === 'roomQualityFar')
+    return { key: 'linkHigh', bars: 2, bad: true };
+  return message === 'roomQualityClose'
+    ? { key: 'linkExcellent', bars: 4, bad: false }
+    : { key: 'linkGood', bars: 3, bad: false };
 };
 
 /** The link: room delay and how good it is, its trace, and hearing yourself (monitoring). */
@@ -57,10 +68,7 @@ export const RoomLinkCard = () => {
           ) {
             setMonitoring(false);
             monitoringWarningShown.current = true;
-            latest.current.notify(
-              tr(ru.monitoringSafetyStopped),
-              "error",
-            );
+            latest.current.notify(tr(ru.monitoringSafetyStopped), 'error');
           } else if (!snapshot.monitoringSafetyTripped) {
             monitoringWarningShown.current = false;
           }
@@ -87,10 +95,7 @@ export const RoomLinkCard = () => {
     const snapshot = await voice
       .setMonitoring(!monitoring)
       .catch((error: unknown) => {
-        latest.current.notify(
-          monitoringErrorText(error),
-          "error",
-        );
+        latest.current.notify(monitoringErrorText(error), 'error');
         return null;
       });
     if (snapshot) setMonitoring(snapshot.monitoring);
@@ -114,15 +119,19 @@ export const RoomLinkCard = () => {
     <span className="roomTimingDetails">
       <RoomSyncQuality timing={timing} />
       <Typography as="span" variant="caption" tone="muted">
-        {tr(ru.roomPing)}:{" "}
-        {tr(ru.millisecondsValue, { value: Math.round(timing.roundTripMs) })} ·{" "}
-        {tr(ru.roomJitter)}:{" "}
+        {tr(ru.roomPing)}:{' '}
+        {tr(ru.millisecondsValue, { value: Math.round(timing.roundTripMs) })} ·{' '}
+        {tr(ru.roomJitter)}:{' '}
         {tr(ru.millisecondsValue, { value: jitterMs.toFixed(1) })}
         {link.route && (
           <>
-            {" "}
-            · {tr(ru.roomRoute)}:{" "}
-            {tr(ru[link.route === "direct" ? "roomRouteDirect" : "roomRouteRelay"])}
+            {' '}
+            · {tr(ru.roomRoute)}:{' '}
+            {tr(
+              ru[
+                link.route === 'direct' ? 'roomRouteDirect' : 'roomRouteRelay'
+              ],
+            )}
           </>
         )}
       </Typography>
@@ -169,7 +178,9 @@ export const RoomLinkCard = () => {
         <Typography as="strong" variant="h3">
           {tr(ru.millisecondsValue, { value: Math.round(delayMs) })}
         </Typography>
-        <Badge tone={rated.bad ? "warning" : "success"}>{tr(ru[rated.key])}</Badge>
+        <Badge tone={rated.bad ? 'warning' : 'success'}>
+          {tr(ru[rated.key])}
+        </Badge>
       </div>
       <Sparkline
         fit

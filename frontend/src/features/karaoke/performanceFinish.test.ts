@@ -1,19 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
-import { createSingleFlight } from "./performanceFinish";
+import { describe, expect, it, vi } from 'vitest';
+import { createSingleFlight } from './performanceFinish';
 
-describe("room performance finalization", () => {
-  it("allows a later retry and a later performance to finalize", async () => {
+describe('room performance finalization', () => {
+  it('allows a later retry and a later performance to finalize', async () => {
     const work = vi
       .fn()
-      .mockRejectedValueOnce(new Error("save failed"))
+      .mockRejectedValueOnce(new Error('save failed'))
       .mockResolvedValue(undefined);
     const finish = createSingleFlight(work);
-    await expect(finish()).rejects.toThrow("save failed");
+    await expect(finish()).rejects.toThrow('save failed');
     await expect(finish()).resolves.toBeUndefined();
     await finish();
     expect(work).toHaveBeenCalledTimes(3);
   });
-  it("coalesces simultaneous Stop and ClearSong events so recording analysis is not lost", async () => {
+  it('coalesces simultaneous Stop and ClearSong events so recording analysis is not lost', async () => {
     let release!: () => void;
     const work = vi.fn(
       () =>

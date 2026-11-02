@@ -1,57 +1,63 @@
-import { app, BrowserWindow, dialog, Menu } from "electron";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { pathToFileURL } from "node:url";
-import { loadEnvFile } from "node:process";
-import { configuredStorageRoot, projectRoot, themeIconPath } from "./AppPaths";
-import { AppLogUploader, sendAppLogs } from "./AppLogUploader";
-import { BackendEndpoint } from "./BackendEndpoint";
-import { streamBackendEvents } from "./BackendEvents";
-import { registerDesktopIpc } from "./DesktopIpc";
-import { ipcChannels } from "./ipcChannels";
-import { createKeyboardLightingProvider } from "./KeyboardLighting";
-import { createMainWindow } from "./MainWindow";
-import { ManagedServices } from "./ManagedServices";
-import { registerProjectFileHandlers } from "./ProjectFiles";
-import { roomParticipantId } from "./RoomIdentity";
-import { registerRoomProjectTransferHandlers } from "./RoomProjectTransfer";
-import { roomServerApiBase } from "./RoomServerTransport";
-import { configureRuntimeIdentity } from "./RuntimeIdentity";
-import { registerSceneProtocol } from "./SceneProtocol";
-import { registerServiceIpc } from "./ServiceIpc";
-import { registerSocialChannel } from "./SocialChannel";
-import { closeSplash, openSplash, readSavedTheme, setSplashStatus, waitForStorageMigration } from "./Splash";
-import { shellLanguages, shellText } from "./ShellText";
-import { createTrustedIpc } from "./TrustedIpc";
-import { applyGpuSwitches } from "./GpuSwitches";
-import { startAutoUpdate } from "./AutoUpdate";
-import { startRadioNowPlaying } from "./RadioNowPlaying";
-import { startDesktopLaunch } from "./DesktopLaunch";
-import { DesktopShell } from "./DesktopShell";
-import { startDiscordPresence } from "./DiscordPresence";
-import { createShellNotifier, registerShellIpc } from "./ShellIpc";
-import { createTaskbarIntegration } from "./TaskbarIntegration";
-import { createTrayRadio } from "./TrayRadio";
-import { configureNotificationIdentity } from "./NotificationIdentity";
+import { app, BrowserWindow, dialog, Menu } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { loadEnvFile } from 'node:process';
+import { configuredStorageRoot, projectRoot, themeIconPath } from './AppPaths';
+import { AppLogUploader, sendAppLogs } from './AppLogUploader';
+import { BackendEndpoint } from './BackendEndpoint';
+import { streamBackendEvents } from './BackendEvents';
+import { registerDesktopIpc } from './DesktopIpc';
+import { ipcChannels } from './ipcChannels';
+import { createKeyboardLightingProvider } from './KeyboardLighting';
+import { createMainWindow } from './MainWindow';
+import { ManagedServices } from './ManagedServices';
+import { registerProjectFileHandlers } from './ProjectFiles';
+import { roomParticipantId } from './RoomIdentity';
+import { registerRoomProjectTransferHandlers } from './RoomProjectTransfer';
+import { roomServerApiBase } from './RoomServerTransport';
+import { configureRuntimeIdentity } from './RuntimeIdentity';
+import { registerSceneProtocol } from './SceneProtocol';
+import { registerServiceIpc } from './ServiceIpc';
+import { registerSocialChannel } from './SocialChannel';
+import {
+  closeSplash,
+  openSplash,
+  readSavedTheme,
+  setSplashStatus,
+  waitForStorageMigration,
+} from './Splash';
+import { shellLanguages, shellText } from './ShellText';
+import { createTrustedIpc } from './TrustedIpc';
+import { applyGpuSwitches } from './GpuSwitches';
+import { startAutoUpdate } from './AutoUpdate';
+import { startRadioNowPlaying } from './RadioNowPlaying';
+import { startDesktopLaunch } from './DesktopLaunch';
+import { DesktopShell } from './DesktopShell';
+import { startDiscordPresence } from './DiscordPresence';
+import { createShellNotifier, registerShellIpc } from './ShellIpc';
+import { createTaskbarIntegration } from './TaskbarIntegration';
+import { createTrayRadio } from './TrayRadio';
+import { configureNotificationIdentity } from './NotificationIdentity';
 
 const startupFailed: Readonly<Record<string, string>> = {
-  ru: "Не удалось запустить приложение.",
-  uk: "Не вдалося запустити застосунок.",
+  ru: 'Не удалось запустить приложение.',
+  uk: 'Не вдалося запустити застосунок.',
 };
 
 const showStartupError = (error: unknown): void => {
-  console.error("Application startup failed", error);
-  const locale = app.isReady() ? app.getLocale().slice(0, 2) : "en";
-  const headline = startupFailed[locale] ?? "The application could not start.";
+  console.error('Application startup failed', error);
+  const locale = app.isReady() ? app.getLocale().slice(0, 2) : 'en';
+  const headline = startupFailed[locale] ?? 'The application could not start.';
   const detail = error instanceof Error ? error.message : String(error);
-  dialog.showErrorBox("A&D Voice", `${headline}\n\n${detail}`);
+  dialog.showErrorBox('A&D Voice', `${headline}\n\n${detail}`);
 };
 
 if (!app.isPackaged) {
   try {
-    loadEnvFile(path.join(app.getAppPath(), ".env.local"));
+    loadEnvFile(path.join(app.getAppPath(), '.env.local'));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 }
 applyGpuSwitches(app.commandLine);
@@ -70,12 +76,13 @@ configureNotificationIdentity(app, themeIconPath(readSavedTheme()));
 /** The splash gives way to the window even if the renderer never reports its first screen. */
 const splashFallbackMilliseconds = 90_000;
 const rendererUrl =
-  process.env.VITE_DEV_SERVER_URL ?? pathToFileURL(path.join(__dirname, "../dist/index.html")).href;
+  process.env.VITE_DEV_SERVER_URL ??
+  pathToFileURL(path.join(__dirname, '../dist/index.html')).href;
 
 let mainWindow: BrowserWindow | null = null;
 let mainRevealed = false;
 let closeConfirmed = false;
-let backendDataRoot = "";
+let backendDataRoot = '';
 /** Set when the app starts to quit: closing the window then really closes it (no hiding to the tray). */
 let quitting = false;
 
@@ -89,15 +96,30 @@ const services = new ManagedServices(backendEndpoint, (source, level, data) =>
 );
 const storageRoot = () => backendDataRoot || configuredStorageRoot();
 
-registerRoomProjectTransferHandlers(roomServerApiBase, () => backendDataRoot, trustedIpc);
+registerRoomProjectTransferHandlers(
+  roomServerApiBase,
+  () => backendDataRoot,
+  trustedIpc,
+);
 registerProjectFileHandlers(() => backendDataRoot, backendEndpoint, trustedIpc);
-const socialSocket = registerSocialChannel(roomServerApiBase, () => mainWindow, trustedIpc);
+const socialSocket = registerSocialChannel(
+  roomServerApiBase,
+  () => mainWindow,
+  trustedIpc,
+);
 
 // The desktop shell: taskbar, tray, jump list, invitation links, mute hotkey, Discord and updates.
 const shell = new DesktopShell();
-const notify = createShellNotifier(() => mainWindow, themeIconPath(readSavedTheme()) ?? undefined);
+const notify = createShellNotifier(
+  () => mainWindow,
+  themeIconPath(readSavedTheme()) ?? undefined,
+);
 registerShellIpc(trustedIpc, shell, () => mainWindow, notify);
-const taskbar = createTaskbarIntegration({ window: () => mainWindow, shell, notify });
+const taskbar = createTaskbarIntegration({
+  window: () => mainWindow,
+  shell,
+  notify,
+});
 const trayRadio = createTrayRadio({
   window: () => mainWindow,
   shell,
@@ -109,10 +131,17 @@ const trayRadio = createTrayRadio({
 });
 // Whether updates install by themselves is needed before the interface has loaded (the check before
 // launch), so the interface's setting is kept in a file too.
-const updateSettingsFile = () => path.join(app.getPath("userData"), "update-settings.json");
+const updateSettingsFile = () =>
+  path.join(app.getPath('userData'), 'update-settings.json');
 const readAutoUpdate = (): boolean => {
   try {
-    return (JSON.parse(fs.readFileSync(updateSettingsFile(), "utf8")) as { automatic?: unknown }).automatic !== false;
+    return (
+      (
+        JSON.parse(fs.readFileSync(updateSettingsFile(), 'utf8')) as {
+          automatic?: unknown;
+        }
+      ).automatic !== false
+    );
   } catch {
     return true;
   }
@@ -123,18 +152,21 @@ shell.onStatus((next) => {
   if (next.autoUpdate === savedAutoUpdate) return;
   savedAutoUpdate = next.autoUpdate;
   try {
-    fs.writeFileSync(updateSettingsFile(), JSON.stringify({ automatic: next.autoUpdate }));
+    fs.writeFileSync(
+      updateSettingsFile(),
+      JSON.stringify({ automatic: next.autoUpdate }),
+    );
   } catch {
     // Only the next start's choice depends on it.
   }
 });
 const updater = startAutoUpdate({
-  ready: (version) => shell.send({ type: "updateReady", version }),
+  ready: (version) => shell.send({ type: 'updateReady', version }),
   automatic: readAutoUpdate,
-  available: (version) => shell.send({ type: "updateAvailable", version }),
-  progress: (percent) => shell.send({ type: "updateProgress", percent }),
-  installFailed: () => shell.send({ type: "updateFailed" }),
-  log: (level, message) => appLogs.add("updater", level, message),
+  available: (version) => shell.send({ type: 'updateAvailable', version }),
+  progress: (percent) => shell.send({ type: 'updateProgress', percent }),
+  installFailed: () => shell.send({ type: 'updateFailed' }),
+  log: (level, message) => appLogs.add('updater', level, message),
   quit: () => app.quit(),
 });
 trustedIpc.handle(ipcChannels.installUpdate, () => updater.install());
@@ -162,8 +194,8 @@ const openMainWindow = (roomParticipant: string): void => {
   });
   mainWindow = window;
   // Windows takes thumbnail buttons only from a visible window.
-  window.on("show", () => taskbar.refresh());
-  window.on("closed", () => {
+  window.on('show', () => taskbar.refresh());
+  window.on('closed', () => {
     mainWindow = null;
   });
 };
@@ -183,12 +215,16 @@ registerDesktopIpc({
     mainWindow?.close();
   },
 });
-registerServiceIpc(trustedIpc, backendEndpoint, createKeyboardLightingProvider());
+registerServiceIpc(
+  trustedIpc,
+  backendEndpoint,
+  createKeyboardLightingProvider(),
+);
 
 // One instance owns the services and the audio pipe; a second launch must not kill them, it only focuses the window.
 const isPrimaryInstance = app.requestSingleInstanceLock();
 if (!isPrimaryInstance) app.quit();
-app.on("second-instance", (_event, argv) => {
+app.on('second-instance', (_event, argv) => {
   // A second launch hands over what it was started for: an invitation link, a task, opened files.
   desktopLaunch?.secondLaunch(argv);
   if (!mainWindow) return;
@@ -205,25 +241,33 @@ app
     // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
     if (app.isPackaged) Menu.setApplicationMenu(null);
     if (!isPrimaryInstance) return;
-    openSplash(themeIconPath(readSavedTheme()), path.join(__dirname, "..", "electron", "splash.html"));
+    openSplash(
+      themeIconPath(readSavedTheme()),
+      path.join(__dirname, '..', 'electron', 'splash.html'),
+    );
     // As in Discord: a newer version is installed before the app opens; offline it simply opens.
     const locale = app.getLocale().slice(0, 2);
-    const language = shellLanguages.find((item) => item === locale) ?? "en";
+    const language = shellLanguages.find((item) => item === locale) ?? 'en';
     await waitForStorageMigration(language);
     const updating = await updater.beforeLaunch((state) =>
       setSplashStatus(
-        state.phase === "checking"
-          ? shellText(language, "updateChecking")
-          : state.phase === "downloading"
-            ? shellText(language, "updateDownloading", { version: state.version, percent: state.percent })
-            : shellText(language, "updateInstalling", { version: state.version }),
+        state.phase === 'checking'
+          ? shellText(language, 'updateChecking')
+          : state.phase === 'downloading'
+            ? shellText(language, 'updateDownloading', {
+                version: state.version,
+                percent: state.percent,
+              })
+            : shellText(language, 'updateInstalling', {
+                version: state.version,
+              }),
       ),
     );
     if (updating) {
       app.exit(0);
       return;
     }
-    setSplashStatus("");
+    setSplashStatus('');
     registerSceneProtocol(projectRoot());
     backendDataRoot = configuredStorageRoot();
     services.start(backendDataRoot);
@@ -242,8 +286,9 @@ app
     const roomParticipant = await roomParticipantId();
     openMainWindow(roomParticipant);
     setTimeout(revealMainWindow, splashFallbackMilliseconds).unref();
-    app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) openMainWindow(roomParticipant);
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0)
+        openMainWindow(roomParticipant);
     });
   })
   .catch((error: unknown) => {
@@ -271,7 +316,7 @@ const stopServicesOnce = (): void => {
   services.stop();
 };
 
-app.on("before-quit", (event) => {
+app.on('before-quit', (event) => {
   quitting = true;
   if (servicesStopped || !isPrimaryInstance) return;
   event.preventDefault();
@@ -290,8 +335,8 @@ app.on("before-quit", (event) => {
     app.quit();
   });
 });
-app.on("will-quit", stopServicesOnce);
-process.on("exit", stopServicesOnce);
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
+app.on('will-quit', stopServicesOnce);
+process.on('exit', stopServicesOnce);
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
 });

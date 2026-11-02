@@ -22,7 +22,7 @@
 .sceneBackdrop::after {
   position: absolute;
   inset: 0;
-  content: "";
+  content: '';
   background: linear-gradient(
     180deg,
     rgba(3, 5, 12, 0.18),
@@ -117,10 +117,18 @@ html[data-tv-screen] body {
      z-index), would otherwise swallow every click meant for the roll beneath it in that whole region. */
   pointer-events: none;
 }
-.karaokePage:has(.karaokeConsolePanel[data-dock="left"]:not([data-hidden])) .stage { margin-left: min(376px, 44vw); }
-.karaokePage:has(.karaokeConsolePanel[data-dock="right"]:not([data-hidden])) .stage { margin-right: min(376px, 44vw); }
+.karaokePage:has(.karaokeConsolePanel[data-dock='left']:not([data-hidden]))
+  .stage {
+  margin-left: min(376px, 44vw);
+}
+.karaokePage:has(.karaokeConsolePanel[data-dock='right']:not([data-hidden]))
+  .stage {
+  margin-right: min(376px, 44vw);
+}
 .karaokePage[data-paused] :is(.stage, .pianoRoll) :not(.ad-lyrics-current),
-.karaokePage[data-paused] .karaokeConsoleCard::before { animation-play-state: paused; }
+.karaokePage[data-paused] .karaokeConsoleCard::before {
+  animation-play-state: paused;
+}
 
 /* The lyrics (Neo UI's KaraokeLyrics) cover the stage without taking its clicks. */
 .lyrics.ad-karaoke-lyrics {

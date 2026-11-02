@@ -1,5 +1,8 @@
-import type { EditorNote, EditorWord } from "../../application/editor/editorModel";
-import type { VocalRange } from "../../application/library/songPreferences";
+import type {
+  EditorNote,
+  EditorWord,
+} from '../../application/editor/editorModel';
+import type { VocalRange } from '../../application/library/songPreferences';
 
 export interface LyricLine {
   words: readonly EditorWord[];
@@ -15,7 +18,7 @@ const writtenLineSizes = (
   lyrics: string | undefined,
   wordCount: number,
 ): number[] | null => {
-  const sizes = (lyrics ?? "")
+  const sizes = (lyrics ?? '')
     .split(/\r?\n/)
     .map((line) => line.split(/\s+/).filter(Boolean).length)
     .filter((size) => size > 0);
@@ -63,8 +66,13 @@ export const buildLines = (
   lyrics?: string,
   bpm?: number,
 ): readonly LyricLine[] =>
-  groupWords(words, writtenLineSizes(lyrics, words.length),
-    Math.max(0.3, Math.min(0.9, 60 / (bpm && Number.isFinite(bpm) && bpm > 0 ? bpm : 120))),
+  groupWords(
+    words,
+    writtenLineSizes(lyrics, words.length),
+    Math.max(
+      0.3,
+      Math.min(0.9, 60 / (bpm && Number.isFinite(bpm) && bpm > 0 ? bpm : 120)),
+    ),
   ).map((group) => ({
     words: group,
     start: group[0]?.start ?? 0,
@@ -85,15 +93,17 @@ export const currentLineIndex = (
   const previous = lines[upcoming - 1];
   const next = lines[upcoming];
   if (
-    previous && next &&
+    previous &&
+    next &&
     position - previous.end < lyricSilenceSeconds &&
     next.start - position > lyricSilenceSeconds
-  ) return upcoming - 1;
+  )
+    return upcoming - 1;
   return upcoming >= 0 ? upcoming : lines.length - 1;
 };
 
 export interface LineDisplayPhase {
-  kind: "text" | "countdown" | "empty";
+  kind: 'text' | 'countdown' | 'empty';
   opacity?: number;
   /** Three seconds of lead-in, counting down to the next vocal entry. */
   countdown?: number;
@@ -109,7 +119,7 @@ export const upcomingLinePhase = (
   position: number,
 ): LineDisplayPhase => {
   const line = lines[lineIndex];
-  if (!line) return { kind: "text" };
+  if (!line) return { kind: 'text' };
   const previousEnd = lines[lineIndex - 1]?.end ?? 0;
   const longGap = line.start - previousEnd > lyricSilenceSeconds;
   const secondsUntilStart = line.start - position;
@@ -117,22 +127,25 @@ export const upcomingLinePhase = (
     (
       [
         [
-          "empty",
+          'empty',
           position >= line.end + lyricSilenceSeconds ||
             (longGap && secondsUntilStart > lyricSilenceSeconds),
         ],
-        ["countdown", longGap && secondsUntilStart > 0.65],
+        ['countdown', longGap && secondsUntilStart > 0.65],
       ] as const
-    ).find(([, active]) => active)?.[0] ?? "text";
-  const followedBySilence = (lines[lineIndex + 1]?.start ?? Infinity) - line.end > lyricSilenceSeconds;
-  const fadeOut = followedBySilence ? (line.end + lyricSilenceSeconds - position) / 0.7 : 1;
+    ).find(([, active]) => active)?.[0] ?? 'text';
+  const followedBySilence =
+    (lines[lineIndex + 1]?.start ?? Infinity) - line.end > lyricSilenceSeconds;
+  const fadeOut = followedBySilence
+    ? (line.end + lyricSilenceSeconds - position) / 0.7
+    : 1;
   const fadeIn =
-    kind === "countdown" ? (lyricSilenceSeconds - secondsUntilStart) / 0.45 : 1;
+    kind === 'countdown' ? (lyricSilenceSeconds - secondsUntilStart) / 0.45 : 1;
   const opacity = Math.max(0, Math.min(1, fadeOut, fadeIn));
   return {
     kind,
-    ...(kind !== "empty" && opacity < 1 ? { opacity } : {}),
-    ...(kind === "countdown"
+    ...(kind !== 'empty' && opacity < 1 ? { opacity } : {}),
+    ...(kind === 'countdown'
       ? { countdown: Math.ceil(secondsUntilStart) }
       : {}),
   };
@@ -143,13 +156,17 @@ const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
 const punctuation = /[\s.,!?;:'’ʼ‘"()\-–—…«»„“”]/;
 const silentCharacter = /[\p{M}\s.,!?;:'’ʼ‘"()\-–—…«»„“”ьъ]/iu;
 export type LetterGeometry = readonly (readonly [number, number])[];
-const spokenIndices = (text: string): number[] => [...text]
-  .map((character, index) => silentCharacter.test(character) ? -1 : index)
-  .filter((index) => index >= 0);
+const spokenIndices = (text: string): number[] =>
+  [...text]
+    .map((character, index) => (silentCharacter.test(character) ? -1 : index))
+    .filter((index) => index >= 0);
 
 /** Convert a phonetic interval to the actual glyph width; spacing and punctuation are untimed. */
 const glyphProgress = (
-  text: string, indices: readonly number[], position: number, fraction: number,
+  text: string,
+  indices: readonly number[],
+  position: number,
+  fraction: number,
   geometry?: LetterGeometry,
 ): number => {
   if (!geometry) return (position + fraction) / indices.length;
@@ -157,9 +174,12 @@ const glyphProgress = (
   const next = indices[position + 1];
   const characters = [...text];
   let last = characters.length - 1;
-  while (last > first && punctuation.test(characters[last] ?? "")) last--;
+  while (last > first && punctuation.test(characters[last] ?? '')) last--;
   const start = geometry[first]?.[0] ?? 0;
-  const end = next === undefined ? (geometry[last]?.[1] ?? 1) : (geometry[next]?.[0] ?? 1);
+  const end =
+    next === undefined
+      ? (geometry[last]?.[1] ?? 1)
+      : (geometry[next]?.[0] ?? 1);
   return start + (end - start) * fraction;
 };
 const consonantSeconds = 0.07;
@@ -184,14 +204,20 @@ const characterSeconds = (text: string, duration: number): number[] => {
     (duration * consonantShareLimit) / consonantCount,
   );
   const vowel = (duration - consonant * consonantCount) / vowelCount;
-  return letters.map((character) => vowels.test(character) ? vowel : consonant);
+  return letters.map((character) =>
+    vowels.test(character) ? vowel : consonant,
+  );
 };
 
 /**
  * Fraction of the word's text (0..1) that has been sung, using the saved word and letter boundaries.
  * Without letter timings the consonant/vowel distribution is approximate; it never changes the word's bounds.
  */
-export const letterProgress = (word: EditorWord, position: number, geometry?: LetterGeometry): number => {
+export const letterProgress = (
+  word: EditorWord,
+  position: number,
+  geometry?: LetterGeometry,
+): number => {
   if (position <= word.start) return 0;
   if (position >= word.end) return 1;
   const duration = Math.max(word.end - word.start, 0.001);
@@ -206,7 +232,13 @@ export const letterProgress = (word: EditorWord, position: number, geometry?: Le
   let remaining = position - word.start;
   for (const [index, seconds_] of seconds.entries()) {
     if (remaining < seconds_)
-      return glyphProgress(word.text, spokenIndices(word.text), index, remaining / seconds_, geometry);
+      return glyphProgress(
+        word.text,
+        spokenIndices(word.text),
+        index,
+        remaining / seconds_,
+        geometry,
+      );
     remaining -= seconds_;
   }
   return 1;
@@ -242,7 +274,13 @@ const timedLetterProgress = (
   const span = Math.max(next - start, 1e-6);
   return Math.min(
     1,
-    glyphProgress(text, realIndices, position, Math.min(1, Math.max(0, (fraction - start) / span)), geometry),
+    glyphProgress(
+      text,
+      realIndices,
+      position,
+      Math.min(1, Math.max(0, (fraction - start) / span)),
+      geometry,
+    ),
   );
 };
 
@@ -276,14 +314,16 @@ export const pitchRange = (
 };
 
 /** Converts a detected frequency to a fractional MIDI note so pitch distance is measured musically. */
-export const pitchHzToMidi = (pitchHz: number | undefined): number | undefined =>
+export const pitchHzToMidi = (
+  pitchHz: number | undefined,
+): number | undefined =>
   pitchHz !== undefined && Number.isFinite(pitchHz) && pitchHz > 0
     ? 69 + 12 * Math.log2(pitchHz / 440)
     : undefined;
 
 /** The revision's measured target; note edits carry the contour with them. */
 export const targetPitchAt = (
-  note: Pick<EditorNote, "start" | "end" | "pitch" | "contour">,
+  note: Pick<EditorNote, 'start' | 'end' | 'pitch' | 'contour'>,
   position: number,
 ): number | undefined => {
   const points = note.contour;
@@ -298,23 +338,33 @@ export const targetPitchAt = (
   }
   const left = points[Math.max(0, low - 1)]!;
   const right = points[Math.min(low, points.length - 1)]!;
-  const nearest = Math.abs(left[0] - fraction) <= Math.abs(right[0] - fraction) ? left : right;
+  const nearest =
+    Math.abs(left[0] - fraction) <= Math.abs(right[0] - fraction)
+      ? left
+      : right;
   if ((nearest[2] ?? 1) < 0.5) return undefined;
-  const weight = right[0] > left[0] ? Math.max(0, Math.min(1, (fraction - left[0]) / (right[0] - left[0]))) : 0;
+  const weight =
+    right[0] > left[0]
+      ? Math.max(0, Math.min(1, (fraction - left[0]) / (right[0] - left[0])))
+      : 0;
   return note.pitch + left[1] + (right[1] - left[1]) * weight;
 };
 
 /** Only reliable parts of the saved contour can require a pitch hit. */
-export const scorableNoteDuration = (note: Pick<EditorNote, "start" | "end" | "contour">): number => {
+export const scorableNoteDuration = (
+  note: Pick<EditorNote, 'start' | 'end' | 'contour'>,
+): number => {
   const points = note.contour;
-  const fraction = points?.length ? points.reduce((sum, point, index) => {
-    if ((point[2] ?? 1) < 0.5) return sum;
-    const previous = points[index - 1];
-    const next = points[index + 1];
-    const start = previous ? (previous[0] + point[0]) / 2 : 0;
-    const end = next ? (next[0] + point[0]) / 2 : 1;
-    return sum + end - start;
-  }, 0) : 1;
+  const fraction = points?.length
+    ? points.reduce((sum, point, index) => {
+        if ((point[2] ?? 1) < 0.5) return sum;
+        const previous = points[index - 1];
+        const next = points[index + 1];
+        const start = previous ? (previous[0] + point[0]) / 2 : 0;
+        const end = next ? (next[0] + point[0]) / 2 : 1;
+        return sum + end - start;
+      }, 0)
+    : 1;
   return Math.max(0, note.end - note.start) * fraction;
 };
 
@@ -322,8 +372,10 @@ export const scorableNoteDuration = (note: Pick<EditorNote, "start" | "end" | "c
 export const karaokePitchToleranceSemitones = 1;
 
 /** Weak periodicity is an uncertain measurement, not evidence of a wrong sung note. */
-export const reliablePitchHz = (pitchHz: number | undefined, confidence = 1): number | undefined =>
-  confidence >= 0.8 ? pitchHz : undefined;
+export const reliablePitchHz = (
+  pitchHz: number | undefined,
+  confidence = 1,
+): number | undefined => (confidence >= 0.8 ? pitchHz : undefined);
 
 /** Places a detected pitch in the octave nearest the target; karaoke scoring compares note names, not vocal register. */
 export const pitchMidiNearTarget = (

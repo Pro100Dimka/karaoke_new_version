@@ -1,4 +1,4 @@
-import { open, type FileHandle } from "node:fs/promises";
+import { open, type FileHandle } from 'node:fs/promises';
 
 export interface WavLayout {
   dataOffset: number;
@@ -24,7 +24,7 @@ const readAt = async (
       bytes - filled,
       position + filled,
     );
-    if (!bytesRead) throw new Error("Truncated WAV header");
+    if (!bytesRead) throw new Error('Truncated WAV header');
     filled += bytesRead;
   }
   return buffer;
@@ -35,20 +35,20 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
   const size = (await file.stat()).size;
   const header = await readAt(file, 12, 0);
   if (
-    header.toString("ascii", 0, 4) !== "RIFF" ||
-    header.toString("ascii", 8, 12) !== "WAVE"
+    header.toString('ascii', 0, 4) !== 'RIFF' ||
+    header.toString('ascii', 8, 12) !== 'WAVE'
   )
-    throw new Error("Not a WAV file");
+    throw new Error('Not a WAV file');
   const end = Math.min(size, header.readUInt32LE(4) + 8);
-  let format: Omit<WavLayout, "dataOffset" | "dataBytes"> | undefined;
+  let format: Omit<WavLayout, 'dataOffset' | 'dataBytes'> | undefined;
   for (let offset = 12; offset + 8 <= end;) {
     const chunk = await readAt(file, 8, offset);
-    const id = chunk.toString("ascii", 0, 4);
+    const id = chunk.toString('ascii', 0, 4);
     const bytes = chunk.readUInt32LE(4);
     const dataOffset = offset + 8;
-    if (id === "fmt ") {
+    if (id === 'fmt ') {
       if (bytes < 16 || dataOffset + bytes > end)
-        throw new Error("Invalid WAV format chunk");
+        throw new Error('Invalid WAV format chunk');
       const data = await readAt(file, Math.min(bytes, 40), dataOffset);
       let encoding = data.readUInt16LE(0);
       const channels = data.readUInt16LE(2);
@@ -62,9 +62,9 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
           data.readUInt16LE(18) > bits ||
           !data
             .subarray(28, 40)
-            .equals(Buffer.from("00001000800000aa00389b71", "hex"))
+            .equals(Buffer.from('00001000800000aa00389b71', 'hex'))
         )
-          throw new Error("Unsupported WAV encoding");
+          throw new Error('Unsupported WAV encoding');
         encoding = data.readUInt32LE(24);
       }
       const widths: Record<number, readonly number[]> = {
@@ -72,7 +72,7 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
         3: [32, 64],
       };
       if (!widths[encoding]?.includes(bits))
-        throw new Error("Unsupported WAV encoding");
+        throw new Error('Unsupported WAV encoding');
       const bytesPerSample = bits / 8;
       if (
         !channels ||
@@ -80,7 +80,7 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
         frameBytes !== channels * bytesPerSample ||
         data.readUInt32LE(8) !== sampleRate * frameBytes
       )
-        throw new Error("Invalid WAV format");
+        throw new Error('Invalid WAV format');
       format = {
         channels,
         sampleRate,
@@ -88,7 +88,7 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
         frameBytes,
         isFloat: encoding === 3,
       };
-    } else if (id === "data" && format) {
+    } else if (id === 'data' && format) {
       const available = Math.min(bytes, end - dataOffset);
       return {
         ...format,
@@ -98,7 +98,7 @@ export const readWavLayout = async (file: FileHandle): Promise<WavLayout> => {
     }
     offset = dataOffset + bytes + (bytes % 2);
   }
-  throw new Error("WAV data chunk not found");
+  throw new Error('WAV data chunk not found');
 };
 
 export const inspectWave = async (
@@ -108,7 +108,7 @@ export const inspectWave = async (
   channels: number;
   durationSeconds: number;
 }> => {
-  const file = await open(filePath, "r");
+  const file = await open(filePath, 'r');
   try {
     const layout = await readWavLayout(file);
     return {

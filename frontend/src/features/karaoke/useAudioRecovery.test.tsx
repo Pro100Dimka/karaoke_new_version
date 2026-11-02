@@ -1,10 +1,10 @@
-import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import type { SongDto } from "../../contracts/models";
-import { audioClient } from "../../services/audioClient";
-import { useAudioRecovery } from "./useAudioRecovery";
+import { act, renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import type { SongDto } from '../../contracts/models';
+import { audioClient } from '../../services/audioClient';
+import { useAudioRecovery } from './useAudioRecovery';
 
-vi.mock("../../services/audioClient", () => ({
+vi.mock('../../services/audioClient', () => ({
   audioClient: {
     health: vi.fn(),
     prepareSong: vi.fn(),
@@ -20,8 +20,8 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-it("keeps one recovery in flight and abandons it before touching a departed session", async () => {
-  let health!: (value: { status: "ready"; version: string }) => void;
+it('keeps one recovery in flight and abandons it before touching a departed session', async () => {
+  let health!: (value: { status: 'ready'; version: string }) => void;
   vi.mocked(audioClient.health).mockReturnValue(
     new Promise((resolve) => {
       health = resolve;
@@ -31,7 +31,7 @@ it("keeps one recovery in flight and abandons it before touching a departed sess
   const { unmount } = renderHook(() =>
     useAudioRecovery({
       recovering: true,
-      song: { current: { id: "song" } as SongDto },
+      song: { current: { id: 'song' } as SongDto },
       position: { current: 10 },
       speed: { current: 1 },
       key: { current: 0 },
@@ -44,17 +44,17 @@ it("keeps one recovery in flight and abandons it before touching a departed sess
   const count = vi.mocked(audioClient.health).mock.calls.length;
   unmount();
   await act(async () => {
-    health({ status: "ready", version: "1" });
+    health({ status: 'ready', version: '1' });
   });
   expect(audioClient.prepareSong).not.toHaveBeenCalled();
   expect(onRecovered).not.toHaveBeenCalled();
   expect(count).toBe(1);
 });
 
-it("handles failed health probes and stops commands after an interrupted preparation", async () => {
+it('handles failed health probes and stops commands after an interrupted preparation', async () => {
   vi.mocked(audioClient.health)
-    .mockRejectedValueOnce(new Error("lost pipe"))
-    .mockResolvedValue({ status: "ready", version: "1" });
+    .mockRejectedValueOnce(new Error('lost pipe'))
+    .mockResolvedValue({ status: 'ready', version: '1' });
   let prepared!: () => void;
   vi.mocked(audioClient.prepareSong).mockReturnValue(
     new Promise((resolve) => {
@@ -65,7 +65,7 @@ it("handles failed health probes and stops commands after an interrupted prepara
   const { unmount } = renderHook(() =>
     useAudioRecovery({
       recovering: true,
-      song: { current: { id: "song" } as SongDto },
+      song: { current: { id: 'song' } as SongDto },
       position: { current: 10 },
       speed: { current: 1 },
       key: { current: 0 },

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import type { BackendDiagnosticsDto } from "../../../../../contracts/models";
-import { audioClient as audio } from "../../../../../services/audioClient";
-import { pythonClient as backend } from "../../../../../services/pythonClient";
+import { useCallback, useEffect, useState } from 'react';
+import type { BackendDiagnosticsDto } from '../../../../../contracts/models';
+import { audioClient as audio } from '../../../../../services/audioClient';
+import { pythonClient as backend } from '../../../../../services/pythonClient';
 
 export interface SubsystemHealth {
   loading: boolean;
@@ -13,11 +13,11 @@ export interface SubsystemHealth {
 
 /** Python and AudioService are probed independently so one failure is never shown as an app-wide crash. */
 export const useSubsystemHealth = (): SubsystemHealth => {
-  const [state, setState] = useState<Omit<SubsystemHealth, "refresh">>({
+  const [state, setState] = useState<Omit<SubsystemHealth, 'refresh'>>({
     loading: true,
     backend: null,
     audio: null,
-    audioVersion: "",
+    audioVersion: '',
   });
   const [generation, setGeneration] = useState(0);
 
@@ -34,7 +34,7 @@ export const useSubsystemHealth = (): SubsystemHealth => {
           loading: false,
           backend,
           audio,
-          audioVersion: health?.version ?? "",
+          audioVersion: health?.version ?? '',
         });
     });
     return () => {

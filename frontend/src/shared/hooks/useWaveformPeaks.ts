@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { desktopClient } from "../../services/desktopClient";
+import { useEffect, useState } from 'react';
+import { desktopClient } from '../../services/desktopClient';
 
 /** Peaks for a waveform, reloaded when `key` changes; null while loading or when they cannot be read. */
 const usePeaks = (
@@ -32,7 +32,7 @@ export const useWaveformPeaks = (
 ): readonly number[] | null =>
   usePeaks(
     () => desktopClient.waveformPeaks(songId, revision, 480),
-    enabled ? `${songId}:${revision}` : "",
+    enabled ? `${songId}:${revision}` : '',
   );
 
 /** A saved take, for its player's waveform. */

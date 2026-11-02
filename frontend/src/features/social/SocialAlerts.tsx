@@ -1,20 +1,27 @@
-import { friendRelations } from "../../providers/social";
-import { observer } from "mobx-react-lite";
-import { store } from "../../providers/store";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { playNotificationSound } from "../../providers/notifications";
-import { Button, Card, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
+import { friendRelations } from '../../providers/social';
+import { observer } from 'mobx-react-lite';
+import { store } from '../../providers/store';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { playNotificationSound } from '../../providers/notifications';
+import {
+  Button,
+  Card,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
 
-import { useRoomInvitations } from "../../providers/social";
+import { useRoomInvitations } from '../../providers/social';
 import type {
   OnlineInbox,
   SocialInbox,
   SocialInvite,
   SocialPerson,
-} from "../../contracts/social";
-import { ru } from "../../i18n/messages.ru";
-import { PersonAvatar } from "./PersonAvatar";
-import { useSocialAction } from "./useSocialAction";
+} from '../../contracts/social';
+import { ru } from '../../i18n/messages.ru';
+import { PersonAvatar } from './PersonAvatar';
+import { useSocialAction } from './useSocialAction';
 
 const Alert = ({
   person,
@@ -77,7 +84,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
     (person) => !later.has(person.accountId),
   );
   const roomRequests = inbox.notices.filter(
-    (notice) => notice.kind === "JoinRequested" && notice.roomId === room?.code,
+    (notice) => notice.kind === 'JoinRequested' && notice.roomId === room?.code,
   );
   const invites = inbox.invites.filter(
     (invite) => !invitations.isRequestedRoom(invite.roomId),
@@ -88,7 +95,8 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
       ...invites.map((invite) => `invite:${invite.inviteId}`),
       ...requests.map((person) => `friend:${person.accountId}`),
     ];
-    if (keys.some((key) => !heard.current.has(key))) playNotificationSound("invitation");
+    if (keys.some((key) => !heard.current.has(key)))
+      playNotificationSound('invitation');
     keys.forEach((key) => heard.current.add(key));
   }, [invites, requests]);
 
@@ -194,4 +202,4 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
 });
 
 export const SocialAlerts = ({ inbox }: { inbox: SocialInbox }) =>
-  inbox.type === "inbox" ? <OnlineSocialAlerts inbox={inbox} /> : null;
+  inbox.type === 'inbox' ? <OnlineSocialAlerts inbox={inbox} /> : null;

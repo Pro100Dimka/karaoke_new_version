@@ -1,5 +1,5 @@
-import { fxColorNames, light, type FxColor } from "./fxPalette";
-import { spriteKind, type LightBatch } from "./gl/lightBatch";
+import { fxColorNames, light, type FxColor } from './fxPalette';
+import { spriteKind, type LightBatch } from './gl/lightBatch';
 
 export interface ParticleSpawn {
   x: number;
@@ -95,7 +95,7 @@ export class ParticlePool {
       let alpha = Math.min(1, t * 6) * (1 - t) * (1 - t) * brightness;
       if (this.read(at + TWINKLE))
         alpha *= 0.45 + 0.55 * Math.max(0, Math.sin(time * 7 + i * 1.7));
-      const color = fxColorNames[this.read(at + COLOR)] ?? "white";
+      const color = fxColorNames[this.read(at + COLOR)] ?? 'white';
       batch.sprite(
         this.read(at + X),
         this.read(at + Y),

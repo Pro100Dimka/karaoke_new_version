@@ -1,19 +1,19 @@
-import { app, protocol } from "electron";
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { Readable } from "node:stream";
+import { app, protocol } from 'electron';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { Readable } from 'node:stream';
 
 const sceneDirectory = (projectRoot: string): string =>
   app.isPackaged
-    ? path.join(process.resourcesPath, "media", "scene")
-    : path.join(projectRoot, "frontend", "media", "scene");
+    ? path.join(process.resourcesPath, 'media', 'scene')
+    : path.join(projectRoot, 'frontend', 'media', 'scene');
 
 // The renderer's CSP has no `file:` in media-src (loosening that would let embedded content probe
 // arbitrary paths on disk); this scheme only ever resolves inside sceneDirectory(), so the one
 // legitimate local asset it serves stays reachable without widening that boundary. Must run before 'ready'.
 protocol.registerSchemesAsPrivileged([
   {
-    scheme: "scene",
+    scheme: 'scene',
     privileges: {
       standard: true,
       secure: true,
@@ -38,9 +38,9 @@ const streamResponse = (
     return new Response(body, {
       status: 200,
       headers: {
-        "content-type": "video/webm",
-        "accept-ranges": "bytes",
-        "content-length": String(size),
+        'content-type': 'video/webm',
+        'accept-ranges': 'bytes',
+        'content-length': String(size),
       },
     });
   }
@@ -52,10 +52,10 @@ const streamResponse = (
   return new Response(body, {
     status: 206,
     headers: {
-      "content-type": "video/webm",
-      "accept-ranges": "bytes",
-      "content-range": `bytes ${start}-${end}/${size}`,
-      "content-length": String(end - start + 1),
+      'content-type': 'video/webm',
+      'accept-ranges': 'bytes',
+      'content-range': `bytes ${start}-${end}/${size}`,
+      'content-length': String(end - start + 1),
     },
   });
 };
@@ -67,15 +67,15 @@ const streamResponse = (
  * parsed and streamed by hand instead.
  */
 export const registerSceneProtocol = (projectRoot: string): void => {
-  protocol.handle("scene", (request) => {
+  protocol.handle('scene', (request) => {
     const name = decodeURIComponent(
-      new URL(request.url).pathname.replace(/^\/+/, ""),
+      new URL(request.url).pathname.replace(/^\/+/, ''),
     );
     if (
       !name ||
-      name.includes("/") ||
-      name.includes("\\") ||
-      name.includes("..")
+      name.includes('/') ||
+      name.includes('\\') ||
+      name.includes('..')
     )
       return new Response(null, { status: 400 });
     const filePath = path.join(sceneDirectory(projectRoot), name);
@@ -85,7 +85,7 @@ export const registerSceneProtocol = (projectRoot: string): void => {
     } catch {
       return new Response(null, { status: 404 });
     }
-    return streamResponse(filePath, size, request.headers.get("range"));
+    return streamResponse(filePath, size, request.headers.get('range'));
   });
 };
 
@@ -93,7 +93,7 @@ export const registerSceneProtocol = (projectRoot: string): void => {
 export const pickSceneClip = (projectRoot: string): string | null => {
   const directory = sceneDirectory(projectRoot);
   const clips = fs.existsSync(directory)
-    ? fs.readdirSync(directory).filter((name) => name.endsWith(".webm"))
+    ? fs.readdirSync(directory).filter((name) => name.endsWith('.webm'))
     : [];
   const chosen = clips[Math.floor(Math.random() * clips.length)];
   if (!chosen) return null;

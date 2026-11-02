@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import type { HistoryEventDto } from "../../../../../../contracts/models";
-import { pythonClient as backend } from "../../../../../../services/pythonClient";
-import { historyKinds, type HistoryTab } from "./historyModel";
+import { useEffect, useRef, useState } from 'react';
+import type { HistoryEventDto } from '../../../../../../contracts/models';
+import { pythonClient as backend } from '../../../../../../services/pythonClient';
+import { historyKinds, type HistoryTab } from './historyModel';
 
 const pageSize = 50;
 
 /** History pages and their title catalog have independent requests and retries. */
 export const useHistory = () => {
   const [query, setQuery] = useState({
-    tab: "performances" as HistoryTab,
+    tab: 'performances' as HistoryTab,
     offset: 0,
   });
   const [page, setPage] = useState({

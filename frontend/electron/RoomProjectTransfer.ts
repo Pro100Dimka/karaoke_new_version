@@ -1,15 +1,15 @@
-import { createReadStream, createWriteStream, realpathSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import type { WebContents } from "electron";
-import { mkdir, rm, stat } from "node:fs/promises";
-import * as path from "node:path";
-import { Readable, Transform } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { ipcChannels } from "./ipcChannels";
-import { withRoomKey } from "./RoomIdentity";
-import type { IpcRegistrar } from "./TrustedIpc";
-import { isSafePathComponent } from "./PathPolicy";
-import { requireObject, requireString } from "./RequestValidation";
+import { createReadStream, createWriteStream, realpathSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import type { WebContents } from 'electron';
+import { mkdir, rm, stat } from 'node:fs/promises';
+import * as path from 'node:path';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+import { ipcChannels } from './ipcChannels';
+import { withRoomKey } from './RoomIdentity';
+import type { IpcRegistrar } from './TrustedIpc';
+import { isSafePathComponent } from './PathPolicy';
+import { requireObject, requireString } from './RequestValidation';
 
 const projectUrl = (
   base: string,
@@ -21,7 +21,7 @@ const projectUrl = (
 
 export interface RoomProjectTransferProgress {
   transferId: string;
-  direction: "upload" | "download";
+  direction: 'upload' | 'download';
   transferredBytes: number;
   totalBytes: number;
 }
@@ -30,7 +30,7 @@ type Progress = (progress: RoomProjectTransferProgress) => void;
 
 const progressStream = (
   transferId: string,
-  direction: RoomProjectTransferProgress["direction"],
+  direction: RoomProjectTransferProgress['direction'],
   totalBytes: number,
   progress?: Progress,
 ): Transform => {
@@ -68,23 +68,23 @@ export const uploadRoomProject = async (
 ): Promise<void> => {
   const totalBytes = (await stat(filePath)).size;
   const source = createReadStream(filePath);
-  const meter = progressStream(transferId, "upload", totalBytes, progress);
+  const meter = progressStream(transferId, 'upload', totalBytes, progress);
   const sending = pipeline(source, meter, { signal }).then(
     () => undefined,
     (error) => error,
   );
   try {
     const response = await fetch(projectUrl(base, roomId, songId, revision), {
-      method: "PUT",
+      method: 'PUT',
       headers: await withRoomKey({
-        "X-Participant-Id": participantId,
-        "Content-Type": "application/zip",
-        "Content-Length": String(totalBytes),
+        'X-Participant-Id': participantId,
+        'Content-Type': 'application/zip',
+        'Content-Length': String(totalBytes),
       }),
       body: Readable.toWeb(meter) as BodyInit,
       signal,
-      duplex: "half",
-    } as RequestInit & { duplex: "half" });
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
     await response.body?.cancel();
     if (!response.ok)
       throw new Error(`Room project upload failed (${response.status})`);
@@ -109,7 +109,7 @@ export const downloadRoomProject = async (
   progress?: Progress,
 ): Promise<string> => {
   const response = await fetch(projectUrl(base, roomId, songId, revision), {
-    headers: await withRoomKey({ "X-Participant-Id": participantId }),
+    headers: await withRoomKey({ 'X-Participant-Id': participantId }),
     signal,
   });
   if (!response.ok || !response.body) {
@@ -118,12 +118,12 @@ export const downloadRoomProject = async (
   }
   // Electron's DOM stream types and Node's stream/web types are structurally
   // equivalent at runtime, but come from separate TypeScript declarations.
-  const totalBytes = Number(response.headers.get("content-length") ?? 0);
+  const totalBytes = Number(response.headers.get('content-length') ?? 0);
   try {
     await mkdir(path.dirname(targetPath), { recursive: true });
     await pipeline(
       Readable.fromWeb(response.body as never),
-      progressStream(transferId, "download", totalBytes, progress),
+      progressStream(transferId, 'download', totalBytes, progress),
       createWriteStream(targetPath),
       { signal },
     );
@@ -137,35 +137,35 @@ export const downloadRoomProject = async (
 };
 
 const requireProject = (raw: unknown) => {
-  const record = requireObject(raw, "Room project request");
+  const record = requireObject(raw, 'Room project request');
   if (
-    typeof record.revision !== "number" ||
+    typeof record.revision !== 'number' ||
     !Number.isSafeInteger(record.revision) ||
     record.revision < 1
   ) {
-    throw new TypeError("revision must be a positive integer");
+    throw new TypeError('revision must be a positive integer');
   }
-  const songId = requireString(record.songId, "songId");
+  const songId = requireString(record.songId, 'songId');
   if (!isSafePathComponent(songId))
-    throw new TypeError("Invalid project identity");
+    throw new TypeError('Invalid project identity');
   return {
-    roomId: requireString(record.roomId, "roomId"),
-    participantId: requireString(record.participantId, "participantId"),
+    roomId: requireString(record.roomId, 'roomId'),
+    participantId: requireString(record.participantId, 'participantId'),
     songId,
     revision: record.revision,
     path: record.path,
     transferId:
-      typeof record.transferId === "string"
+      typeof record.transferId === 'string'
         ? record.transferId
         : `${record.songId}:${record.revision}`,
   };
 };
 
 const requireBackendPath = (root: string, value: unknown): string => {
-  const resolved = realpathSync(requireString(value, "path"));
+  const resolved = realpathSync(requireString(value, 'path'));
   const relative = path.relative(realpathSync(root), resolved);
-  if (relative.startsWith("..") || path.isAbsolute(relative)) {
-    throw new TypeError("Path is outside the backend data directory");
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new TypeError('Path is outside the backend data directory');
   }
   return resolved;
 };
@@ -206,28 +206,28 @@ export const registerRoomProjectTransferHandlers = (
   const owners = new WeakSet<WebContents>();
   const begin = (transferId: string, owner: WebContents): AbortController => {
     if (transfers.has(transferId))
-      throw new Error("Room project transfer is already active");
+      throw new Error('Room project transfer is already active');
     if (transfers.size + downloads.size >= 32)
-      throw new Error("Too many outstanding room project transfers");
+      throw new Error('Too many outstanding room project transfers');
     if (owner.isDestroyed())
-      throw new Error("Room project transfer owner is closed");
+      throw new Error('Room project transfer owner is closed');
     if (!owners.has(owner)) {
       owners.add(owner);
-      owner.once("destroyed", () => {
+      owner.once('destroyed', () => {
         for (const transfer of transfers.values())
           if (transfer.owner === owner) transfer.controller.abort();
         for (const [file, fileOwner] of downloads) {
           if (fileOwner !== owner) continue;
           downloads.delete(file);
           void rm(file, { force: true }).catch((error) =>
-            console.error("Room archive cleanup failed", error),
+            console.error('Room archive cleanup failed', error),
           );
         }
       });
     }
     const controller = new AbortController();
     const watch = stallWatch(() =>
-      controller.abort(new Error("Room project transfer stalled")),
+      controller.abort(new Error('Room project transfer stalled')),
     );
     transfers.set(transferId, { controller, owner, watch });
     return controller;
@@ -242,17 +242,17 @@ export const registerRoomProjectTransferHandlers = (
   ipc.handle(
     ipcChannels.cancelRoomProjectTransfer,
     (_event, transferId: unknown) => {
-      if (typeof transferId !== "string")
-        throw new TypeError("transferId must be a string");
+      if (typeof transferId !== 'string')
+        throw new TypeError('transferId must be a string');
       return transfers.get(transferId)?.controller.abort();
     },
   );
   ipc.handle(
     ipcChannels.releaseRoomProjectDownload,
     async (event, raw: unknown) => {
-      const file = requireString(raw, "path");
+      const file = requireString(raw, 'path');
       if (downloads.get(file) !== event.sender)
-        throw new Error("Room archive is not owned by this renderer");
+        throw new Error('Room archive is not owned by this renderer');
       await rm(file, { force: true });
       downloads.delete(file);
     },
@@ -287,8 +287,8 @@ export const registerRoomProjectTransferHandlers = (
     const project = requireProject(raw);
     const target = path.join(
       dataRoot(),
-      "temp",
-      "room-downloads",
+      'temp',
+      'room-downloads',
       `${randomUUID()}.advoice.zip`,
     );
     const controller = begin(project.transferId, event.sender);
@@ -313,7 +313,7 @@ export const registerRoomProjectTransferHandlers = (
       );
       if (controller.signal.aborted || event.sender.isDestroyed()) {
         await rm(target, { force: true });
-        throw new Error("Room project transfer was cancelled");
+        throw new Error('Room project transfer was cancelled');
       }
       downloads.set(target, event.sender);
       return target;

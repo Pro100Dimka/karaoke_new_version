@@ -1,13 +1,21 @@
-import { openSettings } from "../pages/library/modals/settings";
-import { observer } from "mobx-react-lite";
-import { Icon, IconButton, Popover, Slider, tr, useLocale, useRouter } from "@neo-ui-kit/react";
+import { openSettings } from '../pages/library/modals/settings';
+import { observer } from 'mobx-react-lite';
+import {
+  Icon,
+  IconButton,
+  Popover,
+  Slider,
+  tr,
+  useLocale,
+  useRouter,
+} from '@neo-ui-kit/react';
 
-import { routes } from "../shared/routes";
-import { useRef, useState } from "react";
-import { ru } from "../i18n/messages.ru";
-import { store } from "../providers/store";
-import { toggleRadio, setRadioVolume } from "../providers/radio";
-import { useRadioTrack } from "./desktop/shellBus";
+import { routes } from '../shared/routes';
+import { useRef, useState } from 'react';
+import { ru } from '../i18n/messages.ru';
+import { store } from '../providers/store';
+import { toggleRadio, setRadioVolume } from '../providers/radio';
+import { useRadioTrack } from './desktop/shellBus';
 
 /** The radio and settings buttons in the lower corner; the radio's volume opens on hover. */
 export const FloatingControls = observer(() => {
@@ -41,7 +49,7 @@ export const FloatingControls = observer(() => {
           icon="radio"
           label={tr(ru.radio)}
           aria-pressed={radio.enabled}
-          variant={radio.enabled ? "primary" : "ghost"}
+          variant={radio.enabled ? 'primary' : 'ghost'}
           disabled={!radio.canControl}
           onClick={toggleRadio}
         />
@@ -73,8 +81,14 @@ export const FloatingControls = observer(() => {
         </Popover>
       </div>
       {el}
-      <IconButton round size="lg" variant="ghost" icon="info"
-        label={tr("Инструкция")} onClick={() => navigate(routes.help)} />
+      <IconButton
+        round
+        size="lg"
+        variant="ghost"
+        icon="info"
+        label={tr('Инструкция')}
+        onClick={() => navigate(routes.help)}
+      />
     </aside>
   );
 });

@@ -1,83 +1,83 @@
-import { readFileSync, readdirSync } from "node:fs";
-import { extname, join, relative } from "node:path";
-import ts from "typescript";
+import { readFileSync, readdirSync } from 'node:fs';
+import { extname, join, relative } from 'node:path';
+import ts from 'typescript';
 
-const roots = ["src", "electron"];
-const sourceExtensions = new Set([".ts", ".tsx"]);
+const roots = ['src', 'electron'];
+const sourceExtensions = new Set(['.ts', '.tsx']);
 const checks = [
   {
-    name: "TypeScript suppression",
+    name: 'TypeScript suppression',
     pattern: /@ts-(?:ignore|expect-error)|eslint-disable/,
   },
   {
-    name: "renderer browser audio",
+    name: 'renderer browser audio',
     pattern: /\b(?:AudioContext|MediaRecorder|getUserMedia)\b/,
     rendererOnly: true,
   },
   {
-    name: "renderer Node access",
+    name: 'renderer Node access',
     pattern: /(?:node:fs|child_process|require\s*\()/,
     rendererOnly: true,
   },
   {
-    name: "renderer clipboard",
+    name: 'renderer clipboard',
     pattern: /navigator\.clipboard/,
     rendererOnly: true,
   },
   {
-    name: "native confirm",
+    name: 'native confirm',
     pattern: /(?:window\.)?confirm\s*\(/,
     rendererOnly: true,
   },
   {
-    name: "unsafe HTML",
+    name: 'unsafe HTML',
     pattern: /dangerouslySetInnerHTML/,
     rendererOnly: true,
   },
   {
-    name: "clickable div",
+    name: 'clickable div',
     pattern: /<div\b[^>]*\bonClick=/,
     rendererOnly: true,
   },
   {
-    name: "manual button role",
+    name: 'manual button role',
     pattern: /role=["']button["']/,
     rendererOnly: true,
   },
   {
-    name: "unstable list key",
+    name: 'unstable list key',
     pattern: /key=\{[^}]*?(?:Math\.random|Date\.now|\b(?:index|idx)\b)[^}]*\}/,
     rendererOnly: true,
   },
   {
-    name: "hardcoded DOM id",
+    name: 'hardcoded DOM id',
     pattern: /\bid=["'][^"']+["']/,
     rendererOnly: true,
   },
-  { name: "layout br", pattern: /<br\s*\/?>/, rendererOnly: true },
-  { name: "nbsp spacing", pattern: /&nbsp;/, rendererOnly: true },
+  { name: 'layout br', pattern: /<br\s*\/?>/, rendererOnly: true },
+  { name: 'nbsp spacing', pattern: /&nbsp;/, rendererOnly: true },
   {
-    name: "direct browser storage (use shared/storage/localStore)",
+    name: 'direct browser storage (use shared/storage/localStore)',
     pattern: /\b(?:local|session)Storage\b/,
     rendererOnly: true,
-    except: "shared/storage/",
+    except: 'shared/storage/',
   },
-  { name: "console logging", pattern: /console\.(?:log|debug)\(/ },
+  { name: 'console logging', pattern: /console\.(?:log|debug)\(/ },
   {
-    name: "focused or skipped test",
+    name: 'focused or skipped test',
     pattern: /\b(?:it|test|describe)\.(?:only|skip)\(/,
   },
-  { name: "non-null assertion", pattern: /[\w)\]]!(?:\.|\[|\))/ },
+  { name: 'non-null assertion', pattern: /[\w)\]]!(?:\.|\[|\))/ },
 ];
 const maxFileLines = 500;
 const stylesheetChecks = [
   {
-    name: "!important outside the theme kit",
+    name: '!important outside the theme kit',
     pattern: /!important/,
-    except: "theme/",
+    except: 'theme/',
   },
   {
-    name: "z-index literal above the token scale",
+    name: 'z-index literal above the token scale',
     pattern: /z-index:\s*\d{4,}/,
   },
 ];
@@ -95,9 +95,9 @@ for (const root of roots) walk(root);
 
 const failures = [];
 for (const file of files) {
-  const source = readFileSync(file, "utf8");
+  const source = readFileSync(file, 'utf8');
   const renderer = file.startsWith(
-    `src${process.platform === "win32" ? "\\" : "/"}`,
+    `src${process.platform === 'win32' ? '\\' : '/'}`,
   );
   const lines = source.split(/\r?\n/);
   const syntax = ts.createSourceFile(
@@ -111,7 +111,7 @@ for (const file of files) {
       const { line } = syntax.getLineAndCharacterOfPosition(
         node.getStart(syntax),
       );
-      failures.push(`${relative(".", file)}:${line + 1} any`);
+      failures.push(`${relative('.', file)}:${line + 1} any`);
     }
     ts.forEachChild(node, checkTypes);
   };
@@ -119,11 +119,11 @@ for (const file of files) {
 
   for (const check of checks) {
     if (check.rendererOnly && !renderer) continue;
-    if (check.except && file.replaceAll("\\", "/").includes(check.except))
+    if (check.except && file.replaceAll('\\', '/').includes(check.except))
       continue;
     for (let index = 0; index < lines.length; index += 1) {
       if (check.pattern.test(lines[index])) {
-        failures.push(`${relative(".", file)}:${index + 1} ${check.name}`);
+        failures.push(`${relative('.', file)}:${index + 1} ${check.name}`);
       }
       check.pattern.lastIndex = 0;
     }
@@ -135,18 +135,18 @@ const walkStyles = (dir) => {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) walkStyles(path);
-    else if (extname(entry.name) === ".css") styleFiles.push(path);
+    else if (extname(entry.name) === '.css') styleFiles.push(path);
   }
 };
-walkStyles("src");
+walkStyles('src');
 for (const file of styleFiles) {
-  const normalized = file.replaceAll("\\", "/");
-  const lines = readFileSync(file, "utf8").split(/\r?\n/);
+  const normalized = file.replaceAll('\\', '/');
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/);
   for (const check of stylesheetChecks) {
     if (check.except && normalized.includes(check.except)) continue;
     lines.forEach((line, index) => {
       if (check.pattern.test(line))
-        failures.push(`${relative(".", file)}:${index + 1} ${check.name}`);
+        failures.push(`${relative('.', file)}:${index + 1} ${check.name}`);
     });
   }
 }
@@ -155,21 +155,21 @@ for (const file of styleFiles) {
 for (const file of [
   ...files,
   ...styleFiles.filter(
-    (file) => !file.replaceAll("\\", "/").includes("theme/"),
+    (file) => !file.replaceAll('\\', '/').includes('theme/'),
   ),
 ]) {
-  const count = readFileSync(file, "utf8")
+  const count = readFileSync(file, 'utf8')
     .split(/\r?\n/)
     .filter((line) => line.trim().length > 0).length;
   if (count > maxFileLines)
     failures.push(
-      `${relative(".", file)} has ${count} lines (limit ${maxFileLines})`,
+      `${relative('.', file)} has ${count} lines (limit ${maxFileLines})`,
     );
 }
 
 if (failures.length > 0) {
   console.error(
-    "Rule check failed:\n" + failures.map((item) => `- ${item}`).join("\n"),
+    'Rule check failed:\n' + failures.map((item) => `- ${item}`).join('\n'),
   );
   process.exit(1);
 }

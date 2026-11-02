@@ -1,8 +1,8 @@
-import { tr } from "@neo-ui-kit/react";
-import { ru } from "../../../../i18n/messages.ru";
-import type { RecordingDto } from "../../../../contracts/models";
+import { tr } from '@neo-ui-kit/react';
+import { ru } from '../../../../i18n/messages.ru';
+import type { RecordingDto } from '../../../../contracts/models';
 
-const pad = (value: number): string => String(value).padStart(2, "0");
+const pad = (value: number): string => String(value).padStart(2, '0');
 
 /** "Take N · YYYY-MM-DD HH:mm" in the interface language, numbered by recording order within the song. */
 export const defaultTakeName = (number: number, createdAt: string): string => {

@@ -1,24 +1,47 @@
-import type { AudioServiceClient, PythonClient } from "../../contracts/clients";
-import type { KaraokeNoteScore, PlaybackSnapshot, SongDto } from "../../contracts/models";
+import type { AudioServiceClient, PythonClient } from '../../contracts/clients';
+import type {
+  KaraokeNoteScore,
+  PlaybackSnapshot,
+  SongDto,
+} from '../../contracts/models';
 
-export type KaraokeAudioPort = Pick<AudioServiceClient,
-  "capabilities" | "prepareSong" | "setPlaybackRate" | "setPitchShift" |
-  "setMixer" | "health" | "seek" | "play" | "pause" | "stop" |
-  "setMonitoring" | "setDspParameter" | "setDspEnabled"> & {
+export type KaraokeAudioPort = Pick<
+  AudioServiceClient,
+  | 'capabilities'
+  | 'prepareSong'
+  | 'setPlaybackRate'
+  | 'setPitchShift'
+  | 'setMixer'
+  | 'health'
+  | 'seek'
+  | 'play'
+  | 'pause'
+  | 'stop'
+  | 'setMonitoring'
+  | 'setDspParameter'
+  | 'setDspEnabled'
+> & {
   snapshot(): Promise<PlaybackSnapshot>;
 };
 
-export type VoiceChainAudioPort = Pick<AudioServiceClient,
-  "setMixer" | "setDspParameter" | "setDspEnabled">;
+export type VoiceChainAudioPort = Pick<
+  AudioServiceClient,
+  'setMixer' | 'setDspParameter' | 'setDspEnabled'
+>;
 
-export type KaraokeBackendPort = Pick<PythonClient,
-  "getSong" | "projectCompatibility" | "freeStorageBytes">;
+export type KaraokeBackendPort = Pick<
+  PythonClient,
+  'getSong' | 'projectCompatibility' | 'freeStorageBytes'
+>;
 
 export interface KaraokeRecordingPort {
   interrupt(): void;
   elapsedSeconds(): number;
   hasPendingTake(): boolean;
-  start(song: SongDto, adjustment: PlaybackAdjustment): Promise<RecordingStatus>;
+  start(
+    song: SongDto,
+    adjustment: PlaybackAdjustment,
+  ): Promise<RecordingStatus>;
   stop(): Promise<RecordingStatus>;
   pause(): Promise<RecordingStatus>;
   resume(adjustment: PlaybackAdjustment): Promise<RecordingStatus>;

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SongDto } from "../contracts/models";
-import { recordingCoordinator } from "./recordingCoordinator";
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { SongDto } from '../contracts/models';
+import { recordingCoordinator } from './recordingCoordinator';
 
 const nativeResult = (seconds: number) =>
   JSON.stringify({
@@ -16,22 +16,22 @@ const nativeResult = (seconds: number) =>
     gaps: [],
   });
 
-describe("recordingCoordinator", () => {
-  it("reports elapsed capture time without counting pauses or musical seeks", async () => {
+describe('recordingCoordinator', () => {
+  it('reports elapsed capture time without counting pauses or musical seeks', async () => {
     let now = 1000;
-    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     Object.assign(window, {
       desktop: {
         pythonRequest: vi.fn(async () => ({
           ok: true,
-          body: { recordingId: "elapsed", filePath: "D:/elapsed.wav" },
+          body: { recordingId: 'elapsed', filePath: 'D:/elapsed.wav' },
         })),
         audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
           status: 0,
           text:
-            request.command === "GetRecordingState"
+            request.command === 'GetRecordingState'
               ? nativeResult(3)
-              : "D:/elapsed.wav",
+              : 'D:/elapsed.wav',
         })),
         inspectWave: vi.fn(async () => ({
           durationSeconds: 3,
@@ -41,7 +41,7 @@ describe("recordingCoordinator", () => {
       },
     });
     await recordingCoordinator.start({
-      id: "song",
+      id: 'song',
       activeRevision: 1,
     } as SongDto);
     try {
@@ -63,12 +63,12 @@ describe("recordingCoordinator", () => {
       clock.mockRestore();
     }
   });
-  afterEach(() => Reflect.deleteProperty(window, "desktop"));
+  afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
-  it("records the audible master mix so playback contains the song and the configured voice", async () => {
+  it('records the audible master mix so playback contains the song and the configured voice', async () => {
     const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
       status: 0,
-      text: request.command === "GetRecordingState" ? nativeResult(1) : "Ok",
+      text: request.command === 'GetRecordingState' ? nativeResult(1) : 'Ok',
     }));
     Object.assign(window, {
       desktop: {
@@ -76,7 +76,7 @@ describe("recordingCoordinator", () => {
         pythonRequest: vi.fn(async () => ({
           ok: true,
           status: 200,
-          body: { recordingId: "take-1", filePath: "D:/take-1.wav" },
+          body: { recordingId: 'take-1', filePath: 'D:/take-1.wav' },
         })),
         inspectWave: vi.fn(async () => ({
           durationSeconds: 1,
@@ -87,29 +87,29 @@ describe("recordingCoordinator", () => {
     });
 
     await recordingCoordinator.start({
-      id: "song-1",
+      id: 'song-1',
       activeRevision: 3,
     } as SongDto);
 
     expect(audioRequest).toHaveBeenCalledWith({
-      command: "PrepareRecording",
+      command: 'PrepareRecording',
       args: {
-        id: "take-1",
-        path: "D:/take-1.wav",
-        tap: "performance",
+        id: 'take-1',
+        path: 'D:/take-1.wav',
+        tap: 'performance',
         backing: true,
       },
     });
     await recordingCoordinator.stop();
   });
 
-  it("stores the runtime tempo and key timeline with the take", async () => {
+  it('stores the runtime tempo and key timeline with the take', async () => {
     const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
       ok: true,
       status: 200,
       body:
-        request.path === "/recordings/target"
-          ? { recordingId: "take-transform", filePath: "D:/take-transform.wav" }
+        request.path === '/recordings/target'
+          ? { recordingId: 'take-transform', filePath: 'D:/take-transform.wav' }
           : {},
     }));
     Object.assign(window, {
@@ -117,11 +117,11 @@ describe("recordingCoordinator", () => {
         audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
           status: 0,
           text:
-            request.command === "GetRecordingState"
+            request.command === 'GetRecordingState'
               ? nativeResult(3)
-              : request.command === "StopRecording"
-                ? "D:/take-transform.wav"
-                : "Ok",
+              : request.command === 'StopRecording'
+                ? 'D:/take-transform.wav'
+                : 'Ok',
         })),
         pythonRequest,
         inspectWave: vi.fn(async () => ({
@@ -133,7 +133,7 @@ describe("recordingCoordinator", () => {
     });
 
     await recordingCoordinator.start(
-      { id: "song-1", activeRevision: 3 } as SongDto,
+      { id: 'song-1', activeRevision: 3 } as SongDto,
       { sourceSeconds: 4, playbackRate: 0.9, keyShift: -1 },
     );
     recordingCoordinator.updatePlaybackAdjustment({
@@ -144,7 +144,7 @@ describe("recordingCoordinator", () => {
     await recordingCoordinator.stop();
 
     const register = pythonRequest.mock.calls.find(
-      ([request]) => request.path === "/recordings",
+      ([request]) => request.path === '/recordings',
     )?.[0];
     expect(register?.body).toMatchObject({
       sessionMetadata: {
@@ -161,13 +161,13 @@ describe("recordingCoordinator", () => {
     });
   });
 
-  it("stores the live green-note score with the take", async () => {
+  it('stores the live green-note score with the take', async () => {
     const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
       ok: true,
       status: 200,
       body:
-        request.path === "/recordings/target"
-          ? { recordingId: "take-notes", filePath: "D:/take-notes.wav" }
+        request.path === '/recordings/target'
+          ? { recordingId: 'take-notes', filePath: 'D:/take-notes.wav' }
           : {},
     }));
     Object.assign(window, {
@@ -175,11 +175,11 @@ describe("recordingCoordinator", () => {
         audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
           status: 0,
           text:
-            request.command === "GetRecordingState"
+            request.command === 'GetRecordingState'
               ? nativeResult(1)
-              : request.command === "StopRecording"
-                ? "D:/take-notes.wav"
-                : "Ok",
+              : request.command === 'StopRecording'
+                ? 'D:/take-notes.wav'
+                : 'Ok',
         })),
         pythonRequest,
         inspectWave: vi.fn(async () => ({
@@ -191,7 +191,7 @@ describe("recordingCoordinator", () => {
     });
 
     await recordingCoordinator.start({
-      id: "song-1",
+      id: 'song-1',
       activeRevision: 3,
     } as SongDto);
     recordingCoordinator.updateKaraokeNoteScore({
@@ -206,7 +206,7 @@ describe("recordingCoordinator", () => {
     await recordingCoordinator.stop();
 
     const register = pythonRequest.mock.calls.find(
-      ([request]) => request.path === "/recordings",
+      ([request]) => request.path === '/recordings',
     )?.[0];
     expect(register?.body).toMatchObject({
       sessionMetadata: {
@@ -223,24 +223,24 @@ describe("recordingCoordinator", () => {
     });
   });
 
-  it("keeps the song timeline of a take true across a pause, a seek and resuming elsewhere", async () => {
+  it('keeps the song timeline of a take true across a pause, a seek and resuming elsewhere', async () => {
     let now = 1_000;
-    const clock = vi.spyOn(performance, "now").mockImplementation(() => now);
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
     const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
       status: 0,
       text:
-        request.command === "GetRecordingState"
+        request.command === 'GetRecordingState'
           ? nativeResult(6)
-          : request.command === "StopRecording"
-            ? "D:/take-pause.wav"
-            : "Ok",
+          : request.command === 'StopRecording'
+            ? 'D:/take-pause.wav'
+            : 'Ok',
     }));
     const pythonRequest = vi.fn(async (request: PythonBridgeRequest) => ({
       ok: true,
       status: 200,
       body:
-        request.path === "/recordings/target"
-          ? { recordingId: "take-pause", filePath: "D:/take-pause.wav" }
+        request.path === '/recordings/target'
+          ? { recordingId: 'take-pause', filePath: 'D:/take-pause.wav' }
           : {},
     }));
     Object.assign(window, {
@@ -256,7 +256,7 @@ describe("recordingCoordinator", () => {
     });
 
     await recordingCoordinator.start(
-      { id: "song-1", activeRevision: 3 } as SongDto,
+      { id: 'song-1', activeRevision: 3 } as SongDto,
       { sourceSeconds: 10, playbackRate: 1, keyShift: 0 },
     );
     now += 2_000;
@@ -275,10 +275,10 @@ describe("recordingCoordinator", () => {
     clock.mockRestore();
 
     expect(audioRequest.mock.calls.map(([request]) => request.command)).toEqual(
-      expect.arrayContaining(["PauseRecording", "ResumeRecording"]),
+      expect.arrayContaining(['PauseRecording', 'ResumeRecording']),
     );
     const register = pythonRequest.mock.calls.find(
-      ([request]) => request.path === "/recordings",
+      ([request]) => request.path === '/recordings',
     )?.[0];
     expect(
       (register?.body as { sessionMetadata: { playbackAdjustments: unknown } })

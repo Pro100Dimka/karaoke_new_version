@@ -1,9 +1,16 @@
-import { memo } from "react";
-import { Equalizer, Icon, Typography, Waveform, tr, useLocale } from "@neo-ui-kit/react";
-import type { SongDto } from "../../../contracts/models";
-import { ru } from "../../../i18n/messages.ru";
-import { formatTime } from "../../../shared/utils/format";
-import { useWaveformPeaks } from "../../../shared/hooks/useWaveformPeaks";
+import { memo } from 'react';
+import {
+  Equalizer,
+  Icon,
+  Typography,
+  Waveform,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { SongDto } from '../../../contracts/models';
+import { ru } from '../../../i18n/messages.ru';
+import { formatTime } from '../../../shared/utils/format';
+import { useWaveformPeaks } from '../../../shared/hooks/useWaveformPeaks';
 
 interface SongStripProps {
   song: SongDto;
@@ -15,39 +22,38 @@ interface SongStripProps {
 }
 
 /** Top row of the console: song identity, elapsed time, the seekable waveform and total time. */
-export const SongStrip = memo(({
-  song,
-  position,
-  duration,
-  locked,
-  playing,
-  onSeek,
-}: SongStripProps) => {
-  useLocale();
-  const peaks = useWaveformPeaks(song.id, song.activeRevision);
-  return (
-    <div className="songStrip">
-      <span className="songStripCover" aria-hidden="true">
-        {playing ? <Equalizer bars={5} playing /> : <Icon name="music" />}
-      </span>
-      <div className="songStripTitle">
-        <Typography as="strong" variant="body-sm" weight="semibold" truncate>
-          {song.title}
+export const SongStrip = memo(
+  ({ song, position, duration, locked, playing, onSeek }: SongStripProps) => {
+    useLocale();
+    const peaks = useWaveformPeaks(song.id, song.activeRevision);
+    return (
+      <div className="songStrip">
+        <span className="songStripCover" aria-hidden="true">
+          {playing ? <Equalizer bars={5} playing /> : <Icon name="music" />}
+        </span>
+        <div className="songStripTitle">
+          <Typography as="strong" variant="body-sm" weight="semibold" truncate>
+            {song.title}
+          </Typography>
+          <Typography variant="caption" tone="muted" truncate>
+            {song.artist}
+          </Typography>
+        </div>
+        <Typography className="songStripElapsed" variant="caption">
+          {formatTime(position)}
         </Typography>
-        <Typography variant="caption" tone="muted" truncate>
-          {song.artist}
+        <Waveform
+          points={peaks ?? []}
+          position={position}
+          duration={duration}
+          disabled={locked}
+          label={tr(ru.songPosition)}
+          onSeek={onSeek}
+        />
+        <Typography className="songStripDuration" variant="caption">
+          {formatTime(duration)}
         </Typography>
       </div>
-      <Typography className="songStripElapsed" variant="caption">{formatTime(position)}</Typography>
-      <Waveform
-        points={peaks ?? []}
-        position={position}
-        duration={duration}
-        disabled={locked}
-        label={tr(ru.songPosition)}
-        onSeek={onSeek}
-      />
-      <Typography className="songStripDuration" variant="caption">{formatTime(duration)}</Typography>
-    </div>
-  );
-});
+    );
+  },
+);

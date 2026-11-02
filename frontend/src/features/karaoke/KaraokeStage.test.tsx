@@ -1,58 +1,81 @@
-import { QueryProvider } from "../../test/QueryProvider";
-import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { QueryProvider } from '../../test/QueryProvider';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
-import type { EditorDocument } from "../../application/editor/editorModel";
-import { KaraokeStage } from "./KaraokeStage";
-import { KaraokeHeader } from "./KaraokeHeader";
+import type { EditorDocument } from '../../application/editor/editorModel';
+import { KaraokeStage } from './KaraokeStage';
+import { KaraokeHeader } from './KaraokeHeader';
 
-vi.mock("./useSmoothPosition", () => ({
+vi.mock('./useSmoothPosition', () => ({
   useSmoothPosition: (position: number) => position,
 }));
 
-describe("KaraokeStage", () => {
-  it("previews words only in the final countdown second without filling them before singing", () => {
+describe('KaraokeStage', () => {
+  it('previews words only in the final countdown second without filling them before singing', () => {
     const document: EditorDocument = {
-      revision: 1, lyrics: "Held word", notes: [],
+      revision: 1,
+      lyrics: 'Held word',
+      notes: [],
       words: [
-        { id: "a", text: "Held", start: 20, end: 24, letters: [0, 0.05, 0.95, 0.98] },
-        { id: "b", text: "word", start: 24, end: 25 },
+        {
+          id: 'a',
+          text: 'Held',
+          start: 20,
+          end: 24,
+          letters: [0, 0.05, 0.95, 0.98],
+        },
+        { id: 'b', text: 'word', start: 24, end: 25 },
       ],
     };
     const stage = (position: number) => (
-      <QueryProvider application><KaraokeStage songTitle="Song" position={position} playing={false} rate={1}
-        document={document} layers={{ showLyrics: true, showNotes: false }} vocalRange="auto" /></QueryProvider>
+      <QueryProvider application>
+        <KaraokeStage
+          songTitle="Song"
+          position={position}
+          playing={false}
+          rate={1}
+          document={document}
+          layers={{ showLyrics: true, showNotes: false }}
+          vocalRange="auto"
+        />
+      </QueryProvider>
     );
     const view = render(stage(17.1));
-    const fill = () => [...view.container.querySelectorAll<HTMLElement>(".ad-lyrics-current .ad-lyric-word")]
-      .map((word) => word.style.getPropertyValue("--ad-lyric-fill"));
+    const fill = () =>
+      [
+        ...view.container.querySelectorAll<HTMLElement>(
+          '.ad-lyrics-current .ad-lyric-word',
+        ),
+      ].map((word) => word.style.getPropertyValue('--ad-lyric-fill'));
     for (const position of [17.1, 18.1, 18.99]) {
       view.rerender(stage(position));
-      expect(screen.getByRole("timer")).toHaveTextContent(String(Math.ceil(20 - position)));
-      expect(screen.queryByText("Held")).not.toBeInTheDocument();
+      expect(screen.getByRole('timer')).toHaveTextContent(
+        String(Math.ceil(20 - position)),
+      );
+      expect(screen.queryByText('Held')).not.toBeInTheDocument();
       expect(fill()).toEqual([]);
     }
     for (const position of [19, 19.1, 19.4]) {
       view.rerender(stage(position));
-      expect(screen.getByText("Held")).toBeVisible();
-      expect(fill()).toEqual(["0%", "0%"]);
+      expect(screen.getByText('Held')).toBeVisible();
+      expect(fill()).toEqual(['0%', '0%']);
     }
     view.rerender(stage(22));
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
     expect(parseFloat(fill()[0]!)).toBeGreaterThan(25);
     expect(parseFloat(fill()[0]!)).toBeLessThan(50);
-    expect(fill()[1]).toBe("0%");
+    expect(fill()[1]).toBe('0%');
     view.rerender(stage(17.5));
     expect(fill()).toEqual([]);
     view.rerender(stage(19.1));
-    expect(fill()).toEqual(["0%", "0%"]);
+    expect(fill()).toEqual(['0%', '0%']);
   });
-  it("does not draw the delayed scalar at the current playhead when capture timestamps are available", () => {
+  it('does not draw the delayed scalar at the current playhead when capture timestamps are available', () => {
     const document: EditorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 1, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 1 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 1, pitch: 69 }],
     };
     const { container } = render(
       <QueryProvider application>
@@ -77,12 +100,12 @@ describe("KaraokeStage", () => {
         />
       </QueryProvider>,
     );
-    expect(container.querySelector(".ad-melody-voice")).toBeNull();
-    expect(container.querySelector(".ad-melody-trail path")).toBeNull();
+    expect(container.querySelector('.ad-melody-voice')).toBeNull();
+    expect(container.querySelector('.ad-melody-trail path')).toBeNull();
   });
-  it("does not add a recording timer or badge above the karaoke stage", () => {
+  it('does not add a recording timer or badge above the karaoke stage', () => {
     const previousHeaderProps = {
-      recordingStatus: { label: "Запись · 0:42", active: true },
+      recordingStatus: { label: 'Запись · 0:42', active: true },
     };
     render(
       <QueryProvider application>
@@ -94,15 +117,15 @@ describe("KaraokeStage", () => {
         />
       </QueryProvider>,
     );
-    expect(screen.queryByRole("status")).toBeNull();
-    expect(screen.queryByText("Запись · 0:42")).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByText('Запись · 0:42')).toBeNull();
   });
-  it("uses delayed capture frames once, rather than scoring the newest scalar at the drawn cursor", async () => {
+  it('uses delayed capture frames once, rather than scoring the newest scalar at the drawn cursor', async () => {
     const editorDocument: EditorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 0.1, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 1 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 0.1, pitch: 69 }],
     };
     const onNoteScoreChange = vi.fn();
     const frames = [0.025, 0.075].map((positionSeconds, sequence) => ({
@@ -141,15 +164,15 @@ describe("KaraokeStage", () => {
     view.rerender(stage(0.6, 3));
     expect(onNoteScoreChange.mock.lastCall?.[0]).toEqual(before);
   });
-  it("fades lyrics and melody together before clearing them, then fades the next entry in", () => {
+  it('fades lyrics and melody together before clearing them, then fades the next entry in', () => {
     const editorDocument: EditorDocument = {
       revision: 1,
-      lyrics: "First\nNext",
+      lyrics: 'First\nNext',
       words: [
-        { id: "first", text: "First", start: 0, end: 2 },
-        { id: "next", text: "Next", start: 20, end: 22 },
+        { id: 'first', text: 'First', start: 0, end: 2 },
+        { id: 'next', text: 'Next', start: 20, end: 22 },
       ],
-      notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
+      notes: [{ id: 'note', wordId: 'first', start: 0, end: 2, pitch: 69 }],
     };
     const stage = (position: number) => (
       <QueryProvider application>
@@ -170,32 +193,32 @@ describe("KaraokeStage", () => {
         (view.container.querySelector(selector) as HTMLElement).style.opacity ||
           1,
       );
-    expect(opacity(".lyrics")).toBe(1);
+    expect(opacity('.lyrics')).toBe(1);
     view.rerender(stage(4.65));
-    expect(opacity(".lyrics")).toBeCloseTo(0.5);
-    expect(opacity(".pianoRoll")).toBeCloseTo(0.5);
-    expect(screen.getAllByText("First").length).toBeGreaterThan(0);
+    expect(opacity('.lyrics')).toBeCloseTo(0.5);
+    expect(opacity('.pianoRoll')).toBeCloseTo(0.5);
+    expect(screen.getAllByText('First').length).toBeGreaterThan(0);
     view.rerender(stage(5));
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
     view.rerender(stage(17.225));
-    expect(opacity(".lyrics")).toBeCloseTo(0.5);
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    expect(opacity('.lyrics')).toBeCloseTo(0.5);
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
     view.rerender(stage(18));
-    expect(opacity(".lyrics")).toBe(1);
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
+    expect(opacity('.lyrics')).toBe(1);
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
     // Backward seek restores visibility immediately from the musical position.
     view.rerender(stage(1));
-    expect(opacity(".pianoRoll")).toBe(1);
+    expect(opacity('.pianoRoll')).toBe(1);
   });
-  it("hides distant previews and clears both lyrics and melody after three silent seconds, including the outro", () => {
+  it('hides distant previews and clears both lyrics and melody after three silent seconds, including the outro', () => {
     const editorDocument: EditorDocument = {
       revision: 1,
-      lyrics: "First\nDistant",
+      lyrics: 'First\nDistant',
       words: [
-        { id: "first", text: "First", start: 0, end: 2 },
-        { id: "next", text: "Distant", start: 20, end: 22 },
+        { id: 'first', text: 'First', start: 0, end: 2 },
+        { id: 'next', text: 'Distant', start: 20, end: 22 },
       ],
-      notes: [{ id: "note", wordId: "first", start: 0, end: 2, pitch: 69 }],
+      notes: [{ id: 'note', wordId: 'first', start: 0, end: 2, pitch: 69 }],
     };
     const stage = (position: number) => (
       <QueryProvider application>
@@ -211,39 +234,39 @@ describe("KaraokeStage", () => {
       </QueryProvider>
     );
     const view = render(stage(1));
-    const lane = view.container.querySelector(".pianoRollLane") as HTMLElement;
-    expect(lane).toHaveClass("ad-melody-roll");
-    expect(screen.getAllByText("First").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Distant")).not.toBeInTheDocument();
+    const lane = view.container.querySelector('.pianoRollLane') as HTMLElement;
+    expect(lane).toHaveClass('ad-melody-roll');
+    expect(screen.getAllByText('First').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Distant')).not.toBeInTheDocument();
     view.rerender(stage(4.9));
-    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    expect(view.container.querySelector('.pianoRoll')).toBeVisible();
     view.rerender(stage(5));
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
-    expect(screen.queryByText("First")).not.toBeInTheDocument();
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
+    expect(screen.queryByText('First')).not.toBeInTheDocument();
     view.rerender(stage(17));
-    expect(view.container.querySelector(".pianoRoll")).toHaveStyle({
-      opacity: "0",
+    expect(view.container.querySelector('.pianoRoll')).toHaveStyle({
+      opacity: '0',
     });
     view.rerender(stage(17.5));
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
-    expect(screen.getByRole("timer")).toHaveTextContent("3");
-    expect(view.container.querySelector(".lyrics .ad-lyric-word")).toBeNull();
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
+    expect(screen.getByRole('timer')).toHaveTextContent('3');
+    expect(view.container.querySelector('.lyrics .ad-lyric-word')).toBeNull();
     view.rerender(stage(19.4));
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Distant").length).toBeGreaterThan(0);
-    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Distant').length).toBeGreaterThan(0);
+    expect(view.container.querySelector('.pianoRoll')).toBeVisible();
     view.rerender(stage(25));
-    expect(view.container.querySelector(".pianoRoll")).not.toBeVisible();
-    expect(screen.queryByText("Distant")).not.toBeInTheDocument();
+    expect(view.container.querySelector('.pianoRoll')).not.toBeVisible();
+    expect(screen.queryByText('Distant')).not.toBeInTheDocument();
     view.rerender(stage(1));
-    expect(view.container.querySelector(".pianoRoll")).toBeVisible();
+    expect(view.container.querySelector('.pianoRoll')).toBeVisible();
   });
-  it("does not display a pitch target before the saved note starts", () => {
+  it('does not display a pitch target before the saved note starts', () => {
     const editorDocument: EditorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 10, end: 12 }],
-      notes: [{ id: "n", wordId: "w", start: 10.4, end: 12, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 10, end: 12 }],
+      notes: [{ id: 'n', wordId: 'w', start: 10.4, end: 12, pitch: 69 }],
     };
     // The consonant belongs to the word, but the persisted melody starts only at the voiced vowel.
     const stage = (position: number) => (
@@ -261,19 +284,19 @@ describe("KaraokeStage", () => {
       </QueryProvider>
     );
     const view = render(stage(10.2));
-    expect(document.querySelector(".ad-melody-note[data-now]")).toBeNull();
-    expect(document.querySelector(".ad-melody-voice[data-hit]")).toBeNull();
+    expect(document.querySelector('.ad-melody-note[data-now]')).toBeNull();
+    expect(document.querySelector('.ad-melody-voice[data-hit]')).toBeNull();
     view.rerender(stage(10.6));
-    expect(document.querySelector(".ad-melody-note[data-now]")).not.toBeNull();
-    expect(document.querySelector(".ad-melody-voice[data-hit]")).not.toBeNull();
+    expect(document.querySelector('.ad-melody-note[data-now]')).not.toBeNull();
+    expect(document.querySelector('.ad-melody-voice[data-hit]')).not.toBeNull();
   });
 
-  it("shows live pitch on the roll without awarding a note from one sample", async () => {
+  it('shows live pitch on the roll without awarding a note from one sample', async () => {
     const editorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 2 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 2 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
       <QueryProvider application>
@@ -290,18 +313,18 @@ describe("KaraokeStage", () => {
       </QueryProvider>,
     );
 
-    expect(document.querySelector(".ad-melody-voice")).not.toBeNull();
+    expect(document.querySelector('.ad-melody-voice')).not.toBeNull();
     await waitFor(() =>
-      expect(document.querySelector(".ad-melody-note[data-hit]")).toBeNull(),
+      expect(document.querySelector('.ad-melody-note[data-hit]')).toBeNull(),
     );
   });
 
-  it("does not invent a pitch marker from the target note while the microphone is silent", () => {
+  it('does not invent a pitch marker from the target note while the microphone is silent', () => {
     const editorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 2 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 2 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
       <QueryProvider application>
@@ -317,15 +340,15 @@ describe("KaraokeStage", () => {
       </QueryProvider>,
     );
 
-    expect(document.querySelector(".ad-melody-voice")).toBeNull();
+    expect(document.querySelector('.ad-melody-voice')).toBeNull();
   });
 
-  it("awards a note after accurate singing covers half of its duration", async () => {
+  it('awards a note after accurate singing covers half of its duration', async () => {
     const editorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 1 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 1, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 1 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 1, pitch: 69 }],
     } as EditorDocument;
     const onNoteScoreChange = vi.fn();
     const stage = (position: number) => (
@@ -348,17 +371,19 @@ describe("KaraokeStage", () => {
       view.rerender(stage(step / 10));
       await waitFor(() =>
         expect(
-          document.querySelector(".ad-melody-note")?.getAttribute("style"),
-        ).toContain("left:"),
+          document.querySelector('.ad-melody-note')?.getAttribute('style'),
+        ).toContain('left:'),
       );
     }
-    await waitFor(() => expect(onNoteScoreChange).toHaveBeenLastCalledWith(
-      expect.objectContaining({ hitNotes: 1 }),
-    ));
+    await waitFor(() =>
+      expect(onNoteScoreChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ hitNotes: 1 }),
+      ),
+    );
     view.rerender(stage(0.5));
     await waitFor(() =>
       expect(
-        document.querySelector(".ad-melody-note[data-hit]"),
+        document.querySelector('.ad-melody-note[data-hit]'),
       ).not.toBeNull(),
     );
     expect(onNoteScoreChange).toHaveBeenLastCalledWith(
@@ -371,12 +396,12 @@ describe("KaraokeStage", () => {
     );
   });
 
-  it("shows the marker as a hit within a practical one-semitone karaoke tolerance", () => {
+  it('shows the marker as a hit within a practical one-semitone karaoke tolerance', () => {
     const editorDocument = {
       revision: 1,
-      lyrics: "Sing",
-      words: [{ id: "w", text: "Sing", start: 0, end: 2 }],
-      notes: [{ id: "n", wordId: "w", start: 0, end: 2, pitch: 69 }],
+      lyrics: 'Sing',
+      words: [{ id: 'w', text: 'Sing', start: 0, end: 2 }],
+      notes: [{ id: 'n', wordId: 'w', start: 0, end: 2, pitch: 69 }],
     } as EditorDocument;
     render(
       <QueryProvider application>
@@ -392,8 +417,8 @@ describe("KaraokeStage", () => {
         />
       </QueryProvider>,
     );
-    expect(document.querySelector(".ad-melody-voice")).toHaveAttribute(
-      "data-hit",
+    expect(document.querySelector('.ad-melody-voice')).toHaveAttribute(
+      'data-hit',
     );
   });
 });

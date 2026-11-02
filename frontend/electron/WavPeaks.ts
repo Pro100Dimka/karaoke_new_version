@@ -1,7 +1,7 @@
-import { open, readFile, stat } from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { createHash } from "node:crypto";
-import { readWavLayout, type WavLayout } from "./WavFile";
+import { open, readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readWavLayout, type WavLayout } from './WavFile';
 
 const readChunkBytes = 1 << 20;
 const maxBins = 4096;
@@ -19,17 +19,34 @@ const samplesOf = (
   const count = Math.floor(length / layout.bytesPerSample);
   if (layout.isFloat)
     return layout.bytesPerSample === 8
-      ? { samples: new Float64Array(buffer, byteOffset, count), scale: 1, offset: 0 }
-      : { samples: new Float32Array(buffer, byteOffset, count), scale: 1, offset: 0 };
+      ? {
+          samples: new Float64Array(buffer, byteOffset, count),
+          scale: 1,
+          offset: 0,
+        }
+      : {
+          samples: new Float32Array(buffer, byteOffset, count),
+          scale: 1,
+          offset: 0,
+        };
   if (layout.bytesPerSample === 1)
     return { samples: bytes.subarray(0, count), scale: 1 / 128, offset: 128 };
   if (layout.bytesPerSample === 2)
-    return { samples: new Int16Array(buffer, byteOffset, count), scale: 1 / 0x8000, offset: 0 };
+    return {
+      samples: new Int16Array(buffer, byteOffset, count),
+      scale: 1 / 0x8000,
+      offset: 0,
+    };
   if (layout.bytesPerSample === 4)
-    return { samples: new Int32Array(buffer, byteOffset, count), scale: 1 / 0x80000000, offset: 0 };
+    return {
+      samples: new Int32Array(buffer, byteOffset, count),
+      scale: 1 / 0x80000000,
+      offset: 0,
+    };
   const samples = new Int32Array(count);
   for (let index = 0, at = 0; index < count; index += 1, at += 3)
-    samples[index] = ((bytes[at]! | (bytes[at + 1]! << 8) | (bytes[at + 2]! << 16)) << 8) >> 8;
+    samples[index] =
+      ((bytes[at]! | (bytes[at + 1]! << 8) | (bytes[at + 2]! << 16)) << 8) >> 8;
   return { samples, scale: 1 / 0x800000, offset: 0 };
 };
 
@@ -42,32 +59,47 @@ export const waveformPeaks = async (
   filePath: string,
   bins: number,
 ): Promise<number[]> => {
-  if (!Number.isFinite(bins)) throw new TypeError("bins must be finite");
+  if (!Number.isFinite(bins)) throw new TypeError('bins must be finite');
   const count = Math.max(1, Math.min(maxBins, Math.floor(bins)));
-  if (filePath.toLowerCase().endsWith(".mp3")) {
-    const saved: unknown = JSON.parse(await readFile(`${filePath}.peaks.json`, "utf8"));
+  if (filePath.toLowerCase().endsWith('.mp3')) {
+    const saved: unknown = JSON.parse(
+      await readFile(`${filePath}.peaks.json`, 'utf8'),
+    );
     const file = await stat(filePath);
-    const hash = createHash("sha256");
+    const hash = createHash('sha256');
     for await (const chunk of createReadStream(filePath)) hash.update(chunk);
-    if (!saved || typeof saved !== "object" || !("peaks" in saved) ||
-        !("size" in saved) || !("sha256" in saved) ||
-        saved.size !== file.size || saved.sha256 !== hash.digest("hex") ||
-        !Array.isArray(saved.peaks) || saved.peaks.length !== maxBins ||
-        !saved.peaks.every((value: unknown) => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1))
-      throw new Error("Recording waveform cache is invalid");
+    if (
+      !saved ||
+      typeof saved !== 'object' ||
+      !('peaks' in saved) ||
+      !('size' in saved) ||
+      !('sha256' in saved) ||
+      saved.size !== file.size ||
+      saved.sha256 !== hash.digest('hex') ||
+      !Array.isArray(saved.peaks) ||
+      saved.peaks.length !== maxBins ||
+      !saved.peaks.every(
+        (value: unknown) =>
+          typeof value === 'number' &&
+          Number.isFinite(value) &&
+          value >= 0 &&
+          value <= 1,
+      )
+    )
+      throw new Error('Recording waveform cache is invalid');
     const peaks = new Array<number>(count).fill(0);
     saved.peaks.forEach((value: number, index: number) => {
-      const bin = Math.floor(index * count / maxBins);
+      const bin = Math.floor((index * count) / maxBins);
       peaks[bin] = Math.max(peaks[bin]!, value);
     });
     return peaks;
   }
-  const file = await open(filePath, "r");
+  const file = await open(filePath, 'r');
   try {
     const layout = await readWavLayout(file);
     const frameBytes = layout.frameBytes;
     const totalFrames = Math.floor(layout.dataBytes / frameBytes);
-    if (totalFrames === 0) throw new Error("WAV has no audio");
+    if (totalFrames === 0) throw new Error('WAV has no audio');
 
     const peaks = new Array<number>(count).fill(0);
     // An own, aligned buffer: the typed views need their element size's alignment.
@@ -76,7 +108,8 @@ export const waveformPeaks = async (
     );
     const { channels } = layout;
     // Frame f belongs to bin floor(f * count / totalFrames): bin b ends before ceil((b + 1) * totalFrames / count).
-    const binEnd = (bin: number) => Math.ceil(((bin + 1) * totalFrames) / count);
+    const binEnd = (bin: number) =>
+      Math.ceil(((bin + 1) * totalFrames) / count);
     let bin = 0;
     let nextBin = binEnd(0);
     let binPeak = 0;

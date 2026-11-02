@@ -1,9 +1,9 @@
-import type { PlaybackSnapshot, SongDto } from "../contracts/models";
-import type { PlaybackSchedule } from "../contracts/clients";
+import type { PlaybackSnapshot, SongDto } from '../contracts/models';
+import type { PlaybackSchedule } from '../contracts/clients';
 
 export interface MediaCheckpoint {
   song: SongDto;
-  state: PlaybackSnapshot["state"];
+  state: PlaybackSnapshot['state'];
   positionSeconds: number;
   schedule?: PlaybackSchedule;
 }
@@ -15,7 +15,7 @@ interface RestoreOperations {
     vocals?: string;
     melody?: string;
   }>;
-  command(name: string, args?: AudioBridgeRequest["args"]): Promise<string>;
+  command(name: string, args?: AudioBridgeRequest['args']): Promise<string>;
   waitForReady(): Promise<void>;
   sampleRate(): Promise<number>;
   play(schedule?: PlaybackSchedule): Promise<unknown>;
@@ -52,24 +52,25 @@ export class AudioReconfigurationState {
     await operations.ensureSession();
     if (checkpoint) {
       const artifacts = await operations.resolveArtifacts(checkpoint.song);
-      await operations.command("LoadSong", artifacts);
+      await operations.command('LoadSong', artifacts);
       await operations.waitForReady();
-      await operations.command("SetPlaybackRate", { value: this.playbackRate });
-      await operations.command("SetTranspose", { semitones: this.pitchShift });
+      await operations.command('SetPlaybackRate', { value: this.playbackRate });
+      await operations.command('SetTranspose', { semitones: this.pitchShift });
     }
     for (const [target, value] of this.mixerGains) {
-      await operations.command("SetGain", { target, value });
+      await operations.command('SetGain', { target, value });
     }
     for (const [name, value] of dspParameters) {
-      await operations.command("SetDspParameter", { name, value });
+      await operations.command('SetDspParameter', { name, value });
     }
-    await operations.command("SetDspEnabled", { enabled: dspEnabled });
-    await operations.command("SetMonitoring", { enabled: monitoring });
+    await operations.command('SetDspEnabled', { enabled: dspEnabled });
+    await operations.command('SetMonitoring', { enabled: monitoring });
     if (!checkpoint) return;
     const sampleRate = await operations.sampleRate();
-    await operations.command("Seek", {
+    await operations.command('Seek', {
       frame: Math.max(0, Math.round(checkpoint.positionSeconds * sampleRate)),
     });
-    if (checkpoint.state === "playing") await operations.play(checkpoint.schedule);
+    if (checkpoint.state === 'playing')
+      await operations.play(checkpoint.schedule);
   }
 }

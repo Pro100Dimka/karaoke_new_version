@@ -1,4 +1,6 @@
-:root { --title: 2.625rem; }
+:root {
+  --title: 2.625rem;
+}
 * {
   box-sizing: border-box;
 }
@@ -130,4 +132,10 @@ body,
   position: relative;
 }
 
-input, textarea, [contenteditable="true"], pre, code { user-select: text; }
+input,
+textarea,
+[contenteditable='true'],
+pre,
+code {
+  user-select: text;
+}

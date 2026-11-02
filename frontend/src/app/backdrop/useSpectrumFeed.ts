@@ -1,7 +1,6 @@
-import { store } from "../../providers/store";
-import { useEffect, useRef } from "react";
-import { audioClient } from "../../services/audioClient";
-
+import { store } from '../../providers/store';
+import { useEffect, useRef } from 'react';
+import { audioClient } from '../../services/audioClient';
 
 // Silence draws nothing new, so it is sampled rarely; after a second of full-rate silent frames every
 // music-driven visual has decayed to rest, and the first audible frame restores the full rate.
@@ -39,8 +38,24 @@ export interface PercussionReaction {
 export const createPercussionReaction = () => {
   let previous: readonly number[] = [];
   const channels = {
-    kick: { from: 0, to: 5, coverage: 0.6, peak: 0.015, mean: 0, cooldown: 0, envelope: 0 },
-    snare: { from: 5, to: 17, coverage: 0.6, peak: 0.015, mean: 0, cooldown: 0, envelope: 0 },
+    kick: {
+      from: 0,
+      to: 5,
+      coverage: 0.6,
+      peak: 0.015,
+      mean: 0,
+      cooldown: 0,
+      envelope: 0,
+    },
+    snare: {
+      from: 5,
+      to: 17,
+      coverage: 0.6,
+      peak: 0.015,
+      mean: 0,
+      cooldown: 0,
+      envelope: 0,
+    },
   };
 
   return {
@@ -48,22 +63,36 @@ export const createPercussionReaction = () => {
       for (const channel of Object.values(channels)) {
         const levels = bands.slice(channel.from, channel.to);
         const attacks = levels.map((level, index) =>
-          Math.max(0, level - (previous[channel.from + index] ?? 0)));
+          Math.max(0, level - (previous[channel.from + index] ?? 0)),
+        );
         const flux = average(attacks);
         // Each frequency range adapts to its own recent attacks. A quiet snare is not
         // suppressed by the bass level, and a held bass note does not keep the text enlarged.
-        channel.peak = Math.max(0.015, flux, channel.peak * Math.exp(-elapsed / 1.5));
+        channel.peak = Math.max(
+          0.015,
+          flux,
+          channel.peak * Math.exp(-elapsed / 1.5),
+        );
         const threshold = Math.max(0.006, channel.mean * 1.8);
-        const broadband = attacks.filter((attack) => attack > 0.004).length >= levels.length * channel.coverage;
+        const broadband =
+          attacks.filter((attack) => attack > 0.004).length >=
+          levels.length * channel.coverage;
         // A snare has a body as well as its noisy top. Treble-only cymbals and hi-hats
         // must not flash the whole lyric line as if they were a snare.
-        const body = average(attacks.slice(0, Math.ceil(attacks.length / 3))) > 0.004;
+        const body =
+          average(attacks.slice(0, Math.ceil(attacks.length / 3))) > 0.004;
         channel.cooldown = Math.max(0, channel.cooldown - elapsed);
-        const hit = body && broadband && flux > threshold && channel.cooldown === 0;
-        const target = hit ? Math.min(1, Math.sqrt(flux / (channel.peak * 0.8))) : 0;
+        const hit =
+          body && broadband && flux > threshold && channel.cooldown === 0;
+        const target = hit
+          ? Math.min(1, Math.sqrt(flux / (channel.peak * 0.8)))
+          : 0;
         if (hit) channel.cooldown = 0.075;
         channel.mean += (flux - channel.mean) * (1 - Math.exp(-elapsed / 0.4));
-        channel.envelope = Math.max(target, channel.envelope * Math.exp(-elapsed / 0.045));
+        channel.envelope = Math.max(
+          target,
+          channel.envelope * Math.exp(-elapsed / 0.045),
+        );
       }
       previous = [...bands];
       return {
@@ -101,7 +130,7 @@ export const useSpectrumFeed = (
   pollMilliseconds = 50,
 ): void => {
   const { audio } = store.application.services;
-  const ready = audio.kind === "ready";
+  const ready = audio.kind === 'ready';
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -129,9 +158,11 @@ export const useSpectrumFeed = (
         silentFrames > 1000 / pollMilliseconds
           ? silentPollMilliseconds
           : pollMilliseconds;
-      if (!stopped) timer = window.setTimeout(
-        () => void tick(), Math.max(4, delay - (performance.now() - started)),
-      );
+      if (!stopped)
+        timer = window.setTimeout(
+          () => void tick(),
+          Math.max(4, delay - (performance.now() - started)),
+        );
     };
     void tick();
     return () => {

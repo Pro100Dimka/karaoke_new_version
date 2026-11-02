@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState } from 'react';
 
 /** A dirty JSON draft belongs to the editor until its own save succeeds. */
 export const useEnvironmentJson = (

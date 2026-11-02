@@ -1,5 +1,5 @@
-import * as net from "node:net";
-import { StringDecoder } from "node:string_decoder";
+import * as net from 'node:net';
+import { StringDecoder } from 'node:string_decoder';
 
 export interface AudioRequest {
   command: string;
@@ -25,10 +25,10 @@ const encode = ({ command, args = {} }: AudioRequest): string => {
   if (
     !identifier.test(command) ||
     !args ||
-    typeof args !== "object" ||
+    typeof args !== 'object' ||
     Array.isArray(args)
   ) {
-    throw new TypeError("Invalid AudioService request");
+    throw new TypeError('Invalid AudioService request');
   }
   const fields = Object.entries(args)
     .filter(
@@ -45,21 +45,21 @@ const encode = ({ command, args = {} }: AudioRequest): string => {
         !identifier.test(key) ||
         !valid[typeof value as keyof typeof valid]?.()
       ) {
-        throw new TypeError("Invalid AudioService argument");
+        throw new TypeError('Invalid AudioService argument');
       }
       return `${key}=${String(value)}`;
     });
-  const line = [PROTOCOL_VERSION, command, ...fields].join("|");
-  if (Buffer.byteLength(line, "utf8") > maxRequestBytes)
-    throw new Error("AudioService request is too large");
-  return line + "\n";
+  const line = [PROTOCOL_VERSION, command, ...fields].join('|');
+  if (Buffer.byteLength(line, 'utf8') > maxRequestBytes)
+    throw new Error('AudioService request is too large');
+  return line + '\n';
 };
 
 const decode = (buffer: string): AudioResponse => {
-  if (!buffer.endsWith("\n"))
-    throw new Error("Malformed AudioService response");
+  if (!buffer.endsWith('\n'))
+    throw new Error('Malformed AudioService response');
   const line = buffer.slice(0, -1);
-  const separator = line.indexOf("|");
+  const separator = line.indexOf('|');
   const statusText = line.slice(0, separator);
   const status = Number(statusText);
   if (
@@ -67,7 +67,7 @@ const decode = (buffer: string): AudioResponse => {
     !/^-?\d+$/.test(statusText) ||
     !Number.isSafeInteger(status)
   ) {
-    throw new Error("Malformed AudioService status");
+    throw new Error('Malformed AudioService status');
   }
   return { status, text: line.slice(separator + 1) };
 };
@@ -81,8 +81,8 @@ const sendOnce = (
 ): Promise<AudioResponse> =>
   new Promise((resolve, reject) => {
     const socket = net.createConnection(pipeEndpoint());
-    const decoder = new StringDecoder("utf8");
-    let buffer = "";
+    const decoder = new StringDecoder('utf8');
+    let buffer = '';
     let receivedBytes = 0;
     let settled = false;
     const fail = (error: Error) => {
@@ -107,27 +107,27 @@ const sendOnce = (
       }
     };
 
-    socket.once("connect", () => socket.write(frame));
-    socket.on("data", (chunk: Buffer) => {
+    socket.once('connect', () => socket.write(frame));
+    socket.on('data', (chunk: Buffer) => {
       if (settled) return;
       receivedBytes += chunk.length;
       if (receivedBytes > maxResponseBytes)
-        return fail(new Error("AudioService response is too large"));
+        return fail(new Error('AudioService response is too large'));
       buffer += decoder.write(chunk);
     });
-    socket.once("end", finish);
-    socket.once("close", finish);
-    socket.once("error", (error: Error) => {
+    socket.once('end', finish);
+    socket.once('close', finish);
+    socket.once('error', (error: Error) => {
       if (settled) return;
       // The service answers and then closes the pipe; Windows may report that as EPIPE after the reply arrived.
-      if (buffer.endsWith("\n")) return finish();
+      if (buffer.endsWith('\n')) return finish();
       fail(error);
     });
   });
 
 // The service serves one request per pipe connection and re-creates the pipe between them, so a connection made
 // in that gap fails with ENOENT/EBUSY. Requests are therefore strictly serialised and briefly retried.
-const RETRYABLE_CODES = new Set(["ENOENT", "EBUSY"]);
+const RETRYABLE_CODES = new Set(['ENOENT', 'EBUSY']);
 const RETRY_ATTEMPTS = 20;
 const RETRY_DELAY_MS = 25;
 
@@ -145,7 +145,7 @@ const sendWithRetry = async (
     try {
       return await sendOnce(frame, command, remaining);
     } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code ?? "";
+      const code = (error as NodeJS.ErrnoException).code ?? '';
       if (!RETRYABLE_CODES.has(code) || attempt >= RETRY_ATTEMPTS) throw error;
       await sleep(
         Math.min(RETRY_DELAY_MS, Math.max(0, deadline - performance.now())),
@@ -163,9 +163,9 @@ export const sendAudioRequest = async (
 ): Promise<AudioResponse> => {
   const frame = encode(request);
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0)
-    throw new TypeError("Invalid AudioService timeout");
+    throw new TypeError('Invalid AudioService timeout');
   if (pendingRequests >= maxPendingRequests)
-    throw new Error("AudioService request queue is full");
+    throw new Error('AudioService request queue is full');
   const deadline = performance.now() + timeoutMs;
   pendingRequests++;
   const result = queue

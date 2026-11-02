@@ -1,8 +1,11 @@
-import { stat } from "node:fs/promises";
-import path from "node:path";
-import { Worker } from "node:worker_threads";
+import { stat } from 'node:fs/promises';
+import path from 'node:path';
+import { Worker } from 'node:worker_threads';
 
-export type ComputePeaks = (filePath: string, bins: number) => Promise<number[]>;
+export type ComputePeaks = (
+  filePath: string,
+  bins: number,
+) => Promise<number[]>;
 
 const cachedFiles = 256;
 
@@ -12,11 +15,14 @@ const cachedFiles = 256;
  * and restarted if it dies; requests queue in it one after another.
  */
 export const workerPeaks = (
-  script = path.join(__dirname, "WavPeaksWorker.js"),
+  script = path.join(__dirname, 'WavPeaksWorker.js'),
 ): ComputePeaks => {
   let worker: Worker | null = null;
   let nextId = 0;
-  const pending = new Map<number, { resolve(peaks: number[]): void; reject(error: Error): void }>();
+  const pending = new Map<
+    number,
+    { resolve(peaks: number[]): void; reject(error: Error): void }
+  >();
   const failAll = (error: Error) => {
     for (const request of pending.values()) request.reject(error);
     pending.clear();
@@ -25,25 +31,35 @@ export const workerPeaks = (
   const start = () => {
     const started = new Worker(script);
     started.unref();
-    started.on("message", (message: { id: number; peaks?: number[]; error?: string; code?: string }) => {
-      const request = pending.get(message.id);
-      if (!request) return;
-      pending.delete(message.id);
-      if (message.peaks) return request.resolve(message.peaks);
-      const error: NodeJS.ErrnoException = new Error(message.error ?? "Peaks failed");
-      if (message.code) error.code = message.code;
-      request.reject(error);
-    });
-    started.on("error", failAll);
-    started.on("exit", () => {
-      if (worker === started) failAll(new Error("Peaks worker stopped"));
+    started.on(
+      'message',
+      (message: {
+        id: number;
+        peaks?: number[];
+        error?: string;
+        code?: string;
+      }) => {
+        const request = pending.get(message.id);
+        if (!request) return;
+        pending.delete(message.id);
+        if (message.peaks) return request.resolve(message.peaks);
+        const error: NodeJS.ErrnoException = new Error(
+          message.error ?? 'Peaks failed',
+        );
+        if (message.code) error.code = message.code;
+        request.reject(error);
+      },
+    );
+    started.on('error', failAll);
+    started.on('exit', () => {
+      if (worker === started) failAll(new Error('Peaks worker stopped'));
     });
     return started;
   };
   return (filePath, bins) =>
     new Promise((resolve, reject) => {
       if (pending.size >= cachedFiles) {
-        reject(new Error("Waveform queue is full"));
+        reject(new Error('Waveform queue is full'));
         return;
       }
       worker ??= start();

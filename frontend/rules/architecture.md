@@ -509,9 +509,9 @@ strict: true
 
 ```ts
 type LoadState<T> =
-  | { status: "loading" }
-  | { status: "ready"; data: T }
-  | { status: "error"; error: AppError };
+  | { status: 'loading' }
+  | { status: 'ready'; data: T }
+  | { status: 'error'; error: AppError };
 ```
 
 ---
@@ -2901,7 +2901,7 @@ failed
 
 ```tsx
 {
-  device.name === "Audient iD4" && <SpecialSettings />;
+  device.name === 'Audient iD4' && <SpecialSettings />;
 }
 ```
 

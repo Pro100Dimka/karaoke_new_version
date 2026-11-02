@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore } from 'react';
 
 let shownByDesktop = true;
 
@@ -7,10 +7,10 @@ export const subscribeAppVisibility = (listener: () => void): (() => void) => {
     shownByDesktop = onScreen;
     listener();
   });
-  document.addEventListener("visibilitychange", listener);
+  document.addEventListener('visibilitychange', listener);
   return () => {
     fromDesktop?.();
-    document.removeEventListener("visibilitychange", listener);
+    document.removeEventListener('visibilitychange', listener);
   };
 };
 

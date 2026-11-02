@@ -1,21 +1,28 @@
-import { Button, Icon, IconButton, TextField, tr, useLocale } from "@neo-ui-kit/react";
-import { useRef } from "react";
-import { ru } from "../../../../../i18n/messages.ru";
-import { desktopClient as desktop } from "../../../../../services/desktopClient";
+import {
+  Button,
+  Icon,
+  IconButton,
+  TextField,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { useRef } from 'react';
+import { ru } from '../../../../../i18n/messages.ru';
+import { desktopClient as desktop } from '../../../../../services/desktopClient';
 import {
   effectiveState,
   isSecret,
   type DisplayEntry,
   type DisplayState,
-} from "./environmentModel";
-import { fieldUi, messageKeyFor } from "./environmentPresentation";
+} from './environmentModel';
+import { fieldUi, messageKeyFor } from './environmentPresentation';
 
 const stateIcon: Record<DisplayState, string> = {
-  valid: "ok",
-  unverified: "check",
-  invalid: "warning",
-  empty: "minus",
-  checking: "processing",
+  valid: 'ok',
+  unverified: 'check',
+  invalid: 'warning',
+  empty: 'minus',
+  checking: 'processing',
 };
 
 /**
@@ -57,10 +64,10 @@ export const EnvironmentField = ({
         title={entry.key}
         value={entry.value}
         onValueChange={onChange}
-        type={secret ? "password" : undefined}
-        autoComplete={secret ? "off" : undefined}
+        type={secret ? 'password' : undefined}
+        autoComplete={secret ? 'off' : undefined}
         placeholder={savedSecret ? tr(ru.environmentSecretSaved) : undefined}
-        error={state === "invalid" ? message : undefined}
+        error={state === 'invalid' ? message : undefined}
         endAdornment={
           <>
             {savedSecret && (
@@ -69,10 +76,10 @@ export const EnvironmentField = ({
                 variant="ghost"
                 icon="trash"
                 label={tr(ru.environmentRemoveSecret)}
-                onClick={() => onSave("")}
+                onClick={() => onSave('')}
               />
             )}
-            {entry.kind === "file" && (
+            {entry.kind === 'file' && (
               <Button
                 size="xs"
                 variant="ghost"
@@ -94,7 +101,7 @@ export const EnvironmentField = ({
           </>
         }
       />
-      {entry.kind === "file" && (
+      {entry.kind === 'file' && (
         <input
           ref={fileInput}
           type="file"

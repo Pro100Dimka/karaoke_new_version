@@ -1,15 +1,15 @@
-import { friendRelations } from "../../../../providers/social";
-import { observer } from "mobx-react-lite";
-import { store } from "../../../../providers/store";
-import { ru } from "../../../../i18n/messages.ru";
-import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
+import { friendRelations } from '../../../../providers/social';
+import { observer } from 'mobx-react-lite';
+import { store } from '../../../../providers/store';
+import { ru } from '../../../../i18n/messages.ru';
+import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 
-import { useRoomInvitations } from "../../../../providers/social";
-import { ask } from "../../../../providers/dialog";
-import type { OnlineInbox, SocialPerson } from "../../../../contracts/social";
-import FriendsRows from "./list";
-import { presenceText } from "../../../../features/social/socialFormat";
-import { useSocialAction } from "../../../../features/social/useSocialAction";
+import { useRoomInvitations } from '../../../../providers/social';
+import { ask } from '../../../../providers/dialog';
+import type { OnlineInbox, SocialPerson } from '../../../../contracts/social';
+import FriendsRows from './list';
+import { presenceText } from '../../../../features/social/socialFormat';
+import { useSocialAction } from '../../../../features/social/useSocialAction';
 
 const presenceOrder = { InRoom: 0, Online: 1, Offline: 2 } as const;
 
@@ -28,7 +28,7 @@ export const FriendsList = observer(({ inbox }: { inbox: OnlineInbox }) => {
 
   const inviteLabel = (friend: SocialPerson): string => {
     if (!room)
-      return friend.presence === "Online"
+      return friend.presence === 'Online'
         ? tr(ru.createRoomTogether)
         : tr(ru.inviteNeedsRoom);
     return friend.roomId === room.code
@@ -39,13 +39,13 @@ export const FriendsList = observer(({ inbox }: { inbox: OnlineInbox }) => {
     const choice = await ask({
       title: tr(ru.removeFriend),
       body: tr(ru.removeFriendConfirm, { name: friend.displayName }),
-      tone: "warning",
+      tone: 'warning',
       actions: [
-        { id: "cancel", label: tr(ru.cancel) },
-        { id: "remove", label: tr(ru.removeFriend), appearance: "primary" },
+        { id: 'cancel', label: tr(ru.cancel) },
+        { id: 'remove', label: tr(ru.removeFriend), appearance: 'primary' },
       ],
     });
-    if (choice === "remove")
+    if (choice === 'remove')
       await run(
         () => friendRelations.remove(friend.accountId),
         tr(ru.friendRemoved, { name: friend.displayName }),
@@ -61,58 +61,62 @@ export const FriendsList = observer(({ inbox }: { inbox: OnlineInbox }) => {
       tr(ru.inviteSent, { name: friend.displayName }),
     );
 
-  return <FriendsRows rows={friends} detail={(friend) => presenceText(friend, preferences.language)}
-    actions={(friend) => {
-      const hostedRoomId = !room && friend.isRoomHost ? friend.roomId : null;
-      const canCreateTogether = !room && friend.presence === "Online";
-      return (              <>
-                {hostedRoomId && (
-                  <IconButton
-                    size="sm"
-                    variant="secondary"
-                    icon="login"
-                    label={tr(ru.requestRoomJoin)}
-                    disabled={busy}
-                    onClick={() =>
-                      void run(
-                        () =>
-                          invitations.requestJoin(
-                            friend.accountId,
-                            hostedRoomId,
-                          ),
-                        tr(ru.roomJoinRequested, { name: friend.displayName }),
-                      )
-                    }
-                  />
-                )}
-                <IconButton
-                  size="sm"
-                    variant="secondary"
-                  icon="users"
-                  label={inviteLabel(friend)}
-                  disabled={
-                    busy ||
-                    (!room && !canCreateTogether) ||
-                    friend.presence === "Offline" ||
-                    friend.roomId === room?.code
-                  }
-                  onClick={() =>
-                    room
-                      ? void run(
-                          () => invitations.invite(friend.accountId, room.code),
-                          tr(ru.inviteSent, { name: friend.displayName }),
-                        )
-                      : void createTogether(friend)
-                  }
-                />
-                <IconButton
-                  size="sm"
-                    variant="secondary"
-                  icon="close"
-                  label={tr(ru.removeFriend)}
-                  disabled={busy}
-                  onClick={() => void remove(friend)}
-                />
-              </>      );
-    }} />;
+  return (
+    <FriendsRows
+      rows={friends}
+      detail={(friend) => presenceText(friend, preferences.language)}
+      actions={(friend) => {
+        const hostedRoomId = !room && friend.isRoomHost ? friend.roomId : null;
+        const canCreateTogether = !room && friend.presence === 'Online';
+        return (
+          <>
+            {hostedRoomId && (
+              <IconButton
+                size="sm"
+                variant="secondary"
+                icon="login"
+                label={tr(ru.requestRoomJoin)}
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () =>
+                      invitations.requestJoin(friend.accountId, hostedRoomId),
+                    tr(ru.roomJoinRequested, { name: friend.displayName }),
+                  )
+                }
+              />
+            )}
+            <IconButton
+              size="sm"
+              variant="secondary"
+              icon="users"
+              label={inviteLabel(friend)}
+              disabled={
+                busy ||
+                (!room && !canCreateTogether) ||
+                friend.presence === 'Offline' ||
+                friend.roomId === room?.code
+              }
+              onClick={() =>
+                room
+                  ? void run(
+                      () => invitations.invite(friend.accountId, room.code),
+                      tr(ru.inviteSent, { name: friend.displayName }),
+                    )
+                  : void createTogether(friend)
+              }
+            />
+            <IconButton
+              size="sm"
+              variant="secondary"
+              icon="close"
+              label={tr(ru.removeFriend)}
+              disabled={busy}
+              onClick={() => void remove(friend)}
+            />
+          </>
+        );
+      }}
+    />
+  );
 });

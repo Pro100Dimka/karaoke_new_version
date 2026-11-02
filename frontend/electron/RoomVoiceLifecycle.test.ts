@@ -1,17 +1,17 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { sendAudioRequest } = vi.hoisted(() => ({ sendAudioRequest: vi.fn() }));
-vi.mock("./AudioServiceTransport", () => ({ sendAudioRequest }));
-vi.mock("./RoomIdentity", () => ({
+vi.mock('./AudioServiceTransport', () => ({ sendAudioRequest }));
+vi.mock('./RoomIdentity', () => ({
   withRoomKey: async (headers: object) => headers,
 }));
 
 const response = (path: string) =>
   new Response(
     JSON.stringify(
-      path === "/voice/join"
-        ? { voiceToken: "0000000000000001" }
-        : path === "/voice/peers"
+      path === '/voice/join'
+        ? { voiceToken: '0000000000000001' }
+        : path === '/voice/peers'
           ? { peers: [] }
           : {},
     ),
@@ -27,20 +27,20 @@ const install = (
       handle?.(new URL(url).pathname, init) ?? response(new URL(url).pathname),
     ),
   );
-  vi.stubGlobal("fetch", fetch);
+  vi.stubGlobal('fetch', fetch);
   return fetch;
 };
 
-describe("room voice lifecycle", () => {
+describe('room voice lifecycle', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.useFakeTimers();
     sendAudioRequest.mockReset().mockImplementation(async ({ command }) => ({
       status: 0,
       text:
-        command === "JoinMediaSession"
-          ? "MediaSessionJoined localPort=41001"
-          : "Ok",
+        command === 'JoinMediaSession'
+          ? 'MediaSessionJoined localPort=41001'
+          : 'Ok',
     }));
   });
   afterEach(() => {
@@ -49,80 +49,80 @@ describe("room voice lifecycle", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not leave a peer-discovery timer across repeated joins or leave", async () => {
+  it('does not leave a peer-discovery timer across repeated joins or leave', async () => {
     install();
-    const transport = await import("./RoomServerTransport");
-    await transport.joinRoomVoice("room", "host");
-    await transport.joinRoomVoice("room", "host");
+    const transport = await import('./RoomServerTransport');
+    await transport.joinRoomVoice('room', 'host');
+    await transport.joinRoomVoice('room', 'host');
     expect(vi.getTimerCount()).toBe(0);
     await transport.leaveRoomVoice();
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("does not open a voice session after leave supersedes pending registration", async () => {
+  it('does not open a voice session after leave supersedes pending registration', async () => {
     let resolve!: (value: Response) => void;
     install((path) =>
-      path === "/voice/join"
+      path === '/voice/join'
         ? new Promise<Response>((done) => {
             resolve = done;
           })
         : undefined,
     );
-    const transport = await import("./RoomServerTransport");
+    const transport = await import('./RoomServerTransport');
     const joining = transport
-      .joinRoomVoice("room", "host")
+      .joinRoomVoice('room', 'host')
       .catch(() => undefined);
-    await vi.waitFor(() => expect(resolve).toBeTypeOf("function"));
+    await vi.waitFor(() => expect(resolve).toBeTypeOf('function'));
     const leaving = transport.leaveRoomVoice();
-    resolve(response("/voice/join"));
+    resolve(response('/voice/join'));
     await Promise.all([joining, leaving]);
     expect(
       sendAudioRequest.mock.calls.some(
-        ([request]) => request.command === "JoinMediaSession",
+        ([request]) => request.command === 'JoinMediaSession',
       ),
     ).toBe(false);
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("keeps the newest join when an older registration returns late", async () => {
+  it('keeps the newest join when an older registration returns late', async () => {
     let resolve!: (value: Response) => void;
     install((path, init) =>
-      path === "/voice/join" &&
-      JSON.parse(String(init.body)).participantId === "old"
+      path === '/voice/join' &&
+      JSON.parse(String(init.body)).participantId === 'old'
         ? new Promise<Response>((done) => {
             resolve = done;
           })
         : undefined,
     );
-    const transport = await import("./RoomServerTransport");
-    const first = transport.joinRoomVoice("room", "old").catch(() => undefined);
-    await vi.waitFor(() => expect(resolve).toBeTypeOf("function"));
-    const second = transport.joinRoomVoice("room", "new");
+    const transport = await import('./RoomServerTransport');
+    const first = transport.joinRoomVoice('room', 'old').catch(() => undefined);
+    await vi.waitFor(() => expect(resolve).toBeTypeOf('function'));
+    const second = transport.joinRoomVoice('room', 'new');
     await vi.advanceTimersByTimeAsync(0);
-    resolve(response("/voice/join"));
+    resolve(response('/voice/join'));
     await Promise.all([first, second]);
     const joins = sendAudioRequest.mock.calls
       .map(([request]) => request)
-      .filter((request) => request.command === "JoinMediaSession");
-    expect(joins.at(-1)?.args.localParticipantId).toBe("new");
+      .filter((request) => request.command === 'JoinMediaSession');
+    expect(joins.at(-1)?.args.localParticipantId).toBe('new');
     await transport.leaveRoomVoice();
   });
 
-  it("bounds an unreachable control request with an abort deadline", async () => {
+  it('bounds an unreachable control request with an abort deadline', async () => {
     const settled = vi.fn();
     install(
       (_path, init) =>
         new Promise<Response>((_resolve, reject) => {
           init.signal?.addEventListener(
-            "abort",
+            'abort',
             () => reject(init.signal?.reason),
             { once: true },
           );
         }),
     );
-    const transport = await import("./RoomServerTransport");
+    const transport = await import('./RoomServerTransport');
     void transport
-      .roomServerRequest({ method: "GET", path: "/rooms/room" })
+      .roomServerRequest({ method: 'GET', path: '/rooms/room' })
       .then(settled);
     await vi.advanceTimersByTimeAsync(10001);
     expect(settled).toHaveBeenCalledWith(

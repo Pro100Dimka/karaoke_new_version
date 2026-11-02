@@ -1,14 +1,14 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  readonly VITE_DEMO_MODE?: "true" | "false";
+  readonly VITE_DEMO_MODE?: 'true' | 'false';
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
 interface PythonBridgeRequest {
-  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
   body?: unknown;
   headers?: Record<string, string>;
@@ -47,8 +47,19 @@ interface DesktopApi {
   readonly fixedStorageRoot?: boolean;
   readonly roomE2e?: boolean;
   minimize(): Promise<void>;
-  dragWindow(phase: "start" | "move" | "end", anchorRatio?: number, anchorY?: number, screenX?: number, screenY?: number): Promise<void>;
-  setConsoleBounds?(bounds: { x?: number; y?: number; width?: number; height?: number }): Promise<void>;
+  dragWindow(
+    phase: 'start' | 'move' | 'end',
+    anchorRatio?: number,
+    anchorY?: number,
+    screenX?: number,
+    screenY?: number,
+  ): Promise<void>;
+  setConsoleBounds?(bounds: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  }): Promise<void>;
   toggleMaximize(): Promise<boolean>;
   close(): Promise<void>;
   isMaximized(): Promise<boolean>;
@@ -139,7 +150,7 @@ interface SocialPresenceUpdate {
 }
 interface KeyboardLightingCapabilities {
   available: boolean;
-  provider?: "OpenRGB";
+  provider?: 'OpenRGB';
   deviceCount: number;
 }
 interface KeyboardLightingRequest {
@@ -161,7 +172,7 @@ interface RoomProjectTransferRequest {
 }
 interface RoomProjectTransferProgress {
   transferId: string;
-  direction: "upload" | "download";
+  direction: 'upload' | 'download';
   transferredBytes: number;
   totalBytes: number;
 }

@@ -60,13 +60,13 @@
     ),
     linear-gradient(135deg, var(--ad-primary-700), var(--ad-neutral-950));
 }
-.processingCover[data-tone="1"] {
+.processingCover[data-tone='1'] {
   filter: hue-rotate(25deg);
 }
-.processingCover[data-tone="2"] {
+.processingCover[data-tone='2'] {
   filter: hue-rotate(-25deg) saturate(1.2);
 }
-.processingCover[data-tone="3"] {
+.processingCover[data-tone='3'] {
   filter: brightness(0.8);
 }
 .processingJobMain {

@@ -1,13 +1,26 @@
-import "./editor.css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, Button, EmptyState, IconButton, PianoRoll, ProgressBar, ToggleButton, Toolbar, Typography, type PianoRollGesture, tr, useLocale } from "@neo-ui-kit/react";
+import './editor.css';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useRouter,
+  Button,
+  EmptyState,
+  IconButton,
+  PianoRoll,
+  ProgressBar,
+  ToggleButton,
+  Toolbar,
+  Typography,
+  type PianoRollGesture,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
 
-import { routes } from "../../shared/routes";
-import type { ProjectCompatibility } from "../../contracts/clients";
-import type { MessageKey } from "../../i18n/messages";
-import { ru } from "../../i18n/messages.ru";
-import { EditorHeader } from "./EditorHeader";
-import { EditorTransport } from "./EditorTransport";
+import { routes } from '../../shared/routes';
+import type { ProjectCompatibility } from '../../contracts/clients';
+import type { MessageKey } from '../../i18n/messages';
+import { ru } from '../../i18n/messages.ru';
+import { EditorHeader } from './EditorHeader';
+import { EditorTransport } from './EditorTransport';
 import {
   documentEnd,
   maxPitch,
@@ -17,12 +30,12 @@ import {
   snapGridSeconds,
   snapTime,
   type EditorDocument,
-} from "../../application/editor/editorModel";
-import { useEditorSession } from "./useEditorSession";
+} from '../../application/editor/editorModel';
+import { useEditorSession } from './useEditorSession';
 
 const isEditingText = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
-  ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 
 const zoomSteps = [0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
 const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
@@ -30,13 +43,13 @@ const maxZoom = zoomSteps[zoomSteps.length - 1] ?? 1;
 const openingZoom = 2;
 const pitchMargin = 5;
 const invalidLoadMessage = {
-  NotReady: "editorLoadFailed",
-  TooNew: "errorProjectTooNew",
-  Upgradeable: "errorProjectUpgrade",
-  Unsupported: "errorProjectUpgrade",
-  Invalid: "errorProjectUpgrade",
+  NotReady: 'editorLoadFailed',
+  TooNew: 'errorProjectTooNew',
+  Upgradeable: 'errorProjectUpgrade',
+  Unsupported: 'errorProjectUpgrade',
+  Invalid: 'errorProjectUpgrade',
 } satisfies Record<
-  Exclude<ProjectCompatibility, "Current"> | "NotReady",
+  Exclude<ProjectCompatibility, 'Current'> | 'NotReady',
   MessageKey
 >;
 
@@ -60,7 +73,9 @@ const medianPitch = (document: EditorDocument): number => {
 
 export const EditorPage = () => {
   const { navigate } = useRouter();
-  const { params: { songId = "" } } = useRouter();
+  const {
+    params: { songId = '' },
+  } = useRouter();
   useLocale();
   const session = useEditorSession(songId);
   const [zoom, setZoom] = useState(openingZoom);
@@ -77,7 +92,7 @@ export const EditorPage = () => {
       document
         ? documentEnd(
             document,
-            session.load.kind === "ready"
+            session.load.kind === 'ready'
               ? session.load.song.durationSeconds
               : 0,
           )
@@ -91,7 +106,7 @@ export const EditorPage = () => {
   const latest = useRef(document);
   latest.current = document;
   const page = useRef<HTMLElement>(null);
-  const centeredSong = useRef("");
+  const centeredSong = useRef('');
 
   // The roll opens on the melody itself, not on its highest note: one stray high note used to
   // leave the visible part empty and the singing far below it.
@@ -103,7 +118,7 @@ export const EditorPage = () => {
     )
       return;
     const roll = page.current?.querySelector<HTMLElement>(
-      ".ad-piano-roll-scroll",
+      '.ad-piano-roll-scroll',
     );
     if (!roll || roll.scrollHeight <= roll.clientHeight) return;
     centeredSong.current = songId;
@@ -124,28 +139,28 @@ export const EditorPage = () => {
       if (isEditingText(event.target)) return;
       const command = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
-      if (command && key === "s") {
+      if (command && key === 's') {
         event.preventDefault();
         void session.save();
-      } else if (command && (key === "y" || (key === "z" && event.shiftKey))) {
+      } else if (command && (key === 'y' || (key === 'z' && event.shiftKey))) {
         event.preventDefault();
         session.redo();
-      } else if (command && key === "z") {
+      } else if (command && key === 'z') {
         event.preventDefault();
         session.undo();
-      } else if (event.key === "Delete" && selection.size > 0) {
+      } else if (event.key === 'Delete' && selection.size > 0) {
         event.preventDefault();
         session.remove(selection);
       } else if (
-        event.code === "Space" &&
+        event.code === 'Space' &&
         !(event.target instanceof HTMLButtonElement)
       ) {
         event.preventDefault();
         void session.togglePlay();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   const back = (
@@ -154,8 +169,8 @@ export const EditorPage = () => {
     </Button>
   );
   if (
-    session.load.kind === "loading" ||
-    (session.load.kind === "ready" && !document)
+    session.load.kind === 'loading' ||
+    (session.load.kind === 'ready' && !document)
   ) {
     return (
       <main className="editorPage editorState" aria-live="polite">
@@ -163,11 +178,13 @@ export const EditorPage = () => {
       </main>
     );
   }
-  if (session.load.kind === "failed" || session.load.kind === "invalid") {
+  if (session.load.kind === 'failed' || session.load.kind === 'invalid') {
     const message = tr(
-      ru[session.load.kind === "invalid"
-        ? invalidLoadMessage[session.load.compatibility]
-        : "editorLoadFailed"],
+      ru[
+        session.load.kind === 'invalid'
+          ? invalidLoadMessage[session.load.compatibility]
+          : 'editorLoadFailed'
+      ],
     );
     return (
       <main className="editorPage editorState" role="alert">
@@ -175,27 +192,27 @@ export const EditorPage = () => {
       </main>
     );
   }
-  if (!document || session.load.kind !== "ready") return null;
+  if (!document || session.load.kind !== 'ready') return null;
 
   const song = session.load.song;
   const [lowest, highest] = range;
   const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
   const toggles = [
     {
-      icon: "grid",
-      label: "editorGrid",
+      icon: 'grid',
+      label: 'editorGrid',
       checked: grid,
       onValueChange: setGrid,
     },
     {
-      icon: "target",
-      label: "editorSnap",
+      icon: 'target',
+      label: 'editorSnap',
       checked: snap,
       onValueChange: setSnap,
     },
     {
-      icon: "motion",
-      label: "editorFollow",
+      icon: 'motion',
+      label: 'editorFollow',
       checked: follow,
       onValueChange: setFollow,
     },
@@ -204,7 +221,7 @@ export const EditorPage = () => {
   const drag = (gesture: PianoRollGesture) => {
     const before = dragStart.current ?? document;
     dragStart.current = before;
-    if (gesture.kind === "move") {
+    if (gesture.kind === 'move') {
       session.replacePresent(
         moveNotes(
           before,
@@ -217,7 +234,7 @@ export const EditorPage = () => {
     }
     const note = before.notes.find((item) => item.id === gesture.id);
     if (!note) return;
-    const origin = gesture.edge === "start" ? note.start : note.end;
+    const origin = gesture.edge === 'start' ? note.start : note.end;
     session.replacePresent(
       resizeNote(
         before,

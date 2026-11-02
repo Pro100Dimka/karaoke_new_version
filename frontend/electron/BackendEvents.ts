@@ -1,4 +1,4 @@
-import type { BackendEndpoint } from "./BackendEndpoint";
+import type { BackendEndpoint } from './BackendEndpoint';
 
 const retryMilliseconds = 1000;
 const wait = (milliseconds: number) =>
@@ -14,21 +14,21 @@ export const parseServerSentEvents = (
   buffer: string,
 ): { events: BackendEvent[]; rest: string } => {
   const messages = buffer.split(/\r?\n\r?\n/);
-  const rest = messages.pop() ?? "";
+  const rest = messages.pop() ?? '';
   const events: BackendEvent[] = [];
   for (const message of messages) {
     const data = message
       .split(/\r?\n/)
-      .filter((line) => line.startsWith("data:"))
+      .filter((line) => line.startsWith('data:'))
       .map((line) => line.slice(5).trimStart())
-      .join("\n");
+      .join('\n');
     if (!data) continue;
     try {
       const value = JSON.parse(data) as unknown;
       if (
         value &&
-        typeof value === "object" &&
-        typeof (value as BackendEvent).type === "string"
+        typeof value === 'object' &&
+        typeof (value as BackendEvent).type === 'string'
       )
         events.push(value as BackendEvent);
     } catch {
@@ -59,13 +59,13 @@ export const streamBackendEvents = (
         const signal = AbortSignal.any([stop, backend.lifetime]);
         const response = await fetch(`${backend.origin}/events`, {
           signal,
-          headers: { accept: "text/event-stream" },
+          headers: { accept: 'text/event-stream' },
         });
         if (!response.ok || !response.body)
           throw new Error(`Backend events: HTTP ${response.status}`);
-        emit({ type: "connected" });
+        emit({ type: 'connected' });
         const decoder = new TextDecoder();
-        let buffer = "";
+        let buffer = '';
         for await (const chunk of response.body) {
           const parsed = parseServerSentEvents(
             buffer + decoder.decode(chunk as Uint8Array, { stream: true }),

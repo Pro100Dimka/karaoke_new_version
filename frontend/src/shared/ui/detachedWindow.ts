@@ -2,7 +2,7 @@ import {
   controlSelector,
   type PanelLayout,
   type ScreenPoint,
-} from "./useFloatingPanel";
+} from './useFloatingPanel';
 
 /**
  * The panel's window has no frame and no background of its own: it is exactly as large as the
@@ -12,10 +12,11 @@ import {
 export const fitWindowToPanel = (
   panel: Window,
   mount: HTMLElement,
-  resizePanel = (width: number, height: number) => panel.resizeTo(width, height),
+  resizePanel = (width: number, height: number) =>
+    panel.resizeTo(width, height),
 ): (() => void) => {
   // Without size notifications (never in Electron) the window keeps the size it opened with.
-  if (typeof ResizeObserver === "undefined") return () => undefined;
+  if (typeof ResizeObserver === 'undefined') return () => undefined;
   const fit = () => {
     const box = mount.firstElementChild?.getBoundingClientRect();
     if (!box || box.width < 1 || box.height < 1) return;
@@ -71,14 +72,25 @@ export const moveWindowBySurface = (
   const down = (event: PointerEvent) => {
     const target = event.target as Element | null;
     if (event.button !== 0 || target?.closest?.(controlSelector)) return;
-    if (continuous) carryWindow(panel, {
-      left: panel.screenX, top: panel.screenY, width: panel.innerWidth, height: panel.innerHeight,
-    }, event, onDropInApp, movePanel);
-    else grab = {
-      x: event.screenX - panel.screenX,
-      y: event.screenY - panel.screenY,
-      pointerId: event.pointerId,
-    };
+    if (continuous)
+      carryWindow(
+        panel,
+        {
+          left: panel.screenX,
+          top: panel.screenY,
+          width: panel.innerWidth,
+          height: panel.innerHeight,
+        },
+        event,
+        onDropInApp,
+        movePanel,
+      );
+    else
+      grab = {
+        x: event.screenX - panel.screenX,
+        y: event.screenY - panel.screenY,
+        pointerId: event.pointerId,
+      };
     mount.setPointerCapture(event.pointerId);
     event.preventDefault();
   };
@@ -99,15 +111,15 @@ export const moveWindowBySurface = (
         height: panel.innerHeight,
       });
   };
-  mount.addEventListener("pointerdown", down);
-  mount.addEventListener("pointermove", move);
-  mount.addEventListener("pointerup", up);
-  mount.addEventListener("pointercancel", up);
+  mount.addEventListener('pointerdown', down);
+  mount.addEventListener('pointermove', move);
+  mount.addEventListener('pointerup', up);
+  mount.addEventListener('pointercancel', up);
   return () => {
-    mount.removeEventListener("pointerdown", down);
-    mount.removeEventListener("pointermove", move);
-    mount.removeEventListener("pointerup", up);
-    mount.removeEventListener("pointercancel", up);
+    mount.removeEventListener('pointerdown', down);
+    mount.removeEventListener('pointermove', move);
+    mount.removeEventListener('pointerup', up);
+    mount.removeEventListener('pointercancel', up);
   };
 };
 
@@ -131,32 +143,45 @@ export const carryWindow = (
   const hosts = onReenter ? [window, panel] : [window];
   const end = () => {
     for (const host of hosts) {
-      host.removeEventListener("pointermove", move);
-      host.removeEventListener("pointerup", end);
-      host.removeEventListener("pointercancel", cancel);
+      host.removeEventListener('pointermove', move);
+      host.removeEventListener('pointerup', end);
+      host.removeEventListener('pointercancel', cancel);
     }
   };
   const cancel = (event: PointerEvent) => {
-    if (!onReenter || event.pointerType !== "mouse" || event.buttons === 0) end();
+    if (!onReenter || event.pointerType !== 'mouse' || event.buttons === 0)
+      end();
   };
   const move = (event: PointerEvent) => {
     // A release the app's window did not hear (e.g. over another program) still ends the drag.
     if (event.buttons === 0 || panel.closed) return end();
-    if (onReenter && event.currentTarget === panel && !panel.document.body.hasPointerCapture(event.pointerId))
+    if (
+      onReenter &&
+      event.currentTarget === panel &&
+      !panel.document.body.hasPointerCapture(event.pointerId)
+    )
       panel.document.body.setPointerCapture(event.pointerId);
     const left = event.screenX - grabX;
     const top = event.screenY - grabY;
     const inside = onReenter && pointInApp(left, top);
     if (inside && pointInApp(left + opened.width, top + opened.height)) {
       end();
-      onReenter?.({ left: inside.x, top: inside.y, width: opened.width, height: opened.height }, event);
+      onReenter?.(
+        {
+          left: inside.x,
+          top: inside.y,
+          width: opened.width,
+          height: opened.height,
+        },
+        event,
+      );
       return;
     }
     movePanel(left, top);
   };
   for (const host of hosts) {
-    host.addEventListener("pointermove", move);
-    host.addEventListener("pointerup", end);
-    host.addEventListener("pointercancel", cancel);
+    host.addEventListener('pointermove', move);
+    host.addEventListener('pointerup', end);
+    host.addEventListener('pointercancel', cancel);
   }
 };

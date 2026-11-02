@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { desktopClient } from "../services/desktopClient";
+import { useEffect, useRef } from 'react';
+import { desktopClient } from '../services/desktopClient';
 
 /** Returns true when closing may continue; may ask the user and finalize work first. */
 export type CloseGuard = () => Promise<boolean>;
@@ -18,12 +18,12 @@ export const subscribeCloseRequests = () => {
         }
         allowed = true;
       } catch (error) {
-        console.error("Cannot finish work before closing", error);
+        console.error('Cannot finish work before closing', error);
       } finally {
         running = false;
         await desktopClient.confirmClose(allowed);
       }
-    })().catch((error) => console.error("Cannot report close decision", error));
+    })().catch((error) => console.error('Cannot report close decision', error));
   });
 };
 
@@ -34,6 +34,8 @@ export const useCloseGuard = (guard: CloseGuard): void => {
   useEffect(() => {
     const registered = () => latest.current();
     guards.add(registered);
-    return () => { guards.delete(registered); };
+    return () => {
+      guards.delete(registered);
+    };
   }, []);
 };

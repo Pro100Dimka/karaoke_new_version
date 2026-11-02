@@ -1,4 +1,4 @@
-import * as os from "node:os";
+import * as os from 'node:os';
 
 /**
  * Logical cores from which the interface is rasterized on the CPU. Measured on this app: with 20
@@ -18,11 +18,12 @@ export const applyGpuSwitches = (
   cores: number = os.availableParallelism(),
 ): string[] => {
   // Hybrid Windows laptops otherwise keep Chromium's compositor and WebGL work on the integrated GPU.
-  const switches = ["force-high-performance-gpu"];
+  const switches = ['force-high-performance-gpu'];
   // Electron keeps no Skia shader cache between launches, so with GPU rasterization the first modal of
   // every session compiled ~50 GPU programs through Direct3D and froze for ~0.6 s. On a CPU with room
   // to spare, rasterizing on its raster threads avoids that; compositing, video and WebGL stay on the GPU.
-  if (cores >= cpuRasterizationMinimumCores) switches.push("disable-gpu-rasterization");
+  if (cores >= cpuRasterizationMinimumCores)
+    switches.push('disable-gpu-rasterization');
   for (const name of switches) commandLine.appendSwitch(name);
   return switches;
 };

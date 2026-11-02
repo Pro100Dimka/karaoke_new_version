@@ -1,17 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, Dialog, Stack } from "@neo-ui-kit/react";
-import { createCommandQueue } from "../app/desktop/shellBus";
+import { useEffect, useRef, useState } from 'react';
+import { Button, Dialog, Stack } from '@neo-ui-kit/react';
+import { createCommandQueue } from '../app/desktop/shellBus';
 
 export interface DialogAction {
   id: string;
   label: string;
-  appearance?: "primary" | "secondary" | "outline";
+  appearance?: 'primary' | 'secondary' | 'outline';
 }
 
 export interface DialogRequest {
   title: string;
   body: string;
-  tone?: "info" | "warning";
+  tone?: 'info' | 'warning';
   actions: readonly DialogAction[];
 }
 
@@ -22,7 +22,7 @@ export interface PendingDialog {
 
 const requests = createCommandQueue<PendingDialog>();
 export const ask = (request: DialogRequest): Promise<string | null> =>
-  new Promise(resolve => requests.push({ request, resolve }));
+  new Promise((resolve) => requests.push({ request, resolve }));
 
 export const DialogView = () => {
   const [request, setRequest] = useState<DialogRequest | null>(null);
@@ -34,7 +34,7 @@ export const DialogView = () => {
     current?.resolve(id);
   };
   useEffect(() => {
-    const unsubscribe = requests.subscribe(next => {
+    const unsubscribe = requests.subscribe((next) => {
       pending.current?.resolve(null);
       pending.current = next;
       setRequest(next.request);
@@ -48,20 +48,24 @@ export const DialogView = () => {
   return (
     <Dialog
       open={!!request}
-      onOpenChange={open => { if (!open) settleDialog(null); }}
+      onOpenChange={(open) => {
+        if (!open) settleDialog(null);
+      }}
       className="confirmDialog"
       width="narrow"
-      icon={request?.tone === "info" ? "info" : "warning"}
+      icon={request?.tone === 'info' ? 'info' : 'warning'}
       title={request?.title}
       description={request?.body}
       cancelLabel={false}
       confirmLabel={false}
     >
       <Stack direction="row" gap={2} justify="end" wrap>
-        {request?.actions.map(action => (
-          <Button key={action.id}
-            variant={action.appearance === "primary" ? "primary" : "secondary"}
-            onClick={() => settleDialog(action.id)}>
+        {request?.actions.map((action) => (
+          <Button
+            key={action.id}
+            variant={action.appearance === 'primary' ? 'primary' : 'secondary'}
+            onClick={() => settleDialog(action.id)}
+          >
             {action.label}
           </Button>
         ))}

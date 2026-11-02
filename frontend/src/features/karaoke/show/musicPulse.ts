@@ -1,4 +1,4 @@
-import { createPercussionReaction } from "../../../app/backdrop/useSpectrumFeed";
+import { createPercussionReaction } from '../../../app/backdrop/useSpectrumFeed';
 
 export interface MusicState {
   /** Kick envelope, 0–1. */
@@ -16,8 +16,8 @@ export interface MusicState {
 }
 
 export type MusicCue =
-  | { kind: "beat"; at: number; strength: number }
-  | { kind: "surge"; at: number };
+  | { kind: 'beat'; at: number; strength: number }
+  | { kind: 'surge'; at: number };
 
 const average = (values: readonly number[]): number =>
   values.length === 0
@@ -107,7 +107,7 @@ export class MusicPulse {
       if (this.onsets.length > 17) this.onsets.shift();
       this.lastOnset = now;
       cues.push({
-        kind: "beat",
+        kind: 'beat',
         at: now,
         strength: Math.min(1, kick / this.kickPeak),
       });
@@ -125,7 +125,7 @@ export class MusicPulse {
     );
     const quiet = this.medium > 0.01 && this.fast < this.medium * 0.42;
     if (this.wasQuiet && this.fast > this.medium * 0.95)
-      cues.push({ kind: "surge", at: now });
+      cues.push({ kind: 'surge', at: now });
     this.wasQuiet = quiet || (this.wasQuiet && this.fast < this.medium * 0.95);
 
     this.state = {

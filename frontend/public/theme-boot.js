@@ -2,12 +2,12 @@
 (function () {
   try {
     var stored = JSON.parse(
-      window.localStorage.getItem("adVoice.preferences.v1") || "null",
+      window.localStorage.getItem('adVoice.preferences.v1') || 'null',
     );
-    var themes = ["dark", "light", "green", "violet"];
+    var themes = ['dark', 'light', 'green', 'violet'];
     document.documentElement.dataset.theme =
-      stored && themes.indexOf(stored.theme) >= 0 ? stored.theme : "dark";
+      stored && themes.indexOf(stored.theme) >= 0 ? stored.theme : 'dark';
   } catch (error) {
-    document.documentElement.dataset.theme = "dark";
+    document.documentElement.dataset.theme = 'dark';
   }
 })();

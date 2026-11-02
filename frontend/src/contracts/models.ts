@@ -1,17 +1,17 @@
 export type SettingsTab =
-  "appearance" | "audio" | "ai" | "environment" | "advanced";
-export type ThemeName = "dark" | "light" | "green" | "violet";
-export type Language = "uk" | "ru" | "en";
+  'appearance' | 'audio' | 'ai' | 'environment' | 'advanced';
+export type ThemeName = 'dark' | 'light' | 'green' | 'violet';
+export type Language = 'uk' | 'ru' | 'en';
 export type SongStatus =
-  | "not-processed"
-  | "queued"
-  | "processing"
-  | "ready"
-  | "failed"
-  | "importing"
-  | "invalid";
-export type SongLanguage = "Auto" | "Ukrainian" | "Russian" | "English";
-export type CoverState = "Embedded" | "Custom" | "Fallback";
+  | 'not-processed'
+  | 'queued'
+  | 'processing'
+  | 'ready'
+  | 'failed'
+  | 'importing'
+  | 'invalid';
+export type SongLanguage = 'Auto' | 'Ukrainian' | 'Russian' | 'English';
+export type CoverState = 'Embedded' | 'Custom' | 'Fallback';
 
 export interface KaraokeNoteScore {
   /** Present only for the timestamped live scorer; legacy UI counters are not final analysis. */
@@ -69,33 +69,33 @@ export interface ProcessingJobDto {
   songTitle?: string;
   songArtist?: string;
   state:
-    | "queued"
-    | "processing"
-    | "cancelling"
-    | "completed"
-    | "failed"
-    | "cancelled"
-    | "interrupted";
+    | 'queued'
+    | 'processing'
+    | 'cancelling'
+    | 'completed'
+    | 'failed'
+    | 'cancelled'
+    | 'interrupted';
   stage: string;
   progress: number;
   startedAt?: string;
   finishedAt?: string;
-  processingBackend?: "Local" | "Kaggle";
-  timingOperation?: "lyrics" | "melody";
+  processingBackend?: 'Local' | 'Kaggle';
+  timingOperation?: 'lyrics' | 'melody';
   error?: AppError;
 }
 
 export interface DeviceDto {
   id: string;
   name: string;
-  kind: "input" | "output";
+  kind: 'input' | 'output';
   channels: number;
   backend: AudioBackendName;
 }
 
-export type AudioBackendName = "WASAPI Shared" | "WASAPI Exclusive" | "ASIO";
+export type AudioBackendName = 'WASAPI Shared' | 'WASAPI Exclusive' | 'ASIO';
 
-export const unverifiedAsioMonitoring = "ASIO4ALL_MONITORING_UNVERIFIED";
+export const unverifiedAsioMonitoring = 'ASIO4ALL_MONITORING_UNVERIFIED';
 
 /** What the user asked for; never presented as what the engine actually applied. */
 export interface RequestedAudioConfiguration {
@@ -127,7 +127,7 @@ export interface RuntimeAudioConfiguration {
   calibrationContext?: string;
   calibratedLatencyMs?: number;
   /** Where calibratedLatencyMs came from; "NONE" while the path has none. */
-  calibrationOrigin?: "NONE" | "PROFILE" | "TEST_SIGNAL" | "SONG";
+  calibrationOrigin?: 'NONE' | 'PROFILE' | 'TEST_SIGNAL' | 'SONG';
   backend: AudioBackendName;
   /** Whether the microphone really runs exclusively for "minimum microphone latency". */
   lowLatencyInputActive?: boolean;
@@ -153,7 +153,8 @@ export interface RuntimeAudioConfiguration {
   /** The parts of estimatedLatencyMs, each from its own source; null where AudioService gave none. */
   latencyParts?: LatencyParts;
   /** Device timeline observation or fallback model; never a full physical loopback measurement. */
-  latencyEstimateSource?: "device-timeline" | "driver-model" | "measuring" | "unavailable";
+  latencyEstimateSource?:
+    'device-timeline' | 'driver-model' | 'measuring' | 'unavailable';
   captureTimestampAdjusted?: boolean;
   /** Callback elapsed times and waiting; NOT additional parts of estimatedLatencyMs. */
   latencyTiming?: {
@@ -191,7 +192,7 @@ export interface AudioConfigurationCapabilities {
 
 export interface AudioCapabilities {
   microphone:
-    "ready" | "permission-denied" | "privacy-disabled" | "missing" | "busy";
+    'ready' | 'permission-denied' | 'privacy-disabled' | 'missing' | 'busy';
   keyboardLighting: boolean;
 }
 
@@ -209,7 +210,7 @@ export interface PitchFrame {
 
 export interface PlaybackSnapshot {
   sessionId: string;
-  state: "ready" | "playing" | "paused" | "recovering" | "finished";
+  state: 'ready' | 'playing' | 'paused' | 'recovering' | 'finished';
   positionSeconds: number;
   durationSeconds: number;
   monitoring: boolean;
@@ -230,20 +231,20 @@ export interface MixerChannelGains {
 export interface ParticipantDto {
   id: string;
   name: string;
-  role: "host" | "participant";
+  role: 'host' | 'participant';
   self: boolean;
   connected: boolean;
   muted: boolean;
   volume: number;
   readiness:
-    | "missing"
-    | "preparing"
-    | "downloading"
-    | "verifying"
-    | "audio"
-    | "ready"
-    | "failed"
-    | "disconnected";
+    | 'missing'
+    | 'preparing'
+    | 'downloading'
+    | 'verifying'
+    | 'audio'
+    | 'ready'
+    | 'failed'
+    | 'disconnected';
   transferProgress?: number;
   voiceLatencyMs?: number;
   /** Whether this participant has supplied a pre-song end-to-end voice measurement. */
@@ -257,7 +258,7 @@ export interface RoomStateDto {
   hostId: string;
   songId?: string;
   revision?: number;
-  role: "host" | "participant";
+  role: 'host' | 'participant';
   participants: ParticipantDto[];
   /** Server-owned delay used by every backing track and remote voice in this room. */
   roomPlayoutDelayMs?: number;
@@ -269,7 +270,7 @@ export interface RoomStateDto {
   /** The failed import met this singer's own, different copy of the song (see roomProjectDownload). */
   transferConflict?: boolean;
   playbackLocked: boolean;
-  playbackState?: "stopped" | "playing" | "paused";
+  playbackState?: 'stopped' | 'playing' | 'paused';
   playbackStartedAt?: string;
   playbackPositionSeconds?: number;
   serverNow?: string;
@@ -290,7 +291,7 @@ export interface RoomStateDto {
   syncCheckStartedAt?: string;
   sharedSongs?: RoomSongDto[];
   /** Local signaling health; omitted snapshots are treated as connected. */
-  connectionStatus?: "connected" | "reconnecting";
+  connectionStatus?: 'connected' | 'reconnecting';
 }
 
 export interface RecordingDto {
@@ -303,8 +304,14 @@ export interface RecordingDto {
   sizeBytes: number;
   analyzed: boolean;
   analysisStatus?:
-    "NotAnalyzed" | "Queued" | "Running" | "Succeeded" | "Failed" | "Stale";
-  fileStatus?: "Preparing" | "PreparationFailed" | "Ready" | "RecoveredIncomplete" | "Missing" | "Failed";
+    'NotAnalyzed' | 'Queued' | 'Running' | 'Succeeded' | 'Failed' | 'Stale';
+  fileStatus?:
+    | 'Preparing'
+    | 'PreparationFailed'
+    | 'Ready'
+    | 'RecoveredIncomplete'
+    | 'Missing'
+    | 'Failed';
   /** Present only for a Studio Master derived from an untouched source take. */
   sourceRecordingId?: string;
 }
@@ -322,11 +329,11 @@ export interface AppError {
   code: string;
   message: string;
   details?: string;
-  source: "python" | "audio" | "desktop" | "frontend";
+  source: 'python' | 'audio' | 'desktop' | 'frontend';
   correlationId?: string;
 }
 export type ModelState =
-  "not-installed" | "downloading" | "ready" | "failed" | "update-available";
+  'not-installed' | 'downloading' | 'ready' | 'failed' | 'update-available';
 
 export interface ModelDto {
   id: string;
@@ -339,23 +346,23 @@ export interface ModelDto {
 }
 
 export interface AiProcessingSettingsDto {
-  processingBackend: "Local" | "Kaggle";
+  processingBackend: 'Local' | 'Kaggle';
   kaggleUrl?: string;
   kaggleConfigured: boolean;
 }
 
 export interface EnvironmentSettingDto {
   key: string;
-  group: "kaggle" | "recognition" | "room" | "deployment" | "runtime";
-  kind: "text" | "secret" | "file" | "url" | "port";
+  group: 'kaggle' | 'recognition' | 'room' | 'deployment' | 'runtime';
+  kind: 'text' | 'secret' | 'file' | 'url' | 'port';
   value: string;
   configured: boolean;
-  state: "empty" | "valid" | "invalid" | "unverified";
+  state: 'empty' | 'valid' | 'invalid' | 'unverified';
   message: string;
 }
 
 export interface ConfigurationValidationDto {
-  state: "valid" | "invalid";
+  state: 'valid' | 'invalid';
   message: string;
 }
 
@@ -402,10 +409,10 @@ export interface BackendDiagnosticsDto {
 
 export interface SongSearch {
   query: string;
-  status: SongStatus | "all";
-  language: SongLanguage | "all";
-  duration: "all" | "short" | "medium" | "long";
-  artwork: "all" | "with" | "without";
-  sort: "recent" | "title" | "artist" | "played" | "duration" | "bpm";
-  direction: "asc" | "desc";
+  status: SongStatus | 'all';
+  language: SongLanguage | 'all';
+  duration: 'all' | 'short' | 'medium' | 'long';
+  artwork: 'all' | 'with' | 'without';
+  sort: 'recent' | 'title' | 'artist' | 'played' | 'duration' | 'bpm';
+  direction: 'asc' | 'desc';
 }

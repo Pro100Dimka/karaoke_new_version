@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { keyBelongsToControl } from "../../shared/ui/keyOwnership";
-import { maxPlaybackRate, minPlaybackRate } from "./console/PracticeParameters";
-import type { useKaraokeSession } from "./useKaraokeSession";
+import { useEffect, useRef } from 'react';
+import { keyBelongsToControl } from '../../shared/ui/keyOwnership';
+import { maxPlaybackRate, minPlaybackRate } from './console/PracticeParameters';
+import type { useKaraokeSession } from './useKaraokeSession';
 
 type Session = ReturnType<typeof useKaraokeSession>;
 
@@ -58,7 +58,7 @@ export const useKaraokeShortcuts = (
           ),
         );
       const actions: Record<string, (() => void) | undefined> = {
-        " ": () => void s.togglePlay(),
+        ' ': () => void s.togglePlay(),
         k: () => void s.togglePlay(),
         ArrowLeft: canSeek
           ? () => seekBy(-(event.shiftKey ? longSeekSeconds : seekSeconds))
@@ -69,35 +69,48 @@ export const useKaraokeShortcuts = (
         Home: canSeek ? () => void s.seek(0) : undefined,
         ArrowUp: () =>
           void s.changeGain(
-            "master",
+            'master',
             Math.min(1, percent(s.gains.master + levelStep)),
           ),
         ArrowDown: () =>
           void s.changeGain(
-            "master",
+            'master',
             Math.max(0, percent(s.gains.master - levelStep)),
           ),
         m: () => void s.toggleMonitoring(),
         n: () => s.setShowNotes(!s.showNotes),
         t: () => s.setShowLyrics(!s.showLyrics),
-        "[": canPractise ? () => void s.changeKey(-1) : undefined,
-        "]": canPractise ? () => void s.changeKey(1) : undefined,
-        "-": canPractise ? () => tempo(-tempoStep) : undefined,
-        "+": canPractise ? () => tempo(tempoStep) : undefined,
-        "=": canPractise ? () => tempo(tempoStep) : undefined,
+        '[': canPractise ? () => void s.changeKey(-1) : undefined,
+        ']': canPractise ? () => void s.changeKey(1) : undefined,
+        '-': canPractise ? () => tempo(-tempoStep) : undefined,
+        '+': canPractise ? () => tempo(tempoStep) : undefined,
+        '=': canPractise ? () => tempo(tempoStep) : undefined,
         Escape: exit,
       };
       // Physical keys keep working with Ukrainian and Russian keyboard layouts.
-      const key = ({ KeyK: "k", KeyM: "m", KeyN: "n", KeyT: "t", BracketLeft: "[",
-        BracketRight: "]", Minus: "-", Equal: "+", Space: " " } as Record<string, string>)[event.code]
-        ?? (event.key.length === 1 ? event.key.toLowerCase() : event.key);
+      const key =
+        (
+          {
+            KeyK: 'k',
+            KeyM: 'm',
+            KeyN: 'n',
+            KeyT: 't',
+            BracketLeft: '[',
+            BracketRight: ']',
+            Minus: '-',
+            Equal: '+',
+            Space: ' ',
+          } as Record<string, string>
+        )[event.code] ??
+        (event.key.length === 1 ? event.key.toLowerCase() : event.key);
       const action = actions[key];
       if (!action) return;
       event.preventDefault();
-      if (event.repeat && [" ", "k", "m", "n", "t", "Escape"].includes(key)) return;
+      if (event.repeat && [' ', 'k', 'm', 'n', 't', 'Escape'].includes(key))
+        return;
       action();
     };
-    host.addEventListener("keydown", handler);
-    return () => host.removeEventListener("keydown", handler);
+    host.addEventListener('keydown', handler);
+    return () => host.removeEventListener('keydown', handler);
   }, [host]);
 };

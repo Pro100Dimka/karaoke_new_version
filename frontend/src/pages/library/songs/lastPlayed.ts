@@ -3,17 +3,17 @@ import {
   readJson,
   storageKey,
   writeJson,
-} from "../../../shared/storage/localStore";
-import type { LastPlayed } from "./librarySelectors";
+} from '../../../shared/storage/localStore';
+import type { LastPlayed } from './librarySelectors';
 
-const key = storageKey("lastPlayed");
+const key = storageKey('lastPlayed');
 
 export const loadLastPlayed = (): LastPlayed => {
   const raw = readJson(key);
   if (!isRecord(raw)) return {};
   return Object.fromEntries(
     Object.entries(raw).filter(
-      (entry): entry is [string, number] => typeof entry[1] === "number",
+      (entry): entry is [string, number] => typeof entry[1] === 'number',
     ),
   );
 };

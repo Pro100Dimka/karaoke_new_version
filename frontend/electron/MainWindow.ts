@@ -1,13 +1,17 @@
-import { BrowserWindow } from "electron";
-import type { EventEmitter } from "node:events";
-import * as path from "node:path";
-import { themeIconPath } from "./AppPaths";
-import { watchAppVisibility } from "./AppVisibility";
-import { ipcChannels, roomParticipantArgument } from "./ipcChannels";
-import { panelWindowOpenHandler, securePanelWindow } from "./PanelWindows";
-import { readSavedTheme } from "./Splash";
-import type { TrustedIpc } from "./TrustedIpc";
-import { loadWindowState, publishWindowState, saveWindowState } from "./WindowState";
+import { BrowserWindow } from 'electron';
+import type { EventEmitter } from 'node:events';
+import * as path from 'node:path';
+import { themeIconPath } from './AppPaths';
+import { watchAppVisibility } from './AppVisibility';
+import { ipcChannels, roomParticipantArgument } from './ipcChannels';
+import { panelWindowOpenHandler, securePanelWindow } from './PanelWindows';
+import { readSavedTheme } from './Splash';
+import type { TrustedIpc } from './TrustedIpc';
+import {
+  loadWindowState,
+  publishWindowState,
+  saveWindowState,
+} from './WindowState';
 
 interface MainWindowOptions {
   rendererUrl: string;
@@ -23,16 +27,20 @@ interface MainWindowOptions {
 }
 
 /** Only the app's own pages may load; the about:srcdoc frame is the local animated backdrop. */
-const guardNavigation = (window: BrowserWindow, trustedIpc: TrustedIpc): void => {
+const guardNavigation = (
+  window: BrowserWindow,
+  trustedIpc: TrustedIpc,
+): void => {
   const { webContents } = window;
-  webContents.on("will-navigate", (event, url) => {
+  webContents.on('will-navigate', (event, url) => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
   });
-  webContents.on("will-frame-navigate", (event) => {
-    const localBackdrop = !event.isMainFrame && event.url === "about:srcdoc";
-    if (!localBackdrop && !trustedIpc.isRendererUrl(event.url)) event.preventDefault();
+  webContents.on('will-frame-navigate', (event) => {
+    const localBackdrop = !event.isMainFrame && event.url === 'about:srcdoc';
+    if (!localBackdrop && !trustedIpc.isRendererUrl(event.url))
+      event.preventDefault();
   });
-  webContents.on("will-redirect", (event, url) => {
+  webContents.on('will-redirect', (event, url) => {
     if (!trustedIpc.isRendererUrl(url)) event.preventDefault();
   });
 };
@@ -47,8 +55,8 @@ const watchRenderer = (
 ): (() => boolean) => {
   let unavailable = false;
   let lastReload = 0;
-  window.webContents.on("render-process-gone", (_event, details) => {
-    if (details.reason === "clean-exit") return;
+  window.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return;
     unavailable = true;
     console.error(`Renderer process gone: ${details.reason}`);
     // One reload brings the app back; a renderer that keeps crashing is not reloaded in a loop.
@@ -56,19 +64,22 @@ const watchRenderer = (
     lastReload = Date.now();
     window.webContents.reload();
   });
-  window.webContents.on("did-finish-load", () => {
+  window.webContents.on('did-finish-load', () => {
     unavailable = false;
   });
-  window.webContents.on("did-fail-load", (_event, _code, _description, _url, isMainFrame) => {
-    if (isMainFrame) unavailable = true;
-  });
-  window.on("unresponsive", () => {
+  window.webContents.on(
+    'did-fail-load',
+    (_event, _code, _description, _url, isMainFrame) => {
+      if (isMainFrame) unavailable = true;
+    },
+  );
+  window.on('unresponsive', () => {
     unavailable = true;
-    log?.("renderer", "warning", "Renderer unresponsive");
+    log?.('renderer', 'warning', 'Renderer unresponsive');
   });
-  window.on("responsive", () => {
+  window.on('responsive', () => {
     unavailable = false;
-    log?.("renderer", "info", "Renderer responsive");
+    log?.('renderer', 'info', 'Renderer responsive');
   });
   return () => unavailable;
 };
@@ -78,10 +89,10 @@ const watchRenderer = (
  * and in areas uncovered while resizing or entering full screen, so the light theme does not flash dark.
  */
 export const themeWindowBackground = {
-  dark: "#4d0b0f",
-  light: "#f0d6ca",
-  green: "#1a4b26",
-  violet: "#592979",
+  dark: '#4d0b0f',
+  light: '#f0d6ca',
+  green: '#1a4b26',
+  violet: '#592979',
 } as const satisfies Record<ReturnType<typeof readSavedTheme>, string>;
 
 export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
@@ -98,7 +109,7 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
     show: false,
     icon,
     webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -108,21 +119,23 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
       // Panels moved into their own windows (room, console, piano roll) are drawn by this window's
       // timers; they must keep running while this window is minimised or covered.
       backgroundThrottling: false,
-      additionalArguments: [`${roomParticipantArgument}${options.roomParticipant}`],
+      additionalArguments: [
+        `${roomParticipantArgument}${options.roomParticipant}`,
+      ],
     },
   });
   // The window opens the way it was closed: full screen over the taskbar, maximized, or as saved.
-  if (state.fullscreen) window.once("show", () => window.setFullScreen(true));
-  else if (state.maximized) window.once("show", () => window.maximize());
+  if (state.fullscreen) window.once('show', () => window.setFullScreen(true));
+  else if (state.maximized) window.once('show', () => window.maximize());
 
   const rendererUnavailable = watchRenderer(window, options.log);
-  const captureConsole = (contents: BrowserWindow["webContents"]) =>
-    contents.on("console-message", (details) =>
-      options.log?.("renderer", details.level, details.message),
+  const captureConsole = (contents: BrowserWindow['webContents']) =>
+    contents.on('console-message', (details) =>
+      options.log?.('renderer', details.level, details.message),
     );
   captureConsole(window.webContents);
   // The renderer decides whether the window may close (unsaved edits, recording, room, processing).
-  window.on("close", (event) => {
+  window.on('close', (event) => {
     saveWindowState(window);
     if (options.closeToTray?.()) {
       event.preventDefault();
@@ -134,25 +147,35 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
   });
   // On Windows the event can arrive before the native query reflects the new state.
   const transitions = {
-    maximize: { maximized: true }, unmaximize: { maximized: false },
-    minimize: { minimized: true }, restore: { minimized: false },
-    "enter-full-screen": { fullscreen: true }, "leave-full-screen": { fullscreen: false },
+    maximize: { maximized: true },
+    unmaximize: { maximized: false },
+    minimize: { minimized: true },
+    restore: { minimized: false },
+    'enter-full-screen': { fullscreen: true },
+    'leave-full-screen': { fullscreen: false },
   };
   for (const [event, state] of Object.entries(transitions))
     (window as EventEmitter).on(event, () => publishWindowState(window, state));
   // A renderer that cannot load must still become visible so the user sees something.
-  window.webContents.on("did-fail-load", (_event, code, description) => {
-    options.log?.("renderer", "error", `Renderer failed to load (${code}): ${description}`);
+  window.webContents.on('did-fail-load', (_event, code, description) => {
+    options.log?.(
+      'renderer',
+      'error',
+      `Renderer failed to load (${code}): ${description}`,
+    );
     options.reveal();
   });
 
   guardNavigation(window, options.trustedIpc);
-  window.webContents.setWindowOpenHandler(panelWindowOpenHandler(icon, () => window.getBounds(), window));
+  window.webContents.setWindowOpenHandler(
+    panelWindowOpenHandler(icon, () => window.getBounds(), window),
+  );
   const visibility = watchAppVisibility(window, (onScreen) => {
-    if (!window.isDestroyed()) window.webContents.send(ipcChannels.appVisibility, onScreen);
+    if (!window.isDestroyed())
+      window.webContents.send(ipcChannels.appVisibility, onScreen);
   });
-  window.webContents.on("did-finish-load", () => visibility.republish());
-  window.webContents.on("did-create-window", (panel) => {
+  window.webContents.on('did-finish-load', () => visibility.republish());
+  window.webContents.on('did-create-window', (panel) => {
     securePanelWindow(panel);
     visibility.addPanel(panel);
     captureConsole(panel.webContents);

@@ -1,54 +1,54 @@
-import type { MessageKey } from "../../i18n/messages";
+import type { MessageKey } from '../../i18n/messages';
 
 export type ParticipantEffect =
-  "reverb" | "echo" | "delay" | "noiseSuppression" | "octave" | "autoTune";
+  'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';
 
 /** What the host can shape of another participant's voice, as heard in this room. */
 export const participantEffectKnobs = [
   {
-    id: "reverb",
-    label: "effectReverb",
+    id: 'reverb',
+    label: 'effectReverb',
     min: 0,
     max: 1,
     step: 0.01,
     displayFactor: 100,
-    valueSuffix: "%",
+    valueSuffix: '%',
   },
   {
-    id: "echo",
-    label: "effectEcho",
+    id: 'echo',
+    label: 'effectEcho',
     min: 0,
     max: 1,
     step: 0.01,
     displayFactor: 100,
-    valueSuffix: "%",
+    valueSuffix: '%',
   },
   {
-    id: "noiseSuppression",
-    label: "noiseSuppression",
+    id: 'noiseSuppression',
+    label: 'noiseSuppression',
     min: 0,
     max: 1,
     step: 1,
     displayFactor: 100,
-    valueSuffix: "%",
+    valueSuffix: '%',
   },
   {
-    id: "autoTune",
-    label: "effectAutoTune",
+    id: 'autoTune',
+    label: 'effectAutoTune',
     min: 0,
     max: 1,
     step: 0.01,
     displayFactor: 100,
-    valueSuffix: "%",
+    valueSuffix: '%',
   },
   {
-    id: "octave",
-    label: "participantOctave",
+    id: 'octave',
+    label: 'participantOctave',
     min: -1,
     max: 1,
     step: 1,
     displayFactor: 1,
-    valueSuffix: "",
+    valueSuffix: '',
   },
 ] as const satisfies ReadonlyArray<{
   id: ParticipantEffect;

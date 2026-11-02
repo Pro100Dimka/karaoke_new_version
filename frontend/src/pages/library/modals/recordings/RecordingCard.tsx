@@ -1,16 +1,27 @@
-import { desktopClient as files } from "../../../../services/desktopClient";
-import { pythonClient as catalog } from "../../../../services/pythonClient";
-import { useRef, useState } from "react";
-import { Card, IconButton, MessageBar, ProgressBar, SegmentedControl, SplitButton, TextField, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import type { RecordingAnalysisProgress } from "../../../../contracts/clients";
-import type { MessageKey } from "../../../../i18n/messages";
-import { analysisStageLabel } from "../analysis/analysisPresentation";
-import type { RecordingDto } from "../../../../contracts/models";
-import { ru } from "../../../../i18n/messages.ru";
-import performanceArtUrl from "../analysis/performance-art.svg";
-import { RecordingPlayer } from "./RecordingPlayer";
-import { recordingStatusLabels } from "../../songs/songMetadataPresentation";
-import { useNearView } from "../../../../shared/hooks/useNearView";
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { useRef, useState } from 'react';
+import {
+  Card,
+  IconButton,
+  MessageBar,
+  ProgressBar,
+  SegmentedControl,
+  SplitButton,
+  TextField,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
+import type { MessageKey } from '../../../../i18n/messages';
+import { analysisStageLabel } from '../analysis/analysisPresentation';
+import type { RecordingDto } from '../../../../contracts/models';
+import { ru } from '../../../../i18n/messages.ru';
+import performanceArtUrl from '../analysis/performance-art.svg';
+import { RecordingPlayer } from './RecordingPlayer';
+import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
+import { useNearView } from '../../../../shared/hooks/useNearView';
 
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
@@ -53,7 +64,7 @@ const TakeName = ({
         value={draft}
         onValueChange={setDraft}
         onKeyDown={(event) => {
-          if (event.key === "Escape") setDraft(null);
+          if (event.key === 'Escape') setDraft(null);
         }}
         endAdornment={
           <IconButton
@@ -96,23 +107,35 @@ export const RecordingCard = ({
   useLocale();
   const [versionId, setVersionId] = useState(recording.id);
   const selected = versions.find((item) => item.id === versionId) ?? recording;
-  const preparing = ["Preparing", "PreparationFailed"].includes(selected.fileStatus ?? "");
+  const preparing = ['Preparing', 'PreparationFailed'].includes(
+    selected.fileStatus ?? '',
+  );
   const task = progress[selected.id];
   const failure = failures[selected.id];
-  const hasAnalysis = selected.analysisStatus === "Succeeded" || (selected.analyzed && !selected.analysisStatus);
+  const hasAnalysis =
+    selected.analysisStatus === 'Succeeded' ||
+    (selected.analyzed && !selected.analysisStatus);
   // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
   const nearView = useNearView(card);
   const statuses = recordingStatusLabels(
-    selected.fileStatus ?? "Ready",
-    task ? (task.state === "Queued" ? "Queued" : "Running") : selected.analysisStatus ?? "NotAnalyzed",
+    selected.fileStatus ?? 'Ready',
+    task
+      ? task.state === 'Queued'
+        ? 'Queued'
+        : 'Running'
+      : (selected.analysisStatus ?? 'NotAnalyzed'),
   );
 
   return (
     <li ref={card}>
       <Card border padding="sm" className="recordingCard">
-        <img className="recordingArt" src={`${performanceArtUrl}#pf-view-${(index % 6) + 1}`} alt="" />
+        <img
+          className="recordingArt"
+          src={`${performanceArtUrl}#pf-view-${(index % 6) + 1}`}
+          alt=""
+        />
         <div className="recordingMain">
           <TakeName name={name} onRename={onRename} />
           {versions.length > 0 && (
@@ -123,35 +146,78 @@ export const RecordingCard = ({
               onValueChange={setVersionId}
               items={[recording, ...versions].map((item) => ({
                 value: item.id,
-                label: tr(ru[item.sourceRecordingId ? "studioMasterTitle" : "recordingOriginal"]),
+                label: tr(
+                  ru[
+                    item.sourceRecordingId
+                      ? 'studioMasterTitle'
+                      : 'recordingOriginal'
+                  ],
+                ),
               }))}
             />
           )}
           <Typography variant="caption" tone="muted">
-            {statuses.map((key) => tr(ru[key])).join("  •  ")}
+            {statuses.map((key) => tr(ru[key])).join('  •  ')}
           </Typography>
-          {task && <>
-            <Typography variant="caption" role="status">{tr(ru[analysisStageLabel(task.stage)])} · {task.progress}%</Typography>
-            <ProgressBar label={tr(ru[analysisStageLabel(task.stage)])} value={task.progress} indeterminate={task.state === "Queued"} />
-          </>}
+          {task && (
+            <>
+              <Typography variant="caption" role="status">
+                {tr(ru[analysisStageLabel(task.stage)])} · {task.progress}%
+              </Typography>
+              <ProgressBar
+                label={tr(ru[analysisStageLabel(task.stage)])}
+                value={task.progress}
+                indeterminate={task.state === 'Queued'}
+              />
+            </>
+          )}
           {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
           {nearView ? (
             <RecordingPlayer key={selected.id} recording={selected} />
           ) : (
-            <div className="recordingPlayer recordingPlayerPending" aria-hidden="true" />
+            <div
+              className="recordingPlayer recordingPlayerPending"
+              aria-hidden="true"
+            />
           )}
         </div>
         <div className="recordingActions">
-          {preparing ? null : task ? <IconButton icon="stop" label={tr(ru.analysisCancel)} disabled={!task.jobId}
-            onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)} /> : hasAnalysis ? <SplitButton
-            size="sm" variant="secondary" icon="levels" label={tr(ru.recordingOpenAnalysis)}
-            onClick={() => onAnalyze(selected)} items={[{ id: "recalculate", label: tr(ru.recordingReanalyze),
-              onSelect: () => onAnalyze(selected, true) }]} /> : <IconButton
-            icon="levels"
-            label={tr(ru[selected.fileStatus === "RecoveredIncomplete" ? "errorRecordingTimingUnavailable" : "recordingAnalyze"])}
-            disabled={selected.fileStatus === "RecoveredIncomplete"}
-            onClick={() => onAnalyze(selected)}
-          />}
+          {preparing ? null : task ? (
+            <IconButton
+              icon="stop"
+              label={tr(ru.analysisCancel)}
+              disabled={!task.jobId}
+              onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
+            />
+          ) : hasAnalysis ? (
+            <SplitButton
+              size="sm"
+              variant="secondary"
+              icon="levels"
+              label={tr(ru.recordingOpenAnalysis)}
+              onClick={() => onAnalyze(selected)}
+              items={[
+                {
+                  id: 'recalculate',
+                  label: tr(ru.recordingReanalyze),
+                  onSelect: () => onAnalyze(selected, true),
+                },
+              ]}
+            />
+          ) : (
+            <IconButton
+              icon="levels"
+              label={tr(
+                ru[
+                  selected.fileStatus === 'RecoveredIncomplete'
+                    ? 'errorRecordingTimingUnavailable'
+                    : 'recordingAnalyze'
+                ],
+              )}
+              disabled={selected.fileStatus === 'RecoveredIncomplete'}
+              onClick={() => onAnalyze(selected)}
+            />
+          )}
           <IconButton
             icon="folder"
             label={tr(ru.openFolder)}
@@ -164,7 +230,7 @@ export const RecordingCard = ({
             icon="trash"
             variant="danger"
             label={tr(ru.recordingDelete)}
-            disabled={selected.fileStatus === "Preparing"}
+            disabled={selected.fileStatus === 'Preparing'}
             onClick={() => onDelete(selected)}
           />
         </div>

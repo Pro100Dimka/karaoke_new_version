@@ -1,47 +1,77 @@
-import { expect, it, vi } from "vitest";
-import { RoomInvitationCoordinator } from "./RoomInvitationCoordinator";
+import { expect, it, vi } from 'vitest';
+import { RoomInvitationCoordinator } from './RoomInvitationCoordinator';
 
-it("accepts an invitation through the room session and clears the pending request only after join", async () => {
+it('accepts an invitation through the room session and clears the pending request only after join', async () => {
   const events: string[] = [];
   const social = {
-    acceptInvite: vi.fn(async () => ({ roomId: "B" })),
-    clearRequestedRoom: vi.fn(() => { events.push("clear"); }),
+    acceptInvite: vi.fn(async () => ({ roomId: 'B' })),
+    clearRequestedRoom: vi.fn(() => {
+      events.push('clear');
+    }),
   };
   const room = {
-    getRoom: () => ({ code: "A" }),
-    leave: vi.fn(async () => { events.push("leave"); }),
-    join: vi.fn(async () => { events.push("join"); return { code: "B" }; }),
+    getRoom: () => ({ code: 'A' }),
+    leave: vi.fn(async () => {
+      events.push('leave');
+    }),
+    join: vi.fn(async () => {
+      events.push('join');
+      return { code: 'B' };
+    }),
   };
-  const invitations = new RoomInvitationCoordinator(social as never, room as never);
-  await invitations.accept("invite", "Singer");
-  expect(events).toEqual(["leave", "join", "clear"]);
+  const invitations = new RoomInvitationCoordinator(
+    social as never,
+    room as never,
+  );
+  await invitations.accept('invite', 'Singer');
+  expect(events).toEqual(['leave', 'join', 'clear']);
 });
 
-it("keeps a failed invitation join retryable", async () => {
-  const social = { acceptInvite: vi.fn(async () => ({ roomId: "B" })),
-    clearRequestedRoom: vi.fn() };
-  const room = { getRoom: () => null, leave: vi.fn(),
-    join: vi.fn().mockRejectedValueOnce(new Error("AudioService unavailable"))
-      .mockResolvedValueOnce({ code: "B" }) };
-  const invitations = new RoomInvitationCoordinator(social as never, room as never);
-  await expect(invitations.accept("invite", "Singer")).rejects.toThrow("AudioService unavailable");
+it('keeps a failed invitation join retryable', async () => {
+  const social = {
+    acceptInvite: vi.fn(async () => ({ roomId: 'B' })),
+    clearRequestedRoom: vi.fn(),
+  };
+  const room = {
+    getRoom: () => null,
+    leave: vi.fn(),
+    join: vi
+      .fn()
+      .mockRejectedValueOnce(new Error('AudioService unavailable'))
+      .mockResolvedValueOnce({ code: 'B' }),
+  };
+  const invitations = new RoomInvitationCoordinator(
+    social as never,
+    room as never,
+  );
+  await expect(invitations.accept('invite', 'Singer')).rejects.toThrow(
+    'AudioService unavailable',
+  );
   expect(social.clearRequestedRoom).not.toHaveBeenCalled();
-  await invitations.accept("invite", "Singer");
-  expect(social.clearRequestedRoom).toHaveBeenCalledWith("B");
+  await invitations.accept('invite', 'Singer');
+  expect(social.clearRequestedRoom).toHaveBeenCalledWith('B');
 });
 
-it("does not join twice while an accepted invitation remains in the inbox", async () => {
-  const social = { acceptInvite: vi.fn(async () => ({ roomId: "B" })),
-    clearRequestedRoom: vi.fn() };
-  const room = { getRoom: () => null, leave: vi.fn(),
-    join: vi.fn(async () => ({ code: "B" })) };
-  const invitations = new RoomInvitationCoordinator(social as never, room as never);
-  await invitations.accept("invite", "Singer");
-  await invitations.accept("invite", "Singer");
+it('does not join twice while an accepted invitation remains in the inbox', async () => {
+  const social = {
+    acceptInvite: vi.fn(async () => ({ roomId: 'B' })),
+    clearRequestedRoom: vi.fn(),
+  };
+  const room = {
+    getRoom: () => null,
+    leave: vi.fn(),
+    join: vi.fn(async () => ({ code: 'B' })),
+  };
+  const invitations = new RoomInvitationCoordinator(
+    social as never,
+    room as never,
+  );
+  await invitations.accept('invite', 'Singer');
+  await invitations.accept('invite', 'Singer');
   expect(room.join).toHaveBeenCalledOnce();
 });
 
-it("serializes two different accepted invitations so the second cannot inherit the first join", async () => {
+it('serializes two different accepted invitations so the second cannot inherit the first join', async () => {
   let finishFirst!: (value: { code: string }) => void;
   let current: { code: string } | null = null;
   const events: string[] = [];
@@ -51,22 +81,33 @@ it("serializes two different accepted invitations so the second cannot inherit t
   };
   const room = {
     getRoom: () => current,
-    leave: vi.fn(async () => { events.push("leave"); current = null; }),
+    leave: vi.fn(async () => {
+      events.push('leave');
+      current = null;
+    }),
     join: vi.fn((_: string, code: string) => {
       events.push(`join:${code}`);
-      if (code === "A") return new Promise<{ code: string }>((resolve) => { finishFirst = resolve; })
-        .then((joined) => { current = joined; return joined; });
+      if (code === 'A')
+        return new Promise<{ code: string }>((resolve) => {
+          finishFirst = resolve;
+        }).then((joined) => {
+          current = joined;
+          return joined;
+        });
       current = { code };
       return Promise.resolve(current);
     }),
   };
-  const invitations = new RoomInvitationCoordinator(social as never, room as never);
-  const first = invitations.accept("A", "Singer");
-  const second = invitations.accept("B", "Singer");
+  const invitations = new RoomInvitationCoordinator(
+    social as never,
+    room as never,
+  );
+  const first = invitations.accept('A', 'Singer');
+  const second = invitations.accept('B', 'Singer');
   await vi.waitFor(() => expect(room.join).toHaveBeenCalled());
-  expect(events).toEqual(["join:A"]);
-  finishFirst({ code: "A" });
+  expect(events).toEqual(['join:A']);
+  finishFirst({ code: 'A' });
   await Promise.all([first, second]);
-  expect(events).toEqual(["join:A", "leave", "join:B"]);
-  expect(room.getRoom()).toEqual({ code: "B" });
+  expect(events).toEqual(['join:A', 'leave', 'join:B']);
+  expect(room.getRoom()).toEqual({ code: 'B' });
 });

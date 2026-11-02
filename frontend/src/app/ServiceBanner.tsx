@@ -1,43 +1,51 @@
-import { observer } from "mobx-react-lite";
-import { store } from "../providers/store";
-import { Button, MessageBar, ProgressBar, tr, useLocale, useRouter } from "@neo-ui-kit/react";
-import { useEffect, useState } from "react";
+import { observer } from 'mobx-react-lite';
+import { store } from '../providers/store';
+import {
+  Button,
+  MessageBar,
+  ProgressBar,
+  tr,
+  useLocale,
+  useRouter,
+} from '@neo-ui-kit/react';
+import { useEffect, useState } from 'react';
 
-import { routes } from "../shared/routes";
-import { useNotify } from "../providers/notifications";
-import { desktopClient } from "../services/desktopClient";
+import { routes } from '../shared/routes';
+import { useNotify } from '../providers/notifications';
+import { desktopClient } from '../services/desktopClient';
 import {
   updateDownload,
   useUpdateAvailable,
   useUpdateDownload,
   useUpdateReady,
-} from "./desktop/shellBus";
-
+} from './desktop/shellBus';
 
 const notices = [
   {
-    service: "python",
-    kind: "unavailable",
-    message: "Python Backend недоступен. Переподключение… Действия библиотеки отключены до его возврата.",
-    tone: "error",
+    service: 'python',
+    kind: 'unavailable',
+    message:
+      'Python Backend недоступен. Переподключение… Действия библиотеки отключены до его возврата.',
+    tone: 'error',
   },
   {
-    service: "python",
-    kind: "incompatible",
-    message: "Протокол Python Backend несовместим",
-    tone: "error",
+    service: 'python',
+    kind: 'incompatible',
+    message: 'Протокол Python Backend несовместим',
+    tone: 'error',
   },
   {
-    service: "audio",
-    kind: "unavailable",
-    message: "AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.",
-    tone: "warning",
+    service: 'audio',
+    kind: 'unavailable',
+    message:
+      'AudioService недоступен. Воспроизведение, мониторинг, запись и звук комнаты отключены.',
+    tone: 'warning',
   },
   {
-    service: "audio",
-    kind: "incompatible",
-    message: "Протокол AudioService несовместим",
-    tone: "error",
+    service: 'audio',
+    kind: 'incompatible',
+    message: 'Протокол AudioService несовместим',
+    tone: 'error',
   },
 ] as const;
 
@@ -52,25 +60,30 @@ export const ServiceBanner = observer(() => {
   const notify = useNotify();
   const [dismissed, setDismissed] = useState(false);
   const [installing, setInstalling] = useState(false);
-  const downloading = typeof download === "number";
+  const downloading = typeof download === 'number';
   const version = update ?? available;
-  const downloadLabel = downloading && version
-    ? tr("Скачивание A&D Voice {version} — {percent}%", { version, percent: download })
-    : undefined;
+  const downloadLabel =
+    downloading && version
+      ? tr('Скачивание A&D Voice {version} — {percent}%', {
+          version,
+          percent: download,
+        })
+      : undefined;
 
   useEffect(() => {
     if (download === null) setInstalling(false);
-    if (download !== "failed") return;
+    if (download !== 'failed') return;
     setInstalling(false);
     updateDownload.set(null);
-    notify(tr("Не удалось скачать обновление. Попробуйте позже."), "error");
+    notify(tr('Не удалось скачать обновление. Попробуйте позже.'), 'error');
   }, [download, notify]);
 
   const install = () => {
     setInstalling(true);
-    void desktopClient.installUpdate()
+    void desktopClient
+      .installUpdate()
       .then((started) => started || setInstalling(false))
-      .catch(() => updateDownload.set("failed"))
+      .catch(() => updateDownload.set('failed'))
       .finally(() => setInstalling(false));
   };
 
@@ -83,42 +96,53 @@ export const ServiceBanner = observer(() => {
             {tr(message)}
           </MessageBar>
         ))}
-      {version && (downloading || update || (!dismissed && pathname === routes.library)) && (
-        <MessageBar
-          tone="info"
-          action={
-            !downloading && (
-              <>
-                {!update && (
-                  <Button size="sm" variant="ghost" disabled={installing} onClick={() => setDismissed(true)}>
-                    {tr("Отклонить")}
+      {version &&
+        (downloading ||
+          update ||
+          (!dismissed && pathname === routes.library)) && (
+          <MessageBar
+            tone="info"
+            action={
+              !downloading && (
+                <>
+                  {!update && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={installing}
+                      onClick={() => setDismissed(true)}
+                    >
+                      {tr('Отклонить')}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    icon={update ? 'refresh' : 'download'}
+                    loading={installing}
+                    onClick={install}
+                  >
+                    {update ? tr('Обновить сейчас') : tr('Установить')}
                   </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="primary"
-                  icon={update ? "refresh" : "download"}
-                  loading={installing}
-                  onClick={install}
-                >
-                  {update ? tr("Обновить сейчас") : tr("Установить")}
-                </Button>
-              </>
-            )
-          }
-        >
-          {downloading ? (
-            <div style={{ display: "grid", gap: "0.375rem" }}>
-              <span>{downloadLabel}</span>
-              <ProgressBar value={download} max={100} label={downloadLabel} />
-            </div>
-          ) : update ? (
-            tr("A&D Voice {version} скачано и установится при следующем запуске", { version })
-          ) : (
-            tr("Доступно обновление A&D Voice {version}", { version })
-          )}
-        </MessageBar>
-      )}
+                </>
+              )
+            }
+          >
+            {downloading ? (
+              <div style={{ display: 'grid', gap: '0.375rem' }}>
+                <span>{downloadLabel}</span>
+                <ProgressBar value={download} max={100} label={downloadLabel} />
+              </div>
+            ) : update ? (
+              tr(
+                'A&D Voice {version} скачано и установится при следующем запуске',
+                { version },
+              )
+            ) : (
+              tr('Доступно обновление A&D Voice {version}', { version })
+            )}
+          </MessageBar>
+        )}
     </div>
   );
 });

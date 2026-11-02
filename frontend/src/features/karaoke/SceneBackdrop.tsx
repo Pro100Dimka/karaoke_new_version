@@ -1,8 +1,8 @@
-import { desktopClient } from "../../services/desktopClient";
-import { useEffect, useRef, useState } from "react";
-import type { ThemeName } from "../../contracts/models";
-import { sceneBackgrounds } from "./sceneBackgrounds";
-import { useBackdropCover } from "../../app/backdrop/backdropCoverage";
+import { desktopClient } from '../../services/desktopClient';
+import { useEffect, useRef, useState } from 'react';
+import type { ThemeName } from '../../contracts/models';
+import { sceneBackgrounds } from './sceneBackgrounds';
+import { useBackdropCover } from '../../app/backdrop/backdropCoverage';
 
 interface SceneBackdropProps {
   theme: ThemeName;
@@ -18,9 +18,9 @@ const isYoutubeUrl = (value: string): boolean => {
   try {
     const url = new URL(value);
     return (
-      url.hostname === "youtu.be" ||
-      url.hostname.endsWith("youtube.com") ||
-      url.hostname.endsWith("youtube-nocookie.com")
+      url.hostname === 'youtu.be' ||
+      url.hostname.endsWith('youtube.com') ||
+      url.hostname.endsWith('youtube-nocookie.com')
     );
   } catch {
     return false;
@@ -40,14 +40,14 @@ export const SceneBackdrop = ({
 }: SceneBackdropProps) => {
   useBackdropCover(sceneBackgrounds[theme]);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [failedUrl, setFailedUrl] = useState("");
-  const [sceneUrl, setSceneUrl] = useState("");
+  const [failedUrl, setFailedUrl] = useState('');
+  const [sceneUrl, setSceneUrl] = useState('');
 
   useEffect(() => {
     let active = true;
     void desktopClient
       .sceneVideoUrl()
-      .then((url) => active && setSceneUrl(url ?? ""))
+      .then((url) => active && setSceneUrl(url ?? ''))
       .catch(() => undefined);
     return () => {
       active = false;
@@ -57,19 +57,19 @@ export const SceneBackdrop = ({
   // A failing source falls through to the next one without touching audio.
   const source =
     [videoUrl, sceneUrl].find(
-      (url) => url !== "" && url !== failedUrl && !isYoutubeUrl(url),
-    ) ?? "";
-  const useVideo = source !== "";
+      (url) => url !== '' && url !== failedUrl && !isYoutubeUrl(url),
+    ) ?? '';
+  const useVideo = source !== '';
   // The song's own video is worth following exactly; the generic scene fallback is a short ambient clip
   // (see main.ts's sceneVideoUrl handler) meant to loop, since most songs outlast it.
-  const isOwnVideo = source !== "" && source === videoUrl;
+  const isOwnVideo = source !== '' && source === videoUrl;
 
   useEffect(() => {
     const video = videoRef.current;
     return () => {
       if (!video) return;
       video.pause();
-      video.removeAttribute("src");
+      video.removeAttribute('src');
       video.load();
     };
   }, [source]);
@@ -80,14 +80,22 @@ export const SceneBackdrop = ({
     const synchronize = () => {
       if (video.playbackRate !== rate) video.playbackRate = rate;
       const duration = video.duration;
-      const target = Number.isFinite(duration) && duration > 0
-        ? isOwnVideo ? Math.min(positionSeconds, duration) : positionSeconds % duration
-        : positionSeconds;
+      const target =
+        Number.isFinite(duration) && duration > 0
+          ? isOwnVideo
+            ? Math.min(positionSeconds, duration)
+            : positionSeconds % duration
+          : positionSeconds;
       if (Math.abs(video.currentTime - target) > driftToleranceSeconds)
         video.currentTime = target;
       // Chromium may reject play() while the whole window is minimized. That is suspension, not a
       // broken clip: keep the source and retry when the document becomes visible again.
-      if (playing && video.paused && !document.hidden && !(isOwnVideo && target >= duration))
+      if (
+        playing &&
+        video.paused &&
+        !document.hidden &&
+        !(isOwnVideo && target >= duration)
+      )
         void video.play().catch(() => undefined);
       if (!playing && !video.paused) video.pause();
     };
@@ -95,8 +103,8 @@ export const SceneBackdrop = ({
     const onVisibility = () => {
       if (!document.hidden) synchronize();
     };
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (
@@ -105,7 +113,7 @@ export const SceneBackdrop = ({
       aria-hidden
       style={{
         backgroundImage: `url(${sceneBackgrounds[theme]})`,
-        pointerEvents: "none",
+        pointerEvents: 'none',
       }}
     >
       {useVideo ? (

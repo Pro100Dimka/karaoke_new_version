@@ -1,7 +1,7 @@
-import { ToggleButton, tr, useLocale } from "@neo-ui-kit/react";
-import type { MessageKey } from "../../../i18n/messages";
-import { ru } from "../../../i18n/messages.ru";
-import { useKaraokeTv } from "../tv/karaokeTv";
+import { ToggleButton, tr, useLocale } from '@neo-ui-kit/react';
+import type { MessageKey } from '../../../i18n/messages';
+import { ru } from '../../../i18n/messages.ru';
+import { useKaraokeTv } from '../tv/karaokeTv';
 
 interface DisplayTogglesProps {
   showNotes: boolean;
@@ -39,25 +39,25 @@ export const DisplayToggles = ({
     set(value: boolean): void;
   }[] = [
     {
-      id: "notes",
-      label: "toolNotes",
-      icon: "wave",
+      id: 'notes',
+      label: 'toolNotes',
+      icon: 'wave',
       active: showNotes,
       disabled: !hasNotes,
       set: onShowNotes,
     },
     {
-      id: "lyrics",
-      label: "toolText",
-      icon: "document",
+      id: 'lyrics',
+      label: 'toolText',
+      icon: 'document',
       active: showLyrics,
       disabled: !hasLyrics,
       set: onShowLyrics,
     },
     {
-      id: "autohide",
-      label: "toolAutoHide",
-      icon: "cursor",
+      id: 'autohide',
+      label: 'toolAutoHide',
+      icon: 'cursor',
       active: autoHide,
       disabled: false,
       set: onAutoHide,
@@ -65,9 +65,9 @@ export const DisplayToggles = ({
     ...(tv && (tv.available || tv.active)
       ? [
           {
-            id: "tv",
-            label: "tvSend" as const,
-            icon: "window",
+            id: 'tv',
+            label: 'tvSend' as const,
+            icon: 'window',
             active: tv.active,
             disabled: false,
             set: (value: boolean) => (value ? tv.send() : tv.bringBack()),
@@ -76,7 +76,11 @@ export const DisplayToggles = ({
       : []),
   ];
   return (
-    <div className="displayToggles" role="group" aria-label={tr(ru.stageLayers)}>
+    <div
+      className="displayToggles"
+      role="group"
+      aria-label={tr(ru.stageLayers)}
+    >
       {toggles.map((toggle) => (
         <ToggleButton
           key={toggle.id}

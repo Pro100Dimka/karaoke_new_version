@@ -1,21 +1,21 @@
-import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
-import { loadEnvFile } from "node:process";
-import { fileURLToPath } from "node:url";
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-const frontendRoot = fileURLToPath(new URL("..", import.meta.url));
+const frontendRoot = fileURLToPath(new URL('..', import.meta.url));
 try {
-  loadEnvFile(new URL("../.env.local", import.meta.url));
+  loadEnvFile(new URL('../.env.local', import.meta.url));
 } catch (error) {
-  if (error?.code !== "ENOENT") throw error;
+  if (error?.code !== 'ENOENT') throw error;
 }
 const electronExecutable = join(
   frontendRoot,
-  "node_modules",
-  "electron",
-  "dist",
-  "electron.exe",
+  'node_modules',
+  'electron',
+  'dist',
+  'electron.exe',
 );
 if (!existsSync(electronExecutable))
   throw new Error(`Electron executable was not found: ${electronExecutable}`);
@@ -24,58 +24,59 @@ const interactiveProfiles = [
   // The first window is the exact same profile used by `npm run dev:app`, so it keeps
   // the developer's existing library and preferences. Only the guest is isolated.
   {
-    name: "AD Voice Dev",
+    name: 'AD Voice Dev',
     socialProfile: process.env.AD_VOICE_PROFILE,
     endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Dev.v1`,
-    debugPort: "9341",
+    debugPort: '9341',
   },
   {
-    name: "AD Voice Multi 2",
-    socialProfile: "AD Voice Multi 2",
+    name: 'AD Voice Multi 2',
+    socialProfile: 'AD Voice Multi 2',
     endpoint: String.raw`\\.\pipe\ADVoice.AudioService.Multi2.v1`,
-    debugPort: "9342",
+    debugPort: '9342',
   },
 ];
 const e2eProfiles = [
   {
-    name: "AD Voice Multi E2E A",
-    socialProfile: "AD Voice Multi E2E A",
+    name: 'AD Voice Multi E2E A',
+    socialProfile: 'AD Voice Multi E2E A',
     endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.A.v1`,
-    debugPort: "9341",
+    debugPort: '9341',
   },
   {
-    name: "AD Voice Multi E2E B",
-    socialProfile: "AD Voice Multi E2E B",
+    name: 'AD Voice Multi E2E B',
+    socialProfile: 'AD Voice Multi E2E B',
     endpoint: String.raw`\\.\pipe\ADVoice.AudioService.MultiE2E.B.v1`,
-    debugPort: "9342",
+    debugPort: '9342',
   },
 ];
 const profiles =
-  process.env.AD_VOICE_MULTI_E2E === "1" ? e2eProfiles : interactiveProfiles;
+  process.env.AD_VOICE_MULTI_E2E === '1' ? e2eProfiles : interactiveProfiles;
 
 for (const profile of profiles) {
   const env = { ...process.env };
   // An empty override prevents Electron from restoring the shared path from .env.local.
-  env.AD_VOICE_DATA = profile === interactiveProfiles[0] ? process.env.AD_VOICE_DATA ?? "" : "";
+  env.AD_VOICE_DATA =
+    profile === interactiveProfiles[0] ? (process.env.AD_VOICE_DATA ?? '') : '';
   delete env.VITE_DEV_SERVER_URL;
   delete env.ELECTRON_RUN_AS_NODE;
   Object.assign(env, {
-    AD_VOICE_PORT: "0",
+    AD_VOICE_PORT: '0',
     AD_VOICE_AUDIO_ENDPOINT: profile.endpoint,
   });
   if (profile.socialProfile) env.AD_VOICE_PROFILE = profile.socialProfile;
   else delete env.AD_VOICE_PROFILE;
   const args = [
     frontendRoot,
-    `--ad-voice-profile=${profile.name.replaceAll(" ", "-")}`,
+    `--ad-voice-profile=${profile.name.replaceAll(' ', '-')}`,
   ];
-  if (process.env.AD_VOICE_MULTI_DEBUG === "1")
+  if (process.env.AD_VOICE_MULTI_DEBUG === '1')
     args.push(`--remote-debugging-port=${profile.debugPort}`);
   const child = spawn(electronExecutable, args, {
     cwd: frontendRoot,
     env,
     detached: true,
-    stdio: "ignore",
+    stdio: 'ignore',
   });
   child.unref();
   process.stdout.write(

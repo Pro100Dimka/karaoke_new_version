@@ -1,11 +1,11 @@
-import { act, renderHook } from "@testing-library/react";
-import { useRef } from "react";
-import { expect, it, vi } from "vitest";
+import { act, renderHook } from '@testing-library/react';
+import { useRef } from 'react';
+import { expect, it, vi } from 'vitest';
 import {
   controlSelector,
   useFloatingPanel,
   type PanelLayout,
-} from "./useFloatingPanel";
+} from './useFloatingPanel';
 
 const pointer = (
   clientX: number,
@@ -38,7 +38,7 @@ const mount = (onTearOff = vi.fn(), save = vi.fn()) => {
   return { result, onTearOff, save };
 };
 
-it("moves the panel inside the window and saves where it was left", () => {
+it('moves the panel inside the window and saves where it was left', () => {
   const { result, save } = mount();
   act(() => result.current.beginMove(pointer(150, 150)));
   act(() => result.current.handleMove(pointer(250, 180)));
@@ -67,7 +67,7 @@ it("turns into a window of its own where it is held once dragged past the window
 
 it("leaves presses on the panel's controls to those controls", () => {
   const { result, save } = mount();
-  const button = document.createElement("button");
+  const button = document.createElement('button');
   document.body.append(button);
   act(() => result.current.beginMove(pointer(150, 150, button)));
   act(() => result.current.handleMove(pointer(400, 400)));
@@ -76,12 +76,12 @@ it("leaves presses on the panel's controls to those controls", () => {
   button.remove();
 });
 
-it("does not steal pointer capture from a composite control such as a rotary knob", () => {
+it('does not steal pointer capture from a composite control such as a rotary knob', () => {
   const { result, save } = mount();
-  const control = document.createElement("div");
-  const artwork = document.createElement("span");
+  const control = document.createElement('div');
+  const artwork = document.createElement('span');
   const setPointerCapture = vi.fn();
-  control.className = "ad-rotary-knob";
+  control.className = 'ad-rotary-knob';
   control.append(artwork);
   document.body.append(control);
 
@@ -101,12 +101,12 @@ it("does not steal pointer capture from a composite control such as a rotary kno
 
 it("leaves a press on a switch's visible track to the switch instead of dragging the panel", () => {
   // A kit switch is a <label> around its input; its visible track is a sibling of the input.
-  const label = document.createElement("label");
-  const input = Object.assign(document.createElement("input"), {
-    type: "checkbox",
+  const label = document.createElement('label');
+  const input = Object.assign(document.createElement('input'), {
+    type: 'checkbox',
   });
-  input.setAttribute("role", "switch");
-  const track = document.createElement("span");
+  input.setAttribute('role', 'switch');
+  const track = document.createElement('span');
   label.append(input, track);
   document.body.append(label);
   const { result, save } = mount();

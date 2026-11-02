@@ -1,15 +1,15 @@
-import { friendRelations } from "../../providers/social";
-import { Button, RotaryKnob, Stack, tr, useLocale } from "@neo-ui-kit/react";
-import type { ParticipantDto } from "../../contracts/models";
-import type { SocialPerson } from "../../contracts/social";
-import { ru } from "../../i18n/messages.ru";
+import { friendRelations } from '../../providers/social';
+import { Button, RotaryKnob, Stack, tr, useLocale } from '@neo-ui-kit/react';
+import type { ParticipantDto } from '../../contracts/models';
+import type { SocialPerson } from '../../contracts/social';
+import { ru } from '../../i18n/messages.ru';
 
-import { useSocialAction } from "../social/useSocialAction";
+import { useSocialAction } from '../social/useSocialAction';
 import {
   participantEffectKnobs,
   type ParticipantEffect,
-} from "./participantEffects";
-import { SelfVoiceEffects } from "./SelfVoiceEffects";
+} from './participantEffects';
+import { SelfVoiceEffects } from './SelfVoiceEffects';
 
 export type ParticipantEffects = Record<ParticipantEffect, number>;
 
@@ -37,13 +37,13 @@ export const RoomPersonMenu = ({
   useLocale();
   const { busy, run } = useSocialAction();
   const friends = friendRelations;
-  const incoming = person?.relation === "Incoming";
-  const befriend = person && (person.relation === "None" || incoming);
+  const incoming = person?.relation === 'Incoming';
+  const befriend = person && (person.relation === 'None' || incoming);
   const addFriend = () =>
     person &&
     void run(
       () => friends.befriend(person),
-      tr(ru[incoming ? "friendAdded" : "friendRequestSent"], {
+      tr(ru[incoming ? 'friendAdded' : 'friendRequestSent'], {
         name: person.displayName,
       }),
     );
@@ -77,7 +77,7 @@ export const RoomPersonMenu = ({
         <Stack gap={2}>
           {befriend && (
             <Button size="sm" icon="person" disabled={busy} onClick={addFriend}>
-              {tr(ru[incoming ? "acceptAction" : "addFriend"])}
+              {tr(ru[incoming ? 'acceptAction' : 'addFriend'])}
             </Button>
           )}
           {manage && (

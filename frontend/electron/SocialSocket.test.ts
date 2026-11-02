@@ -1,7 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock("./SocialIdentity", () => ({
-  deviceSecret: async () => "secret-of-this-computer",
+vi.mock('./SocialIdentity', () => ({
+  deviceSecret: async () => 'secret-of-this-computer',
 }));
 
 class FakeSocket extends EventTarget {
@@ -18,23 +18,23 @@ class FakeSocket extends EventTarget {
   }
   close() {
     this.readyState = 3;
-    this.dispatchEvent(new Event("close"));
+    this.dispatchEvent(new Event('close'));
   }
   open() {
     this.readyState = FakeSocket.OPEN;
-    this.dispatchEvent(new Event("open"));
+    this.dispatchEvent(new Event('open'));
   }
   push(message: unknown) {
     this.dispatchEvent(
-      Object.assign(new Event("message"), { data: JSON.stringify(message) }),
+      Object.assign(new Event('message'), { data: JSON.stringify(message) }),
     );
   }
 }
 
-describe("friends socket", () => {
+describe('friends socket', () => {
   beforeEach(() => {
     FakeSocket.made = [];
-    vi.stubGlobal("WebSocket", FakeSocket);
+    vi.stubGlobal('WebSocket', FakeSocket);
     vi.useFakeTimers();
   });
   afterEach(() => {
@@ -42,57 +42,57 @@ describe("friends socket", () => {
     vi.unstubAllGlobals();
   });
 
-  it("says who it is on connecting, sends its presence only when it changes, and passes pushes on", async () => {
-    const { createSocialSocket } = await import("./SocialSocket");
+  it('says who it is on connecting, sends its presence only when it changes, and passes pushes on', async () => {
+    const { createSocialSocket } = await import('./SocialSocket');
     const delivered: unknown[] = [];
-    const socket = createSocialSocket("ws://server/social/socket", (message) =>
+    const socket = createSocialSocket('ws://server/social/socket', (message) =>
       delivered.push(message),
     );
     socket.setPresence({
-      displayName: "Anna",
-      participantId: "seat",
+      displayName: 'Anna',
+      participantId: 'seat',
       roomId: null,
     });
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     const [connection] = FakeSocket.made;
     connection.open();
-    connection.push({ type: "inbox", friends: [] });
+    connection.push({ type: 'inbox', friends: [] });
     socket.setPresence({
-      displayName: "Anna",
-      participantId: "seat",
-      roomId: "room",
+      displayName: 'Anna',
+      participantId: 'seat',
+      roomId: 'room',
     });
 
     expect(connection.sent).toEqual([
       {
-        device: "secret-of-this-computer",
-        displayName: "Anna",
-        participantId: "seat",
+        device: 'secret-of-this-computer',
+        displayName: 'Anna',
+        participantId: 'seat',
         roomId: null,
         revision: 1,
       },
       {
-        displayName: "Anna",
-        participantId: "seat",
-        roomId: "room",
+        displayName: 'Anna',
+        participantId: 'seat',
+        roomId: 'room',
         revision: 2,
       },
     ]);
-    expect(delivered).toEqual([{ type: "inbox", friends: [] }]);
+    expect(delivered).toEqual([{ type: 'inbox', friends: [] }]);
     socket.stop();
   });
 
-  it("reports going offline and connects again with growing pauses, not by asking repeatedly", async () => {
-    const { createSocialSocket } = await import("./SocialSocket");
+  it('reports going offline and connects again with growing pauses, not by asking repeatedly', async () => {
+    const { createSocialSocket } = await import('./SocialSocket');
     const delivered: unknown[] = [];
-    const socket = createSocialSocket("ws://server/social/socket", (message) =>
+    const socket = createSocialSocket('ws://server/social/socket', (message) =>
       delivered.push(message),
     );
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     FakeSocket.made[0].close();
-    expect(delivered).toEqual([{ type: "offline" }]);
+    expect(delivered).toEqual([{ type: 'offline' }]);
     await vi.advanceTimersByTimeAsync(999);
     expect(FakeSocket.made).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(1);
@@ -105,9 +105,9 @@ describe("friends socket", () => {
     socket.stop();
   });
 
-  it("waits until the server has applied presence before completing the update", async () => {
-    const { createSocialSocket } = await import("./SocialSocket");
-    const socket = createSocialSocket("ws://server/social/socket", vi.fn());
+  it('waits until the server has applied presence before completing the update', async () => {
+    const { createSocialSocket } = await import('./SocialSocket');
+    const socket = createSocialSocket('ws://server/social/socket', vi.fn());
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     const [connection] = FakeSocket.made;
@@ -116,9 +116,9 @@ describe("friends socket", () => {
     let applied = false;
     const update = socket
       .setPresence({
-        displayName: "Anna",
-        participantId: "seat",
-        roomId: "room",
+        displayName: 'Anna',
+        participantId: 'seat',
+        roomId: 'room',
       })
       .then(() => {
         applied = true;
@@ -126,11 +126,11 @@ describe("friends socket", () => {
     await Promise.resolve();
     expect(applied).toBe(false);
     expect(connection.sent.at(-1)).toMatchObject({
-      roomId: "room",
+      roomId: 'room',
       revision: 1,
     });
 
-    connection.push({ type: "presenceAck", revision: 1 });
+    connection.push({ type: 'presenceAck', revision: 1 });
     await update;
     expect(applied).toBe(true);
     socket.stop();

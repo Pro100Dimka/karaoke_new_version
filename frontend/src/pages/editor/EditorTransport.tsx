@@ -1,7 +1,13 @@
-import { IconButton, Typography, Waveform, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../i18n/messages.ru";
-import { useWaveformPeaks } from "../../shared/hooks/useWaveformPeaks";
-import { formatPreciseTime } from "../../shared/utils/format";
+import {
+  IconButton,
+  Typography,
+  Waveform,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { ru } from '../../i18n/messages.ru';
+import { useWaveformPeaks } from '../../shared/hooks/useWaveformPeaks';
+import { formatPreciseTime } from '../../shared/utils/format';
 
 const emptyPeaks: readonly number[] = [];
 
@@ -35,9 +41,9 @@ export const EditorTransport = ({
         round
         size="lg"
         variant="primary"
-        icon={playing ? "pause" : "play"}
+        icon={playing ? 'pause' : 'play'}
         disabled={!audioReady}
-        label={tr(ru[playing ? "pause" : "editorListen"])}
+        label={tr(ru[playing ? 'pause' : 'editorListen'])}
         onClick={onTogglePlay}
       />
       <Typography variant="mono">{formatPreciseTime(position)}</Typography>

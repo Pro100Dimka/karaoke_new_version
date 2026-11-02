@@ -1,20 +1,25 @@
 // Development run: Vite dev server (hot reload of the renderer) + Electron pointed at it.
 // Renderer edits apply instantly; edits under electron/ still need this script restarted.
-import { spawn, spawnSync } from "node:child_process";
-import { loadEnvFile } from "node:process";
-import { fileURLToPath } from "node:url";
-import { claimRunningApp, releaseRunningApp } from "../../scripts/running-app.mjs";
+import { spawn, spawnSync } from 'node:child_process';
+import { loadEnvFile } from 'node:process';
+import { fileURLToPath } from 'node:url';
+import {
+  claimRunningApp,
+  releaseRunningApp,
+} from '../../scripts/running-app.mjs';
 
-const projectRoot = fileURLToPath(new URL("../..", import.meta.url));
+const projectRoot = fileURLToPath(new URL('../..', import.meta.url));
 if (!claimRunningApp(projectRoot, process.pid)) {
-  console.log("[app] A&D Voice is already running; keeping the current process.");
+  console.log(
+    '[app] A&D Voice is already running; keeping the current process.',
+  );
   process.exit(0);
 }
 
 try {
-  loadEnvFile(new URL("../.env.local", import.meta.url));
+  loadEnvFile(new URL('../.env.local', import.meta.url));
 } catch (error) {
-  if (error?.code !== "ENOENT") throw error;
+  if (error?.code !== 'ENOENT') throw error;
 }
 
 const port = 5173;
@@ -40,17 +45,17 @@ const waitForServer = async () => {
 
 const killTree = (child) => {
   if (!child?.pid || child.exitCode !== null) return;
-  if (process.platform === "win32")
-    spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+  if (process.platform === 'win32')
+    spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
       windowsHide: true,
     });
   else child.kill();
 };
 
 const vite = spawn(
-  "npx",
-  ["vite", "--host", "127.0.0.1", "--port", String(port), "--strictPort"],
-  { stdio: "inherit", shell: true },
+  'npx',
+  ['vite', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+  { stdio: 'inherit', shell: true },
 );
 let electron;
 let stopping = false;
@@ -65,28 +70,28 @@ const exitForSignal = (code) => {
   stopAll();
   process.exit(code);
 };
-process.once("exit", stopAll);
-process.once("SIGINT", () => exitForSignal(130));
-process.once("SIGTERM", () => exitForSignal(143));
-process.once("SIGHUP", () => exitForSignal(129));
+process.once('exit', stopAll);
+process.once('SIGINT', () => exitForSignal(130));
+process.once('SIGTERM', () => exitForSignal(143));
+process.once('SIGHUP', () => exitForSignal(129));
 
 try {
   await waitForServer();
-  const compiled = spawnSync("npm run electron:compile", {
-    stdio: "inherit",
+  const compiled = spawnSync('npm run electron:compile', {
+    stdio: 'inherit',
     shell: true,
   });
-  if (compiled.status !== 0) throw new Error("electron:compile failed");
+  if (compiled.status !== 0) throw new Error('electron:compile failed');
 
   const env = { ...process.env, VITE_DEV_SERVER_URL: url };
   // Electron must start as an application, not as plain Node.
   delete env.ELECTRON_RUN_AS_NODE;
-  electron = spawn("npx", ["electron", ".", ...process.argv.slice(2)], {
-    stdio: "inherit",
+  electron = spawn('npx', ['electron', '.', ...process.argv.slice(2)], {
+    stdio: 'inherit',
     shell: true,
     env,
   });
-  electron.once("exit", (code) => {
+  electron.once('exit', (code) => {
     electron = undefined;
     killTree(vite);
     process.exit(code ?? 0);

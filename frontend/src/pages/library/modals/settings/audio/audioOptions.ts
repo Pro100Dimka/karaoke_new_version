@@ -1,24 +1,24 @@
-import { tr } from "@neo-ui-kit/react";
-import { ru } from "../../../../../i18n/messages.ru";
+import { tr } from '@neo-ui-kit/react';
+import { ru } from '../../../../../i18n/messages.ru';
 import type {
   AudioBackendName,
   AudioConfigurationCapabilities,
   DeviceDto,
   RuntimeAudioConfiguration,
-} from "../../../../../contracts/models";
-import type { AudioValues } from "./audioConfiguration";
+} from '../../../../../contracts/models';
+import type { AudioValues } from './audioConfiguration';
 
 export const deviceOptions = (
   devices: readonly DeviceDto[],
   current: string,
 ) => {
   const missing =
-    current !== "" && !devices.some((device) => device.id === current);
+    current !== '' && !devices.some((device) => device.id === current);
   return {
     error: missing ? tr(ru.deviceUnavailable) : undefined,
     options: [
       ...(missing ? [{ value: current, label: tr(ru.deviceUnavailable) }] : []),
-      { value: "", label: tr(ru.systemDefault) },
+      { value: '', label: tr(ru.systemDefault) },
       ...devices.map((device) => ({ value: device.id, label: device.name })),
     ],
   };
@@ -53,14 +53,14 @@ export const audioOptions = ({
         ? configurationCapabilities.periodFrames
         : []),
       ...(values.backend === runtime.backend &&
-      values.backend !== "WASAPI Shared"
+      values.backend !== 'WASAPI Shared'
         ? [runtime.periodFrames]
         : []),
-      ...(values.backend === "WASAPI Shared" &&
+      ...(values.backend === 'WASAPI Shared' &&
       values.backend === capabilitiesBackend
         ? []
         : [
-            values.backend === "WASAPI Shared"
+            values.backend === 'WASAPI Shared'
               ? values.periodFrames
               : values.bufferFrames,
           ]),
@@ -69,7 +69,7 @@ export const audioOptions = ({
     .filter((value) => value > 0)
     .sort((left, right) => left - right);
   const visiblePeriods =
-    values.backend !== "ASIO"
+    values.backend !== 'ASIO'
       ? supportedPeriods
       : supportedPeriods.filter((value) => {
           const standardAsioBuffer = value >= 32 && (value & (value - 1)) === 0;
@@ -89,7 +89,7 @@ export const audioOptions = ({
     periods: visiblePeriods.map((frames) => ({
       value: frames,
       label:
-        values.backend === "WASAPI Shared"
+        values.backend === 'WASAPI Shared'
           ? `${tr(ru.framesValue, { value: frames })} — ${((frames * 1000) / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`
           : tr(ru.framesValue, { value: frames }),
     })),

@@ -5,15 +5,15 @@ import {
   removeKey,
   storageKey,
   writeJson,
-} from "../../shared/storage/localStore";
-import type { EditorDocument } from "../../application/editor/editorModel";
+} from '../../shared/storage/localStore';
+import type { EditorDocument } from '../../application/editor/editorModel';
 
 interface StoredDraft {
   baseRevision: number;
   document: EditorDocument;
 }
 
-const draftPrefix = storageKey("editorDraft") + ".";
+const draftPrefix = storageKey('editorDraft') + '.';
 const keyFor = (songId: string): string => `${draftPrefix}${songId}`;
 
 export const saveDraft = (songId: string, draft: StoredDraft): void =>
@@ -23,7 +23,7 @@ export const loadDraft = (songId: string): StoredDraft | null => {
   const raw = readJson(keyFor(songId));
   if (
     !isRecord(raw) ||
-    typeof raw.baseRevision !== "number" ||
+    typeof raw.baseRevision !== 'number' ||
     !isRecord(raw.document)
   )
     return null;

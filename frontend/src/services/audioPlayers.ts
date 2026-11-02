@@ -1,29 +1,29 @@
-import type { AudioServiceClient } from "../contracts/clients";
-import type { PlaybackSnapshot } from "../contracts/models";
+import type { AudioServiceClient } from '../contracts/clients';
+import type { PlaybackSnapshot } from '../contracts/models';
 
 /** What the radio and the recording preview need from the audio client they belong to. */
 export interface AudioPlayerOperations {
   command(name: string, args?: Record<string, unknown>): Promise<string>;
   diagnostics(playbackOnly?: boolean): Promise<Record<string, string>>;
   ensureSession(): Promise<void>;
-  snapshot(state: PlaybackSnapshot["state"]): Promise<PlaybackSnapshot>;
-  pythonRequest: DesktopApi["pythonRequest"];
+  snapshot(state: PlaybackSnapshot['state']): Promise<PlaybackSnapshot>;
+  pythonRequest: DesktopApi['pythonRequest'];
   sampleRate(): Promise<number>;
 }
 
 type AudioPlayers = Pick<
   AudioServiceClient,
-  | "loadRadio"
-  | "playRadio"
-  | "pauseRadio"
-  | "stopRadio"
-  | "setRadioGain"
-  | "playRecording"
-  | "pauseRecordingPreview"
-  | "seekRecordingPreview"
-  | "stopRecordingPreview"
-  | "setPreviewVolume"
-  | "recordingPreviewStatus"
+  | 'loadRadio'
+  | 'playRadio'
+  | 'pauseRadio'
+  | 'stopRadio'
+  | 'setRadioGain'
+  | 'playRecording'
+  | 'pauseRecordingPreview'
+  | 'seekRecordingPreview'
+  | 'stopRecordingPreview'
+  | 'setPreviewVolume'
+  | 'recordingPreviewStatus'
 >;
 
 // PlaybackState numbers AudioService reports for the radio and the recording preview slots.
@@ -34,12 +34,12 @@ const finishedState = 6;
 const failedState = 7;
 const previewStates: Record<
   number,
-  "ready" | "playing" | "paused" | "finished"
+  'ready' | 'playing' | 'paused' | 'finished'
 > = {
-  [readyState]: "ready",
-  [playingState]: "playing",
-  [pausedState]: "paused",
-  [finishedState]: "finished",
+  [readyState]: 'ready',
+  [playingState]: 'playing',
+  [pausedState]: 'paused',
+  [finishedState]: 'finished',
 };
 const pollAttempts = 100;
 const previewPollMilliseconds = 25;
@@ -54,7 +54,8 @@ export const createAudioPlayers = (
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
   let previewGeneration = 0;
-  const ownsPreview = (owner?: symbol) => owner === undefined || owner === previewOwner;
+  const ownsPreview = (owner?: symbol) =>
+    owner === undefined || owner === previewOwner;
 
   const waitFor = async (
     field: string,
@@ -78,66 +79,69 @@ export const createAudioPlayers = (
   return {
     async loadRadio(url) {
       await ops.ensureSession();
-      await ops.command("LoadRadioStation", { url });
+      await ops.command('LoadRadioStation', { url });
       await waitFor(
-        "RadioState",
+        'RadioState',
         [readyState],
         radioPollMilliseconds,
-        "radio stream",
+        'radio stream',
       );
     },
     async playRadio() {
-      await ops.command("PlayRadio");
+      await ops.command('PlayRadio');
     },
     async pauseRadio() {
-      await ops.command("PauseRadio");
+      await ops.command('PauseRadio');
     },
     async stopRadio() {
-      await ops.command("StopRadio");
+      await ops.command('StopRadio');
     },
     async setRadioGain(gain) {
-      await ops.command("SetRadioGain", { value: gain });
+      await ops.command('SetRadioGain', { value: gain });
     },
     async playRecording(recordingId, owner) {
       const generation = ++previewGeneration;
       previewOwner = owner;
       const assertCurrent = () => {
-        if (generation !== previewGeneration) throw new Error("Recording preview cancelled");
+        if (generation !== previewGeneration)
+          throw new Error('Recording preview cancelled');
       };
       await ops.ensureSession();
       assertCurrent();
       const response = await ops.pythonRequest({
-        method: "GET",
+        method: 'GET',
         path: `/recordings/${encodeURIComponent(recordingId)}`,
       });
       assertCurrent();
-      if (!response.ok || !response.body || typeof response.body !== "object")
-        throw new Error("Recording not found");
+      if (!response.ok || !response.body || typeof response.body !== 'object')
+        throw new Error('Recording not found');
       const { filePath, fileStatus } = response.body as Record<string, unknown>;
-      if (["Preparing", "PreparationFailed"].includes(String(fileStatus)))
-        throw new Error("Recording preparation is not complete");
-      if (typeof filePath !== "string")
-        throw new Error("Recording file path is invalid");
+      if (['Preparing', 'PreparationFailed'].includes(String(fileStatus)))
+        throw new Error('Recording preparation is not complete');
+      if (typeof filePath !== 'string')
+        throw new Error('Recording file path is invalid');
       const state = Number((await ops.diagnostics()).PreviewState ?? 0);
       assertCurrent();
-      const loadRequired = previewRecordingId !== recordingId || state === finishedState;
+      const loadRequired =
+        previewRecordingId !== recordingId || state === finishedState;
       if (loadRequired) {
-        await ops.command("LoadRecordingPreview", { path: filePath });
+        await ops.command('LoadRecordingPreview', { path: filePath });
         await waitFor(
-          "PreviewState",
+          'PreviewState',
           [readyState, playingState, pausedState],
           previewPollMilliseconds,
-          "recording",
+          'recording',
           assertCurrent,
         );
         previewRecordingId = recordingId;
       }
-      if (loadRequired || state !== playingState) await ops.command("PlayRecordingPreview");
-      return ops.snapshot("playing");
+      if (loadRequired || state !== playingState)
+        await ops.command('PlayRecordingPreview');
+      return ops.snapshot('playing');
     },
     async pauseRecordingPreview(owner) {
       if (!ownsPreview(owner)) return;
-      await ops.command("PauseRecordingPreview");
+      await ops.command('PauseRecordingPreview');
     },
     async seekRecordingPreview(positionSeconds, owner) {
       if (!ownsPreview(owner)) return;
@@ -147,16 +151,16 @@ export const createAudioPlayers = (
         Math.round(positionSeconds * (await ops.sampleRate())),
       );
       if (generation !== previewGeneration || !ownsPreview(owner)) return;
-      await ops.command("SeekRecordingPreview", { frame });
+      await ops.command('SeekRecordingPreview', { frame });
     },
     async stopRecordingPreview(owner) {
       if (!ownsPreview(owner)) return;
       previewGeneration += 1;
       previewOwner = undefined;
-      await ops.command("StopRecordingPreview");
+      await ops.command('StopRecordingPreview');
     },
     async setPreviewVolume(gain) {
-      await ops.command("SetGain", { target: "preview", value: gain });
+      await ops.command('SetGain', { target: 'preview', value: gain });
     },
     async recordingPreviewStatus(owner) {
       const values = await ops.diagnostics(true);
@@ -167,7 +171,7 @@ export const createAudioPlayers = (
       const stateNumber = Number(values.PreviewState ?? readyState);
       return {
         recordingId: ownsPreview(owner) ? previewRecordingId : null,
-        state: previewStates[stateNumber] ?? "ready",
+        state: previewStates[stateNumber] ?? 'ready',
         positionSeconds:
           sampleRate > 0
             ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate

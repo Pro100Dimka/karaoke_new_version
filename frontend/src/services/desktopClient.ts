@@ -1,4 +1,4 @@
-import type { DesktopClient } from "../contracts/clients";
+import type { DesktopClient } from '../contracts/clients';
 
 const unavailable = async (): Promise<void> => undefined;
 export const desktopClient: DesktopClient = window.desktop ?? {
@@ -18,7 +18,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return [];
   },
   async getStorageRoot() {
-    return "";
+    return '';
   },
   async pickStorageFolder() {
     return null;
@@ -28,16 +28,16 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   openExternal: unavailable,
   copyText: unavailable,
   async pythonRequest() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async roomRequest() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async uploadRoomProject() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async downloadRoomProject() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async cancelRoomProjectTransfer() {
     return undefined;
@@ -49,10 +49,10 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return () => undefined;
   },
   async joinRoomVoice() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async leaveRoomVoice() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async roomVoiceLevels() {
     return {};
@@ -67,7 +67,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return undefined;
   },
   async audioRequest() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async waveformPeaks() {
     return [];
@@ -76,11 +76,11 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return [];
   },
   async resolveProjectArtifacts() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   revealProject: unavailable,
   async inspectWave() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   async setAppIcon() {
     return undefined;
@@ -93,10 +93,10 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return null;
   },
   async statFile() {
-    throw new Error("Desktop bridge is unavailable");
+    throw new Error('Desktop bridge is unavailable');
   },
   pathForFile() {
-    return "";
+    return '';
   },
   async toggleFullscreen() {
     return false;
@@ -132,7 +132,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
     return undefined;
   },
   async socialLatest() {
-    return { type: "offline" };
+    return { type: 'offline' };
   },
   onSocialInbox() {
     return () => undefined;
@@ -143,5 +143,5 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   onAppVisibility() {
     return () => undefined;
   },
-  roomParticipantId: "",
+  roomParticipantId: '',
 };

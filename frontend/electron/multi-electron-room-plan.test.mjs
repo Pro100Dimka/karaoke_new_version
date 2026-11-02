@@ -1,5 +1,5 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import test from 'node:test';
 import {
   analyzeBackendSwitchAudioPath,
   analyzeRoomAudioGaps,
@@ -14,30 +14,48 @@ import {
   toneContinuity,
   toneLevel,
   validateNegotiation,
-} from "./multi-electron-room-plan.mjs";
+} from './multi-electron-room-plan.mjs';
 
-test("personal-control PCM sampling waits for audible remote return", () => {
-  assert.equal(personalControlReturnReady({ SessionState: "Running",
-    RemoteMixPeak: "0", MasterOutputPeak: "0" }), false);
-  assert.equal(personalControlReturnReady({ SessionState: "Failed",
-    RemoteMixPeak: "0.1", MasterOutputPeak: "0.1" }), false);
-  assert.equal(personalControlReturnReady({ SessionState: "Running",
-    RemoteMixPeak: "0.1", MasterOutputPeak: "0.1" }), true);
+test('personal-control PCM sampling waits for audible remote return', () => {
+  assert.equal(
+    personalControlReturnReady({
+      SessionState: 'Running',
+      RemoteMixPeak: '0',
+      MasterOutputPeak: '0',
+    }),
+    false,
+  );
+  assert.equal(
+    personalControlReturnReady({
+      SessionState: 'Failed',
+      RemoteMixPeak: '0.1',
+      MasterOutputPeak: '0.1',
+    }),
+    false,
+  );
+  assert.equal(
+    personalControlReturnReady({
+      SessionState: 'Running',
+      RemoteMixPeak: '0.1',
+      MasterOutputPeak: '0.1',
+    }),
+    true,
+  );
 });
 
-test("the 60-second room scenario exercises both directions, simultaneous singing, and reconnect", () => {
+test('the 60-second room scenario exercises both directions, simultaneous singing, and reconnect', () => {
   assert.deepEqual([5, 15, 25, 30, 40, 50, 58].map(phaseAtSecond), [
-    "A_TO_B",
-    "B_TO_A",
-    "BOTH",
-    "RECONNECT_B",
-    "A_TO_B",
-    "B_TO_A",
-    "BOTH",
+    'A_TO_B',
+    'B_TO_A',
+    'BOTH',
+    'RECONNECT_B',
+    'A_TO_B',
+    'B_TO_A',
+    'BOTH',
   ]);
 });
 
-test("production negotiation rejects the historic 160-to-10ms fallback", () => {
+test('production negotiation rejects the historic 160-to-10ms fallback', () => {
   assert.throws(
     () =>
       validateNegotiation({
@@ -60,7 +78,7 @@ test("production negotiation rejects the historic 160-to-10ms fallback", () => {
   );
 });
 
-test("final PCM continuity survives a short phase discontinuity but exposes sustained silence", () => {
+test('final PCM continuity survives a short phase discontinuity but exposes sustained silence', () => {
   const rate = 48_000,
     frequency = 697;
   const samples = Float64Array.from({ length: rate }, (_, frame) => {
@@ -73,7 +91,7 @@ test("final PCM continuity survives a short phase discontinuity but exposes sust
   assert.ok(toneContinuity(samples, rate, frequency, 0, 1) < 0.7);
 });
 
-test("final PCM tone level measures personal volume attenuation", () => {
+test('final PCM tone level measures personal volume attenuation', () => {
   const rate = 48_000,
     frequency = 941;
   const samples = Float64Array.from({ length: rate * 2 }, (_, frame) => {
@@ -87,8 +105,8 @@ test("final PCM tone level measures personal volume attenuation", () => {
 });
 
 for (const { name, packetFrames, offset } of [
-  { name: "100-ms phase resets", packetFrames: 4_800, offset: 0 },
-  { name: "off-grid 120-frame phase resets", packetFrames: 120, offset: 0.011 },
+  { name: '100-ms phase resets', packetFrames: 4_800, offset: 0 },
+  { name: 'off-grid 120-frame phase resets', packetFrames: 120, offset: 0.011 },
 ]) {
   test(`final PCM level survives ${name}`, () => {
     const rate = 48_000,
@@ -109,7 +127,7 @@ for (const { name, packetFrames, offset } of [
   });
 }
 
-test("isolated PCM level follows gain when the received tone shifts frequency", () => {
+test('isolated PCM level follows gain when the received tone shifts frequency', () => {
   const rate = 48_000,
     gains = [0.8, 0.2, 0.96, 0];
   const samples = Float64Array.from({ length: rate * 4 }, (_, frame) => {
@@ -129,7 +147,7 @@ test("isolated PCM level follows gain when the received tone shifts frequency", 
   assert.equal(toneLevel(samples, rate, 941, 3.011, 3.989), 0);
 });
 
-test("final PCM tone presence rejects other frequencies", () => {
+test('final PCM tone presence rejects other frequencies', () => {
   const rate = 48_000,
     target = 941,
     other = 697;
@@ -142,95 +160,95 @@ test("final PCM tone presence rejects other frequencies", () => {
   assert.ok(toneContinuity(samples, rate, target, 1.011, 1.989) > 0.95);
 });
 
-test("the production room test accepts only a safe explicit live deadline", () => {
-  assert.equal(roomE2eLiveDelay(["--live-delay=45"]), 45);
+test('the production room test accepts only a safe explicit live deadline', () => {
+  assert.equal(roomE2eLiveDelay(['--live-delay=45']), 45);
   assert.equal(roomE2eLiveDelay([]), 80);
-  assert.throws(() => roomE2eLiveDelay(["--live-delay=9"]), /live delay/i);
-  assert.throws(() => roomE2eLiveDelay(["--live-delay=81"]), /live delay/i);
+  assert.throws(() => roomE2eLiveDelay(['--live-delay=9']), /live delay/i);
+  assert.throws(() => roomE2eLiveDelay(['--live-delay=81']), /live delay/i);
 });
 
-test("reconnect recovery cuts are reported without hiding cuts during active singing", () => {
+test('reconnect recovery cuts are reported without hiding cuts during active singing', () => {
   const samples = [
-    { phase: "A_TO_B", cuts: 2 },
-    { phase: "A_TO_B", cuts: 5 },
-    { phase: "RECONNECT_B", cuts: 105 },
-    { phase: "RECOVERY", cuts: 205 },
-    { phase: "A_TO_B", cuts: 207 },
-    { phase: "A_TO_B", cuts: 211 },
+    { phase: 'A_TO_B', cuts: 2 },
+    { phase: 'A_TO_B', cuts: 5 },
+    { phase: 'RECONNECT_B', cuts: 105 },
+    { phase: 'RECOVERY', cuts: 205 },
+    { phase: 'A_TO_B', cuts: 207 },
+    { phase: 'A_TO_B', cuts: 211 },
   ];
   assert.equal(
     maximumActiveLateCutDelta(samples, (item) => item.cuts),
     4,
   );
-  samples.push({ phase: "BOTH", cuts: 230 });
+  samples.push({ phase: 'BOTH', cuts: 230 });
   assert.equal(
     maximumActiveLateCutDelta(samples, (item) => item.cuts),
     19,
   );
 });
 
-test("soak scenarios are explicit and keep steady and seek results separate", () => {
-  assert.deepEqual(roomE2eScenario(["--scenario=steady", "--duration=180"]), {
-    name: "steady",
+test('soak scenarios are explicit and keep steady and seek results separate', () => {
+  assert.deepEqual(roomE2eScenario(['--scenario=steady', '--duration=180']), {
+    name: 'steady',
     durationSeconds: 180,
   });
-  assert.deepEqual(roomE2eScenario(["--scenario=seek", "--duration=240"]), {
-    name: "seek",
+  assert.deepEqual(roomE2eScenario(['--scenario=seek', '--duration=240']), {
+    name: 'seek',
     durationSeconds: 240,
   });
   assert.throws(
-    () => roomE2eScenario(["--scenario=seek", "--duration=60"]),
+    () => roomE2eScenario(['--scenario=seek', '--duration=60']),
     /at least 180/i,
   );
 });
 
-test("the production-path E2E can target an explicit external Room Server", () => {
+test('the production-path E2E can target an explicit external Room Server', () => {
   assert.deepEqual(
     roomE2eEndpoint([
-      "--room-server=http://130.61.169.61:8081",
-      "--relay-port=40000",
+      '--room-server=http://130.61.169.61:8081',
+      '--relay-port=40000',
     ]),
     {
       external: true,
-      apiBase: "http://130.61.169.61:8081",
-      host: "130.61.169.61",
+      apiBase: 'http://130.61.169.61:8081',
+      host: '130.61.169.61',
       httpPort: 8081,
       relayPort: 40000,
     },
   );
   assert.deepEqual(roomE2eEndpoint([]), { external: false });
   assert.throws(
-    () => roomE2eEndpoint(["--room-server=http://130.61.169.61:8081"]),
+    () => roomE2eEndpoint(['--room-server=http://130.61.169.61:8081']),
     /relay port/i,
   );
 });
 
-test("transport-only mode isolates relay cadence from the independent participant-control gate", () => {
-  assert.equal(roomE2eTransportOnly(["--transport-only"]), true);
+test('transport-only mode isolates relay cadence from the independent participant-control gate', () => {
+  assert.equal(roomE2eTransportOnly(['--transport-only']), true);
   assert.equal(roomE2eTransportOnly([]), false);
 });
 
-test("pipeline analyzer classifies every large gap and correlates client send and receive stalls", () => {
+test('pipeline analyzer classifies every large gap and correlates client send and receive stalls', () => {
   const serverEntries = [
     {
-      participantId: "A",
+      participantId: 'A',
       values: {
-        ServerGapNetworkOrIngressStall: "3",
-        ServerGapEventLoopStall: "4",
-        ServerPipelinePosition: "12000",
-        ServerSendGapMaximumMs: "30",
+        ServerGapNetworkOrIngressStall: '3',
+        ServerGapEventLoopStall: '4',
+        ServerPipelinePosition: '12000',
+        ServerSendGapMaximumMs: '30',
       },
     },
   ];
   const clientSamples = [
     {
       A: {
-        NetworkSendGapMaximumMs: "50",
-        NetworkSendGapMaximumTimelineFrame: "12000",
-        NetworkSendGapMaximumSessionGeneration: "7",
-        NetworkSendGapMaximumStreamEpoch: "3",
-        "RemoteSocketReceiveGapMaximumUs.__room_server_mix__": "80000",
-        ServerSendGapMaximumMs: "30",
+        NetworkSendGapMaximumMs: '50',
+        NetworkSendGapMaximumTimelineFrame: '12000',
+        NetworkSendGapMaximumSessionGeneration: '7',
+        NetworkSendGapMaximumStreamEpoch: '3',
+        'RemoteSocketReceiveGapMaximumUs.__room_server_mix__': '80000',
+        ServerSendGapMaximumMs: '30',
       },
     },
   ];
@@ -250,48 +268,48 @@ test("pipeline analyzer classifies every large gap and correlates client send an
   });
 });
 
-test("backend-switch analyzer identifies the first PCM stage that is silent before recreation", () => {
-  const sender = { RoomVoiceUpstreamPeak: "0.2" };
+test('backend-switch analyzer identifies the first PCM stage that is silent before recreation', () => {
+  const sender = { RoomVoiceUpstreamPeak: '0.2' };
   const before = {
-    "App.RequestedBackend": "ASIO",
-    "App.PersistedBackend": "ASIO",
-    Backend: "WASAPI Shared",
-    ActiveOutputDeviceId: "default-speakers",
-    generationId: "7",
-    ServerIngressPeakPcm16: "6000",
-    ServerRecipientPeakPcm16: "5800",
-    "RemoteDecodedPeak.__room_server_mix__": "0",
-    "RemoteQueuedPeak.__room_server_mix__": "0",
-    "RemoteRenderedPeak.__room_server_mix__": "0",
-    RemoteMixPeak: "0",
-    MasterOutputPeak: "0",
-    BackendOutputPeak: "0",
+    'App.RequestedBackend': 'ASIO',
+    'App.PersistedBackend': 'ASIO',
+    Backend: 'WASAPI Shared',
+    ActiveOutputDeviceId: 'default-speakers',
+    generationId: '7',
+    ServerIngressPeakPcm16: '6000',
+    ServerRecipientPeakPcm16: '5800',
+    'RemoteDecodedPeak.__room_server_mix__': '0',
+    'RemoteQueuedPeak.__room_server_mix__': '0',
+    'RemoteRenderedPeak.__room_server_mix__': '0',
+    RemoteMixPeak: '0',
+    MasterOutputPeak: '0',
+    BackendOutputPeak: '0',
   };
   const after = {
     ...before,
-    Backend: "ASIO",
-    ActiveOutputDeviceId: "asio-driver",
-    generationId: "9",
-    "RemoteDecodedPeak.__room_server_mix__": "0.18",
-    "RemoteQueuedPeak.__room_server_mix__": "0.18",
-    "RemoteRenderedPeak.__room_server_mix__": "0.17",
-    RemoteMixPeak: "0.17",
-    MasterOutputPeak: "0.16",
-    BackendOutputPeak: "0.16",
+    Backend: 'ASIO',
+    ActiveOutputDeviceId: 'asio-driver',
+    generationId: '9',
+    'RemoteDecodedPeak.__room_server_mix__': '0.18',
+    'RemoteQueuedPeak.__room_server_mix__': '0.18',
+    'RemoteRenderedPeak.__room_server_mix__': '0.17',
+    RemoteMixPeak: '0.17',
+    MasterOutputPeak: '0.16',
+    BackendOutputPeak: '0.16',
   };
 
   assert.deepEqual(analyzeBackendSwitchAudioPath({ sender, before, after }), {
     requestedActualMismatchBefore: true,
-    beforeBackend: "WASAPI Shared",
-    afterBackend: "ASIO",
-    beforeGeneration: "7",
-    afterGeneration: "9",
-    firstSilentBefore: "CLIENT_DECODE",
+    beforeBackend: 'WASAPI Shared',
+    afterBackend: 'ASIO',
+    beforeGeneration: '7',
+    afterGeneration: '9',
+    firstSilentBefore: 'CLIENT_DECODE',
     firstSilentAfter: null,
   });
 });
 
-test("public relay probe uses the production 120-frame shared-timeline PCM packet", () => {
+test('public relay probe uses the production 120-frame shared-timeline PCM packet', () => {
   const bytes = relayProbePacket(7, 0x11223344, 0x55667788n);
 
   assert.equal(bytes.length, 44 + 120 * 2);

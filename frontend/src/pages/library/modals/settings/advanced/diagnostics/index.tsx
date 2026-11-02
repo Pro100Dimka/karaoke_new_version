@@ -1,34 +1,44 @@
-import { Button, Card, CollapsibleSection, IconButton, KeyValueList, Stack, StatusIndicator, tr, useLocale } from "@neo-ui-kit/react";
-import { ru } from "../../../../../../i18n/messages.ru";
-import type { SubsystemHealth } from "../useSubsystemHealth";
+import {
+  Button,
+  Card,
+  CollapsibleSection,
+  IconButton,
+  KeyValueList,
+  Stack,
+  StatusIndicator,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { ru } from '../../../../../../i18n/messages.ru';
+import type { SubsystemHealth } from '../useSubsystemHealth';
 
-import { useDiagnosticsActions } from "./useDiagnosticsActions";
+import { useDiagnosticsActions } from './useDiagnosticsActions';
 
-type Level = "success" | "warning" | "error";
+type Level = 'success' | 'warning' | 'error';
 
 const backendStates = [
-  "Starting",
-  "Ready",
-  "Degraded",
-  "Stopping",
-  "Failed",
+  'Starting',
+  'Ready',
+  'Degraded',
+  'Stopping',
+  'Failed',
 ] as const;
 const isBackendState = (
   state: string,
 ): state is (typeof backendStates)[number] =>
   (backendStates as readonly string[]).includes(state);
 
-const backendLevel = (backend: SubsystemHealth["backend"]): Level => {
-  if (!backend || backend.state === "Failed") return "error";
-  return backend.state === "Ready" ? "success" : "warning";
+const backendLevel = (backend: SubsystemHealth['backend']): Level => {
+  if (!backend || backend.state === 'Failed') return 'error';
+  return backend.state === 'Ready' ? 'success' : 'warning';
 };
-const audioLevel = (audio: SubsystemHealth["audio"]): Level => {
-  if (!audio || audio.ServiceState === "Failed") return "error";
-  if (audio.ServiceState !== "Running" && audio.ServiceState !== "Ready")
-    return "warning";
-  return audio.LastFailureCode && audio.LastFailureCode !== "None"
-    ? "warning"
-    : "success";
+const audioLevel = (audio: SubsystemHealth['audio']): Level => {
+  if (!audio || audio.ServiceState === 'Failed') return 'error';
+  if (audio.ServiceState !== 'Running' && audio.ServiceState !== 'Ready')
+    return 'warning';
+  return audio.LastFailureCode && audio.LastFailureCode !== 'None'
+    ? 'warning'
+    : 'success';
 };
 
 /** Health of every subsystem at a glance, with the report to copy or save for support. */
@@ -47,37 +57,37 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   }[] = [
     {
       label: tr(ru.pythonBackend),
-      level: health.loading && !backend ? "warning" : backendLevel(backend),
+      level: health.loading && !backend ? 'warning' : backendLevel(backend),
       value: backend
         ? backendStateText(backend.state)
-        : tr(ru[health.loading ? "loadingSettings" : "unavailable"]),
+        : tr(ru[health.loading ? 'loadingSettings' : 'unavailable']),
       primary: true,
     },
     ...(backend
       ? ([
           {
             label: tr(ru.database),
-            level: backend.database ? "success" : "error",
-            value: tr(ru[backend.database ? "healthy" : "unhealthy"]),
+            level: backend.database ? 'success' : 'error',
+            value: tr(ru[backend.database ? 'healthy' : 'unhealthy']),
           },
           {
             label: tr(ru.aiRuntime),
-            level: backend.cudaAvailable ? "success" : "warning",
-            value: backend.gpuName ?? "CPU",
+            level: backend.cudaAvailable ? 'success' : 'warning',
+            value: backend.gpuName ?? 'CPU',
           },
           {
-            label: "FFmpeg",
-            level: backend.ffmpegVersion ? "success" : "warning",
+            label: 'FFmpeg',
+            level: backend.ffmpegVersion ? 'success' : 'warning',
             value: backend.ffmpegVersion ?? tr(ru.unavailable),
           },
         ] satisfies typeof rows)
       : []),
     {
       label: tr(ru.audioServiceLabel),
-      level: health.loading && !audio ? "warning" : audioLevel(audio),
+      level: health.loading && !audio ? 'warning' : audioLevel(audio),
       value: audio
-        ? (audio.ServiceState ?? "")
-        : tr(ru[health.loading ? "loadingSettings" : "unavailable"]),
+        ? (audio.ServiceState ?? '')
+        : tr(ru[health.loading ? 'loadingSettings' : 'unavailable']),
       primary: true,
     },
     ...(audio
@@ -85,20 +95,20 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           {
             label: tr(ru.audioXruns),
             level:
-              Number(audio.XRuns ?? "0") === 0 &&
-              Number(audio.DeadlineMisses ?? "0") === 0
-                ? "success"
-                : "warning",
-            value: `${audio.XRuns ?? "0"} / ${audio.DeadlineMisses ?? "0"}`,
+              Number(audio.XRuns ?? '0') === 0 &&
+              Number(audio.DeadlineMisses ?? '0') === 0
+                ? 'success'
+                : 'warning',
+            value: `${audio.XRuns ?? '0'} / ${audio.DeadlineMisses ?? '0'}`,
           },
         ] satisfies typeof rows)
       : []),
     {
       label: tr(ru.keyboardLighting),
-      level: lighting.available ? "success" : "warning",
+      level: lighting.available ? 'success' : 'warning',
       value: lighting.available
         ? tr(ru.keyboardLightingStatus, {
-            provider: lighting.provider ?? "OpenRGB",
+            provider: lighting.provider ?? 'OpenRGB',
             count: lighting.deviceCount,
           })
         : tr(ru.keyboardLightingUnsupported),
@@ -127,9 +137,9 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       icon="stethoscope"
       title={tr(ru.diagnostics)}
       style={{
-        background: "unset!important",
-        height: "100%",
-        boxShadow: "unset!important",
+        background: 'unset!important',
+        height: '100%',
+        boxShadow: 'unset!important',
       }}
       description={tr(ru.diagnosticsHint)}
     >
@@ -142,7 +152,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           <Button
             size="sm"
             icon="copy"
-            onClick={() => void deliverReport("clipboard")}
+            onClick={() => void deliverReport('clipboard')}
           >
             {tr(ru.copyDiagnostics)}
           </Button>
@@ -150,7 +160,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
             size="sm"
             icon="download"
             label={tr(ru.exportDiagnostics)}
-            onClick={() => void deliverReport("file")}
+            onClick={() => void deliverReport('file')}
           />
           <IconButton
             size="sm"

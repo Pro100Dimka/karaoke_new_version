@@ -2,7 +2,7 @@
  * The only module that touches browser storage. Every key is namespaced and versioned; unreadable or
  * unavailable storage degrades to "nothing stored" so persistence never breaks a feature.
  */
-const namespace = "adVoice";
+const namespace = 'adVoice';
 
 export const storageKey = (name: string, version = 1): string =>
   `${namespace}.${name}.v${version}`;
@@ -69,4 +69,4 @@ export const hasKeyWithPrefix = (prefix: string): boolean => {
 };
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
+  typeof value === 'object' && value !== null && !Array.isArray(value);

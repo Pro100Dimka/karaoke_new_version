@@ -1,13 +1,13 @@
-import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
-import { threeVendor } from "./scripts/vite-three-vendor.mjs";
+import react from '@vitejs/plugin-react';
+import { defineConfig, type Plugin } from 'vite';
+import { threeVendor } from './scripts/vite-three-vendor.mjs';
 
 const devServerPort = 5173;
 
 /** The dev server injects an inline React Refresh preamble and talks over a websocket; production keeps the strict CSP. */
 const relaxedDevCsp = (): Plugin => ({
-  name: "relaxed-dev-csp",
-  apply: "serve",
+  name: 'relaxed-dev-csp',
+  apply: 'serve',
   transformIndexHtml: (html) =>
     html
       .replace(/script-src [^;]*;/, "script-src 'self' 'unsafe-inline';")
@@ -18,9 +18,9 @@ const relaxedDevCsp = (): Plugin => ({
 });
 
 export default defineConfig({
-  base: "./",
+  base: './',
   // three.js for the Library backdrop is served locally (see scripts/vite-three-vendor.mjs).
   plugins: [react(), relaxedDevCsp(), threeVendor()],
   server: { port: devServerPort },
-  build: { outDir: "dist" },
+  build: { outDir: 'dist' },
 });

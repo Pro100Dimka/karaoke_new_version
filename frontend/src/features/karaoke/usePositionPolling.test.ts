@@ -1,16 +1,18 @@
-import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { PlaybackSnapshot } from "../../contracts/models";
-import { usePositionPolling } from "./usePositionPolling";
+import { renderHook } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PlaybackSnapshot } from '../../contracts/models';
+import { usePositionPolling } from './usePositionPolling';
 
 const { getAudioSnapshot } = vi.hoisted(() => ({ getAudioSnapshot: vi.fn() }));
-vi.mock("../../services/audioClient", () => ({ audioClient: { snapshot: getAudioSnapshot } }));
+vi.mock('../../services/audioClient', () => ({
+  audioClient: { snapshot: getAudioSnapshot },
+}));
 
 const snapshot = (
   positionSeconds: number,
-  state: PlaybackSnapshot["state"] = "playing",
+  state: PlaybackSnapshot['state'] = 'playing',
 ): PlaybackSnapshot => ({
-  sessionId: "s",
+  sessionId: 's',
   state,
   positionSeconds,
   durationSeconds: 200,
@@ -19,12 +21,21 @@ const snapshot = (
   inputLevel: 0,
 });
 
-describe("usePositionPolling", () => {
-  it("delivers microphone observations within 16 ms while singing", async () => {
+describe('usePositionPolling', () => {
+  it('delivers microphone observations within 16 ms while singing', async () => {
     getAudioSnapshot.mockResolvedValue(snapshot(1));
     const onSnapshot = vi.fn();
-    renderHook(() => usePositionPolling({ enabled: true, isPollable: () => true,
-      isPlaying: () => true, onPosition: vi.fn(), onSnapshot, onFinished: vi.fn(), onLost: vi.fn() }));
+    renderHook(() =>
+      usePositionPolling({
+        enabled: true,
+        isPollable: () => true,
+        isPlaying: () => true,
+        onPosition: vi.fn(),
+        onSnapshot,
+        onFinished: vi.fn(),
+        onLost: vi.fn(),
+      }),
+    );
     await vi.advanceTimersByTimeAsync(16);
     expect(onSnapshot).toHaveBeenCalledOnce();
   });
@@ -37,7 +48,7 @@ describe("usePositionPolling", () => {
     vi.useRealTimers();
   });
 
-  it("keeps polling when room updates replace callbacks faster than the polling interval", async () => {
+  it('keeps polling when room updates replace callbacks faster than the polling interval', async () => {
     getAudioSnapshot.mockResolvedValue(snapshot(12));
     const onPosition = vi.fn();
     const { rerender } = renderHook(
@@ -60,7 +71,7 @@ describe("usePositionPolling", () => {
     expect(onPosition).toHaveBeenLastCalledWith(12);
   });
 
-  it("keeps one request in flight while the audio service is slow and applies its reply", async () => {
+  it('keeps one request in flight while the audio service is slow and applies its reply', async () => {
     const deferred: Array<(value: PlaybackSnapshot) => void> = [];
     getAudioSnapshot.mockImplementation(
       () => new Promise<PlaybackSnapshot>((resolve) => deferred.push(resolve)),
@@ -92,17 +103,17 @@ describe("usePositionPolling", () => {
     expect(onPosition).toHaveBeenLastCalledWith(6);
   });
 
-  it.each(["resolve", "reject"])(
-    "ignores a pending %s after polling is disabled",
+  it.each(['resolve', 'reject'])(
+    'ignores a pending %s after polling is disabled',
     async (outcome) => {
       let settle = () => {};
       getAudioSnapshot.mockImplementation(
         () =>
           new Promise<PlaybackSnapshot>((resolve, reject) => {
             settle = () =>
-              outcome === "resolve"
-                ? resolve(snapshot(4, "finished"))
-                : reject(new Error("lost"));
+              outcome === 'resolve'
+                ? resolve(snapshot(4, 'finished'))
+                : reject(new Error('lost'));
           }),
       );
       const callbacks = {
@@ -130,7 +141,7 @@ describe("usePositionPolling", () => {
     },
   );
 
-  it("still applies every reply when they resolve in the order they were sent", async () => {
+  it('still applies every reply when they resolve in the order they were sent', async () => {
     const deferred: Array<(value: PlaybackSnapshot) => void> = [];
     getAudioSnapshot.mockImplementation(
       () => new Promise<PlaybackSnapshot>((resolve) => deferred.push(resolve)),
@@ -194,7 +205,7 @@ describe("usePositionPolling", () => {
     expect(onPosition).toHaveBeenCalledWith(9);
   });
 
-  it("forwards the authoritative live pitch from the same audio snapshot", async () => {
+  it('forwards the authoritative live pitch from the same audio snapshot', async () => {
     getAudioSnapshot.mockResolvedValue({ ...snapshot(3), pitchHz: 440 });
     const onSnapshot = vi.fn();
 

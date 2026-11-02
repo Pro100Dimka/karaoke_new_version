@@ -1,50 +1,50 @@
-import { spawn } from "node:child_process";
-import dgram from "node:dgram";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createImpairment } from "./network-impairment.mjs";
+import { spawn } from 'node:child_process';
+import dgram from 'node:dgram';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createImpairment } from './network-impairment.mjs';
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
+  '..',
+  '..',
 );
 const executable = path.join(
   root,
-  "AudioService",
-  "build",
-  "Release",
-  "AudioService.exe",
+  'AudioService',
+  'build',
+  'Release',
+  'AudioService.exe',
 );
 await fs.access(executable);
 const songRoot = path.join(
-  process.env.APPDATA ?? "",
-  "ad-voice-frontend",
-  "backend-data",
-  "songs",
+  process.env.APPDATA ?? '',
+  'ad-voice-frontend',
+  'backend-data',
+  'songs',
 );
 const songFiles = await fs.readdir(songRoot, { recursive: true });
 const relativeVocal = songFiles.find((file) =>
-  file.endsWith("reference-vocal.wav"),
+  file.endsWith('reference-vocal.wav'),
 );
 if (!relativeVocal)
   throw new Error(`No reference-vocal.wav found under ${songRoot}`);
 const referenceVocal = path.join(songRoot, relativeVocal);
 const instrumental = path.join(
   path.dirname(referenceVocal),
-  "instrumental.wav",
+  'instrumental.wav',
 );
 await fs.access(instrumental);
 const artifactRoot = path.join(
   root,
-  "AudioService",
-  "build",
-  "network-resilience-test",
+  'AudioService',
+  'build',
+  'network-resilience-test',
 );
 await fs.mkdir(artifactRoot, { recursive: true });
 
-const ids = ["resilience-A", "resilience-B", "resilience-C", "resilience-D"];
+const ids = ['resilience-A', 'resilience-B', 'resilience-C', 'resilience-D'];
 const participantKey = (id) => {
   let hash = 2166136261;
   for (const byte of new TextEncoder().encode(id)) {
@@ -146,7 +146,7 @@ const impairmentFor = (source, destination) => {
   return impairments.get(name);
 };
 
-const proxy = dgram.createSocket("udp4");
+const proxy = dgram.createSocket('udp4');
 const schedule = (message, endpoint, delayMs) => {
   const timer = setTimeout(() => {
     timers.delete(timer);
@@ -170,7 +170,7 @@ const mutatePacket = (message, impairment) => {
   }
   return packet;
 };
-proxy.on("message", (message, sourceEndpoint) => {
+proxy.on('message', (message, sourceEndpoint) => {
   if (message.length < 40) return;
   const sourceKey = message.readUInt32LE(12);
   const sourceId = keys.get(sourceKey);
@@ -209,7 +209,7 @@ proxy.on("message", (message, sourceEndpoint) => {
     if (impairment.reordered) proxyMetrics.reordered += 1;
   }
 });
-await new Promise((resolve) => proxy.bind(0, "127.0.0.1", resolve));
+await new Promise((resolve) => proxy.bind(0, '127.0.0.1', resolve));
 
 const processes = new Set();
 const runClient = ({
@@ -217,58 +217,58 @@ const runClient = ({
   startAtMs,
   offsetSeconds,
   durationSeconds,
-  suffix = "",
+  suffix = '',
   warmupSeconds = 2,
   stallAtMs = 0,
   stallDurationMs = 0,
 }) => {
   const output = path.join(artifactRoot, `${id}${suffix}.wav`);
-  const remotes = ids.filter((remote) => remote !== id).join(",");
+  const remotes = ids.filter((remote) => remote !== id).join(',');
   const child = spawn(
     executable,
     [
-      "--network-test-client",
-      "--input",
+      '--network-test-client',
+      '--input',
       referenceVocal,
-      "--backing",
+      '--backing',
       instrumental,
-      "--output",
+      '--output',
       output,
-      "--local-id",
+      '--local-id',
       id,
-      "--remote-id",
+      '--remote-id',
       remotes,
-      "--remote-port",
+      '--remote-port',
       String(proxy.address().port),
-      "--token",
-      "123456789abcdef0",
-      "--start-at-ms",
+      '--token',
+      '123456789abcdef0',
+      '--start-at-ms',
       String(startAtMs),
-      "--media-offset-frames",
+      '--media-offset-frames',
       String(offsetSeconds * 48_000),
-      "--duration-seconds",
+      '--duration-seconds',
       String(durationSeconds),
-      "--warmup-seconds",
+      '--warmup-seconds',
       String(warmupSeconds),
-      "--stall-at-ms",
+      '--stall-at-ms',
       String(stallAtMs),
-      "--stall-duration-ms",
+      '--stall-duration-ms',
       String(stallDurationMs),
     ],
     { windowsHide: true },
   );
   processes.add(child);
-  let stdout = "",
-    stderr = "";
-  child.stdout.on("data", (chunk) => {
+  let stdout = '',
+    stderr = '';
+  child.stdout.on('data', (chunk) => {
     stdout += chunk;
   });
-  child.stderr.on("data", (chunk) => {
+  child.stderr.on('data', (chunk) => {
     stderr += chunk;
   });
   const completion = new Promise((resolve, reject) => {
-    child.once("error", reject);
-    child.once("exit", (code) => {
+    child.once('error', reject);
+    child.once('exit', (code) => {
       processes.delete(child);
       if (code === 0) resolve({ report: JSON.parse(stdout), output });
       else
@@ -293,7 +293,7 @@ const readWavSegment = async (file, fromSecond, toSecond, channel = 0) => {
     dataBytes = 0;
   while (offset + 8 <= bytes.length) {
     const size = bytes.readUInt32LE(offset + 4);
-    if (bytes.toString("ascii", offset, offset + 4) === "data") {
+    if (bytes.toString('ascii', offset, offset + 4) === 'data') {
       dataOffset = offset + 8;
       dataBytes = size;
       break;
@@ -398,7 +398,7 @@ try {
     startAtMs: songStartAtMs + 6_000,
     offsetSeconds: 6,
     durationSeconds: 6,
-    suffix: "-late",
+    suffix: '-late',
     warmupSeconds: 0,
   });
   await late.completion;
@@ -408,7 +408,7 @@ try {
     startAtMs: songStartAtMs + 15_000,
     offsetSeconds: 15,
     durationSeconds: songDurationSeconds - 15,
-    suffix: "-restarted",
+    suffix: '-restarted',
     warmupSeconds: 0,
   });
   const results = await Promise.all([
@@ -443,7 +443,7 @@ try {
     ),
   };
   const report = {
-    seed: "participant-pair-derived",
+    seed: 'participant-pair-derived',
     referenceVocal,
     proxyMetrics,
     steadyReports,
@@ -486,11 +486,11 @@ try {
     throw new Error(
       `Resilience process scenario failed: ${JSON.stringify(report)}`,
     );
-  const reportPath = path.join(artifactRoot, "network-resilience-report.json");
+  const reportPath = path.join(artifactRoot, 'network-resilience-report.json');
   await fs.writeFile(
     reportPath,
     `${JSON.stringify({ ...report, reportPath }, null, 2)}\n`,
-    "utf8",
+    'utf8',
   );
   console.log(JSON.stringify({ ...report, reportPath }));
 } finally {

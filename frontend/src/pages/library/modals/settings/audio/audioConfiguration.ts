@@ -1,7 +1,7 @@
 import type {
   RequestedAudioConfiguration,
   RuntimeAudioConfiguration,
-} from "../../../../../contracts/models";
+} from '../../../../../contracts/models';
 
 /**
  * Display values use "" for the Windows default endpoint.
@@ -10,11 +10,11 @@ import type {
  */
 export type AudioValues = Pick<
   RequestedAudioConfiguration,
-  | "backend"
-  | "sampleRate"
-  | "periodFrames"
-  | "inputPeriodFrames"
-  | "lowLatencyInput"
+  | 'backend'
+  | 'sampleRate'
+  | 'periodFrames'
+  | 'inputPeriodFrames'
+  | 'lowLatencyInput'
 > & {
   bufferFrames: number;
   inputDeviceId: string;
@@ -40,15 +40,15 @@ export const changeAudioValue = <K extends keyof AudioValues>(
   value: AudioValues[K],
 ): AudioValues => {
   const next = { ...current, [name]: value };
-  if (name === "backend") {
+  if (name === 'backend') {
     Object.assign(next, automaticAudioTiming);
-    if ((current.backend === "ASIO") !== (value === "ASIO")) {
-      next.inputDeviceId = "";
-      next.outputDeviceId = "";
+    if ((current.backend === 'ASIO') !== (value === 'ASIO')) {
+      next.inputDeviceId = '';
+      next.outputDeviceId = '';
     }
-  } else if (name === "inputDeviceId" || name === "outputDeviceId") {
+  } else if (name === 'inputDeviceId' || name === 'outputDeviceId') {
     Object.assign(next, automaticAudioTiming);
-    if (current.backend === "ASIO")
+    if (current.backend === 'ASIO')
       next.inputDeviceId = next.outputDeviceId = String(value);
   }
   return next;
@@ -63,8 +63,8 @@ export const toAudioValues = (
   periodFrames: request.periodFrames,
   inputPeriodFrames: request.inputPeriodFrames ?? 0,
   bufferFrames: request.bufferFrames ?? request.periodFrames,
-  inputDeviceId: active?.inputDeviceId ?? request.inputDeviceId ?? "",
-  outputDeviceId: active?.outputDeviceId ?? request.outputDeviceId ?? "",
+  inputDeviceId: active?.inputDeviceId ?? request.inputDeviceId ?? '',
+  outputDeviceId: active?.outputDeviceId ?? request.outputDeviceId ?? '',
   lowLatencyInput: request.lowLatencyInput === true,
 });
 
@@ -80,7 +80,7 @@ export const toAudioRequest = (
   bufferFrames: values.bufferFrames,
   inputDeviceId: values.inputDeviceId || undefined,
   outputDeviceId: values.outputDeviceId || undefined,
-  ...(values.backend === "WASAPI Shared" &&
+  ...(values.backend === 'WASAPI Shared' &&
     values.lowLatencyInput && { lowLatencyInput: true }),
 });
 
@@ -91,12 +91,12 @@ export const displayedAudioValues = (
   useRuntime: boolean,
 ): AudioValues => {
   const actual =
-    useRuntime && (request.backend !== "ASIO" || runtime.backend === "ASIO");
+    useRuntime && (request.backend !== 'ASIO' || runtime.backend === 'ASIO');
   const values = toAudioValues(request, actual ? runtime : undefined);
   if (!actual) return values;
   values.backend = runtime.backend;
   if (runtime.sampleRate > 0) values.sampleRate = runtime.sampleRate;
-  if (runtime.backend === "WASAPI Shared")
+  if (runtime.backend === 'WASAPI Shared')
     values.periodFrames = runtime.selectedPeriodFrames || runtime.periodFrames;
   else values.bufferFrames = runtime.periodFrames;
   return values;

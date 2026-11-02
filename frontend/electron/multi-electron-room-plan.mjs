@@ -1,10 +1,10 @@
 export const phaseAtSecond = (second) => {
-  if (second === 30) return "RECONNECT_B";
-  if (second < 10 || (second >= 35 && second < 45)) return "A_TO_B";
+  if (second === 30) return 'RECONNECT_B';
+  if (second < 10 || (second >= 35 && second < 45)) return 'A_TO_B';
   if ((second >= 10 && second < 20) || (second >= 45 && second < 55))
-    return "B_TO_A";
-  if ((second >= 20 && second < 30) || second >= 55) return "BOTH";
-  return "RECOVERY";
+    return 'B_TO_A';
+  if ((second >= 20 && second < 30) || second >= 55) return 'BOTH';
+  return 'RECOVERY';
 };
 
 export const validateNegotiation = ({
@@ -38,14 +38,14 @@ export const toneState = (phase) =>
   })[phase];
 
 export const personalControlReturnReady = (diagnostics) =>
-  diagnostics.SessionState === "Running" &&
+  diagnostics.SessionState === 'Running' &&
   Number(diagnostics.RemoteMixPeak ?? 0) > 0.02 &&
   Number(diagnostics.MasterOutputPeak ?? 0) > 0.02;
 
 export const roomE2eLiveDelay = (args) => {
-  const option = args.find((value) => value.startsWith("--live-delay="));
+  const option = args.find((value) => value.startsWith('--live-delay='));
   if (!option) return 80;
-  const value = Number(option.slice("--live-delay=".length));
+  const value = Number(option.slice('--live-delay='.length));
   if (!Number.isFinite(value) || value < 10 || value > 80)
     throw new Error(
       `Live delay must be between 10 and 80 ms, received ${option}`,
@@ -53,23 +53,23 @@ export const roomE2eLiveDelay = (args) => {
   return value;
 };
 
-export const roomE2eTransportOnly = (args) => args.includes("--transport-only");
+export const roomE2eTransportOnly = (args) => args.includes('--transport-only');
 
 export const roomE2eEndpoint = (args) => {
-  const option = args.find((value) => value.startsWith("--room-server="));
+  const option = args.find((value) => value.startsWith('--room-server='));
   if (!option) return { external: false };
-  const url = new URL(option.slice("--room-server=".length));
-  if (!["http:", "https:"].includes(url.protocol) || !url.hostname)
+  const url = new URL(option.slice('--room-server='.length));
+  if (!['http:', 'https:'].includes(url.protocol) || !url.hostname)
     throw new Error(`Invalid Room Server endpoint: ${option}`);
-  const relayOption = args.find((value) => value.startsWith("--relay-port="));
-  const relayPort = Number(relayOption?.slice("--relay-port=".length));
+  const relayOption = args.find((value) => value.startsWith('--relay-port='));
+  const relayPort = Number(relayOption?.slice('--relay-port='.length));
   if (!Number.isInteger(relayPort) || relayPort < 1 || relayPort > 65_535)
-    throw new Error("An external Room Server requires a valid relay port");
+    throw new Error('An external Room Server requires a valid relay port');
   return {
     external: true,
     apiBase: url.origin,
     host: url.hostname,
-    httpPort: Number(url.port || (url.protocol === "https:" ? 443 : 80)),
+    httpPort: Number(url.port || (url.protocol === 'https:' ? 443 : 80)),
     relayPort,
   };
 };
@@ -77,36 +77,36 @@ export const roomE2eEndpoint = (args) => {
 export const roomE2eScenario = (args) => {
   const name =
     args
-      .find((value) => value.startsWith("--scenario="))
-      ?.slice("--scenario=".length) ?? "standard";
-  const durationOption = args.find((value) => value.startsWith("--duration="));
+      .find((value) => value.startsWith('--scenario='))
+      ?.slice('--scenario='.length) ?? 'standard';
+  const durationOption = args.find((value) => value.startsWith('--duration='));
   const durationSeconds = durationOption
-    ? Number(durationOption.slice("--duration=".length))
-    : name === "standard"
+    ? Number(durationOption.slice('--duration='.length))
+    : name === 'standard'
       ? 60
       : 180;
-  if (!["standard", "steady", "seek"].includes(name))
+  if (!['standard', 'steady', 'seek'].includes(name))
     throw new Error(`Unknown room E2E scenario: ${name}`);
   if (
     !Number.isInteger(durationSeconds) ||
-    durationSeconds < (name === "standard" ? 60 : 180)
+    durationSeconds < (name === 'standard' ? 60 : 180)
   )
     throw new Error(
-      `${name} room E2E duration must be at least ${name === "standard" ? 60 : 180} seconds`,
+      `${name} room E2E duration must be at least ${name === 'standard' ? 60 : 180} seconds`,
     );
   return { name, durationSeconds };
 };
 
 export const ROOM_GAP_REASONS = [
-  "CLIENT_SEND_STALL",
-  "NETWORK_OR_INGRESS_STALL",
-  "POSITION_COLLECTION_STALL",
-  "MIX_BUILD_STALL",
-  "SENDTO_STALL",
-  "SERVER_EVENT_LOOP_STALL",
-  "CLIENT_RECEIVE_STALL",
-  "SEEK_LIFECYCLE_STALL",
-  "UNKNOWN",
+  'CLIENT_SEND_STALL',
+  'NETWORK_OR_INGRESS_STALL',
+  'POSITION_COLLECTION_STALL',
+  'MIX_BUILD_STALL',
+  'SENDTO_STALL',
+  'SERVER_EVENT_LOOP_STALL',
+  'CLIENT_RECEIVE_STALL',
+  'SEEK_LIFECYCLE_STALL',
+  'UNKNOWN',
 ];
 
 export const relayProbePacket = (sequence, participantKey, token) => {
@@ -130,23 +130,23 @@ export const relayProbePacket = (sequence, participantKey, token) => {
 const diagnosticNumber = (value) => Number(value ?? 0) || 0;
 
 const backendSwitchStages = [
-  ["SENDER_NORMALIZATION", (sender, _receiver) => sender.RoomVoiceUpstreamPeak],
-  ["SERVER_INGRESS", (_sender, receiver) => receiver.ServerIngressPeakPcm16],
-  ["RECIPIENT_MIX", (_sender, receiver) => receiver.ServerRecipientPeakPcm16],
+  ['SENDER_NORMALIZATION', (sender, _receiver) => sender.RoomVoiceUpstreamPeak],
+  ['SERVER_INGRESS', (_sender, receiver) => receiver.ServerIngressPeakPcm16],
+  ['RECIPIENT_MIX', (_sender, receiver) => receiver.ServerRecipientPeakPcm16],
   [
-    "CLIENT_DECODE",
-    (_sender, receiver) => receiver["RemoteDecodedPeak.__room_server_mix__"],
+    'CLIENT_DECODE',
+    (_sender, receiver) => receiver['RemoteDecodedPeak.__room_server_mix__'],
   ],
   [
-    "REMOTE_QUEUE",
-    (_sender, receiver) => receiver["RemoteQueuedPeak.__room_server_mix__"],
+    'REMOTE_QUEUE',
+    (_sender, receiver) => receiver['RemoteQueuedPeak.__room_server_mix__'],
   ],
   [
-    "REMOTE_RENDER",
-    (_sender, receiver) => receiver["RemoteRenderedPeak.__room_server_mix__"],
+    'REMOTE_RENDER',
+    (_sender, receiver) => receiver['RemoteRenderedPeak.__room_server_mix__'],
   ],
-  ["MASTER_MIX", (_sender, receiver) => receiver.MasterOutputPeak],
-  ["BACKEND_OUTPUT", (_sender, receiver) => receiver.BackendOutputPeak],
+  ['MASTER_MIX', (_sender, receiver) => receiver.MasterOutputPeak],
+  ['BACKEND_OUTPUT', (_sender, receiver) => receiver.BackendOutputPeak],
 ];
 
 /** Locates the first silent production stage around one physical backend recreation. */
@@ -157,14 +157,14 @@ export const analyzeBackendSwitchAudioPath = ({ sender, before, after }) => {
     )?.[0] ?? null;
   return {
     requestedActualMismatchBefore: Boolean(
-      before["App.RequestedBackend"] &&
+      before['App.RequestedBackend'] &&
       before.Backend &&
-      before["App.RequestedBackend"] !== before.Backend,
+      before['App.RequestedBackend'] !== before.Backend,
     ),
-    beforeBackend: before.Backend ?? "unknown",
-    afterBackend: after.Backend ?? "unknown",
-    beforeGeneration: before.generationId ?? "unknown",
-    afterGeneration: after.generationId ?? "unknown",
+    beforeBackend: before.Backend ?? 'unknown',
+    afterBackend: after.Backend ?? 'unknown',
+    beforeGeneration: before.generationId ?? 'unknown',
+    afterGeneration: after.generationId ?? 'unknown',
     firstSilentBefore: firstSilent(before),
     firstSilentAfter: firstSilent(after),
   };
@@ -175,14 +175,14 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
     ROOM_GAP_REASONS.map((reason) => [reason, 0]),
   );
   const serverKey = {
-    CLIENT_SEND_STALL: "ServerGapClientSendStall",
-    NETWORK_OR_INGRESS_STALL: "ServerGapNetworkOrIngressStall",
-    POSITION_COLLECTION_STALL: "ServerGapPositionCollectionStall",
-    MIX_BUILD_STALL: "ServerGapMixBuildStall",
-    SENDTO_STALL: "ServerGapSendtoStall",
-    SERVER_EVENT_LOOP_STALL: "ServerGapEventLoopStall",
-    SEEK_LIFECYCLE_STALL: "ServerGapSeekLifecycleStall",
-    UNKNOWN: "ServerGapUnknown",
+    CLIENT_SEND_STALL: 'ServerGapClientSendStall',
+    NETWORK_OR_INGRESS_STALL: 'ServerGapNetworkOrIngressStall',
+    POSITION_COLLECTION_STALL: 'ServerGapPositionCollectionStall',
+    MIX_BUILD_STALL: 'ServerGapMixBuildStall',
+    SENDTO_STALL: 'ServerGapSendtoStall',
+    SERVER_EVENT_LOOP_STALL: 'ServerGapEventLoopStall',
+    SEEK_LIFECYCLE_STALL: 'ServerGapSeekLifecycleStall',
+    UNKNOWN: 'ServerGapUnknown',
   };
   for (const [reason, key] of Object.entries(serverKey))
     distribution[reason] = Math.max(
@@ -194,7 +194,7 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
   // common absolute room frame to refine that category without double-counting the same event.
   const latestServer = serverEntries.at(-1)?.values ?? {};
   const pipelineFrame = diagnosticNumber(latestServer.ServerPipelinePosition);
-  const sides = ["A", "B"];
+  const sides = ['A', 'B'];
   for (const side of sides) {
     const values = clientSamples.at(-1)?.[side] ?? {};
     const sendGap = diagnosticNumber(values.NetworkSendGapMaximumMs);
@@ -212,7 +212,7 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
     }
     const receiveGapMs =
       diagnosticNumber(
-        values["RemoteSocketReceiveGapMaximumUs.__room_server_mix__"],
+        values['RemoteSocketReceiveGapMaximumUs.__room_server_mix__'],
       ) / 1000;
     const serverSendGapMs = diagnosticNumber(
       values.ServerSendGapMaximumMs ?? latestServer.ServerSendGapMaximumMs,
@@ -226,7 +226,7 @@ export const analyzeRoomAudioGaps = (serverEntries, clientSamples) => {
   };
 };
 
-const activeSingingPhases = new Set(["A_TO_B", "B_TO_A", "BOTH"]);
+const activeSingingPhases = new Set(['A_TO_B', 'B_TO_A', 'BOTH']);
 
 export const maximumActiveLateCutDelta = (samples, valueOf) => {
   let previous,
@@ -243,13 +243,7 @@ export const maximumActiveLateCutDelta = (samples, valueOf) => {
   return maximum;
 };
 
-const toneMeasurements = (
-  samples,
-  rate,
-  frequency,
-  fromSecond,
-  toSecond,
-) => {
+const toneMeasurements = (samples, rate, frequency, fromSecond, toSecond) => {
   const first = Math.max(0, Math.floor(fromSecond * rate));
   const last = Math.min(samples.length, Math.floor(toSecond * rate));
   const windowFrames = Math.max(1, Math.round(rate * 0.02));
@@ -278,7 +272,13 @@ const toneMeasurements = (
   };
 };
 
-export const toneContinuity = (samples, rate, frequency, fromSecond, toSecond) =>
+export const toneContinuity = (
+  samples,
+  rate,
+  frequency,
+  fromSecond,
+  toSecond,
+) =>
   toneMeasurements(samples, rate, frequency, fromSecond, toSecond).continuity;
 
 /** Level of the isolated personal-controls PCM (host tone and song are silent). */

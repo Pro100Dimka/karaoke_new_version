@@ -1,12 +1,12 @@
-import { describe, expect, it } from "vitest";
-import type { MusicState } from "./musicPulse";
-import { ShowEngine } from "./showEngine";
-import type { PerformanceEvent } from "./performanceTracker";
+import { describe, expect, it } from 'vitest';
+import type { MusicState } from './musicPulse';
+import { ShowEngine } from './showEngine';
+import type { PerformanceEvent } from './performanceTracker';
 import {
   ambientFor,
   VisualDirector,
   type DirectorContext,
-} from "./visualDirector";
+} from './visualDirector';
 
 const music = (intensity = 1): MusicState => ({
   kick: 0,
@@ -17,8 +17,8 @@ const music = (intensity = 1): MusicState => ({
   beatPeriod: 0.5,
 });
 
-describe("lyrics rhythm", () => {
-  it("ignores weak drum rolls between accents without silencing a quieter passage", () => {
+describe('lyrics rhythm', () => {
+  it('ignores weak drum rolls between accents without silencing a quieter passage', () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [
       [1, 1],
@@ -39,7 +39,7 @@ describe("lyrics rhythm", () => {
     }
   });
 
-  it("keeps the hit crisp instead of swelling through the next tenth of a second", () => {
+  it('keeps the hit crisp instead of swelling through the next tenth of a second', () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [[1, 1]]);
     engine.advance(0, 1, undefined, true);
@@ -52,7 +52,7 @@ describe("lyrics rhythm", () => {
     expect(engine.state.musicBeat).toBe(0);
   });
 
-  it("keeps a strong short hit at a normal animation-frame interval", () => {
+  it('keeps a strong short hit at a normal animation-frame interval', () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [[1, 1]]);
     engine.advance(0, 0.99, undefined, true);
@@ -60,7 +60,7 @@ describe("lyrics rhythm", () => {
     expect(engine.state.musicBeat).toBeGreaterThan(0.45);
   });
 
-  it("does not bounce to arbitrary backing sounds without isolated rhythm evidence", () => {
+  it('does not bounce to arbitrary backing sounds without isolated rhythm evidence', () => {
     const engine = new ShowEngine();
     engine.load([], []);
     engine.advance(1000, 0.4, undefined, true);
@@ -69,7 +69,7 @@ describe("lyrics rhythm", () => {
     expect(engine.state.musicBeat).toBe(0);
   });
 
-  it("follows bass and drum onsets at the source position, including seek and pause", () => {
+  it('follows bass and drum onsets at the source position, including seek and pause', () => {
     const engine = new ShowEngine();
     engine.load([], [], new Map(), true, undefined, [
       [0.5, 1],
@@ -92,8 +92,8 @@ const context = (
   untilBeat?: number,
 ): DirectorContext => ({ energy, streakSeconds, music: music(), untilBeat });
 const note = (score: number, duration = 0.4): PerformanceEvent => ({
-  kind: "noteCompleted",
-  note: { id: "n", start: 0, end: duration, pitch: 60 },
+  kind: 'noteCompleted',
+  note: { id: 'n', start: 0, end: duration, pitch: 60 },
   score: {
     pitchAccuracy: score,
     voicedCoverage: 1,
@@ -106,117 +106,117 @@ const phrase = (
   goodInRow: number,
   perfectInRow: number,
 ): PerformanceEvent => ({
-  kind: "phraseCompleted",
+  kind: 'phraseCompleted',
   score,
   goodInRow,
   perfectInRow,
 });
 
-describe("visual director", () => {
+describe('visual director', () => {
   it.each([0, 20, 80])(
-    "keeps the musical beat expressive at performance energy %s",
+    'keeps the musical beat expressive at performance energy %s',
     (energy) => {
       const commands = new VisualDirector().plan(
         1000,
         [],
-        [{ kind: "beat", at: 1000, strength: 1 }],
+        [{ kind: 'beat', at: 1000, strength: 1 }],
         context(energy),
       );
       expect(commands).toContainEqual(
-        expect.objectContaining({ kind: "beatPulse", strength: 1 }),
+        expect.objectContaining({ kind: 'beatPulse', strength: 1 }),
       );
     },
   );
-  it("keeps visible stage lights for an early earned reward", () => {
-    expect(ambientFor(20, music(), "full").beams).toBeGreaterThanOrEqual(1.5);
+  it('keeps visible stage lights for an early earned reward', () => {
+    expect(ambientFor(20, music(), 'full').beams).toBeGreaterThanOrEqual(1.5);
     const commands = new VisualDirector().plan(
       0,
-      [{ kind: "levelReached", level: "awakening" }],
+      [{ kind: 'levelReached', level: 'awakening' }],
       [],
       context(20),
     );
     expect(
       commands.some(
-        (command) => command.kind === "lightWave" && command.strength >= 0.45,
+        (command) => command.kind === 'lightWave' && command.strength >= 0.45,
       ),
     ).toBe(true);
   });
-  it("gives nothing for a weak note and escalating light for better ones", () => {
+  it('gives nothing for a weak note and escalating light for better ones', () => {
     const director = new VisualDirector();
     expect(director.plan(0, [note(0.4)], [], context(0))).toEqual([]);
     expect(
       director.plan(1000, [note(0.6)], [], context(0)).map((c) => c.kind),
-    ).toEqual(["noteGlow"]);
+    ).toEqual(['noteGlow']);
     expect(
       director.plan(2000, [note(0.95)], [], context(0)).map((c) => c.kind),
-    ).toEqual(["noteGlow", "noteSparks"]);
+    ).toEqual(['noteGlow', 'noteSparks']);
     expect(
       director.plan(3000, [note(0.99)], [], context(0)).map((c) => c.kind),
-    ).toEqual(["noteGlow", "noteRing"]);
+    ).toEqual(['noteGlow', 'noteRing']);
   });
 
   it("holds a long note's earned release for the next beat within 250 ms", () => {
     const director = new VisualDirector();
     const now = director.plan(0, [note(0.95, 1.5)], [], context(50, 10, 180));
-    expect(now.map((c) => c.kind)).not.toContain("chargeRelease");
+    expect(now.map((c) => c.kind)).not.toContain('chargeRelease');
     expect(
       director.plan(179, [], [], context(50, 10, 1)).map((c) => c.kind),
-    ).not.toContain("chargeRelease");
+    ).not.toContain('chargeRelease');
     expect(
       director.plan(180, [], [], context(50, 10, 500)).map((c) => c.kind),
-    ).toContain("chargeRelease");
+    ).toContain('chargeRelease');
   });
 
-  it("keeps big rewards for runs of perfect phrases at high energy, then rests", () => {
+  it('keeps big rewards for runs of perfect phrases at high energy, then rests', () => {
     const director = new VisualDirector();
     expect(
       director
         .plan(0, [phrase(0.95, 1, 1)], [], context(80, 30))
         .map((c) => c.kind),
-    ).not.toContain("laserSweep");
+    ).not.toContain('laserSweep');
     expect(
       director
         .plan(5000, [phrase(0.95, 2, 2)], [], context(80, 30))
         .map((c) => c.kind),
-    ).toContain("laserSweep");
+    ).toContain('laserSweep');
     // Within the quiet window after a large event, another perfect run only gets the small phrase reward.
     const next = director
       .plan(6000, [phrase(0.95, 3, 3)], [], context(80, 30))
       .map((c) => c.kind);
-    expect(next).not.toContain("shockwave");
-    expect(next).not.toContain("laserSweep");
+    expect(next).not.toContain('shockwave');
+    expect(next).not.toContain('laserSweep');
   });
 
-  it("never shows flash-heavy effects at minimal intensity", () => {
+  it('never shows flash-heavy effects at minimal intensity', () => {
     const director = new VisualDirector();
-    director.intensity = "minimal";
+    director.intensity = 'minimal';
     const kinds = director
       .plan(0, [phrase(0.95, 2, 2)], [], context(85, 35))
       .map((c) => c.kind);
-    expect(kinds).not.toContain("laserSweep");
-    expect(kinds).not.toContain("shockwave");
-    expect(kinds).toContain("phraseBloom");
+    expect(kinds).not.toContain('laserSweep');
+    expect(kinds).not.toContain('shockwave');
+    expect(kinds).toContain('phraseBloom');
   });
 
-  it("opens the stage on a section surge only after an earned streak", () => {
+  it('opens the stage on a section surge only after an earned streak', () => {
     const quiet = new VisualDirector();
     expect(
-      quiet.plan(0, [], [{ kind: "surge", at: 0 }], context(30, 5)),
+      quiet.plan(0, [], [{ kind: 'surge', at: 0 }], context(30, 5)),
     ).toEqual([]);
     const earned = new VisualDirector();
     const kinds = [
-      ...earned.plan(0, [], [{ kind: "surge", at: 0 }], context(60, 25)),
+      ...earned.plan(0, [], [{ kind: 'surge', at: 0 }], context(60, 25)),
       ...earned.plan(800, [], [], context(60, 25)),
     ].map((c) => c.kind);
-    expect(kinds).toEqual(["dim", "stageExpansion"]);
+    expect(kinds).toEqual(['dim', 'stageExpansion']);
   });
 
-  it("builds the ambient stage with the energy: no beams when calm, six at headliner", () => {
-    expect(ambientFor(10, music(), "full").beams).toBe(0);
-    expect(ambientFor(50, music(), "full").beams).toBeGreaterThan(1.5);
-    expect(ambientFor(80, music(), "full").beams).toBeCloseTo(6, 0);
-    expect(ambientFor(80, music(), "minimal").particles).toBeLessThan(
-      ambientFor(80, music(), "full").particles,
+  it('builds the ambient stage with the energy: no beams when calm, six at headliner', () => {
+    expect(ambientFor(10, music(), 'full').beams).toBe(0);
+    expect(ambientFor(50, music(), 'full').beams).toBeGreaterThan(1.5);
+    expect(ambientFor(80, music(), 'full').beams).toBeCloseTo(6, 0);
+    expect(ambientFor(80, music(), 'minimal').particles).toBeLessThan(
+      ambientFor(80, music(), 'full').particles,
     );
   });
 });

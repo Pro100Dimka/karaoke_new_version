@@ -1,4 +1,4 @@
-import { useEffect, useState, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from 'react';
 
 /**
  * Whether an element has come near the visible part of its scroll area (within `margin`); it stays
@@ -7,10 +7,10 @@ import { useEffect, useState, type RefObject } from "react";
  */
 export const useNearView = (
   ref: RefObject<Element | null>,
-  margin = "200px",
+  margin = '200px',
 ): boolean => {
   const [near, setNear] = useState(
-    () => typeof IntersectionObserver === "undefined",
+    () => typeof IntersectionObserver === 'undefined',
   );
   useEffect(() => {
     const element = ref.current;

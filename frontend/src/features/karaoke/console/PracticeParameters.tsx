@@ -1,10 +1,19 @@
-import { Card, Grid, IconButton, NumberField, Stack, Typography, tr, useLocale } from "@neo-ui-kit/react";
-import { memo, useEffect, useState, type ReactNode } from "react";
-import type { MessageKey } from "../../../i18n/messages";
-import { ru } from "../../../i18n/messages.ru";
-import { ConsoleSection } from "./ConsoleSection";
-import { DisplayToggles } from "./DisplayToggles";
-import { rangeLabel, type NoteRange } from "./noteRange";
+import {
+  Card,
+  Grid,
+  IconButton,
+  NumberField,
+  Stack,
+  Typography,
+  tr,
+  useLocale,
+} from '@neo-ui-kit/react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
+import type { MessageKey } from '../../../i18n/messages';
+import { ru } from '../../../i18n/messages.ru';
+import { ConsoleSection } from './ConsoleSection';
+import { DisplayToggles } from './DisplayToggles';
+import { rangeLabel, type NoteRange } from './noteRange';
 
 const maxKeyShift = 12;
 export const minPlaybackRate = 0.5;
@@ -44,11 +53,11 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
       material="glass"
       padding="sm"
       style={{
-        textAlign: "center",
+        textAlign: 'center',
         paddingTop: 0,
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-around",
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-around',
       }}
     >
       <Typography variant="caption" tone="muted">
@@ -56,11 +65,11 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
       </Typography>
       <Stack direction="row" gap={2} align="center" justify="center">
         {step(metric.previous)}
-        {typeof metric.value === "string" ? (
+        {typeof metric.value === 'string' ? (
           <Typography
             as="strong"
             variant="title"
-            style={{ textAlign: "center" }}
+            style={{ textAlign: 'center' }}
           >
             {metric.value}
           </Typography>
@@ -106,8 +115,8 @@ const TempoField = ({
   onChange(value: number): void;
 }) => {
   useLocale();
-  const [draft, setDraft] = useState<number | "">(tempoBpm ?? "");
-  useEffect(() => setDraft(tempoBpm ?? ""), [tempoBpm]);
+  const [draft, setDraft] = useState<number | ''>(tempoBpm ?? '');
+  useEffect(() => setDraft(tempoBpm ?? ''), [tempoBpm]);
   const minimum =
     baseBpm === null ? undefined : Math.ceil(baseBpm * minPlaybackRate);
   const maximum =
@@ -121,7 +130,7 @@ const TempoField = ({
       maximum === undefined
     )
       return;
-    if (draft === "") return setDraft(tempoBpm);
+    if (draft === '') return setDraft(tempoBpm);
     const next = Math.max(minimum, Math.min(maximum, Math.round(draft)));
     setDraft(next);
     if (next !== tempoBpm) onChange(next / baseBpm);
@@ -147,88 +156,90 @@ const TempoField = ({
       onValueChange={setDraft}
       onBlur={commit}
       onKeyDown={(event) => {
-        if (event.key === "Enter") event.currentTarget.blur();
+        if (event.key === 'Enter') event.currentTarget.blur();
       }}
     />
   );
 };
 
 /** The three practice read-outs: tempo, key and the vocal range of the song. */
-export const PracticeParameters = memo(({
-  speed,
-  baseBpm,
-  keyShift,
-  keyLabel,
-  range,
-  locked,
-  onSpeedChange,
-  onKeyChange,
-  showNotes,
-  showLyrics,
-  autoHideConsole,
-  hasNotes,
-  hasLyrics,
-  setShowNotes,
-  setShowLyrics,
-  setAutoHideConsole,
-}: PracticeParametersProps) => {
-  useLocale();
-  const validBaseBpm =
-    typeof baseBpm === "number" && Number.isFinite(baseBpm) && baseBpm > 0
-      ? baseBpm
-      : null;
-  const tempoBpm =
-    validBaseBpm === null ? null : Math.round(validBaseBpm * speed);
-  const metrics: Metric[] = [
-    {
-      id: "speed",
-      label: "practiceSpeed",
-      value: (
-        <TempoField
-          baseBpm={validBaseBpm}
-          tempoBpm={tempoBpm}
-          locked={locked}
-          onChange={onSpeedChange}
-        />
-      ),
-    },
-    {
-      id: "key",
-      label: "keyTranspose",
-      value: keyLabel,
-      previous: {
-        icon: "minus",
-        label: "transposeDown",
-        disabled: locked || keyShift <= -maxKeyShift,
-        run: () => onKeyChange(-1),
+export const PracticeParameters = memo(
+  ({
+    speed,
+    baseBpm,
+    keyShift,
+    keyLabel,
+    range,
+    locked,
+    onSpeedChange,
+    onKeyChange,
+    showNotes,
+    showLyrics,
+    autoHideConsole,
+    hasNotes,
+    hasLyrics,
+    setShowNotes,
+    setShowLyrics,
+    setAutoHideConsole,
+  }: PracticeParametersProps) => {
+    useLocale();
+    const validBaseBpm =
+      typeof baseBpm === 'number' && Number.isFinite(baseBpm) && baseBpm > 0
+        ? baseBpm
+        : null;
+    const tempoBpm =
+      validBaseBpm === null ? null : Math.round(validBaseBpm * speed);
+    const metrics: Metric[] = [
+      {
+        id: 'speed',
+        label: 'practiceSpeed',
+        value: (
+          <TempoField
+            baseBpm={validBaseBpm}
+            tempoBpm={tempoBpm}
+            locked={locked}
+            onChange={onSpeedChange}
+          />
+        ),
       },
-      next: {
-        icon: "plus",
-        label: "transposeUp",
-        disabled: locked || keyShift >= maxKeyShift,
-        run: () => onKeyChange(1),
+      {
+        id: 'key',
+        label: 'keyTranspose',
+        value: keyLabel,
+        previous: {
+          icon: 'minus',
+          label: 'transposeDown',
+          disabled: locked || keyShift <= -maxKeyShift,
+          run: () => onKeyChange(-1),
+        },
+        next: {
+          icon: 'plus',
+          label: 'transposeUp',
+          disabled: locked || keyShift >= maxKeyShift,
+          run: () => onKeyChange(1),
+        },
       },
-    },
-    { id: "range", label: "vocalRange", value: rangeLabel(range, keyShift) },
-  ];
+      { id: 'range', label: 'vocalRange', value: rangeLabel(range, keyShift) },
+    ];
 
-  return (
-    <ConsoleSection icon="settings" title={tr(ru.consoleParameters)}>
-      <Grid className="consoleParameters" columns={3} gap={1}>
-        {metrics.map((metric) => (
-          <MetricCard key={metric.id} metric={metric} />
-        ))}
-        <DisplayToggles
-          showNotes={showNotes}
-          showLyrics={showLyrics}
-          autoHide={autoHideConsole}
-          hasNotes={hasNotes}
-          hasLyrics={hasLyrics}
-          onShowNotes={setShowNotes}
-          onShowLyrics={setShowLyrics}
-          onAutoHide={setAutoHideConsole}
-        />
-      </Grid>
-    </ConsoleSection>
-  );
-});
+    return (
+      <ConsoleSection icon="settings" title={tr(ru.consoleParameters)}>
+        <Grid className="consoleParameters" columns={3} gap={1}>
+          {metrics.map((metric) => (
+            <MetricCard key={metric.id} metric={metric} />
+          ))}
+          <DisplayToggles
+            showNotes={showNotes}
+            showLyrics={showLyrics}
+            autoHide={autoHideConsole}
+            hasNotes={hasNotes}
+            hasLyrics={hasLyrics}
+            onShowNotes={setShowNotes}
+            onShowLyrics={setShowLyrics}
+            onAutoHide={setAutoHideConsole}
+          />
+        </Grid>
+      </ConsoleSection>
+    );
+  },
+);

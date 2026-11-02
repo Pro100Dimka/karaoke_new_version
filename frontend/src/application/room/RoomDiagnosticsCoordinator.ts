@@ -1,10 +1,12 @@
-import type { AudioServiceClient, RoomClient } from "../../contracts/clients";
-import type { AudioBackendName } from "../../contracts/models";
-import type { RoomSessionScope } from "./RoomSessionController";
+import type { AudioServiceClient, RoomClient } from '../../contracts/clients';
+import type { AudioBackendName } from '../../contracts/models';
+import type { RoomSessionScope } from './RoomSessionController';
 
-type AudioPort = Pick<AudioServiceClient,
-  "listDevices" | "preferredConfiguration" | "diagnosticsDump">;
-type RoomPort = Pick<RoomClient, "publishDiagnostics">;
+type AudioPort = Pick<
+  AudioServiceClient,
+  'listDevices' | 'preferredConfiguration' | 'diagnosticsDump'
+>;
+type RoomPort = Pick<RoomClient, 'publishDiagnostics'>;
 
 /** Publishes diagnostics for the current room only; a stopped session cannot upload a late read. */
 export class RoomDiagnosticsCoordinator {
@@ -12,7 +14,7 @@ export class RoomDiagnosticsCoordinator {
   private pending?: Promise<void>;
   private deviceNames?: ReadonlyMap<string, string>;
   private previous?: Readonly<Record<string, string>>;
-  private persistedBackend: AudioBackendName = "WASAPI Shared";
+  private persistedBackend: AudioBackendName = 'WASAPI Shared';
 
   constructor(
     private readonly scope: RoomSessionScope,
@@ -35,42 +37,59 @@ export class RoomDiagnosticsCoordinator {
     if (!this.timer || !this.scope.isCurrent()) return Promise.resolve();
     const pending = (async () => {
       try {
-        this.deviceNames ??= new Map((await this.audio.listDevices())
-          .map((device) => [device.id, device.name]));
+        this.deviceNames ??= new Map(
+          (await this.audio.listDevices()).map((device) => [
+            device.id,
+            device.name,
+          ]),
+        );
         const requested = this.audio.preferredConfiguration();
         const diagnostics = await this.audio.diagnosticsDump();
         if (!this.timer || !this.scope.isCurrent()) return;
         const acousticMicroseconds = Number(diagnostics.AcousticLatencyUs);
-        const hiddenLatency = diagnostics.AcousticCalibrationValid === "1" &&
-          Number.isFinite(acousticMicroseconds) && acousticMicroseconds >= 0 &&
+        const hiddenLatency =
+          diagnostics.AcousticCalibrationValid === '1' &&
+          Number.isFinite(acousticMicroseconds) &&
+          acousticMicroseconds >= 0 &&
           acousticMicroseconds <= 500_000
-          ? String(acousticMicroseconds / 1000) : "unmeasured";
+            ? String(acousticMicroseconds / 1000)
+            : 'unmeasured';
         const values: Readonly<Record<string, string>> = {
           ...diagnostics,
-          "App.InputDevice": this.deviceNames.get(requested.inputDeviceId ?? "") ?? "default",
-          "App.OutputDevice": this.deviceNames.get(requested.outputDeviceId ?? "") ?? "default",
-          "App.RequestedBackend": requested.backend,
-          "App.PersistedBackend": this.persistedBackend,
-          "App.SettingsSelectedBackend": this.persistedBackend,
-          "App.HiddenLatencyMs": hiddenLatency,
+          'App.InputDevice':
+            this.deviceNames.get(requested.inputDeviceId ?? '') ?? 'default',
+          'App.OutputDevice':
+            this.deviceNames.get(requested.outputDeviceId ?? '') ?? 'default',
+          'App.RequestedBackend': requested.backend,
+          'App.PersistedBackend': this.persistedBackend,
+          'App.SettingsSelectedBackend': this.persistedBackend,
+          'App.HiddenLatencyMs': hiddenLatency,
         };
         const previousBackend = this.previous?.Backend;
-        if (previousBackend && values.Backend && previousBackend !== values.Backend) {
+        if (
+          previousBackend &&
+          values.Backend &&
+          previousBackend !== values.Backend
+        ) {
           await this.room.publishDiagnostics(this.scope.code, {
-            ...this.previous, "App.BackendSwitchStage": "before",
-            "App.BackendSwitchTo": values.Backend,
+            ...this.previous,
+            'App.BackendSwitchStage': 'before',
+            'App.BackendSwitchTo': values.Backend,
           });
           if (!this.timer || !this.scope.isCurrent()) return;
           await this.room.publishDiagnostics(this.scope.code, {
-            ...values, "App.BackendSwitchStage": "after",
-            "App.BackendSwitchFrom": previousBackend,
+            ...values,
+            'App.BackendSwitchStage': 'after',
+            'App.BackendSwitchFrom': previousBackend,
           });
         } else await this.room.publishDiagnostics(this.scope.code, values);
         if (this.timer && this.scope.isCurrent()) this.previous = values;
       } catch {
         // Diagnostics are best effort; the next interval retries.
       }
-    })().finally(() => { if (this.pending === pending) this.pending = undefined; });
+    })().finally(() => {
+      if (this.pending === pending) this.pending = undefined;
+    });
     this.pending = pending;
     return pending;
   }

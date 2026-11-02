@@ -1,20 +1,20 @@
 // Live room check (AGENTS.md room completion gate) through the rendered UI of the two windows that
 // start-multy.bat opens with AD_VOICE_MULTI_DEBUG=1. Writes screenshots and machine-readable
 // diagnostics of both AudioService processes to artifacts/room-e2e/<timestamp>/.
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { chromium } from "playwright";
-import { clientSongs } from "./smoke-catalog.mjs";
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { chromium } from 'playwright';
+import { clientSongs } from './smoke-catalog.mjs';
 
 const server =
-  process.env.AD_VOICE_ROOM_SERVER_API ?? "http://130.61.169.61:8081";
-const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  process.env.AD_VOICE_ROOM_SERVER_API ?? 'http://130.61.169.61:8081';
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 const out = join(
   import.meta.dirname,
-  "..",
-  "..",
-  "artifacts",
-  "room-e2e",
+  '..',
+  '..',
+  'artifacts',
+  'room-e2e',
   stamp,
 );
 mkdirSync(out, { recursive: true });
@@ -24,22 +24,22 @@ const uuid = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const room = (code) =>
   fetch(`${server}/rooms/${code}`).then((response) => response.json());
 
-const hostBrowser = await chromium.connectOverCDP("http://127.0.0.1:9341");
-const guestBrowser = await chromium.connectOverCDP("http://127.0.0.1:9342");
+const hostBrowser = await chromium.connectOverCDP('http://127.0.0.1:9341');
+const guestBrowser = await chromium.connectOverCDP('http://127.0.0.1:9342');
 const host = hostBrowser.contexts()[0].pages()[0];
 const guest = guestBrowser.contexts()[0].pages()[0];
 const report = { startedAt: new Date().toISOString(), steps: [], checks: [] };
 
 const diagnostics = async (page) => {
   const response = await page.evaluate(() =>
-    window.desktop.audioRequest({ command: "GetDiagnostics" }),
+    window.desktop.audioRequest({ command: 'GetDiagnostics' }),
   );
   return Object.fromEntries(
     response.text
-      .split("\n")
+      .split('\n')
       .filter(Boolean)
       .map((line) => {
-        const at = line.indexOf(": ");
+        const at = line.indexOf(': ');
         return [line.slice(0, at), line.slice(at + 2)];
       }),
   );
@@ -50,7 +50,7 @@ const shot = async (name) => {
 };
 const check = (name, passed, details) => {
   report.checks.push({ name, passed, details });
-  console.log(`${passed ? "PASS" : "FAIL"} ${name} ${JSON.stringify(details)}`);
+  console.log(`${passed ? 'PASS' : 'FAIL'} ${name} ${JSON.stringify(details)}`);
 };
 // Song position heard now on each computer, compared at one instant of the shared machine clock.
 const syncSample = async () => {
@@ -79,28 +79,28 @@ const step = async (name, action) => {
 };
 
 try {
-  await shot("00-start");
+  await shot('00-start');
   // Room: the host creates it, the guest joins by code.
   await host
-    .getByRole("button", { name: /Онлайн-комната|Online room/i })
+    .getByRole('button', { name: /Онлайн-комната|Online room/i })
     .click();
-  await host.getByLabel(/Имя|Name/i).fill("Release Host");
+  await host.getByLabel(/Имя|Name/i).fill('Release Host');
   await host
-    .getByRole("button", { name: /Создать комнату|Create room/i })
+    .getByRole('button', { name: /Создать комнату|Create room/i })
     .click();
   await host.getByText(uuid).first().waitFor({ timeout: 20_000 });
-  const code = uuid.exec(await host.locator("body").innerText())?.[0];
+  const code = uuid.exec(await host.locator('body').innerText())?.[0];
   await guest
-    .getByRole("button", { name: /Онлайн-комната|Online room/i })
+    .getByRole('button', { name: /Онлайн-комната|Online room/i })
     .click();
   await guest
-    .getByRole("button", { name: /Войти в комнату|Join room/i })
+    .getByRole('button', { name: /Войти в комнату|Join room/i })
     .first()
     .click();
-  await guest.getByLabel(/Имя|Name/i).fill("Release Guest");
+  await guest.getByLabel(/Имя|Name/i).fill('Release Guest');
   await guest.getByLabel(/Код комнаты|Room code/i).fill(code);
   await guest
-    .getByRole("button", { name: /Войти в комнату|Join room/i })
+    .getByRole('button', { name: /Войти в комнату|Join room/i })
     .last()
     .click();
   for (
@@ -110,10 +110,10 @@ try {
   )
     await delay(500);
   report.roomCode = code;
-  check("guest joined the room", (await room(code)).participants.length === 2, {
+  check('guest joined the room', (await room(code)).participants.length === 2, {
     code,
   });
-  await shot("01-room");
+  await shot('01-room');
 
   // A song the guest does not have: it is transferred and every participant must be ready first.
   const [hostSongs, guestSongs] = await Promise.all([
@@ -123,17 +123,17 @@ try {
   const guestIds = new Set(guestSongs.map((song) => song.songId));
   const song =
     hostSongs.find(
-      (item) => item.status === "Ready" && !guestIds.has(item.songId),
-    ) ?? hostSongs.find((item) => item.status === "Ready");
+      (item) => item.status === 'Ready' && !guestIds.has(item.songId),
+    ) ?? hostSongs.find((item) => item.status === 'Ready');
   report.song = song.title;
   await host
-    .getByRole("textbox", { name: /Название, исполнитель или файл|Search/i })
+    .getByRole('textbox', { name: /Название, исполнитель или файл|Search/i })
     .fill(song.title);
   await host
-    .locator(".songCard")
+    .locator('.songCard')
     .filter({ hasText: song.title })
     .first()
-    .getByRole("button", { name: /Запустить караоке|Play karaoke/i })
+    .getByRole('button', { name: /Запустить караоке|Play karaoke/i })
     .click();
   const readiness = [];
   let playingAt = 0;
@@ -144,17 +144,17 @@ try {
       state: state.playbackState,
       ready: state.participants.map((p) => p.readinessState),
     });
-    if (state.playbackState === "Playing") {
+    if (state.playbackState === 'Playing') {
       playingAt = attempt * 250;
       break;
     }
-    if (attempt === 8) await shot("02-loading");
+    if (attempt === 8) await shot('02-loading');
     // The guest's own different copy of the song is replaced only by the guest's explicit choice.
-    const replace = guest.getByRole("button", {
+    const replace = guest.getByRole('button', {
       name: /Заменить версией хоста|Replace with the host/i,
     });
     if (await replace.count()) {
-      if (!report.conflictReplaced) await shot("02-conflict");
+      if (!report.conflictReplaced) await shot('02-conflict');
       // The room panel re-renders with every poll; a click that missed it is simply tried again.
       report.conflictReplaced = await replace
         .first()
@@ -168,10 +168,10 @@ try {
   }
   report.readiness = readiness;
   const startedEarly = readiness.some(
-    (r) => r.state === "Playing" && r.ready.some((state) => state !== "Ready"),
+    (r) => r.state === 'Playing' && r.ready.some((state) => state !== 'Ready'),
   );
   check(
-    "song starts only when every participant is ready",
+    'song starts only when every participant is ready',
     playingAt > 0 && !startedEarly,
     { playingAtMs: playingAt, transferred: !guestIds.has(song.songId) },
   );
@@ -183,50 +183,50 @@ try {
     playing.push((await syncSample()).differenceMs);
     await delay(1_000);
   }
-  await shot("03-playing");
+  await shot('03-playing');
   const spread = Math.max(...playing.map(Math.abs));
-  check("timers heard stay within 2 ms while playing", spread <= 2, {
+  check('timers heard stay within 2 ms while playing', spread <= 2, {
     differencesMs: playing.map((v) => Number(v.toFixed(2))),
   });
 
   // Keyboard: Space pauses and resumes, the right arrow seeks, on both computers.
   await host.bringToFront();
-  const paused = await step("04-paused", async () => {
-    await host.keyboard.press("Space");
+  const paused = await step('04-paused', async () => {
+    await host.keyboard.press('Space');
     await delay(1_500);
   });
   check(
-    "Space pauses the room",
-    paused.host.PlaybackState === "4" && paused.guest.PlaybackState === "4",
+    'Space pauses the room',
+    paused.host.PlaybackState === '4' && paused.guest.PlaybackState === '4',
     {
       host: paused.host.PlaybackState,
       guest: paused.guest.PlaybackState,
       differenceMs: paused.differenceMs,
     },
   );
-  const resumed = await step("05-resumed", async () => {
-    await host.keyboard.press("Space");
+  const resumed = await step('05-resumed', async () => {
+    await host.keyboard.press('Space');
     await delay(3_000);
   });
   check(
-    "Space resumes the room in step",
-    resumed.host.PlaybackState === "3" &&
-      resumed.guest.PlaybackState === "3" &&
+    'Space resumes the room in step',
+    resumed.host.PlaybackState === '3' &&
+      resumed.guest.PlaybackState === '3' &&
       Math.abs(resumed.differenceMs) <= 2,
     { differenceMs: resumed.differenceMs },
   );
   const before =
     Number(resumed.host.PlaybackPositionFrames) /
     Number(resumed.host.RuntimeOutputSampleRate);
-  const sought = await step("06-seek", async () => {
-    await host.keyboard.press("ArrowRight");
+  const sought = await step('06-seek', async () => {
+    await host.keyboard.press('ArrowRight');
     await delay(3_000);
   });
   const after =
     Number(sought.host.PlaybackPositionFrames) /
     Number(sought.host.RuntimeOutputSampleRate);
   check(
-    "the right arrow seeks five seconds, both stay in step",
+    'the right arrow seeks five seconds, both stay in step',
     after - before > 6 &&
       after - before < 10 &&
       Math.abs(sought.differenceMs) <= 2,
@@ -237,10 +237,10 @@ try {
   const voice = await syncSample();
   const remoteOf = (values) =>
     Object.entries(values)
-      .filter(([key]) => key.startsWith("RemoteVoiceRms."))
+      .filter(([key]) => key.startsWith('RemoteVoiceRms.'))
       .map(([, value]) => Number(value));
   check(
-    "voice packets flow both ways",
+    'voice packets flow both ways',
     Number(voice.host.NetworkPacketsReceived) > 0 &&
       Number(voice.guest.NetworkPacketsReceived) > 0,
     {
@@ -252,9 +252,9 @@ try {
   );
 
   // Back to the library on both.
-  await step("07-library", async () => {
+  await step('07-library', async () => {
     await host
-      .getByRole("button", { name: /Библиотека|Library/i })
+      .getByRole('button', { name: /Библиотека|Library/i })
       .first()
       .click();
     await Promise.all([
@@ -263,8 +263,8 @@ try {
     ]);
   });
   check(
-    "both return to the library",
-    host.url().endsWith("#/") && guest.url().endsWith("#/"),
+    'both return to the library',
+    host.url().endsWith('#/') && guest.url().endsWith('#/'),
     { host: host.url(), guest: guest.url() },
   );
 } catch (error) {
@@ -277,6 +277,6 @@ try {
     report.checks.length > 0 &&
     report.checks.every((item) => item.passed) &&
     !report.error;
-  writeFileSync(join(out, "report.json"), JSON.stringify(report, null, 2));
+  writeFileSync(join(out, 'report.json'), JSON.stringify(report, null, 2));
   console.log(`report: ${out}`);
 }

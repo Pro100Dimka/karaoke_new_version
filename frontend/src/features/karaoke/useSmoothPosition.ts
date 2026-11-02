@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react';
 
 /** Only a seek snaps the drawing; ordinary IPC jitter is corrected gradually. */
 const resyncThresholdSeconds = 0.5;
@@ -14,7 +14,10 @@ export const useSmoothPosition = (
 ): number => {
   const [smooth, setSmooth] = useState(polledSeconds);
   const anchor = useRef({
-    seconds: polledSeconds, at: performance.now(), playing, rate,
+    seconds: polledSeconds,
+    at: performance.now(),
+    playing,
+    rate,
   });
   const correction = useRef(0);
   const lastPolled = useRef(polledSeconds);
@@ -25,8 +28,8 @@ export const useSmoothPosition = (
     const receivedPosition = lastPolled.current !== polledSeconds;
     lastPolled.current = polledSeconds;
     const predicted =
-      previous.seconds + (previous.playing
-        ? ((now - previous.at) / 1000) * previous.rate : 0);
+      previous.seconds +
+      (previous.playing ? ((now - previous.at) / 1000) * previous.rate : 0);
     if (
       !playing ||
       playing !== previous.playing ||
@@ -50,7 +53,10 @@ export const useSmoothPosition = (
       const elapsed = Math.max(0, (now - previousAt) / 1000);
       previousAt = now;
       const limit = elapsed * rate * 0.5;
-      const adjustment = Math.max(-limit, Math.min(limit, correction.current * (1 - Math.exp(-elapsed / 0.25))));
+      const adjustment = Math.max(
+        -limit,
+        Math.min(limit, correction.current * (1 - Math.exp(-elapsed / 0.25))),
+      );
       anchor.current.seconds += adjustment;
       correction.current -= adjustment;
       setSmooth(

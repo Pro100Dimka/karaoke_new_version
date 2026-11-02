@@ -1,4 +1,4 @@
-import type { Plugin } from "vite";
+import type { Plugin } from 'vite';
 
 /** Where the Library backdrop finds three.js, relative to the page. */
 export declare const threeVendorBase: string;

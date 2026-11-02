@@ -1,8 +1,8 @@
-import { LightBatch } from "./lightBatch";
-import { CanvasLightRenderer, type Rect } from "./canvasLightRenderer";
+import { LightBatch } from './lightBatch';
+import { CanvasLightRenderer, type Rect } from './canvasLightRenderer';
 
 type Frame = {
-  type: "frame";
+  type: 'frame';
   sprites: ArrayBuffer;
   beams: ArrayBuffer;
   spriteCount: number;
@@ -19,12 +19,14 @@ let canvas: OffscreenCanvas;
 let renderer: CanvasLightRenderer | undefined;
 const batch = new LightBatch(1400, 16);
 
-self.onmessage = (event: MessageEvent<Frame | { type: "init"; canvas: OffscreenCanvas }>) => {
+self.onmessage = (
+  event: MessageEvent<Frame | { type: 'init'; canvas: OffscreenCanvas }>,
+) => {
   const data = event.data;
-  if (data.type === "init") {
+  if (data.type === 'init') {
     canvas = data.canvas;
     renderer = CanvasLightRenderer.create(canvas);
-    self.postMessage({ type: renderer ? "ready" : "failed" });
+    self.postMessage({ type: renderer ? 'ready' : 'failed' });
     return;
   }
   if (canvas.width !== data.width) canvas.width = data.width;
@@ -34,5 +36,8 @@ self.onmessage = (event: MessageEvent<Frame | { type: "init"; canvas: OffscreenC
   batch.spriteCount = data.spriteCount;
   batch.beamCount = data.beamCount;
   renderer?.render(batch, data.time, data.view, data.protect, data.bloom);
-  self.postMessage({ type: "frame", sprites: data.sprites, beams: data.beams }, { transfer: [data.sprites, data.beams] });
+  self.postMessage(
+    { type: 'frame', sprites: data.sprites, beams: data.beams },
+    { transfer: [data.sprites, data.beams] },
+  );
 };

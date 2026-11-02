@@ -1,9 +1,9 @@
-import { useCallback, useLayoutEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { ru } from "../../i18n/messages.ru";
-import { IconButton, tr, useLocale } from "@neo-ui-kit/react";
-import type { useDetachedPanel } from "./useDetachedPanel";
-import "./detached-panel.css";
+import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { ru } from '../../i18n/messages.ru';
+import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
+import type { useDetachedPanel } from './useDetachedPanel';
+import './detached-panel.css';
 
 type DetachedPanelState = ReturnType<typeof useDetachedPanel>;
 
@@ -17,26 +17,45 @@ export const DetachedPanel = ({
   children: ReactNode;
   keepMounted?: boolean;
 }) => {
-  const [content] = useState(() => keepMounted ? document.createElement("div") : null);
-  const home = useCallback((element: HTMLDivElement | null) => {
-    if (element && content && !panel.container && content.parentNode !== element) element.append(content);
-  }, [content, panel.container]);
+  const [content] = useState(() =>
+    keepMounted ? document.createElement('div') : null,
+  );
+  const home = useCallback(
+    (element: HTMLDivElement | null) => {
+      if (
+        element &&
+        content &&
+        !panel.container &&
+        content.parentNode !== element
+      )
+        element.append(content);
+    },
+    [content, panel.container],
+  );
   useLayoutEffect(() => {
     if (!content) return;
     if (panel.container) panel.container.append(content);
-    for (const canvas of content.querySelectorAll("canvas")) {
+    for (const canvas of content.querySelectorAll('canvas')) {
       if (!canvas.width || !canvas.height) continue;
-      const context = canvas.getContext("2d");
+      const context = canvas.getContext('2d');
       if (!context) continue;
       context.save();
       context.resetTransform();
-      context.globalCompositeOperation = "copy";
+      context.globalCompositeOperation = 'copy';
       context.drawImage(canvas, 0, 0);
       context.restore();
     }
   }, [content, panel.container]);
-  return content ? <><div ref={home} />{createPortal(children, content)}</>
-    : panel.container ? createPortal(children, panel.container) : <>{children}</>;
+  return content ? (
+    <>
+      <div ref={home} />
+      {createPortal(children, content)}
+    </>
+  ) : panel.container ? (
+    createPortal(children, panel.container)
+  ) : (
+    <>{children}</>
+  );
 };
 
 /**
@@ -45,10 +64,10 @@ export const DetachedPanel = ({
  */
 export const DetachButton = ({
   panel,
-  size = "sm",
+  size = 'sm',
 }: {
   panel: DetachedPanelState;
-  size?: "xs" | "sm";
+  size?: 'xs' | 'sm';
 }) => {
   useLocale();
   if (!panel.detached) return null;

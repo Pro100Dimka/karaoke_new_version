@@ -1,6 +1,6 @@
-import { audioClient as audio } from "../../services/audioClient";
-import { useCallback, useEffect, useRef } from "react";
-import type { PlaybackSnapshot } from "../../contracts/models";
+import { audioClient as audio } from '../../services/audioClient';
+import { useCallback, useEffect, useRef } from 'react';
+import type { PlaybackSnapshot } from '../../contracts/models';
 
 const pollMilliseconds = 16;
 
@@ -41,17 +41,19 @@ export const usePositionPolling = (
     const timer = window.setInterval(() => {
       if (inFlight.current || !callbacks.current.isPollable()) return;
       const now = performance.now();
-      if (!callbacks.current.isPlaying() && now - lastPoll.current < 500) return;
+      if (!callbacks.current.isPlaying() && now - lastPoll.current < 500)
+        return;
       lastPoll.current = now;
       inFlight.current = true;
       const sequence = ++latestSequence.current;
-      void audio.snapshot()
+      void audio
+        .snapshot()
         .then((snapshot) => {
           if (sequence !== latestSequence.current) return;
           const current = callbacks.current;
           current.onSnapshot?.(snapshot);
           current.onPosition(snapshot.positionSeconds);
-          if (snapshot.state === "finished" && current.isPlaying())
+          if (snapshot.state === 'finished' && current.isPlaying())
             current.onFinished();
         })
         .catch(() => {

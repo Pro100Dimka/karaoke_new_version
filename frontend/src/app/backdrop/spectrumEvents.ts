@@ -1,6 +1,6 @@
-import type { SpectrumFrame } from "./useSpectrumFeed";
+import type { SpectrumFrame } from './useSpectrumFeed';
 
-const frameEvent = "spectrum-frame";
+const frameEvent = 'spectrum-frame';
 const bus = new EventTarget();
 
 /** The backdrop's spectrum poll is the only one; other visuals (song covers) listen here instead of polling again. */

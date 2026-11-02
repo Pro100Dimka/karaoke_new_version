@@ -1,10 +1,10 @@
-import { store } from "../../providers/store";
-import type { RefObject } from "react";
+import { store } from '../../providers/store';
+import type { RefObject } from 'react';
 import {
   useFloatingPanel,
   type PanelLayout,
   type ScreenPoint,
-} from "../../shared/ui/useFloatingPanel";
+} from '../../shared/ui/useFloatingPanel';
 const limits = { minWidth: 320, minHeight: 100, maxHeight: 480 };
 
 /**

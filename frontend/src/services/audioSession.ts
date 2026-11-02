@@ -1,10 +1,14 @@
-import { desktopBridge } from "./desktopBridge";
-import { acceptClockSample, refreshNativeClock, type NativeClockSample } from "./nativeClock";
+import { desktopBridge } from './desktopBridge';
+import {
+  acceptClockSample,
+  refreshNativeClock,
+  type NativeClockSample,
+} from './nativeClock';
 import type {
   DeviceDto,
   PlaybackSnapshot,
   RequestedAudioConfiguration,
-} from "../contracts/models";
+} from '../contracts/models';
 import {
   backendCode,
   backendName,
@@ -12,16 +16,20 @@ import {
   parseDevices,
   parseKeyValues,
   type RawDevice,
-} from "./audioProtocol";
-import { AudioReconfigurationState } from "./audioReconfiguration";
-import { defaultAudioConfiguration, safeAudioConfiguration } from "../shared/preferences/preferences";
+} from './audioProtocol';
+import { AudioReconfigurationState } from './audioReconfiguration';
+import {
+  defaultAudioConfiguration,
+  safeAudioConfiguration,
+} from '../shared/preferences/preferences';
 
 export const command = async (
   name: string,
-  args?: AudioBridgeRequest["args"],
+  args?: AudioBridgeRequest['args'],
 ): Promise<string> => {
   const response = await desktopBridge().audioRequest({ command: name, args });
-  if (response.status !== 0) throw new Error(response.text || `AudioService command failed: ${name}`);
+  if (response.status !== 0)
+    throw new Error(response.text || `AudioService command failed: ${name}`);
   return response.text;
 };
 
@@ -52,15 +60,18 @@ export const endpointArgs = (
   value: RequestedAudioConfiguration,
   inChannels = 0,
   outChannels = 0,
-): AudioBridgeRequest["args"] => {
-  const shared = value.backend === "WASAPI Shared";
+): AudioBridgeRequest['args'] => {
+  const shared = value.backend === 'WASAPI Shared';
   return {
     backend: backendCode(value.backend),
     input: value.inputDeviceId,
     output: value.outputDeviceId,
     rate: value.sampleRate,
-    period: shared ? value.periodFrames : (value.bufferFrames ?? value.periodFrames),
-    ...(shared && value.inputPeriodFrames && { inputPeriod: value.inputPeriodFrames }),
+    period: shared
+      ? value.periodFrames
+      : (value.bufferFrames ?? value.periodFrames),
+    ...(shared &&
+      value.inputPeriodFrames && { inputPeriod: value.inputPeriodFrames }),
     ...(shared && value.lowLatencyInput && { lowLatencyInput: 1 }),
     inChannels,
     outChannels,
@@ -68,22 +79,25 @@ export const endpointArgs = (
 };
 
 export const rawDevices = async (): Promise<RawDevice[]> =>
-  parseDevices(await command("GetDevices"));
+  parseDevices(await command('GetDevices'));
 
 /** Windows endpoints serve both WASAPI modes; ASIO drivers are enumerated separately. */
 const findEndpoint = (
   devices: readonly RawDevice[],
   configuration: RequestedAudioConfiguration,
-  kind: DeviceDto["kind"],
+  kind: DeviceDto['kind'],
 ): RawDevice | undefined => {
-  const id = kind === "input" ? configuration.inputDeviceId : configuration.outputDeviceId;
+  const id =
+    kind === 'input'
+      ? configuration.inputDeviceId
+      : configuration.outputDeviceId;
   if (!id) return undefined;
   return devices.find(
     (device) =>
       device.id === id &&
       device.kind === kind &&
-      (device.backend === "ASIO") === (configuration.backend === "ASIO") &&
-      (device.backend === "ASIO" || device.channels > 0),
+      (device.backend === 'ASIO') === (configuration.backend === 'ASIO') &&
+      (device.backend === 'ASIO' || device.channels > 0),
   );
 };
 
@@ -92,8 +106,10 @@ export const endpointsAvailable = (
   devices: readonly RawDevice[],
   configuration: RequestedAudioConfiguration,
 ): boolean =>
-  (!configuration.inputDeviceId || findEndpoint(devices, configuration, "input") !== undefined) &&
-  (!configuration.outputDeviceId || findEndpoint(devices, configuration, "output") !== undefined);
+  (!configuration.inputDeviceId ||
+    findEndpoint(devices, configuration, 'input') !== undefined) &&
+  (!configuration.outputDeviceId ||
+    findEndpoint(devices, configuration, 'output') !== undefined);
 
 let nativeClock: NativeClockSample | undefined;
 
@@ -101,59 +117,99 @@ let nativeClock: NativeClockSample | undefined;
 export const audioClock = (): NativeClockSample | undefined => nativeClock;
 
 export const refreshClock = async (): Promise<void> => {
-  nativeClock = await refreshNativeClock(nativeClock, () => command("GetClock"));
+  nativeClock = await refreshNativeClock(nativeClock, () =>
+    command('GetClock'),
+  );
 };
 
-export const diagnostics = async (playbackOnly = false): Promise<Record<string, string>> => {
+export const diagnostics = async (
+  playbackOnly = false,
+): Promise<Record<string, string>> => {
   const started = performance.now();
-  const values = parseKeyValues(await command(playbackOnly ? "GetPlaybackSnapshot" : "GetDiagnostics"));
+  const values = parseKeyValues(
+    await command(playbackOnly ? 'GetPlaybackSnapshot' : 'GetDiagnostics'),
+  );
   const received = performance.now();
-  nativeClock = acceptClockSample(nativeClock, Number(values.MonotonicTicks), started, received);
+  nativeClock = acceptClockSample(
+    nativeClock,
+    Number(values.MonotonicTicks),
+    started,
+    received,
+  );
   return values;
 };
 
 const sampleRateOf = (values: Record<string, string>): number =>
-  diagnosticNumber(values.RuntimeOutputSampleRate || values.RequestedSampleRate);
+  diagnosticNumber(
+    values.RuntimeOutputSampleRate || values.RequestedSampleRate,
+  );
 
-export const currentSampleRate = async (): Promise<number> => sampleRateOf(await diagnostics());
+export const currentSampleRate = async (): Promise<number> =>
+  sampleRateOf(await diagnostics());
 
-const playbackStates: Readonly<Partial<Record<number, PlaybackSnapshot["state"]>>> = {
-  3: "playing",
-  4: "paused",
-  6: "finished",
+const playbackStates: Readonly<
+  Partial<Record<number, PlaybackSnapshot['state']>>
+> = {
+  3: 'playing',
+  4: 'paused',
+  6: 'finished',
 };
 
 export const snapshot = async (
-  forcedState?: PlaybackSnapshot["state"],
+  forcedState?: PlaybackSnapshot['state'],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics(true);
   const sampleRate = sampleRateOf(values);
   const frames = diagnosticNumber(
     values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames,
   );
-  audioState.monitoring = values.MonitoringEnabled === undefined
-    ? audioState.monitoring
-    : values.MonitoringEnabled === "1";
+  audioState.monitoring =
+    values.MonitoringEnabled === undefined
+      ? audioState.monitoring
+      : values.MonitoringEnabled === '1';
   return {
     sessionId: audioState.sessionId,
-    state: forcedState ?? playbackStates[Number(values.PlaybackState ?? 2)] ?? "ready",
+    state:
+      forcedState ??
+      playbackStates[Number(values.PlaybackState ?? 2)] ??
+      'ready',
     positionSeconds: sampleRate > 0 ? frames / sampleRate : 0,
     durationSeconds: audioState.durationSeconds,
     monitoring: audioState.monitoring,
-    monitoringSafetyTripped: values.MonitoringSafetyTripped === "1",
+    monitoringSafetyTripped: values.MonitoringSafetyTripped === '1',
     inputLevel: diagnosticNumber(values.InputRMS),
     pitchHz: diagnosticNumber(values.InputPitchHz) || undefined,
-    pitchFrames: values.InputPitchHistory === undefined ? undefined : values.InputPitchHistory.split("|").flatMap((entry) => {
-      const fields = entry.split(",").map(Number);
-      if (![4, 5, 6].includes(fields.length) || fields.some((value) => !Number.isFinite(value) || value < 0) || sampleRate <= 0 ||
-          (fields.length >= 5 && fields[4] !== 0 && fields[4] !== 1) ||
-          (fields.length === 6 && fields[5]! > 1)) return [];
-      const [sequence, position, duration, pitch] = fields as [number, number, number, number];
-      return [{ sequence, epoch: diagnosticNumber(values.InputPitchEpoch), positionSeconds: position / sampleRate,
-        durationSeconds: duration / sampleRate, pitchHz: pitch || undefined,
-        audioActive: fields.length >= 5 ? fields[4] === 1 : undefined,
-        confidence: fields[5] }];
-    }),
+    pitchFrames:
+      values.InputPitchHistory === undefined
+        ? undefined
+        : values.InputPitchHistory.split('|').flatMap((entry) => {
+            const fields = entry.split(',').map(Number);
+            if (
+              ![4, 5, 6].includes(fields.length) ||
+              fields.some((value) => !Number.isFinite(value) || value < 0) ||
+              sampleRate <= 0 ||
+              (fields.length >= 5 && fields[4] !== 0 && fields[4] !== 1) ||
+              (fields.length === 6 && fields[5]! > 1)
+            )
+              return [];
+            const [sequence, position, duration, pitch] = fields as [
+              number,
+              number,
+              number,
+              number,
+            ];
+            return [
+              {
+                sequence,
+                epoch: diagnosticNumber(values.InputPitchEpoch),
+                positionSeconds: position / sampleRate,
+                durationSeconds: duration / sampleRate,
+                pitchHz: pitch || undefined,
+                audioActive: fields.length >= 5 ? fields[4] === 1 : undefined,
+                confidence: fields[5],
+              },
+            ];
+          }),
   };
 };
 
@@ -167,10 +223,11 @@ export const waitForReady = async (): Promise<void> => {
   do {
     const state = Number((await diagnostics()).PlaybackState ?? 0);
     if (loadedPlaybackStates.has(state)) return;
-    if (state === failedPlaybackState) throw new Error("AudioService failed to load the song");
+    if (state === failedPlaybackState)
+      throw new Error('AudioService failed to load the song');
     await new Promise((resolve) => window.setTimeout(resolve, 25));
   } while (performance.now() < deadline);
-  throw new Error("AudioService song loading timed out");
+  throw new Error('AudioService song loading timed out');
 };
 
 /** Opens the configuration's endpoints; a failing ASIO driver falls back to the default endpoints. */
@@ -178,17 +235,20 @@ const openEndpoints = async (
   configuration: RequestedAudioConfiguration,
   devices: readonly RawDevice[],
 ): Promise<RequestedAudioConfiguration> => {
-  const input = findEndpoint(devices, configuration, "input");
-  const output = findEndpoint(devices, configuration, "output");
+  const input = findEndpoint(devices, configuration, 'input');
+  const output = findEndpoint(devices, configuration, 'output');
   try {
-    await command("PrepareSession", endpointArgs(configuration, input?.channels ?? 0, output?.channels ?? 0));
-    await command("StartSession");
+    await command(
+      'PrepareSession',
+      endpointArgs(configuration, input?.channels ?? 0, output?.channels ?? 0),
+    );
+    await command('StartSession');
     return configuration;
   } catch (error) {
-    if (configuration.backend !== "ASIO") throw error;
-    await command("StopSession");
-    await command("PrepareSession", endpointArgs(defaultConfiguration));
-    await command("StartSession");
+    if (configuration.backend !== 'ASIO') throw error;
+    await command('StopSession');
+    await command('PrepareSession', endpointArgs(defaultConfiguration));
+    await command('StartSession');
     return defaultConfiguration;
   }
 };
@@ -197,11 +257,12 @@ const openEndpoints = async (
  * replayed so the new session sounds exactly like the knobs show. */
 const replaySessionSettings = async (): Promise<void> => {
   for (const [target, value] of audioState.reconfiguration.mixerGains)
-    await command("SetGain", { target, value });
+    await command('SetGain', { target, value });
   for (const [name, value] of audioState.dspParameters)
-    await command("SetDspParameter", { name, value });
-  if (audioState.dspEnabled) await command("SetDspEnabled", { enabled: true });
-  if (!audioState.microphoneEnabled) await command("SetMicrophoneEnabled", { enabled: false });
+    await command('SetDspParameter', { name, value });
+  if (audioState.dspEnabled) await command('SetDspEnabled', { enabled: true });
+  if (!audioState.microphoneEnabled)
+    await command('SetMicrophoneEnabled', { enabled: false });
 };
 
 /** Why minimum microphone latency did not take effect, and whether the microphone still works. */
@@ -210,8 +271,10 @@ export interface MicrophoneFallback {
   /** False when another application holds the microphone exclusively: audio runs without it. */
   microphoneAvailable: boolean;
 }
-const microphoneFallbackListeners = new Set<(fallback: MicrophoneFallback) => void>();
-let reportedMicrophoneContext = "";
+const microphoneFallbackListeners = new Set<
+  (fallback: MicrophoneFallback) => void
+>();
+let reportedMicrophoneContext = '';
 
 /** Subscribes to "minimum microphone latency" that was asked for but stayed in shared mode. */
 export const onLowLatencyMicrophoneFallback = (
@@ -227,17 +290,17 @@ export const onLowLatencyMicrophoneFallback = (
  * microphone could not be used. AudioService already fell back to the shared microphone. */
 export const reportMicrophoneMode = async (): Promise<void> => {
   const values = await diagnostics();
-  const context = values.AcousticCalibrationContext ?? "";
+  const context = values.AcousticCalibrationContext ?? '';
   if (
-    values.LowLatencyMicrophoneRequested !== "1" ||
-    values.LowLatencyMicrophoneActive === "1" ||
+    values.LowLatencyMicrophoneRequested !== '1' ||
+    values.LowLatencyMicrophoneActive === '1' ||
     context === reportedMicrophoneContext
   )
     return;
   reportedMicrophoneContext = context;
   const fallback = {
-    reason: values.LowLatencyMicrophoneFallback ?? "UNKNOWN",
-    microphoneAvailable: (values.InputUnavailableReason ?? "NONE") === "NONE",
+    reason: values.LowLatencyMicrophoneFallback ?? 'UNKNOWN',
+    microphoneAvailable: (values.InputUnavailableReason ?? 'NONE') === 'NONE',
   };
   for (const listener of microphoneFallbackListeners) listener(fallback);
 };
@@ -245,16 +308,17 @@ export const reportMicrophoneMode = async (): Promise<void> => {
 const startSession = async (): Promise<void> => {
   const values = await diagnostics();
   const state = values.SessionState;
-  if (state === "Running") return;
+  if (state === 'Running') return;
   // A session prepared in another mode than the chosen one is prepared again, never started as is.
   const chosenMode =
-    values.Backend === undefined || backendName(values.Backend) === audioState.preferred.backend;
-  if (state === "Prepared" && chosenMode) {
-    await command("StartSession");
+    values.Backend === undefined ||
+    backendName(values.Backend) === audioState.preferred.backend;
+  if (state === 'Prepared' && chosenMode) {
+    await command('StartSession');
     return;
   }
   // Preparing is only allowed from Idle, so a failed or half-open session is closed first.
-  if (state !== "Idle") await command("StopSession");
+  if (state !== 'Idle') await command('StopSession');
   const devices = await rawDevices();
   const safe = safeAudioConfiguration(audioState.preferred, devices);
   if (safe !== audioState.preferred) audioState.preferred = safe;
@@ -265,7 +329,8 @@ const startSession = async (): Promise<void> => {
     : defaultConfiguration;
   audioState.active = await openEndpoints(configuration, devices);
   await replaySessionSettings();
-  if (audioState.active.lowLatencyInput) await reportMicrophoneMode().catch(() => undefined);
+  if (audioState.active.lowLatencyInput)
+    await reportMicrophoneMode().catch(() => undefined);
 };
 
 let sessionStart: Promise<void> | null = null;

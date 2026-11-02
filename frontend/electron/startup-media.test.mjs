@@ -1,44 +1,49 @@
-import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import test from "node:test";
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
-const splash = readFileSync(new URL("./splash.html", import.meta.url), "utf8");
-const index = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const main = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+const splash = readFileSync(new URL('./splash.html', import.meta.url), 'utf8');
+const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const main = readFileSync(new URL('./main.ts', import.meta.url), 'utf8');
 // Startup is split by responsibility; these facts hold for the main process as a whole.
-const mainProcess = ["./main.ts", "./AppPaths.ts", "./ManagedServices.ts", "./DesktopIpc.ts"]
-  .map((file) => readFileSync(new URL(file, import.meta.url), "utf8"))
-  .join("\n");
+const mainProcess = [
+  './main.ts',
+  './AppPaths.ts',
+  './ManagedServices.ts',
+  './DesktopIpc.ts',
+]
+  .map((file) => readFileSync(new URL(file, import.meta.url), 'utf8'))
+  .join('\n');
 const identity = readFileSync(
-  new URL("./RuntimeIdentity.ts", import.meta.url),
-  "utf8",
+  new URL('./RuntimeIdentity.ts', import.meta.url),
+  'utf8',
 );
 const audioTransport = readFileSync(
-  new URL("./AudioServiceTransport.ts", import.meta.url),
-  "utf8",
+  new URL('./AudioServiceTransport.ts', import.meta.url),
+  'utf8',
 );
 const audioMain = readFileSync(
-  new URL("../../AudioService/src/app/main.cpp", import.meta.url),
-  "utf8",
+  new URL('../../AudioService/src/app/main.cpp', import.meta.url),
+  'utf8',
 );
 const audioEndpoint = readFileSync(
-  new URL("../../AudioService/src/ipc/ControlEndpoint.hpp", import.meta.url),
-  "utf8",
+  new URL('../../AudioService/src/ipc/ControlEndpoint.hpp', import.meta.url),
+  'utf8',
 );
 const roomTransport = readFileSync(
-  new URL("./RoomServerTransport.ts", import.meta.url),
-  "utf8",
+  new URL('./RoomServerTransport.ts', import.meta.url),
+  'utf8',
 );
 
-test("startup splash contains only the glowing theme icon on a transparent page", () => {
+test('startup splash contains only the glowing theme icon on a transparent page', () => {
   assert.match(splash, /background:\s*transparent/);
   assert.match(splash, /<image\s+id="icon"/i);
   assert.match(splash, /animation:\s*glow/);
   assert.doesNotMatch(splash, /class="loader"/);
 });
 
-test("splash forces a transparent compositor surface before it is shown", () => {
-  const source = readFileSync(new URL("./Splash.ts", import.meta.url), "utf8");
+test('splash forces a transparent compositor surface before it is shown', () => {
+  const source = readFileSync(new URL('./Splash.ts', import.meta.url), 'utf8');
   assert.match(source, /transparent:\s*true/);
   assert.match(source, /backgroundColor:\s*"#00000000"/);
   assert.match(source, /setBackgroundColor\("#00000000"\)/);
@@ -47,21 +52,21 @@ test("splash forces a transparent compositor surface before it is shown", () => 
   assert.doesNotMatch(source, /once\("ready-to-show"/);
 });
 
-test("content policy permits recognized cover art and only local downloaded clips", () => {
+test('content policy permits recognized cover art and only local downloaded clips', () => {
   assert.match(index, /img-src[^;]*https:/);
   assert.match(index, /img-src[^;]*http:\/\/127\.0\.0\.1:\*/);
   assert.match(index, /media-src[^;]*http:\/\/127\.0\.0\.1:\*/);
   assert.match(index, /frame-src\s+'self';/);
 });
 
-test("packaged Electron launches its bundled backend and media tools", () => {
+test('packaged Electron launches its bundled backend and media tools', () => {
   assert.match(mainProcess, /app\.isPackaged/);
   assert.match(mainProcess, /python-runtime/);
   assert.match(mainProcess, /python-app/);
   assert.match(mainProcess, /process\.resourcesPath,[\s\S]{0,80}"tools"/);
 });
 
-test("development and installed apps use isolated profiles and service endpoints", () => {
+test('development and installed apps use isolated profiles and service endpoints', () => {
   assert.match(main, /configureRuntimeIdentity\(app\)/);
   assert.match(identity, /\["userData", userData\]/);
   assert.match(identity, /for \(const \[name, folder\] of runtimePaths\)/);
@@ -76,25 +81,31 @@ test("development and installed apps use isolated profiles and service endpoints
   assert.match(audioEndpoint, /AD_VOICE_AUDIO_ENDPOINT/);
 });
 
-test("every room participant binds an ephemeral local UDP port", () => {
+test('every room participant binds an ephemeral local UDP port', () => {
   assert.match(roomTransport, /localPort:\s*0/);
   assert.doesNotMatch(roomTransport, /localPort:\s*roomServerRelayPort/);
 });
 
-test("packaged settings are seeded once and remain in writable user data", () => {
+test('packaged settings are seeded once and remain in writable user data', () => {
   assert.match(mainProcess, /path\.join\(dataRoot,\s*"environment",\s*name\)/);
   assert.match(
     mainProcess,
     /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/,
   );
-  assert.match(mainProcess, /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/);
-  assert.match(mainProcess, /copyFileSync\(source,\s*target,\s*fs\.constants\.COPYFILE_EXCL/);
+  assert.match(
+    mainProcess,
+    /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/,
+  );
+  assert.match(
+    mainProcess,
+    /copyFileSync\(source,\s*target,\s*fs\.constants\.COPYFILE_EXCL/,
+  );
   assert.match(mainProcess, /AD_VOICE_PROJECT_ENV_FILE:\s*files\.project/);
   assert.match(mainProcess, /AD_VOICE_ENV_FILE:\s*files\.python/);
   assert.match(mainProcess, /AD_VOICE_FRONTEND_ENV_FILE:\s*files\.frontend/);
 });
 
-test("data storage root is persisted outside the project and selectable from settings", () => {
+test('data storage root is persisted outside the project and selectable from settings', () => {
   assert.match(mainProcess, /storage-root\.txt/);
   assert.match(mainProcess, /getPath\("userData"\)/);
   assert.match(mainProcess, /ipcChannels\.pickStorageFolder/);

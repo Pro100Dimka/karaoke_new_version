@@ -1,4 +1,4 @@
-import dgram from "node:dgram";
+import dgram from 'node:dgram';
 
 const keyAt = (packet) => (packet.length >= 16 ? packet.readUInt32LE(12) : 0);
 const sequenceAt = (packet) =>
@@ -8,9 +8,9 @@ const timestampAt = (packet) =>
 
 const bind = (socket) =>
   new Promise((resolve, reject) => {
-    socket.once("error", reject);
-    socket.bind(0, "127.0.0.1", () => {
-      socket.off("error", reject);
+    socket.once('error', reject);
+    socket.bind(0, '127.0.0.1', () => {
+      socket.off('error', reject);
       resolve(socket.address().port);
     });
   });
@@ -24,11 +24,11 @@ const send = (socket, packet, endpoint) =>
 
 /** Routes client packets to the Room Server and sends its centrally mixed replies back. */
 export async function createRoomServerProxy({
-  serverHost = "127.0.0.1",
+  serverHost = '127.0.0.1',
   serverPort,
   impair = () => ({ delayMs: 0, dropped: false }),
 }) {
-  const proxy = dgram.createSocket("udp4");
+  const proxy = dgram.createSocket('udp4');
   const clients = new Map();
   const upstreams = new Map();
   const timers = new Set();
@@ -62,20 +62,20 @@ export async function createRoomServerProxy({
   const getUpstream = async (key) => {
     let item = upstreams.get(key);
     if (item) return item;
-    const socket = dgram.createSocket("udp4");
+    const socket = dgram.createSocket('udp4');
     const port = await bind(socket);
     item = { socket, port };
     upstreams.set(key, item);
-    socket.on("message", (packet) => {
+    socket.on('message', (packet) => {
       const endpoint = clients.get(key);
       if (endpoint) {
         downstreamPackets += 1;
-        schedule(packet, proxy, endpoint, "downstream", key);
+        schedule(packet, proxy, endpoint, 'downstream', key);
       }
     });
     return item;
   };
-  proxy.on("message", async (packet, source) => {
+  proxy.on('message', async (packet, source) => {
     const key = keyAt(packet);
     if (!key) return;
     clients.set(key, { address: source.address, port: source.port });
@@ -85,7 +85,7 @@ export async function createRoomServerProxy({
       packet,
       upstream.socket,
       { address: serverHost, port: serverPort },
-      "upstream",
+      'upstream',
       key,
     );
   });

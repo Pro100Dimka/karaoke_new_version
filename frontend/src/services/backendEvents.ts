@@ -3,7 +3,7 @@
  * desktop bridge (a plain browser, unit tests) nothing is pushed and callers fall back to polling.
  */
 export const backendEventsAvailable = (): boolean =>
-  typeof window.desktop?.onBackendEvent === "function";
+  typeof window.desktop?.onBackendEvent === 'function';
 
 const libraryListeners = new Set<() => void>();
 export const libraryChanged = (): void => {
@@ -14,13 +14,29 @@ export const libraryChanged = (): void => {
 export const onLibraryChange = (listener: () => void): (() => void) => {
   libraryListeners.add(listener);
   const unsubscribe = window.desktop?.onBackendEvent?.((raw) => {
-    const event = raw as { type?: string; data?: { type?: string; state?: string } } | null;
-    if (event?.type === "connected" || (event?.type === "job.changed" &&
-        ["SongImport", "SongProcessing", "PackageImport", "LibraryReconciliation"].includes(event.data?.type ?? "") &&
-        ["Queued", "Succeeded", "Failed", "Cancelled", "Interrupted"].includes(event.data?.state ?? "")))
+    const event = raw as {
+      type?: string;
+      data?: { type?: string; state?: string };
+    } | null;
+    if (
+      event?.type === 'connected' ||
+      (event?.type === 'job.changed' &&
+        [
+          'SongImport',
+          'SongProcessing',
+          'PackageImport',
+          'LibraryReconciliation',
+        ].includes(event.data?.type ?? '') &&
+        ['Queued', 'Succeeded', 'Failed', 'Cancelled', 'Interrupted'].includes(
+          event.data?.state ?? '',
+        ))
+    )
       listener();
   });
-  return () => { libraryListeners.delete(listener); unsubscribe?.(); };
+  return () => {
+    libraryListeners.delete(listener);
+    unsubscribe?.();
+  };
 };
 
 /**
@@ -31,13 +47,13 @@ export const onJobChange = (
   listener: (jobId: string | null) => void,
 ): (() => void) => {
   const subscribe = window.desktop?.onBackendEvent;
-  if (typeof subscribe !== "function") return () => undefined;
+  if (typeof subscribe !== 'function') return () => undefined;
   return subscribe((raw) => {
     const event = raw as { type?: unknown; data?: { jobId?: unknown } } | null;
-    if (event?.type === "connected") listener(null);
+    if (event?.type === 'connected') listener(null);
     else if (
-      event?.type === "job.changed" &&
-      typeof event.data?.jobId === "string"
+      event?.type === 'job.changed' &&
+      typeof event.data?.jobId === 'string'
     )
       listener(event.data.jobId);
   });

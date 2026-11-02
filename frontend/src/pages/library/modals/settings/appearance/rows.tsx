@@ -1,9 +1,22 @@
 import { FilePicker, themes, tr } from '@neo-ui-kit/react';
 import { appThemes } from '../../../../../providers/theme/variants';
 import { fonts, radioStations } from '../../../../../utils/consts';
-import type { FormBlock, SettingsFormValues } from '../../../../../utils/contracts';
+import type {
+  FormBlock,
+  SettingsFormValues,
+} from '../../../../../utils/contracts';
 
-export const blocks = (values: Pick<SettingsFormValues, "profile" | "interface" | "application" | "integrations" | "radio" | "keyboardLighting">) => {
+export const blocks = (
+  values: Pick<
+    SettingsFormValues,
+    | 'profile'
+    | 'interface'
+    | 'application'
+    | 'integrations'
+    | 'radio'
+    | 'keyboardLighting'
+  >,
+) => {
   const canControlRadio = values.radio.canControl;
   const fontOptions = Object.entries(fonts).map(([value, [label, font]]) => ({
     value,

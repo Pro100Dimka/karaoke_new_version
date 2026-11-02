@@ -1,10 +1,10 @@
-import { execFile } from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
+import { execFile } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 export interface KeyboardLightingCapabilities {
   available: boolean;
-  provider?: "OpenRGB";
+  provider?: 'OpenRGB';
   deviceCount: number;
 }
 
@@ -26,7 +26,7 @@ export const parseOpenRgbKeyboards = (output: string): OpenRgbKeyboard[] => {
   for (const line of output.split(/\r?\n/)) {
     const heading = /^\s*(\d+):\s*(.+?)\s*$/.exec(line);
     if (heading) {
-      devices.push({ index: Number(heading[1]), name: heading[2] ?? "" });
+      devices.push({ index: Number(heading[1]), name: heading[2] ?? '' });
       continue;
     }
     const type = /^\s*Type:\s*(.+?)\s*$/i.exec(line);
@@ -34,7 +34,7 @@ export const parseOpenRgbKeyboards = (output: string): OpenRgbKeyboard[] => {
     if (type && current) current.type = type[1];
   }
   return devices
-    .filter((device) => device.type?.toLowerCase() === "keyboard")
+    .filter((device) => device.type?.toLowerCase() === 'keyboard')
     .map(({ index, name }) => ({ index, name }));
 };
 
@@ -63,14 +63,14 @@ export class OpenRgbKeyboardLighting {
   async capabilities(): Promise<KeyboardLightingCapabilities> {
     try {
       this.keyboards = parseOpenRgbKeyboards(
-        await this.run(["--list-devices"]),
+        await this.run(['--list-devices']),
       );
     } catch {
       this.keyboards = [];
     }
     return {
       available: this.keyboards.length > 0,
-      provider: this.keyboards.length ? "OpenRGB" : undefined,
+      provider: this.keyboards.length ? 'OpenRGB' : undefined,
       deviceCount: this.keyboards.length,
     };
   }
@@ -81,15 +81,15 @@ export class OpenRgbKeyboardLighting {
     const color =
       request.enabled && /^[0-9a-f]{6}$/i.test(request.color)
         ? request.color.toUpperCase()
-        : "000000";
+        : '000000';
     const args = this.keyboards.flatMap((keyboard) => [
-      "--device",
+      '--device',
       String(keyboard.index),
-      "--mode",
-      "direct",
-      "--color",
+      '--mode',
+      'direct',
+      '--color',
       color,
-      "--brightness",
+      '--brightness',
       String(clampPercentage(request.brightness)),
     ]);
     await this.run(args);
@@ -97,21 +97,21 @@ export class OpenRgbKeyboardLighting {
 }
 
 const executableNames =
-  process.platform === "win32" ? ["OpenRGB.exe"] : ["openrgb", "OpenRGB"];
+  process.platform === 'win32' ? ['OpenRGB.exe'] : ['openrgb', 'OpenRGB'];
 
 export const findOpenRgbExecutable = (): string | undefined => {
   const candidates = [
     process.env.AD_VOICE_OPENRGB,
-    ...String(process.env.PATH ?? "")
+    ...String(process.env.PATH ?? '')
       .split(path.delimiter)
       .flatMap((root) => executableNames.map((name) => path.join(root, name))),
-    ...[process.env.ProgramFiles, process.env["ProgramFiles(x86)"]]
+    ...[process.env.ProgramFiles, process.env['ProgramFiles(x86)']]
       .filter((root): root is string => Boolean(root))
-      .map((root) => path.join(root, "OpenRGB", "OpenRGB.exe")),
+      .map((root) => path.join(root, 'OpenRGB', 'OpenRGB.exe')),
   ];
   return candidates.find(
     (candidate): candidate is string =>
-      typeof candidate === "string" &&
+      typeof candidate === 'string' &&
       candidate.length > 0 &&
       fs.existsSync(candidate),
   );

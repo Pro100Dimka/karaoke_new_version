@@ -1,109 +1,129 @@
-import { describe, expect, it } from "vitest";
-import {
-  defaultAudioRequest,
-  parsePreferences,
-} from "./preferences";
+import { describe, expect, it } from 'vitest';
+import { defaultAudioRequest, parsePreferences } from './preferences';
 
-describe("parsePreferences", () => {
+describe('parsePreferences', () => {
   it("persists the user's local karaoke monitoring choice", () => {
     expect(parsePreferences({}).karaokeMonitoring).toBe(false);
-    expect(parsePreferences({ karaokeMonitoring: true }).karaokeMonitoring).toBe(true);
-    expect(parsePreferences({ karaokeMonitoring: "true" }).karaokeMonitoring).toBe(false);
+    expect(
+      parsePreferences({ karaokeMonitoring: true }).karaokeMonitoring,
+    ).toBe(true);
+    expect(
+      parsePreferences({ karaokeMonitoring: 'true' }).karaokeMonitoring,
+    ).toBe(false);
   });
-  it("uses the selected device system format on first launch", () => {
+  it('uses the selected device system format on first launch', () => {
     expect(defaultAudioRequest()).toMatchObject({
       sampleRate: 0,
       periodFrames: 0,
       bufferFrames: 0,
     });
   });
-  it("migrates a former full-Exclusive choice to Windows that is sure to start", () => {
+  it('migrates a former full-Exclusive choice to Windows that is sure to start', () => {
     const audio = parsePreferences({
-      audio: { backend: "WASAPI Exclusive", inputDeviceId: "mic", outputDeviceId: "out",
-        sampleRate: 96000, periodFrames: 64, bufferFrames: 128 },
+      audio: {
+        backend: 'WASAPI Exclusive',
+        inputDeviceId: 'mic',
+        outputDeviceId: 'out',
+        sampleRate: 96000,
+        periodFrames: 64,
+        bufferFrames: 128,
+      },
     }).audio;
-    expect(audio).toEqual({ ...defaultAudioRequest(), inputDeviceId: "mic", outputDeviceId: "out" });
+    expect(audio).toEqual({
+      ...defaultAudioRequest(),
+      inputDeviceId: 'mic',
+      outputDeviceId: 'out',
+    });
     expect(audio.lowLatencyInput).toBeUndefined();
   });
   it("keeps Windows' minimum microphone latency only for Windows", () => {
-    expect(parsePreferences({ audio: { backend: "WASAPI Shared" } }).audio.lowLatencyInput)
-      .toBeUndefined();
-    expect(parsePreferences({ audio: { backend: "WASAPI Shared", lowLatencyInput: true } }).audio
-      .lowLatencyInput).toBe(true);
-    expect(parsePreferences({ audio: { backend: "ASIO", lowLatencyInput: true } }).audio
-      .lowLatencyInput).toBeUndefined();
+    expect(
+      parsePreferences({ audio: { backend: 'WASAPI Shared' } }).audio
+        .lowLatencyInput,
+    ).toBeUndefined();
+    expect(
+      parsePreferences({
+        audio: { backend: 'WASAPI Shared', lowLatencyInput: true },
+      }).audio.lowLatencyInput,
+    ).toBe(true);
+    expect(
+      parsePreferences({ audio: { backend: 'ASIO', lowLatencyInput: true } })
+        .audio.lowLatencyInput,
+    ).toBeUndefined();
   });
-  it("remembers that ASIO was chosen deliberately", () => {
-    expect(parsePreferences({ audio: { backend: "ASIO", userSelectedAsio: true } }).audio)
-      .toMatchObject({ backend: "ASIO", userSelectedAsio: true });
+  it('remembers that ASIO was chosen deliberately', () => {
+    expect(
+      parsePreferences({ audio: { backend: 'ASIO', userSelectedAsio: true } })
+        .audio,
+    ).toMatchObject({ backend: 'ASIO', userSelectedAsio: true });
   });
-  it("falls back to defaults for unknown values", () => {
+  it('falls back to defaults for unknown values', () => {
     const value = parsePreferences({
-      theme: "neon",
-      language: "de",
+      theme: 'neon',
+      language: 'de',
       musicGain: 4,
     });
-    expect(value.theme).toBe("dark");
-    expect(value.language).toBe("ru");
+    expect(value.theme).toBe('dark');
+    expect(value.language).toBe('ru');
     expect(value.musicGain).toBe(0.82);
     expect(value.referenceGain).toBe(0);
     expect(value.melodyGain).toBe(0);
     expect(value.releaseAsioInBackground).toBe(false);
   });
 
-  it("keeps the chosen fonts and starts from Melodix titles over Segoe UI text", () => {
+  it('keeps the chosen fonts and starts from Melodix titles over Segoe UI text', () => {
     expect(parsePreferences({})).toMatchObject({
-      headingFont: "melodix",
-      textFont: "segoe",
+      headingFont: 'melodix',
+      textFont: 'segoe',
     });
     expect(
-      parsePreferences({ headingFont: "serif", textFont: "humanist" }),
-    ).toMatchObject({ headingFont: "serif", textFont: "humanist" });
+      parsePreferences({ headingFont: 'serif', textFont: 'humanist' }),
+    ).toMatchObject({ headingFont: 'serif', textFont: 'humanist' });
     expect(
-      parsePreferences({ headingFont: "comic", textFont: 3 }),
-    ).toMatchObject({ headingFont: "melodix", textFont: "segoe" });
+      parsePreferences({ headingFont: 'comic', textFont: 3 }),
+    ).toMatchObject({ headingFont: 'melodix', textFont: 'segoe' });
   });
 
-  it("moves text left on the old Melodix default to Segoe UI once, but keeps it if chosen later", () => {
-    expect(parsePreferences({ textFont: "melodixText" }).textFont).toBe(
-      "segoe",
+  it('moves text left on the old Melodix default to Segoe UI once, but keeps it if chosen later', () => {
+    expect(parsePreferences({ textFont: 'melodixText' }).textFont).toBe(
+      'segoe',
     );
-    const saved = parsePreferences({ textFont: "segoe" });
+    const saved = parsePreferences({ textFont: 'segoe' });
     expect(
-      parsePreferences({ ...saved, textFont: "melodixText" }).textFont,
-    ).toBe("melodixText");
+      parsePreferences({ ...saved, textFont: 'melodixText' }).textFont,
+    ).toBe('melodixText');
   });
-  it("restores the option that releases ASIO while the app is in the background", () => {
+  it('restores the option that releases ASIO while the app is in the background', () => {
     expect(
       parsePreferences({ releaseAsioInBackground: true })
         .releaseAsioInBackground,
     ).toBe(true);
     expect(
-      parsePreferences({ releaseAsioInBackground: "yes" })
+      parsePreferences({ releaseAsioInBackground: 'yes' })
         .releaseAsioInBackground,
     ).toBe(false);
   });
 
-  it("keeps a karaoke master volume up to 150% and rejects louder values", () => {
+  it('keeps a karaoke master volume up to 150% and rejects louder values', () => {
     expect(parsePreferences({}).masterGain).toBe(1);
     expect(parsePreferences({ masterGain: 1.5 }).masterGain).toBe(1.5);
     expect(parsePreferences({ masterGain: 0.25 }).masterGain).toBe(0.25);
     expect(parsePreferences({ masterGain: 1.6 }).masterGain).toBe(1);
   });
 
-  it("restores the microphone level across the full 0-400% knob range", () => {
+  it('restores the microphone level across the full 0-400% knob range', () => {
     expect(parsePreferences({ voiceGain: 1.37 }).voiceGain).toBe(1.37);
     expect(parsePreferences({ voiceGain: 2 }).voiceGain).toBe(2);
     expect(parsePreferences({ voiceGain: 4 }).voiceGain).toBe(4);
     expect(parsePreferences({ voiceGain: 4.01 }).voiceGain).toBe(0.68);
   });
 
-  it("keeps valid stored values", () => {
+  it('keeps valid stored values', () => {
     const value = parsePreferences({
-      theme: "violet",
-      language: "uk",
-      librarySort: "played",
-      librarySortDirection: "asc",
+      theme: 'violet',
+      language: 'uk',
+      librarySort: 'played',
+      librarySortDirection: 'asc',
       reducedMotion: true,
       referenceGain: 0.37,
       karaokeSpeed: 0.85,
@@ -112,16 +132,16 @@ describe("parsePreferences", () => {
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
       keyboardLighting: {
         enabled: true,
-        mode: "music",
+        mode: 'music',
         brightness: 72,
         sensitivity: 61,
       },
     });
     expect(value).toMatchObject({
-      theme: "violet",
-      language: "uk",
-      librarySort: "played",
-      librarySortDirection: "asc",
+      theme: 'violet',
+      language: 'uk',
+      librarySort: 'played',
+      librarySortDirection: 'asc',
       reducedMotion: true,
       referenceGain: 0.37,
       karaokeSpeed: 0.85,
@@ -130,32 +150,32 @@ describe("parsePreferences", () => {
       pianoRollLayout: { left: 12, top: 34, width: 500, height: 200 },
       keyboardLighting: {
         enabled: true,
-        mode: "music",
+        mode: 'music',
         brightness: 72,
         sensitivity: 61,
       },
     });
   });
 
-  it("restores the saved profile photo with the rest of the local profile", () => {
-    const photo = "data:image/webp;base64,cHJvZmlsZQ==";
+  it('restores the saved profile photo with the rest of the local profile', () => {
+    const photo = 'data:image/webp;base64,cHJvZmlsZQ==';
 
     expect(
-      parsePreferences({ displayName: "Yojik", profilePhoto: photo }),
+      parsePreferences({ displayName: 'Yojik', profilePhoto: photo }),
     ).toMatchObject({
-      displayName: "Yojik",
+      displayName: 'Yojik',
       profilePhoto: photo,
     });
     expect(
-      parsePreferences({ profilePhoto: "https://example.test/tracker.png" })
+      parsePreferences({ profilePhoto: 'https://example.test/tracker.png' })
         .profilePhoto,
-    ).toBe("");
+    ).toBe('');
   });
 
-  it("uses safe keyboard lighting defaults and clamps invalid stored controls", () => {
+  it('uses safe keyboard lighting defaults and clamps invalid stored controls', () => {
     expect(parsePreferences({}).keyboardLighting).toEqual({
       enabled: false,
-      mode: "theme",
+      mode: 'theme',
       brightness: 70,
       sensitivity: 50,
     });
@@ -163,29 +183,29 @@ describe("parsePreferences", () => {
       parsePreferences({
         keyboardLighting: {
           enabled: true,
-          mode: "random",
+          mode: 'random',
           brightness: 101,
           sensitivity: -1,
         },
       }).keyboardLighting,
     ).toEqual({
       enabled: true,
-      mode: "theme",
+      mode: 'theme',
       brightness: 70,
       sensitivity: 50,
     });
   });
 
-  it("keeps a latency calibration per device path and drops invalid measurements", () => {
-    const key = "ASIO,in,out,48000,48000,64,64,64,64";
+  it('keeps a latency calibration per device path and drops invalid measurements', () => {
+    const key = 'ASIO,in,out,48000,48000,64,64,64,64';
     expect(
       parsePreferences({
-        acousticLatencyMs: { [key]: 28, bad: -1, huge: 900, text: "5" },
+        acousticLatencyMs: { [key]: 28, bad: -1, huge: 900, text: '5' },
       }).acousticLatencyMs,
     ).toEqual({ [key]: 28 });
   });
 
-  it("discards a stored piano roll layout that is malformed or has no size", () => {
+  it('discards a stored piano roll layout that is malformed or has no size', () => {
     expect(
       parsePreferences({ pianoRollLayout: { left: 1, top: 2 } })
         .pianoRollLayout,
@@ -196,7 +216,7 @@ describe("parsePreferences", () => {
       }).pianoRollLayout,
     ).toBeNull();
     expect(
-      parsePreferences({ pianoRollLayout: "nope" }).pianoRollLayout,
+      parsePreferences({ pianoRollLayout: 'nope' }).pianoRollLayout,
     ).toBeNull();
   });
 });

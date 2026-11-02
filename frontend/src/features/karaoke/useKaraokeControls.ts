@@ -1,29 +1,29 @@
-import { store } from "../../providers/store";
-import { useLocale } from "@neo-ui-kit/react";
-import { monitoringErrorText } from "../../shared/errors";
-import { audioClient } from "../../services/audioClient";
-import { recordingCoordinator } from "../../services/recordingCoordinator";
-import { canControlRoom } from "../../application/room/roomModel";
+import { store } from '../../providers/store';
+import { useLocale } from '@neo-ui-kit/react';
+import { monitoringErrorText } from '../../shared/errors';
+import { audioClient } from '../../services/audioClient';
+import { recordingCoordinator } from '../../services/recordingCoordinator';
+import { canControlRoom } from '../../application/room/roomModel';
 import {
   useCallback,
   useEffect,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
-} from "react";
-import { useRoomPlayback } from "../../providers/application";
-import type { MixerChannelGains } from "../../contracts/models";
-import { useNotify } from "../../providers/notifications";
-import { sharedStateOf } from "../../application/room/roomModel";
-import type { Preferences } from "../../shared/preferences/preferences";
+} from 'react';
+import { useRoomPlayback } from '../../providers/application';
+import type { MixerChannelGains } from '../../contracts/models';
+import { useNotify } from '../../providers/notifications';
+import { sharedStateOf } from '../../application/room/roomModel';
+import type { Preferences } from '../../shared/preferences/preferences';
 
 /** Stored preference for every mixer channel, so a change is kept for the next session. */
 const gainPreferences = {
-  music: "musicGain",
-  mic: "voiceGain",
-  reference: "referenceGain",
-  melody: "melodyGain",
-  master: "masterGain",
+  music: 'musicGain',
+  mic: 'voiceGain',
+  reference: 'referenceGain',
+  melody: 'melodyGain',
+  master: 'masterGain',
 } as const satisfies Record<keyof MixerChannelGains, keyof Preferences>;
 interface KaraokeControlsOptions {
   position: MutableRefObject<number>;
@@ -62,7 +62,8 @@ export const useKaraokeControls = ({
   const publishPracticeParameters = useCallback(
     async (playbackRate: number, keyShift: number) => {
       if (!room || !canControlRoom(room) || room.playbackLocked) return false;
-      const updated = await roomPlayback?.updateSharedState({
+      const updated = await roomPlayback
+        ?.updateSharedState({
           ...sharedStateOf(room),
           playbackRate,
           keyShift,
@@ -78,7 +79,7 @@ export const useKaraokeControls = ({
     async (seconds: number) => {
       if (room) {
         if (!canControlRoom(room)) return;
-        await roomPlayback?.control("Seek", seconds).catch(() => null);
+        await roomPlayback?.control('Seek', seconds).catch(() => null);
         return;
       }
       const snapshot = await audioClient.seek(seconds).catch(() => null);
@@ -127,7 +128,7 @@ export const useKaraokeControls = ({
       setGains((current) => ({ ...current, [channel]: value }));
       updatePreferences({ [gainPreferences[channel]]: value });
       // The microphone is applied by the voice chain from the stored value (a room holds it at full).
-      if (channel === "mic") return;
+      if (channel === 'mic') return;
       await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences],
@@ -138,7 +139,7 @@ export const useKaraokeControls = ({
     const snapshot = await audioClient
       .setMonitoring(!monitoring)
       .catch((error: unknown) => {
-        notify(monitoringErrorText(error), "error");
+        notify(monitoringErrorText(error), 'error');
         return null;
       });
     if (snapshot) {
@@ -149,7 +150,12 @@ export const useKaraokeControls = ({
 
   // Restore once per prepared session; subsequent changes belong to the monitoring switch.
   useEffect(() => {
-    if (ready && microphoneReady && preferences.karaokeMonitoring && !monitoring)
+    if (
+      ready &&
+      microphoneReady &&
+      preferences.karaokeMonitoring &&
+      !monitoring
+    )
       void toggleMonitoring();
   }, [ready]);
 

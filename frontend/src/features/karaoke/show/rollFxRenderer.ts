@@ -1,8 +1,8 @@
-import { easeOutCubic, rgba } from "./fxPalette";
-import { levelProgress, type ShowNote } from "./performanceTracker";
-import type { ShowEngine } from "./showEngine";
-import type { FxCommand } from "./visualDirector";
-import { pitchHzToMidi, reliablePitchHz } from "../karaokeLyrics";
+import { easeOutCubic, rgba } from './fxPalette';
+import { levelProgress, type ShowNote } from './performanceTracker';
+import type { ShowEngine } from './showEngine';
+import type { FxCommand } from './visualDirector';
+import { pitchHzToMidi, reliablePitchHz } from '../karaokeLyrics';
 
 /** What the melody roll is showing right now, in the same terms MelodyRoll lays its notes out with. */
 export interface RollView {
@@ -68,9 +68,9 @@ const traceHoldSeconds = 2.4;
 export class RollFxRenderer {
   private context: CanvasRenderingContext2D | null;
   // Bloom is made small: the light is drawn at a third of the size, blurred there (cheap) and stretched back.
-  private light: HTMLCanvasElement = document.createElement("canvas");
+  private light: HTMLCanvasElement = document.createElement('canvas');
   private lightContext: CanvasRenderingContext2D | null;
-  private bloom: HTMLCanvasElement = document.createElement("canvas");
+  private bloom: HTMLCanvasElement = document.createElement('canvas');
   private bloomContext: CanvasRenderingContext2D | null;
   private frame = 0;
   private lane = { left: 0, top: 0, width: 0, height: 0 };
@@ -83,7 +83,7 @@ export class RollFxRenderer {
   private waves: Moment[] = [];
   private passes: Moment[] = [];
   private bursts: Moment[] = [];
-  private level = "";
+  private level = '';
   private unsubscribe: () => void;
 
   constructor(
@@ -92,9 +92,9 @@ export class RollFxRenderer {
     private frameElement: HTMLElement,
     private view: { current: RollView | undefined },
   ) {
-    this.context = canvas.getContext("2d");
-    this.lightContext = this.light.getContext("2d");
-    this.bloomContext = this.bloom.getContext("2d");
+    this.context = canvas.getContext('2d');
+    this.lightContext = this.light.getContext('2d');
+    this.bloomContext = this.bloom.getContext('2d');
     this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
   }
 
@@ -129,20 +129,20 @@ export class RollFxRenderer {
       noteId: command.noteId,
     };
     switch (command.kind) {
-      case "noteGlow":
+      case 'noteGlow':
         if (command.strength >= 0.82) this.sparkles.push(moment);
         if (command.strength >= 0.92) this.glints.push(moment);
         return;
-      case "noteRing":
+      case 'noteRing':
         this.stars.push(moment);
         return;
-      case "shockwave":
-      case "stageExpansion":
-      case "chargeRelease":
+      case 'shockwave':
+      case 'stageExpansion':
+      case 'chargeRelease':
         this.waves.push(moment);
         return;
-      case "laserSweep":
-      case "phraseBloom":
+      case 'laserSweep':
+      case 'phraseBloom':
         this.passes.push(moment);
         return;
       default:
@@ -154,7 +154,7 @@ export class RollFxRenderer {
     if (now - this.laneAt < 250) return;
     this.laneAt = now;
     const lane = this.frameElement
-      .querySelector(".ad-melody-roll-lane")
+      .querySelector('.ad-melody-roll-lane')
       ?.getBoundingClientRect();
     const frame = this.frameElement.getBoundingClientRect();
     if (!lane || lane.width === 0) return;
@@ -233,18 +233,18 @@ export class RollFxRenderer {
       [small, ratio * bloomScale],
     ] as const) {
       target.setTransform(scale, 0, 0, scale, 0, 0);
-      target.globalCompositeOperation = "lighter";
+      target.globalCompositeOperation = 'lighter';
       this.paint(target, view, geometry, now);
     }
     blurred.setTransform(1, 0, 0, 1, 0, 0);
     blurred.clearRect(0, 0, this.bloom.width, this.bloom.height);
-    blurred.filter = "blur(3px)";
+    blurred.filter = 'blur(3px)';
     blurred.drawImage(this.light, 0, 0);
-    blurred.filter = "none";
+    blurred.filter = 'none';
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.drawImage(this.bloom, 0, 0, this.canvas.width, this.canvas.height);
     context.drawImage(this.bloom, 0, 0, this.canvas.width, this.canvas.height);
-    context.globalCompositeOperation = "source-over";
+    context.globalCompositeOperation = 'source-over';
   }
 
   private paint(
@@ -263,15 +263,22 @@ export class RollFxRenderer {
   }
 
   /** The fine reference contour is visible over the held-note capsules used for phrasing. */
-  private drawTarget(context: CanvasRenderingContext2D, view: RollView, geometry: Geometry): void {
-    context.strokeStyle = rgba("white", 0.75);
+  private drawTarget(
+    context: CanvasRenderingContext2D,
+    view: RollView,
+    geometry: Geometry,
+  ): void {
+    context.strokeStyle = rgba('white', 0.75);
     context.lineWidth = 1.5;
     for (const note of view.notes) {
       if (!note.contour?.length) continue;
       context.beginPath();
       let started = false;
       for (const [index, point] of note.contour.entries()) {
-        if ((point[2] ?? 1) < 0.5) { started = false; continue; }
+        if ((point[2] ?? 1) < 0.5) {
+          started = false;
+          continue;
+        }
         const x = geometry.x(note.start + point[0] * (note.end - note.start));
         const y = geometry.y(note.pitch + point[1]);
         if (!started || index === 0) context.moveTo(x, y);
@@ -315,9 +322,9 @@ export class RollFxRenderer {
     if (strength < 0.01) return;
     const x = margin + this.lane.width * view.lead;
     const gradient = context.createLinearGradient(x - 22, 0, x + 22, 0);
-    gradient.addColorStop(0, rgba("pink", 0));
-    gradient.addColorStop(0.5, rgba("pink", strength));
-    gradient.addColorStop(1, rgba("pink", 0));
+    gradient.addColorStop(0, rgba('pink', 0));
+    gradient.addColorStop(0.5, rgba('pink', strength));
+    gradient.addColorStop(1, rgba('pink', 0));
     context.fillStyle = gradient;
     context.fillRect(x - 22, margin, 44, this.lane.height);
   }
@@ -333,7 +340,7 @@ export class RollFxRenderer {
       const ahead = note.start - view.position;
       if (ahead <= 0 || ahead > 0.6) continue;
       const box = geometry.box(note);
-      context.strokeStyle = rgba("white", (1 - ahead / 0.6) * 0.5);
+      context.strokeStyle = rgba('white', (1 - ahead / 0.6) * 0.5);
       context.beginPath();
       context.roundRect(
         box.x - 1.5,
@@ -352,7 +359,7 @@ export class RollFxRenderer {
     view: RollView,
     geometry: Geometry,
   ): void {
-    context.lineCap = "round";
+    context.lineCap = 'round';
     for (const note of view.notes) {
       const trace = this.traces.get(note.id);
       if (!trace || trace.length < 2) continue;
@@ -366,7 +373,7 @@ export class RollFxRenderer {
         const b = trace[i];
         if (!a || !b || b.t - a.t > 0.15) continue;
         const q = (a.q + b.q) / 2;
-        context.strokeStyle = rgba("magenta", 0.55 * q * fade * flash);
+        context.strokeStyle = rgba('magenta', 0.55 * q * fade * flash);
         context.lineWidth = geometry.row * (0.3 + 0.55 * q);
         context.beginPath();
         context.moveTo(geometry.x(a.t), y);
@@ -374,7 +381,7 @@ export class RollFxRenderer {
         context.stroke();
         if (q < 0.55) continue;
         context.strokeStyle = rgba(
-          "white",
+          'white',
           Math.min(1, (q - 0.45) * 1.6 * fade * flash),
         );
         context.lineWidth = Math.max(1.5, geometry.row * 0.16 * q);
@@ -426,7 +433,7 @@ export class RollFxRenderer {
       const p = phase(now, wave.start, waveMs);
       const radius = 10 + this.lane.width * 0.6 * easeOutCubic(p);
       context.strokeStyle = rgba(
-        "white",
+        'white',
         Math.min(1, wave.strength) * (1 - p) ** 1.5 * 0.7,
       );
       context.beginPath();
@@ -446,9 +453,9 @@ export class RollFxRenderer {
       const x = margin - 100 + (this.lane.width + 200) * easeOutCubic(p);
       const gradient = context.createLinearGradient(x - 70, 0, x + 70, 0);
       const alpha = Math.min(1, pass.strength) * Math.sin(Math.PI * p) * 0.28;
-      gradient.addColorStop(0, rgba("pink", 0));
-      gradient.addColorStop(0.5, rgba("white", alpha));
-      gradient.addColorStop(1, rgba("pink", 0));
+      gradient.addColorStop(0, rgba('pink', 0));
+      gradient.addColorStop(0.5, rgba('white', alpha));
+      gradient.addColorStop(1, rgba('pink', 0));
       context.fillStyle = gradient;
       context.fillRect(x - 70, margin, 140, this.lane.height);
     }
@@ -464,9 +471,9 @@ export class RollFxRenderer {
   ): void {
     if (alpha <= 0.01) return;
     const core = context.createRadialGradient(x, y, 0, x, y, size);
-    core.addColorStop(0, rgba("white", alpha));
-    core.addColorStop(0.25, rgba("pink", alpha * 0.55));
-    core.addColorStop(1, rgba("pink", 0));
+    core.addColorStop(0, rgba('white', alpha));
+    core.addColorStop(0.25, rgba('pink', alpha * 0.55));
+    core.addColorStop(1, rgba('pink', 0));
     context.fillStyle = core;
     context.fillRect(x - size, y - size, size * 2, size * 2);
     for (const [horizontal, length] of [
@@ -476,9 +483,9 @@ export class RollFxRenderer {
       const streak = horizontal
         ? context.createLinearGradient(x - length, y, x + length, y)
         : context.createLinearGradient(x, y - length, x, y + length);
-      streak.addColorStop(0, rgba("white", 0));
-      streak.addColorStop(0.5, rgba("white", alpha * 0.9));
-      streak.addColorStop(1, rgba("white", 0));
+      streak.addColorStop(0, rgba('white', 0));
+      streak.addColorStop(0.5, rgba('white', alpha * 0.9));
+      streak.addColorStop(1, rgba('white', 0));
       context.fillStyle = streak;
       if (horizontal) context.fillRect(x - length, y - 0.8, length * 2, 1.6);
       else context.fillRect(x - 0.8, y - length, 1.6, length * 2);
@@ -500,21 +507,31 @@ export class RollFxRenderer {
     const x = geometry.x(observation?.position ?? view.position);
     const live = state.live;
     const midi = pitchHzToMidi(observation?.pitchHz);
-    const boundedMidi = Math.max(view.low, Math.min(view.high, midi ?? (view.low + view.high) / 2));
+    const boundedMidi = Math.max(
+      view.low,
+      Math.min(view.high, midi ?? (view.low + view.high) / 2),
+    );
     const y = geometry.y(boundedMidi);
     const visible = midi !== undefined && midi === boundedMidi;
-    this.engine.voicePoint = visible ? { x: this.page.left + x, y: this.page.top + y } : undefined;
+    this.engine.voicePoint = visible
+      ? { x: this.page.left + x, y: this.page.top + y }
+      : undefined;
     if (state.level !== this.level) {
-      if (this.level !== "" && state.energy > 1)
+      if (this.level !== '' && state.energy > 1)
         this.bursts.push({ start: now, strength: 1 });
       this.level = state.level;
     }
     if (!state.playing) return;
     if (!observation?.audioActive) return;
-    const certain = reliablePitchHz(observation.pitchHz, observation.confidence) !== undefined;
+    const certain =
+      reliablePitchHz(observation.pitchHz, observation.confidence) !==
+      undefined;
     if (!certain || midi === undefined) return;
-    const markerY = Math.max(margin + 10, Math.min(margin + this.lane.height - 10, y));
-    context.strokeStyle = rgba("white", 0.95);
+    const markerY = Math.max(
+      margin + 10,
+      Math.min(margin + this.lane.height - 10, y),
+    );
+    context.strokeStyle = rgba('white', 0.95);
     context.fillStyle = context.strokeStyle;
     context.lineWidth = 2;
     context.setLineDash([]);
@@ -534,9 +551,9 @@ export class RollFxRenderer {
     const accuracy = live?.deviation === undefined ? 0 : live.accuracy;
     if (accuracy > 0.2) {
       const core = context.createRadialGradient(x, y, 0, x, y, radius * 1.4);
-      core.addColorStop(0, rgba("white", accuracy));
-      core.addColorStop(0.18, rgba("pink", accuracy * 0.7));
-      core.addColorStop(1, rgba("magenta", 0));
+      core.addColorStop(0, rgba('white', accuracy));
+      core.addColorStop(0.18, rgba('pink', accuracy * 0.7));
+      core.addColorStop(1, rgba('magenta', 0));
       context.fillStyle = core;
       context.fillRect(
         x - radius * 1.4,
@@ -548,11 +565,11 @@ export class RollFxRenderer {
     // The ring: a faint track and the filled share of the way to the next level.
     const ringAlpha = live ? 0.9 : 0.45;
     context.lineWidth = 1.6;
-    context.strokeStyle = rgba("white", 0.12 * ringAlpha);
+    context.strokeStyle = rgba('white', 0.12 * ringAlpha);
     context.beginPath();
     context.arc(x, y, radius, 0, Math.PI * 2);
     context.stroke();
-    context.strokeStyle = rgba("pink", 0.85 * ringAlpha);
+    context.strokeStyle = rgba('pink', 0.85 * ringAlpha);
     context.beginPath();
     context.arc(
       x,
@@ -564,7 +581,7 @@ export class RollFxRenderer {
     context.stroke();
     for (const burst of this.bursts) {
       const p = phase(now, burst.start, burstMs);
-      context.strokeStyle = rgba("white", (1 - p) ** 1.5);
+      context.strokeStyle = rgba('white', (1 - p) ** 1.5);
       context.lineWidth = 2.5 * (1 - p) + 0.5;
       context.beginPath();
       context.arc(x, y, radius * (1 + 1.8 * easeOutCubic(p)), 0, Math.PI * 2);
@@ -572,16 +589,27 @@ export class RollFxRenderer {
     }
   }
 
-  private drawVoiceTrail(context: CanvasRenderingContext2D, view: RollView, geometry: Geometry): void {
+  private drawVoiceTrail(
+    context: CanvasRenderingContext2D,
+    view: RollView,
+    geometry: Geometry,
+  ): void {
     context.lineWidth = Math.max(1.5, geometry.row * 0.1);
-    context.strokeStyle = rgba("white", 0.85);
+    context.strokeStyle = rgba('white', 0.85);
     context.beginPath();
     let previous: number | undefined;
     for (const observation of this.engine.voiceHistory) {
-      const midi = pitchHzToMidi(reliablePitchHz(observation.pitchHz, observation.confidence));
-      if (midi === undefined || midi < view.low || midi > view.high) { previous = undefined; continue; }
-      const x = geometry.x(observation.position), y = geometry.y(midi);
-      if (previous === undefined || observation.position - previous > 0.1) context.moveTo(x, y);
+      const midi = pitchHzToMidi(
+        reliablePitchHz(observation.pitchHz, observation.confidence),
+      );
+      if (midi === undefined || midi < view.low || midi > view.high) {
+        previous = undefined;
+        continue;
+      }
+      const x = geometry.x(observation.position),
+        y = geometry.y(midi);
+      if (previous === undefined || observation.position - previous > 0.1)
+        context.moveTo(x, y);
       else context.lineTo(x, y);
       previous = observation.position;
     }

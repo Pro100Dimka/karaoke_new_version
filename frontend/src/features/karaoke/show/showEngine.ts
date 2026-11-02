@@ -1,18 +1,18 @@
-import { MusicPulse, type MusicState } from "./musicPulse";
+import { MusicPulse, type MusicState } from './musicPulse';
 import {
   PerformanceTracker,
   type EnergyLevel,
   type LiveNote,
   type ShowNote,
   type ShowPhrase,
-} from "./performanceTracker";
+} from './performanceTracker';
 import {
   ambientFor,
   VisualDirector,
   type Ambient,
   type FxCommand,
   type VisualIntensity,
-} from "./visualDirector";
+} from './visualDirector';
 
 /** The lyric word a note is sung on: its line's text and its place in that line, to light the word on screen. */
 export interface NoteWord {
@@ -65,14 +65,14 @@ export class ShowEngine {
   voicePoint: { x: number; y: number } | undefined;
   state: ShowState = {
     energy: 0,
-    level: "calm",
+    level: 'calm',
     streakSeconds: 0,
     live: undefined,
     music: this.pulse.state,
     musicBeat: 0,
-    ambient: ambientFor(0, this.pulse.state, "full"),
+    ambient: ambientFor(0, this.pulse.state, 'full'),
     playing: false,
-    settings: { intensity: "full", reducedMotion: false },
+    settings: { intensity: 'full', reducedMotion: false },
   };
 
   load(
