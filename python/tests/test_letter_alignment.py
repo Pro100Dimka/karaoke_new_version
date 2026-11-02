@@ -26,6 +26,113 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize(
+    "text,heard_text",
+    [
+        ("Ти, моє життя!", "Ти моє життя"),
+        ("Твой на сто, твой на сто", "Твой на сто твой на сто"),
+        ("Ти моє життя", "Ти життя"),
+    ],
+)
+def test_exact_single_line_coverage_avoids_phrase_search(monkeypatch, text, heard_text):
+    from backend.ai_worker import recognition
+
+    def unexpected(*args):
+        pytest.fail("Exact single-line evidence needs no phrase search")
+
+    monkeypatch.setattr(recognition, "performed_phrases", unexpected)
+    heard = [(word, float(i), float(i + 1)) for i, word in enumerate(heard_text.split())]
+    assert recognition.phrase_coverage(text, heard) == len(text.split())
+
+
+@pytest.mark.parametrize(
+    "text,words",
+    [
+        ("о", ["о"]),
+        ("ти ти", ["ти", "ти"]),
+        ("ти моє життя", ["ти", "чуже", "життя"]),
+        ("Твоё, моё!", ["твоё", "моё"]),
+        ("небо", ["не", "бо"]),
+        ("ти моє\nти моє", ["ти", "моє", "ти", "моє"]),
+        ("", []),
+    ],
+)
+def test_phrase_coverage_keeps_exhaustive_result(text, words):
+    import threading
+    from collections import Counter
+    from backend.ai_worker.recognition import phrase_coverage
+    from backend.lyrics.phrases import _lyrics_key, performed_phrases
+
+    lines = [line for line in text.splitlines() if _lyrics_key(line)]
+    expected = Counter(_lyrics_key(line) for line in lines)
+    lengths = {_lyrics_key(line): len(line.split()) for line in lines}
+    recognized = Counter(
+        _lyrics_key(line) for line, _, _ in performed_phrases(text, words, threading.Event())
+    )
+    exhaustive = sum(lengths[key] * min(count, recognized[key]) for key, count in expected.items())
+    heard = [(word, float(i), float(i + 1)) for i, word in enumerate(words)]
+    assert phrase_coverage(text, heard) == exhaustive
+
+
+def test_single_phrase_coverage_matches_exhaustive_paths():
+    import itertools
+    import threading
+    from backend.ai_worker.recognition import phrase_coverage
+    from backend.lyrics.phrases import performed_phrases
+
+    for text in ("а", "аа", "аб", "аба", "аб аб"):
+        for size in range(5):
+            for words in itertools.product(("а", "б", ""), repeat=size):
+                heard = [(word, float(i), float(i + 1)) for i, word in enumerate(words)]
+                expected = (
+                    len(text.split()) if performed_phrases(text, words, threading.Event()) else 0
+                )
+                assert phrase_coverage(text, heard) == expected, (text, words)
+
+
+@pytest.mark.parametrize("first_complete", [True, False])
+def test_alignment_selects_best_evidence_and_retains_views(monkeypatch, first_complete):
+    import torch
+    from backend.ai_worker import speech
+
+    complete = [(word, float(i), float(i + 1)) for i, word in enumerate("ти моє життя".split())]
+    candidates = [complete if first_complete else [("інше", 0.0, 1.0)], complete.copy()]
+    monkeypatch.setattr(speech, "independent_words", lambda *args: candidates)
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda *args: None)
+    monkeypatch.setattr(speech, "emission", lambda *args: (torch.zeros(1, 28), 0.02))
+
+    def coverage(text, view):
+        return 3 if view == complete else 0
+
+    monkeypatch.setattr(speech, "phrase_coverage", coverage)
+    views = []
+    _, _, selected = speech._alignment_evidence(
+        Path("vocal.wav"), np.zeros(_RATE), "Ukrainian", "ти моє життя", independent_views=views
+    )
+    assert selected is candidates[0 if first_complete else 1]
+    assert views == candidates
+
+
+def test_alignment_full_coverage_still_checks_missing_word_times(monkeypatch):
+    import torch
+    from backend.ai_worker import speech
+
+    candidates = [[("ти", 0.0, 1.0)], [("ти", 1.0, 2.0)]]
+    monkeypatch.setattr(speech, "independent_words", lambda *args: candidates)
+    monkeypatch.setattr(speech, "phrase_coverage", lambda *args: 1)
+    monkeypatch.setattr(
+        speech,
+        "_heard_timings",
+        lambda words, view, **kwargs: {} if view is candidates[0] else {0: (1, 2)},
+    )
+    monkeypatch.setattr(speech.torch, "set_num_threads", lambda *args: None)
+    monkeypatch.setattr(speech, "emission", lambda *args: (torch.zeros(1, 28), 0.02))
+    _, _, selected = speech._alignment_evidence(
+        Path("vocal.wav"), np.zeros(_RATE), "Ukrainian", "ти"
+    )
+    assert selected is candidates[1]
+
+
 def test_alignment_reuse_preserves_encoder_results_and_invalidates_changed_audio(tmp_path):
     import torch
     from backend.ai_worker.runtime import AlignmentReuse, cached_encoder

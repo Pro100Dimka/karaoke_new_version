@@ -16,7 +16,7 @@ from backend.ai.domain import WordTiming
 from backend.processing.reporting import rate_reviews
 from backend.ai_worker.timing import _runs
 from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
-from backend.lyrics.phrases import _lyrics_key, performed_phrases
+from backend.lyrics.phrases import _line_matches, _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
@@ -114,6 +114,18 @@ def phrase_coverage(lyrics: str, heard: Sequence[tuple[str, float, float]]) -> i
     lines = [line for line in lyrics.splitlines() if _lyrics_key(line)]
     expected = Counter(_lyrics_key(line) for line in lines)
     lengths = {_lyrics_key(line): len(line.split()) for line in lines}
+    # A complete single phrase attains full coverage without searching all substrings.
+    # One character only ties the unmatched path after the phrase-selection penalty.
+    if len(lines) == 1:
+        key = _lyrics_key(lines[0])
+        normalized = [_lyrics_key(word) for word, _, _ in heard]
+        if len(key) > 1 and key == "".join(normalized):
+            return lengths[key]
+        # Coverage counts this phrase at most once. With one candidate each entry
+        # costs log2(2) = 1, so any support above 1 beats the unmatched path.
+        if normalized and any(support > 1 for _, support in _line_matches(key, normalized, 0)):
+            return lengths[key]
+        # Zero-score paths retain the exhaustive matcher's original tie ordering.
     recognized = Counter(
         _lyrics_key(text)
         for text, _, _ in performed_phrases(
