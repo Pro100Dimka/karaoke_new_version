@@ -74,6 +74,84 @@ def test_phrase_coverage_keeps_exhaustive_result(text, words):
     assert phrase_coverage(text, heard) == exhaustive
 
 
+def test_single_phrase_coverage_stops_after_sufficient_evidence(monkeypatch):
+    from backend.ai_worker.recognition import phrase_coverage
+    from backend.lyrics import phrases
+
+    original = phrases.SequenceMatcher.get_matching_blocks
+    compared = []
+
+    def compare(matcher):
+        compared.append(matcher.b)
+        return original(matcher)
+
+    monkeypatch.setattr(phrases.SequenceMatcher, "get_matching_blocks", compare)
+    heard = [(word, float(i), float(i + 1)) for i, word in enumerate("ти моє життя знову".split())]
+    assert phrase_coverage("ти моє життя", heard) == 3
+    assert compared == ["тимоєжиття"]
+
+
+def test_common_alignment_characters_do_not_load_multilingual_resources(monkeypatch):
+    import string
+    from backend.ai_worker import ctc
+
+    characters = (
+        string.ascii_letters + string.punctuation + " абвгдеёжзийклмнопрстуфхцчшщъыьэюяіїєґ’–—…"
+    )
+    characters += characters.upper()
+    romanizer = ctc._romanizer()
+    dictionary = ctc.MMS_FA.get_dict(star=None)
+    expected = [
+        [
+            dictionary[letter]
+            for letter in romanizer.romanize_string(char, lang=None).lower()
+            if letter in dictionary and letter.isascii() and letter.isalpha()
+        ]
+        for char in characters
+    ]
+
+    def unexpected():
+        pytest.fail("Common character tokens must not initialize multilingual resources")
+
+    monkeypatch.setattr(ctc, "_romanizer", unexpected)
+    assert ctc._character_tokens(characters) == expected
+
+
+@pytest.mark.parametrize(
+    "word,context,pieces,uses_resources",
+    [
+        ("世界", "", ["世", "界"], True),
+        ("café", "", list("café"), True),
+        ("100!", "твій", list("сто!"), False),
+        ("12", "твой", ["двена", "дцать"], True),
+    ],
+)
+def test_uncommon_and_number_tokens_preserve_multilingual_romanization(
+    monkeypatch, word, context, pieces, uses_resources
+):
+    from backend.ai_worker import ctc
+
+    calls = []
+    romanizer = ctc._romanizer()
+    dictionary = ctc.MMS_FA.get_dict(star=None)
+    expected = [
+        [
+            dictionary[letter]
+            for letter in romanizer.romanize_string(piece, lang=None).lower()
+            if letter in dictionary and letter.isascii() and letter.isalpha()
+        ]
+        for piece in pieces
+    ]
+
+    def load():
+        calls.append(True)
+        return romanizer
+
+    monkeypatch.setattr(ctc, "_romanizer", load)
+    assert ctc._character_tokens(word, context) == expected
+    assert bool(calls) is uses_resources
+
+
 def test_single_phrase_coverage_matches_exhaustive_paths():
     import itertools
     import threading

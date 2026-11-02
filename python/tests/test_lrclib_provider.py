@@ -46,7 +46,7 @@ def test_phrase_matching_skips_impossible_character_scores(
         return original(matcher)
 
     monkeypatch.setattr(phrases.SequenceMatcher, "get_matching_blocks", compare)
-    assert phrases._line_matches(key, heard, 0) == expected
+    assert list(phrases._line_matches(key, heard, 0)) == expected
     assert len(calls) == comparisons
 
 

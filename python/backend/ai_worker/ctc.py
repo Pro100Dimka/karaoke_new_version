@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import string
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from functools import lru_cache
@@ -71,6 +72,57 @@ class AlignedWord:
 @lru_cache(maxsize=1)
 def _romanizer() -> uroman.Uroman:
     return uroman.Uroman()
+
+
+# Exact single-character Uroman outputs after filtering to the CTC alphabet.
+# Other scripts and multi-character number expansions still use the full romanizer.
+_COMMON_ROMANIZATION = MappingProxyType(
+    {
+        case: romanized
+        for character, romanized in {
+            **dict(zip(string.ascii_lowercase, string.ascii_lowercase)),
+            **dict.fromkeys(string.punctuation + " \t\r\n’–—…", ""),
+            "а": "a",
+            "б": "b",
+            "в": "v",
+            "г": "g",
+            "д": "d",
+            "е": "e",
+            "ё": "e",
+            "ж": "zh",
+            "з": "z",
+            "и": "i",
+            "й": "i",
+            "к": "k",
+            "л": "l",
+            "м": "m",
+            "н": "n",
+            "о": "o",
+            "п": "p",
+            "р": "r",
+            "с": "s",
+            "т": "t",
+            "у": "u",
+            "ф": "f",
+            "х": "kh",
+            "ц": "ts",
+            "ч": "ch",
+            "ш": "sh",
+            "щ": "shch",
+            "ъ": "",
+            "ы": "y",
+            "ь": "",
+            "э": "e",
+            "ю": "yu",
+            "я": "ya",
+            "і": "i",
+            "ї": "yi",
+            "є": "ie",
+            "ґ": "gh",
+        }.items()
+        for case in (character, character.upper())
+    }
+)
 
 
 @lru_cache(maxsize=1)
@@ -152,7 +204,11 @@ def _character_tokens(word: str, context: str = "") -> list[list[int]]:
             pass
     result: list[list[int]] = []
     for character in characters:
-        romanized = _NON_LETTERS.sub("", _romanizer().romanize_string(character, lang=None).lower())
+        romanized = _COMMON_ROMANIZATION.get(character)
+        if romanized is None:
+            romanized = _NON_LETTERS.sub(
+                "", _romanizer().romanize_string(character, lang=None).lower()
+            )
         result.append([dictionary[letter] for letter in romanized if letter in dictionary])
     return result
 

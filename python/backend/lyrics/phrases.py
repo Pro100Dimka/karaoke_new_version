@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import threading
 from collections import Counter
+from collections.abc import Iterator
 from difflib import SequenceMatcher
 from typing import Sequence
 
@@ -193,8 +194,7 @@ def _performed_lines(
     return max(states[-1].values(), key=lambda item: item[0])[1]
 
 
-def _line_matches(key: str, heard: list[str], start: int) -> list[tuple[int, int]]:
-    matches: list[tuple[int, int]] = []
+def _line_matches(key: str, heard: list[str], start: int) -> Iterator[tuple[int, int]]:
     joined = ""
     for end in range(start, len(heard)):
         joined += heard[end]
@@ -215,8 +215,7 @@ def _line_matches(key: str, heard: list[str], start: int) -> list[tuple[int, int
         matched = sum(block.size for block in blocks)
         support = 2 * matched - max(len(key), len(joined))
         if support > 0:
-            matches.append((end + 1, support))
-    return matches
+            yield end + 1, support
 
 
 def _merge_lines(original: list[int], performed: tuple[int, ...], keys: list[str]) -> list[int]:
