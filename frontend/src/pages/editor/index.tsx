@@ -178,7 +178,7 @@ export const EditorPage = () => {
       </main>
     );
   }
-  if (session.load.kind === 'failed' || session.load.kind === 'invalid') {
+  if (['failed', 'invalid'].includes(session.load.kind)) {
     const message = tr(
       ru[
         session.load.kind === 'invalid'
@@ -198,24 +198,9 @@ export const EditorPage = () => {
   const [lowest, highest] = range;
   const zoomIndex = zoomSteps.findIndex((step) => step >= zoom);
   const toggles = [
-    {
-      icon: 'grid',
-      label: 'editorGrid',
-      checked: grid,
-      onValueChange: setGrid,
-    },
-    {
-      icon: 'target',
-      label: 'editorSnap',
-      checked: snap,
-      onValueChange: setSnap,
-    },
-    {
-      icon: 'motion',
-      label: 'editorFollow',
-      checked: follow,
-      onValueChange: setFollow,
-    },
+    ['grid', 'editorGrid', grid, setGrid],
+    ['target', 'editorSnap', snap, setSnap],
+    ['motion', 'editorFollow', follow, setFollow],
   ] as const;
 
   const drag = (gesture: PianoRollGesture) => {
@@ -277,7 +262,7 @@ export const EditorPage = () => {
       />
 
       <Toolbar className="editorTools" aria-label={tr(ru.editorTools)}>
-        {toggles.map(({ icon, label, checked, onValueChange }) => (
+        {toggles.map(([icon, label, checked, onValueChange]) => (
           <ToggleButton
             key={icon}
             size="sm"

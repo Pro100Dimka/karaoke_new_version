@@ -47,6 +47,20 @@ def test_a_silent_frame_still_stops_singing_before_the_next_word(silence, expect
     assert [word.letters for word in result] == [word.letters for word in words]
 
 
+def test_silence_clipping_marks_redistributed_letters_as_approximate():
+    rate = 16000
+    axis = np.arange(2 * rate) / rate
+    samples = (0.2 * np.sin(2 * np.pi * 220 * axis) * ((axis >= 0.2) & (axis < 0.6))).astype(
+        np.float32
+    )
+    word = ctc.AlignedWord("мрія", 0.2, 1.3, (0.2, 0.4, 1.0, 1.2), 0.9)
+    result = ctc.with_sung_ends([word], samples)[0]
+    assert result.end < 0.65
+    assert result.letters != word.letters
+    assert "ApproximateLetterTiming" in result.diagnostics
+    assert "LetterTimingReviewRequired" in result.diagnostics
+
+
 @pytest.mark.parametrize("text", ["аня", "мрія"])
 def test_sung_end_does_not_bridge_a_release_into_a_later_breath(text):
     rate = 16000

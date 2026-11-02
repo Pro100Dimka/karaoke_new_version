@@ -1,8 +1,4 @@
 import type { SettingsBackendPort } from '../../../../../application/settings/SettingsPorts';
-import {
-  kaggleDeployment,
-  kaggleDeploymentRunning,
-} from '../../../../../application/settings/KaggleDeployment';
 import type { EnvironmentSettingDto } from '../../../../../contracts/models';
 import {
   isSecret,
@@ -142,14 +138,6 @@ export class EnvironmentStore {
             );
         }
         if (this.action) return;
-        if (kaggleDeploymentRunning()) {
-          // Capture the observed job before any continuation can let it finish.
-          const deployment = kaggleDeployment(this.backend);
-          void this.runKaggleAction('deploy', deployment).catch(
-            () => undefined,
-          );
-          return;
-        }
         // This optional lookup must not block editing the other environment fields.
         void this.backend
           .getAiProcessingSettings()
@@ -355,10 +343,7 @@ export class EnvironmentStore {
     }
   };
 
-  runKaggleAction = (
-    action: KaggleAction,
-    existingDeployment?: ReturnType<typeof kaggleDeployment>,
-  ): Promise<string> => {
+  runKaggleAction = (action: KaggleAction): Promise<string> => {
     if (this.action) return this.action.promise;
     const run: KaggleRun = {
       phase: action,
@@ -374,12 +359,11 @@ export class EnvironmentStore {
           }
           check = this.beginKaggleCheck();
           if (action === 'login') await this.backend.loginKaggle();
-          const deployment =
-            existingDeployment ?? kaggleDeployment(this.backend);
+          const deployment = this.backend.deployKaggle();
           run.phase = 'deploy';
-          run.startedAt = deployment.startedAt;
+          run.startedAt = Date.now();
           this.publish();
-          const result = await deployment.promise;
+          const result = await deployment;
           await this.readEntries();
           const verification = await this.verifyKaggle();
           if (verification.state !== 'valid')

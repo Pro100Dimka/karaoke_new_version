@@ -81,57 +81,6 @@ body,
   }
 }
 
-.karaoke-page {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  isolation: isolate;
-  overflow: hidden;
-  background: #000;
-}
-
-.karaoke-background,
-.karaoke-background video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.karaoke-background {
-  border: 0;
-  padding: 0;
-  background: #000;
-  cursor: pointer;
-}
-
-.karaoke-background:focus-visible {
-  outline: 2px solid var(--ad-primary);
-  outline-offset: -2px;
-}
-
-.karaoke-background video {
-  display: block;
-  object-fit: cover;
-  opacity: 0;
-  pointer-events: none;
-  transition-property: opacity;
-  transition-timing-function: ease;
-}
-
-.karaoke-background video[data-visible='true'] {
-  opacity: 1;
-}
-
-.karaoke-background video[data-active='true'],
-.karaoke-content {
-  z-index: 1;
-}
-
-.karaoke-content {
-  position: relative;
-}
-
 input,
 textarea,
 [contenteditable='true'],

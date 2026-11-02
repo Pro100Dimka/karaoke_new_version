@@ -1,4 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { QueryClient } from '@tanstack/react-query';
+import {
+  changeModel,
+  isActiveJob,
+  jobQuery,
+  modelKey,
+} from '../api/api-service';
 import { pythonClient } from './pythonClient';
 
 type Call = {
@@ -92,70 +99,108 @@ describe('pythonClient contract', () => {
   });
 
   const model = {
-    id: 'test-model',
+    modelId: 'speech/model + test',
     purpose: 'ASR',
-    version: '1',
-    sizeBytes: 100,
+    version: 'v1/2',
+    size: 100,
     requiredDiskBytes: 268435656,
-    state: 'not-installed',
-    selected: true,
+    state: 'Missing',
   } as const;
 
-  it('reuses backend job waiting to report a model download through completion', async () => {
-    const progress = vi.fn();
-    const calls = installBridge((call) => ({
-      status: 200,
-      ok: true,
-      body: call.path.endsWith('/download')
-        ? { jobId: 'model-job', state: 'Queued' }
-        : { jobId: 'model-job', state: 'Succeeded', overallProgress: 1 },
-    }));
-    await expect(
-      pythonClient.downloadModel(model, progress),
-    ).resolves.toMatchObject({ id: 'model-job', state: 'completed' });
-    expect(progress).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'model-job', state: 'queued' }),
-    );
-    expect(progress).toHaveBeenLastCalledWith(
-      expect.objectContaining({ state: 'completed', progress: 100 }),
-    );
-    expect(calls.map((call) => call.path)).toEqual([
-      '/models/test-model/1/download',
-      '/jobs/model-job',
-    ]);
-  });
-
-  it('keeps the existing immediate model-download contract without a progress callback', async () => {
-    const calls = installBridge(() => ({
-      status: 202,
-      ok: true,
-      body: { jobId: 'model-job', state: 'Queued' },
-    }));
-    await expect(pythonClient.downloadModel(model)).resolves.toMatchObject({
-      state: 'queued',
+  it('reads model download progress through completion using the UI job query', async () => {
+    const states = ['Queued', 'Running', 'Succeeded'];
+    const progress = [0, 0.25, 1];
+    let reads = 0;
+    const calls = installBridge(() => {
+      const index = reads++;
+      return {
+        status: 200,
+        ok: true,
+        body: {
+          items: [
+            {
+              jobId: 'model-job',
+              entityId: modelKey(model),
+              state: states[index],
+              stage: 'Download',
+              stageProgress: progress[index],
+              overallProgress: progress[index],
+            },
+          ],
+        },
+      };
     });
-    expect(calls).toHaveLength(1);
+    const client = new QueryClient({
+      defaultOptions: { queries: { gcTime: 0 } },
+    });
+    const results = [];
+    for (let index = 0; index < states.length; index++)
+      results.push(
+        await client.fetchQuery(jobQuery('ModelDownload', modelKey(model))),
+      );
+    expect(results.map((job) => job?.state)).toEqual(states);
+    expect(results.map((job) => job?.stageProgress)).toEqual(progress);
+    expect(results.map(isActiveJob)).toEqual([true, true, false]);
+    expect(calls).toEqual(
+      states.map(() => ({
+        method: 'GET',
+        path: '/jobs?type=ModelDownload&entityId=speech%2Fmodel%20%2B%20test%3Av1%2F2&limit=1',
+      })),
+    );
+    client.clear();
   });
 
   it.each([
-    [
-      'Failed',
-      { message: 'Checksum mismatch' },
-      { message: 'Checksum mismatch' },
-    ],
-    ['Cancelled', null, { name: 'AbortError' }],
-  ])('preserves model download outcome %s', async (state, error, expected) => {
-    installBridge((call) => ({
-      status: 200,
-      ok: true,
-      body: call.path.endsWith('/download')
-        ? { jobId: 'model-job', state: 'Queued' }
-        : { jobId: 'model-job', state, error, overallProgress: 0 },
-    }));
-    await expect(
-      pythonClient.downloadModel(model, vi.fn()),
-    ).rejects.toMatchObject(expected);
-  });
+    ['Missing', 'POST', '/download'],
+    ['Ready', 'DELETE', ''],
+  ] as const)(
+    'sends the %s model action without waiting for a job',
+    async (state, method, suffix) => {
+      const calls = installBridge(() => ({
+        status: 202,
+        ok: true,
+        body: { jobId: 'model-job', state: 'Queued' },
+      }));
+      await expect(changeModel({ ...model, state })).resolves.toMatchObject({
+        jobId: 'model-job',
+        state: 'Queued',
+      });
+      expect(calls).toEqual([
+        { method, path: `/models/speech%2Fmodel%20%2B%20test/v1%2F2${suffix}` },
+      ]);
+    },
+  );
+
+  it.each(['Failed', 'Cancelled'])(
+    'returns model outcome %s as an inactive job',
+    async (state) => {
+      installBridge(() => ({
+        status: 200,
+        ok: true,
+        body: {
+          items: [
+            {
+              jobId: 'model-job',
+              entityId: modelKey(model),
+              state,
+              stage: null,
+              stageProgress: 0,
+              overallProgress: 0,
+            },
+          ],
+        },
+      }));
+      const client = new QueryClient({
+        defaultOptions: { queries: { gcTime: 0 } },
+      });
+      const job = await client.fetchQuery(
+        jobQuery('ModelDownload', modelKey(model)),
+      );
+      expect(job).toMatchObject({ jobId: 'model-job', state });
+      expect(isActiveJob(job)).toBe(false);
+      client.clear();
+    },
+  );
 
   it('reports the job identity and analysis stage while waiting', async () => {
     const progress = vi.fn();

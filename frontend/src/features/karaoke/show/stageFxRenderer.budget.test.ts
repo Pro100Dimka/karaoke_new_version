@@ -2,6 +2,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { StageFxRenderer } from './stageFxRenderer';
 import { ShowEngine } from './showEngine';
 import { CanvasLightRenderer } from './gl/canvasLightRenderer';
+import { spriteFloats, spriteKind, type LightBatch } from './gl/lightBatch';
 import type { FxCommand } from './visualDirector';
 
 vi.mock('./gl/canvasLightRenderer', () => ({
@@ -40,7 +41,7 @@ it('limits lyric enlargement to less than one percent even on the strongest beat
 
 it('reacts to isolated rhythm with zero performance energy and no microphone pitch', () => {
   const engine = new ShowEngine();
-  engine.load([], [], new Map(), true, undefined, [[0.032, 1]]);
+  engine.load([], [], true, undefined, [[0.032, 1]]);
   engine.advance(0, 0, undefined, true);
   engine.hear(Array(18).fill(0), 0);
   engine.hear([0.8, 0.8, 0.8, 0.8, 0.8, ...Array(13).fill(0)], 16);
@@ -50,11 +51,14 @@ it('reacts to isolated rhythm with zero performance energy and no microphone pit
 });
 
 it('never draws spotlights even at maximum energy and during large rewards', () => {
-  const beams: number[] = [];
-  vi.mocked(CanvasLightRenderer.create).mockReturnValueOnce({
-    render: (batch: { beamCount: number }) => beams.push(batch.beamCount),
-    dispose: vi.fn(),
-  } as unknown as CanvasLightRenderer);
+  let frames: number[][];
+  let seed = 0;
+  let now = 1000;
+  const random = vi.spyOn(Math, 'random').mockImplementation(() => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 4294967296;
+  });
+  const clock = vi.spyOn(performance, 'now').mockImplementation(() => now);
   let command: (value: FxCommand) => void = () => {};
   const engine = {
     onCommand: (listener: typeof command) => {
@@ -73,19 +77,47 @@ it('never draws spotlights even at maximum energy and during large rewards', () 
       },
     },
   } as unknown as ShowEngine;
-  const canvas = document.createElement('canvas');
-  Object.defineProperties(canvas, {
-    clientWidth: { value: 1024 },
-    clientHeight: { value: 768 },
-  });
-  const renderer = new StageFxRenderer(canvas, engine, document.body);
-  const stage = renderer as unknown as { draw(now: number): void };
-  command({ kind: 'stageExpansion', at: 0, strength: 1 });
-  command({ kind: 'crossLight', at: 0, strength: 1 });
-  for (let now = 1000; now < 7000; now += 50) stage.draw(now);
-  expect(beams.length).toBeGreaterThan(0);
-  expect(beams.every((count) => count === 0)).toBe(true);
-  renderer.stop();
+  const draw = (spotlight: boolean) => {
+    seed = 123456789;
+    now = 1000;
+    frames = [];
+    vi.mocked(CanvasLightRenderer.create).mockReturnValueOnce({
+      render: (batch: LightBatch) =>
+        frames.push([
+          ...batch.sprites.subarray(0, batch.spriteCount * spriteFloats),
+        ]),
+      dispose: vi.fn(),
+    } as unknown as CanvasLightRenderer);
+    const canvas = document.createElement('canvas');
+    Object.defineProperties(canvas, {
+      clientWidth: { value: 1024 },
+      clientHeight: { value: 768 },
+    });
+    const renderer = new StageFxRenderer(canvas, engine, document.body);
+    const stage = renderer as unknown as { draw(now: number): void };
+    stage.draw(now);
+    command({ kind: 'stageExpansion', at: now, strength: 1 });
+    if (spotlight) command({ kind: 'crossLight', at: now, strength: 1 });
+    for (now = 1050; now < 7000; now += 50) stage.draw(now);
+    renderer.stop();
+    return frames;
+  };
+  try {
+    const rewards = draw(false);
+    expect(draw(true)).toEqual(rewards);
+    expect(rewards.flat().every(Number.isFinite)).toBe(true);
+    expect(
+      rewards.some((frame) =>
+        frame.some(
+          (value, index) =>
+            index % spriteFloats === 3 && value === spriteKind.ring,
+        ),
+      ),
+    ).toBe(true);
+  } finally {
+    random.mockRestore();
+    clock.mockRestore();
+  }
 });
 
 it('publishes the musical pulse for lyrics without moving the video', () => {

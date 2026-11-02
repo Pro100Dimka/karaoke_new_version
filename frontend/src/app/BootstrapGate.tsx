@@ -97,9 +97,8 @@ export const BootstrapGate = observer(
               variant="primary"
               icon="refresh"
               onClick={() => void probe()}
-            >
-              {tr(ru.retry)}
-            </Button>
+              label={tr(ru.retry)}
+            />
           }
         />
       </main>

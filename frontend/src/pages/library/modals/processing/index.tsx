@@ -38,25 +38,15 @@ interface Notice {
 }
 type Disk = { free: number; used: number } | null;
 const clearGroups = {
-  completed: {
-    label: 'processingClearCompleted',
-    title: 'processingClearCompletedTitle',
-    text: 'processingClearCompletedText',
-    matches: (job: ProcessingJobDto) => job.state === 'completed',
-  },
-  failed: {
-    label: 'processingClearFailed',
-    title: 'processingClearFailedTitle',
-    text: 'processingClearFailedText',
-    matches: (job: ProcessingJobDto) =>
-      ['failed', 'interrupted'].includes(job.state),
-  },
-  all: {
-    label: 'processingClearAll',
-    title: 'processingClearAllTitle',
-    text: 'processingClearAllText',
-    matches: () => true,
-  },
+  completed: [
+    'Completed',
+    (job: ProcessingJobDto) => job.state === 'completed',
+  ],
+  failed: [
+    'Failed',
+    (job: ProcessingJobDto) => ['failed', 'interrupted'].includes(job.state),
+  ],
+  all: ['All', () => true],
 } as const;
 
 /** Real free space of the data disk, read once when the queue opens. */
@@ -177,11 +167,14 @@ export const ProcessingModal = observer(
         cancel: tr(ru.cancel),
         onConfirm: () => queue.hide([job.id]),
       });
-    const clear = (group: (typeof clearGroups)[keyof typeof clearGroups]) => {
-      const selected = queue.visible.filter(group.matches);
+    const clear = ([
+      name,
+      matches,
+    ]: (typeof clearGroups)[keyof typeof clearGroups]) => {
+      const selected = queue.visible.filter(matches);
       setNotice({
-        title: tr(ru[group.title]),
-        text: tr(ru[group.text], { count: selected.length }),
+        title: tr(ru[`processingClear${name}Title`]),
+        text: tr(ru[`processingClear${name}Text`], { count: selected.length }),
         confirm: tr(ru.processingClear),
         cancel: tr(ru.cancel),
         onConfirm: () => queue.hide(selected.map((job) => job.id)),
@@ -295,8 +288,8 @@ export const ProcessingModal = observer(
               }
               items={Object.entries(clearGroups).map(([id, group]) => ({
                 id,
-                label: tr(ru[group.label]),
-                disabled: !queue.visible.some(group.matches),
+                label: tr(ru[`processingClear${group[0]}`]),
+                disabled: !queue.visible.some(group[1]),
                 onSelect: () => clear(group),
               }))}
             >

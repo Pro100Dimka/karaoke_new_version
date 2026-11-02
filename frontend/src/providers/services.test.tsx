@@ -14,21 +14,17 @@ vi.mock('../services/pythonClient', () => ({
 let stop = () => {};
 beforeEach(() => {
   vi.useFakeTimers();
-  audio
-    .mockReset()
-    .mockResolvedValue({
-      status: 'ready',
-      version: '1',
-      instanceId: 'audio-first',
-    });
-  python
-    .mockReset()
-    .mockResolvedValue({
-      status: 'ready',
-      version: '1',
-      apiVersion: 1,
-      instanceId: 'first',
-    });
+  audio.mockReset().mockResolvedValue({
+    status: 'ready',
+    version: '1',
+    instanceId: 'audio-first',
+  });
+  python.mockReset().mockResolvedValue({
+    status: 'ready',
+    version: '1',
+    apiVersion: 1,
+    instanceId: 'first',
+  });
 });
 afterEach(() => {
   stop();

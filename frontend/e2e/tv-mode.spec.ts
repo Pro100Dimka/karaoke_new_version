@@ -12,11 +12,9 @@ test.beforeEach(async ({ page }) => {
 });
 
 const playButton = (page: Page, title: string) =>
-  page
-    .getByLabel(`Бумбокс — ${title}`, { exact: true })
-    .getByRole('button', {
-      name: /Запустить караоке|Play karaoke|Почати караоке/i,
-    });
+  page.getByLabel(`Бумбокс — ${title}`, { exact: true }).getByRole('button', {
+    name: /Запустить караоке|Play karaoke|Почати караоке/i,
+  });
 
 const reportDisplays = (page: Page, count: number) =>
   page.evaluate(

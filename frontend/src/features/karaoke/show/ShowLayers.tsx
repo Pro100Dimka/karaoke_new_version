@@ -3,7 +3,7 @@ import { subscribeSpectrum } from '../../../app/backdrop/spectrumEvents';
 import type { LyricLine } from '../karaokeLyrics';
 import type { ShowNote, ShowPhrase } from './performanceTracker';
 import { RollFxRenderer, type RollView } from './rollFxRenderer';
-import { ShowEngine, type NoteWord, type ShowSettings } from './showEngine';
+import { ShowEngine, type ShowSettings } from './showEngine';
 import { StageFxRenderer } from './stageFxRenderer';
 import './show.css';
 import type { PitchFrame } from '../../../contracts/models';
@@ -23,25 +23,6 @@ export const phrasesOf = (
         .map((note) => note.id),
     };
   });
-
-/** Where each note's word sits in its lyric line, so a perfectly sung word can light up on screen. */
-export const wordsOfNotes = (
-  lines: readonly LyricLine[],
-  notes: readonly ShowNote[],
-): Map<string, NoteWord> => {
-  const places = new Map<string, NoteWord>();
-  for (const line of lines) {
-    const text = line.words.map((word) => word.text).join('');
-    for (const [index, word] of line.words.entries())
-      places.set(word.id, { line: text, index });
-  }
-  return new Map(
-    notes.flatMap((note) => {
-      const place = note.wordId ? places.get(note.wordId) : undefined;
-      return place ? [[note.id, place] as const] : [];
-    }),
-  );
-};
 
 /** Development diagnostics only: `__adShow.autopilot = true` in DevTools sings every note exactly, to watch the show build. */
 interface ShowDiagnostics {
@@ -116,7 +97,6 @@ export const useShowEngine = ({
     engine.load(
       notes,
       phrasesOf(lines, notes),
-      wordsOfNotes(lines, notes),
       resetPerformance,
       vocalActivity,
       rhythm,

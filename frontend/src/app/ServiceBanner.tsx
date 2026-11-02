@@ -111,9 +111,8 @@ export const ServiceBanner = observer(() => {
                       variant="ghost"
                       disabled={installing}
                       onClick={() => setDismissed(true)}
-                    >
-                      {tr('Отклонить')}
-                    </Button>
+                      label={tr('Отклонить')}
+                    />
                   )}
                   <Button
                     size="sm"

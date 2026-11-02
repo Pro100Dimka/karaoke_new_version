@@ -87,9 +87,8 @@ export const EditorHeader = ({
           loading={saving}
           disabled={!dirty}
           onClick={onSave}
-        >
-          {tr(ru.save)}
-        </Button>
+          label={tr(ru.save)}
+        />
       </Toolbar>
     </header>
   );

@@ -34,9 +34,7 @@ export const SecretsSettings = () => {
       <MessageBar
         tone="error"
         action={
-          <Button size="sm" onClick={environment.retry}>
-            {tr(ru.retry)}
-          </Button>
+          <Button size="sm" onClick={environment.retry} label={tr(ru.retry)} />
         }
       >
         {environment.loadError}

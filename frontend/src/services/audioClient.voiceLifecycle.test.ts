@@ -1,26 +1,36 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
+const installBridge = (
+  reply: (
+    request: AudioBridgeRequest,
+  ) => AudioBridgeResponse | Promise<AudioBridgeResponse> = ({ command }) => ({
+    status: 0,
+    text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+      ? 'SessionState: Running'
+      : 'Ok',
+  }),
+  desktop: Partial<Omit<DesktopApi, 'audioRequest'>> = {},
+) => {
+  const requests: AudioBridgeRequest[] = [];
+  Object.assign(window, {
+    desktop: {
+      ...desktop,
+      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
+        requests.push(request);
+        return reply(request);
+      }),
+    },
+  });
+  return requests;
+};
+
 beforeEach(() => vi.resetModules());
 afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
 it('restores the server mix slot after every room voice session recreation', async () => {
-  const requests: AudioBridgeRequest[] = [];
-  Object.assign(window, {
-    desktop: {
-      joinRoomVoice: vi.fn(async () => undefined),
-      leaveRoomVoice: vi.fn(async () => undefined),
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? 'SessionState: Running'
-            : 'Ok',
-        };
-      }),
-    },
+  const requests = installBridge(undefined, {
+    joinRoomVoice: vi.fn(async () => undefined),
+    leaveRoomVoice: vi.fn(async () => undefined),
   });
   const { audioClient } = await import('./audioClient');
   const expectServerMixRestored = () =>
@@ -55,25 +65,11 @@ it('restores the server mix slot after every room voice session recreation', asy
 });
 
 it('restores personal participant gain after reconnect without recreating a nonexistent client slot', async () => {
-  const requests: AudioBridgeRequest[] = [];
   const joinRoomVoice = vi.fn(async () => undefined);
   const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
-  Object.assign(window, {
-    desktop: {
-      joinRoomVoice,
-      setRoomVoiceParticipantGain,
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? 'SessionState: Running'
-            : 'Ok',
-        };
-      }),
-    },
+  const requests = installBridge(undefined, {
+    joinRoomVoice,
+    setRoomVoiceParticipantGain,
   });
   const { audioClient } = await import('./audioClient');
   await audioClient.joinVoiceSession('room', 'self');
@@ -94,20 +90,10 @@ it('restores personal participant gain after reconnect without recreating a none
 
 it('does not carry a muted personal mix into a newly joined room', async () => {
   const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
-  Object.assign(window, {
-    desktop: {
-      joinRoomVoice: vi.fn(async () => undefined),
-      leaveRoomVoice: vi.fn(async () => undefined),
-      setRoomVoiceParticipantGain,
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => ({
-        status: 0,
-        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-          request.command,
-        )
-          ? 'SessionState: Running'
-          : 'Ok',
-      })),
-    },
+  installBridge(undefined, {
+    joinRoomVoice: vi.fn(async () => undefined),
+    leaveRoomVoice: vi.fn(async () => undefined),
+    setRoomVoiceParticipantGain,
   });
   const { audioClient } = await import('./audioClient');
 
@@ -124,38 +110,36 @@ it('does not carry a muted personal mix into a newly joined room', async () => {
 });
 
 it('keeps the selected ASIO backend across a temporary WASAPI fallback and restores it on room join', async () => {
-  const requests: AudioBridgeRequest[] = [];
   let devicesAvailable = false;
   let backend = 'WASAPI Shared';
   let sessionState = 'Idle';
-  Object.assign(window, {
-    desktop: {
-      joinRoomVoice: vi.fn(async () => undefined),
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        if (
-          request.command === 'PrepareSession' ||
-          request.command === 'Reconfigure'
-        ) {
-          backend = request.args?.backend === 'asio' ? 'ASIO' : 'WASAPI Shared';
-          sessionState = 'Prepared';
-        }
-        if (request.command === 'StartSession') sessionState = 'Running';
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
-            : request.command === 'GetDevices'
-              ? devicesAvailable
-                ? 'asio-driver,ASIO Driver,3,0,0\nasio-driver,ASIO Driver,3,1,0'
-                : 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
-              : 'Ok',
-        };
-      }),
+  const requests = installBridge(
+    (request) => {
+      if (
+        request.command === 'PrepareSession' ||
+        request.command === 'Reconfigure'
+      ) {
+        backend = request.args?.backend === 'asio' ? 'ASIO' : 'WASAPI Shared';
+        sessionState = 'Prepared';
+      }
+      if (request.command === 'StartSession') sessionState = 'Running';
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
+          : request.command === 'GetDevices'
+            ? devicesAvailable
+              ? 'asio-driver,ASIO Driver,3,0,0\nasio-driver,ASIO Driver,3,1,0'
+              : 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
+            : 'Ok',
+      };
     },
-  });
+    {
+      joinRoomVoice: vi.fn(async () => undefined),
+    },
+  );
   const { audioClient } = await import('./audioClient');
   audioClient.setPreferredConfiguration({
     backend: 'ASIO',
@@ -203,36 +187,33 @@ it.each([
 ] as const)(
   'uses the $name route for a $label ASIO4ALL profile across room join',
   async ({ userSelectedAsio, backend: expectedBackend, name }) => {
-    const requests: AudioBridgeRequest[] = [];
     let backend = 'WASAPI Shared';
     let sessionState = 'Idle';
-    Object.assign(window, {
-      desktop: {
-        joinRoomVoice: vi.fn(async () => undefined),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (
-            request.command === 'PrepareSession' ||
-            request.command === 'Reconfigure'
-          ) {
-            backend =
-              request.args?.backend === 'asio' ? 'ASIO' : 'WASAPI Shared';
-            sessionState = 'Prepared';
-          }
-          if (request.command === 'StartSession') sessionState = 'Running';
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
-              : request.command === 'GetDevices'
-                ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nmic,Microphone Array,1,0,2\nspeaker,Speakers,1,1,2'
-                : 'Ok',
-          };
-        }),
+    const requests = installBridge(
+      (request) => {
+        if (
+          request.command === 'PrepareSession' ||
+          request.command === 'Reconfigure'
+        ) {
+          backend = request.args?.backend === 'asio' ? 'ASIO' : 'WASAPI Shared';
+          sessionState = 'Prepared';
+        }
+        if (request.command === 'StartSession') sessionState = 'Running';
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
+            : request.command === 'GetDevices'
+              ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nmic,Microphone Array,1,0,2\nspeaker,Speakers,1,1,2'
+              : 'Ok',
+        };
       },
-    });
+      {
+        joinRoomVoice: vi.fn(async () => undefined),
+      },
+    );
     const { audioClient } = await import('./audioClient');
     audioClient.setPreferredConfiguration({
       backend: 'ASIO',
@@ -309,47 +290,45 @@ it('does not override a saved deliberate ASIO4ALL selection', async () => {
 });
 
 it('keeps the working WASAPI fallback alive when preferred ASIO is still unavailable at join', async () => {
-  const requests: AudioBridgeRequest[] = [];
   let backend = 'WASAPI Shared';
   let sessionState = 'Idle';
   const joinRoomVoice = vi.fn(async () => {
     expect(sessionState).toBe('Running');
     expect(backend).toBe('WASAPI Shared');
   });
-  Object.assign(window, {
-    desktop: {
-      joinRoomVoice,
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        if (request.command === 'PrepareSession') sessionState = 'Prepared';
-        if (request.command === 'StartSession') sessionState = 'Running';
-        if (
-          request.command === 'Reconfigure' &&
-          request.args?.backend === 'asio'
-        ) {
-          sessionState = 'Failed';
-          return { status: 5, text: 'ASIO driver unavailable' };
-        }
-        if (request.command === 'Reconfigure') {
-          backend =
-            request.args?.backend === 'wasapi-exclusive'
-              ? 'WASAPI Exclusive'
-              : 'WASAPI Shared';
-          sessionState = 'Prepared';
-        }
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
-            : request.command === 'GetDevices'
-              ? 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
-              : 'Ok',
-        };
-      }),
+  const requests = installBridge(
+    (request) => {
+      if (request.command === 'PrepareSession') sessionState = 'Prepared';
+      if (request.command === 'StartSession') sessionState = 'Running';
+      if (
+        request.command === 'Reconfigure' &&
+        request.args?.backend === 'asio'
+      ) {
+        sessionState = 'Failed';
+        return { status: 5, text: 'ASIO driver unavailable' };
+      }
+      if (request.command === 'Reconfigure') {
+        backend =
+          request.args?.backend === 'wasapi-exclusive'
+            ? 'WASAPI Exclusive'
+            : 'WASAPI Shared';
+        sessionState = 'Prepared';
+      }
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000`
+          : request.command === 'GetDevices'
+            ? 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
+            : 'Ok',
+      };
     },
-  });
+    {
+      joinRoomVoice,
+    },
+  );
   const { audioClient } = await import('./audioClient');
   audioClient.setPreferredConfiguration({
     backend: 'ASIO',
@@ -374,28 +353,20 @@ it('keeps the working WASAPI fallback alive when preferred ASIO is still unavail
 });
 
 it('does not tear down an active ASIO session when its endpoint disappears before reconfigure', async () => {
-  const requests: AudioBridgeRequest[] = [];
   let sessionState = 'Running';
-  Object.assign(window, {
-    desktop: {
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        if (request.command === 'Reconfigure') {
-          sessionState = 'Failed';
-          return { status: 5, text: 'ASIO driver unavailable' };
-        }
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? `SessionState: ${sessionState}\nBackend: ASIO\nRuntimeOutputSampleRate: 48000`
-            : request.command === 'GetDevices'
-              ? 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
-              : 'Ok',
-        };
-      }),
-    },
+  const requests = installBridge((request) => {
+    if (request.command === 'Reconfigure') {
+      sessionState = 'Failed';
+      return { status: 5, text: 'ASIO driver unavailable' };
+    }
+    return {
+      status: 0,
+      text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command)
+        ? `SessionState: ${sessionState}\nBackend: ASIO\nRuntimeOutputSampleRate: 48000`
+        : request.command === 'GetDevices'
+          ? 'default-mic,Microphone,1,0,2\ndefault-output,Speakers,1,1,2'
+          : 'Ok',
+    };
   });
   const { audioClient } = await import('./audioClient');
   const asio = {
@@ -420,24 +391,16 @@ it('does not tear down an active ASIO session when its endpoint disappears befor
 });
 
 it('accepts an enumerated ASIO driver whose channel count is not probed', async () => {
-  const requests: AudioBridgeRequest[] = [];
-  Object.assign(window, {
-    desktop: {
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        return {
-          status: 0,
-          text:
-            request.command === 'GetDevices'
-              ? 'audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0'
-              : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                    request.command,
-                  )
-                ? 'SessionState: Running\nBackend: ASIO\nRuntimeOutputSampleRate: 48000'
-                : 'Ok',
-        };
-      }),
-    },
+  const requests = installBridge((request) => {
+    return {
+      status: 0,
+      text:
+        request.command === 'GetDevices'
+          ? 'audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0'
+          : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command)
+            ? 'SessionState: Running\nBackend: ASIO\nRuntimeOutputSampleRate: 48000'
+            : 'Ok',
+    };
   });
   const { audioClient } = await import('./audioClient');
   await audioClient.applyConfiguration({
@@ -462,39 +425,31 @@ it('accepts an enumerated ASIO driver whose channel count is not probed', async 
 });
 
 it('keeps output running on Shared when an installed ASIO driver rejects startup', async () => {
-  const requests: AudioBridgeRequest[] = [];
   let sessionState = 'Idle';
   let backend = 'WASAPI Shared';
-  Object.assign(window, {
-    desktop: {
-      audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-        requests.push(request);
-        if (
-          request.command === 'PrepareSession' &&
-          request.args?.backend === 'asio'
-        ) {
-          sessionState = 'Failed';
-          return { status: 5, text: 'ASIO createBuffers failed: code=-999' };
-        }
-        if (request.command === 'StopSession') sessionState = 'Idle';
-        if (request.command === 'PrepareSession') {
-          sessionState = 'Prepared';
-          backend = 'WASAPI Shared';
-        }
-        if (request.command === 'StartSession') sessionState = 'Running';
-        return {
-          status: 0,
-          text:
-            request.command === 'GetDevices'
-              ? 'audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0'
-              : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                    request.command,
-                  )
-                ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 44100`
-                : 'Ok',
-        };
-      }),
-    },
+  const requests = installBridge((request) => {
+    if (
+      request.command === 'PrepareSession' &&
+      request.args?.backend === 'asio'
+    ) {
+      sessionState = 'Failed';
+      return { status: 5, text: 'ASIO createBuffers failed: code=-999' };
+    }
+    if (request.command === 'StopSession') sessionState = 'Idle';
+    if (request.command === 'PrepareSession') {
+      sessionState = 'Prepared';
+      backend = 'WASAPI Shared';
+    }
+    if (request.command === 'StartSession') sessionState = 'Running';
+    return {
+      status: 0,
+      text:
+        request.command === 'GetDevices'
+          ? 'audient,Audient USB Audio ASIO Driver,3,0,0\naudient,Audient USB Audio ASIO Driver,3,1,0'
+          : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command)
+            ? `SessionState: ${sessionState}\nBackend: ${backend}\nRuntimeOutputSampleRate: 44100`
+            : 'Ok',
+    };
   });
   const { audioClient } = await import('./audioClient');
   audioClient.setPreferredConfiguration({
@@ -548,62 +503,57 @@ it.each([
       networkGeneration += 1;
       serverMixRegistered = false;
     });
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        joinRoomVoice,
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (request.command === 'Reconfigure') {
-            actual =
-              request.args?.backend === 'asio'
-                ? 'ASIO'
-                : request.args?.backend === 'wasapi-exclusive'
-                  ? 'WASAPI Exclusive'
-                  : 'WASAPI Shared';
-            generation += 1;
-          }
-          if (request.command === 'AddRemoteParticipant')
-            serverMixRegistered = true;
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? [
-                  'SessionState: Running',
-                  `Backend: ${actual}`,
-                  `generationId: ${generation}`,
-                  `NetworkGeneration: ${networkGeneration}`,
-                  `ActiveOutputDeviceId: ${code(actual)}-device`,
-                  `RuntimeOutputSampleRate: ${actual === 'ASIO' ? 44_100 : 48_000}`,
-                  `RuntimeOutputPeriodFrames: ${actual === 'WASAPI Shared' ? 512 : 128}`,
-                  `RemoteDecodedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
-                  `RemoteQueuedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
-                  `RemoteRenderedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
-                  `MasterOutputPeak: ${serverMixRegistered ? 0.2 : 0}`,
-                ].join('\n')
-              : request.command === 'GetDevices'
-                ? ['WASAPI Shared', 'WASAPI Exclusive', 'ASIO']
-                    .flatMap((item) => {
-                      const itemCode = code(item as typeof from | typeof to);
-                      const backend =
-                        item === 'ASIO'
-                          ? 3
-                          : item === 'WASAPI Exclusive'
-                            ? 2
-                            : 1;
-                      return [
-                        `${itemCode}-device,Input,${backend},0,2`,
-                        `${itemCode}-device,Output,${backend},1,2`,
-                      ];
-                    })
-                    .join('\n')
-                : 'Ok',
-          };
-        }),
+
+    const requests = installBridge(
+      (request) => {
+        if (request.command === 'Reconfigure') {
+          actual =
+            request.args?.backend === 'asio'
+              ? 'ASIO'
+              : request.args?.backend === 'wasapi-exclusive'
+                ? 'WASAPI Exclusive'
+                : 'WASAPI Shared';
+          generation += 1;
+        }
+        if (request.command === 'AddRemoteParticipant')
+          serverMixRegistered = true;
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? [
+                'SessionState: Running',
+                `Backend: ${actual}`,
+                `generationId: ${generation}`,
+                `NetworkGeneration: ${networkGeneration}`,
+                `ActiveOutputDeviceId: ${code(actual)}-device`,
+                `RuntimeOutputSampleRate: ${actual === 'ASIO' ? 44_100 : 48_000}`,
+                `RuntimeOutputPeriodFrames: ${actual === 'WASAPI Shared' ? 512 : 128}`,
+                `RemoteDecodedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
+                `RemoteQueuedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
+                `RemoteRenderedPeak.__room_server_mix__: ${serverMixRegistered ? 0.2 : 0}`,
+                `MasterOutputPeak: ${serverMixRegistered ? 0.2 : 0}`,
+              ].join('\n')
+            : request.command === 'GetDevices'
+              ? ['WASAPI Shared', 'WASAPI Exclusive', 'ASIO']
+                  .flatMap((item) => {
+                    const itemCode = code(item as typeof from | typeof to);
+                    const backend =
+                      item === 'ASIO' ? 3 : item === 'WASAPI Exclusive' ? 2 : 1;
+                    return [
+                      `${itemCode}-device,Input,${backend},0,2`,
+                      `${itemCode}-device,Output,${backend},1,2`,
+                    ];
+                  })
+                  .join('\n')
+              : 'Ok',
+        };
       },
-    });
+      {
+        joinRoomVoice,
+      },
+    );
     const { audioClient } = await import('./audioClient');
     audioClient.setPreferredConfiguration(configuration(from));
     await audioClient.joinVoiceSession('room', 'self');
@@ -667,8 +617,56 @@ it('preserves preferred, actual, room and final-PCM invariants through 1000 seed
     let joined = false;
     let serverMixRegistered = false;
     const available = new Set<(typeof backendNames)[number]>(backendNames);
-    Object.assign(window, {
-      desktop: {
+    installBridge(
+      (request) => {
+        if (request.command === 'Reconfigure') {
+          const requested =
+            request.args?.backend === 'asio'
+              ? 'ASIO'
+              : request.args?.backend === 'wasapi-exclusive'
+                ? 'WASAPI Exclusive'
+                : 'WASAPI Shared';
+          if (!available.has(requested)) {
+            sessionState = 'Failed';
+            return { status: 5, text: `${requested} unavailable` };
+          }
+          actual = requested;
+          sessionState = 'Prepared';
+          generation += 1;
+        }
+        if (request.command === 'StartSession') sessionState = 'Running';
+        if (request.command === 'AddRemoteParticipant')
+          serverMixRegistered = true;
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? [
+                `SessionState: ${sessionState}`,
+                `Backend: ${actual}`,
+                `generationId: ${generation}`,
+                `NetworkGeneration: ${networkGeneration}`,
+                `ActiveOutputDeviceId: ${backendCode(actual)}-device`,
+                `RuntimeOutputSampleRate: ${actual === 'ASIO' ? 44_100 : 48_000}`,
+                `RuntimeOutputPeriodFrames: ${actual === 'WASAPI Shared' ? 512 : 128}`,
+                `RemoteDecodedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
+                `RemoteQueuedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
+                `RemoteRenderedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
+                `MasterOutputPeak: ${joined && serverMixRegistered ? 0.2 : 0}`,
+              ].join('\n')
+            : request.command === 'GetDevices'
+              ? backendNames
+                  .filter((item) => available.has(item))
+                  .flatMap((item) => [
+                    `${backendCode(item)}-device,Input,${item === 'ASIO' ? 3 : item === 'WASAPI Exclusive' ? 2 : 1},0,2`,
+                    `${backendCode(item)}-device,Output,${item === 'ASIO' ? 3 : item === 'WASAPI Exclusive' ? 2 : 1},1,2`,
+                  ])
+                  .join('\n')
+              : 'Ok',
+        };
+      },
+      {
         joinRoomVoice: vi.fn(async () => {
           joined = true;
           networkGeneration += 1;
@@ -678,56 +676,8 @@ it('preserves preferred, actual, room and final-PCM invariants through 1000 seed
           joined = false;
           serverMixRegistered = false;
         }),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          if (request.command === 'Reconfigure') {
-            const requested =
-              request.args?.backend === 'asio'
-                ? 'ASIO'
-                : request.args?.backend === 'wasapi-exclusive'
-                  ? 'WASAPI Exclusive'
-                  : 'WASAPI Shared';
-            if (!available.has(requested)) {
-              sessionState = 'Failed';
-              return { status: 5, text: `${requested} unavailable` };
-            }
-            actual = requested;
-            sessionState = 'Prepared';
-            generation += 1;
-          }
-          if (request.command === 'StartSession') sessionState = 'Running';
-          if (request.command === 'AddRemoteParticipant')
-            serverMixRegistered = true;
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? [
-                  `SessionState: ${sessionState}`,
-                  `Backend: ${actual}`,
-                  `generationId: ${generation}`,
-                  `NetworkGeneration: ${networkGeneration}`,
-                  `ActiveOutputDeviceId: ${backendCode(actual)}-device`,
-                  `RuntimeOutputSampleRate: ${actual === 'ASIO' ? 44_100 : 48_000}`,
-                  `RuntimeOutputPeriodFrames: ${actual === 'WASAPI Shared' ? 512 : 128}`,
-                  `RemoteDecodedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
-                  `RemoteQueuedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
-                  `RemoteRenderedPeak.__room_server_mix__: ${joined && serverMixRegistered ? 0.2 : 0}`,
-                  `MasterOutputPeak: ${joined && serverMixRegistered ? 0.2 : 0}`,
-                ].join('\n')
-              : request.command === 'GetDevices'
-                ? backendNames
-                    .filter((item) => available.has(item))
-                    .flatMap((item) => [
-                      `${backendCode(item)}-device,Input,${item === 'ASIO' ? 3 : item === 'WASAPI Exclusive' ? 2 : 1},0,2`,
-                      `${backendCode(item)}-device,Output,${item === 'ASIO' ? 3 : item === 'WASAPI Exclusive' ? 2 : 1},1,2`,
-                    ])
-                    .join('\n')
-                : 'Ok',
-          };
-        }),
       },
-    });
+    );
     const { audioClient } = await import('./audioClient');
     audioClient.setPreferredConfiguration(configuration(expectedPreferred, 0));
     const recentActions: string[] = [];

@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { en } from './messages.en';
 import { ru } from './messages.ru';
 import { uk } from './messages.uk';
+import { audioEn } from './messages.en.audio';
+import { audioRu } from './messages.ru.audio';
+import { audioUk } from './messages.uk.audio';
 
 const entriesMatching = (table: Record<string, string>, pattern: RegExp) =>
   Object.entries(table)
@@ -9,6 +12,20 @@ const entriesMatching = (table: Record<string, string>, pattern: RegExp) =>
     .map(([key]) => key);
 
 describe('message tables', () => {
+  it.each([audioEn, audioRu, audioUk])(
+    'keeps acoustic calibration optional and distinguishes latency from callback time',
+    (messages) => {
+      for (const key of Object.keys(audioRu))
+        expect(messages).toHaveProperty(key);
+      expect(messages).not.toHaveProperty('acousticSetupBody');
+      for (const key of [
+        'latencyBoundaryHint',
+        'latencyTimingNotCpu',
+        'latencyOptionalAcoustic',
+      ] as const)
+        expect(messages[key]).not.toBe('');
+    },
+  );
   it('never shows Russian-only letters in the Ukrainian interface', () => {
     expect(entriesMatching(uk, /[ыэъёЫЭЪЁ]/)).toEqual([]);
   });

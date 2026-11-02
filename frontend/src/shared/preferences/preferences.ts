@@ -193,6 +193,9 @@ export const masterGainMax = 1.5;
 const gain = (value: unknown, fallback: number, max = 1): number =>
   typeof value === 'number' && value >= 0 && value <= max ? value : fallback;
 
+const booleanValue = (value: unknown, fallback: boolean): boolean =>
+  typeof value === 'boolean' ? value : fallback;
+
 const parseEffects = (
   raw: unknown,
   fallback: KaraokeEffectPreferences,
@@ -239,8 +242,7 @@ const parseKeyboardLighting = (
   const value =
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
-    enabled:
-      typeof value.enabled === 'boolean' ? value.enabled : fallback.enabled,
+    enabled: booleanValue(value.enabled, fallback.enabled),
     mode: oneOf(value.mode, ['music', 'theme'], fallback.mode),
     brightness: percentage(value.brightness, fallback.brightness),
     sensitivity: percentage(value.sensitivity, fallback.sensitivity),
@@ -329,18 +331,9 @@ export const parsePreferences = (raw: unknown): Preferences => {
     textFont: parseTextFont(value, base.textFont),
     fontDefaults: currentFontDefaults,
     language: oneOf(value.language, ['uk', 'ru', 'en'], base.language),
-    reducedMotion:
-      typeof value.reducedMotion === 'boolean'
-        ? value.reducedMotion
-        : base.reducedMotion,
-    discordPresence:
-      typeof value.discordPresence === 'boolean'
-        ? value.discordPresence
-        : base.discordPresence,
-    autoUpdate:
-      typeof value.autoUpdate === 'boolean'
-        ? value.autoUpdate
-        : base.autoUpdate,
+    reducedMotion: booleanValue(value.reducedMotion, base.reducedMotion),
+    discordPresence: booleanValue(value.discordPresence, base.discordPresence),
+    autoUpdate: booleanValue(value.autoUpdate, base.autoUpdate),
     librarySort: oneOf(
       value.librarySort,
       ['recent', 'title', 'artist', 'played', 'duration', 'bpm'],
@@ -351,22 +344,22 @@ export const parsePreferences = (raw: unknown): Preferences => {
       ['asc', 'desc'],
       base.librarySortDirection,
     ),
-    karaokeShowNotes:
-      typeof value.karaokeShowNotes === 'boolean'
-        ? value.karaokeShowNotes
-        : base.karaokeShowNotes,
-    karaokeShowLyrics:
-      typeof value.karaokeShowLyrics === 'boolean'
-        ? value.karaokeShowLyrics
-        : base.karaokeShowLyrics,
-    karaokeAutoHideConsole:
-      typeof value.karaokeAutoHideConsole === 'boolean'
-        ? value.karaokeAutoHideConsole
-        : base.karaokeAutoHideConsole,
-    karaokeMonitoring:
-      typeof value.karaokeMonitoring === 'boolean'
-        ? value.karaokeMonitoring
-        : base.karaokeMonitoring,
+    karaokeShowNotes: booleanValue(
+      value.karaokeShowNotes,
+      base.karaokeShowNotes,
+    ),
+    karaokeShowLyrics: booleanValue(
+      value.karaokeShowLyrics,
+      base.karaokeShowLyrics,
+    ),
+    karaokeAutoHideConsole: booleanValue(
+      value.karaokeAutoHideConsole,
+      base.karaokeAutoHideConsole,
+    ),
+    karaokeMonitoring: booleanValue(
+      value.karaokeMonitoring,
+      base.karaokeMonitoring,
+    ),
     musicGain: gain(value.musicGain, base.musicGain),
     voiceGain: gain(value.voiceGain, base.voiceGain, 4),
     referenceGain: gain(value.referenceGain, base.referenceGain),
@@ -396,22 +389,17 @@ export const parsePreferences = (raw: unknown): Preferences => {
       typeof value.radioStation === 'string'
         ? value.radioStation
         : base.radioStation,
-    radioVolume:
-      typeof value.radioVolume === 'number' &&
-      value.radioVolume >= 0 &&
-      value.radioVolume <= 100
-        ? value.radioVolume
-        : base.radioVolume,
+    radioVolume: percentage(value.radioVolume, base.radioVolume),
     displayName:
       typeof value.displayName === 'string'
         ? value.displayName.slice(0, 40)
         : base.displayName,
     profilePhoto: profilePhoto(value.profilePhoto),
     audio: parseAudio(value.audio),
-    releaseAsioInBackground:
-      typeof value.releaseAsioInBackground === 'boolean'
-        ? value.releaseAsioInBackground
-        : base.releaseAsioInBackground,
+    releaseAsioInBackground: booleanValue(
+      value.releaseAsioInBackground,
+      base.releaseAsioInBackground,
+    ),
     acousticLatencyMs: parseAcousticLatency(value.acousticLatencyMs),
   };
 };

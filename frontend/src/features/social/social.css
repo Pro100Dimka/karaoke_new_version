@@ -45,31 +45,6 @@
   border-block-end: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.18);
 }
 
-.socialSection {
-  display: grid;
-  gap: var(--ad-space-2);
-}
-
-.friendCode {
-  padding: var(--ad-space-1) var(--ad-space-3);
-  border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.5);
-  border-radius: var(--ad-radius);
-  font-size: 1.25rem;
-  letter-spacing: 0.12em;
-  user-select: all;
-}
-
-.friendCodeForm {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--ad-space-3);
-  align-items: end;
-}
-
-.friendCodeForm > :first-child {
-  flex: 1 1 12rem;
-}
-
 /* Requests and invitations wait in the top corner, above whatever screen is open. */
 .socialAlerts {
   position: fixed;
@@ -84,37 +59,4 @@
 .socialAlert.ad-card {
   display: grid;
   gap: var(--ad-space-3);
-} /* Profile card of the settings: the content sits on the night landscape and sets its height. */
-.profileCard .profileLandscape.ad-landscape {
-  aspect-ratio: auto;
-  min-height: 9rem;
-  border-radius: inherit;
-}
-.profileSlogan {
-  position: absolute;
-  top: 50%;
-  right: clamp(1rem, 3vw, 2rem);
-  display: grid;
-  justify-items: end;
-  gap: 0.75rem;
-  translate: 0 -50%;
-  color: var(--ad-secondary);
-  font-size: 0.7rem;
-  letter-spacing: 0.35em;
-  pointer-events: none;
-}
-.profileSlogan > span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.profileSlogan > small {
-  color: var(--ad-neutral-300);
-  font-size: 0.56rem;
-  letter-spacing: 0.3em;
-}
-@media (max-width: 40rem) {
-  .profileSlogan {
-    display: none;
-  }
 }

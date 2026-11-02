@@ -98,14 +98,11 @@ export const PerformanceAnalysisModal = ({
   useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
   const list = analysis ? takeList(recordings, analysis) : recordings;
   if (!analysis && !pending && !failure) return null;
-  const index = Math.max(
-    0,
-    list.findIndex(
+  const viewed =
+    list.find(
       (recording) =>
         recording.id === (viewedId ?? pending?.recordingId ?? recordingId),
-    ),
-  );
-  const viewed = list[index];
+    ) ?? list[0];
   if (!viewed && analysis) return null;
   const active = viewed?.id === analysis?.recordingId;
   const practice = analysis ? weakestMetric(analysis) : null;
@@ -161,9 +158,8 @@ export const PerformanceAnalysisModal = ({
                 onClick={() =>
                   pending.jobId && onCancelAnalysis?.(pending.jobId)
                 }
-              >
-                {tr(ru.analysisCancel)}
-              </Button>
+                label={tr(ru.analysisCancel)}
+              />
             )}
           </>
         ) : (
@@ -264,37 +260,35 @@ export const PerformanceAnalysisModal = ({
                 >
                   <RecordingPlayer key={viewed.id} recording={viewed} />
                 </Card>
-                {master && (
+                {(master || active) && (
                   <Card
+                    key={master ? 'master' : 'studio'}
                     border
                     padding="sm"
                     level={4}
                     icon="sparkle"
                     title={tr(ru.studioMasterTitle)}
-                    description={tr(ru.studioMasterReadyDescription)}
-                    className="analysisMaster"
+                    description={tr(
+                      ru[
+                        master
+                          ? 'studioMasterReadyDescription'
+                          : 'studioMasterDescription'
+                      ],
+                    )}
+                    className={master ? 'analysisMaster' : 'analysisStudio'}
                     actions={
-                      <img
-                        className="analysisMasterArt"
-                        src={`${performanceArtUrl}#pf-view-4`}
-                        alt=""
-                      />
+                      master && (
+                        <img
+                          className="analysisMasterArt"
+                          src={`${performanceArtUrl}#pf-view-4`}
+                          alt=""
+                        />
+                      )
                     }
                   >
-                    <RecordingPlayer key={master.id} recording={master} />
-                  </Card>
-                )}
-                {active && !master && (
-                  <Card
-                    border
-                    padding="sm"
-                    level={4}
-                    icon="sparkle"
-                    title={tr(ru.studioMasterTitle)}
-                    description={tr(ru.studioMasterDescription)}
-                    className="analysisStudio"
-                  >
-                    {mastering ? (
+                    {master ? (
+                      <RecordingPlayer key={master.id} recording={master} />
+                    ) : mastering ? (
                       <Stack gap={1}>
                         <ProgressBar
                           label={tr(ru.studioMasterTitle)}
@@ -314,9 +308,8 @@ export const PerformanceAnalysisModal = ({
                           viewed.fileStatus && viewed.fileStatus !== 'Ready',
                         )}
                         onClick={() => onCreateStudioMaster(viewed)}
-                      >
-                        {tr(ru.studioMasterCreate)}
-                      </Button>
+                        label={tr(ru.studioMasterCreate)}
+                      />
                     )}
                   </Card>
                 )}

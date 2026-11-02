@@ -14,12 +14,6 @@ import {
   type VisualIntensity,
 } from './visualDirector';
 
-/** The lyric word a note is sung on: its line's text and its place in that line, to light the word on screen. */
-export interface NoteWord {
-  line: string;
-  index: number;
-}
-
 export interface ShowSettings {
   intensity: VisualIntensity;
   /** Rewards stay, motion (beams swinging, sweeps, depth pulses) becomes glow and colour. */
@@ -58,7 +52,6 @@ export class ShowEngine {
   private pulse = new MusicPulse();
   private director = new VisualDirector();
   private listeners = new Set<CommandListener>();
-  private words: ReadonlyMap<string, NoteWord> = new Map();
   private rhythm: readonly (readonly [number, number])[] = [];
   readonly voiceHistory: VoiceObservation[] = [];
   /** Where the singer's voice is drawn now (page pixels), set by the melody roll's light layer when it is shown. */
@@ -78,12 +71,10 @@ export class ShowEngine {
   load(
     notes: readonly ShowNote[],
     phrases: readonly ShowPhrase[],
-    words: ReadonlyMap<string, NoteWord> = new Map(),
     resetPerformance = true,
     vocalActivity?: readonly (readonly [number, number])[],
     rhythm: readonly (readonly [number, number])[] = [],
   ): void {
-    this.words = words;
     this.rhythm = rhythm.filter(([time, strength], index) => {
       let peak = strength;
       for (const direction of [-1, 1]) {
@@ -195,10 +186,6 @@ export class ShowEngine {
     };
     for (const command of commands)
       for (const listener of this.listeners) listener(command);
-  }
-
-  wordOf(noteId: string): NoteWord | undefined {
-    return this.words.get(noteId);
   }
 
   private rhythmAt(position: number): number {

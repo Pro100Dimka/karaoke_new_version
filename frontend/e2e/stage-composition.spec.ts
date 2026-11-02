@@ -156,9 +156,9 @@ test('the karaoke light canvas draws a highlight without allocating WebGL', asyn
     document.body.append(canvas);
     const renderer = CanvasLightRenderer.create(canvas);
     if (!renderer) throw new Error('Canvas2D unavailable');
-    const batch = new LightBatch(1, 1);
+    const batch = new LightBatch(1);
     batch.sprite(32, 32, 10, spriteKind.glow, [1, 0.2, 0.4], 1);
-    renderer.render(batch, 0, { width: 64, height: 64 }, {}, 0);
+    renderer.render(batch, { width: 64, height: 64 }, {});
     const pixels = canvas.getContext('2d')!.getImageData(0, 0, 64, 64).data;
     return {
       dark: pixels[3],
@@ -218,7 +218,7 @@ test('the moving roll and lyric overlay avoid panel-wide filter surfaces', async
   expect(filters).toEqual({ roll: 'none', lyrics: 'none' });
 });
 
-test('earned stage beams remain clearly visible away from the melody roll', async ({
+test('earned stage rings remain clearly visible with an open centre', async ({
   page,
 }) => {
   await page.route('**/stage-composition-test', (route) =>
@@ -229,27 +229,31 @@ test('earned stage beams remain clearly visible away from the melody roll', asyn
   );
   await page.goto('/stage-composition-test');
   const alpha = await page.evaluate(async () => {
-    const [{ CanvasLightRenderer }, { LightBatch }] = await Promise.all([
-      import('/src/features/karaoke/show/gl/canvasLightRenderer.ts'),
-      import('/src/features/karaoke/show/gl/lightBatch.ts'),
-    ]);
+    const [{ CanvasLightRenderer }, { LightBatch, spriteKind }] =
+      await Promise.all([
+        import('/src/features/karaoke/show/gl/canvasLightRenderer.ts'),
+        import('/src/features/karaoke/show/gl/lightBatch.ts'),
+      ]);
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 64;
-    const batch = new LightBatch(1, 1);
-    batch.beam(32, 0, Math.PI, 0.4, 64, [1, 0.2, 0.55], 0.4);
+    const batch = new LightBatch(1);
+    batch.sprite(32, 32, 20, spriteKind.ring, [1, 0.2, 0.55], 1, 0.7, 0.1);
     CanvasLightRenderer.create(canvas)!.render(
       batch,
-      0,
       { width: 64, height: 64 },
       {},
-      0,
     );
-    return canvas.getContext('2d')!.getImageData(32, 32, 1, 1).data[3];
+    const context = canvas.getContext('2d')!;
+    return {
+      centre: context.getImageData(32, 32, 1, 1).data[3],
+      ring: context.getImageData(45, 32, 1, 1).data[3],
+    };
   });
-  expect(alpha).toBeGreaterThanOrEqual(25);
+  expect(alpha.centre).toBe(0);
+  expect(alpha.ring).toBeGreaterThanOrEqual(25);
 });
 
-test('stage beams have soft lateral edges instead of solid triangles', async ({
+test('stage glows have soft edges around their bright centre', async ({
   page,
 }) => {
   await page.route('**/stage-composition-test', (route) =>
@@ -260,25 +264,24 @@ test('stage beams have soft lateral edges instead of solid triangles', async ({
   );
   await page.goto('/stage-composition-test');
   const pixels = await page.evaluate(async () => {
-    const [{ CanvasLightRenderer }, { LightBatch }] = await Promise.all([
-      import('/src/features/karaoke/show/gl/canvasLightRenderer.ts'),
-      import('/src/features/karaoke/show/gl/lightBatch.ts'),
-    ]);
+    const [{ CanvasLightRenderer }, { LightBatch, spriteKind }] =
+      await Promise.all([
+        import('/src/features/karaoke/show/gl/canvasLightRenderer.ts'),
+        import('/src/features/karaoke/show/gl/lightBatch.ts'),
+      ]);
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 64;
-    const batch = new LightBatch(1, 1);
-    batch.beam(32, 0, Math.PI, 0.4, 64, [1, 0.2, 0.55], 0.6);
+    const batch = new LightBatch(1);
+    batch.sprite(32, 32, 24, spriteKind.glow, [1, 0.2, 0.55], 1);
     CanvasLightRenderer.create(canvas)!.render(
       batch,
-      0,
       { width: 64, height: 64 },
       {},
-      0,
     );
     const context = canvas.getContext('2d')!;
     return {
       centre: context.getImageData(32, 32, 1, 1).data[3],
-      edge: context.getImageData(22, 32, 1, 1).data[3],
+      edge: context.getImageData(52, 32, 1, 1).data[3],
     };
   });
   expect(pixels.centre).toBeGreaterThanOrEqual(25);
@@ -304,11 +307,11 @@ test('animated light colours keep a bounded texture cache', async ({
     const canvas = document.createElement('canvas');
     canvas.width = canvas.height = 64;
     const renderer = CanvasLightRenderer.create(canvas)!;
-    const batch = new LightBatch(1, 1);
+    const batch = new LightBatch(1);
     for (let frame = 0; frame < 100; frame++) {
       batch.clear();
       batch.sprite(32, 32, 8, spriteKind.glow, [frame / 100, 0.2, 0.55], 1);
-      renderer.render(batch, frame, { width: 64, height: 64 }, {}, 0);
+      renderer.render(batch, { width: 64, height: 64 }, {});
     }
     return (renderer as unknown as { stamps: Map<string, unknown> }).stamps
       .size;

@@ -1,7 +1,6 @@
 import { approach, light, type FxColor } from './fxPalette';
 import {
   LightBatch,
-  beamVertexFloats,
   spriteFloats,
   spriteKind,
   type Rgb,
@@ -63,11 +62,10 @@ export class StageFxRenderer {
   private light: CanvasLightRenderer | undefined;
   private worker: Worker | undefined;
   private workerReady = false;
-  private workerBuffers:
-    { sprites: Float32Array; beams: Float32Array } | undefined;
+  private workerBuffer: Float32Array | undefined;
   private pixelWidth = 1;
   private pixelHeight = 1;
-  private batch = new LightBatch(1400, 16);
+  private batch = new LightBatch(1400);
   private pool = new ParticlePool(particleBudgets[3]);
   private quality = 2;
   private frameTimes: number[] = [];
@@ -82,8 +80,6 @@ export class StageFxRenderer {
   private sizeAt = -Infinity;
   private sizedQuality = -1;
   private grade = 0;
-  private flash = 0;
-  private depth = 0;
   private rings: Ring[] = [];
   private flares: Flare[] = [];
   private rain: Timed | undefined;
@@ -109,15 +105,9 @@ export class StageFxRenderer {
       worker.onmessage = (event: MessageEvent) => {
         if (event.data.type === 'ready') {
           this.workerReady = true;
-          this.workerBuffers = {
-            sprites: new Float32Array(this.batch.sprites.length),
-            beams: new Float32Array(this.batch.beams.length),
-          };
+          this.workerBuffer = new Float32Array(this.batch.sprites.length);
         } else if (event.data.type === 'frame') {
-          this.workerBuffers = {
-            sprites: new Float32Array(event.data.sprites),
-            beams: new Float32Array(event.data.beams),
-          };
+          this.workerBuffer = new Float32Array(event.data.sprites);
         }
       };
       worker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
@@ -196,6 +186,7 @@ export class StageFxRenderer {
       case 'phraseSweep':
       case 'crossLight':
       case 'laserSweep':
+      case 'lightWave':
         return;
       case 'chargeRelease':
         this.rings.push({
@@ -221,11 +212,7 @@ export class StageFxRenderer {
       case 'phraseBloom':
         this.sweepConsole();
         return;
-      case 'lightWave':
-        this.flash = Math.max(this.flash, 0.25 * s);
-        return;
       case 'stageExpansion':
-        this.flash = Math.max(this.flash, 0.5 * s);
         this.rings.push({
           x: this.width / 2,
           y: this.height + 40,
@@ -243,7 +230,6 @@ export class StageFxRenderer {
           ['pink', 'white', 'violet', 'gold'],
           true,
         );
-        this.depth = Math.max(this.depth, s);
         return;
       case 'shockwave':
         this.rings.push({
@@ -264,8 +250,6 @@ export class StageFxRenderer {
           duration: 700,
           strength: 1.8 * s,
         });
-        this.flash = Math.max(this.flash, 0.4 * s);
-        this.depth = Math.max(this.depth, 0.8 * s);
         return;
       case 'firework':
         this.starburst(s);
@@ -458,15 +442,13 @@ export class StageFxRenderer {
       elapsed,
       state.ambient.grade > this.grade ? 1.6 : 3.5,
     );
-    this.flash *= Math.exp(-elapsed / 0.5);
-    this.depth *= Math.exp(-elapsed / 0.3);
     this.rings = alive(this.rings, now);
     this.flares = alive(this.flares, now);
     if (this.rain && progress(this.rain, now) >= 1) this.rain = undefined;
     this.spawnRain(elapsed);
     this.pool.step(elapsed);
     this.applyStyles();
-    if (!this.light && !(this.workerReady && this.workerBuffers)) return;
+    if (!this.light && !(this.workerReady && this.workerBuffer)) return;
     if (now - this.lastLightAt < 1000 / 30) return;
     this.lastLightAt = now;
 
@@ -505,32 +487,24 @@ export class StageFxRenderer {
       lyrics: rectOf(this.anchors.lyrics),
       roll: rectOf(this.anchors.rollPanel),
     };
-    const bloom = 0.85 + this.flash * 0.6;
-    if (this.worker && this.workerBuffers) {
-      const { sprites, beams } = this.workerBuffers;
+    if (this.worker && this.workerBuffer) {
+      const sprites = this.workerBuffer;
       sprites.set(batch.sprites.subarray(0, batch.spriteCount * spriteFloats));
-      beams.set(
-        batch.beams.subarray(0, batch.beamCount * 3 * beamVertexFloats),
-      );
-      this.workerBuffers = undefined;
+      this.workerBuffer = undefined;
       this.worker.postMessage(
         {
           type: 'frame',
           sprites: sprites.buffer,
-          beams: beams.buffer,
           spriteCount: batch.spriteCount,
-          beamCount: batch.beamCount,
           width: this.pixelWidth,
           height: this.pixelHeight,
-          time,
           view,
           protect,
-          bloom,
         },
-        [sprites.buffer, beams.buffer],
+        [sprites.buffer],
       );
     } else {
-      this.light?.render(batch, time, view, protect, bloom);
+      this.light?.render(batch, view, protect);
     }
   }
 

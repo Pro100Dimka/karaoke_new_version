@@ -247,9 +247,8 @@ export const SongSettingsModal = ({
               onClose();
               navigate(routes.editor(song.id));
             }}
-          >
-            {tr(ru.melodyEditor)}
-          </Button>
+            label={tr(ru.melodyEditor)}
+          />
           <SplitButton
             size="sm"
             icon="folder"
@@ -297,9 +296,8 @@ export const SongSettingsModal = ({
             variant="primary"
             icon="save"
             loading={form.submitting}
-          >
-            {tr(ru.save)}
-          </Button>
+            label={tr(ru.save)}
+          />
         </div>
       </form>
     </Dialog>

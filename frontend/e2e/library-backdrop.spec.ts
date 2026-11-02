@@ -117,12 +117,10 @@ test("the Library backdrop reacts to the radio and to the singer's voice", async
   const voice = await motion(page);
   await page.screenshot({ path: 'test-results/library-backdrop-voice.png' });
 
-  test
-    .info()
-    .annotations.push({
-      type: 'motion',
-      description: JSON.stringify({ silent, radio, voice }),
-    });
+  test.info().annotations.push({
+    type: 'motion',
+    description: JSON.stringify({ silent, radio, voice }),
+  });
   console.log(JSON.stringify({ silent, radio, voice }));
   expect(radio).toBeGreaterThan(silent * 2);
   expect(voice).toBeGreaterThan(silent * 2);

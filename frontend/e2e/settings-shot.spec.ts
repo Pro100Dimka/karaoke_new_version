@@ -157,11 +157,9 @@ for (const width of [1440, 1280]) {
             .getByRole('button', { name: /^(Буфер|Buffer) / }),
         ).toBeVisible();
         await expect(
-          page
-            .locator('.audioDevicesPanel')
-            .getByRole('switch', {
-              name: /Освобождать ASIO в фоне|Release ASIO in background/i,
-            }),
+          page.locator('.audioDevicesPanel').getByRole('switch', {
+            name: /Освобождать ASIO в фоне|Release ASIO in background/i,
+          }),
         ).toBeVisible();
         await expect(
           page.getByRole('region', { name: 'ASIO4ALL', exact: true }),

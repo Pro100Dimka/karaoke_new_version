@@ -1,92 +1,62 @@
-import { useEffect, useRef, useState } from 'react';
-import type { HistoryEventDto } from '../../../../../../contracts/models';
+import { useId, useState } from 'react';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { pythonClient as backend } from '../../../../../../services/pythonClient';
 import { historyKinds, type HistoryTab } from './historyModel';
 
-const pageSize = 50;
+const requests = {
+  retry: false,
+  gcTime: 0,
+  networkMode: 'always',
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+} as const;
 
 /** History pages and their title catalog have independent requests and retries. */
 export const useHistory = () => {
-  const [query, setQuery] = useState({
-    tab: 'performances' as HistoryTab,
-    offset: 0,
+  const view = useId();
+  const [tab, setTab] = useState<HistoryTab>('performances');
+  const history = useInfiniteQuery({
+    ...requests,
+    queryKey: ['history', view, tab],
+    initialPageParam: 0,
+    queryFn: async ({ pageParam, signal }) => {
+      const page = await backend.history(50, pageParam, historyKinds[tab]);
+      signal.throwIfAborted();
+      return page;
+    },
+    getNextPageParam: (last, pages) => {
+      const offset = pages.reduce(
+        (count, page) => count + page.items.length,
+        0,
+      );
+      return offset < last.total ? offset : undefined;
+    },
   });
-  const [page, setPage] = useState({
-    events: [] as readonly HistoryEventDto[],
-    total: 0,
-    loading: true,
-    failed: false,
+  const titles = useQuery({
+    ...requests,
+    queryKey: ['history-titles', view],
+    queryFn: async ({ signal }) => {
+      const songs = await backend.listSongs();
+      signal.throwIfAborted();
+      return new Map(
+        songs.map((song) => [song.id, `${song.artist} — ${song.title}`]),
+      );
+    },
   });
-  const [catalog, setCatalog] = useState({
-    titles: null as ReadonlyMap<string, string> | null,
-    failed: false,
-  });
-  const [titlesAttempt, setTitlesAttempt] = useState(0);
-  const source = useRef(backend);
-
-  useEffect(() => {
-    let active = true;
-    const offset = source.current === backend ? query.offset : 0;
-    source.current = backend;
-    setPage((current) => ({
-      events: offset ? current.events : [],
-      total: offset ? current.total : 0,
-      loading: true,
-      failed: false,
-    }));
-    void Promise.resolve()
-      .then(() => backend.history(pageSize, offset, historyKinds[query.tab]))
-      .then((result) => {
-        if (active)
-          setPage((current) => ({
-            events: offset
-              ? [...current.events, ...result.items]
-              : result.items,
-            total: result.total,
-            loading: false,
-            failed: false,
-          }));
-      })
-      .catch(() => {
-        if (active)
-          setPage((current) => ({ ...current, loading: false, failed: true }));
-      });
-    return () => {
-      active = false;
-    };
-  }, [backend, query]);
-
-  useEffect(() => {
-    let active = true;
-    setCatalog({ titles: null, failed: false });
-    void Promise.resolve()
-      .then(() => backend.listSongs())
-      .then((songs) => {
-        if (active)
-          setCatalog({
-            titles: new Map(
-              songs.map((song) => [song.id, `${song.artist} — ${song.title}`]),
-            ),
-            failed: false,
-          });
-      })
-      .catch(() => {
-        if (active) setCatalog({ titles: null, failed: true });
-      });
-    return () => {
-      active = false;
-    };
-  }, [backend, titlesAttempt]);
-
-  const loadMore = () =>
-    setQuery((current) => ({ ...current, offset: page.events.length }));
-  const setTab = (tab: HistoryTab) => {
-    if (tab !== query.tab) setQuery({ tab, offset: 0 });
+  const loadMore = () => void history.fetchNextPage();
+  return {
+    tab,
+    setTab,
+    events: history.data?.pages.flatMap((page) => page.items) ?? [],
+    total: history.data?.pages.at(-1)?.total ?? 0,
+    loading: history.isFetching,
+    failed: history.isError && !history.isFetching,
+    catalog: { titles: titles.data ?? null, failed: titles.isError },
+    loadMore,
+    retry: () => {
+      if (history.isError)
+        void (history.data ? history.fetchNextPage() : history.refetch());
+      if (titles.isError) void titles.refetch();
+    },
   };
-  const retry = () => {
-    if (page.failed) loadMore();
-    if (catalog.failed) setTitlesAttempt((attempt) => attempt + 1);
-  };
-
-  return { tab: query.tab, ...page, catalog, loadMore, setTab, retry };
 };

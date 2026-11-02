@@ -26,6 +26,7 @@ from backend.ai_worker.timing import (
     continued_frames,
     harmonic_evidence,
     singing_frames,
+    vocal_onsets,
     voiced_frames,
 )
 from backend.moment_spreading import spread_tied_moments
@@ -210,16 +211,21 @@ def align_words(
 
 
 def _clamped_letters(
-    letters: Sequence[float], shift: float, start: float, end: float
+    letters: Sequence[float], shift: float, start: float, end: float, *, text: str = ""
 ) -> tuple[float, ...]:
     """Shifts every letter by ``shift`` and clamps it to ``[start, end]``, then spreads away any run a
     shared boundary collapsed onto the same instant. Clamping each letter independently, without this,
     would leave a whole run of a word's opening letters flashing by together (see spread_tied_moments).
     """
-    clamped: list[float | None] = [min(max(moment + shift, start), end) for moment in letters]
-    return tuple(
-        round(moment, 3) for moment in spread_tied_moments(clamped, end) if moment is not None
-    )
+    # Filled silent characters share the next sound's anchor; they are not extra
+    # phonetic events and must not push that sound later when ties are spread.
+    clamped: list[float | None] = [
+        None
+        if index < len(text) and (not text[index].isalnum() or text[index].casefold() in "ьъ")
+        else min(max(moment + shift, start), end)
+        for index, moment in enumerate(letters)
+    ]
+    return _filled_letters(spread_tied_moments(clamped, end), end)
 
 
 def _filled_letters(letters: list[float | None], end: float) -> tuple[float, ...]:
@@ -275,8 +281,18 @@ def with_sung_ends(
         letters = word.letters
         if silence is not None:
             end = max(silence, word.start + 0.001)
-            letters = _clamped_letters(word.letters, 0.0, word.start, end)
-        result.append(replace(word, end=round(max(end, word.start + 0.001), 3), letters=letters))
+            letters = _clamped_letters(word.letters, 0.0, word.start, end, text=word.text)
+        flags = dict.fromkeys(word.diagnostics)
+        if letters != word.letters:
+            flags.update(ApproximateLetterTiming=None, LetterTimingReviewRequired=None)
+        result.append(
+            replace(
+                word,
+                end=round(max(end, word.start + 0.001), 3),
+                letters=letters,
+                diagnostics=tuple(flags),
+            )
+        )
     return result
 
 
@@ -566,7 +582,9 @@ def _sung_letter_times(
         if float(scores[after, token].exp()) <= float(scores[before, token].exp()) + _PREFERENCE:
             return None
         prefix[index] = round(proposed, 3)
-    tail = _clamped_letters(candidate.letters[last:], shift, prefix[-1], word.end)
+    tail = _clamped_letters(
+        candidate.letters[last:], shift, prefix[-1], word.end, text=word.text[last:]
+    )
     if tail[0] <= word.letters[last] + step or tail[0] >= word.end:
         return None
     result = (*prefix, *tail)
@@ -597,21 +615,15 @@ def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: floa
 def with_voice_onsets(
     words: list[AlignedWord], samples: np.ndarray, voiced: np.ndarray | None = None
 ) -> list[AlignedWord]:
-    """Moves word starts back to where the voice really starts.
-
-    The model marks a letter a little after its sound begins. A word that follows a pause starts at the voice onset found
-    in the audio; that entry's measured lag is removed inside its phrase, with a median fallback.
-    """
+    """Calibrate from measured voice entries; keep uncalibrated starts explicitly uncertain."""
     if voiced is None:
         voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
     found = _voice_entries(words, voiced, step)
+    if not found and len(samples):
+        found = _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))
     lags = [words[index].start - onset for index, onset in found.items()]
-    lag = (
-        min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags))))
-        if lags
-        else 0.0
-    )
+    lag = min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags)))) if lags else 0.0
     result: list[AlignedWord] = []
     floor = 0.0
     for index, word in enumerate(words):
@@ -627,7 +639,7 @@ def with_voice_onsets(
         start = max(min(start, word.end - 0.001), floor)
         shift = start - word.start
         end = max(word.end, start + 0.001)
-        letters = _clamped_letters(word.letters, shift, start, end)
+        letters = _clamped_letters(word.letters, shift, start, end, text=word.text)
         diagnostics = word.diagnostics
         if not found and "OnsetRecovered" not in diagnostics:
             diagnostics = tuple(dict.fromkeys((*diagnostics, "OnsetReviewRequired")))
@@ -639,22 +651,23 @@ def with_voice_onsets(
 
 
 def _voice_entries(
-    words: Sequence[AlignedWord], voiced: np.ndarray, step: float
+    words: Sequence[AlignedWord], voiced: np.ndarray, step: float, onsets: np.ndarray | None = None
 ) -> dict[int, float]:
     """Find local voice entries without dropping quieter recognized initial consonants."""
-    onsets = np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1
+    if onsets is None:
+        onsets = (np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1) * step
     found: dict[int, float] = {}
     for index, word in enumerate(words):
         after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
         nearby = onsets[
-            (onsets * step >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
-            & (onsets * step <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
+            (onsets >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
+            & (onsets <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
         ]
         if not after_pause:
             # The acoustic pause can be clear even when the preceding CTC core ends late.
-            nearby = nearby[nearby * step >= words[index - 1].end]
+            nearby = nearby[nearby >= words[index - 1].end]
         if len(nearby):
-            onset = float(nearby[np.argmin(np.abs(nearby * step - word.start))]) * step
+            onset = float(nearby[np.argmin(np.abs(nearby - word.start))])
             # A quiet initial consonant can precede the louder vowel or nasal entry.
             found[index] = min(word.start, onset)
     return found
@@ -893,18 +906,36 @@ def _evenly(words: Sequence[str], start: float, end: float) -> list[AlignedWord]
         letters = tuple(
             round(moment, 3) for moment in spread_tied_moments(raw, word_end) if moment is not None
         )
-        result.append(AlignedWord(word, word_start, word_end, letters))
+        result.append(
+            AlignedWord(
+                word, word_start, word_end, letters, diagnostics=("ApproximateLetterTiming",)
+            )
+        )
     return result
 
 
-def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
-    """Settle overlaps at the next word's start, without propagating one bad end through later words.
+def _tied_sounding_letters(text: str, letters: Sequence[float]) -> bool:
+    sounding = [
+        moment
+        for char, moment in zip(text, letters)
+        if char.isalnum() and char.casefold() not in "ьъ"
+    ]
+    return any(left == right for left, right in zip(sounding, sounding[1:]))
 
-    Only reversed starts need moving. Duration alone cannot tell whether a long word or an unequal
-    letter interval is wrong; audio evidence belongs to the alignment/refinement stages.
-    Clipping beyond one acoustic hop remains diagnostic evidence. Lost phonetic cores or a large
-    relative loss require joint review, even when the remaining word exceeds the rate-review floor.
-    """
+
+def _ordered_letters(word: AlignedWord, start: float, end: float) -> tuple[float, ...]:
+    # Preserve bounded anchors after rounding; repeat spreading only after a new
+    # clamp, or for unresolved sounding ties that have not yet been estimated.
+    if any(moment < start or moment > end for moment in word.letters) or (
+        "ApproximateLetterTiming" not in word.diagnostics
+        and _tied_sounding_letters(word.text, word.letters)
+    ):
+        return _clamped_letters(word.letters, 0.0, start, end, text=word.text)
+    return tuple(round(moment, 3) for moment in word.letters)
+
+
+def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
+    """Settle overlaps without letting unsupported starts clip cores or propagate into later words."""
     starts: list[float] = []
     cursor = 0.0
     for word in words:
@@ -914,31 +945,27 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
         cursor = round(start + 0.001, 3)
     for index in range(1, len(words)):
         previous, word = words[index - 1 : index + 1]
-        limit = min(word.end, starts[index + 1] if index + 1 < len(words) else word.end)
+        end = round(previous.end, 3)
+        limit = min(round(word.end, 3), starts[index + 1] if index + 1 < len(words) else word.end)
         # A proportional fallback has no acoustic start to justify cutting its
         # supported neighbour. Use only its own available span; never push the
         # conflict into a later word. Competing supported cores still need review.
-        if previous.score > 0 and word.score <= 0 and starts[index] < previous.end < limit:
-            starts[index] = round(previous.end, 3)
+        if previous.score > 0 and word.score <= 0 and starts[index] < end < limit:
+            starts[index] = end
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         start = starts[index]
         end = max(round(word.end, 3), round(start + 0.001, 3))
         if index + 1 < len(starts):
             end = min(end, starts[index + 1])
-        letters = _clamped_letters(word.letters, 0.0, start, end)
-        diagnostics = _ordering_diagnostics(word, start, end)
-        if letters != tuple(round(moment, 3) for moment in word.letters):
-            diagnostics = tuple(
-                dict.fromkeys((*diagnostics, "ApproximateLetterTiming", "LetterTimingReviewRequired"))
-            )
+        letters = _ordered_letters(word, start, end)
         result.append(
             replace(
                 word,
                 start=round(start, 3),
                 end=round(end, 3),
                 letters=letters,
-                diagnostics=diagnostics,
+                diagnostics=_ordering_diagnostics(word, start, end, letters),
             )
         )
     return result
@@ -953,7 +980,9 @@ def _clips_letter_anchor(word: AlignedWord, end: float) -> bool:
     )
 
 
-def _ordering_diagnostics(word: AlignedWord, start: float, end: float) -> tuple[str, ...]:
+def _ordering_diagnostics(
+    word: AlignedWord, start: float, end: float, letters: tuple[float, ...]
+) -> tuple[str, ...]:
     clipped = word.end - end > _VOICE_HOP / _VOICE_RATE + 1e-9
     conflict = (
         start > word.start + 0.001
@@ -969,6 +998,12 @@ def _ordering_diagnostics(word: AlignedWord, start: float, end: float) -> tuple[
                 *word.diagnostics,
                 *(("BoundaryClipped",) if clipped else ()),
                 *(("BoundaryConflict",) if conflict else ()),
+                *(
+                    ("ApproximateLetterTiming", "LetterTimingReviewRequired")
+                    if letters != tuple(round(moment, 3) for moment in word.letters)
+                    or _tied_sounding_letters(word.text, letters)
+                    else ()
+                ),
             )
         )
     )

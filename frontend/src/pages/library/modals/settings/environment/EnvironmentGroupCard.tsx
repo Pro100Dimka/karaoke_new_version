@@ -33,28 +33,22 @@ const kaggleActions = [
 
 /** The picture in each group's header; the cards keep the scenes they had before. */
 const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
-  if (group === 'kaggle')
-    return (
-      <>
-        <NeonWaves strands={16} phase={0} stars={false} />
-        <Badge tone="info">GPU</Badge>
-      </>
-    );
-  if (group === 'recognition')
-    return (
-      <>
-        <NeonWaves strands={20} phase={1.64} stars={false} />
-        <Spectrum variant="bars" />
-      </>
-    );
+  const [phase, art] = (
+    {
+      kaggle: [0, <Badge tone="info">GPU</Badge>],
+      recognition: [1.64, <Spectrum variant="bars" />],
+      room: [0.82, <ServerArt upload={false} />],
+      deployment: [2.46, <ServerArt upload />],
+    } as const
+  )[group];
   return (
     <>
       <NeonWaves
-        strands={16}
-        phase={group === 'room' ? 0.82 : 2.46}
+        strands={group === 'recognition' ? 20 : 16}
+        phase={phase}
         stars={false}
       />
-      <ServerArt upload={group === 'deployment'} />
+      {art}
     </>
   );
 };
@@ -99,9 +93,8 @@ const KaggleControls = ({
               loading={kaggleAction === action}
               disabled={kaggleAction !== null}
               onClick={() => void runKaggleAction(action)}
-            >
-              {tr(ru[label])}
-            </Button>
+              label={tr(ru[label])}
+            />
           ))}
         </Stack>
       )}
@@ -157,7 +150,7 @@ export const EnvironmentGroupCard = ({
         {group === 'kaggle' && (
           <KaggleControls
             kaggle={kaggle}
-            ready={state === 'valid' || state === 'checking'}
+            ready={['valid', 'checking'].includes(state)}
           />
         )}
       </Stack>

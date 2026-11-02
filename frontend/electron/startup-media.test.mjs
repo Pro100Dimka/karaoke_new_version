@@ -87,7 +87,10 @@ test('every room participant binds an ephemeral local UDP port', () => {
 });
 
 test('packaged settings are seeded once and remain in writable user data', () => {
-  assert.match(mainProcess, /path\.join\(\s*dataRoot,\s*["']environment["'],\s*name\s*\)/);
+  assert.match(
+    mainProcess,
+    /path\.join\(\s*dataRoot,\s*["']environment["'],\s*name\s*\)/,
+  );
   assert.match(
     mainProcess,
     /process\.resourcesPath,\s*["']local-secrets["'],\s*["']env["'],\s*["']project\.env["']/,

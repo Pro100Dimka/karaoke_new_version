@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { AcousticCalibrationState } from '../contracts/clients';
 import { useAcousticLatencyAutoSave } from './useAcousticLatencyAutoSave';
@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
   remember: vi.fn(async () => false),
   measure: vi.fn(),
   ask: vi.fn(),
-  notify: vi.fn(),
   updatePreferences: vi.fn(),
   stored: {} as Record<string, number>,
 }));
@@ -19,16 +18,7 @@ vi.mock('../services/audioClient', () => ({
     measureAcousticLatency: mocks.measure,
   },
 }));
-vi.mock('../providers/application', () => ({
-  useApp: () => ({
-    preferences: { acousticLatencyMs: mocks.stored },
-    updatePreferences: mocks.updatePreferences,
-  }),
-}));
 vi.mock('../providers/dialog', () => ({ ask: mocks.ask }));
-vi.mock('../providers/notifications', () => ({
-  useNotify: () => mocks.notify,
-}));
 
 const path = 'WASAPI Shared,{mic},{out},48000,48000,480,480,1056,1056';
 const state = (
@@ -45,6 +35,7 @@ const state = (
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
   mocks.stored = {};
 });
 
@@ -65,17 +56,24 @@ it('hands the saved calibrations to AudioService as soon as the app starts', asy
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
 });
 
-it('saves the delay AudioService determined from the song for the path it belongs to', async () => {
-  const other = 'WASAPI Exclusive,{mic},{out},48000,48000,480,480,480,480';
-  mocks.stored = { [other]: 17.6 };
-  mocks.state.mockResolvedValue(
-    state({ milliseconds: 45.23, origin: 'SONG', songEstimates: 3 }),
-  );
-  await run(1);
-  expect(mocks.updatePreferences).toHaveBeenCalledWith({
-    acousticLatencyMs: { [other]: 17.6, [path]: 45.2 },
-  });
-});
+it.each(['SONG', 'TEST_SIGNAL'] as const)(
+  'saves the %s delay for the path it belongs to',
+  async (origin) => {
+    const other = 'WASAPI Exclusive,{mic},{out},48000,48000,480,480,480,480';
+    mocks.stored = { [other]: 17.6 };
+    mocks.state.mockResolvedValue(
+      state({
+        milliseconds: 45.23,
+        origin,
+        songEstimates: origin === 'SONG' ? 3 : 0,
+      }),
+    );
+    await run(1);
+    expect(mocks.updatePreferences).toHaveBeenCalledWith({
+      acousticLatencyMs: { [other]: 17.6, [path]: 45.2 },
+    });
+  },
+);
 
 it("does not resave a restored profile or a value within the estimate's agreement", async () => {
   mocks.stored = { [path]: 45 };
@@ -98,6 +96,7 @@ it('never asks for an acoustic loop or emits test sounds after an uncorrelated s
   expect(mocks.ask).not.toHaveBeenCalled();
   expect(mocks.measure).not.toHaveBeenCalled();
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  expect(mocks.remember).toHaveBeenCalledTimes(3);
 });
 
 it('never asks during a song, before any song, or when the song already gave the delay', async () => {
@@ -117,6 +116,38 @@ it('preserves a profile on another device when no estimate exists for the open p
   expect(mocks.updatePreferences).not.toHaveBeenCalled();
   expect(mocks.ask).not.toHaveBeenCalled();
   expect(mocks.measure).not.toHaveBeenCalled();
+  expect(mocks.remember).toHaveBeenCalledWith({ [path + ',old']: 44.7 });
+});
+
+it('does not overwrite a saved profile with a non-finite optional measurement', async () => {
+  mocks.stored = { [path]: 28.2 };
+  mocks.state.mockResolvedValue(
+    state({ origin: 'TEST_SIGNAL', milliseconds: Infinity }),
+  );
+  await run(1);
+  expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  expect(mocks.stored[path]).toBe(28.2);
+});
+
+it('ignores a late measurement after unmount and clears its polling interval', async () => {
+  vi.useFakeTimers();
+  const clearInterval = vi.spyOn(window, 'clearInterval');
+  let complete!: (value: AcousticCalibrationState) => void;
+  mocks.state.mockReturnValue(
+    new Promise<AcousticCalibrationState>((resolve) => {
+      complete = resolve;
+    }),
+  );
+  const hook = renderHook(() => useAcousticLatencyAutoSave());
+  await vi.advanceTimersByTimeAsync(0);
+  expect(mocks.state).toHaveBeenCalledOnce();
+  hook.unmount();
+  await act(async () =>
+    complete(state({ origin: 'TEST_SIGNAL', milliseconds: 45 })),
+  );
+  expect(mocks.updatePreferences).not.toHaveBeenCalled();
+  expect(clearInterval).toHaveBeenCalledOnce();
+  expect(vi.getTimerCount()).toBe(0);
 });
 
 vi.mock('../providers/store', () => ({

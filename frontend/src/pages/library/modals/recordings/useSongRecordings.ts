@@ -58,6 +58,8 @@ export const useSongRecordings = (
   ) => {
     analysisRuns.current.set(recordingId, request);
     const ownsRun = () => analysisRuns.current.get(recordingId) === request;
+    const clearFailure = () =>
+      setAnalysisFailures(({ [recordingId]: _, ...items }) => items);
     const listRequest = requests.current.recordings;
     let started = false;
     setAnalysisProgress((items) => ({
@@ -70,11 +72,7 @@ export const useSongRecordings = (
         progress: 0,
       },
     }));
-    setAnalysisFailures((items) =>
-      Object.fromEntries(
-        Object.entries(items).filter(([id]) => id !== recordingId),
-      ),
-    );
+    clearFailure();
     try {
       const stored = recalculate
         ? null
@@ -111,11 +109,7 @@ export const useSongRecordings = (
         await new Promise((resolve) => window.setTimeout(resolve, 750));
       }
       if (request !== requests.current.analysis || !ownsRun()) return null;
-      setAnalysisFailures((items) =>
-        Object.fromEntries(
-          Object.entries(items).filter(([id]) => id !== recordingId),
-        ),
-      );
+      clearFailure();
       started = true;
       return await catalog.analyzeRecording(recordingId, (progress) => {
         if (ownsRun())
@@ -134,11 +128,7 @@ export const useSongRecordings = (
       throw failure;
     } finally {
       if (ownsRun())
-        setAnalysisProgress((items) =>
-          Object.fromEntries(
-            Object.entries(items).filter(([id]) => id !== recordingId),
-          ),
-        );
+        setAnalysisProgress(({ [recordingId]: _, ...items }) => items);
       if (started) {
         const items = await catalog.listRecordings(songId).catch(() => null);
         if (items && listRequest === requests.current.recordings)
@@ -244,11 +234,8 @@ export const useSongRecordings = (
       const request = ++requests.current.analysis;
       setAnalysis(null);
       setAnalysisSong(
-        song?.id === recording.songId
-          ? song
-          : analysisSong?.id === recording.songId
-            ? analysisSong
-            : null,
+        [song, analysisSong].find((item) => item?.id === recording.songId) ??
+          null,
       );
       setAnalysisRecordId(recording.id);
       const result = await loadAnalysis(

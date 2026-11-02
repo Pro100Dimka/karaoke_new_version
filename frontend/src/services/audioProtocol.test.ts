@@ -95,13 +95,17 @@ describe('runtime acoustic calibration', () => {
         SelectedPeriodFrames: '128',
         RequestedPeriodFrames: '480',
         RuntimeOutputPeriodFrames: '480',
+        RuntimeInputPeriodFrames: '240',
         PeriodSelectionFallback: 'UNSUPPORTED_BY_CAPABILITIES',
+        SharedEnginePeriodFallback: 'CPU_USAGE_EXCEEDED',
       }),
     ).toMatchObject({
       selectedPeriodFrames: 128,
       requestedPeriodFrames: 480,
       periodFrames: 480,
+      inputPeriodFrames: 240,
       periodSelectionFallback: 'UNSUPPORTED_BY_CAPABILITIES',
+      sharedPeriodFallback: 'CPU_USAGE_EXCEEDED',
     });
   });
   it('preserves independently selected and actual capture periods', () => {
@@ -169,7 +173,7 @@ describe('runtime acoustic calibration', () => {
       sharedPeriodFallback: 'ENGINE_PERIODICITY_LOCKED',
     });
   });
-  it.each(['NaN', 'Infinity', '-1', '500001'])(
+  it.each(['', 'NaN', 'Infinity', '-1', '500001'])(
     'rejects invalid latency %s',
     (value) => {
       expect(
@@ -201,16 +205,30 @@ describe('latency without acoustic calibration', () => {
   const runtime = {
     RuntimeOutputSampleRate: '48000',
     MonitoringLatencyFrames: '1519',
+    LocalCaptureDeviceMs: '10',
+    ReportedInputLatencyHns: '0',
     LocalAudioServiceInternalMs: '5.56',
     LocalResamplerDspMs: '2',
+    LocalRenderQueueMs: '10',
+    LocalEndpointOutputMs: '6.08',
     RenderCallbackSamples: '256',
     RenderCallbackP95Us: '120',
+    CaptureCallbackSamples: '0',
+    CaptureCallbackP95Us: '0',
+    RenderJitWaitOnlySamples: '42',
+    RenderJitWaitOnlyP95Us: '3400',
+    RenderJitDeadlineOvershootSamples: '42',
+    RenderJitDeadlineOvershootP95Us: '0',
   };
   it('uses the actual timeline interval, not that interval plus queues or acoustic correction', () => {
     const values = { ...runtime, LocalObservedMonitoringMs: '34.125' };
     const calibrations: Record<string, string>[] = [
       { AcousticCalibrationValid: '0' },
-      { AcousticCalibrationValid: '1', AcousticLatencyUs: '45200' },
+      {
+        AcousticCalibrationValid: '1',
+        AcousticLatencyUs: '45200',
+        AcousticCalibrationOrigin: 'PROFILE',
+      },
     ];
     for (const acoustic of calibrations) {
       expect(
@@ -218,22 +236,50 @@ describe('latency without acoustic calibration', () => {
       ).toMatchObject({
         estimatedLatencyMs: 34.125,
         latencyEstimateSource: 'device-timeline',
-        latencyParts: { bridgeMs: 5.56, dspMs: 2 },
+        calibratedLatencyMs: acoustic.AcousticLatencyUs ? 45.2 : undefined,
+        calibrationOrigin: acoustic.AcousticCalibrationOrigin ?? 'NONE',
+        latencyParts: {
+          inputMs: 10,
+          inputReportedMs: 0,
+          outputMs: 16.08,
+          appMs: 7.56,
+          bridgeMs: 5.56,
+          dspMs: 2,
+        },
         latencyTiming: {
           renderCallbackP95Ms: 0.12,
           captureCallbackP95Ms: null,
+          jitWaitP95Ms: 3.4,
+          deadlineOvershootP95Ms: 0,
         },
       });
     }
   });
-  it('uses a labelled model when a driver timeline is unavailable, never a 45 ms default', () => {
-    const result = runtimeConfigurationFromDiagnostics({
-      ...runtime,
-      LocalObservedMonitoringMs: 'UNKNOWN',
+  it.each([undefined, '', 'UNKNOWN', '-1', 'NaN', 'Infinity'])(
+    'uses a labelled model when the driver timeline is unavailable (%s), never a 45 ms default',
+    (observation) => {
+      const result = runtimeConfigurationFromDiagnostics({
+        ...runtime,
+        ...(observation !== undefined && {
+          LocalObservedMonitoringMs: observation,
+        }),
+      });
+      expect(result.estimatedLatencyMs).toBe(1519 / 48);
+      expect(result.latencyEstimateSource).toBe('driver-model');
+      expect(result.calibratedLatencyMs).toBeUndefined();
+      expect(result.latencyTiming).toEqual({
+        renderCallbackP95Ms: 0.12,
+        captureCallbackP95Ms: null,
+        jitWaitP95Ms: 3.4,
+        deadlineOvershootP95Ms: 0,
+      });
+    },
+  );
+  it('reports unavailable latency when no device data exists', () => {
+    expect(runtimeConfigurationFromDiagnostics({})).toMatchObject({
+      estimatedLatencyMs: null,
+      latencyEstimateSource: 'unavailable',
     });
-    expect(result.estimatedLatencyMs).toBeCloseTo(1519 / 48);
-    expect(result.latencyEstimateSource).toBe('driver-model');
-    expect(result.calibratedLatencyMs).toBeUndefined();
   });
   it('does not turn missing timing samples or absent capture into a measured zero', () => {
     expect(

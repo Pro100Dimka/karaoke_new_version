@@ -332,19 +332,6 @@ export interface AppError {
   source: 'python' | 'audio' | 'desktop' | 'frontend';
   correlationId?: string;
 }
-export type ModelState =
-  'not-installed' | 'downloading' | 'ready' | 'failed' | 'update-available';
-
-export interface ModelDto {
-  id: string;
-  purpose: string;
-  version: string;
-  sizeBytes: number;
-  requiredDiskBytes: number;
-  state: ModelState;
-  selected: boolean;
-}
-
 export interface AiProcessingSettingsDto {
   processingBackend: 'Local' | 'Kaggle';
   kaggleUrl?: string;

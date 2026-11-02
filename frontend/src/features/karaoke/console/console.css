@@ -133,8 +133,7 @@
 
 .transport,
 .masterVolume,
-.displayToggles,
-.consoleMicrophone {
+.displayToggles {
   display: flex;
   align-items: center;
   gap: var(--ad-space-2);
@@ -185,19 +184,6 @@
   left: 0;
 }
 
-.metrics {
-  display: grid;
-  gap: var(--ad-space-2);
-}
-
-/* Each read-out is one compact row: its name on the left, the value and its steps on the right. */
-.metricCard.ad-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--ad-space-2);
-}
-
 .tempoField {
   inline-size: 6.5rem;
   max-inline-size: 100%;
@@ -231,12 +217,6 @@
 }
 .karaokeConsolePanel[data-orientation='horizontal'] .songStrip > .ad-waveform {
   height: 2rem;
-}
-
-.presetGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ad-space-2);
 }
 
 .karaokeConsolePanel[data-orientation='vertical'] {

@@ -5,6 +5,8 @@ import unicodedata
 
 from num2words import num2words
 
+_CHORD = re.compile(r"[A-H][#♯b♭]?(?:(?:maj|min|dim|aug|sus|add|m|M)?\d*)?(?:/[A-H][#♯b♭]?)?")
+
 
 def normalize_search(value: str) -> str:
     return unicodedata.normalize("NFKC", value).strip().casefold()
@@ -99,9 +101,34 @@ def spell_lyric_percentages(text: str, language: str) -> str:
 
 def clean_lyrics(text: str, language: str) -> str:
     """Normalize found lyrics before recognition matching or alignment, retaining written lines."""
-    text = spell_lyric_percentages(text, language)
+    text = spell_lyric_percentages(_without_chord_rows(text), language)
     text = "".join(
         "" if char in "'’ʼ`" else " " if unicodedata.category(char)[0] in "PS" else char
         for char in text
     )
     return "\n".join(" ".join(line.split()) for line in text.splitlines() if line.strip())
+
+
+def _without_chord_rows(text: str) -> str:
+    """Discard repeated chord-chart rows in Cyrillic lyrics, retaining ambiguous prose."""
+    if not re.search(r"[А-Яа-яЁёІіЇїЄєҐґ]", text):
+        return text
+    lines = text.splitlines()
+    rows: dict[int, list[str]] = {}
+    for index, line in enumerate(lines):
+        tokens = line.split()
+        chords = [token for token in tokens if _CHORD.fullmatch(token)]
+        if not chords or any(
+            token not in ["I", "II", "III", "|", "||", ":"]
+            for token in tokens
+            if not _CHORD.fullmatch(token)
+        ):
+            continue
+        # A solitary chord followed by a roman marker may instead be "Am I".
+        if len(chords) < 2 and len(chords) != len(tokens):
+            continue
+        rows[index] = chords
+    modified = {chord for chords in rows.values() for chord in chords if len(chord) > 1}
+    if len(rows) < 2 or len(modified) < 2:
+        return text
+    return "\n".join(line for index, line in enumerate(lines) if index not in rows)

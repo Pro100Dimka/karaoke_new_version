@@ -85,9 +85,8 @@ export const EnvironmentField = ({
                 variant="ghost"
                 icon="folder"
                 onClick={() => fileInput.current?.click()}
-              >
-                {tr(ru.selectFile)}
-              </Button>
+                label={tr(ru.selectFile)}
+              />
             )}
             <span
               className="environmentStatus"

@@ -153,9 +153,8 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
             size="sm"
             icon="copy"
             onClick={() => void deliverReport('clipboard')}
-          >
-            {tr(ru.copyDiagnostics)}
-          </Button>
+            label={tr(ru.copyDiagnostics)}
+          />
           <IconButton
             size="sm"
             icon="download"

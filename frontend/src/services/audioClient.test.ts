@@ -4,18 +4,20 @@ import { audioOptions } from '../pages/library/modals/settings/audio/audioOption
 import { waitForReady } from './audioSession';
 
 const installBridge = (
-  reply: (command: string) => { status: number; text: string },
+  reply: (
+    request: AudioBridgeRequest,
+  ) => AudioBridgeResponse | Promise<AudioBridgeResponse>,
+  desktop: Partial<Omit<DesktopApi, 'audioRequest'>> = {},
 ) => {
   const commands: string[] = [];
-  Object.assign(window, {
-    desktop: {
-      audioRequest: vi.fn(async (request: { command: string }) => {
-        commands.push(request.command);
-        return reply(request.command);
-      }),
-    },
+  const requests: AudioBridgeRequest[] = [];
+  const audioRequest = vi.fn(async (request: AudioBridgeRequest) => {
+    commands.push(request.command);
+    requests.push(request);
+    return reply(request);
   });
-  return commands;
+  Object.assign(window, { desktop: { ...desktop, audioRequest } });
+  return { commands, requests, audioRequest };
 };
 
 describe('audioClient contract', () => {
@@ -147,34 +149,20 @@ describe('audioClient contract', () => {
       'WASAPI Shared,{0.0.1.00000000}.{mic},{0.0.0.00000000}.{speaker},48000,48000,480,480,1056,1056';
     const other =
       'WASAPI Exclusive,{0.0.1.00000000}.{mic},{0.0.0.00000000}.{speaker},48000,48000,480,480,480,480';
-    const requests: { command: string; args?: Record<string, unknown> }[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(
-          async (request: {
-            command: string;
-            args?: Record<string, unknown>;
-          }) => {
-            requests.push(request);
-            if (
-              ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                request.command,
-              )
-            )
-              return {
-                status: 0,
-                text: `MonotonicTicks: 1\nAcousticCalibrationFingerprint: ${path}\nAcousticCalibrationValid: 0`,
-              };
-            return {
-              status: 0,
-              text:
-                request.args?.fingerprint === path
-                  ? 'AcousticLatencyRestored'
-                  : 'AcousticLatencyRemembered',
-            };
-          },
-        ),
-      },
+
+    const { requests } = installBridge((request) => {
+      if (['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command))
+        return {
+          status: 0,
+          text: `MonotonicTicks: 1\nAcousticCalibrationFingerprint: ${path}\nAcousticCalibrationValid: 0`,
+        };
+      return {
+        status: 0,
+        text:
+          request.args?.fingerprint === path
+            ? 'AcousticLatencyRestored'
+            : 'AcousticLatencyRemembered',
+      };
     });
     await expect(
       audioClient.rememberAcousticLatencies({
@@ -247,7 +235,7 @@ describe('audioClient contract', () => {
   );
 
   it("closes the song's files when playback stops, so the song can be deleted afterwards", async () => {
-    const commands = installBridge(() => ({ status: 0, text: 'Ok' }));
+    const { commands } = installBridge(() => ({ status: 0, text: 'Ok' }));
     await audioClient.stop();
     expect(commands.slice(0, 2)).toEqual(['Stop', 'UnloadSong']);
   });
@@ -296,7 +284,7 @@ describe('audioClient contract', () => {
     'restores an idle or failed session before reporting audio ready (%s)',
     async (initial) => {
       let session = initial;
-      const commands = installBridge((command) => {
+      const { commands } = installBridge(({ command }) => {
         if (command === 'GetServiceState')
           return { status: 0, text: 'Running' };
         if (command === 'StartSession') session = 'Running';
@@ -317,7 +305,7 @@ describe('audioClient contract', () => {
   );
 
   it('does not report a live process as ready when its failed device cannot reopen', async () => {
-    installBridge((command) => {
+    installBridge(({ command }) => {
       if (command === 'GetServiceState') return { status: 0, text: 'Running' };
       if (command === 'PrepareSession')
         return { status: -1, text: 'Device unavailable' };
@@ -333,7 +321,7 @@ describe('audioClient contract', () => {
 
   it('invalidates loaded media when the native device session recovers inside the same process', async () => {
     let generation = 1;
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text:
         command === 'GetServiceState'
@@ -349,7 +337,7 @@ describe('audioClient contract', () => {
   });
 
   it('keeps an intentionally suspended ASIO session suspended during health probes', async () => {
-    const commands = installBridge((command) => ({
+    const { commands } = installBridge(({ command }) => ({
       status: 0,
       text:
         command === 'GetServiceState'
@@ -373,7 +361,7 @@ describe('audioClient contract', () => {
   });
 
   it('uses the AudioService suspend lifecycle while ASIO is released in the background', async () => {
-    const commands = installBridge(() => ({ status: 0, text: 'Ok' }));
+    const { commands } = installBridge(() => ({ status: 0, text: 'Ok' }));
     await audioClient.suspendSession();
     await audioClient.resumeSession();
     expect(commands).toEqual(['SuspendSession', 'ResumeSession']);
@@ -390,7 +378,7 @@ describe('audioClient contract', () => {
   });
 
   it('issues Pause and reads a paused snapshot', async () => {
-    const commands = installBridge((command) => ({
+    const { commands } = installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? 'PlaybackState: 4\nPlaybackPositionFrames: 48000\nRuntimeOutputSampleRate: 48000'
@@ -429,7 +417,7 @@ describe('audioClient contract', () => {
   ])(
     'brings a %s session to Running without preparing twice',
     async (sessionState, expected) => {
-      const commands = installBridge((command) => ({
+      const { commands } = installBridge(({ command }) => ({
         status: 0,
         text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
           ? `SessionState: ${sessionState}`
@@ -443,23 +431,17 @@ describe('audioClient contract', () => {
   );
 
   it('falls back to system audio when a saved device is absent on this computer', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Idle\nBackend: WASAPI Shared'
-              : request.command === 'GetDevices'
-                ? 'default-mic,Microphone,1,0,2\ndefault-speakers,Speakers,1,1,2'
-                : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Idle\nBackend: WASAPI Shared'
+          : request.command === 'GetDevices'
+            ? 'default-mic,Microphone,1,0,2\ndefault-speakers,Speakers,1,1,2'
+            : 'Ok',
+      };
     });
     audioClient.setPreferredConfiguration({
       backend: 'ASIO',
@@ -490,22 +472,12 @@ describe('audioClient contract', () => {
   });
 
   it('applies one server-owned room delay once and clears it when leaving', async () => {
-    const commands: Array<{ command: string; args?: Record<string, unknown> }> =
-      [];
-    Object.assign(window, {
-      desktop: {
+    const { requests: commands } = installBridge(
+      () => ({ status: 0, text: 'Ok' }),
+      {
         leaveRoomVoice: vi.fn(async () => undefined),
-        audioRequest: vi.fn(
-          async (request: {
-            command: string;
-            args?: Record<string, unknown>;
-          }) => {
-            commands.push(request);
-            return { status: 0, text: 'Ok' };
-          },
-        ),
       },
-    });
+    );
     await audioClient.setRoomPlayoutDelay(84);
     await audioClient.setRoomPlayoutDelay(84);
     await audioClient.leaveVoiceSession();
@@ -517,21 +489,10 @@ describe('audioClient contract', () => {
   });
 
   it('passes the 250 ms conversation deadline to AudioService', async () => {
-    const commands: Array<{ command: string; args?: Record<string, unknown> }> =
-      [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(
-          async (request: {
-            command: string;
-            args?: Record<string, unknown>;
-          }) => {
-            commands.push(request);
-            return { status: 0, text: 'Ok' };
-          },
-        ),
-      },
-    });
+    const { requests: commands } = installBridge(() => ({
+      status: 0,
+      text: 'Ok',
+    }));
 
     await audioClient.setRoomPlayoutDelay(250);
 
@@ -543,23 +504,21 @@ describe('audioClient contract', () => {
   });
 
   it('brings a session running in another mode to the chosen mode before joining a room', async () => {
-    const commands: string[] = [];
-    Object.assign(window, {
-      desktop: {
-        joinRoomVoice: vi.fn(async () => void commands.push('joinRoomVoice')),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          commands.push(request.command);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running\nBackend: WASAPI Shared'
-              : 'Ok',
-          };
-        }),
+    const { commands } = installBridge(
+      (request) => {
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? 'SessionState: Running\nBackend: WASAPI Shared'
+            : 'Ok',
+        };
       },
-    });
+      {
+        joinRoomVoice: vi.fn(async () => void commands.push('joinRoomVoice')),
+      },
+    );
     audioClient.setPreferredConfiguration({
       backend: 'WASAPI Exclusive',
       sampleRate: 0,
@@ -580,13 +539,20 @@ describe('audioClient contract', () => {
 
   it('registers voice with both the room and participant identity', async () => {
     const joinRoomVoice = vi.fn(async () => undefined);
-    const audioRequest = vi.fn(async (request: AudioBridgeRequest) => ({
-      status: 0,
-      text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(request.command)
-        ? 'SessionState: Prepared'
-        : 'Ok',
-    }));
-    Object.assign(window, { desktop: { joinRoomVoice, audioRequest } });
+
+    const { audioRequest } = installBridge(
+      (request) => ({
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Prepared'
+          : 'Ok',
+      }),
+      {
+        joinRoomVoice,
+      },
+    );
 
     await audioClient.joinVoiceSession('ROOM-1', 'person-1');
 
@@ -598,7 +564,7 @@ describe('audioClient contract', () => {
   });
 
   it('exposes microphone and per-participant room levels', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? 'InputRMS: 0.2\nRemoteLevel.guest-1: 0.7'
@@ -613,7 +579,7 @@ describe('audioClient contract', () => {
 
   it('sets the continuous server clock before enabling room voice', async () => {
     vi.spyOn(performance, 'now').mockReturnValue(200);
-    const commands = installBridge(() => ({
+    const { commands } = installBridge(() => ({
       status: 0,
       text: 'SessionState: Running\nMonotonicTicks: 1000000000',
     }));
@@ -656,24 +622,22 @@ describe('audioClient contract', () => {
   });
 
   it('sends a shared period and an exclusive/ASIO buffer as different settings', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
+    const { requests } = installBridge(
+      (request) => {
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? 'SessionState: Running\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256'
+            : 'Ok',
+        };
+      },
+      {
         joinRoomVoice: vi.fn(async () => undefined),
         leaveRoomVoice: vi.fn(async () => undefined),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256'
-              : 'Ok',
-          };
-        }),
       },
-    });
+    );
     await audioClient.leaveVoiceSession();
     requests.length = 0;
 
@@ -710,7 +674,6 @@ describe('audioClient contract', () => {
   });
 
   it('carries endpoint periods through IPC selection and a locked runtime into the UI', async () => {
-    const requests: AudioBridgeRequest[] = [];
     const replies: Record<string, string> = {
       GetAudioCapabilities: [
         'sampleRatesHz=48000',
@@ -731,13 +694,8 @@ describe('audioClient contract', () => {
         'RuntimeOutputEndpointBufferFrames: 960',
       ].join('\n'),
     };
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return { status: 0, text: replies[request.command] ?? 'Ok' };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return { status: 0, text: replies[request.command] ?? 'Ok' };
     });
     const configuration = {
       backend: 'WASAPI Shared' as const,
@@ -770,23 +728,17 @@ describe('audioClient contract', () => {
   });
 
   it('lets AudioService negotiate channels and preserves a requested small ASIO buffer', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running\nRuntimeOutputSampleRate: 44100\nRuntimeOutputPeriodFrames: 8'
-              : request.command === 'GetDevices'
-                ? 'selected-asio,ASIO Driver,3,0,2\nselected-asio,ASIO Driver,3,1,2'
-                : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Running\nRuntimeOutputSampleRate: 44100\nRuntimeOutputPeriodFrames: 8'
+          : request.command === 'GetDevices'
+            ? 'selected-asio,ASIO Driver,3,0,2\nselected-asio,ASIO Driver,3,1,2'
+            : 'Ok',
+      };
     });
 
     await audioClient.applyConfiguration({
@@ -844,7 +796,7 @@ describe('audioClient contract', () => {
   });
 
   it('reports room voice timing from live AudioService jitter and buffer diagnostics', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -902,7 +854,7 @@ describe('audioClient contract', () => {
   });
 
   it('reserves output submission lead after socket arrival for room voice delivery', async () => {
-    const commands = installBridge((command) => ({
+    const { commands } = installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -929,7 +881,7 @@ describe('audioClient contract', () => {
   });
 
   it("does not publish the muted backup server's route stages during direct singing", async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -949,7 +901,7 @@ describe('audioClient contract', () => {
   });
 
   it('reserves a complete output period for direct voice rather than the last sampled padding', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -968,7 +920,7 @@ describe('audioClient contract', () => {
   it.each(['BOOTSTRAP', 'SHORT_WINDOW', 'STABLE_HISTORY'])(
     'preserves the native measured direct requirement source %s',
     async (requirementSource) => {
-      installBridge((command) => ({
+      installBridge(({ command }) => ({
         status: 0,
         text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
           ? [
@@ -989,7 +941,7 @@ describe('audioClient contract', () => {
   );
 
   it('keeps an unknown direct requirement at zero despite a nonzero output lead', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -1010,7 +962,7 @@ describe('audioClient contract', () => {
   });
 
   it('adds the submission period to measured Shared padding when runtime latency is unavailable', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? [
@@ -1029,7 +981,7 @@ describe('audioClient contract', () => {
   });
 
   it('does not invent a device sample rate when AudioService has not reported one', async () => {
-    installBridge((command) => ({
+    installBridge(({ command }) => ({
       status: 0,
       text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
         ? 'EstimatedLatencyFrames: 480\nRemoteJitterMs.friend: 5\nRemoteTargetDelayFrames.friend: 1440'
@@ -1063,24 +1015,22 @@ describe('audioClient contract', () => {
   it.each(['join', 'leave'] as const)(
     'preserves the selected Exclusive device when rooms %s',
     async (action) => {
-      const requests: AudioBridgeRequest[] = [];
-      Object.assign(window, {
-        desktop: {
+      const { requests } = installBridge(
+        (request) => {
+          return {
+            status: 0,
+            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+              request.command,
+            )
+              ? 'SessionState: Running'
+              : 'Ok',
+          };
+        },
+        {
           joinRoomVoice: vi.fn(async () => undefined),
           leaveRoomVoice: vi.fn(async () => undefined),
-          audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-            requests.push(request);
-            return {
-              status: 0,
-              text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                request.command,
-              )
-                ? 'SessionState: Running'
-                : 'Ok',
-            };
-          }),
         },
-      });
+      );
       audioClient.setPreferredConfiguration({
         backend: 'WASAPI Shared',
         sampleRate: 44100,
@@ -1107,30 +1057,28 @@ describe('audioClient contract', () => {
   it.each([false, true])(
     'opens Exclusive with explicit Windows endpoints=%s while preserving room voice and peer gains',
     async (explicitEndpoints) => {
-      const requests: AudioBridgeRequest[] = [];
       const joinRoomVoice = vi.fn(async () => undefined);
       const leaveRoomVoice = vi.fn(async () => undefined);
       const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
-      Object.assign(window, {
-        desktop: {
+      const { requests } = installBridge(
+        (request) => {
+          return {
+            status: 0,
+            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+              request.command,
+            )
+              ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256'
+              : request.command === 'GetDevices'
+                ? 'mic,Microphone,1,0,2\nspeaker,Speaker,1,1,2'
+                : 'Ok',
+          };
+        },
+        {
           joinRoomVoice,
           leaveRoomVoice,
           setRoomVoiceParticipantGain,
-          audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-            requests.push(request);
-            return {
-              status: 0,
-              text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                request.command,
-              )
-                ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256'
-                : request.command === 'GetDevices'
-                  ? 'mic,Microphone,1,0,2\nspeaker,Speaker,1,1,2'
-                  : 'Ok',
-            };
-          }),
         },
-      });
+      );
       audioClient.setPreferredConfiguration({
         backend: 'WASAPI Shared',
         sampleRate: 48000,
@@ -1192,34 +1140,33 @@ describe('audioClient contract', () => {
     const joinRoomVoice = vi.fn(async () => undefined);
     let rejectReconfigure = false;
     let sessionState = 'Running';
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
+
+    const { requests } = installBridge(
+      (request) => {
+        if (
+          request.command === 'Reconfigure' &&
+          rejectReconfigure &&
+          request.args?.backend === 'asio'
+        ) {
+          sessionState = 'Failed';
+          return { status: 5, text: 'exclusive render initialize failed' };
+        }
+        if (request.command === 'Reconfigure') sessionState = 'Prepared';
+        if (request.command === 'StartSession') sessionState = 'Running';
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256`
+            : 'Ok',
+        };
+      },
+      {
         joinRoomVoice,
         leaveRoomVoice: vi.fn(async () => undefined),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (
-            request.command === 'Reconfigure' &&
-            rejectReconfigure &&
-            request.args?.backend === 'asio'
-          ) {
-            sessionState = 'Failed';
-            return { status: 5, text: 'exclusive render initialize failed' };
-          }
-          if (request.command === 'Reconfigure') sessionState = 'Prepared';
-          if (request.command === 'StartSession') sessionState = 'Running';
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 256`
-              : 'Ok',
-          };
-        }),
       },
-    });
+    );
     audioClient.setPreferredConfiguration({
       backend: 'WASAPI Shared',
       sampleRate: 48000,
@@ -1266,26 +1213,25 @@ describe('audioClient contract', () => {
     async (_label, configuration) => {
       const joinRoomVoice = vi.fn(async () => undefined);
       let sessionState = 'Running';
-      const requests: AudioBridgeRequest[] = [];
-      Object.assign(window, {
-        desktop: {
+
+      const { requests } = installBridge(
+        (request) => {
+          if (request.command === 'Reconfigure') sessionState = 'Prepared';
+          if (request.command === 'StartSession') sessionState = 'Running';
+          return {
+            status: 0,
+            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+              request.command,
+            )
+              ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: ${configuration.sampleRate}\nRuntimeOutputPeriodFrames: ${configuration.periodFrames}`
+              : 'Ok',
+          };
+        },
+        {
           joinRoomVoice,
           leaveRoomVoice: vi.fn(async () => undefined),
-          audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-            requests.push(request);
-            if (request.command === 'Reconfigure') sessionState = 'Prepared';
-            if (request.command === 'StartSession') sessionState = 'Running';
-            return {
-              status: 0,
-              text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                request.command,
-              )
-                ? `SessionState: ${sessionState}\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: ${configuration.sampleRate}\nRuntimeOutputPeriodFrames: ${configuration.periodFrames}`
-                : 'Ok',
-            };
-          }),
         },
-      });
+      );
       audioClient.setPreferredConfiguration({
         backend: 'WASAPI Shared',
         sampleRate: 48000,
@@ -1310,9 +1256,25 @@ describe('audioClient contract', () => {
     let sessionState = 'Running';
     let playbackFrames = 96_000;
     let runtimeRate = 48_000;
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
+
+    const { requests } = installBridge(
+      (request) => {
+        if (request.command === 'Reconfigure') {
+          sessionState = 'Prepared';
+          playbackFrames = 0;
+          runtimeRate = Number(request.args?.rate) || runtimeRate;
+        }
+        if (request.command === 'StartSession') sessionState = 'Running';
+        return {
+          status: 0,
+          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+            request.command,
+          )
+            ? `SessionState: ${sessionState}\nPlaybackState: 3\nPlaybackPositionFrames: ${playbackFrames}\nRuntimeOutputSampleRate: ${runtimeRate}\nRuntimeOutputPeriodFrames: 256`
+            : 'Ok',
+        };
+      },
+      {
         joinRoomVoice: vi.fn(async () => undefined),
         leaveRoomVoice: vi.fn(async () => undefined),
         resolveProjectArtifacts: vi.fn(async () => ({
@@ -1320,25 +1282,8 @@ describe('audioClient contract', () => {
           vocals: 'vocals.wav',
           melody: 'melody.wav',
         })),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (request.command === 'Reconfigure') {
-            sessionState = 'Prepared';
-            playbackFrames = 0;
-            runtimeRate = Number(request.args?.rate) || runtimeRate;
-          }
-          if (request.command === 'StartSession') sessionState = 'Running';
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? `SessionState: ${sessionState}\nPlaybackState: 3\nPlaybackPositionFrames: ${playbackFrames}\nRuntimeOutputSampleRate: ${runtimeRate}\nRuntimeOutputPeriodFrames: 256`
-              : 'Ok',
-          };
-        }),
       },
-    });
+    );
     const song = {
       id: 'song',
       activeRevision: 2,
@@ -1382,35 +1327,34 @@ describe('audioClient contract', () => {
   it('keeps the scheduled room timeline across a slow sample-rate change', async () => {
     let now = 200;
     let rate = 48000;
-    const requests: AudioBridgeRequest[] = [];
+
     vi.spyOn(performance, 'now').mockImplementation(() => now);
-    Object.assign(window, {
-      desktop: {
+    const { requests } = installBridge(
+      (request) => {
+        if (request.command === 'Reconfigure') {
+          now += 2000;
+          rate = Number(request.args?.rate);
+        }
+        return {
+          status: 0,
+          text:
+            request.command === 'GetClock'
+              ? `MonotonicTicks: ${(now + 800) * 1e6}`
+              : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+                    request.command,
+                  )
+                ? `SessionState: Running\nPlaybackState: 3\nPlaybackPositionFrames: 96000\nRuntimeOutputSampleRate: ${rate}\nMonotonicTicks: ${(now + 800) * 1e6}`
+                : 'Ok',
+        };
+      },
+      {
         joinRoomVoice: vi.fn(async () => undefined),
         leaveRoomVoice: vi.fn(async () => undefined),
         resolveProjectArtifacts: vi.fn(async () => ({
           instrumental: 'instrumental.wav',
         })),
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (request.command === 'Reconfigure') {
-            now += 2000;
-            rate = Number(request.args?.rate);
-          }
-          return {
-            status: 0,
-            text:
-              request.command === 'GetClock'
-                ? `MonotonicTicks: ${(now + 800) * 1e6}`
-                : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                      request.command,
-                    )
-                  ? `SessionState: Running\nPlaybackState: 3\nPlaybackPositionFrames: 96000\nRuntimeOutputSampleRate: ${rate}\nMonotonicTicks: ${(now + 800) * 1e6}`
-                  : 'Ok',
-          };
-        }),
       },
-    });
+    );
     await audioClient.leaveVoiceSession();
     await audioClient.prepareSong({
       id: 'song',
@@ -1434,30 +1378,24 @@ describe('audioClient contract', () => {
   });
 
   it('serializes complete reconfigurations across settings lifetimes', async () => {
-    const requests: AudioBridgeRequest[] = [];
     let release!: () => void;
     const firstSwitch = new Promise<void>((resolve) => {
       release = resolve;
     });
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          if (
-            request.command === 'Reconfigure' &&
-            requests.filter((r) => r.command === 'Reconfigure').length === 1
-          )
-            await firstSwitch;
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000'
-              : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge(async (request) => {
+      if (
+        request.command === 'Reconfigure' &&
+        requests.filter((r) => r.command === 'Reconfigure').length === 1
+      )
+        await firstSwitch;
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000'
+          : 'Ok',
+      };
     });
     await audioClient.stop();
     requests.length = 0;
@@ -1491,21 +1429,15 @@ describe('audioClient contract', () => {
   });
 
   it('restores current DSP values before monitoring becomes audible', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running'
-              : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Running'
+          : 'Ok',
+      };
     });
     await audioClient.setDspParameter('reverb.mix', 0.42);
     await audioClient.setDspEnabled(true);
@@ -1521,21 +1453,15 @@ describe('audioClient contract', () => {
   });
 
   it('restores voice processing after a device change without a loaded song', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-              request.command,
-            )
-              ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000'
-              : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+          request.command,
+        )
+          ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000'
+          : 'Ok',
+      };
     });
     await audioClient.stop();
     await audioClient.setDspParameter('reverb.mix', 0.42);
@@ -1562,24 +1488,18 @@ describe('audioClient contract', () => {
   });
 
   it('blocks ASIO4ALL monitoring before sending any audible output to an unverified route', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text:
-              request.command === 'GetDevices'
-                ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nspeakers,Speaker (Realtek),1,1,2'
-                : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                      request.command,
-                    )
-                  ? 'SessionState: Running\nBackend: ASIO\nMonitoringEnabled: 0'
-                  : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text:
+          request.command === 'GetDevices'
+            ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0\nspeakers,Speaker (Realtek),1,1,2'
+            : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+                  request.command,
+                )
+              ? 'SessionState: Running\nBackend: ASIO\nMonitoringEnabled: 0'
+              : 'Ok',
+      };
     });
     const { audioState } = await import('./audioSession');
     const previous = audioState.active;
@@ -1605,24 +1525,18 @@ describe('audioClient contract', () => {
   });
 
   it('enables cautious ASIO4ALL monitoring when a physical microphone channel is present', async () => {
-    const requests: AudioBridgeRequest[] = [];
-    Object.assign(window, {
-      desktop: {
-        audioRequest: vi.fn(async (request: AudioBridgeRequest) => {
-          requests.push(request);
-          return {
-            status: 0,
-            text:
-              request.command === 'GetDevices'
-                ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0'
-                : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-                      request.command,
-                    )
-                  ? 'SessionState: Running\nBackend: ASIO\nAsioInputChannelName.0: HD Audio Mic input 1\nAsioInputChannelRms.0: 0\nAsioInputChannelName.1: Wave Microphone - 0 1\nAsioInputChannelRms.1: 0.0002\nMonitoringEnabled: 0'
-                  : 'Ok',
-          };
-        }),
-      },
+    const { requests } = installBridge((request) => {
+      return {
+        status: 0,
+        text:
+          request.command === 'GetDevices'
+            ? 'asio4all,ASIO4ALL v2,3,0,0\nasio4all,ASIO4ALL v2,3,1,0'
+            : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+                  request.command,
+                )
+              ? 'SessionState: Running\nBackend: ASIO\nAsioInputChannelName.0: HD Audio Mic input 1\nAsioInputChannelRms.0: 0\nAsioInputChannelName.1: Wave Microphone - 0 1\nAsioInputChannelRms.1: 0.0002\nMonitoringEnabled: 0'
+              : 'Ok',
+      };
     });
     const { audioState } = await import('./audioSession');
     const previous = audioState.active;

@@ -40,9 +40,8 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
                 await pythonClient.retryRecordingPreparation(recording.id);
               })
             }
-          >
-            {tr('Повторить подготовку')}
-          </Button>
+            label={tr('Повторить подготовку')}
+          />
         )}
       </div>
     );

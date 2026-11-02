@@ -22,8 +22,7 @@ import { isSupportedAudio } from './importModel';
 
 type FileState =
   | { kind: 'none' }
-  | { kind: 'ready'; info: FileInfo }
-  | { kind: 'unsupported'; info: FileInfo }
+  | { kind: 'ready' | 'unsupported'; info: FileInfo }
   | { kind: 'unreadable' };
 const fileErrors = {
   none: null,
@@ -119,8 +118,7 @@ export const AddSongModal = ({
     setProgress(null);
     onClose();
   };
-  const info =
-    file.kind === 'ready' || file.kind === 'unsupported' ? file.info : null;
+  const info = 'info' in file ? file.info : null;
   const fileError = fileErrors[file.kind];
 
   return (
@@ -175,17 +173,15 @@ export const AddSongModal = ({
               if (form.submitting) importController.current?.abort();
               else handleClose();
             }}
-          >
-            {tr(ru[form.submitting ? 'cancelImport' : 'cancel'])}
-          </Button>
+            label={tr(ru[form.submitting ? 'cancelImport' : 'cancel'])}
+          />
           <Button
             type="submit"
             variant="primary"
             icon="plus"
             disabled={form.submitting || file.kind !== 'ready'}
-          >
-            {tr(ru.addSong)}
-          </Button>
+            label={tr(ru.addSong)}
+          />
         </div>
       </form>
     </Dialog>

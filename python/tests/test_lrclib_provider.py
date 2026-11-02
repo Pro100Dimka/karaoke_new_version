@@ -797,6 +797,39 @@ def test_lyric_percentages_have_pronounceable_words_in_every_supported_language(
     assert spell_lyric_percentages(f"{number}%!", language) == expected + "!"
 
 
+@pytest.mark.parametrize(
+    "language,text", [("Ukrainian", "Я йшов по воді"), ("Russian", "Я шёл по воде")]
+)
+def test_chord_chart_rows_do_not_become_sung_words(language, text):
+    from backend.text_normalization import clean_lyrics
+
+    source = f"Dm\nF Gm A7\n{text}\nEm Am G H7 II\nB\n{text}\nB7 I A7"
+    assert clean_lyrics(source, language) == f"{text}\n{text}"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Am I\nA\nI am",
+        "A B C\nSing with me",
+        "Я співаю Dm і A7",
+        "Am I\nAm I\nЯ співаю",
+        "Am\nAm\nЯ співаю",
+        "Dm\nЯ співаю",
+    ],
+)
+def test_ordinary_words_and_inline_note_names_are_not_chord_rows(text):
+    from backend.text_normalization import clean_lyrics
+
+    assert clean_lyrics(text, "English") == text
+
+
+def test_chord_accidentals_are_recognized_before_punctuation_is_removed():
+    from backend.text_normalization import clean_lyrics
+
+    assert clean_lyrics("F#m C#/G#\nЯ співаю\nBbmaj7 Dsus4\nAm I", "Ukrainian") == "Я співаю\nAm I"
+
+
 def test_fuller_matching_text_is_found_despite_artist_alias_and_missing_asr_repeats():
     partial = "Перший світ над містами\nЯ з тобою на сто відсотків\nЗнову їду до моря"
     complete = partial + "\nЯ з тобою на 100%\nЧуєш? Я з тобою на 100%"

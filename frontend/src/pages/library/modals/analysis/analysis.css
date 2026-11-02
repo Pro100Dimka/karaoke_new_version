@@ -2,9 +2,6 @@
 .analysisDialog.ad-dialog {
   max-height: calc(100dvh - 2rem);
 }
-.analysisEyebrow {
-  display: block;
-}
 .analysisPlanet.ad-planet {
   position: absolute;
   top: 0;
@@ -18,20 +15,6 @@
     linear-gradient(to right, transparent, #000 35%),
     linear-gradient(#000 50%, transparent);
   mask-composite: intersect;
-}
-.analysisNavigator.ad-card {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--ad-space-3);
-  text-align: center;
-}
-.analysisTake {
-  display: grid;
-  gap: var(--ad-space-1);
-}
-.analysisNext .ad-icon {
-  rotate: 180deg;
 }
 .analysisTakes,
 .analysisMetrics {

@@ -3,91 +3,58 @@ import { useLocale, Button, Card, tr, useRouter } from '@neo-ui-kit/react';
 import { useState } from 'react';
 
 import { ru } from '../../i18n/messages.ru';
-import type { MessageKey } from '../../i18n/messages';
 import { routes } from '../../shared/routes';
 
 const chapters = [
-  {
-    id: 'start',
-    icon: 'rocket',
-    title: 'helpStart',
-    paragraphs: ['helpStart1', 'helpStart2'],
-  },
-  {
-    id: 'audio',
-    icon: 'headphones',
-    title: 'helpAudio',
-    paragraphs: ['helpAudio1', 'helpAudio2', 'helpAudio3'],
-    image: 'audio',
-  },
-  {
-    id: 'models',
-    icon: 'chip',
-    title: 'helpModels',
-    paragraphs: ['helpModels1', 'helpModels2', 'helpModels3'],
-    image: 'models',
-  },
-  {
-    id: 'processing',
-    icon: 'processing',
-    title: 'helpProcessing',
-    paragraphs: ['helpProcessing1', 'helpProcessing2', 'helpProcessing3'],
-  },
-  {
-    id: 'library',
-    icon: 'music',
-    title: 'helpLibrary',
-    paragraphs: ['helpLibrary1', 'helpLibrary2'],
-    image: 'library',
-  },
-  {
-    id: 'karaoke',
-    icon: 'mic',
-    title: 'helpKaraoke',
-    paragraphs: ['helpKaraoke1', 'helpKaraoke2', 'helpKaraoke3'],
-  },
-  {
-    id: 'keys',
-    icon: 'key',
-    title: 'helpKeys',
-    paragraphs: ['helpKeys1', 'helpKeys2', 'helpKeys3'],
-  },
-  {
-    id: 'editor',
-    icon: 'pencil',
-    title: 'helpEditor',
-    paragraphs: ['helpEditor1', 'helpEditor2'],
-  },
-  {
-    id: 'recordings',
-    icon: 'headphones',
-    title: 'helpRecordings',
-    paragraphs: ['helpRecordings1', 'helpRecordings2'],
-  },
-  {
-    id: 'rooms',
-    icon: 'users',
-    title: 'helpRooms',
-    paragraphs: ['helpRooms1', 'helpRooms2', 'helpRooms3'],
-  },
-  {
-    id: 'trouble',
-    icon: 'wrench',
-    title: 'helpTrouble',
-    paragraphs: ['helpTrouble1', 'helpTrouble2', 'helpTrouble3'],
-  },
-] as const satisfies readonly {
-  id: string;
-  icon: string;
-  title: MessageKey;
-  paragraphs: readonly MessageKey[];
-  image?: string;
-}[];
+  ['start', 'rocket', ['helpStart', 'helpStart1', 'helpStart2']],
+  [
+    'audio',
+    'headphones',
+    ['helpAudio', 'helpAudio1', 'helpAudio2', 'helpAudio3'],
+    'audio',
+  ],
+  [
+    'models',
+    'chip',
+    ['helpModels', 'helpModels1', 'helpModels2', 'helpModels3'],
+    'models',
+  ],
+  [
+    'processing',
+    'processing',
+    ['helpProcessing', 'helpProcessing1', 'helpProcessing2', 'helpProcessing3'],
+  ],
+  [
+    'library',
+    'music',
+    ['helpLibrary', 'helpLibrary1', 'helpLibrary2'],
+    'library',
+  ],
+  [
+    'karaoke',
+    'mic',
+    ['helpKaraoke', 'helpKaraoke1', 'helpKaraoke2', 'helpKaraoke3'],
+  ],
+  ['keys', 'key', ['helpKeys', 'helpKeys1', 'helpKeys2', 'helpKeys3']],
+  ['editor', 'pencil', ['helpEditor', 'helpEditor1', 'helpEditor2']],
+  [
+    'recordings',
+    'headphones',
+    ['helpRecordings', 'helpRecordings1', 'helpRecordings2'],
+  ],
+  ['rooms', 'users', ['helpRooms', 'helpRooms1', 'helpRooms2', 'helpRooms3']],
+  [
+    'trouble',
+    'wrench',
+    ['helpTrouble', 'helpTrouble1', 'helpTrouble2', 'helpTrouble3'],
+  ],
+] as const;
 
 export const HelpPage = () => {
   useLocale();
   const { navigate } = useRouter();
   const [active, setActive] = useState<(typeof chapters)[number]>(chapters[0]);
+  const [activeId, , [activeTitle, ...paragraphs], image] = active;
   return (
     <main className="helpPage">
       <header className="helpHeader" data-window-drag>
@@ -98,39 +65,42 @@ export const HelpPage = () => {
       </header>
       <div className="helpLayout">
         <nav className="helpNavigation" aria-label={tr(ru.helpTitle)}>
-          {chapters.map((chapter) => (
-            <Button
-              key={chapter.id}
-              icon={chapter.icon}
-              variant={chapter.id === active.id ? 'primary' : 'ghost'}
-              aria-current={chapter.id === active.id ? 'page' : undefined}
-              onClick={() => setActive(chapter)}
-            >
-              {tr(ru[chapter.title])}
-            </Button>
-          ))}
+          {chapters.map((chapter) => {
+            const [id, icon, [title]] = chapter;
+            return (
+              <Button
+                key={id}
+                icon={icon}
+                variant={id === activeId ? 'primary' : 'ghost'}
+                aria-current={id === activeId ? 'page' : undefined}
+                onClick={() => setActive(chapter)}
+              >
+                {tr(ru[title])}
+              </Button>
+            );
+          })}
         </nav>
         <Card className="helpArticle" padding="lg">
-          <article key={active.id} aria-labelledby="helpChapterTitle">
-            <h2 id="helpChapterTitle">{tr(ru[active.title])}</h2>
-            {active.paragraphs.map((key) => (
+          <article key={activeId} aria-labelledby="helpChapterTitle">
+            <h2 id="helpChapterTitle">{tr(ru[activeTitle])}</h2>
+            {paragraphs.map((key) => (
               <p key={key}>{tr(ru[key])}</p>
             ))}
-            {'image' in active && (
+            {image && (
               <figure>
                 <img
-                  src={`${import.meta.env.BASE_URL}help/${active.image}.jpg`}
-                  alt={tr(ru[active.title])}
+                  src={`${import.meta.env.BASE_URL}help/${image}.jpg`}
+                  alt={tr(ru[activeTitle])}
                   loading="lazy"
                 />
                 <figcaption>{tr(ru.helpScreenshot)}</figcaption>
               </figure>
             )}
-            {['audio', 'models'].includes(active.id) && (
+            {['audio', 'models'].includes(activeId) && (
               <Button
                 icon="settings"
                 onClick={() =>
-                  openSettings(active.id === 'audio' ? 'audio' : 'ai')
+                  openSettings(activeId === 'audio' ? 'audio' : 'ai')
                 }
               >
                 {tr(ru.settings)}

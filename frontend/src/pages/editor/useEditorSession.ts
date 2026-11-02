@@ -53,15 +53,9 @@ export const useEditorSession = (songId: string) => {
     () => (document && saved ? isEditorDirty(saved, document) : false),
     [saved, document],
   );
-  const historyRef = useRef(history);
-  historyRef.current = history;
-  const savedRef = useRef(saved);
-  savedRef.current = saved;
-  const dirtyRef = useRef(dirty);
-  dirtyRef.current = dirty;
   const song = load.kind === 'ready' ? load.song : null;
-  const songRef = useRef(song);
-  songRef.current = song;
+  const latest = useRef({ history, saved, dirty, song });
+  latest.current = { history, saved, dirty, song };
   const previewFailure = useCallback(
     () => notify(tr(ru.actionFailed), 'error'),
     [notify, locale],
@@ -171,9 +165,9 @@ export const useEditorSession = (songId: string) => {
   }, []);
 
   const save = useCallback(async (): Promise<boolean> => {
-    const target = songRef.current;
-    const current = historyRef.current?.present;
-    const base = savedRef.current;
+    const target = latest.current.song;
+    const current = latest.current.history?.present;
+    const base = latest.current.saved;
     if (!target || !current || !base) return true;
     const requestGeneration = generation.current;
     if (savingGeneration.current === requestGeneration) return false;
@@ -187,12 +181,12 @@ export const useEditorSession = (songId: string) => {
           if (requestGeneration !== generation.current) return false;
           const next = { ...current, revision };
           const present = {
-            ...(historyRef.current?.present ?? current),
+            ...(latest.current.history?.present ?? current),
             revision,
           };
           const pendingEdits = isEditorDirty(next, present);
-          savedRef.current = next;
-          dirtyRef.current = pendingEdits;
+          latest.current.saved = next;
+          latest.current.dirty = pendingEdits;
           setSaved(next);
           setHistory((existing) =>
             existing
@@ -251,7 +245,7 @@ export const useEditorSession = (songId: string) => {
 
   /** Save / Discard / Cancel; resolves true when the caller may leave. */
   const resolveUnsaved = useCallback(async (): Promise<boolean> => {
-    if (!dirtyRef.current) return true;
+    if (!latest.current.dirty) return true;
     const choice = await ask({
       title: tr(ru.unsavedEditorTitle),
       body: tr(ru.unsavedEditorBody),
@@ -263,7 +257,7 @@ export const useEditorSession = (songId: string) => {
     });
     if (choice === 'save') return save();
     if (choice === 'discard') {
-      if (songRef.current) clearDraft(songRef.current.id);
+      if (latest.current.song) clearDraft(latest.current.song.id);
       return true;
     }
     return false;

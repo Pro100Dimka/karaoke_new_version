@@ -20,7 +20,7 @@ const music = (intensity = 1): MusicState => ({
 describe('lyrics rhythm', () => {
   it('ignores weak drum rolls between accents without silencing a quieter passage', () => {
     const engine = new ShowEngine();
-    engine.load([], [], new Map(), true, undefined, [
+    engine.load([], [], true, undefined, [
       [1, 1],
       [1.12, 0.3],
       [1.24, 0.35],
@@ -41,7 +41,7 @@ describe('lyrics rhythm', () => {
 
   it('keeps the hit crisp instead of swelling through the next tenth of a second', () => {
     const engine = new ShowEngine();
-    engine.load([], [], new Map(), true, undefined, [[1, 1]]);
+    engine.load([], [], true, undefined, [[1, 1]]);
     engine.advance(0, 1, undefined, true);
     expect(engine.state.musicBeat).toBe(1);
     engine.advance(16, 1.016, undefined, true);
@@ -54,7 +54,7 @@ describe('lyrics rhythm', () => {
 
   it('keeps a strong short hit at a normal animation-frame interval', () => {
     const engine = new ShowEngine();
-    engine.load([], [], new Map(), true, undefined, [[1, 1]]);
+    engine.load([], [], true, undefined, [[1, 1]]);
     engine.advance(0, 0.99, undefined, true);
     engine.advance(16, 1.016, undefined, true);
     expect(engine.state.musicBeat).toBeGreaterThan(0.45);
@@ -71,7 +71,7 @@ describe('lyrics rhythm', () => {
 
   it('follows bass and drum onsets at the source position, including seek and pause', () => {
     const engine = new ShowEngine();
-    engine.load([], [], new Map(), true, undefined, [
+    engine.load([], [], true, undefined, [
       [0.5, 1],
       [1, 0.8],
     ]);
