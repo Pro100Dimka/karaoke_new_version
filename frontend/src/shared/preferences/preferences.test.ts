@@ -1,7 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultAudioRequest, parsePreferences } from './preferences';
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('parsePreferences', () => {
+  it('ignores an unsupported installer language', () => {
+    vi.stubGlobal('desktop', { initialLanguage: 'de' });
+    expect(parsePreferences({}).language).toBe('ru');
+  });
+  it.each(['uk', 'en', 'ru'])(
+    'starts in installer language %s and preserves a saved choice',
+    (language) => {
+      vi.stubGlobal('desktop', { initialLanguage: language });
+      expect(parsePreferences({}).language).toBe(language);
+      expect(parsePreferences({ language: 'en' }).language).toBe('en');
+    },
+  );
   it("persists the user's local karaoke monitoring choice", () => {
     expect(parsePreferences({}).karaokeMonitoring).toBe(false);
     expect(

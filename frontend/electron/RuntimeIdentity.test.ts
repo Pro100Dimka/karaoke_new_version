@@ -1,9 +1,37 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import type { App } from 'electron';
 import * as path from 'node:path';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { configureRuntimeIdentity } from './RuntimeIdentity';
 
 afterEach(() => vi.unstubAllEnvs());
+
+it('passes the installed language into the renderer environment', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'ad-voice-language-'));
+  const executable = process.execPath;
+  const originalEnvironment = { ...process.env };
+  try {
+    mkdirSync(path.join(root, 'data'));
+    writeFileSync(path.join(root, 'data', 'installer-language'), 'uk');
+    Object.defineProperty(process, 'execPath', {
+      value: path.join(root, 'AD Voice.exe'),
+    });
+    configureRuntimeIdentity({
+      isPackaged: true,
+      getPath: () => path.join(root, 'legacy'),
+      setName: vi.fn(),
+      setPath: vi.fn(),
+    } as unknown as App);
+    expect(process.env.AD_VOICE_LANGUAGE).toBe('uk');
+  } finally {
+    Object.defineProperty(process, 'execPath', { value: executable });
+    for (const name of Object.keys(process.env))
+      if (!(name in originalEnvironment)) delete process.env[name];
+    Object.assign(process.env, originalEnvironment);
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 it('lets the operating system allocate the managed backend port', () => {
   vi.stubEnv('AD_VOICE_PORT', undefined);

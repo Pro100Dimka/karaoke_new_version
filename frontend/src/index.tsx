@@ -1,4 +1,5 @@
 import '@neo-ui-kit/react/styles.css';
+import { setMotionFrameRate } from '@neo-ui-kit/react';
 import {
   focusManager,
   QueryClient,
@@ -7,6 +8,8 @@ import {
 import { createRoot } from 'react-dom/client';
 import App from './pages';
 import './styles.css';
+
+setMotionFrameRate(60);
 
 const queryClient = new QueryClient({
   defaultOptions: {

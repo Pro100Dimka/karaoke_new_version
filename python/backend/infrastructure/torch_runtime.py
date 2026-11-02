@@ -66,6 +66,31 @@ GPU_WHEELS = (
     ),
 )
 
+LEGACY_GPU_WHEELS = (
+    _wheel("cu126", "torch", "12f7f1b73ba522576ea2050fbe2dc720a30cf681c73b8ea2d4f5480d66fad8f3"),
+    _wheel(
+        "cu126", "torchaudio", "bb5d55842b8b52ab7a67a6bd0ec23b56dfca4f163e8d2e053d6a24a8192f46c0"
+    ),
+)
+
+
+def select_gpu_runtime(target: Path) -> Path:
+    """CUDA 13 requires SM 7.5; the CUDA 12.6 build retains older architectures."""
+    try:
+        result = ProcessRunner().run(
+            ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
+            timeout_seconds=15,
+        )
+        rows = result.stdout.decode("utf-8", errors="replace").splitlines()
+        capability = float(rows[0]) if result.exit_code == 0 and rows else 0
+    except (DependencyError, ValueError):
+        return target
+    return target.with_name(f"torch-{TORCH_VERSION}-cu126") if 0 < capability < 7.5 else target
+
+
+def gpu_wheels(target: Path) -> tuple[Wheel, ...]:
+    return LEGACY_GPU_WHEELS if target.name.endswith("-cu126") else GPU_WHEELS
+
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -126,9 +151,11 @@ def install_gpu(target: Path, *, verified_wheels: list[Path] | None = None) -> N
     cache = target.parent / "downloads"
     partial = target.with_name(target.name + ".partial")
     _remove(partial)
-    wheels = verified_wheels if verified_wheels is not None else [
-        download(wheel, cache) for wheel in GPU_WHEELS
-    ]
+    wheels = (
+        verified_wheels
+        if verified_wheels is not None
+        else [download(wheel, cache) for wheel in gpu_wheels(target)]
+    )
     unpack(wheels, partial)
     (partial / COMPLETE_MARKER).write_text(TORCH_VERSION, encoding="utf-8")
     _remove(target)
@@ -166,6 +193,7 @@ def prepare_gpu_build(
     Jobs run on the CPU until it is ready; `on_ready` then lets the next job find the GPU. A failed
     download is tried again at the next start.
     """
+    target = select_gpu_runtime(target)
     if use_gpu_build(target) or not has_gpu():
         return None
 
@@ -194,7 +222,7 @@ def bundle_cpu(site_packages: Path, cache: Path) -> None:
 
 def main(arguments: list[str]) -> int:
     if len(arguments) == 2 and arguments[0] == "install-gpu":
-        install_gpu(Path(arguments[1]))
+        install_gpu(select_gpu_runtime(Path(arguments[1])))
         return 0
     if len(arguments) == 3 and arguments[0] == "bundle-cpu":
         bundle_cpu(Path(arguments[1]), Path(arguments[2]))

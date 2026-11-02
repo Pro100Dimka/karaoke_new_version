@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from functools import lru_cache
 from types import MappingProxyType
 
+from librosa.util import tiny
+from numba import njit
 import numpy as np
 import torch
 import torchcrepe
@@ -16,6 +19,66 @@ _HOP_SAMPLES = 160  # 10 ms
 _FMIN, _FMAX = 65.0, 1100.0
 _BATCH = MappingProxyType({"cpu": 512, "cuda": 128})
 _SMOOTHING = 3
+
+
+@njit(cache=True)
+def _band_viterbi(
+    log_prob: np.ndarray, log_transition: np.ndarray, initial: np.ndarray, floor: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """CREPE's 23-bin band plus librosa's finite off-band epsilon, including ties."""
+    frames, states = log_prob.shape
+    value = np.zeros((frames, states), dtype=np.float64)
+    ptr = np.zeros((frames, states), dtype=np.uint16)
+    path = np.zeros(frames, dtype=np.uint16)
+    value[0] = log_prob[0] + initial
+    for t in range(1, frames):
+        # Include every floor candidate; a band's actual transition dominates
+        # its floor. Compare rounded sums, retaining the lowest index on ties.
+        floors = value[t - 1] + floor
+        global_best = int(np.argmax(floors))
+        for j in range(states):
+            low, high = max(0, j - 11), min(states, j + 12)
+            best, chosen = -np.inf, 0
+            for k in range(low, high):
+                cost = value[t - 1, k] + log_transition[k, j]
+                if cost > best:
+                    best, chosen = cost, k
+            if floors[global_best] > best or (floors[global_best] == best and global_best < chosen):
+                best, chosen = floors[global_best], global_best
+            value[t, j] = log_prob[t, j] + best
+            ptr[t, j] = chosen
+    path[-1] = np.argmax(value[-1])
+    for t in range(frames - 2, -1, -1):
+        path[t] = ptr[t + 1, path[t + 1]]
+    return path, value[-1:, path[-1]]
+
+
+@lru_cache(maxsize=3)
+def _decoder_parameters(epsilon: float) -> tuple[np.ndarray, np.ndarray, float]:
+    xx, yy = np.meshgrid(range(360), range(360))
+    transition = np.maximum(12 - abs(xx - yy), 0)
+    transition = transition / transition.sum(axis=1, keepdims=True)
+    return (
+        np.log(transition + epsilon),
+        np.log(np.full(360, 1 / 360) + epsilon),
+        float(np.log(epsilon)),
+    )
+
+
+def _viterbi_decoder(logits: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    with torch.no_grad():
+        probs = torch.nn.functional.softmax(logits, dim=1)
+    sequences = probs.cpu().numpy()
+    transition, initial, floor = _decoder_parameters(float(tiny(sequences)))
+    bins = np.array(
+        [
+            _band_viterbi(np.log(sequence + tiny(sequence)).T, transition, initial, floor)[0]
+            for sequence in sequences
+        ],
+        dtype=np.int64,
+    )
+    indices = torch.tensor(bins, device=probs.device)
+    return indices, torchcrepe.convert.bins_to_frequency(indices)
 
 
 def _pitch_points(
@@ -60,7 +123,7 @@ def _predict_active(
         # Retain the full model: tiny can mistake harmonics for notes an octave or two higher.
         probabilities = torchcrepe.infer(frames, model="full", device=target)
         predicted, confidence = torchcrepe.postprocess(
-            probabilities.T[None], _FMIN, _FMAX, return_periodicity=True
+            probabilities.T[None], _FMIN, _FMAX, decoder=_viterbi_decoder, return_periodicity=True
         )
         frequency[:, first:last] = predicted.cpu()
         periodicity[:, first:last] = confidence.cpu()

@@ -146,7 +146,7 @@ export const defaultPreferences = (): Preferences => ({
   headingFont: defaultHeadingFont,
   textFont: defaultTextFont,
   fontDefaults: currentFontDefaults,
-  language: 'ru',
+  language: oneOf(window.desktop?.initialLanguage, ['uk', 'ru', 'en'], 'ru'),
   reducedMotion: systemReducedMotion(),
   discordPresence: true,
   autoUpdate: true,

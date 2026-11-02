@@ -217,11 +217,6 @@ begin
   Result := GpuPresent;
 end;
 
-function NeedsGpuRuntime: Boolean;
-begin
-  Result := (not FileExists(ExpandConstant(GpuRuntimeDir + '\.complete'))) and HasNvidiaGpu;
-end;
-
 procedure SkipDownloads(Sender: TObject);
 begin
   if SaveStringToFile(DownloadCancelFile, 'cancel', False) then
@@ -333,6 +328,20 @@ begin
   { Older versions start updates with /VERYSILENT. Keep their first migration visible too. }
   if CurStep = ssInstall then WizardForm.Show;
   if CurStep <> ssPostInstall then Exit;
+  ForceDirectories(ExpandConstant('{app}\data'));
+  if not Exec(ExpandConstant('{sys}\icacls.exe'),
+    AddQuotes(ExpandConstant('{app}\data')) + ' /grant ' +
+    AddQuotes(GetEnv('USERDOMAIN') + '\' + GetUserNameString + ':(OI)(CI)M'),
+    '', SW_HIDE, ewWaitUntilTerminated, Code) or (Code <> 0) then
+  begin
+    MsgBox(CustomMessage('StorageMoveFailed') + #13#10 + SysErrorMessage(Code), mbError, MB_OK);
+    Abort;
+  end;
+  if not SaveStringToFile(ExpandConstant('{app}\data\installer-language'), ActiveLanguage, False) then
+  begin
+    MsgBox(CustomMessage('StorageMoveFailed'), mbError, MB_OK);
+    Abort;
+  end;
   Names := ['TEMP', 'TMP', 'NUMBA_CACHE_DIR', 'TORCH_HOME', 'HF_HOME', 'PIP_CACHE_DIR'];
   Folders := ['temp', 'temp', 'cache\numba', 'cache\torch', 'cache\huggingface', 'cache\pip'];
   for I := 0 to GetArrayLength(Names) - 1 do
@@ -370,12 +379,12 @@ begin
   end;
   { Installed Python runs the shared queue before the app opens. Silent updates never wait for AI files. }
   if WizardSilent then Exit;
-  if not (WizardIsTaskSelected('models') or NeedsGpuRuntime) then Exit;
+  if not (WizardIsTaskSelected('models') or HasNvidiaGpu) then Exit;
   Params := '-E -B -u -m backend.infrastructure.installer_downloads ' +
     AddQuotes(ExpandConstant('{app}\data\AD Voice')) +
     ' --cancel-file ' + AddQuotes(DownloadCancelFile);
   if WizardIsTaskSelected('models') then Params := Params + ' --models';
-  if NeedsGpuRuntime then Params := Params + ' --gpu ' + AddQuotes(ExpandConstant(GpuRuntimeDir));
+  if HasNvidiaGpu then Params := Params + ' --gpu ' + AddQuotes(ExpandConstant(GpuRuntimeDir));
   DownloadPage.Show;
   try
     repeat
@@ -560,6 +569,7 @@ begin
       DeleteFile(ExpandConstant('{app}\data\storage-layout.json'));
       DeleteFile(ExpandConstant('{app}\data\storage-migration.log'));
       DeleteFile(ExpandConstant('{app}\data\storage-progress.json'));
+      DeleteFile(ExpandConstant('{app}\data\installer-language'));
       DeleteFile(ExpandConstant('{app}\data\.storage-worker.lock.guard'));
       RemoveDir(ExpandConstant('{app}\data'));
     end;

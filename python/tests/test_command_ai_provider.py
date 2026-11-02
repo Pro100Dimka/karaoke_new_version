@@ -82,6 +82,22 @@ def _provider(stdout: bytes, exit_code: int = 0, *, provider_id="scripted") -> C
     return CommandAiProvider(descriptor, ["worker"], _ScriptedRunner(stdout, exit_code))
 
 
+def test_failed_worker_retains_its_stderr_in_the_application_log(tmp_path, monkeypatch, caplog):
+    provider = _provider(b"", exit_code=1)
+    monkeypatch.setattr(
+        provider._runner,
+        "run",
+        lambda *args, **kwargs: ProcessResult(1, b"", b"CUDA error: no kernel image is available"),
+    )
+    with pytest.raises(DependencyError) as failed:
+        provider.separate(
+            tmp_path / "song.wav", tmp_path / "output", threading.Event(), execution=EXECUTION
+        )
+    assert failed.value.code == "AiProviderFailed"
+    assert "no kernel image is available" in caplog.text
+    assert "separate" in caplog.text
+
+
 def test_alignment_reuse_is_scoped_to_the_job_and_invalidates_changed_audio(tmp_path):
     from backend.processing.policies import ResourceBudget
 

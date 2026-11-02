@@ -7,6 +7,16 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILD_STEPS = "build-steps.mjs"
 
 
+def test_installer_prepares_owner_writable_data_and_persists_its_language() -> None:
+    source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
+    assert "icacls.exe" in source
+    assert "GetUserNameString" in source
+    assert "(OI)(CI)M" in source
+    assert "installer-language" in source and "ActiveLanguage" in source
+    assert "DeleteFile(ExpandConstant('{app}\\data\\installer-language'))" in source
+    assert "Permissions: users-modify" not in source
+
+
 def _entrypoint(name: str) -> str:
     """The batch file plus the shared build steps it hands its preparation to."""
     contents = (ROOT / name).read_text(encoding="utf-8")

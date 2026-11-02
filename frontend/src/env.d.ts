@@ -44,6 +44,7 @@ interface ProjectArtifacts {
 }
 
 interface DesktopApi {
+  readonly initialLanguage?: 'uk' | 'ru' | 'en';
   readonly fixedStorageRoot?: boolean;
   readonly roomE2e?: boolean;
   minimize(): Promise<void>;

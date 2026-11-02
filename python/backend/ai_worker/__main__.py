@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from functools import partial
 from collections.abc import Mapping
@@ -10,6 +11,11 @@ from backend.serialization import dumps, loads_list, loads_object
 
 # Each worker process handles one action. Import only its model stack during CLI startup.
 _action = sys.argv[1] if __name__ == "__main__" and len(sys.argv) > 1 else None
+if _action is not None:
+    # Numba chooses its disk-cache location when decorated kernels are imported.
+    os.environ.setdefault(
+        "NUMBA_CACHE_DIR", str(Path(os.getenv("AD_VOICE_DATA", "./data")) / "cache" / "numba")
+    )
 if _action is None or _action in ["prepare-accelerator", "transcribe", "transcribe-many", "align"]:
     from backend.ai_worker.runtime import AlignmentReuse
     from backend.ai_worker.speech import align, prepare_accelerator, transcribe, transcribe_many
@@ -90,6 +96,21 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
 
 
 def main(argv: list[str]) -> int:
+    if argv and argv[0] in ["transcribe", "transcribe-many", "align"]:
+        import numba
+        from whisper.timing import backtrace, dtw_cpu
+
+        # Reuse CPU fallback compilation across short-lived local workers.
+        setattr(
+            numba.config,
+            "CACHE_DIR",
+            os.environ.get(
+                "NUMBA_CACHE_DIR",
+                str(Path(os.getenv("AD_VOICE_DATA", "./data")) / "cache" / "numba"),
+            ),
+        )
+        backtrace.enable_caching()
+        dtw_cpu.enable_caching()
     # The backend decodes stdout as UTF-8 regardless of the console code page.
     sys.stdout.buffer.write(dumps(_run(_parser().parse_args(argv))).encode("utf-8"))
     return 0

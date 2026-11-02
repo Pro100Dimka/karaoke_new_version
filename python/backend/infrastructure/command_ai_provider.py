@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import threading
 from contextlib import contextmanager
 from pathlib import Path
@@ -298,6 +299,10 @@ class CommandAiProvider:
                 raise
             raise ConflictError("JobCancelled", "Local AI processing was cancelled") from error
         if result.exit_code != 0:
+            logging.getLogger(__name__).error(
+                f"Local {action} worker failed: %s",
+                result.stderr.decode("utf-8", errors="replace")[-3000:],
+            )
             raise DependencyError(
                 "AiProviderFailed",
                 "AI provider process failed",

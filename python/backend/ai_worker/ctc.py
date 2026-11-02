@@ -75,15 +75,18 @@ def _romanizer() -> uroman.Uroman:
 @lru_cache(maxsize=1)
 def _model() -> torch.nn.Module:
     """The multilingual character-level CTC model of Meta's MMS forced aligner, loaded from the verified download."""
-    model: torch.nn.Module = torchaudio.models.wav2vec2_model(**MMS_FA._params)  # noqa: SLF001 - private bundle config
-    weights = torch.load(model_file(ALIGNMENT_MODEL), map_location="cpu")
+    with torch.device("meta"):
+        model: torch.nn.Module = torchaudio.models.wav2vec2_model(**MMS_FA._params)  # noqa: SLF001 - private bundle config
+    weights = torch.load(
+        model_file(ALIGNMENT_MODEL), map_location="cpu", weights_only=True, mmap=True
+    )
     # The checkpoint predicts 31 symbols; the pad, end and unknown markers (1..3) are not part of the alignment alphabet.
     keep = [0, *range(4, weights["aux.weight"].shape[0])]
     weights["aux.weight"], weights["aux.bias"] = (
         weights["aux.weight"][keep],
         weights["aux.bias"][keep],
     )
-    model.load_state_dict(weights)
+    model.load_state_dict(weights, assign=True)
     # Match MMS_FA.get_model() preprocessing while retaining verified local checkpoint loading.
     model = _extend_model(model, normalize_waveform=MMS_FA._normalize_waveform)  # noqa: SLF001
     return model.to(device()).eval()

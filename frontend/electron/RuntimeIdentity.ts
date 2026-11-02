@@ -1,6 +1,12 @@
 import type { App } from 'electron';
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, realpathSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+} from 'node:fs';
 import * as path from 'node:path';
 import { isSafePathComponent } from './PathPolicy';
 
@@ -24,6 +30,12 @@ export const configureRuntimeIdentity = (app: App): void => {
   const userData = path.join(appData, applicationName);
   if (app.isPackaged) {
     mkdirSync(appData, { recursive: true });
+    const languageFile = path.join(appData, 'installer-language');
+    if (existsSync(languageFile)) {
+      const language = readFileSync(languageFile, 'utf8').trim();
+      if (['uk', 'ru', 'en'].includes(language))
+        process.env.AD_VOICE_LANGUAGE = language;
+    }
     const relative = path.relative(
       realpathSync(installedRoot),
       realpathSync(appData),

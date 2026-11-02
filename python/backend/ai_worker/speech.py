@@ -93,9 +93,36 @@ def prepare_accelerator() -> dict[str, str]:
     return {"acceleratedWhisper": str(target)}
 
 
+def _load_speech_model(path: str, target: str) -> whisper.Whisper:
+    checkpoint = torch.load(path, map_location="cpu", weights_only=True, mmap=True)
+    dims = whisper.ModelDimensions(**checkpoint["dims"])
+    with torch.device("meta"):
+        model = whisper.Whisper.__new__(whisper.Whisper)
+        torch.nn.Module.__init__(model)
+        model.dims = dims
+        model.encoder = whisper.model.AudioEncoder(
+            dims.n_mels, dims.n_audio_ctx, dims.n_audio_state, dims.n_audio_head, dims.n_audio_layer
+        )
+        model.decoder = whisper.model.TextDecoder(
+            dims.n_vocab, dims.n_text_ctx, dims.n_text_state, dims.n_text_head, dims.n_text_layer
+        )
+    # This nonpersistent buffer is absent from the checkpoint; retain the native causal mask.
+    model.decoder.mask = torch.empty(dims.n_text_ctx, dims.n_text_ctx).fill_(-np.inf).triu_(1)
+    for layer in model.modules() if target == "cuda" else ():
+        if isinstance(layer, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Embedding)):
+            layer.half()
+    expected = model.state_dict()
+    weights = {
+        key: value.to(dtype=expected[key].dtype, memory_format=torch.contiguous_format).contiguous()
+        for key, value in checkpoint["model_state_dict"].items()
+    }
+    model.load_state_dict(weights, assign=True)
+    return model
+
+
 def _speech_model(target: str) -> whisper.Whisper:
     # Keep checkpoint precision for projections/embeddings; avoid recasting the vocabulary per token.
-    model = whisper.load_model(str(model_file(SPEECH_MODEL)), device="cpu")
+    model = _load_speech_model(str(model_file(SPEECH_MODEL)), target=target)
     for layer in model.modules() if target == "cuda" else ():
         if isinstance(layer, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Embedding)):
             layer.half()

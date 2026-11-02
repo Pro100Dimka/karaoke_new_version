@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { ipcChannels, roomParticipantArgument } from './ipcChannels';
 
 const desktopApi = {
+  initialLanguage: process.env.AD_VOICE_LANGUAGE,
   fixedStorageRoot: process.env.AD_VOICE_FIXED_STORAGE === '1',
   roomE2e: process.env.AD_VOICE_ROOM_E2E === '1',
   minimize: (): Promise<void> => ipcRenderer.invoke(ipcChannels.minimize),

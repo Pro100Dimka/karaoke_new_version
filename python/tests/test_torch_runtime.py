@@ -19,6 +19,15 @@ from backend.infrastructure.torch_runtime import (
 )
 
 
+@pytest.fixture(autouse=True)
+def modern_gpu_probe(monkeypatch):
+    from backend.infrastructure.process_runner import ProcessResult
+
+    monkeypatch.setattr(
+        torch_runtime.ProcessRunner, "run", lambda *args, **kwargs: ProcessResult(0, b"8.6\n", b"")
+    )
+
+
 def _wheel_file(path: Path, files: dict[str, str]) -> Wheel:
     with zipfile.ZipFile(path, "w") as archive:
         for name, text in files.items():
@@ -26,8 +35,34 @@ def _wheel_file(path: Path, files: dict[str, str]) -> Wheel:
     return Wheel(path.as_uri(), hashlib.sha256(path.read_bytes()).hexdigest())
 
 
+@pytest.mark.parametrize(
+    "capability,variant",
+    [("6.1", "cu126"), ("7.0", "cu126"), ("7.5", "cu130"), ("8.6", "cu130"), ("12.0", "cu130")],
+)
+def test_gpu_build_matches_device_capability_without_a_gpu_name(
+    tmp_path, monkeypatch, capability, variant
+):
+    from backend.infrastructure.process_runner import ProcessResult
+
+    monkeypatch.setattr(
+        torch_runtime.ProcessRunner,
+        "run",
+        lambda *args, **kwargs: ProcessResult(0, capability.encode(), b""),
+    )
+    selector = getattr(torch_runtime, "select_gpu_runtime", None)
+    assert callable(selector), "Installed workers must select a compatible CUDA build"
+    target = selector(tmp_path / f"torch-{torch_runtime.TORCH_VERSION}-cu130")
+    assert target.name == f"torch-{torch_runtime.TORCH_VERSION}-{variant}"
+    wheels = torch_runtime.gpu_wheels(target)
+    assert all(f"%2B{variant}-" in wheel.url for wheel in wheels)
+
+
 def test_pinned_wheels_match_the_bundled_python() -> None:
-    for wheels in (torch_runtime.CPU_WHEELS, torch_runtime.GPU_WHEELS):
+    for wheels in (
+        torch_runtime.CPU_WHEELS,
+        torch_runtime.GPU_WHEELS,
+        torch_runtime.LEGACY_GPU_WHEELS,
+    ):
         for wheel in wheels:
             assert wheel.url.startswith("https://download.pytorch.org/whl/")
             assert f"{torch_runtime.TORCH_VERSION}+" in wheel.file_name
@@ -124,12 +159,35 @@ def test_the_installer_downloads_the_same_gpu_build() -> None:
     script = (Path(__file__).resolve().parents[2] / "installer" / "ad-voice.iss").read_text(
         encoding="utf-8"
     )
-    downloader = (Path(__file__).resolve().parents[1] / "backend/infrastructure/installer_downloads.py").read_text(
-        encoding="utf-8"
-    )
+    downloader = (
+        Path(__file__).resolve().parents[1] / "backend/infrastructure/installer_downloads.py"
+    ).read_text(encoding="utf-8")
     assert "backend.infrastructure.installer_downloads" in script
-    assert "from backend.infrastructure.torch_runtime import COMPLETE_MARKER, GPU_WHEELS, install_gpu" in downloader
-    assert "for wheel in GPU_WHEELS" in downloader
+    assert "select_gpu_runtime(args.gpu)" in downloader
+    assert "for wheel in gpu_wheels(gpu)" in downloader
     assert "wheel.sha256" in downloader
     target = rf"gpu-runtime\torch-{torch_runtime.TORCH_VERSION}-cu130"
     assert script.count(target) == 1
+
+
+def test_legacy_gpu_does_not_reuse_an_installed_incompatible_cuda_build(tmp_path, monkeypatch):
+    from backend.infrastructure.process_runner import ProcessResult
+
+    monkeypatch.setattr(
+        torch_runtime.ProcessRunner, "run", lambda *args, **kwargs: ProcessResult(0, b"6.1\n", b"")
+    )
+    target = tmp_path / f"torch-{torch_runtime.TORCH_VERSION}-cu130"
+    target.mkdir()
+    (target / COMPLETE_MARKER).write_text(torch_runtime.TORCH_VERSION)
+    wheel = _wheel_file(tmp_path / "legacy.whl", {"torch/__init__.py": "legacy-cuda"})
+    monkeypatch.setattr(torch_runtime, "LEGACY_GPU_WHEELS", (wheel,))
+    monkeypatch.setenv("PYTHONPATH", "app")
+    ready = threading.Event()
+    worker = prepare_gpu_build(target, ready.set, has_gpu=lambda: True)
+    assert worker is not None
+    worker.join(timeout=10)
+    assert ready.is_set()
+    selected = target.with_name(f"torch-{torch_runtime.TORCH_VERSION}-cu126")
+    assert os.environ["PYTHONPATH"].split(os.pathsep)[0] == str(selected)
+    assert (selected / "torch/__init__.py").read_text() == "legacy-cuda"
+    assert (target / COMPLETE_MARKER).is_file()

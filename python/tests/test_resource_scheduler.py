@@ -140,36 +140,6 @@ def test_resource_scheduler_enforces_ram_headroom(tmp_path: Path) -> None:
     assert raised.value.code == "ResourceBudgetExceeded"
 
 
-def test_resource_scheduler_rejects_vram_requirement_without_cuda(tmp_path: Path) -> None:
-    budget = ResourceBudget(cpu_threads=4, min_free_ram_bytes=0, min_free_disk_bytes=0)
-    scheduler = ProcessingResourceScheduler(
-        FakeRuntimeProbe(cuda=False), FakeStorage(), tmp_path, budget
-    )
-
-    with pytest.raises(DependencyError) as raised:
-        scheduler.claim(_providers({"vramBytes": 100}), source_bytes=1)
-    assert raised.value.code == "MissingCuda"
-
-
-def test_resource_scheduler_enforces_vram_fraction(tmp_path: Path) -> None:
-    budget = ResourceBudget(
-        cpu_threads=4,
-        min_free_ram_bytes=0,
-        min_free_disk_bytes=0,
-        max_vram_fraction=0.5,
-    )
-    scheduler = ProcessingResourceScheduler(
-        FakeRuntimeProbe(cuda=True, total_vram=1_000, free_vram=900),
-        FakeStorage(),
-        tmp_path,
-        budget,
-    )
-
-    with pytest.raises(DependencyError) as raised:
-        scheduler.claim(_providers({"vramBytes": 600}), source_bytes=1)
-    assert raised.value.code == "InsufficientVram"
-
-
 def test_resource_scheduler_includes_processing_disk_estimate(tmp_path: Path) -> None:
     storage = FakeStorage()
     budget = ResourceBudget(

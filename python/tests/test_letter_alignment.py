@@ -282,6 +282,77 @@ def test_returning_voice_can_precede_its_coarse_recognized_entry(
 
 
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
+def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
+    monkeypatch, tmp_path, target
+):
+    import base64
+    import gzip
+    from dataclasses import asdict
+
+    import torch
+    from backend.ai_worker import speech
+
+    dims = speech.whisper.ModelDimensions(4, 2, 4, 1, 1, 8, 4, 4, 1, 2)
+    reference = speech.whisper.Whisper(dims)
+    weights = {
+        key: value.half().T.contiguous().T if value.ndim == 2 else value.half()
+        for key, value in reference.state_dict().items()
+    }
+    reference.load_state_dict(weights)
+    heads = base64.b85encode(gzip.compress(np.array([[False], [True]]).tobytes()))
+    reference.set_alignment_heads(heads)
+    for layer in reference.modules() if target == "cuda" else ():
+        if isinstance(layer, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Embedding)):
+            layer.half()
+    checkpoint = tmp_path / "speech.pt"
+    torch.save({"dims": asdict(dims), "model_state_dict": weights}, checkpoint)
+    monkeypatch.setattr(speech, "model_file", lambda _: checkpoint)
+    monkeypatch.setitem(speech.whisper._ALIGNMENT_HEADS, "large-v3-turbo", heads)
+    constructed, loads = [], []
+    original_reset, original_load, original_to = (
+        torch.nn.Linear.reset_parameters,
+        torch.load,
+        torch.nn.Module.to,
+    )
+
+    def reset(layer):
+        constructed.append(layer.weight.is_meta)
+        original_reset(layer)
+
+    def load(*args, **kwargs):
+        loads.append(kwargs)
+        return original_load(*args, **kwargs)
+
+    def transfer(module, *args, **kwargs):
+        return module if args == ("cuda",) else original_to(module, *args, **kwargs)
+
+    monkeypatch.setattr(torch.nn.Linear, "reset_parameters", reset)
+    monkeypatch.setattr(torch, "load", load)
+    monkeypatch.setattr(torch.nn.Module, "to", transfer)
+    actual = speech._speech_model(target)
+    assert constructed and all(constructed)
+    assert loads == [{"map_location": "cpu", "weights_only": True, "mmap": True}]
+    assert [(key, type(module)) for key, module in actual.named_modules()] == [
+        (key, type(module)) for key, module in reference.named_modules()
+    ]
+    for actual_values, reference_values in (
+        (actual.state_dict(), reference.state_dict()),
+        (dict(actual.named_buffers()), dict(reference.named_buffers())),
+    ):
+        assert actual_values.keys() == reference_values.keys()
+        for key, value in actual_values.items():
+            expected = reference_values[key]
+            assert not value.is_meta
+            assert value.dtype == expected.dtype
+            if not value.is_sparse:
+                assert value.stride() == expected.stride()
+            assert torch.equal(
+                value.to_dense() if value.is_sparse else value,
+                expected.to_dense() if expected.is_sparse else expected,
+            )
+
+
+@pytest.mark.parametrize("target", ["cpu", "cuda"])
 def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings(
     monkeypatch, target
 ):
@@ -300,8 +371,8 @@ def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embedding
     expected = model["linear"](values).detach().clone()
     checkpoints, transfers = [], []
 
-    def load(_path, *, device):
-        checkpoints.append(device)
+    def load(_path, *, target):
+        checkpoints.append(target)
         return model
 
     def transfer(device):
@@ -311,7 +382,7 @@ def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embedding
     monkeypatch.setattr(model, "set_alignment_heads", lambda *_: None, raising=False)
     monkeypatch.setattr(model, "to", transfer)
     monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
-    monkeypatch.setattr(speech.whisper, "load_model", load)
+    monkeypatch.setattr(speech, "_load_speech_model", load)
 
     loaded = speech._speech_model(target)
 
@@ -321,7 +392,7 @@ def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embedding
     assert loaded["embedding"].weight.dtype == torch.float32
     assert loaded["norm"].weight.dtype == torch.float32
     torch.testing.assert_close(loaded["linear"](values), expected, rtol=0, atol=0)
-    assert checkpoints == ["cpu"], "the checkpoint must not make a GPU/CPU/GPU round trip"
+    assert checkpoints == [target], "the loader must receive the final precision policy"
     assert transfers == ([("cuda", torch.float16)] if target == "cuda" else [])
 
 
@@ -683,8 +754,8 @@ def test_default_recognizer_recovers_all_performed_choruses_from_a_fresh_import(
     monkeypatch.setattr(speech, "model_file", lambda spec: tmp_path / spec.model_id / "model.bin")
     monkeypatch.setattr(speech, "WhisperModel", RecordedModel, raising=False)
     monkeypatch.setattr(
-        speech.whisper,
-        "load_model",
+        speech,
+        "_load_speech_model",
         lambda path, **_: SimpleNamespace(
             encoder=speech.torch.nn.Identity(),
             set_alignment_heads=lambda *_: None,
@@ -811,7 +882,7 @@ def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkey
 
     monkeypatch.setattr(speech, "device", lambda: target)
     monkeypatch.setattr(speech, "model_file", lambda _: Path("verified-model.bin"))
-    monkeypatch.setattr(speech.whisper, "load_model", lambda *_a, **_kw: NativeModel())
+    monkeypatch.setattr(speech, "_load_speech_model", lambda *_a, **_kw: NativeModel())
 
     assert speech._transcribe(Path("voice.wav"), "Ukrainian", None)["text"] == "recognized"
 
@@ -1377,6 +1448,53 @@ def test_local_mms_model_applies_the_bundles_required_waveform_normalization(
         ctc._model.cache_clear()
 
 
+def test_local_mms_loading_skips_random_storage_and_preserves_checkpoint_values(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import torch
+
+    from backend.ai_worker import ctc
+
+    created = []
+
+    class SmallModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.aux = torch.nn.Linear(2, 28)
+            created.append(self.aux.weight.is_meta)
+
+        def forward(self, audio, lengths=None):
+            return self.aux(audio), lengths
+
+    weights = {
+        "aux.weight": torch.arange(62, dtype=torch.float32).reshape(31, 2),
+        "aux.bias": torch.arange(31, dtype=torch.float32),
+    }
+    checkpoint = tmp_path / "model.bin"
+    torch.save(weights, checkpoint)
+    monkeypatch.setattr(ctc.torchaudio.models, "wav2vec2_model", lambda **_kwargs: SmallModel())
+    monkeypatch.setattr(ctc, "model_file", lambda _spec: checkpoint)
+    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+    ctc._model.cache_clear()
+    try:
+        model = ctc._model()
+        assert created == [True]
+        keep = [0, *range(4, 31)]
+        assert torch.equal(model.model.aux.weight, weights["aux.weight"][keep])
+        assert torch.equal(model.model.aux.bias, weights["aux.bias"][keep])
+        assert not any(value.is_meta for value in model.parameters())
+        sample = torch.tensor([[0.1, -0.2]])
+        expected = torch.nn.functional.linear(
+            torch.nn.functional.layer_norm(sample, sample.shape),
+            weights["aux.weight"][keep],
+            weights["aux.bias"][keep],
+        )
+        assert torch.equal(model(sample)[0], expected)
+        assert not model.training
+    finally:
+        ctc._model.cache_clear()
+
+
 def test_alignment_guidance_uses_native_cpu_precision_and_preserves_word_timestamps(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -1415,14 +1533,14 @@ def test_alignment_guidance_uses_native_cpu_precision_and_preserves_word_timesta
     monkeypatch.setattr(speech, "cpu_threads", lambda: 6)
     monkeypatch.setattr(speech, "device", lambda: "cpu")
     monkeypatch.setattr(speech.torch, "set_num_threads", lambda _: None)
-    monkeypatch.setattr(speech.whisper, "load_model", FakeModel)
+    monkeypatch.setattr(speech, "_load_speech_model", FakeModel)
     monkeypatch.setattr(speech, "read_mono", lambda *_: "mono samples")
 
     result = speech._accelerated_guidance(Path("voice.wav"), "English", "first line")
 
     assert calls["load"] == (
         str(model_root / "model.bin"),
-        {"device": "cpu"},
+        {"target": "cpu"},
     )
     assert calls["transcribe"] == (
         "mono samples",
@@ -1457,7 +1575,7 @@ def test_native_alignment_recognition_disables_sampling_fallback(monkeypatch):
     )
     monkeypatch.setattr(speech, "device", lambda: "cuda")
     monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
-    monkeypatch.setattr(speech.whisper, "load_model", lambda *args, **kwargs: model)
+    monkeypatch.setattr(speech, "_load_speech_model", lambda *args, **kwargs: model)
 
     speech._transcribe(Path("voice.wav"), "Russian", "lyrics")
 
@@ -1568,7 +1686,7 @@ def test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode(
         encoder = speech.torch.nn.Identity()
 
         def __init__(self, _path, **options):
-            assert options["device"] == "cpu"
+            assert options["target"] == "cpu"
 
         def set_alignment_heads(self, _heads):
             pass
@@ -1584,7 +1702,7 @@ def test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode(
     monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
     monkeypatch.setattr(speech, "device", lambda: "cpu")
     monkeypatch.setattr(speech.torch, "set_num_threads", selected_threads.append)
-    monkeypatch.setattr(speech.whisper, "load_model", Model)
+    monkeypatch.setattr(speech, "_load_speech_model", Model)
     assert speech.transcribe(Path("voice.wav"), "Ukrainian")["text"] == "first verse final chorus"
     assert selected_threads == [threads]
 

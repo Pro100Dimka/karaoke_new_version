@@ -15,7 +15,9 @@ from backend.ai.catalog import CATALOG
 from backend.domain_errors import DomainError
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.http_downloader import HttpDownloader
-from backend.infrastructure.torch_runtime import COMPLETE_MARKER, GPU_WHEELS, install_gpu
+from backend.infrastructure.torch_runtime import (
+    COMPLETE_MARKER, gpu_wheels, install_gpu, select_gpu_runtime,
+)
 
 
 def remote_size(url: str) -> int:
@@ -100,10 +102,12 @@ def main() -> int:
         )
         for model in CATALOG if args.models
     ]
-    gpu = args.gpu if args.gpu and not (args.gpu / COMPLETE_MARKER).is_file() else None
+    gpu = select_gpu_runtime(args.gpu) if args.gpu else None
+    if gpu and (gpu / COMPLETE_MARKER).is_file():
+        gpu = None
     gpu_downloads = [
         Download(wheel.file_name, wheel.url, gpu.parent / "downloads" / wheel.file_name, wheel.sha256)
-        for wheel in GPU_WHEELS
+        for wheel in gpu_wheels(gpu)
     ] if gpu else []
     # Resolve the two server-reported wheel sizes first so the overall byte total stabilizes early.
     downloads = gpu_downloads + downloads
