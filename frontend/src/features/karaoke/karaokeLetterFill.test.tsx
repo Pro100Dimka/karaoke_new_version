@@ -113,11 +113,24 @@ const RenderedLyrics = ({
 };
 
 describe('rendered lyric letter boundaries', () => {
-  it('places the fill at the measured glyph boundary, not a fraction of character count', () => {
+  it('updates the measured fill without first writing a rounded approximation', () => {
+    measure();
+    const view = render(stage(floorWord, 11.34));
+    const writes = vi.spyOn(CSSStyleDeclaration.prototype, 'setProperty');
+    view.rerender(stage(floorWord, 11.5));
+    const expected = `${fill(view.container)}%`;
+    const fills = writes.mock.calls
+      .filter(([name]) => name === '--ad-lyric-fill')
+      .map(([, value]) => value);
+    expect(fills.length).toBeGreaterThan(0);
+    expect(fills.every((value) => value === expected)).toBe(true);
+  });
+
+  it('fills a syllable using its measured glyph edges', () => {
     measure();
     const view = render(stage(floorWord, 11.34));
     expect((fill(view.container) / 100) * wordWidth).toBeCloseTo(
-      glyphEdges[3],
+      glyphEdges[1] + (glyphEdges[4] - glyphEdges[1]) * (11.34 - 10.9) / (12.36 - 10.9),
       3,
     );
   });

@@ -67,7 +67,12 @@ export const SongCard = memo(
     onOpenRecordings(song: SongDto): void;
     roomSelection?: { role: string; selected: boolean };
     playbackDisabled?: boolean;
-    selection?: { checked: boolean; disabled: boolean; toggle(): void };
+    selection?: {
+      checked: boolean;
+      active: boolean;
+      disabled: boolean;
+      toggle(id: string): void;
+    };
   }) {
     useLocale();
     const client = useQueryClient();
@@ -118,14 +123,31 @@ export const SongCard = memo(
         role="listitem"
         border
         padding="sm"
+        className="songCard"
+        data-selected={selection?.checked || undefined}
         style={{ height: '100%' }}
         aria-label={`${song.artist} — ${song.title}`}
       >
+        {selection && (
+          <div className="songCardSelection">
+            <Checkbox
+              checked={selection.checked}
+              disabled={selection.disabled}
+              aria-label={tr('Выбрать {name}', { name: song.title })}
+              onValueChange={() => selection.toggle(song.id)}
+            />
+          </div>
+        )}
         <Grid
           columns="30% minmax(0, 1fr)"
           gap={3}
           align="center"
           style={{ height: '100%' }}
+          onClick={
+            selection?.active && !selection.disabled
+              ? () => selection.toggle(song.id)
+              : undefined
+          }
         >
           <Stack
             align="center"
@@ -157,15 +179,10 @@ export const SongCard = memo(
             )}
           </Stack>
           <Stack gap={2} style={{ minWidth: 0, height: '100%' }}>
-            <Stack gap={1}>
-              {selection && (
-                <Checkbox
-                  checked={selection.checked}
-                  disabled={selection.disabled}
-                  label={tr('Выбрать {name}', { name: song.title })}
-                  onValueChange={selection.toggle}
-                />
-              )}
+            <Stack
+              gap={1}
+              style={{ paddingInlineEnd: selection ? 28 : undefined }}
+            >
               <Typography as="h2" variant="title" truncate>
                 {song.title}
               </Typography>
@@ -188,6 +205,7 @@ export const SongCard = memo(
               wrap
               gap={2}
               style={{ marginTop: 'auto', minWidth: 0 }}
+              onClick={(event) => event.stopPropagation()}
             >
               {allowed.map((id) => (
                 <IconButton
@@ -240,7 +258,9 @@ export const SongCard = memo(
     previous.onOpenSettings === next.onOpenSettings &&
     previous.onOpenRecordings === next.onOpenRecordings &&
     previous.playbackDisabled === next.playbackDisabled &&
-    previous.selection === next.selection &&
+    (['checked', 'active', 'disabled', 'toggle'] as const).every(
+      (key) => previous.selection?.[key] === next.selection?.[key],
+    ) &&
     previous.roomSelection?.role === next.roomSelection?.role &&
     previous.roomSelection?.selected === next.roomSelection?.selected,
 );

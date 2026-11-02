@@ -98,6 +98,37 @@ def test_a_pitched_echo_after_a_real_pause_cannot_continue_a_released_vowel(echo
     assert (result.start, result.letters) == (word.start, word.letters)
 
 
+@pytest.mark.parametrize("text", ["разом", "сама", "тобі"])
+def test_voiced_ending_does_not_continue_through_a_following_unvoiced_breath(text):
+    rate = 16000
+    axis = np.arange(3 * rate) / rate
+    samples = np.zeros(len(axis), dtype=np.float32)
+    sung = (axis >= 1) & (axis < 2)
+    breath = (axis >= 2) & (axis < 2.6)
+    samples[sung] = 0.2 * np.sin(2 * np.pi * 220 * axis[sung])
+    samples[breath] = np.random.default_rng(71).normal(0, 0.025, int(breath.sum()))
+    word = ctc.AlignedWord(text, 1, 1.9, (1,) * len(text), 0.9)
+
+    result = ctc.with_sung_ends([word], samples)[0]
+
+    assert result.end == pytest.approx(2, abs=0.06)
+    assert (result.start, result.letters) == (word.start, word.letters)
+    pitch = [PitchPoint(index / 100, 220, 0.99, True) for index in range(100, 200)]
+    documents = [
+        construct_document(
+            "t",
+            "a",
+            3,
+            text,
+            [WordTiming(text, word.start, end, word.score, word.letters)],
+            pitch,
+            MusicMetadata(None, None),
+        )
+        for end in (2.61, result.end)
+    ]
+    assert documents[0].words[0].notes == documents[1].words[0].notes
+
+
 def test_a_brief_closure_inside_a_confirmed_word_is_not_a_release():
     words, samples, activity = _case()
     samples[round(1.3 * 16000) : round(1.41 * 16000)] = 0

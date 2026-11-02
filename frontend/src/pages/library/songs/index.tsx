@@ -118,7 +118,16 @@ const LibrarySongs = observer(
       [],
     );
     const [settingsSong, setSettingsSong] = useState<SongDto | null>(null);
-    const [selecting, setSelecting] = useState(false);
+    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    const toggleSelected = useCallback((id: string) => {
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    }, []);
+    const selecting = selected.size > 0;
     const deferredQuery = useDeferredValue(query);
     const filters: LibraryFilters = useMemo(
       () => ({
@@ -229,7 +238,6 @@ const LibrarySongs = observer(
 
     const { localProcessing } = store.application;
     const notify = useNotify();
-    const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
     const [deleting, setDeleting] = useState(false);
     const latestPlay = useRef(onPlay);
     useLayoutEffect(() => {
@@ -340,51 +348,48 @@ const LibrarySongs = observer(
           />
         ) : visibleSongs.length > 0 ? (
           <>
-            <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
-              <Button
-                icon="check"
-                disabled={deleting || catalog.isPlaceholderData}
-                onClick={() => {
-                  setSelecting(!selecting);
-                  setSelected(new Set());
-                }}
-              >
-                {selecting ? tr(ru.cancel) : tr('Выбрать несколько')}
-              </Button>
-              {selecting && (
-                <>
-                  <Button
-                    disabled={deleting || catalog.isPlaceholderData}
-                    onClick={() =>
-                      setSelected(
-                        new Set(
-                          visibleSongs
-                            .filter(
-                              (song) =>
-                                !song.roomOwnerId &&
-                                !activeJobStatuses.has(song.status),
-                            )
-                            .map((song) => song.id),
-                        ),
-                      )
-                    }
-                  >
-                    {tr('Выбрать все показанные')}
-                  </Button>
-                  <Button
-                    icon="trash"
-                    disabled={
-                      deleting || catalog.isPlaceholderData || !selected.size
-                    }
-                    onClick={() => void deleteSelected()}
-                  >
-                    {tr('Удалить выбранные ({count})', {
-                      count: selected.size,
-                    })}
-                  </Button>
-                </>
-              )}
-            </Stack>
+            {selecting && (
+              <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
+                <Button
+                  icon="check"
+                  disabled={deleting || catalog.isPlaceholderData}
+                  onClick={() => {
+                    setSelected(new Set());
+                  }}
+                >
+                  {tr(ru.cancel)}
+                </Button>
+                <Button
+                  disabled={deleting || catalog.isPlaceholderData}
+                  onClick={() =>
+                    setSelected(
+                      new Set(
+                        visibleSongs
+                          .filter(
+                            (song) =>
+                              !song.roomOwnerId &&
+                              !activeJobStatuses.has(song.status),
+                          )
+                          .map((song) => song.id),
+                      ),
+                    )
+                  }
+                >
+                  {tr('Выбрать все показанные')}
+                </Button>
+                <Button
+                  icon="trash"
+                  disabled={
+                    deleting || catalog.isPlaceholderData || !selected.size
+                  }
+                  onClick={() => void deleteSelected()}
+                >
+                  {tr('Удалить выбранные ({count})', {
+                    count: selected.size,
+                  })}
+                </Button>
+              </Stack>
+            )}
             <VirtualGrid
               items={visibleSongs}
               hasNextPage={
@@ -408,18 +413,15 @@ const LibrarySongs = observer(
                     localProcessing || selecting || catalog.isPlaceholderData
                   }
                   selection={
-                    selecting && !song.roomOwnerId
+                    !song.roomOwnerId
                       ? {
                           checked: selected.has(song.id),
+                          active: selecting,
                           disabled:
-                            deleting || activeJobStatuses.has(song.status),
-                          toggle: () =>
-                            setSelected((current) => {
-                              const next = new Set(current);
-                              if (next.has(song.id)) next.delete(song.id);
-                              else next.add(song.id);
-                              return next;
-                            }),
+                            deleting ||
+                            catalog.isPlaceholderData ||
+                            activeJobStatuses.has(song.status),
+                          toggle: toggleSelected,
                         }
                       : undefined
                   }

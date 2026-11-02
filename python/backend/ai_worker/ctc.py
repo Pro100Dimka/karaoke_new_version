@@ -20,6 +20,7 @@ from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import device
 from backend.ai_worker.timing import (
+    _BRIDGED_GAP_SECONDS,
     _bridged,
     _runs,
     audible_frames,
@@ -275,11 +276,12 @@ def with_sung_ends(
         periodicity = (harmonics or harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP))[1]
     step = _VOICE_HOP / _VOICE_RATE
     continuation = _sung_continuation(samples, voiced, audible, periodicity)
+    periodic = _bridged(periodicity >= 0.5, round(_BRIDGED_GAP_SECONDS / step))
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
         continued = continued_frames(voiced, harmonics, (word.start, word.end, limit), step)
-        end = _sung_end(word, continued, continuation, periodicity, limit)
+        end = _sung_end(word, continued, continuation, periodicity, periodic, limit)
         silence = _first_long_silence(continued, word.start, end, step)
         letters = word.letters
         if silence is not None:
@@ -288,14 +290,8 @@ def with_sung_ends(
         flags = dict.fromkeys(word.diagnostics)
         if letters != word.letters:
             flags.update(ApproximateLetterTiming=None, LetterTimingReviewRequired=None)
-        result.append(
-            replace(
-                word,
-                end=round(max(end, word.start + 0.001), 3),
-                letters=letters,
-                diagnostics=tuple(flags),
-            )
-        )
+        end = round(max(end, word.start + 0.001), 3)
+        result.append(replace(word, end=end, letters=letters, diagnostics=tuple(flags)))
     return result
 
 
@@ -328,11 +324,25 @@ def _sung_continuation(
     return continuation
 
 
+def _voiced_release(word: AlignedWord, periodicity: np.ndarray, step: float) -> bool:
+    ending = next((char.casefold() for char in reversed(word.text) if char.isalpha()), "")
+    core = periodicity[
+        round(max(word.start, word.end - _SILENT_START_SECONDS) / step) : round(word.end / step)
+    ]
+    return (
+        bool(ending)
+        and ending in "aeiouyаеёиоуыэюяіїєймнлрmnrl"
+        and len(core) >= round(_SILENT_START_SECONDS / step)
+        and bool((core >= 0.5).all())
+    )
+
+
 def _sung_end(
     word: AlignedWord,
     continued: np.ndarray,
     continuation: np.ndarray,
     periodicity: np.ndarray,
+    periodic: np.ndarray,
     limit: float,
 ) -> float:
     step = _VOICE_HOP / _VOICE_RATE
@@ -350,11 +360,16 @@ def _sung_end(
     terminal = max(last_letter, word.end - _SILENT_START_SECONDS)
     core = periodicity[round(terminal / step) : round(word.end / step)]
     periodic_core = bool(len(core)) and float(np.median(core)) >= 0.5
+    # A periodic vowel or sonorant can release straight into a breath without
+    # an amplitude gap. Phrase activity alone cannot authorize that new noise.
+    # Keep brief pitch dropouts, and never shorten the confirmed phonetic core.
+    voiced_ending = periodic_core and _voiced_release(word, periodicity, step)
     frame = min(int(word.end / step), len(continued) - 1)
     while (
         frame + 1 < min(len(continued), len(continuation))
         and continued[frame]
         and (not periodic_core or continuation[frame])
+        and (not voiced_ending or periodic[frame])
         and frame * step < limit
     ):
         frame += 1

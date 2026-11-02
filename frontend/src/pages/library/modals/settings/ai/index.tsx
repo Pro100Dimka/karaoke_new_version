@@ -8,6 +8,7 @@ import {
 import { useNotify } from '../../../../../providers/notifications';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
+import { processingSettingsQuery } from '../../../../../api/api-service';
 import useSettingsForm from '../form';
 import FormCards from '../form-cards';
 import Models from './models';
@@ -19,15 +20,8 @@ const AIPanel = () => {
   const savingBackend =
     useIsMutating({ mutationKey: ['processing-settings'] }) > 0;
   const processing = useQuery({
-    queryKey: ['processing-settings'],
-    queryFn: async ({ signal }) => {
-      const settings = await pythonClient.getAiProcessingSettings();
-      signal.throwIfAborted();
-      return settings;
-    },
+    ...processingSettingsQuery,
     enabled: !savingBackend,
-    staleTime: Infinity,
-    refetchOnMount: 'always',
   });
   const storageRoot = useQuery({
     queryKey: ['storage-root'],

@@ -19,8 +19,8 @@ import { useSmoothPosition } from './useSmoothPosition';
 import { useLyricFill } from './useLyricFill';
 import {
   buildLines,
+  syllableProgress,
   currentLineIndex,
-  letterProgress,
   lyricSilenceSeconds,
   pitchAccuracy,
   pitchMatchesTarget,
@@ -239,13 +239,8 @@ const Lyrics = ({
     textVisible ? (current?.words ?? noWords) : noWords,
     position,
     font,
+    syllableProgress,
   );
-  const words = (line: LyricLine | undefined, sung: boolean) =>
-    line?.words.map((word) => ({
-      id: word.id,
-      text: word.text,
-      progress: sung ? letterProgress(word, position) : 0,
-    })) ?? [];
   return (
     <>
       {countdown !== undefined && (
@@ -262,8 +257,8 @@ const Lyrics = ({
         className="lyrics"
         data-reduced-motion={reducedMotion || undefined}
         style={{ opacity: phase.opacity ?? 1 }}
-        current={textVisible ? words(current, true) : []}
-        next={textVisible ? words(next, false) : []}
+        current={textVisible ? (current?.words ?? noWords) : noWords}
+        next={textVisible ? (next?.words ?? noWords) : noWords}
         currentKey={current?.start}
         nextKey={next?.start}
       />

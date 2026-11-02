@@ -1,5 +1,5 @@
 import {
-  pitchMidiNearTarget,
+  pitchHzToMidi,
   karaokePitchToleranceSemitones,
   targetPitchAt,
   noteHitReached,
@@ -364,7 +364,7 @@ export class PerformanceTracker {
       const liveMidi =
         target === undefined
           ? undefined
-          : pitchMidiNearTarget(measuredPitch, target);
+          : pitchHzToMidi(measuredPitch);
       const progress = this.progress.get(active.id) ?? emptyProgress();
       const deviation =
         liveMidi === undefined || target === undefined

@@ -255,8 +255,8 @@ const timedLetterProgress = (
   text: string,
   fraction: number,
   geometry?: LetterGeometry,
+  realIndices = spokenIndices(text),
 ): number => {
-  const realIndices = spokenIndices(text);
   const count = realIndices.length;
   if (count === 0) return 1;
   let position = 0;
@@ -281,6 +281,98 @@ const timedLetterProgress = (
       Math.min(1, Math.max(0, (fraction - start) / span)),
       geometry,
     ),
+  );
+};
+
+/** Keep measured holds on vowels or sonorants, while short consonant clusters share a sweep. */
+const sustainedGroups = (
+  text: string,
+  starts: readonly number[],
+  indices: readonly number[],
+  groups: readonly number[],
+  geometry: LetterGeometry,
+): number[] => {
+  const anchors = new Set(groups);
+  const characters = [...text];
+  for (const [syllable, first] of groups.entries()) {
+    const last = groups[syllable + 1] ?? characters.length;
+    const duration = (starts[last] ?? 1) - (starts[first] ?? 0);
+    const width =
+      glyphProgress(text, groups, syllable, 1, geometry) -
+      glyphProgress(text, groups, syllable, 0, geometry);
+    for (const [sound, index] of indices.entries()) {
+      if (
+        index < first || index >= last ||
+        !/[aeiouyаеёиоуыэюяіїєймнлрmnrl]/i.test(characters[index] ?? '')
+      ) continue;
+      const next = indices[sound + 1] ?? characters.length;
+      const start = starts[index];
+      const end = next === characters.length ? 1 : starts[next];
+      const soundWidth =
+        glyphProgress(text, indices, sound, 1, geometry) -
+        glyphProgress(text, indices, sound, 0, geometry);
+      if (
+        start === undefined || end === undefined ||
+        start < (starts[first] ?? 0) || end > (starts[last] ?? 1) ||
+        end <= start || width <= 0 ||
+        (next < characters.length && end >= 1)
+      ) continue;
+      if (end - start > duration * soundWidth / width) {
+        anchors.add(index);
+        if (next < last) anchors.add(next);
+      }
+    }
+  }
+  return [...anchors].sort((a, b) => a - b);
+};
+
+/** Reading groups share a continuous fill; saved phonetic anchors and word bounds stay intact. */
+export const syllableProgress = (
+  word: EditorWord,
+  position: number,
+  geometry?: LetterGeometry,
+): number => {
+  if (position <= word.start) return 0;
+  if (position >= word.end) return 1;
+  const characters = [...word.text];
+  const indices = spokenIndices(word.text);
+  const nuclei = indices.flatMap((index, i) =>
+    vowels.test(characters[index] ?? '') ? [i] : [],
+  );
+  const groups = [indices[0] ?? 0];
+  for (const [i, vowel] of nuclei.entries()) {
+    if (i === 0) continue;
+    let onset = (nuclei[i - 1] ?? 0) + 1;
+    // Keep a sonorant before another consonant with the preceding vowel: аль-бом, май-ка.
+    while (
+      onset + 1 < vowel &&
+      /[йрлмнrlmn]/i.test(characters[indices[onset] ?? 0] ?? '')
+    )
+      onset++;
+    groups.push(indices[onset] ?? 0);
+  }
+  const starts = word.letters ?? [];
+  const measured =
+    starts.length > 0 &&
+    groups.every((index, i) => {
+      const at = starts[index];
+      return (
+        at !== undefined && at >= 0 && at < 1 &&
+        (i === 0 || at > (starts[groups[i - 1] ?? 0] ?? 0))
+      );
+    });
+  // Missing or collapsed syllable anchors cannot define a separate visual interval.
+  const layout = geometry ?? characters.map((_, i) =>
+    [i / characters.length, (i + 1) / characters.length] as const,
+  );
+  return timedLetterProgress(
+    measured ? starts : [0],
+    word.text,
+    (position - word.start) / (word.end - word.start),
+    layout,
+    measured
+      ? sustainedGroups(word.text, starts, indices, groups, layout)
+      : [indices[0] ?? 0],
   );
 };
 
@@ -377,18 +469,6 @@ export const reliablePitchHz = (
   confidence = 1,
 ): number | undefined => (confidence >= 0.8 ? pitchHz : undefined);
 
-/** Places a detected pitch in the octave nearest the target; karaoke scoring compares note names, not vocal register. */
-export const pitchMidiNearTarget = (
-  pitchHz: number | undefined,
-  targetMidi: number | undefined,
-): number | undefined => {
-  const midi = pitchHzToMidi(pitchHz);
-  if (midi === undefined) return undefined;
-  return targetMidi === undefined
-    ? midi
-    : midi + 12 * Math.round((targetMidi - midi) / 12);
-};
-
 /**
  * Pitch proximity in the 0..1 range across the practical karaoke tolerance; exact pitch is 1.
  * Keeping this continuous lets the live marker become greener as the singer approaches the target.
@@ -397,7 +477,7 @@ export const pitchAccuracy = (
   pitchHz: number | undefined,
   targetMidi: number | undefined,
 ): number => {
-  const midi = pitchMidiNearTarget(pitchHz, targetMidi);
+  const midi = pitchHzToMidi(pitchHz);
   if (midi === undefined || targetMidi === undefined) return 0;
   return Math.max(
     0,
@@ -410,7 +490,7 @@ export const pitchMatchesTarget = (
   pitchHz: number | undefined,
   targetMidi: number,
 ): boolean => {
-  const midi = pitchMidiNearTarget(pitchHz, targetMidi);
+  const midi = pitchHzToMidi(pitchHz);
   return (
     midi !== undefined &&
     Math.abs(midi - targetMidi) <= karaokePitchToleranceSemitones

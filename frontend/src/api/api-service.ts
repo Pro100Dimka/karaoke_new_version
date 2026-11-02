@@ -63,18 +63,8 @@ export const songSummaryQuery = (epoch: number) =>
     refetchInterval: 15_000,
   });
 
-export const importSong = async (
-  client: QueryClient,
-  path: string,
-  metadata?: ImportMetadata,
-  options?: ImportOptions,
-) => {
-  const setImports = (
-    update: (items: readonly SongDto[]) => readonly SongDto[],
-  ) =>
-    client.setQueryData<readonly SongDto[]>(['song-imports'], (items) =>
-      update(items ?? []),
-    );
+/** Shows a picked file while it waits for its turn to import. */
+export const queueSongImport = (client: QueryClient, path: string) => {
   const placeholderId = `import:${crypto.randomUUID()}`;
   const placeholder: SongDto = {
     id: placeholderId,
@@ -90,7 +80,26 @@ export const importSong = async (
     activeRevision: 0,
     projectFormatVersion: 1,
   };
-  setImports((current) => [placeholder, ...current]);
+  client.setQueryData<readonly SongDto[]>(['song-imports'], (items) => [
+    placeholder,
+    ...(items ?? []),
+  ]);
+  return placeholderId;
+};
+
+export const importSong = async (
+  client: QueryClient,
+  path: string,
+  metadata?: ImportMetadata,
+  options?: ImportOptions,
+  placeholderId = queueSongImport(client, path),
+) => {
+  const setImports = (
+    update: (items: readonly SongDto[]) => readonly SongDto[],
+  ) =>
+    client.setQueryData<readonly SongDto[]>(['song-imports'], (items) =>
+      update(items ?? []),
+    );
   try {
     const song = await pythonClient.importSong(path, metadata, {
       ...options,
@@ -100,11 +109,11 @@ export const importSong = async (
           current.map((item) =>
             item.id === placeholderId
               ? {
-                  ...item,
-                  progress: value.progress,
-                  stage: value.stage,
-                  jobId: value.jobId,
-                }
+                ...item,
+                progress: value.progress,
+                stage: value.stage,
+                jobId: value.jobId,
+              }
               : item,
           ),
         );
@@ -144,18 +153,36 @@ export const isModelBusy = ({ state }: AIModel) =>
 export const isActiveJob = (job?: JobProgress | null) =>
   !!job && ['Queued', 'Running', 'Cancelling'].includes(job.state);
 
-export const modelsQuery = queryOptions({
-  queryKey: ['models'],
+const modelListQuery = (catalogOnly: boolean) =>
+  queryOptions({
+    queryKey: catalogOnly ? ['models', 'required'] : ['models'],
+    queryFn: async ({ signal }) => {
+      const models = await bridgedHttp(
+        'pythonRequest',
+        {
+          method: 'GET',
+          path: catalogOnly ? '/models?catalog_only=true' : '/models',
+        },
+        'Models request failed',
+      );
+      signal.throwIfAborted();
+      return parse(array(modelSchema), models);
+    },
+    refetchInterval: 5000,
+  });
+
+export const modelsQuery = modelListQuery(false);
+export const requiredModelsQuery = modelListQuery(true);
+
+export const processingSettingsQuery = queryOptions({
+  queryKey: ['processing-settings'],
   queryFn: async ({ signal }) => {
-    const models = await bridgedHttp(
-      'pythonRequest',
-      { method: 'GET', path: '/models' },
-      'Models request failed',
-    );
+    const settings = await pythonClient.getAiProcessingSettings();
     signal.throwIfAborted();
-    return parse(array(modelSchema), models);
+    return settings;
   },
-  refetchInterval: 5000,
+  staleTime: Infinity,
+  refetchOnMount: 'always',
 });
 
 export const jobQuery = (type: JobType, entityId: string) =>

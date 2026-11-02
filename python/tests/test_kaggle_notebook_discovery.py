@@ -10,6 +10,56 @@ import zlib
 import pytest
 
 
+def test_server_reuses_timed_recognition_with_session_language_and_offset_isolation(tmp_path):
+    import shutil
+    import threading
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from backend.ai_worker.runtime import AlignmentReuse
+
+    source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
+    selected = [
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef)
+        and node.name in {"_recognition", "transcribe_song", "align_song"}
+    ]
+    payload = {
+        "text": "тобі",
+        "segments": [{"words": [{"word": "тобі", "start": 1.2, "end": 2.4}]}],
+    }
+    transcribe = Mock(return_value=payload)
+    align = Mock(return_value={"words": []})
+    namespace = {
+        "Path": Path,
+        "json": json,
+        "shutil": shutil,
+        "_session": lambda session: tmp_path / session,
+        "_track_activity": lambda function: function,
+        "_recognition_lock": threading.Lock(),
+        "_resources": SimpleNamespace(min_free_disk_bytes=0),
+        "AlignmentReuse": AlignmentReuse,
+        "transcribe": transcribe,
+        "align": align,
+    }
+    for session in ("first", "second"):
+        (tmp_path / session).mkdir()
+    exec(compile(ast.Module(body=selected, type_ignores=[]), "server", "exec"), namespace)
+    for _ in range(2):
+        assert namespace["transcribe_song"]("first", "Ukrainian") == "тобі"
+    namespace["align_song"]("first", "тобі", "Ukrainian", "[]")
+    assert transcribe.call_count == 1
+    assert align.call_args.kwargs["recognition"] == payload
+    namespace["transcribe_song"]("first", "Ukrainian", 60.0)
+    namespace["transcribe_song"]("first", "Russian")
+    namespace["transcribe_song"]("second", "Ukrainian")
+    assert transcribe.call_count == 4
+    namespace["align_song"]("first", "інший текст", "Ukrainian", "[]")
+    assert transcribe.call_count == 4
+    assert align.call_args.kwargs["recognition"] == payload
+
+
 def test_remote_alignment_reuses_only_the_explicit_scope_and_releases_its_files(tmp_path):
     import shutil
     from functools import partial
@@ -39,6 +89,7 @@ def test_remote_alignment_reuses_only_the_explicit_scope_and_releases_its_files(
         "_track_activity": lambda f: f,
         "align": align,
         "AlignmentReuse": reuse,
+        "_recognition": lambda *_: {"text": "", "segments": []},
         "_resources": SimpleNamespace(min_free_disk_bytes=512),
     }
     names = ["_alignment_scope", "align_song", "release_alignment"]
@@ -194,6 +245,7 @@ def test_server_alignment_receives_the_uploaded_backing_when_available(tmp_path,
         "json": json,
         "align": align,
         "_session": lambda _session: tmp_path,
+        "_recognition": lambda *_: {"text": "", "segments": []},
         "_track_activity": lambda function: function,
     }
     exec(compile(ast.Module(body=[function], type_ignores=[]), "server-align", "exec"), namespace)
@@ -204,6 +256,7 @@ def test_server_alignment_receives_the_uploaded_backing_when_available(tmp_path,
         "English",
         [],
         instrumental=backing if has_backing else None,
+        recognition={"text": "", "segments": []},
     )
 
 

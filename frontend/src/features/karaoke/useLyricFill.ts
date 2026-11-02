@@ -31,11 +31,15 @@ const glyphGeometry = (
   return geometry;
 };
 
-const paint = (words: readonly MeasuredWord[], position: number): void => {
+const paint = (
+  words: readonly MeasuredWord[],
+  position: number,
+  progress: typeof letterProgress,
+): void => {
   for (const { element, word, geometry } of words)
     element.style.setProperty(
       '--ad-lyric-fill',
-      `${letterProgress(word, position, geometry) * 100}%`,
+      `${progress(word, position, geometry) * 100}%`,
     );
 };
 
@@ -45,6 +49,7 @@ export const useLyricFill = (
   words: readonly EditorWord[],
   position: number,
   font: string,
+  progress = letterProgress,
 ): void => {
   const measured = useRef<MeasuredWord[]>([]);
   const clock = useRef(position);
@@ -61,7 +66,7 @@ export const useLyricFill = (
           ? [{ element, word, geometry: glyphGeometry(element, word.text) }]
           : [];
       });
-      paint(measured.current, clock.current);
+      paint(measured.current, clock.current, progress);
     };
     measure();
     const observer =
@@ -76,7 +81,7 @@ export const useLyricFill = (
       fonts?.removeEventListener('loadingdone', measure);
       measured.current = [];
     };
-  }, [id, words, font]);
+  }, [id, words, font, progress]);
   // React may reapply the kit's rounded inline style on any render; restore the exact saved position.
-  useLayoutEffect(() => paint(measured.current, position));
+  useLayoutEffect(() => paint(measured.current, position, progress));
 };

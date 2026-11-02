@@ -62,8 +62,8 @@ describe('KaraokeStage', () => {
     }
     view.rerender(stage(22));
     expect(screen.queryByRole('timer')).not.toBeInTheDocument();
-    expect(parseFloat(fill()[0]!)).toBeGreaterThan(25);
-    expect(parseFloat(fill()[0]!)).toBeLessThan(50);
+    // The measured vowel holds the fill inside its glyph without stretching H.
+    expect(parseFloat(fill()[0]!)).toBe(37.5);
     expect(fill()[1]).toBe('0%');
     view.rerender(stage(17.5));
     expect(fill()).toEqual([]);

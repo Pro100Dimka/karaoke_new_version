@@ -1,5 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { importSong, refreshSongs } from '../../../../api/api-service';
+import {
+  importSong,
+  queueSongImport,
+  refreshSongs,
+} from '../../../../api/api-service';
 import { pythonClient } from '../../../../services/pythonClient';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { desktopClient as libraryFiles } from '../../../../services/desktopClient';
@@ -24,8 +28,9 @@ export const useLibraryImport = () => {
     path: string,
     metadata: ImportMetadata,
     options?: ImportOptions,
+    placeholderId?: string,
   ) => {
-    const song = await importSong(client, path, metadata, options);
+    const song = await importSong(client, path, metadata, options, placeholderId);
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
     void guarded(async () => {
       if (song.status !== 'not-processed') return;
@@ -44,19 +49,22 @@ export const useLibraryImport = () => {
     notify(tr(ru.songImported), 'success');
   };
 
-  // Several files picked or dropped at once are all added and queued for processing, one after another.
+  // Show the whole batch immediately; import and queue processing one file at a time.
   const importMany = async (paths: readonly string[]) => {
     let imported = 0;
     const failed: string[] = [];
-    for (const path of paths) {
+    const pending = paths.flatMap((path) => {
       const name = path.split(/[\\/]/).pop() ?? path;
       const dot = name.lastIndexOf('.');
       if (!isSupportedAudio(dot < 0 ? '' : name.slice(dot + 1))) {
         failed.push(name);
-        continue;
+        return [];
       }
+      return [{ path, name, placeholderId: queueSongImport(client, path) }];
+    });
+    for (const { path, name, placeholderId } of pending) {
       try {
-        await importAndProcess(path, {});
+        await importAndProcess(path, {}, undefined, placeholderId);
         imported += 1;
       } catch {
         failed.push(name);

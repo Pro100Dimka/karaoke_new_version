@@ -49,6 +49,7 @@ DISCOVERY_BASE_URL = os.environ.get(
     "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
 ).rstrip("/")
 _lock = threading.Lock()
+_recognition_lock = threading.Lock()
 _pitch_workers = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ad-voice-pitch")
 _pitch_jobs: dict[str, Future[dict]] = {}
 _resources = ResourceBudget()
@@ -233,10 +234,27 @@ def _compress_stem(source: Path) -> str:
     return str(destination)
 
 
+def _recognition(directory: Path, language: str, start_seconds: float = 0.0):
+    reserve = max(
+        _resources.min_free_disk_bytes,
+        int(shutil.disk_usage(directory).total * 0.05),
+    )
+    # Session audio is immutable; retain timestamps for subsequent lyric alignment.
+    with _recognition_lock:
+        reuse = AlignmentReuse(directory / "recognition", reserve)
+        return reuse.context(
+            repr((language, float(start_seconds))).encode(),
+            lambda: transcribe(
+                directory / "separation" / "vocals.wav",
+                language,
+                start_seconds=start_seconds,
+            ),
+        )
+
+
 @_track_activity
 def transcribe_song(session_id: str, language: str, start_seconds: float = 0.0) -> str:
-    vocal = _session(session_id) / "separation" / "vocals.wav"
-    return str(transcribe(vocal, language, start_seconds=start_seconds)["text"])
+    return str(_recognition(_session(session_id), language, start_seconds)["text"])
 
 
 def _alignment_scope(directory: Path, scope: str) -> Path:
@@ -270,6 +288,7 @@ def align_song(
         language,
         hints,
         instrumental=instrumental if instrumental.is_file() else None,
+        recognition=_recognition(directory, language),
     )
 
 

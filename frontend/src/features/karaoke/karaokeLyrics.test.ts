@@ -4,6 +4,7 @@ import {
   buildLines,
   currentLineIndex,
   letterProgress,
+  syllableProgress,
   pitchAccuracy,
   noteHitReached,
   pitchMatchesTarget,
@@ -25,6 +26,56 @@ const line = (start: number, end: number): LyricLine => ({
   words: [word('w', start, end)],
   start,
   end,
+});
+
+describe('syllable fill', () => {
+  it.each(['тобі', 'тоби'])(
+    'keeps the held final vowel of %s from stretching the preceding stop',
+    text => {
+      const saved = { ...word(text, 0, 1), letters: [0, 0.08, 0.16, 0.26] };
+      expect(syllableProgress(saved, 0.26)).toBeCloseTo(0.75);
+      expect(syllableProgress(saved, 0.63)).toBeCloseTo(0.875);
+      expect(syllableProgress(saved, 1)).toBe(1);
+    },
+  );
+  it('retains an acoustically timed held nasal inside a syllable', () => {
+    const saved = { ...word('дим', 0, 1), letters: [0, 0.1, 0.2] };
+    expect(syllableProgress(saved, 0.2)).toBeCloseTo(2 / 3);
+    expect(syllableProgress(saved, 0.6)).toBeCloseTo(5 / 6);
+  });
+  it.each([{ letters: [0, 0.2, 1, 1] }, { letters: [0, 0, 0, 0] }])(
+    'keeps unresolved syllables continuous within the word: $letters',
+    ({ letters }) => {
+      const saved = { ...word('мама', 0, 1), letters };
+      expect(syllableProgress(saved, 0.5)).toBeCloseTo(0.5);
+      expect(syllableProgress(saved, 0.99)).toBeCloseTo(0.99);
+    },
+  );
+  it.each([
+    {
+      text: 'льоту', end: 0.84,
+      letters: [0, 0.08, 0.08, 0.22, 0.34], at: 0.11, expected: (2 + 0.03 / 0.14) / 5,
+    },
+    {
+      text: 'слухала', end: 0.7,
+      letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6], at: 0.18, expected: 2 / 7 * 0.18 / 0.22,
+    },
+    { text: 'Так', end: 0.22, letters: [0, 0.08, 0.1], at: 0.11, expected: 0.5 },
+  ])(
+    'fills short clusters in $text smoothly while respecting the measured vowel hold',
+    ({ text, end, letters, at, expected }) => {
+      const saved = Object.freeze({
+        ...word(text, 0, end),
+        letters: Object.freeze(letters.map(t => t / end)),
+      });
+      const geometry = [...text].map((_, i) =>
+        [i / text.length, (i + 1) / text.length] as const,
+      );
+      expect(syllableProgress(saved, at, geometry)).toBeCloseTo(expected);
+      expect(syllableProgress(saved, 0, geometry)).toBe(0);
+      expect(syllableProgress(saved, end, geometry)).toBe(1);
+    },
+  );
 });
 
 describe('karaoke lyrics model', () => {
@@ -60,7 +111,7 @@ describe('karaoke lyrics model', () => {
     expect(pitchAccuracy(440, 69)).toBe(1);
     expect(pitchAccuracy(440 * 2 ** (0.3 / 12), 69)).toBeCloseTo(0.7, 5);
     expect(pitchAccuracy(440 * 2 ** (1 / 12), 69)).toBe(0);
-    expect(pitchAccuracy(220, 69)).toBe(1);
+    expect(pitchAccuracy(220, 69)).toBe(0);
     expect(pitchAccuracy(undefined, 69)).toBe(0);
   });
 

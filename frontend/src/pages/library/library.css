@@ -12,6 +12,19 @@
   font-size: 1.25rem;
   pointer-events: none;
 }
+.songCard {
+  position: relative;
+}
+.songCard[data-selected] {
+  outline: 2px solid var(--ad-primary);
+  outline-offset: 2px;
+}
+.songCardSelection {
+  position: absolute;
+  inset-block-start: var(--ad-space-2);
+  inset-inline-end: var(--ad-space-2);
+  z-index: 1;
+}
 .sceneCurtain {
   position: fixed;
   inset: 0;
