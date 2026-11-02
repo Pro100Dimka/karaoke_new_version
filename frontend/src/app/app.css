@@ -16,13 +16,17 @@
   justify-content: flex-end;
   height: var(--title);
   padding-left: 0.875rem;
-  -webkit-app-region: no-drag;
+}
+.titleBar,
+[data-window-drag],
+dialog.ad-dialog > header {
+  -webkit-app-region: drag;
   user-select: none;
 }
-.titleBarFullscreen {
-  -webkit-app-region: no-drag;
-}
-.titleBarFullscreen .titleBarLeading {
+.titleBarFullscreen,
+.titleBarFullscreen .titleBarLeading,
+body:has(.titleBarFullscreen) [data-window-drag],
+body:has(.titleBarFullscreen) dialog.ad-dialog > header {
   -webkit-app-region: no-drag;
 }
 .titleBarLeading {
@@ -31,9 +35,10 @@
   align-items: center;
   height: 100%;
   padding-left: var(--ad-space-2);
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
 }
-.titleBarLeading button,
+:is(.titleBar, [data-window-drag], dialog.ad-dialog > header)
+  :is(button, a, input, textarea, select, label, [role='button'], [role='slider'], [contenteditable='true']),
 .titleBarControls {
   -webkit-app-region: no-drag;
 }
@@ -46,7 +51,7 @@
   inset: 0 0 auto auto;
   width: 100%;
   justify-content: flex-end;
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   height: var(--title);
   margin: 0;
   padding: 0;

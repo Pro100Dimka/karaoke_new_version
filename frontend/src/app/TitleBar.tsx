@@ -33,7 +33,7 @@ const windowActions = [
   run(): void;
 }[];
 
-/** Screens put their own buttons on the title-bar row through this slot; it is a no-drag area so they stay clickable. */
+/** Screens put their own buttons in this title-bar slot; interactive elements remain outside its drag region. */
 export const titleBarLeadingId = 'titleBarLeading';
 
 const useTopModal = () => {
