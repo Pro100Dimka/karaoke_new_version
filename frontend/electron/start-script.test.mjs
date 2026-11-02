@@ -48,7 +48,7 @@ test('ordinary startup loads the same room server environment as multi-instance 
 });
 
 test('ordinary startup lets npx resolve the installed Electron executable', () => {
-  assert.match(singleLauncher, /spawn\("npx"[\s\S]*"electron"/);
+  assert.match(singleLauncher, /spawn\(\s*["']npx["'][\s\S]*["']electron["']/);
   assert.doesNotMatch(
     singleLauncher,
     /electronExecutable|node_modules[\\/].*electron[\\/].*electron\.exe/,
@@ -59,7 +59,7 @@ test('development and installed profiles share the already downloaded AI model s
   assert.match(identity, /AD_VOICE_MODELS/);
   assert.match(
     identity,
-    /"AD Voice"[\s\S]{0,120}"backend-data"[\s\S]{0,120}"models"/,
+    /["']AD Voice["'][\s\S]{0,120}["']backend-data["'][\s\S]{0,120}["']models["']/,
   );
 });
 
@@ -68,7 +68,7 @@ test('two-instance launcher reuses the normal dev profile and isolates only the 
   assert.match(multiLauncher, /\.env\.local/);
   assert.match(multiLauncher, /AD Voice Dev/);
   assert.match(multiLauncher, /AD Voice Multi 2/);
-  assert.match(multiLauncher, /AD_VOICE_PORT:\s*"0"/);
+  assert.match(multiLauncher, /AD_VOICE_PORT:\s*["']0["']/);
   assert.doesNotMatch(multiLauncher, /\b(?:8767|8772)\b/);
   assert.match(multiLauncher, /ADVoice\.AudioService\.Dev\.v1/);
   assert.match(multiLauncher, /ADVoice\.AudioService\.Multi2\.v1/);
@@ -85,7 +85,7 @@ test('the primary multi-instance window keeps the ordinary dev social identity',
     multiLauncher,
     /if \(profile\.socialProfile\)[\s\S]*AD_VOICE_PROFILE[\s\S]*else delete env\.AD_VOICE_PROFILE/,
   );
-  assert.match(multiLauncher, /socialProfile:\s*"AD Voice Multi 2"/);
+  assert.match(multiLauncher, /socialProfile:\s*["']AD Voice Multi 2["']/);
 });
 
 test('the production multi launcher provides isolated profiles for the automated room E2E', () => {
@@ -139,7 +139,7 @@ test('development launcher closes both Electron and Vite on every termination si
   for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
     assert.match(
       developmentLauncher,
-      new RegExp(`process\\.once\\("${signal}"`),
+      new RegExp(`process\\.once\\(\\s*["']${signal}["']`),
     );
   }
 });

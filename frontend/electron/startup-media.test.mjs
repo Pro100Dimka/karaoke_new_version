@@ -45,11 +45,11 @@ test('startup splash contains only the glowing theme icon on a transparent page'
 test('splash forces a transparent compositor surface before it is shown', () => {
   const source = readFileSync(new URL('./Splash.ts', import.meta.url), 'utf8');
   assert.match(source, /transparent:\s*true/);
-  assert.match(source, /backgroundColor:\s*"#00000000"/);
-  assert.match(source, /setBackgroundColor\("#00000000"\)/);
+  assert.match(source, /backgroundColor:\s*["']#00000000["']/);
+  assert.match(source, /setBackgroundColor\(\s*["']#00000000["']\s*\)/);
   assert.match(source, /show:\s*false/);
-  assert.match(source, /once\("did-finish-load"/);
-  assert.doesNotMatch(source, /once\("ready-to-show"/);
+  assert.match(source, /once\(\s*["']did-finish-load["']/);
+  assert.doesNotMatch(source, /once\(\s*["']ready-to-show["']/);
 });
 
 test('content policy permits recognized cover art and only local downloaded clips', () => {
@@ -63,17 +63,17 @@ test('packaged Electron launches its bundled backend and media tools', () => {
   assert.match(mainProcess, /app\.isPackaged/);
   assert.match(mainProcess, /python-runtime/);
   assert.match(mainProcess, /python-app/);
-  assert.match(mainProcess, /process\.resourcesPath,[\s\S]{0,80}"tools"/);
+  assert.match(mainProcess, /process\.resourcesPath,[\s\S]{0,80}["']tools["']/);
 });
 
 test('development and installed apps use isolated profiles and service endpoints', () => {
   assert.match(main, /configureRuntimeIdentity\(app\)/);
-  assert.match(identity, /\["userData", userData\]/);
+  assert.match(identity, /\[\s*["']userData["'],\s*userData\s*\]/);
   assert.match(identity, /for \(const \[name, folder\] of runtimePaths\)/);
   assert.match(identity, /app\.setPath\(name, folder\)/);
   assert.match(identity, /AD Voice Dev/);
   assert.match(identity, /AD_VOICE_PROFILE/);
-  assert.match(identity, /AD_VOICE_PORT\s*\?\?=\s*"0"/);
+  assert.match(identity, /AD_VOICE_PORT\s*\?\?=\s*["']0["']/);
   assert.match(identity, /ADVoice\.AudioService\.Dev\.v1/);
   assert.doesNotMatch(main, /taskkill[\s\S]{0,80}\/im/);
   assert.match(audioTransport, /AD_VOICE_AUDIO_ENDPOINT/);
@@ -87,14 +87,14 @@ test('every room participant binds an ephemeral local UDP port', () => {
 });
 
 test('packaged settings are seeded once and remain in writable user data', () => {
-  assert.match(mainProcess, /path\.join\(dataRoot,\s*"environment",\s*name\)/);
+  assert.match(mainProcess, /path\.join\(\s*dataRoot,\s*["']environment["'],\s*name\s*\)/);
   assert.match(
     mainProcess,
-    /process\.resourcesPath,\s*"local-secrets",\s*"env",\s*"project\.env"/,
+    /process\.resourcesPath,\s*["']local-secrets["'],\s*["']env["'],\s*["']project\.env["']/,
   );
   assert.match(
     mainProcess,
-    /process\.resourcesPath,\s*"frontend",\s*"\.env\.local"/,
+    /process\.resourcesPath,\s*["']frontend["'],\s*["']\.env\.local["']/,
   );
   assert.match(
     mainProcess,
@@ -107,7 +107,7 @@ test('packaged settings are seeded once and remain in writable user data', () =>
 
 test('data storage root is persisted outside the project and selectable from settings', () => {
   assert.match(mainProcess, /storage-root\.txt/);
-  assert.match(mainProcess, /getPath\("userData"\)/);
+  assert.match(mainProcess, /getPath\(\s*["']userData["']\s*\)/);
   assert.match(mainProcess, /ipcChannels\.pickStorageFolder/);
   assert.match(mainProcess, /ipcChannels\.setStorageRoot/);
 });
