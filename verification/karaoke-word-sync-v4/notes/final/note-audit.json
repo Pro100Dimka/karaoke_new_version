@@ -1,0 +1,136 @@
+{
+  "observedAtUtc": "2026-10-31T18:36:21.238197+00:00",
+  "completedCases": 6,
+  "words": 34,
+  "audioSeconds": 48.05597916666667,
+  "rawPitchPoints": 4809,
+  "originalNotes": 99,
+  "finalNotes": 98,
+  "verbatimPreservedNotes": 98,
+  "addedOrChangedNotes": [],
+  "removedNotes": [
+    {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "note": {
+        "contour": [
+          [
+            0.0,
+            -0.22159443309847404,
+            0.721
+          ]
+        ],
+        "end": 7.16,
+        "note": 63,
+        "start": 7.15
+      }
+    }
+  ],
+  "commonTargetFrames": {
+    "0.01": 3092,
+    "0.005": 6181
+  },
+  "maxCommonTargetPitchDifferenceSemitones": 0.0,
+  "removedNoteAssessment": {
+    "classification": "Separate later vocal entry was previously attached to the final word.",
+    "independentPublishedWordEnd": 6.505,
+    "independentRawSignalAudit": {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "publishedReference": [
+        5.945,
+        6.505
+      ],
+      "auditedDirectVoicingEndRegion": [
+        6.5,
+        6.55
+      ],
+      "precisionClaim": "Broad signal-transition range, not listening-certified exact endpoint; 40ms window and5ms hop.",
+      "postReference": "Rapid reduction of coherent periodicity and amplitude follows6.50, deep energy minimum near6.60, noisy breath region~6.65–7.06, and a separate fresh periodic onset near7.13 at clipedge.",
+      "medianComparisons": {
+        "before": [
+          6.45,
+          6.505,
+          -27.1233,
+          0.8332
+        ],
+        "after": [
+          6.505,
+          6.6,
+          -40.9891,
+          0.3927
+        ],
+        "format": "start,end,RMSdBFS,normalizedAutocorrelation"
+      },
+      "assessment": "A predicted end7.160 crosses a break, subsequent breath and a fresh onset; it cannot be justified as uninterrupted vowel continuation. The independently published6.505 endpoint agrees approximately with a waveform state change."
+    },
+    "currentWordLastStrongPitchTime": 6.52,
+    "strongPitchPointsBetweenCorrectedEndAndNextEntry": 0,
+    "followingEntryStrongPitchTimes": [
+      7.15,
+      7.16
+    ]
+  },
+  "limitations": [
+    "CREPE output is an existing-model estimate, not independently measured per-frame F0 truth.",
+    "External manual-corrected word labels have unspecified timestamp uncertainty.",
+    "Raw-signal audit is not agent-listening-certified phonetic annotation.",
+    "All note-model timings overlapped another full-song pipeline; control_0001 also includes a deliberate process pause. No isolated-performance claim."
+  ],
+  "execution": {
+    "ownedPid": 50781,
+    "exitCode": 0,
+    "completionObservedAtUtc": "2026-10-31T18:07:45+00:00",
+    "pauseConfirmedAtUtc": "2026-10-31T17:34:45.439939+00:00",
+    "resumeSignalAtUtc": "2026-10-31T18:01:14.506430+00:00",
+    "caseWithPauseIncludedInElapsed": "control_0001"
+  },
+  "sources": [
+    {
+      "path": "/tmp/karaoke-sync-v4/notes/final/note-comparison.json",
+      "sha256": "444e225473f178767ab20115fc1953d27f94d42ef682651aa96a326d584957f0"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/metadata.json",
+      "sha256": "2a16984659b302dde978e941b4843f1bfda47ac97cfbdaba8cf42d13efeb7882"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/audio-reference/independent-tail-audit.json",
+      "sha256": "6c268d6d518b5c503eaf593b49eb562cc3d4454dfe9d70524c5609f654d6cf15"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/notes/pitch-process-pause.json",
+      "sha256": "f5ba9c825588474312e4bed99d9a346ee13ff94365ca0f1c49431377ac7da23e"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/notes/pitch-process-resume.json",
+      "sha256": "8c0d32b04a84e99f866209ee66f99da8cb6537e7c69955705ad4c3e1fb4d834b"
+    }
+  ],
+  "unchangedSourceFiles": [
+    {
+      "path": "python/backend/processing/algorithms.py",
+      "beforeSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+      "afterSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d"
+    },
+    {
+      "path": "python/backend/ai_worker/pitch.py",
+      "beforeSha256": "d3f2088e98a6c8b02e45bbfe7c2d24ce0f22046966f8cec8b2bac429c28745e2",
+      "afterSha256": "d3f2088e98a6c8b02e45bbfe7c2d24ce0f22046966f8cec8b2bac429c28745e2"
+    },
+    {
+      "path": "python/backend/lyrics/codec.py",
+      "beforeSha256": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5",
+      "afterSha256": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5"
+    },
+    {
+      "path": "python/backend/lyrics/domain.py",
+      "beforeSha256": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7",
+      "afterSha256": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7"
+    }
+  ],
+  "finalSourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "finalExportRegeneration": "All six exports regenerated from existing frozen CREPE points after final onset-anchor preservation; no new model inference. All note-audit counts recomputed and unchanged."
+}

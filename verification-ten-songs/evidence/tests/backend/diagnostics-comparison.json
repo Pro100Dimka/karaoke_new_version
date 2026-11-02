@@ -1,0 +1,225 @@
+{
+  "scope": "Completed full backend constituent verification on frozen final Python source; compared to previous full v5 run and preserved failed intermediate run.",
+  "baselineDirectory": "/tmp/karaoke-v5-artists/backend-final-v5",
+  "currentDirectory": "/tmp/karaoke-ten-20261101/backend-final-verified-ten",
+  "architecture": {
+    "baselineErrorCount": 60,
+    "currentErrorCount": 60,
+    "newDiagnosticKinds": [],
+    "resolvedDiagnosticKinds": [],
+    "changedExistingMetrics": [
+      {
+        "before": "ERROR: backend/ai_worker/ctc.py: 876 lines exceeds 500",
+        "after": "ERROR: backend/ai_worker/ctc.py: 957 lines exceeds 500"
+      },
+      {
+        "before": "ERROR: backend/ai_worker/ctc.py:636: align_guided complexity proxy 23 exceeds 12",
+        "after": "ERROR: backend/ai_worker/ctc.py:708: align_guided complexity proxy 24 exceeds 12"
+      },
+      {
+        "before": "ERROR: backend/ai_worker/ctc.py:636: align_guided has 94 lines; limit is 40",
+        "after": "ERROR: backend/ai_worker/ctc.py:708: align_guided has 101 lines; limit is 40"
+      },
+      {
+        "before": "ERROR: backend/ai_worker/word_guidance.py: 1159 lines exceeds 500",
+        "after": "ERROR: backend/ai_worker/word_guidance.py: 1204 lines exceeds 500"
+      }
+    ]
+  },
+  "format": {
+    "baseline": {
+      "files": [
+        "backend/analysis/start_analysis.py",
+        "backend/api/model_routes.py",
+        "backend/api/recording_routes.py",
+        "backend/bootstrap/build.py",
+        "backend/bootstrap/recording_wiring.py",
+        "backend/infrastructure/ffmpeg_audio.py",
+        "backend/infrastructure/installer_downloads.py",
+        "backend/infrastructure/instance_lock.py",
+        "backend/infrastructure/library_storage.py",
+        "backend/infrastructure/profile_migration.py",
+        "backend/infrastructure/recording_files.py",
+        "backend/infrastructure/torch_runtime.py",
+        "backend/models/commands.py",
+        "backend/processing/domain.py",
+        "backend/recordings/allocate_target.py",
+        "backend/recordings/delete_recording.py",
+        "backend/recordings/ports.py",
+        "backend/recordings/reconcile.py",
+        "backend/recordings/register_recording.py",
+        "backend/recordings/start_studio_master.py",
+        "backend/recordings/studio_master.py",
+        "backend/recovery/reconcile_library.py",
+        "backend/songs/delete_song.py",
+        "backend/songs/prepare_clip.py",
+        "tests/test_torch_runtime.py"
+      ],
+      "summary": "25 files would be reformatted, 350 files already formatted"
+    },
+    "current": {
+      "files": [
+        "backend/analysis/start_analysis.py",
+        "backend/api/model_routes.py",
+        "backend/api/recording_routes.py",
+        "backend/bootstrap/build.py",
+        "backend/bootstrap/recording_wiring.py",
+        "backend/infrastructure/ffmpeg_audio.py",
+        "backend/infrastructure/installer_downloads.py",
+        "backend/infrastructure/instance_lock.py",
+        "backend/infrastructure/library_storage.py",
+        "backend/infrastructure/profile_migration.py",
+        "backend/infrastructure/recording_files.py",
+        "backend/infrastructure/torch_runtime.py",
+        "backend/models/commands.py",
+        "backend/processing/domain.py",
+        "backend/recordings/allocate_target.py",
+        "backend/recordings/delete_recording.py",
+        "backend/recordings/ports.py",
+        "backend/recordings/reconcile.py",
+        "backend/recordings/register_recording.py",
+        "backend/recordings/start_studio_master.py",
+        "backend/recordings/studio_master.py",
+        "backend/recovery/reconcile_library.py",
+        "backend/songs/delete_song.py",
+        "backend/songs/prepare_clip.py",
+        "tests/test_torch_runtime.py"
+      ],
+      "summary": "25 files would be reformatted, 352 files already formatted"
+    },
+    "newUnformattedFiles": [],
+    "resolvedUnformattedFiles": []
+  },
+  "mypy": {
+    "byteIdentical": true,
+    "baselineSummary": "Found 27 errors in 8 files (checked 271 source files)",
+    "currentSummary": "Found 27 errors in 8 files (checked 271 source files)"
+  },
+  "lint": {
+    "baselineLog": "All checks passed!",
+    "currentLog": "All checks passed!"
+  },
+  "focused": {
+    "passed": 43,
+    "newChecks": 30,
+    "earlierChecks": 13,
+    "warnings": 2,
+    "wallSeconds": 7.16,
+    "junit": "/tmp/karaoke-ten-20261101/backend-focused-verified-ten.xml"
+  },
+  "intermediateRegression": {
+    "initialGate": "/tmp/karaoke-ten-20261101/backend-final-ten/result.json",
+    "id": "tests/test_letter_alignment.py::test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_break[native_reply7]",
+    "baselineTrace": "/tmp/karaoke-ten-20261101/diagnosis/native-reply7-baseline-trace.json",
+    "intermediateTrace": "/tmp/karaoke-ten-20261101/diagnosis/native-reply7-current-trace.json",
+    "finalTrace": "/tmp/karaoke-ten-20261101/diagnosis/native-reply7-verified-trace.json",
+    "finalTraceChecksAllPass": true,
+    "finalFullGateAbsent": true
+  },
+  "pytest": {
+    "pytestSummary": "60 failed, 1366 passed, 6 skipped, 2 warnings in 243.28s (0:04:03)",
+    "pytestCompleted": true,
+    "sourceUnchanged": true,
+    "wallSeconds": 266.501,
+    "newFailureIDs": [
+      "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+      "tests/test_recordings_analysis.py::test_offline_analysis_succeeds_and_becomes_stale_after_project_revision",
+      "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running"
+    ],
+    "resolvedFailureIDs": [
+      "tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata",
+      "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+      "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+    ],
+    "errorIDs": [],
+    "newErrorIDs": [],
+    "failureIDsIncomplete": false,
+    "baselineSummary": "60 failed, 1336 passed, 6 skipped, 2 warnings in 238.04s (0:03:58)",
+    "persistentFailureCount": 57,
+    "newSynchronizationFailureIDs": [],
+    "failureCategories": {
+      "baseline": {
+        "tests/test_architecture.py": 1,
+        "tests/test_command_ai_provider.py": 4,
+        "tests/test_letter_alignment.py": 1,
+        "tests/test_library_archive.py": 1,
+        "tests/test_packages_e2e.py": 1,
+        "tests/test_process_ownership.py": 1,
+        "tests/test_processing_e2e.py": 3,
+        "tests/test_processing_execution.py": 3,
+        "tests/test_recording_empty_cleanup.py": 1,
+        "tests/test_recording_startup_recovery.py": 2,
+        "tests/test_recordings_analysis.py": 4,
+        "tests/test_release_regressions.py": 2,
+        "tests/test_resource_scheduler.py": 3,
+        "tests/test_room_server_deployment.py": 12,
+        "tests/test_song_recognition.py": 5,
+        "tests/test_studio_master.py": 16
+      },
+      "final": {
+        "tests/test_architecture.py": 1,
+        "tests/test_command_ai_provider.py": 4,
+        "tests/test_letter_alignment.py": 1,
+        "tests/test_library_archive.py": 1,
+        "tests/test_packages_e2e.py": 1,
+        "tests/test_process_ownership.py": 1,
+        "tests/test_processing_e2e.py": 3,
+        "tests/test_processing_execution.py": 3,
+        "tests/test_recording_empty_cleanup.py": 1,
+        "tests/test_recording_startup_recovery.py": 2,
+        "tests/test_recordings_analysis.py": 4,
+        "tests/test_release_regressions.py": 2,
+        "tests/test_resource_scheduler.py": 3,
+        "tests/test_room_server_deployment.py": 12,
+        "tests/test_song_recognition.py": 5,
+        "tests/test_studio_master.py": 16
+      }
+    },
+    "resolvedSinceIntermediate": [
+      "tests/test_letter_alignment.py::test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_break[native_reply7]",
+      "tests/test_library_archive.py::test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing",
+      "tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata",
+      "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+      "tests/test_recordings_analysis.py::test_recording_name_and_status_are_backend_authoritative",
+      "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[balance]",
+      "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+    ],
+    "appearedSinceIntermediate": [
+      "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+      "tests/test_recordings_analysis.py::test_offline_analysis_succeeds_and_becomes_stale_after_project_revision",
+      "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording"
+    ],
+    "classificationFile": "/tmp/karaoke-ten-20261101/backend-final-verified-ten/failures-inventory.json",
+    "status": "Not an all-green project gate: 60 failures remain. No new synchronization regression was found in the final gate. New-vs-historical-run IDs are unchanged async recording-ready paths, with direct HTTP409 and paired-baseline evidence."
+  },
+  "checks": {
+    "compile": {
+      "exitCode": 0,
+      "seconds": 1.898
+    },
+    "architecture": {
+      "exitCode": 1,
+      "seconds": 1.571
+    },
+    "bootstrap": {
+      "exitCode": 0,
+      "seconds": 7.903
+    },
+    "format": {
+      "exitCode": 1,
+      "seconds": 0.109
+    },
+    "lint": {
+      "exitCode": 0,
+      "seconds": 0.059
+    },
+    "mypy": {
+      "exitCode": 1,
+      "seconds": 2.84
+    },
+    "pytest": {
+      "exitCode": 1,
+      "seconds": 252.071
+    }
+  }
+}

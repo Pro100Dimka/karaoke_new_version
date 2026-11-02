@@ -1,0 +1,74 @@
+{
+  "scope": "Production pitch.pitch on6real externally annotated recording excerpts; existing installed CREPE full model. These are model pitch estimates, not manually verified per-frame F0 truth.",
+  "pitchSourceSha256": "d3f2088e98a6c8b02e45bbfe7c2d24ce0f22046966f8cec8b2bac429c28745e2",
+  "crepeModelSha256": "133225604dedd2e4005f8bbd1bd0a2ec073ba8b7a6cd31ff6d5edbbfa3539986",
+  "threads": 1,
+  "cases": [
+    {
+      "case": "control_0000",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0000.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0000.wav",
+      "audioSha256": "8a15fb990da510618d338e80cd921a19d49fdd8afcee84e542cc96a18cb590d8",
+      "duration": 9.094,
+      "elapsedSeconds": 108.03285498300102,
+      "points": 910,
+      "strongActivePoints": 648,
+      "outputSha256": "927159715cd029dc4569634db71e3146771ceca377939a258d593a9563130f28"
+    },
+    {
+      "case": "control_0001",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0001.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0001.wav",
+      "audioSha256": "8f3b9d468e0f5e3bc4a8bb5ac5b676efcdab29bb127bf9d420f3728b63c26fe8",
+      "duration": 6.991979166666667,
+      "elapsedSeconds": 1678.6829590050002,
+      "points": 700,
+      "strongActivePoints": 472,
+      "outputSha256": "aaa9c7d572dad44b8d98e0b91bc5c68885a2e4805ff81ac62893688d7c060bac"
+    },
+    {
+      "case": "breathy_0000",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/breathy_0000.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.wav",
+      "audioSha256": "acb4f276e3fe61e39d097f1d4e1979d1abd0ccd3ad7284a2740d09ea0ad2ea0a",
+      "duration": 9.196979166666667,
+      "elapsedSeconds": 77.55543524399945,
+      "points": 920,
+      "strongActivePoints": 584,
+      "outputSha256": "91190927d981fda7ee9b9c5331abb7f5f330966ca7556bbe0f618c3affbffabc"
+    },
+    {
+      "case": "breathy_0001",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/breathy_0001.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.wav",
+      "audioSha256": "aee0a3e8a2cf77c61f261cbbecf7dba935bfbcc533c6af3daf17b05beeb26f2f",
+      "duration": 7.1660208333333335,
+      "elapsedSeconds": 59.4286567909985,
+      "points": 717,
+      "strongActivePoints": 428,
+      "outputSha256": "5ec16d64fbaf05a5108c1234f7911aaf7ae97b903be415b0543f860662975b83"
+    },
+    {
+      "case": "control_0003",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0003.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0003.wav",
+      "audioSha256": "a54f63f2d7ee5541d02f853e7f76f377108ada56a050c18348168986ef281da3",
+      "duration": 7.433,
+      "elapsedSeconds": 82.78152057300031,
+      "points": 744,
+      "strongActivePoints": 459,
+      "outputSha256": "092faace17830ae19cf1d579ff0da810888c68aa21a55d0f85971ef377ca5b77"
+    },
+    {
+      "case": "control_0004",
+      "path": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0004.json",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0004.wav",
+      "audioSha256": "791137531e62a021e03690c72eaff54d5da92dc202c128e5740f02f426ab085c",
+      "duration": 8.174,
+      "elapsedSeconds": 78.06422569000097,
+      "points": 818,
+      "strongActivePoints": 508,
+      "outputSha256": "b09d561323a0cc10113b29c2e43ce50a930bc495ece0e6f9899115b4bb7f40ca"
+    }
+  ]
+}

@@ -1,0 +1,163 @@
+{
+  "runnerExitCode": 1,
+  "firstFailedGate": "architecture",
+  "pytestSummary": "60 failed, 1336 passed, 6 skipped, 2 warnings in 238.04s (0:03:58)",
+  "pytestCompleted": true,
+  "sourceUnchanged": true,
+  "wallSeconds": 251.597,
+  "checks": {
+    "compile": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-c",
+        "import compileall; raise SystemExit(0 if all(compileall.compile_dir(folder, quiet=1) for folder in ('backend', 'tests', 'scripts')) else 1)"
+      ],
+      "exitCode": 0,
+      "seconds": 0.081
+    },
+    "architecture": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/scripts/architecture_check.py"
+      ],
+      "exitCode": 1,
+      "seconds": 1.8
+    },
+    "bootstrap": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-m",
+        "scripts.bootstrap_smoke"
+      ],
+      "exitCode": 0,
+      "seconds": 2.903
+    },
+    "format": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-m",
+        "ruff",
+        "format",
+        "--check",
+        "backend",
+        "tests",
+        "scripts"
+      ],
+      "exitCode": 1,
+      "seconds": 0.137
+    },
+    "lint": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-m",
+        "ruff",
+        "check",
+        "backend",
+        "tests",
+        "scripts"
+      ],
+      "exitCode": 0,
+      "seconds": 0.059
+    },
+    "mypy": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-m",
+        "mypy",
+        "backend",
+        "scripts"
+      ],
+      "exitCode": 1,
+      "seconds": 0.953
+    },
+    "pytest": {
+      "command": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "--tb=short"
+      ],
+      "exitCode": 1,
+      "seconds": 245.592
+    }
+  },
+  "failureCount": 60,
+  "failureIDs": [
+    "tests/test_architecture.py::test_locked_architecture_gates",
+    "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-None]",
+    "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-source]",
+    "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-None]",
+    "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-source]",
+    "tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda]",
+    "tests/test_library_archive.py::test_library_publication_failure_rolls_back_files_and_rows",
+    "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+    "tests/test_process_ownership.py::test_line_process_kills_a_child_that_ignores_the_stop_request",
+    "tests/test_processing_e2e.py::test_clip_download_overlaps_processing_and_preserves_published_revision",
+    "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[False]",
+    "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[True]",
+    "tests/test_processing_execution.py::test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget",
+    "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CPU-CPU]",
+    "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CUDA-CUDA]",
+    "tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file]",
+    "tests/test_recording_startup_recovery.py::test_startup_recovers_finalized_orphan_recording_descriptor",
+    "tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size",
+    "tests/test_recordings_analysis.py::test_new_performance_is_balanced_before_registration_and_retry_preserves_capture",
+    "tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata",
+    "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+    "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+    "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found",
+    "tests/test_release_regressions.py::test_rejected_analysis_submission_is_settled_in_the_recording_registry",
+    "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_ram_headroom",
+    "tests/test_resource_scheduler.py::test_resource_scheduler_rejects_vram_requirement_without_cuda",
+    "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_vram_fraction",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-backend]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-project]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-native]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[ownership]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[daemon-reload]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[pid]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[start]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[health]",
+    "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[scheduling]",
+    "tests/test_room_server_deployment.py::test_deployment_reports_an_unverified_rollback_instead_of_claiming_success",
+    "tests/test_room_server_deployment.py::test_deployment_restores_absence_of_optional_native_files",
+    "tests/test_room_server_deployment.py::test_successful_deployment_keeps_the_new_version",
+    "tests/test_song_recognition.py::test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting",
+    "tests/test_song_recognition.py::test_processing_upgrades_catalog_guess_to_audio_fingerprint",
+    "tests/test_song_recognition.py::test_processing_retries_video_lookup_for_fingerprint_without_a_clip",
+    "tests/test_song_recognition.py::test_recognition_refresh_preserves_manual_title_and_artist",
+    "tests/test_song_recognition.py::test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog",
+    "tests/test_studio_master.py::test_normal_take_balance_finishes_in_one_render_without_remastering",
+    "tests/test_studio_master.py::test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy",
+    "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.0]",
+    "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.1]",
+    "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-inf]",
+    "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[inf]",
+    "tests/test_studio_master.py::test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor",
+    "tests/test_studio_master.py::test_studio_master_raises_quiet_vocal_to_the_original_song_balance",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.3-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.01-0.1-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.5-0.1-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.03-0.03]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.3-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.01-0.1-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.5-0.1-0.1]",
+    "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.03-0.03]"
+  ],
+  "errorIDs": [],
+  "failureIDsIncomplete": false,
+  "comparedResult": "/tmp/karaoke-v5-artists/backend-baseline-v4-unconfined/result.json",
+  "newFailureIDs": [
+    "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+    "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+    "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+  ],
+  "resolvedFailureIDs": [
+    "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+    "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+    "tests/test_release_regressions.py::test_analysis_cancelled_before_execution_does_not_remain_queued",
+    "tests/test_release_regressions.py::test_cancelled_analysis_does_not_publish_a_successful_score"
+  ],
+  "newErrorIDs": []
+}

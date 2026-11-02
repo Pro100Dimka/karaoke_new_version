@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "c642b1bf9b5c6cca74b4c87d4eacb6427c19385289e5797aa339809fe51e8770",
+  "functions": [
+    {
+      "function": "with_sung_letters",
+      "lines": 37,
+      "complexity": 7
+    },
+    {
+      "function": "_sung_letters_disagree",
+      "lines": 11,
+      "complexity": 2
+    },
+    {
+      "function": "_sung_letter_candidate",
+      "lines": 34,
+      "complexity": 7
+    },
+    {
+      "function": "_sung_letter_times",
+      "lines": 36,
+      "complexity": 9
+    }
+  ]
+}

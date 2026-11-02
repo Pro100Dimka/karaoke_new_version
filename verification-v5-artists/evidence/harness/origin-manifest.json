@@ -1,0 +1,55 @@
+{
+  "createdUtc": "2026-10-31T20:14:18.395722+00:00",
+  "scope": "Harness only, no product changes or model runs",
+  "files": [
+    {
+      "name": "run_alignment.py",
+      "source": "/tmp/karaoke-v4-new-songs/harness/run_alignment.py",
+      "sourceSha256": "af8e063afed45c57819a57b10328a14432a038fc6959a5bda2a531c251014344",
+      "targetSha256": "af8e063afed45c57819a57b10328a14432a038fc6959a5bda2a531c251014344",
+      "changes": "Byte-identical existing audited runner"
+    },
+    {
+      "name": "compare_alignment.py",
+      "source": "/tmp/karaoke-v4-new-songs/harness/compare_alignment.py",
+      "sourceSha256": "478a1850fcf93f3919284aa910d4950ac38807a2fac28f646e3e6cf927d3b523",
+      "targetSha256": "ed3bdac6004bbd4d43e96acea38cf6aefa0ac9fd778d5467441a4af024a6371f",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    },
+    {
+      "name": "check_notes.py",
+      "source": "/tmp/karaoke-v4-new-songs/harness/check_notes.py",
+      "sourceSha256": "7506774630a8aedc1271aa09feeb673ac2897d4731dffe1b756e3d73eb180cc3",
+      "targetSha256": "68a0b7aaa8adc1f4456fcb2e05a675156a9a82ed7ac0cde6889aa5b8f7294e8f",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    },
+    {
+      "name": "check_frontend.mjs",
+      "source": "/tmp/karaoke-v4-new-songs/harness/check_frontend.mjs",
+      "sourceSha256": "4da0163ae2e6a5ff54d5d993fbb55311935ada822048da0f33d02c5cc9684dc9",
+      "targetSha256": "34b3bc0ea1238c3779172948042451cfeca6339632a06862c5ef0881e8b29912",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    },
+    {
+      "name": "notes_against_reference.py",
+      "source": "/tmp/karaoke-v4-new-songs/harness/notes_against_reference.py",
+      "sourceSha256": "3c73fee334994d1c0bdf87183f1ef19f90ee5971aef912832b95232d502be49f",
+      "targetSha256": "8d624f0324353e95a3f0f72d96bda13037f818fbafb33c7a6d02179f4917f7ae",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    },
+    {
+      "name": "check_frontend_reference.mjs",
+      "source": "/tmp/karaoke-v4-new-songs/harness/check_frontend_reference.mjs",
+      "sourceSha256": "8f40b774aa2de07221a6857ad339ca8f0a57f53e52f3290882e3a31d4ed830eb",
+      "targetSha256": "8803769b6e3965032c866cf3d4f9980cb2ca6cd04d6baff28137840aec9d91f3",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    },
+    {
+      "name": "freeze_phone_mapping.py",
+      "source": "/tmp/karaoke-v4-new-songs/harness/freeze_phone_mapping.py",
+      "sourceSha256": "7ac5e21a0e1316d5f602cf53bd5d3de56babd1de8eb1e17bcd0ff7cedb735752",
+      "targetSha256": "7ac5e21a0e1316d5f602cf53bd5d3de56babd1de8eb1e17bcd0ff7cedb735752",
+      "changes": "Version labels only: v3/v4 -> baseline-v4/final; no algorithm change"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "pid": 50781,
+  "command": "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python /tmp/karaoke-sync-v4/notes/cache_real_pitch.py ",
+  "resumeRequestedAtUtc": "2026-10-31T18:01:14.506332+00:00",
+  "resumeSignalCompletedAtUtc": "2026-10-31T18:01:14.506430+00:00",
+  "authorization": "Root explicitly authorized resume while full-song baseline pitch still runs; preserve model/parameters and existing outputs.",
+  "performanceLimitation": "Intervals overlap full-song baseline and other task checks. These elapsed times are not isolated benchmark observations."
+}

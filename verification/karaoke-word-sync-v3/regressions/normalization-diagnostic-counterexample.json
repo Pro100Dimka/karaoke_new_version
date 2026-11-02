@@ -1,0 +1,69 @@
+{
+  "scope": "Synthetic diagnostic counterexample only; no claim of real vowel extent or changed product code",
+  "before": {
+    "words": [
+      {
+        "text": "дом",
+        "start": 1,
+        "end": 1.3,
+        "confidence": 0.9,
+        "letters": [
+          1,
+          1.06,
+          1.22
+        ],
+        "diagnostics": []
+      },
+      {
+        "text": "там",
+        "start": 1.1,
+        "end": 1.6,
+        "confidence": 0.9,
+        "letters": [
+          1.1,
+          1.36,
+          1.54
+        ],
+        "diagnostics": []
+      }
+    ]
+  },
+  "after": {
+    "words": [
+      {
+        "text": "дом",
+        "start": 1,
+        "end": 1.1,
+        "confidence": 0.9,
+        "letters": [
+          1.0,
+          1.06,
+          1.1
+        ],
+        "diagnostics": []
+      },
+      {
+        "text": "там",
+        "start": 1.1,
+        "end": 1.6,
+        "confidence": 0.9,
+        "letters": [
+          1.1,
+          1.36,
+          1.54
+        ],
+        "diagnostics": []
+      }
+    ]
+  },
+  "conflictsBefore": [
+    0,
+    1
+  ],
+  "conflictsAfter": [],
+  "reviewsWithoutHeard": [],
+  "reviewsWithIndependentHeard": [
+    0
+  ],
+  "savedWarnings": []
+}

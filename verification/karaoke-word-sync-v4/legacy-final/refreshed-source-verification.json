@@ -1,0 +1,36 @@
+{
+  "scope": "Same existing cached-input helpers, final source-freeze3; no new ASR/MMS inference. Before files are actual source-freeze2 executions preserved separately.",
+  "observedAtUtc": "2026-10-31T18:36:49.034271+00:00",
+  "finalSourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "checks": [
+    {
+      "file": "odin-paired.json",
+      "beforeSha256": "682d7a77eb74ab573415f2b95d302baa3920ec21a15dac3e0247d6886bfdf3db",
+      "afterSha256": "26443364039f0b27aa64b2fc9b1f51aea8657bbb3a7376ba12f66cc46ef5d51b",
+      "ctcSourceSha256": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+      "sourceHashes": {
+        "ctc": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+        "speech": "f0a7b38736a9a1a2e9b472dce389f7059939d4eb2f4172c71811d04d6b6e35a2",
+        "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+        "word_guidance": "511069fee53fb76cbfde86236757b47a490ad5d66e9b51cc6abaaa0725e155f4",
+        "recognition": "eb48c58939335ee6f8b7744d3607f42cdb5613ba145c34e09c03ae9059e7d91a"
+      },
+      "numericTimesUnchanged": true,
+      "checkedItems": 15,
+      "sourceStableDuringReplay": true
+    },
+    {
+      "file": "sadsvit.json",
+      "beforeSha256": "113165c76e1d64fa838870bb6cdd17ef5402f0e36e052dc95f215a4012bdb372",
+      "afterSha256": "91a75a4bad47165aa1d180eafa687021667da457f8358ea43f74a8b5d9e764ef",
+      "ctcSourceSha256": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+      "sourceHashes": {
+        "ctc": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+        "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65"
+      },
+      "numericTimesUnchanged": true,
+      "checkedItems": 3,
+      "sourceStableDuringReplay": true
+    }
+  ]
+}

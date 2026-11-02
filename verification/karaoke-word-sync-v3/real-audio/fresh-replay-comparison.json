@@ -1,0 +1,155 @@
+{
+  "scope": "Fresh final cached-input replays against retained v2 production outputs; not a full-song/model benchmark or human acoustic ground truth.",
+  "comparisons": [
+    {
+      "case": "clean",
+      "before": "/tmp/karaoke-sync-v2/odin/production-clean-paired.json",
+      "after": "/tmp/karaoke-sync-v3/real-audio/final-clean-paired.json",
+      "sourceHashesEqual": true,
+      "sameInputs": true,
+      "payloadCanonicalBytesEqual": true,
+      "beforePayloadSha256": "c71d6077a61c3c28feb5bfb643e0332bea3b2473bcc4d0fdcb3056e572968d12",
+      "afterPayloadSha256": "c71d6077a61c3c28feb5bfb643e0332bea3b2473bcc4d0fdcb3056e572968d12",
+      "sourcesUnchangedDuringFreshRun": true
+    },
+    {
+      "case": "uncertain-related",
+      "before": "/tmp/karaoke-sync-v2/odin/production-uncertain-related.json",
+      "after": "/tmp/karaoke-sync-v3/real-audio/final-uncertain-related.json",
+      "sourceHashesEqual": true,
+      "sameInputs": true,
+      "payloadCanonicalBytesEqual": true,
+      "beforePayloadSha256": "134a80a87ad06a8fe76933bb4b4c1944757fc6d8f2fe7b89264241b611910635",
+      "afterPayloadSha256": "134a80a87ad06a8fe76933bb4b4c1944757fc6d8f2fe7b89264241b611910635",
+      "sourcesUnchangedDuringFreshRun": true
+    },
+    {
+      "case": "sadvit-phrase-93",
+      "rawEqual": true,
+      "finalStableBytesEqual": true,
+      "voiceSameHash": true,
+      "backingSameHash": true,
+      "sourceHashesEqual": true
+    },
+    {
+      "case": "sadvit-phrase-129",
+      "rawEqual": true,
+      "finalStableBytesEqual": true,
+      "voiceSameHash": true,
+      "backingSameHash": true,
+      "sourceHashesEqual": true
+    },
+    {
+      "case": "sadvit-outro",
+      "rawEqual": true,
+      "finalStableBytesEqual": true,
+      "voiceSameHash": true,
+      "backingSameHash": true,
+      "sourceHashesEqual": true
+    }
+  ],
+  "notes": [
+    {
+      "file": "notes-v2-final-clean-paired.json",
+      "summary": {
+        "beforeNoteCount": 49,
+        "afterNoteCount": 49,
+        "beforeContourPoints": 993,
+        "afterContourPoints": 993,
+        "ownershipChangedPoints": 0,
+        "targetFrameChanges": 0,
+        "addedPitchedTargetFrames": 0,
+        "removedPitchedTargetFrames": 0,
+        "changedExistingPitchedTargetFrames": 0,
+        "addedActiveTargetFrames": 0,
+        "removedActiveTargetFrames": 0,
+        "quietThresholdRms": 0.048268191516399384,
+        "quietEndingWords": 9,
+        "quietEndingWordsWithExistingCoverage": 9,
+        "quietEndingExistingPointsRetained": 51
+      },
+      "checks": {
+        "pitchInputUnchanged": true,
+        "wordPayloadFilesUnchanged": true,
+        "beforeAfterReplayInputsIdentical": true,
+        "sourceFilesUnchangedDuringComparison": true,
+        "afterReplayCtcMatchesCurrentSource": true,
+        "allWordBoundariesAndLettersPreserved": [
+          true,
+          true
+        ],
+        "allNotesExactlyGlobalMelodyWordIntersections": [
+          true,
+          true
+        ],
+        "allContourAbsoluteTimesAndPitchMatchSameStabilizedInput": [
+          true,
+          true
+        ],
+        "codecRoundTrip": [
+          true,
+          true
+        ],
+        "commonContourMaxPitchDifferenceSemitones": 0.0,
+        "allUnchangedWordNotesIdentical": true,
+        "quietEndingsPreserved": true,
+        "noPreviouslyPitchedTargetFrameLost": true,
+        "allCommonPitchedTargetFramesUnchangedWithin1eMinus9": true,
+        "noPreviouslyActiveTargetFrameLost": true,
+        "targetFramesIdenticalWithin1eMinus9": true
+      }
+    },
+    {
+      "file": "notes-v2-final-uncertain-related.json",
+      "summary": {
+        "beforeNoteCount": 48,
+        "afterNoteCount": 48,
+        "beforeContourPoints": 971,
+        "afterContourPoints": 971,
+        "ownershipChangedPoints": 0,
+        "targetFrameChanges": 0,
+        "addedPitchedTargetFrames": 0,
+        "removedPitchedTargetFrames": 0,
+        "changedExistingPitchedTargetFrames": 0,
+        "addedActiveTargetFrames": 0,
+        "removedActiveTargetFrames": 0,
+        "quietThresholdRms": 0.048268191516399384,
+        "quietEndingWords": 9,
+        "quietEndingWordsWithExistingCoverage": 9,
+        "quietEndingExistingPointsRetained": 27
+      },
+      "checks": {
+        "pitchInputUnchanged": true,
+        "wordPayloadFilesUnchanged": true,
+        "beforeAfterReplayInputsIdentical": true,
+        "sourceFilesUnchangedDuringComparison": true,
+        "afterReplayCtcMatchesCurrentSource": true,
+        "allWordBoundariesAndLettersPreserved": [
+          true,
+          true
+        ],
+        "allNotesExactlyGlobalMelodyWordIntersections": [
+          true,
+          true
+        ],
+        "allContourAbsoluteTimesAndPitchMatchSameStabilizedInput": [
+          true,
+          true
+        ],
+        "codecRoundTrip": [
+          true,
+          true
+        ],
+        "commonContourMaxPitchDifferenceSemitones": 0.0,
+        "allUnchangedWordNotesIdentical": true,
+        "quietEndingsPreserved": true,
+        "noPreviouslyPitchedTargetFrameLost": true,
+        "allCommonPitchedTargetFramesUnchangedWithin1eMinus9": true,
+        "noPreviouslyActiveTargetFrameLost": true,
+        "targetFramesIdenticalWithin1eMinus9": true
+      }
+    }
+  ],
+  "newPitchInference": false,
+  "listened": false
+}

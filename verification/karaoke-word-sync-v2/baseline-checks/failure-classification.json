@@ -1,0 +1,1240 @@
+{
+  "scope": "Read-only classification of 62 observed failures in fresh baseline-v1 full pytest. No failures ignored, tests skipped, expectations changed, or product edits.",
+  "counts": {
+    "architecture_debt": 1,
+    "asynchronous_job_timeout": 1,
+    "clip_cancellation_contract": 2,
+    "clip_publication_behavior": 1,
+    "cuda_embedding_dtype": 1,
+    "library_api_contract": 1,
+    "linux_deployment_sandbox_path": 12,
+    "prepared_audio_test_fixture": 1,
+    "process_pipe_contract": 1,
+    "recognition_payload_contract": 4,
+    "recording_analysis_registry": 1,
+    "recording_analysis_submission": 4,
+    "recording_capture_contract": 1,
+    "recording_cleanup_behavior": 1,
+    "recording_delete_conflict": 1,
+    "recording_startup_behavior": 2,
+    "resource_policy_contract": 3,
+    "resource_probe_test_fixture": 2,
+    "song_metadata_refresh": 5,
+    "studio_master_api_contract": 11,
+    "studio_master_fixture_input": 1,
+    "studio_master_loudness_behavior": 4,
+    "targeted_word_alignment": 1
+  },
+  "totalFailures": 62,
+  "failureRows": [
+    {
+      "nodeId": "tests/test_architecture.py::test_locked_architecture_gates",
+      "category": "architecture_debt",
+      "immediateCause": "Architecture checker returns60 violations, beginning with ctc.py 718 lines versus 500 limit.",
+      "rootCauseStatus": "Confirmed checker result; individual architectural causes are in architecture.log.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/scripts/architecture_check.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_architecture.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_architecture.py:7: in test_locked_architecture_gates",
+        "E   AssertionError: assert ['backend/ai_...eds 500', ...] == []",
+        "E     ",
+        "E     Left contains 60 more items, first extra item: 'backend/ai_worker/ctc.py: 718 lines exceeds 500'",
+        "E     Use -v to get more diff"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-None]",
+      "category": "recognition_payload_contract",
+      "immediateCause": "Alignment runner input has an additional alternatives field; test requires equality to the original recognition object.",
+      "rootCauseStatus": "Confirmed payload/test contract mismatch; not an audio boundary inference or hardware failure.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_command_ai_provider.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/infrastructure/command_ai_provider.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_command_ai_provider.py:288: in test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job",
+        "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}",
+        "E     ",
+        "E     Omitting 2 identical items, use -vv to show",
+        "E     Left contains 1 more item:",
+        "E     {'alternatives': [{'segments': [{'words': [{'end': 2,",
+        "E                                                 'start': 1,",
+        "E                                                 'word': 'chorus'}]}],"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-source]",
+      "category": "recognition_payload_contract",
+      "immediateCause": "Alignment runner input has an additional alternatives field; test requires equality to the original recognition object.",
+      "rootCauseStatus": "Confirmed payload/test contract mismatch; not an audio boundary inference or hardware failure.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_command_ai_provider.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/infrastructure/command_ai_provider.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_command_ai_provider.py:288: in test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job",
+        "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}",
+        "E     ",
+        "E     Omitting 2 identical items, use -vv to show",
+        "E     Left contains 1 more item:",
+        "E     {'alternatives': []}",
+        "E     Use -v to get more diff"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-None]",
+      "category": "recognition_payload_contract",
+      "immediateCause": "Alignment runner input has an additional alternatives field; test requires equality to the original recognition object.",
+      "rootCauseStatus": "Confirmed payload/test contract mismatch; not an audio boundary inference or hardware failure.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_command_ai_provider.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/infrastructure/command_ai_provider.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_command_ai_provider.py:288: in test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job",
+        "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}",
+        "E     ",
+        "E     Omitting 2 identical items, use -vv to show",
+        "E     Left contains 1 more item:",
+        "E     {'alternatives': [{'segments': [{'words': [{'end': 2,",
+        "E                                                 'start': 1,",
+        "E                                                 'word': 'chorus'},"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-source]",
+      "category": "recognition_payload_contract",
+      "immediateCause": "Alignment runner input has an additional alternatives field; test requires equality to the original recognition object.",
+      "rootCauseStatus": "Confirmed payload/test contract mismatch; not an audio boundary inference or hardware failure.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_command_ai_provider.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/infrastructure/command_ai_provider.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_command_ai_provider.py:288: in test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job",
+        "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}",
+        "E     ",
+        "E     Omitting 2 identical items, use -vv to show",
+        "E     Left contains 1 more item:",
+        "E     {'alternatives': []}",
+        "E     Use -v to get more diff"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_letter_alignment.py::test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_own_phrase[uncertain]",
+      "category": "targeted_word_alignment",
+      "immediateCause": "Natural cached uncertain case places один at 9.94 s instead of the existing <9.5 s regression bound.",
+      "rootCauseStatus": "Confirmed targeted timing failure. Separate Odin/acoustic reports analyze underlying token borrowing and independent anchors.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_letter_alignment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/ai_worker/word_guidance.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_letter_alignment.py:2240: in test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_own_phrase",
+        "E   assert 9.94 < 9.5"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": true
+    },
+    {
+      "nodeId": "tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda]",
+      "category": "cuda_embedding_dtype",
+      "immediateCause": "CUDA code path calls half() on Embedding; assertion requires float32 but receives float16.",
+      "rootCauseStatus": "Confirmed implementation/test mismatch. The test mocks model.to, so no actual CUDA hardware is needed; absence of GPU does not explain this failure.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/ai_worker/speech.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_letter_alignment.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_letter_alignment.py:321: in test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings",
+        "E   AssertionError: assert torch.float16 == torch.float32"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_library_archive.py::test_library_publication_failure_rolls_back_files_and_rows",
+      "category": "library_api_contract",
+      "immediateCause": "Test accesses SqlLibraryStorage._publish, which is absent.",
+      "rootCauseStatus": "Confirmed missing API/test hook; rollback behavior is not reached by this test.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_library_archive.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_library_archive.py:148: in test_library_publication_failure_rolls_back_files_and_rows",
+        "E   AttributeError: type object 'SqlLibraryStorage' has no attribute '_publish'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+      "category": "asynchronous_job_timeout",
+      "immediateCause": "wait_for_job exhausts its 10 s event wait while preparing the song, before the compression-policy assertion.",
+      "rootCauseStatus": "Immediate timeout confirmed; exact background job state/root cause absent from saved traceback. This outcome differs from the historical run; do not call it a new alignment regression or assume harmless flakiness.",
+      "historicalV1Failure": false,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_packages_e2e.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/helpers.py"
+      ],
+      "savedLogEvidence": [
+        "tests/helpers.py:54: in wait_for_job",
+        "E   _queue.Empty",
+        "tests/test_packages_e2e.py:74: in test_exported_repetitive_audio_obeys_import_compression_policy",
+        "tests/test_packages_e2e.py:42: in make_ready_and_export",
+        "tests/helpers.py:56: in wait_for_job",
+        "E   AssertionError: Job c2e93084-2678-4396-9f95-b85213153df0 did not finish before timeout"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_process_ownership.py::test_line_process_kills_a_child_that_ignores_the_stop_request",
+      "category": "process_pipe_contract",
+      "immediateCause": "read_line raises RuntimeError for closed native control pipe; test expects empty string.",
+      "rootCauseStatus": "Confirmed API behavior mismatch after process termination.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/infrastructure/process_runner.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_process_ownership.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_process_ownership.py:193: in test_line_process_kills_a_child_that_ignores_the_stop_request",
+        "backend/infrastructure/process_runner.py:348: in read_line",
+        "E   RuntimeError: Native voice relay closed its control pipe"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[False]",
+      "category": "clip_cancellation_contract",
+      "immediateCause": "Clip-stopped event is not set when job resources are released. True variant also records an assertion that cancellation Event objects differ.",
+      "rootCauseStatus": "Immediate failures confirmed. Product uses a separate clip cancellation flow; whether test or behavior should change requires a separate contract review.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_e2e.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/songs/prepare_clip.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_e2e.py:254: in test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job",
+        "E   AssertionError: Job released its resources before the clip stopped",
+        "E   assert False",
+        "E    +  where False = is_set()",
+        "E    +    where is_set = <threading.Event at 0x7f475300fd70: unset>.is_set"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[True]",
+      "category": "clip_cancellation_contract",
+      "immediateCause": "Clip-stopped event is not set when job resources are released. True variant also records an assertion that cancellation Event objects differ.",
+      "rootCauseStatus": "Immediate failures confirmed. Product uses a separate clip cancellation flow; whether test or behavior should change requires a separate contract review.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_e2e.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/songs/prepare_clip.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_e2e.py:254: in test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job",
+        "E   AssertionError: Job released its resources before the clip stopped",
+        "E   assert False",
+        "E    +  where False = is_set()",
+        "E    +    where is_set = <threading.Event at 0x7f4750381640: unset>.is_set"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_e2e.py::test_clip_download_overlaps_processing_and_preserves_published_revision",
+      "category": "clip_publication_behavior",
+      "immediateCause": "Song videoUrl remains the YouTube URL instead of the expected local /songs/<id>/clip URL.",
+      "rootCauseStatus": "Observed publication mismatch; full root cause not established from this assertion alone.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_e2e.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/songs/prepare_clip.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_e2e.py:192: in test_clip_download_overlaps_processing_and_preserves_published_revision",
+        "E   AssertionError: assert False",
+        "E    +  where False = <built-in method endswith of str object at 0x7f472c540350>('/songs/c4089e8f-6666-4b27-b084-3e9ec10726b9/clip')",
+        "E    +    where <built-in method endswith of str object at 0x7f472c540350> = 'https://www.youtube.com/watch?v=test'.endswith"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_execution.py::test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget",
+      "category": "prepared_audio_test_fixture",
+      "immediateCause": "The test PreparedAudio substitute is SimpleNamespace without music; document_pipeline.run reads prepared.music.bpm.",
+      "rootCauseStatus": "Confirmed incomplete test fixture at the reporting boundary. Failure is not CUDA execution or real-device unavailability.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_execution.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/document_pipeline.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_execution.py:235: in test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget",
+        "backend/processing/document_pipeline.py:176: in run",
+        "E   AttributeError: 'types.SimpleNamespace' object has no attribute 'music'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CPU-CPU]",
+      "category": "resource_probe_test_fixture",
+      "immediateCause": "Job fails InsufficientRam before AI stages: test probe reports availableRAM16 GiB but totalRAM16000 bytes; default minimum free RAM is 512 MiB.",
+      "rootCauseStatus": "Confirmed contradictory fixture. Scheduler total-RAM guard rejects both CPU/CUDA cases regardless of actual machine RAM/GPU.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_resource_scheduler.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_execution.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/policies.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/resource_scheduler.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_execution.py:362: in test_every_ai_stage_receives_the_selected_device_and_cpu_budget",
+        "E   AssertionError: {'entityId': 'eeca4233-602d-43a9-a051-0d52fa995b09', 'error': {'code': 'InsufficientRam', 'details': {}, 'message': 'T...this computer has'}, 'finishedAt': '2026-10-31T14:36:08.342009Z', 'jobId': '193edddc-5742-4594-835c-9d103bd270bf', ...}",
+        "E   assert 'Failed' == 'Succeeded'",
+        "E     ",
+        "E     - Succeeded",
+        "E     + Failed"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CUDA-CUDA]",
+      "category": "resource_probe_test_fixture",
+      "immediateCause": "Job fails InsufficientRam before AI stages: test probe reports availableRAM16 GiB but totalRAM16000 bytes; default minimum free RAM is 512 MiB.",
+      "rootCauseStatus": "Confirmed contradictory fixture. Scheduler total-RAM guard rejects both CPU/CUDA cases regardless of actual machine RAM/GPU.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_resource_scheduler.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_execution.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/policies.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/resource_scheduler.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_processing_execution.py:362: in test_every_ai_stage_receives_the_selected_device_and_cpu_budget",
+        "E   AssertionError: {'entityId': 'e129b17c-b8f3-4cff-8d7c-b3c15dda1b1c', 'error': {'code': 'InsufficientRam', 'details': {}, 'message': 'T...this computer has'}, 'finishedAt': '2026-10-31T14:36:08.751365Z', 'jobId': '528ef32e-1aac-4842-918c-32d159ece38d', ...}",
+        "E   assert 'Failed' == 'Succeeded'",
+        "E     ",
+        "E     - Succeeded",
+        "E     + Failed"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file]",
+      "category": "recording_cleanup_behavior",
+      "immediateCause": "Deleting an empty take with recording-recovery.json returns 204; test expects 409 and retained files.",
+      "rootCauseStatus": "Observed deletion/recovery-descriptor contract mismatch; exact intended retention behavior not adjudicated.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recording_empty_cleanup.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recording_empty_cleanup.py:37: in test_empty_cleanup_preserves_nonempty_or_unrecognized_takes",
+        "E   AssertionError: ",
+        "E   assert 204 == 409",
+        "E    +  where 204 = <Response [204 No Content]>.status_code"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size",
+      "category": "recording_startup_behavior",
+      "immediateCause": "Recording lookup returns 404 RecordingNotFound after preparing a recovery descriptor; test expects recovered recording 200.",
+      "rootCauseStatus": "Observed startup recovery failure; detailed cause not determined by the saved response alone.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recording_startup_recovery.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recording_startup_recovery.py:65: in test_recording_api_reports_actual_file_size",
+        "E   AssertionError: {\"code\":\"RecordingNotFound\",\"message\":\"Recording was not found\",\"details\":{\"recordingId\":\"sized-recording\"},\"requestId\":\"8bd58679-fb9c-4ccf-b9ff-ed2861edd56a\"}",
+        "E   assert 404 == 200",
+        "E    +  where 404 = <Response [404 Not Found]>.status_code"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recording_startup_recovery.py::test_startup_recovers_finalized_orphan_recording_descriptor",
+      "category": "recording_startup_behavior",
+      "immediateCause": "Recording lookup returns 404 RecordingNotFound after preparing a recovery descriptor; test expects recovered recording 200.",
+      "rootCauseStatus": "Observed startup recovery failure; detailed cause not determined by the saved response alone.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recording_startup_recovery.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recording_startup_recovery.py:35: in test_startup_recovers_finalized_orphan_recording_descriptor",
+        "E   AssertionError: {\"code\":\"RecordingNotFound\",\"message\":\"Recording was not found\",\"details\":{\"recordingId\":\"orphan-recording\"},\"requestId\":\"832340b3-12e1-44ed-9687-baf55df358d1\"}",
+        "E   assert 404 == 200",
+        "E    +  where 404 = <Response [404 Not Found]>.status_code"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+      "category": "recording_analysis_submission",
+      "immediateCause": "Analysis POST response lacks jobId; test raises KeyError before reaching the intended processing/cancellation assertion.",
+      "rootCauseStatus": "Immediate API failure confirmed. Saved traceback omits response status/body, so precise cause is unresolved; do not invent a CUDA or alignment cause.",
+      "historicalV1Failure": false,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_release_regressions.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recordings_analysis.py:330: in test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+        "E   KeyError: 'jobId'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata",
+      "category": "recording_delete_conflict",
+      "immediateCause": "Delete returns 409 Conflict instead of expected 204.",
+      "rootCauseStatus": "Observed conflict; response body and active-job state not printed, so exact cause remains unresolved.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recordings_analysis.py:498: in test_delete_recording_removes_owned_file_and_metadata",
+        "E   assert 409 == 204",
+        "E    +  where 409 = <Response [409 Conflict]>.status_code"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_new_performance_is_balanced_before_registration_and_retry_preserves_capture",
+      "category": "recording_capture_contract",
+      "immediateCause": "Expected recording.original.wav does not exist after registration.",
+      "rootCauseStatus": "Confirmed missing expected preservation artifact; registration/mastering lifecycle requires separate review.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recordings_analysis.py:116: in test_new_performance_is_balanced_before_registration_and_retry_preserves_capture",
+        "E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-7/test_new_performance_is_balanc0/runtime/recordings/5a153f63-0e91-4e2a-912b-ccce3f72a18d/recording.original.wav'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+      "category": "recording_analysis_submission",
+      "immediateCause": "Analysis POST response lacks jobId; test raises KeyError before reaching the intended processing/cancellation assertion.",
+      "rootCauseStatus": "Immediate API failure confirmed. Saved traceback omits response status/body, so precise cause is unresolved; do not invent a CUDA or alignment cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_release_regressions.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_recordings_analysis.py:345: in test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+        "E   KeyError: 'jobId'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+      "category": "recording_analysis_submission",
+      "immediateCause": "Analysis POST response lacks jobId; test raises KeyError before reaching the intended processing/cancellation assertion.",
+      "rootCauseStatus": "Immediate API failure confirmed. Saved traceback omits response status/body, so precise cause is unresolved; do not invent a CUDA or alignment cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_release_regressions.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_release_regressions.py:89: in test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+        "E   KeyError: 'jobId'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_release_regressions.py::test_cancelled_analysis_does_not_publish_a_successful_score",
+      "category": "recording_analysis_submission",
+      "immediateCause": "Analysis POST response lacks jobId; test raises KeyError before reaching the intended processing/cancellation assertion.",
+      "rootCauseStatus": "Immediate API failure confirmed. Saved traceback omits response status/body, so precise cause is unresolved; do not invent a CUDA or alignment cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_recordings_analysis.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_release_regressions.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_release_regressions.py:129: in test_cancelled_analysis_does_not_publish_a_successful_score",
+        "E   KeyError: 'jobId'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_release_regressions.py::test_rejected_analysis_submission_is_settled_in_the_recording_registry",
+      "category": "recording_analysis_registry",
+      "immediateCause": "POST returned 409 as expected, but analysis registry is empty, causing IndexError at json()[0].",
+      "rootCauseStatus": "Immediate registry mismatch confirmed; failure reason for 409 is not printed. Outcome changed versus historical run, but scheduling/race root cause is not proven.",
+      "historicalV1Failure": false,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_release_regressions.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_release_regressions.py:109: in test_rejected_analysis_submission_is_settled_in_the_recording_registry",
+        "E   IndexError: list index out of range"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_ram_headroom",
+      "category": "resource_policy_contract",
+      "immediateCause": "Resource admission raises InsufficientRam instead of expected ResourceBudgetExceeded with no existing reservation.",
+      "rootCauseStatus": "Confirmed changed error classification: scheduler explicitly uses InsufficientRam before any reservation and ResourceBudgetExceeded for contention.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_resource_scheduler.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/resource_scheduler.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_resource_scheduler.py:140: in test_resource_scheduler_enforces_ram_headroom",
+        "E   AssertionError: assert 'InsufficientRam' == 'ResourceBudgetExceeded'",
+        "E     ",
+        "E     - ResourceBudgetExceeded",
+        "E     + InsufficientRam"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_vram_fraction",
+      "category": "resource_policy_contract",
+      "immediateCause": "No DependencyError is raised for vramBytes-only provider in AUTO mode.",
+      "rootCauseStatus": "Confirmed capability-policy mismatch: fixture supplies neither supportsCuda nor requiresCuda; current policy selects CPU and does not validate CUDA memory. Not explained by actual GPU availability.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_resource_scheduler.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/compute_policy.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/resource_scheduler.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_resource_scheduler.py:168: in test_resource_scheduler_enforces_vram_fraction",
+        "E   Failed: DID NOT RAISE <class 'backend.domain_errors.DependencyError'>"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_resource_scheduler.py::test_resource_scheduler_rejects_vram_requirement_without_cuda",
+      "category": "resource_policy_contract",
+      "immediateCause": "No DependencyError is raised for vramBytes-only provider in AUTO mode.",
+      "rootCauseStatus": "Confirmed capability-policy mismatch: fixture supplies neither supportsCuda nor requiresCuda; current policy selects CPU and does not validate CUDA memory. Not explained by actual GPU availability.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_resource_scheduler.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/compute_policy.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/processing/resource_scheduler.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_resource_scheduler.py:149: in test_resource_scheduler_rejects_vram_requirement_without_cuda",
+        "E   Failed: DID NOT RAISE <class 'backend.domain_errors.DependencyError'>"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_reports_an_unverified_rollback_instead_of_claiming_success",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:227: in test_deployment_reports_an_unverified_rollback_instead_of_claiming_success",
+        "E   AssertionError: assert 'ROOM_SERVER_ROLLBACK=failed' in '/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_de...an_unv0/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n'",
+        "E    +  where '/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_de...an_unv0/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n' = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/deploy.sh', '202...n_unv0/tmp/pytest-of-root/pytest-7/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n').stderr"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_absence_of_optional_native_files",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:238: in test_deployment_restores_absence_of_optional_native_files",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_absen0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_absen0/tmp/pytest-of-root/pytest-7/test_deployment_restores_absen0/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert 'ROOM_SERVER_ROLLBACK=restored' in ''",
+        "E    +  where '' = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-7/test_deployment_restores_absen0/deploy.sh', '202...absen0/tmp/pytest-of-root/pytest-7/test_deployment_restores_absen0/root/.venv/bin/python: No such file or directory\\n').stdout"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[daemon-reload]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r4/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[health]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r7/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-backend]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r0/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-native]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r2/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-project]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r1/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[ownership]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r3/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[pid]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r5/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[scheduling]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r8/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[start]",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:217: in test_deployment_restores_the_running_version_after_any_activation_failure",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert False",
+        "E    +  where False = is_file()",
+        "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6') / 'failed-once').is_file",
+        "E    +      where PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6') = PosixPath('/tmp/pytest-of-root/pytest-7/test_deployment_restores_the_r6/service-state').parent"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_room_server_deployment.py::test_successful_deployment_keeps_the_new_version",
+      "category": "linux_deployment_sandbox_path",
+      "immediateCause": "Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.",
+      "rootCauseStatus": "Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_room_server_deployment.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/scripts/deploy-room-server.sh"
+      ],
+      "savedLogEvidence": [
+        "tests/test_room_server_deployment.py:246: in test_successful_deployment_keeps_the_new_version",
+        "E   AssertionError: /tmp/pytest-of-root/pytest-7/test_successful_deployment_kee0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-7/test_successful_deployment_kee0/tmp/pytest-of-root/pytest-7/test_successful_deployment_kee0/root/.venv/bin/python: No such file or directory",
+        "E     ",
+        "E   assert 127 == 0",
+        "E    +  where 127 = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-7/test_successful_deployment_kee0/deploy.sh', '202...t_kee0/tmp/pytest-of-root/pytest-7/test_successful_deployment_kee0/root/.venv/bin/python: No such file or directory\\n').returncode"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_song_recognition.py::test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting",
+      "category": "song_metadata_refresh",
+      "immediateCause": "Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.",
+      "rootCauseStatus": "Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_song_recognition.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_song_recognition.py:206: in test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting",
+        "E   AssertionError: assert 'Old title' == 'Correct title'",
+        "E     ",
+        "E     - Correct title",
+        "E     + Old title"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_song_recognition.py::test_processing_retries_video_lookup_for_fingerprint_without_a_clip",
+      "category": "song_metadata_refresh",
+      "immediateCause": "Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.",
+      "rootCauseStatus": "Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_song_recognition.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_song_recognition.py:300: in test_processing_retries_video_lookup_for_fingerprint_without_a_clip",
+        "E   AssertionError: assert None == 'https://www.youtube.com/watch?v=xAPf954XNwk'",
+        "E    +  where 'https://www.youtube.com/watch?v=xAPf954XNwk' = RecognizedSong(title='Не треба', artist='Skryabin', album='Хробак', genre='Rock', artwork_url=None, video_url='https://www.youtube.com/watch?v=xAPf954XNwk', provider='Shazam', external_id='track-1').video_url"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_song_recognition.py::test_processing_upgrades_catalog_guess_to_audio_fingerprint",
+      "category": "song_metadata_refresh",
+      "immediateCause": "Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.",
+      "rootCauseStatus": "Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_song_recognition.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_song_recognition.py:264: in test_processing_upgrades_catalog_guess_to_audio_fingerprint",
+        "E   AssertionError: assert 'The Native Architects' == 'Architects'",
+        "E     ",
+        "E     - Architects",
+        "E     + The Native Architects"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_song_recognition.py::test_recognition_refresh_preserves_manual_title_and_artist",
+      "category": "song_metadata_refresh",
+      "immediateCause": "Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.",
+      "rootCauseStatus": "Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_song_recognition.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_song_recognition.py:321: in test_recognition_refresh_preserves_manual_title_and_artist",
+        "E   AssertionError: assert (None, None) == ('Album', 'Pop')",
+        "E     ",
+        "E     At index 0 diff: None != 'Album'",
+        "E     Use -v to get more diff"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_song_recognition.py::test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog",
+      "category": "song_metadata_refresh",
+      "immediateCause": "Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.",
+      "rootCauseStatus": "Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_song_recognition.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_song_recognition.py:402: in test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog",
+        "E   AssertionError: assert None == 'Бісайди'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:74: in test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:93: in test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.0]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:86: in test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.1]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:86: in test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-inf]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:86: in test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[inf]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:86: in test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_normal_take_balance_finishes_in_one_render_without_remastering",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:48: in test_normal_take_balance_finishes_in_one_render_without_remastering",
+        "E   TypeError: FfmpegStudioMasterRenderer.render() got an unexpected keyword argument 'enhance'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.01-0.1-0.1]",
+      "category": "studio_master_loudness_behavior",
+      "immediateCause": "Measured integrated output loudness is -10.95, -20.85, -6.55 or -20.35 LUFS, versus test target -14±0.25.",
+      "rootCauseStatus": "Observed mastering/loudness behavior mismatch. No justification to classify as CPU/CUDA or word timing.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:201: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   assert -20.85 == -14 ± 0.25",
+        "E     ",
+        "E     comparison failed",
+        "E     Obtained: -20.85",
+        "E     Expected: -14 ± 0.25"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.03-0.03]",
+      "category": "studio_master_loudness_behavior",
+      "immediateCause": "Measured integrated output loudness is -10.95, -20.85, -6.55 or -20.35 LUFS, versus test target -14±0.25.",
+      "rootCauseStatus": "Observed mastering/loudness behavior mismatch. No justification to classify as CPU/CUDA or word timing.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:201: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   assert -20.35 == -14 ± 0.25",
+        "E     ",
+        "E     comparison failed",
+        "E     Obtained: -20.35",
+        "E     Expected: -14 ± 0.25"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.3-0.1]",
+      "category": "studio_master_loudness_behavior",
+      "immediateCause": "Measured integrated output loudness is -10.95, -20.85, -6.55 or -20.35 LUFS, versus test target -14±0.25.",
+      "rootCauseStatus": "Observed mastering/loudness behavior mismatch. No justification to classify as CPU/CUDA or word timing.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:201: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   assert -10.95 == -14 ± 0.25",
+        "E     ",
+        "E     comparison failed",
+        "E     Obtained: -10.95",
+        "E     Expected: -14 ± 0.25"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.5-0.1-0.1]",
+      "category": "studio_master_loudness_behavior",
+      "immediateCause": "Measured integrated output loudness is -10.95, -20.85, -6.55 or -20.35 LUFS, versus test target -14±0.25.",
+      "rootCauseStatus": "Observed mastering/loudness behavior mismatch. No justification to classify as CPU/CUDA or word timing.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:201: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   assert -6.55 == -14 ± 0.25",
+        "E     ",
+        "E     comparison failed",
+        "E     Obtained: -6.55",
+        "E     Expected: -14 ± 0.25"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.01-0.1-0.1]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:169: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.03-0.03]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:169: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.3-0.1]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:169: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.5-0.1-0.1]",
+      "category": "studio_master_api_contract",
+      "immediateCause": "Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).",
+      "rootCauseStatus": "Confirmed test/API incompatibility in unrelated recording mastering component.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:169: in test_studio_master_preserves_loudness_and_the_requested_vocal_balance",
+        "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    },
+    {
+      "nodeId": "tests/test_studio_master.py::test_studio_master_raises_quiet_vocal_to_the_original_song_balance",
+      "category": "studio_master_fixture_input",
+      "immediateCause": "render immediately calls sf.info on performance_mix take.wav, which the mock test has not provided; libsndfile reports system error.",
+      "rootCauseStatus": "Missing actual input file at the current render boundary is confirmed; expected mock behavior differs.",
+      "historicalV1Failure": true,
+      "sourceEvidence": [
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/tests/test_studio_master.py",
+        "/workspace/scratch/513dbcd967bf/baseline-v1/karaoke_new_version-refactor-frontend-direct/python/backend/recordings/studio_master.py"
+      ],
+      "savedLogEvidence": [
+        "tests/test_studio_master.py:107: in test_studio_master_raises_quiet_vocal_to_the_original_song_balance",
+        "backend/recordings/studio_master.py:130: in render",
+        "E   soundfile.LibsndfileError: Error opening '/tmp/pytest-of-root/pytest-7/test_studio_master_raises_quie0/take.wav': System error."
+      ],
+      "baselineLog": "/tmp/karaoke-sync-v2/baseline-checks/pytest.log",
+      "relatedToTargetedWordRepair": false
+    }
+  ],
+  "historicalOutcomeChanges": {
+    "oldFailures": 64,
+    "currentFailures": 62,
+    "newlyFailingComparedWithHistoricalV1Run": [
+      "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+      "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+      "tests/test_release_regressions.py::test_rejected_analysis_submission_is_settled_in_the_recording_registry"
+    ],
+    "notFailingNowComparedWithHistoricalV1Run": [
+      "tests/test_library_archive.py::test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing",
+      "tests/test_recordings_analysis.py::test_repeated_analysis_requests_share_the_running_job",
+      "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+      "tests/test_release_regressions.py::test_analysis_cancelled_before_execution_does_not_remain_queued",
+      "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+    ],
+    "sharedFailureCount": 59
+  },
+  "caveats": [
+    "Baseline contains real failing contracts/behaviors, not a green suite.",
+    "Only changed pass/fail membership is established for asynchronous cases; exact nondeterminism/race causes are not proven.",
+    "The CUDA embedding test uses mocked transfer and cannot be excused as missing GPU.",
+    "CUDA/CPU execution-budget tests contain 16000 byte total-RAM fixture despite 16 GiB available RAM; actual runtime resource exhaustion is not the observed cause.",
+    "Historical run environment/package versions overlap, but not every external/timing condition is identical."
+  ]
+}

@@ -1,0 +1,257 @@
+{
+  "scope": "Actual unchanged frontend timing sampled at 60 fps across each complete evaluated excerpt, with physical glyph widths; editor roundtrip checked. Not a native app or hardware playback test, and not acoustic ground truth.",
+  "inputsSha256": "13f479bccdde8fb6939899a0f35da8c3178c65f649154ff0a012dc19ff3f0189",
+  "cases": [
+    {
+      "case": "boombox_lyudy",
+      "durationSeconds": 45.0,
+      "wordCount": 66,
+      "documentSha256": "decbff121eded3b527dfa1b5600bf6154d6717f60948de8b9c1a9a839d18cbd5",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2700,
+      "wordFrameChecks": 178200,
+      "failures": []
+    },
+    {
+      "case": "boombox_kolyshnya",
+      "durationSeconds": 45.0,
+      "wordCount": 13,
+      "documentSha256": "1f3806223b15789527e8ffd6b85634571ff86c2b87d8046f8b9c0fba59ca750b",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2700,
+      "wordFrameChecks": 35100,
+      "failures": []
+    },
+    {
+      "case": "boombox_beta_karotyn",
+      "durationSeconds": 45.0,
+      "wordCount": 48,
+      "documentSha256": "fb77cf4d085e8b5ce29187b888dacdb3a130550a16fee569e3c2c4f071e9bf35",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2700,
+      "wordFrameChecks": 129600,
+      "failures": []
+    },
+    {
+      "case": "jamala_zamanyly",
+      "durationSeconds": 45.0,
+      "wordCount": 44,
+      "documentSha256": "aff770dfdd5493f7e76900f4d743b7285e2f2e2c08a6a559412c893f5e375a7f",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2700,
+      "wordFrameChecks": 118800,
+      "failures": []
+    },
+    {
+      "case": "onuka_zenit",
+      "durationSeconds": 45.0,
+      "wordCount": 20,
+      "documentSha256": "1b37b482a9dcc30d3fb8067d15d379d5f1917dd22d95e7610b6824ea50a03446",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2700,
+      "wordFrameChecks": 54000,
+      "failures": []
+    },
+    {
+      "case": "okeanelzy_obiymy",
+      "durationSeconds": 40.0,
+      "wordCount": 24,
+      "documentSha256": "99732688664cb775345016be244e930afb3c7f135bbbcccbbe4171a3cf06deab",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2400,
+      "wordFrameChecks": 57600,
+      "failures": []
+    },
+    {
+      "case": "tnmk_berezen",
+      "durationSeconds": 40.0,
+      "wordCount": 45,
+      "documentSha256": "01bdf13884da09308f21e7473b5883e2d739ecd06c6da36c60092094771ee566",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2400,
+      "wordFrameChecks": 108000,
+      "failures": []
+    },
+    {
+      "case": "zhadan_malvy",
+      "durationSeconds": 40.0,
+      "wordCount": 37,
+      "documentSha256": "330b66131f1aea0e203b036e843cd4ed65cd1076f9235ad9921e6dc295618541",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 5.551115123125783e-17,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2400,
+      "wordFrameChecks": 88800,
+      "failures": []
+    },
+    {
+      "case": "skryabin_spy_sobi_sama",
+      "durationSeconds": 40.0,
+      "wordCount": 56,
+      "documentSha256": "b465a8e27da10168c96fddc106f4012921bcf704cf1611c291991270722e22c4",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 2.7755575615628914e-17,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2400,
+      "wordFrameChecks": 134400,
+      "failures": []
+    },
+    {
+      "case": "julia_sanina_oi_de_ty",
+      "durationSeconds": 40.0,
+      "wordCount": 12,
+      "documentSha256": "7c57a1f6387aeeafac98d2115f728b5aa9a117a34bab9a59ec1be527404145de",
+      "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+      "sourceHashes": {
+        "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+        "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+        "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+      },
+      "sourceUnchanged": true,
+      "inputsUnchanged": true,
+      "roundTripChecks": {
+        "maximumLetterRoundTripErrorSeconds": 0,
+        "wordBoundsUnchanged": true,
+        "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+        "intervalWithinDocumentDuration": true,
+        "musicLyricsActivityRhythmRoundTrip": true,
+        "allDocumentWordsIncluded": true
+      },
+      "frames": 2400,
+      "wordFrameChecks": 28800,
+      "failures": []
+    }
+  ],
+  "allPassed": true
+}

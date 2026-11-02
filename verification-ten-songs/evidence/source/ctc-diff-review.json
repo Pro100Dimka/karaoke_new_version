@@ -1,0 +1,64 @@
+{
+  "reviewScope": "read-only actual CTC diff against frozen baseline-v5",
+  "baselineSha256": "bcf625390de5148fc8d38143edcf8c10218b5b108786234df28748c085620bec",
+  "appliedSha256": "3d90c0d092987705b90682a6f4885494574718d79138bc79a364b074dc7fdde8",
+  "functions": [
+    {
+      "name": "with_sung_letters",
+      "new": false,
+      "line": 346,
+      "lines": 40,
+      "branchNodes": 8
+    },
+    {
+      "name": "_collapsed_letter_review",
+      "new": true,
+      "line": 388,
+      "lines": 31,
+      "branchNodes": 4
+    },
+    {
+      "name": "_bounded_letter_estimate",
+      "new": true,
+      "line": 421,
+      "lines": 34,
+      "branchNodes": 6
+    },
+    {
+      "name": "align_guided",
+      "new": false,
+      "line": 708,
+      "lines": 101,
+      "branchNodes": 24
+    },
+    {
+      "name": "_clips_letter_anchor",
+      "new": true,
+      "line": 930,
+      "lines": 7,
+      "branchNodes": 1
+    },
+    {
+      "name": "_ordering_diagnostics",
+      "new": false,
+      "line": 939,
+      "lines": 19,
+      "branchNodes": 6
+    }
+  ],
+  "findings": [],
+  "verifiedInvariants": [
+    "Collapsed-letter route does not change word start/end or intact prefix anchors.",
+    "Collapsed suffix is always explicitly approximate/review-required, including diagnostic-only fallback.",
+    "Bounded estimate uses saved CTC scores only and never raises score.",
+    "Guided candidate guard preserves positive-interval sounding anchors of previous word above the existing _PREFERENCE evidence floor.",
+    "Equality at proposed end now counts as lost sounding interval; hard and soft signs remain excluded."
+  ],
+  "limits": [
+    "A positively scored CTC anchor is evidence, not independent phoneme truth.",
+    "Bounded suffix position is deliberately approximate when its posterior is weak.",
+    "Full final replay and real note artifacts are reviewed separately."
+  ],
+  "regressionResolved": "native_reply7: stale low-confidence forced suffix no longer vetoes an earlier supported phrase; see proposal/native-reply-guard/native-reply-regression-proof.json.",
+  "remainingCodeFindings": []
+}

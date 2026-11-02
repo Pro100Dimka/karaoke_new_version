@@ -1,0 +1,44 @@
+{
+  "fullVitest": {
+    "passed": 947,
+    "failed": 2,
+    "testFilesPassed": 153,
+    "testFilesFailed": 1
+  },
+  "nodeTests": {
+    "passed": 101,
+    "failed": 1,
+    "skipped": 4
+  },
+  "baselineVitestFailedIds": [
+    "electron/ServiceProcess.test.ts > service process lifecycle > bounds a stuck shutdown and shares repeated graceful stop requests",
+    "electron/ServiceProcess.test.ts > service process lifecycle > kills only the process tree owned by the application"
+  ],
+  "currentVitestFailedIds": [
+    "electron/ServiceProcess.test.ts > service process lifecycle > bounds a stuck shutdown and shares repeated graceful stop requests",
+    "electron/ServiceProcess.test.ts > service process lifecycle > kills only the process tree owned by the application"
+  ],
+  "sameVitestFailureIds": true,
+  "newTests": 18,
+  "typecheckPassed": true,
+  "architecturePassed": true,
+  "existingFailuresSourceHashes": {
+    "frontend/electron/ServiceProcess.ts": {
+      "v2": "1d693f7a900a3c719832b67070fda9b48e3662dc325ddb7c23d0d5c3899a4765",
+      "final": "1d693f7a900a3c719832b67070fda9b48e3662dc325ddb7c23d0d5c3899a4765"
+    },
+    "frontend/electron/ServiceProcess.test.ts": {
+      "v2": "04369db7b075e94a158bb74188061618dfb387229c374d5a0a6c332c1c3d4b11",
+      "final": "04369db7b075e94a158bb74188061618dfb387229c374d5a0a6c332c1c3d4b11"
+    },
+    "frontend/scripts/release-script.test.mjs": {
+      "v2": "d0749be389bc7211347a3d9210978af09b7a98817c010fb1cb7af80f6c75d9a0",
+      "final": "d0749be389bc7211347a3d9210978af09b7a98817c010fb1cb7af80f6c75d9a0"
+    }
+  },
+  "nodeFailure": "scripts/release-script.test.mjs: public release ignores developer secrets and private bundling requires an explicit file; Windows cmd unavailable in Linux test environment",
+  "limitations": [
+    "Full gate remains nonzero; existing unrelated Windows process/release cases are not weakened or skipped.",
+    "Offscreen Electron glyph verification is not target Windows/audio listening acceptance."
+  ]
+}

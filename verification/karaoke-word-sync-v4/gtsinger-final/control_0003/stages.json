@@ -1,0 +1,2393 @@
+[
+  {
+    "sequence": 1,
+    "stage": "speech.read_mono",
+    "startedOffsetSeconds": 0.0010338000029150862,
+    "elapsedSeconds": 0.14904214999842225
+  },
+  {
+    "stage": "alignment_evidence",
+    "scores": {
+      "shape": [
+        371,
+        28
+      ],
+      "dtype": "float32",
+      "sha256": "a79c2ba72ed9f32ce4c8d64d89d142b76771138e14f8686e8d28a18c0468370e"
+    },
+    "frameSeconds": 0.02,
+    "elapsedSeconds": 0.026581334001093637,
+    "heardWordCount": 6,
+    "independentViewWordCounts": [
+      6
+    ],
+    "distributionRedaction": "Independent ASR text omitted; counts and score-array fingerprint retained."
+  },
+  {
+    "sequence": 2,
+    "stage": "speech.align_words",
+    "startedOffsetSeconds": 0.17776676100038458,
+    "elapsedSeconds": 3.361491721996572,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 3,
+    "stage": "speech.singing_frames",
+    "startedOffsetSeconds": 3.5402604690025328,
+    "elapsedSeconds": 0.0020514050011115614,
+    "outputArray": {
+      "shape": [
+        744
+      ],
+      "dtype": "bool",
+      "sha256": "3cff5a1aca5fb848ceda28168e6e8a2ee281116ff325a63f86424fd90ed5d389"
+    }
+  },
+  {
+    "sequence": 4,
+    "stage": "speech.voiced_frames",
+    "startedOffsetSeconds": 3.570406068000011,
+    "elapsedSeconds": 0.0011634689981292468,
+    "outputArray": {
+      "shape": [
+        744
+      ],
+      "dtype": "bool",
+      "sha256": "3cff5a1aca5fb848ceda28168e6e8a2ee281116ff325a63f86424fd90ed5d389"
+    }
+  },
+  {
+    "sequence": 5,
+    "stage": "speech.vocal_onsets",
+    "startedOffsetSeconds": 3.5980399399995804,
+    "elapsedSeconds": 0.0012476029987738002,
+    "outputArray": {
+      "shape": [
+        7
+      ],
+      "dtype": "float64",
+      "sha256": "d86cba99236334e8712713e431656644dc2a3c4594b1742d10b219ed6de00868"
+    }
+  },
+  {
+    "sequence": 7,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 3.6264146210014587,
+    "elapsedSeconds": 0.02975590700225439,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 8,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 3.657322004000889,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00010683200162020512,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 6,
+    "stage": "speech.align_guided",
+    "startedOffsetSeconds": 3.6262739280027745,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.031839180999668315,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 10,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 3.6600383000004513,
+    "elapsedSeconds": 0.0019519739980751183,
+    "outputWords": [
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 11,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 3.6628496600023936,
+    "elapsedSeconds": 0.002155521997337928,
+    "outputWords": [
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 12,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 3.6659138739996706,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 9.78700009000022e-05,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 13,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 3.6689993050022167,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 4.2342999222455546e-05,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 14,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 3.6704322620025778,
+    "inputWords": [
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 4.116900163353421e-05,
+    "outputWords": [
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 15,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 3.672582825001882,
+    "inputWords": [
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.917600042768754e-05,
+    "outputWords": [
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 9,
+    "stage": "speech.with_word_guidance",
+    "startedOffsetSeconds": 3.6591264689996024,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.016036635999626014,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 16,
+    "stage": "speech.with_voice_onsets",
+    "startedOffsetSeconds": 4.5084836759997415,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0002720179982134141,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.56,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.04,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.4,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 17,
+    "stage": "speech.with_sung_ends",
+    "startedOffsetSeconds": 4.510679999002605,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.56,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.04,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.4,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0004348520014900714,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.6,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 18,
+    "stage": "speech.ordered",
+    "startedOffsetSeconds": 4.513911191999796,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.6,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00011609400098677725,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.6,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": [
+          "BoundaryClipped"
+        ]
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 20,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 4.518512956001359,
+    "elapsedSeconds": 0.0020355119995656423,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 1.0,
+        "end": 1.56,
+        "letters": [
+          1.0,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": []
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 19,
+    "stage": "speech.with_word_guidance",
+    "startedOffsetSeconds": 4.516934321000008,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.12,
+        "end": 1.56,
+        "letters": [
+          0.12,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41941572185605763,
+        "diagnostics": [
+          "OnsetReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "reviewed": [
+      0
+    ],
+    "elapsedSeconds": 0.005432890000520274,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 1.0,
+        "end": 1.56,
+        "letters": [
+          1.0,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 21,
+    "stage": "speech.with_voice_onsets",
+    "startedOffsetSeconds": 4.525125583000772,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 1.0,
+        "end": 1.56,
+        "letters": [
+          1.0,
+          1.08,
+          1.24,
+          1.32,
+          1.54
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 2.08,
+        "end": 3.42,
+        "letters": [
+          2.08,
+          2.16,
+          2.28,
+          2.36,
+          2.5,
+          2.68,
+          3.12,
+          3.36,
+          3.42
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.48,
+        "end": 5.04,
+        "letters": [
+          3.48,
+          3.6,
+          3.9,
+          4.06,
+          4.44,
+          4.54,
+          5.02
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.28,
+        "end": 6.4,
+        "letters": [
+          5.28,
+          5.38,
+          5.58,
+          5.82,
+          5.94,
+          6.26,
+          6.38
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0002441020005790051,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.56,
+        "letters": [
+          0.99,
+          1.07,
+          1.23,
+          1.31,
+          1.53
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.04,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.4,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 22,
+    "stage": "speech.with_sung_ends",
+    "startedOffsetSeconds": 4.528148888002761,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.56,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.04,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.4,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0004710299981525168,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 23,
+    "stage": "speech.ordered",
+    "startedOffsetSeconds": 4.531234345002304,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.42,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": []
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0001455630008422304,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": [
+          "BoundaryClipped"
+        ]
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 24,
+    "stage": "speech.with_sung_letters",
+    "startedOffsetSeconds": 4.533989448002103,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": [
+          "BoundaryClipped"
+        ]
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 2.196999776060693e-05,
+    "outputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": [
+          "BoundaryClipped"
+        ]
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 25,
+    "stage": "speech.alignment_payload",
+    "startedOffsetSeconds": 4.538691716999892,
+    "inputWords": [
+      {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "letters": [
+          0.99,
+          1.07,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "score": 0.41713986665708946,
+        "diagnostics": [
+          "OnsetRecovered",
+          "ApproximateLetterTiming",
+          "LetterTimingReviewRequired"
+        ]
+      },
+      {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "score": 0.5940370567142963,
+        "diagnostics": [
+          "BoundaryClipped"
+        ]
+      },
+      {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "score": 0.5630129622295499,
+        "diagnostics": []
+      },
+      {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "score": 0.5633354906125793,
+        "diagnostics": []
+      }
+    ],
+    "reviewed": [],
+    "elapsedSeconds": 3.0033999792067334e-05,
+    "payload": {
+      "words": [
+        {
+          "text": "вдруг",
+          "start": 0.99,
+          "end": 1.6,
+          "confidence": 0.41713986665708946,
+          "letters": [
+            0.99,
+            1.07,
+            1.13,
+            1.21,
+            1.43
+          ],
+          "diagnostics": [
+            "OnsetRecovered",
+            "ApproximateLetterTiming",
+            "LetterTimingReviewRequired",
+            "RateReviewRetimed"
+          ]
+        },
+        {
+          "text": "замечаешь",
+          "start": 1.97,
+          "end": 3.37,
+          "confidence": 0.5940370567142963,
+          "letters": [
+            1.97,
+            2.05,
+            2.17,
+            2.25,
+            2.39,
+            2.57,
+            3.01,
+            3.25,
+            3.31
+          ],
+          "diagnostics": [
+            "BoundaryClipped",
+            "RecognizedWord"
+          ]
+        },
+        {
+          "text": "течение",
+          "start": 3.37,
+          "end": 5.17,
+          "confidence": 0.5630129622295499,
+          "letters": [
+            3.37,
+            3.49,
+            3.79,
+            3.95,
+            4.33,
+            4.43,
+            4.91
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "времени",
+          "start": 5.17,
+          "end": 6.63,
+          "confidence": 0.5633354906125793,
+          "letters": [
+            5.17,
+            5.27,
+            5.47,
+            5.71,
+            5.83,
+            6.15,
+            6.27
+          ],
+          "diagnostics": []
+        }
+      ]
+    }
+  }
+]

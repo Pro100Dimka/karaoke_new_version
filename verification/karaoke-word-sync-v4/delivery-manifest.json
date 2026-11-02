@@ -1,0 +1,84 @@
+{
+  "inputFile": "karaoke_word_sync_v3.zip",
+  "inputSha256": "3d0fd5bdc7bae9873c0c97d21dbb6e89a41cf9628bb954a4521ff0888b46bc93",
+  "frozenSourceSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "files": [
+    {
+      "path": "python/backend/ai_worker/ctc.py",
+      "beforeSha256": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+      "afterSha256": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+      "added": 176,
+      "removed": 40
+    },
+    {
+      "path": "python/backend/ai_worker/recognition.py",
+      "beforeSha256": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4",
+      "afterSha256": "eb48c58939335ee6f8b7744d3607f42cdb5613ba145c34e09c03ae9059e7d91a",
+      "added": 21,
+      "removed": 1
+    },
+    {
+      "path": "python/backend/ai_worker/speech.py",
+      "beforeSha256": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+      "afterSha256": "f0a7b38736a9a1a2e9b472dce389f7059939d4eb2f4172c71811d04d6b6e35a2",
+      "added": 65,
+      "removed": 5
+    },
+    {
+      "path": "python/backend/ai_worker/word_guidance.py",
+      "beforeSha256": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+      "afterSha256": "511069fee53fb76cbfde86236757b47a490ad5d66e9b51cc6abaaa0725e155f4",
+      "added": 87,
+      "removed": 5
+    },
+    {
+      "path": "python/backend/processing/reporting.py",
+      "beforeSha256": "857d1cb7dcb564d1e633712d69a2cf6516199ba8f0c5af227bd8b91800b56693",
+      "afterSha256": "241cc6cf183a2a80fc4d46771ed962b1c4bb17e6fccbbd79b797144685378d0b",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "path": "python/tests/test_letter_timing_evidence.py",
+      "beforeSha256": null,
+      "afterSha256": "74b942c84d9525111a52041d09ca55d5f3d8eab9437236783d0f3a8a619fb3b0",
+      "added": 171,
+      "removed": 0
+    },
+    {
+      "path": "python/tests/test_silent_prefix_review.py",
+      "beforeSha256": null,
+      "afterSha256": "858a6e5a1969bff2d09fc421dd97e221c64a01040d8da384e3d5ce5a129a228c",
+      "added": 311,
+      "removed": 0
+    },
+    {
+      "path": "python/tests/test_sung_end_boundaries.py",
+      "beforeSha256": "2f7fbf6df169c491aaa7e5d390ec2c31f1d8127f15a3d37a85f6872f9017f1de",
+      "afterSha256": "4a27e186c210c595471aee4f30024f51ead46833d7b62051d513ced7788dae2f",
+      "added": 127,
+      "removed": 0
+    },
+    {
+      "path": "python/tests/test_word_sync_finalization.py",
+      "beforeSha256": null,
+      "afterSha256": "b0372d5f38969c0e54ddf831a993cf7275cf0d480aa8d52427a0638c941c1721",
+      "added": 99,
+      "removed": 0
+    },
+    {
+      "path": "python/tests/test_word_timing_review.py",
+      "beforeSha256": "65dbb839cc7ab103d8f768888ed6b8570a074137a2de61b9c87591a6cfcacf65",
+      "afterSha256": "32b20e0c886bee71db016fac696c1659e229f4def978ef9e4975b89e94bd43fb",
+      "added": 81,
+      "removed": 0
+    },
+    {
+      "path": "kaggle/ad_voice_p100.ipynb",
+      "beforeSha256": "0047578cd81f3e07f12efeb90c2c67ab9bc1e0108213e131cadb1f8da69b27ed",
+      "afterSha256": "9760f481dcf577e0a5ca43f9d878e3155ac6f53d616eafb8b8f6f6b09ee2d03f",
+      "added": 3,
+      "removed": 3
+    }
+  ]
+}

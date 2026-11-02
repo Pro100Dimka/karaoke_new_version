@@ -1,0 +1,22 @@
+{
+  "observedAtUtc": "2026-10-31T18:38:19.148382+00:00",
+  "scope": "Separate relocated workspace, no audio/model downloads or inference. Comparisons recomputed from packaged data; production note/codec functions imported from final source.",
+  "finalSourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "wordRowsAndMetrics": "exact, all 34 words",
+  "phoneRowsAndSummary": "exact, 77 groups / 60 internal starts",
+  "all12NoteExports": "byte-identical",
+  "exports": [
+    "notes/final/control_0004/v3/lyricsSync.json",
+    "notes/final/control_0004/v4/lyricsSync.json",
+    "notes/final/control_0000/v3/lyricsSync.json",
+    "notes/final/control_0000/v4/lyricsSync.json",
+    "notes/final/control_0001/v3/lyricsSync.json",
+    "notes/final/control_0001/v4/lyricsSync.json",
+    "notes/final/breathy_0001/v3/lyricsSync.json",
+    "notes/final/breathy_0001/v4/lyricsSync.json",
+    "notes/final/breathy_0000/v3/lyricsSync.json",
+    "notes/final/breathy_0000/v4/lyricsSync.json",
+    "notes/final/control_0003/v3/lyricsSync.json",
+    "notes/final/control_0003/v4/lyricsSync.json"
+  ]
+}

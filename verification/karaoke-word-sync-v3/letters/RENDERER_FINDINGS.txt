@@ -1,0 +1,18 @@
+RENDERER v3 — FINAL EVIDENCE
+
+Error of mapping saved letter timestamps to rendered glyph-advance boundaries in the shipped Electron component; not acoustic accuracy, display latency, human review or frame presentation accuracy.
+
+Actual shipped React KaraokeLyrics rendered in offscreen Electron. Clean-entry uses exported construct_document lyricsSync.json rows; reply uses pinned fixture lyrics; Ukrainian tails use standalone one-word fixture rows. No artificial sentinel added.
+
+Authoritative summary: renderer-final-summary.json
+Observed defects: count-based progress mapped to glyph width; trailing marks/spaces stole time from the final sounding glyph; whole-percent rounding; silent signs/combining marks acquired independent timing.
+Production: karaokeLyrics.ts / useLyricFill.ts / KaraokeStage.tsx. Backend word/letter timestamps, notes and audio unchanged.
+Proof:5originalredtests+2Unicode redtests;final62focusedpassed/tscpass;18newcases.
+Actual render:48words,177boundaries(129internal). Internal CSS error median5.6959375px,max33.1875px→numericzero(<1e-12px).
+Inverted relative-to-saved-time internal error:median14.0ms,max330.0ms→0. Visible end error:median7.9ms,max587.5ms→0. NOT acoustic error orphysicaldisplaylatency.
+Geometry count:2initial,2after100updates,2afterseek,3afterresize,3afterunmount/font event.100updates7.8ms(oneword,sharedhost,synchronousReact;notplaybackbenchmark).
+
+Reproduction: set REPO_ROOT to repository;EVIDENCE_DIR to this folder;V2_EVIDENCE to v2verification;CLEAN_DOCUMENT to generated-documents/clean-entry/lyricsSync.json. Dependencies are the existing frontend node_modules. Baseline functions in lyrics-before.cjs were verified againstkaraokeLyrics-v2.ts from suppliedZIPat3717positions.
+Run:node prepare-render.cjs;node prepare-final-render.cjs;electron--no-sandbox--headless--ozone-platform=headless measure-all.cjs before;repeat after;node compare-render.cjs. On a sandboxedhost localElectron mayneedapproval.
+Render-final.js is a reproducible generated React bundle and excluded from delivery; no screenshots are needed.
+Preliminary single-word+sentinel results are superseded; use only authoritative files listedinrenderer-final-summary.json forfinalnumbers.

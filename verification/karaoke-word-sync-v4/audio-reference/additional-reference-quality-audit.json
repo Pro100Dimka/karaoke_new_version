@@ -1,0 +1,44 @@
+{
+  "frozenAdditionalReferenceSha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+  "createdWithoutModelOutput": true,
+  "wordMetricsKeepAll": true,
+  "wordCautions": [
+    {
+      "case": "control_0004",
+      "wordIndex": 0,
+      "word": "вдруг",
+      "flag": "AtClipStartPossibleLeftCensoring"
+    }
+  ],
+  "additionalPhoneMetricExclusions": [
+    {
+      "case": "control_0003",
+      "wordIndex": 1,
+      "word": "замечаешь",
+      "flag": "LongApproximantShortVowelNeedsAudit",
+      "detail": "Published /j/400ms then vowel/ɪ/20ms; not sufficiently reviewed to claim exact phone identity."
+    },
+    {
+      "case": "control_0003",
+      "wordIndex": 2,
+      "word": "течение",
+      "flag": "LongApproximantShortVowelNeedsAudit",
+      "detail": "Published /ɪ/20ms then /j/680ms then /e/50ms."
+    },
+    {
+      "case": "control_0003",
+      "wordIndex": 3,
+      "word": "времени",
+      "flag": "LongNasalShortVowelsNeedsAudit",
+      "detail": "Published /ɪ/20ms then /ɲ/650ms then /ɪ/40ms. Could be a true sustained nasal or mistaken phone ownership; do not call it known true nasal."
+    },
+    {
+      "case": "control_0004",
+      "wordIndex": 1,
+      "word": "понимаешь",
+      "flag": "UniformPhoneSubdivisionNeedsAudit",
+      "detail": "All9phone durations153–154ms; already flagged in frozen reference."
+    }
+  ],
+  "policy": "Do not rewrite published references or change word cohort based on outputs. Use these pre-prediction exclusions only for phoneme accuracy claims. Report these external annotation limitations."
+}

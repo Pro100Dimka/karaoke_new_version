@@ -1,0 +1,50 @@
+[
+  {
+    "file": "tests/fakes.py",
+    "identical": true,
+    "v3Sha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4",
+    "v4Sha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4"
+  },
+  {
+    "file": "tests/test_packages_e2e.py",
+    "identical": true,
+    "v3Sha256": "e864e8e0598c9d117e2d952286bf964a3691edfc6edb2fb2ca26ddfbef73ec14",
+    "v4Sha256": "e864e8e0598c9d117e2d952286bf964a3691edfc6edb2fb2ca26ddfbef73ec14"
+  },
+  {
+    "file": "tests/test_recordings_analysis.py",
+    "identical": true,
+    "v3Sha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811",
+    "v4Sha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811"
+  },
+  {
+    "file": "tests/helpers.py",
+    "identical": true,
+    "v3Sha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88",
+    "v4Sha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88"
+  },
+  {
+    "file": "tests/conftest.py",
+    "identical": true,
+    "v3Sha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031",
+    "v4Sha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031"
+  },
+  {
+    "file": "backend/recordings/register_recording.py",
+    "identical": true,
+    "v3Sha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff",
+    "v4Sha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff"
+  },
+  {
+    "file": "backend/analysis/start_analysis.py",
+    "identical": true,
+    "v3Sha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb",
+    "v4Sha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb"
+  },
+  {
+    "file": "backend/recordings/start_studio_master.py",
+    "identical": true,
+    "v3Sha256": "539f26e7749878ce4d14f1eb76afcd4d92c86978d8ac6f8ad2ac9fb84868928b",
+    "v4Sha256": "539f26e7749878ce4d14f1eb76afcd4d92c86978d8ac6f8ad2ac9fb84868928b"
+  }
+]

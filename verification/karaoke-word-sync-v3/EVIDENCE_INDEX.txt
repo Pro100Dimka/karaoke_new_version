@@ -1,0 +1,53 @@
+KARAOKE WORD SYNC v3 — EVIDENCE INDEX
+
+Status: frontend letter rendering defect fixed; complete acoustic acceptance remains incomplete.
+This folder extends the supplied v2. All older v1/v2 evidence remains unchanged in its own folders.
+
+Read first:
+- karaoke_word_sync_v3_report.txt — complete Russian technical report,30word before/after table,48word renderer table, all60remaining backend failures.
+- change-manifest.json — exact input archive hash and4changed/newsource hashes.
+- karaoke_word_sync_v2_to_v3.patch; patch-validation.json — minimal patch from exact suppliedv2; checked and applied in an isolated copy, resulting file hashes equal tested source.
+- input-provenance.json — uploadedv2(1) hash equal previousv2; archive inventory. It contains no full source song or userproject lyricsSync.
+- post-check-source-verification.json — all369backend and643frontend files equal final gate snapshots.
+
+AUTHORITATIVE FINAL RENDERER PROOF:
+- letters/renderer-final-summary.json — authoritative final aggregate.48real RU/UK word payloads,177letter boundaries,129internal boundaries; source/font hashes and exact scope.
+- letters/render-before-all.json and render-after-all.json — actual shipped React component in offscreen Electron, using real grouped lyric rows (no sentinel).
+- letters/render-comparison.json — calculated errors of mapping saved times to glyph-advance coordinates. NOT errors against manually listened phonemes or physical frame/audio latency.
+- letters/render-line-contexts.json — exported clean-entry rows; reply fixture rows; Ukrainian standalone tail-word limitation.
+- letters/render-cost.json — geometry counts across100updates,seek,resize,unmount.
+- letters/baseline-code-validation.json — captured before function equals code extracted from suppliedv2 on3717positions.
+- letters/RENDERER_FINDINGS.txt — commands/reproduction; harnesses use REPO_ROOT/EVIDENCE_DIR/V2_EVIDENCE/CLEAN_DOCUMENT.
+- letters/independent-frontend-review.json/.txt — independent review, including discovered and fixed combining-mark regression. It preceded full final gate; frontend-checks is the final gate evidence.
+- letters/red-tests.log, unicode-red-tests.log — deliberate pre-fix failing reproductions. Not final failures.
+- letters/targeted-final.log and types-final.log —62profiled tests and final targeted type check.
+The authoritative summary explicitly lists preliminary probes. render-before.json/render--headless-all.json and earlier first/expanded/type logs are historical diagnostics; do not substitute them for final metrics.
+The generated browser bundle render-final.js is intentionally omitted; prepare-final-render.cjs rebuilds it from the included source harness and installed project dependencies. No new browser screenshots are included.
+
+REAL AUDIO / SAVED OUTPUT:
+- real-audio/fixture-inventory-v3.json — direct inventory of4NPZ,9vocal arrays; not9complete songs.
+- real-audio/real-word-comparison.json/.txt —30actualv1/v2/finalword rows. realStart/realEnd/errorMs are explicitlynull; no independent listened word reference exists.
+- real-audio/fresh-replay-execution.json and fresh-replay-comparison.json — fresh clean/uncertain-related/SadSvit cached-input replay commands, hashes and exactv2/finalpayload equality.
+- real-audio/final-clean-paired.json — exact pairedclean_entry waveform/emissions; local cachedASR remains model output.
+- real-audio/final-uncertain-related.json — uncertain emissions applied to related waveform, without localASR as in comparablev2; NOT exact-source certified.
+- real-audio/diagnostic-uncertain-related-with-local-asr.json — additional diagnostic only, NOT used as comparable final proof.
+- real-audio/final-sadvit.json — three real Ukrainian tails; listened:false references not promoted to ground truth.
+- real-audio/odin-three-provenances.json — separate frozen9.10/related9.00/exact-paired8.62 scenarios.
+- real-audio/sung-letter-candidates-clean-v2.json — remaining conflicting internal CTC letters, no speculative acoustic fix.
+- real-audio/generated-documents/*/lyricsSync.json +PROVENANCE.json — verification exports through unchanged production codec, not userproject replacements.
+- real-audio/lyric-document-export-proof.json and notes-v2-final-*.json — sameexistingCREPEpoints; words/letters/notes/targetframes unchanged, codecroundtrip; no new pitch inference.
+- legacy-project-inspection.json — unrelated old Aria lyricsSync found read-only, pairedvocals.flac unavailable; excluded from timing comparisons.
+
+TESTS:
+- backend-checks/result.json,summary.json,pytest.log — fresh fullbackend1247pass/60fail/6skip; all369sources identicalv2.
+- backend-checks/failure-classification.json/.txt,failure-ids.txt,new-outcome-blocks.json — eachremainingfailure and observed/inferred causal limits. Six changing asyncoutcomes do not imply six sync regressions.
+- regressions/* — historicalv1/v2failure audit and synthetic ordered clipping counterexample; explicitly NOT a new proven real-audio correction.
+- frontend-checks/result.json,summary.json,typecheck.log,npm-test.log,node-tests.log — finalfulltypes+architecture,947pass/2oldVitestfail,101pass/1oldNodefail/4skip; sourcehashes unchanged.
+- run_backend_gate.py,run_frontend_checks.py — recorded gate runners; local workspace paths are execution provenance. AGENTS.md contains the target Windows check.bat commands.
+
+PERFORMANCE:
+- performance/comparison.json,executions.json,v2.json,final.json,*-reverse.json — all18pairedobservations per excerpt, both orders, oneCPUthread, cachedCTC/ASR/activity. Samebackendcode,inputs,payloads,calls. Not full-song runtime.
+- performance/cached_pipeline_evidence.py,run_comparison.py,acoustic_cache/ — replay scripts and previously computed masks.
+
+LIMITS:
+No independent listening/word/phoneme ground truth; no fullsource user songs; uncertain_scores exactwaveform missing; target Windows/Electron audible/live gate not run. Max/median real vocal timing error and fullsong processing time are unknown. Renderer correction does not certify savedCTCtimings.

@@ -1,0 +1,42 @@
+{
+  "referenceSha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+  "boundaryLabelsAvailableToInference": false,
+  "cases": [
+    {
+      "case": "control_0000",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0000.wav",
+      "lyrics": "анна каренина анна вронская гордые леди",
+      "audioSha256": "8a15fb990da510618d338e80cd921a19d49fdd8afcee84e542cc96a18cb590d8",
+      "duration": 9.094,
+      "language": "Russian",
+      "timingHints": []
+    },
+    {
+      "case": "control_0001",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0001.wav",
+      "lyrics": "в блестящей толпе бедная девочка аня",
+      "audioSha256": "8f3b9d468e0f5e3bc4a8bb5ac5b676efcdab29bb127bf9d420f3728b63c26fe8",
+      "duration": 6.991979166666667,
+      "language": "Russian",
+      "timingHints": []
+    },
+    {
+      "case": "breathy_0000",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.wav",
+      "lyrics": "анна каренина анна вронская гордые леди",
+      "audioSha256": "acb4f276e3fe61e39d097f1d4e1979d1abd0ccd3ad7284a2740d09ea0ad2ea0a",
+      "duration": 9.196979166666667,
+      "language": "Russian",
+      "timingHints": []
+    },
+    {
+      "case": "breathy_0001",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.wav",
+      "lyrics": "в блестящей толпе бедная девочка аня",
+      "audioSha256": "aee0a3e8a2cf77c61f261cbbecf7dba935bfbcc533c6af3daf17b05beeb26f2f",
+      "duration": 7.1660208333333335,
+      "language": "Russian",
+      "timingHints": []
+    }
+  ]
+}

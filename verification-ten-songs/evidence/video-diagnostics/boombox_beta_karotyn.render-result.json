@@ -1,0 +1,68 @@
+{
+  "case": "boombox_beta_karotyn",
+  "artist": "Бумбокс",
+  "title": "Бета-Каротин",
+  "video": "/workspace/scratch/513dbcd967bf/deliverables-ten-songs/videos/boombox_beta_karotyn_selected_words.mp4",
+  "audio": "/tmp/karaoke-ten-20261101/sources-a/boombox_beta_karotyn-selected-stereo44100.wav",
+  "document": "/tmp/karaoke-ten-20261101/notes/boombox_beta_karotyn/final/lyricsSync.json",
+  "hashes": {
+    "audio": "2f67309151bf752315b229d8867eac0dc2aa549250c7d5d3be818ce240863aa5",
+    "lyricsSync": "fb77cf4d085e8b5ce29187b888dacdb3a130550a16fee569e3c2c4f071e9bf35"
+  },
+  "sourcePage": "https://soundcloud.com/boomboxfamily/pyfpsn1jokod",
+  "sourceOffsetSeconds": 18.0,
+  "clipStartSeconds": 20.0,
+  "clipEndSeconds": 40.0,
+  "durationSeconds": 20.0,
+  "fps": 60,
+  "frames": 1200,
+  "frameStepSeconds": 0.016666666666666666,
+  "frontEndSampler": "/tmp/karaoke-ten-20261101/selected-videos/work/boombox_beta_karotyn/samples.private.json",
+  "presentationFilter": {
+    "type": "selected-word-indices",
+    "zeroBased": true,
+    "visibleWordIndices": [
+      16,
+      17
+    ],
+    "maximumVisibleWords": 10,
+    "unselectedWords": "Neutral blocks with original measured width and native progress",
+    "unselectedDetail": "Word number and unlabelled timing blocks; no letters",
+    "label": "Выбранные слова · фактические времена JSON",
+    "timingAndLineInputsFiltered": false
+  },
+  "privateIntermediatesDoNotDistribute": [
+    "layout.private.json",
+    "samples.private.json"
+  ],
+  "sourceTimebase": {
+    "audioExcerptOriginSeconds": 18.0,
+    "clipStartInExcerptSeconds": 20.0,
+    "clipStartInOriginalSongSeconds": 38.0
+  },
+  "productionSourceHashes": {
+    "frontend/src/pages/editor/editorApi.ts": "c4219aa8ea328dd9189e5e98c7c55d42855c3ec8aa1c95197ae13eb4aee731b7",
+    "frontend/src/features/karaoke/karaokeLyrics.ts": "c58a5d344eb244ba575e7fee486e6c2e99679b73124b6d78754f49edebc0121b",
+    "frontend/src/features/karaoke/KaraokeStage.tsx": "48c1ccf994aab8e31f365fac13851d3f92dae2a0a585b6984b5aad129987d571"
+  },
+  "samplerSha256": "7499bbbfb62a4d882c4adecf4923f465dee12cc423c361be22ff79d1b92ce5d4",
+  "rendererSha256": "5501e70e9ea653c4eff1779a2ef54609d293e4b8dfdd1fe438f364131008a54a",
+  "nativeTimingChecks": {
+    "maximumLetterRoundTripErrorSeconds": 0,
+    "wordBoundsUnchanged": true,
+    "noteCountsBoundsPitchesAndContoursRoundTrip": true,
+    "intervalWithinDocumentDuration": true,
+    "musicLyricsActivityRhythmRoundTrip": true,
+    "allDocumentWordsIncluded": true
+  },
+  "timestampsEdited": false,
+  "audioOffsetAdded": false,
+  "audioFilters": [
+    "atrim",
+    "asetpts"
+  ],
+  "display": "Programmatic Pillow drawing; actual production editorApi and karaokeLyrics timing, measured glyph advances. Not a recording of Electron.",
+  "renderSeconds": 27.722388132999185,
+  "videoSha256": "a5cb329948c19c47b70a9c9111fb1f91f5d946a9853e319418020f2631b40d2e",
+  "videoBytes": 1075576
+}

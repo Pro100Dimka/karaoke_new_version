@@ -1,0 +1,187 @@
+{
+  "scope": "Seven new IDs from first full current gate replayed on both whole backends, unchanged original tests and real-emission fixture. No model inference.",
+  "baselineBackend": "/tmp/karaoke-ten-20261101/baseline-v5/python/backend/__init__.py",
+  "currentBackend": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/backend/__init__.py",
+  "pairs": {
+    "tests/test_letter_alignment.py::test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_break[native_reply7]": {
+      "baseline": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      },
+      "current": {
+        "outcome": "failed",
+        "error": "assert 25.9 < 16.2",
+        "responses": []
+      }
+    },
+    "tests/test_library_archive.py::test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing": {
+      "baseline": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      },
+      "current": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      }
+    },
+    "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores": {
+      "baseline": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      },
+      "current": {
+        "outcome": "failed",
+        "error": "'jobId'",
+        "responses": [
+          {
+            "local": "started",
+            "status": 409,
+            "body": {
+              "code": "RecordingPreparing",
+              "message": "Recording preparation is not complete",
+              "details": {},
+              "requestId": "e661641e-1fe0-46fd-8684-197243e1c3fd"
+            }
+          }
+        ]
+      }
+    },
+    "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history": {
+      "baseline": {
+        "outcome": "failed",
+        "error": "'jobId'",
+        "responses": [
+          {
+            "local": "started",
+            "status": 409,
+            "body": {
+              "code": "RecordingPreparing",
+              "message": "Recording preparation is not complete",
+              "details": {},
+              "requestId": "302718c5-6d8e-4711-9765-2dce07697be5"
+            }
+          }
+        ]
+      },
+      "current": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      }
+    },
+    "tests/test_recordings_analysis.py::test_recording_name_and_status_are_backend_authoritative": {
+      "baseline": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      },
+      "current": {
+        "outcome": "failed",
+        "error": "assert 'Preparing' == 'Ready'\n  \n  - Ready\n  + Preparing",
+        "responses": [
+          {
+            "local": "renamed",
+            "status": 200,
+            "body": {
+              "recordingId": "cb69455b-0c84-4b72-9b9b-a37667cb55f1",
+              "filePath": "/tmp/pytest-of-root/pytest-119/test_recording_name_and_status0/runtime/recordings/cb69455b-0c84-4b72-9b9b-a37667cb55f1/recording.wav",
+              "duration": 1.0,
+              "sampleRate": 16000,
+              "channels": 1,
+              "createdAt": "2026-10-31T23:15:30.715029Z",
+              "songId": "25378d73-e2d7-4b6d-8e98-6d4bfe7a7de6",
+              "songRevision": 2,
+              "displayName": "My best take",
+              "fileStatus": "Preparing",
+              "analysisStatus": "NotAnalyzed",
+              "sourceRecordingId": null,
+              "sizeBytes": 32044
+            }
+          }
+        ]
+      }
+    },
+    "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[balance]": {
+      "baseline": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      },
+      "current": {
+        "outcome": "passed",
+        "error": null,
+        "responses": []
+      }
+    },
+    "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running": {
+      "baseline": {
+        "outcome": "failed",
+        "error": "'jobId'",
+        "responses": [
+          {
+            "local": "started",
+            "status": 409,
+            "body": {
+              "code": "RecordingPreparing",
+              "message": "Recording preparation is not complete",
+              "details": {},
+              "requestId": "549917b7-9f09-4113-9050-a5dae8f379cf"
+            }
+          }
+        ]
+      },
+      "current": {
+        "outcome": "failed",
+        "error": "'jobId'",
+        "responses": [
+          {
+            "local": "started",
+            "status": 409,
+            "body": {
+              "code": "RecordingPreparing",
+              "message": "Recording preparation is not complete",
+              "details": {},
+              "requestId": "5e966fb7-8f3d-403f-aee0-dc3c47128a23"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "unchangedRelevantSources": {
+    "backend/recordings/register_recording.py": {
+      "identical": true,
+      "sha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff"
+    },
+    "backend/recordings/start_studio_master.py": {
+      "identical": true,
+      "sha256": "539f26e7749878ce4d14f1eb76afcd4d92c86978d8ac6f8ad2ac9fb84868928b"
+    },
+    "backend/analysis/start_analysis.py": {
+      "identical": true,
+      "sha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb"
+    },
+    "tests/test_recordings_analysis.py": {
+      "identical": true,
+      "sha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811"
+    },
+    "tests/test_library_archive.py": {
+      "identical": true,
+      "sha256": "7f0df6c6a9097f08914b3340c47c49de170fb45c9abda22e1ea3275cc811bc75"
+    },
+    "tests/test_release_regressions.py": {
+      "identical": true,
+      "sha256": "9ef761becda22d4d7b64612459dd3bb1ebf26884ba4b8526911d96cc4ca1cf1d"
+    },
+    "tests/fakes.py": {
+      "identical": true,
+      "sha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4"
+    }
+  },
+  "confirmedSyncRegression": "native_reply7: positive but weak stale previous suffix blocks guided phrase; baseline end15.78 vs current25.9.",
+  "nonSyncCause": "Recording tests use unchanged FakeAiProvider.align, returning fixed WordTiming without any modified ai_worker function. RegisterRecording.execute returns Preparing and schedules asynchronous preparation; unchanged test helper immediately returns201 response without waiting. Observed failures arise from409 RecordingPreparing or querying fileStatus before ready. Some IDs vary between full/focused runs; exact individual original full-run response bodies were not captured, so repeat bodies are explicitly separate evidence."
+}

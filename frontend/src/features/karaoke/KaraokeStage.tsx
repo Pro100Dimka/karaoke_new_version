@@ -1,6 +1,6 @@
 import { observer } from "mobx-react-lite";
 import { store } from "../../providers/store";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { KaraokeLyrics, MelodyRoll, resizeEdges, tr, useLocale } from "@neo-ui-kit/react";
 import { DetachButton, DetachedPanel } from "../../shared/ui/DetachedPanel";
 import { useDetachedPanel } from "../../shared/ui/useDetachedPanel";
@@ -10,6 +10,7 @@ import type { VocalRange } from "../../application/library/songPreferences";
 import type { StageLayers } from "./displayModes";
 import { usePianoRollLayout } from "./usePianoRollLayout";
 import { useSmoothPosition } from "./useSmoothPosition";
+import { useLyricFill } from "./useLyricFill";
 import {
   buildLines,
   currentLineIndex,
@@ -44,6 +45,7 @@ interface KaraokeStageProps {
 }
 
 const windowSeconds = 8;
+const noWords: EditorDocument["words"] = [];
 // Where MelodyRoll puts its playhead across the lane (its default), shared with the show's light layer.
 const rollLead = 0.25;
 
@@ -199,17 +201,21 @@ const Lyrics = ({
   shown,
   phase,
   reducedMotion,
+  font,
 }: {
   position: number;
   shown: readonly (LyricLine | undefined)[];
   phase: LineDisplayPhase;
   reducedMotion: boolean;
+  font: string;
 }) => {
   useLocale();
   const [current, next] = shown;
   // Preview on "1"; saved word times keep the text unfilled until singing starts.
   const { countdown } = phase;
   const textVisible = phase.kind === "text" || countdown === 1;
+  const id = useId();
+  useLyricFill(id, textVisible ? current?.words ?? noWords : noWords, position, font);
   const words = (line: LyricLine | undefined, sung: boolean) =>
     line?.words.map((word) => ({
       id: word.id,
@@ -228,6 +234,7 @@ const Lyrics = ({
         </p>
       )}
       <KaraokeLyrics
+        id={id}
         className="lyrics"
         data-reduced-motion={reducedMotion || undefined}
         style={{ opacity: phase.opacity ?? 1 }}
@@ -355,6 +362,7 @@ export const KaraokeStage = observer(({
             shown={shown}
             phase={phase}
             reducedMotion={preferences.reducedMotion}
+            font={preferences.headingFont}
           />
         )}
         {(instrumental || minimal) && (

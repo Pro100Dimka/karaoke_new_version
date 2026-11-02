@@ -1,0 +1,41 @@
+{
+  "completedUtc": "2026-10-31T18:35:36.009974+00:00",
+  "sourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "scriptSha256": "b0966693f00e5f1378f027a7f251e53a3d53c439398e7320b7af64c2067b2ef9",
+  "mode": "Cached ASR/CTC evidence only; no new model inference; all six final source hashes checked.",
+  "executions": [
+    {
+      "case": "control_0000",
+      "exitCode": 0,
+      "seconds": 8.49236297799871
+    },
+    {
+      "case": "control_0001",
+      "exitCode": 0,
+      "seconds": 8.984431077002228
+    },
+    {
+      "case": "breathy_0000",
+      "exitCode": 0,
+      "seconds": 8.002828632001183
+    },
+    {
+      "case": "breathy_0001",
+      "exitCode": 0,
+      "seconds": 8.552700258002005
+    },
+    {
+      "case": "control_0003",
+      "exitCode": 0,
+      "reusedIdenticalHarnessExecution": "/tmp/karaoke-sync-v4/onset-anchor-final/control_0003",
+      "startedUtc": "2026-10-31T18:30:56.531702+00:00",
+      "finishedUtc": "2026-10-31T18:31:01.114132+00:00",
+      "seconds": 4.543076027002826
+    },
+    {
+      "case": "control_0004",
+      "exitCode": 0,
+      "seconds": 8.421525751000445
+    }
+  ]
+}

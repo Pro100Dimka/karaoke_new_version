@@ -1,0 +1,27 @@
+{
+  "patchSha256": "ca8236e1ae4ee9deb37e1f6cd76c28698f32199f4f8328c805278611f8892411",
+  "commands": [
+    {
+      "command": [
+        "git",
+        "apply",
+        "--check",
+        "/workspace/scratch/513dbcd967bf/deliverables-v4/karaoke_word_sync_v3_to_v4.patch"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "git",
+        "apply",
+        "/workspace/scratch/513dbcd967bf/deliverables-v4/karaoke_word_sync_v3_to_v4.patch"
+      ],
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "allAppliedFilesMatchTestedSource": true
+}

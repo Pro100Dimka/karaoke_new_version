@@ -1,0 +1,1521 @@
+{
+  "label": "v3",
+  "mappingSha256": "472b96b0b99d86f61f4c6e71c5113cff52f28750ae9020eceb085505c3217892",
+  "referenceDescription": "External GTSinger authors listening/spectrogram-corrected labels, fixed before model predictions. PhoneMetricEligible excludes detected uniform/suspect reference labels. Doubled нн compared as one nasal group, not two independently marked phones. Published annotation uncertainty is unspecified.",
+  "payloads": [
+    {
+      "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0000/payload.json",
+      "sha256": "d4efd5071c7af2f7307591df5c3edb8fca985b2f886c56e8c27f31dd62c8b3a3"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0001/payload.json",
+      "sha256": "47950d76d8b384263435348fbd8085e3f9e81a251adb61b28f83a0ba73bedc13"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/breathy_0000/payload.json",
+      "sha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351"
+    },
+    {
+      "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/breathy_0001/payload.json",
+      "sha256": "d4332da75574cdbdcb2d5d72f88b88bd3372d46a076b57217b40846248a3aada"
+    }
+  ],
+  "missingCases": [],
+  "summary": {
+    "wordCount": 17,
+    "phonemeGroupCount": 77,
+    "internalBoundaryCount": 60,
+    "internalStartMedianAbsErrorMs": 27.0,
+    "internalStartMaxAbsErrorMs": 197.0
+  },
+  "rows": [
+    {
+      "case": "control_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 0.53,
+      "referenceEnd": 0.81,
+      "predictedStart": 0.56,
+      "predictedEnd": 0.8,
+      "startErrorMs": 30.0,
+      "endErrorMs": -10.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "нн",
+      "indices": [
+        1,
+        2
+      ],
+      "phone": "n̪ː",
+      "referenceStart": 0.81,
+      "referenceEnd": 1.06,
+      "predictedStart": 0.8,
+      "predictedEnd": 1.06,
+      "startErrorMs": -10.0,
+      "endErrorMs": 0.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 1.06,
+      "referenceEnd": 1.48,
+      "predictedStart": 1.06,
+      "predictedEnd": 1.45,
+      "startErrorMs": 0.0,
+      "endErrorMs": -30.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "к",
+      "indices": [
+        0
+      ],
+      "phone": "k",
+      "referenceStart": 1.711,
+      "referenceEnd": 1.741,
+      "predictedStart": 1.63,
+      "predictedEnd": 1.71,
+      "startErrorMs": -81.0,
+      "endErrorMs": -31.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "а",
+      "indices": [
+        1
+      ],
+      "phone": "ɐ",
+      "referenceStart": 1.741,
+      "referenceEnd": 1.971,
+      "predictedStart": 1.71,
+      "predictedEnd": 1.91,
+      "startErrorMs": -31.0,
+      "endErrorMs": -61.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "р",
+      "indices": [
+        2
+      ],
+      "phone": "rʲ",
+      "referenceStart": 1.971,
+      "referenceEnd": 2.031,
+      "predictedStart": 1.91,
+      "predictedEnd": 2.09,
+      "startErrorMs": -61.0,
+      "endErrorMs": 59.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "е",
+      "indices": [
+        3
+      ],
+      "phone": "e",
+      "referenceStart": 2.031,
+      "referenceEnd": 2.271,
+      "predictedStart": 2.09,
+      "predictedEnd": 2.23,
+      "startErrorMs": 59.0,
+      "endErrorMs": -41.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "н",
+      "indices": [
+        4
+      ],
+      "phone": "ɲ",
+      "referenceStart": 2.271,
+      "referenceEnd": 2.471,
+      "predictedStart": 2.23,
+      "predictedEnd": 2.33,
+      "startErrorMs": -41.0,
+      "endErrorMs": -141.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "и",
+      "indices": [
+        5
+      ],
+      "phone": "ɪ",
+      "referenceStart": 2.471,
+      "referenceEnd": 2.491,
+      "predictedStart": 2.33,
+      "predictedEnd": 2.49,
+      "startErrorMs": -141.0,
+      "endErrorMs": -1.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "н",
+      "indices": [
+        6
+      ],
+      "phone": "n̪",
+      "referenceStart": 2.491,
+      "referenceEnd": 2.611,
+      "predictedStart": 2.49,
+      "predictedEnd": 2.59,
+      "startErrorMs": -1.0,
+      "endErrorMs": -21.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "а",
+      "indices": [
+        7
+      ],
+      "phone": "ə",
+      "referenceStart": 2.611,
+      "referenceEnd": 2.891,
+      "predictedStart": 2.59,
+      "predictedEnd": 2.92,
+      "startErrorMs": -21.0,
+      "endErrorMs": 29.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 3.431,
+      "referenceEnd": 3.651,
+      "predictedStart": 3.41,
+      "predictedEnd": 3.63,
+      "startErrorMs": -21.0,
+      "endErrorMs": -21.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "нн",
+      "indices": [
+        1,
+        2
+      ],
+      "phone": "n̪ː",
+      "referenceStart": 3.651,
+      "referenceEnd": 3.881,
+      "predictedStart": 3.63,
+      "predictedEnd": 3.89,
+      "startErrorMs": -21.0,
+      "endErrorMs": 9.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 3.881,
+      "referenceEnd": 4.441,
+      "predictedStart": 3.89,
+      "predictedEnd": 4.31,
+      "startErrorMs": 9.0,
+      "endErrorMs": -131.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "л",
+      "indices": [
+        0
+      ],
+      "phone": "ʎ",
+      "referenceStart": 7.643,
+      "referenceEnd": 7.673,
+      "predictedStart": 7.73,
+      "predictedEnd": 7.87,
+      "startErrorMs": 87.0,
+      "endErrorMs": 197.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "е",
+      "indices": [
+        1
+      ],
+      "phone": "e",
+      "referenceStart": 7.673,
+      "referenceEnd": 8.223,
+      "predictedStart": 7.87,
+      "predictedEnd": 8.21,
+      "startErrorMs": 197.0,
+      "endErrorMs": -13.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "д",
+      "indices": [
+        2
+      ],
+      "phone": "dʲ",
+      "referenceStart": 8.223,
+      "referenceEnd": 8.383,
+      "predictedStart": 8.21,
+      "predictedEnd": 8.37,
+      "startErrorMs": -13.0,
+      "endErrorMs": -13.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "и",
+      "indices": [
+        3
+      ],
+      "phone": "ɪ",
+      "referenceStart": 8.383,
+      "referenceEnd": 8.723,
+      "predictedStart": 8.37,
+      "predictedEnd": 8.9,
+      "startErrorMs": -13.0,
+      "endErrorMs": 177.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 0,
+      "word": "в",
+      "characters": "в",
+      "indices": [
+        0
+      ],
+      "phone": "f",
+      "referenceStart": 0.0,
+      "referenceEnd": 0.15,
+      "predictedStart": 0.0,
+      "predictedEnd": 0.02,
+      "startErrorMs": 0.0,
+      "endErrorMs": -130.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "т",
+      "indices": [
+        0
+      ],
+      "phone": "t̪",
+      "referenceStart": 1.54,
+      "referenceEnd": 1.6,
+      "predictedStart": 1.495,
+      "predictedEnd": 1.595,
+      "startErrorMs": -45.0,
+      "endErrorMs": -5.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "о",
+      "indices": [
+        1
+      ],
+      "phone": "ɐ",
+      "referenceStart": 1.6,
+      "referenceEnd": 1.72,
+      "predictedStart": 1.595,
+      "predictedEnd": 1.715,
+      "startErrorMs": -5.0,
+      "endErrorMs": -5.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "л",
+      "indices": [
+        2
+      ],
+      "phone": "ɫ",
+      "referenceStart": 1.72,
+      "referenceEnd": 1.83,
+      "predictedStart": 1.715,
+      "predictedEnd": 1.855,
+      "startErrorMs": -5.0,
+      "endErrorMs": 25.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "п",
+      "indices": [
+        3
+      ],
+      "phone": "pʲ",
+      "referenceStart": 1.83,
+      "referenceEnd": 1.99,
+      "predictedStart": 1.855,
+      "predictedEnd": 2.155,
+      "startErrorMs": 25.0,
+      "endErrorMs": 165.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "е",
+      "indices": [
+        4
+      ],
+      "phone": "e",
+      "referenceStart": 1.99,
+      "referenceEnd": 2.53,
+      "predictedStart": 2.155,
+      "predictedEnd": 2.51,
+      "startErrorMs": 165.0,
+      "endErrorMs": -20.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "д",
+      "indices": [
+        0
+      ],
+      "phone": "dʲ",
+      "referenceStart": 4.721,
+      "referenceEnd": 4.861,
+      "predictedStart": 4.72,
+      "predictedEnd": 4.88,
+      "startErrorMs": -1.0,
+      "endErrorMs": 19.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "е",
+      "indices": [
+        1
+      ],
+      "phone": "e",
+      "referenceStart": 4.861,
+      "referenceEnd": 5.121,
+      "predictedStart": 4.88,
+      "predictedEnd": 5.12,
+      "startErrorMs": 19.0,
+      "endErrorMs": -1.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "в",
+      "indices": [
+        2
+      ],
+      "phone": "v",
+      "referenceStart": 5.121,
+      "referenceEnd": 5.191,
+      "predictedStart": 5.12,
+      "predictedEnd": 5.22,
+      "startErrorMs": -1.0,
+      "endErrorMs": 29.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "о",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 5.191,
+      "referenceEnd": 5.361,
+      "predictedStart": 5.22,
+      "predictedEnd": 5.38,
+      "startErrorMs": 29.0,
+      "endErrorMs": 19.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "ч",
+      "indices": [
+        4
+      ],
+      "phone": "tɕ",
+      "referenceStart": 5.361,
+      "referenceEnd": 5.491,
+      "predictedStart": 5.38,
+      "predictedEnd": 5.54,
+      "startErrorMs": 19.0,
+      "endErrorMs": 49.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "к",
+      "indices": [
+        5
+      ],
+      "phone": "k",
+      "referenceStart": 5.491,
+      "referenceEnd": 5.601,
+      "predictedStart": 5.54,
+      "predictedEnd": 5.62,
+      "startErrorMs": 49.0,
+      "endErrorMs": 19.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "а",
+      "indices": [
+        6
+      ],
+      "phone": "ə",
+      "referenceStart": 5.601,
+      "referenceEnd": 5.901,
+      "predictedStart": 5.62,
+      "predictedEnd": 5.92,
+      "startErrorMs": 19.0,
+      "endErrorMs": 19.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 6.132,
+      "referenceEnd": 6.432,
+      "predictedStart": 6.11,
+      "predictedEnd": 6.39,
+      "startErrorMs": -22.0,
+      "endErrorMs": -42.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "н",
+      "indices": [
+        1
+      ],
+      "phone": "ɲ",
+      "referenceStart": 6.432,
+      "referenceEnd": 6.572,
+      "predictedStart": 6.39,
+      "predictedEnd": 6.43,
+      "startErrorMs": -42.0,
+      "endErrorMs": -142.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "control_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "я",
+      "indices": [
+        2
+      ],
+      "phone": "ə",
+      "referenceStart": 6.572,
+      "referenceEnd": 6.842,
+      "predictedStart": 6.43,
+      "predictedEnd": 6.86,
+      "startErrorMs": -142.0,
+      "endErrorMs": 18.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 0.28,
+      "referenceEnd": 0.55,
+      "predictedStart": 0.31,
+      "predictedEnd": 0.53,
+      "startErrorMs": 30.0,
+      "endErrorMs": -20.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "нн",
+      "indices": [
+        1,
+        2
+      ],
+      "phone": "n̪ː",
+      "referenceStart": 0.55,
+      "referenceEnd": 0.84,
+      "predictedStart": 0.53,
+      "predictedEnd": 0.83,
+      "startErrorMs": -20.0,
+      "endErrorMs": -10.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 0,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 0.84,
+      "referenceEnd": 1.16,
+      "predictedStart": 0.83,
+      "predictedEnd": 1.43,
+      "startErrorMs": -10.0,
+      "endErrorMs": 270.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "к",
+      "indices": [
+        0
+      ],
+      "phone": "k",
+      "referenceStart": 1.481,
+      "referenceEnd": 1.551,
+      "predictedStart": 1.43,
+      "predictedEnd": 1.51,
+      "startErrorMs": -51.0,
+      "endErrorMs": -41.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "а",
+      "indices": [
+        1
+      ],
+      "phone": "ɐ",
+      "referenceStart": 1.551,
+      "referenceEnd": 1.771,
+      "predictedStart": 1.51,
+      "predictedEnd": 1.71,
+      "startErrorMs": -41.0,
+      "endErrorMs": -61.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "р",
+      "indices": [
+        2
+      ],
+      "phone": "rʲ",
+      "referenceStart": 1.771,
+      "referenceEnd": 1.841,
+      "predictedStart": 1.71,
+      "predictedEnd": 1.81,
+      "startErrorMs": -61.0,
+      "endErrorMs": -31.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "е",
+      "indices": [
+        3
+      ],
+      "phone": "e",
+      "referenceStart": 1.841,
+      "referenceEnd": 2.081,
+      "predictedStart": 1.81,
+      "predictedEnd": 2.05,
+      "startErrorMs": -31.0,
+      "endErrorMs": -31.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "н",
+      "indices": [
+        4
+      ],
+      "phone": "ɲ",
+      "referenceStart": 2.081,
+      "referenceEnd": 2.271,
+      "predictedStart": 2.05,
+      "predictedEnd": 2.15,
+      "startErrorMs": -31.0,
+      "endErrorMs": -121.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "и",
+      "indices": [
+        5
+      ],
+      "phone": "ɪ",
+      "referenceStart": 2.271,
+      "referenceEnd": 2.291,
+      "predictedStart": 2.15,
+      "predictedEnd": 2.29,
+      "startErrorMs": -121.0,
+      "endErrorMs": -1.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "н",
+      "indices": [
+        6
+      ],
+      "phone": "n̪",
+      "referenceStart": 2.291,
+      "referenceEnd": 2.421,
+      "predictedStart": 2.29,
+      "predictedEnd": 2.41,
+      "startErrorMs": -1.0,
+      "endErrorMs": -11.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 1,
+      "word": "каренина",
+      "characters": "а",
+      "indices": [
+        7
+      ],
+      "phone": "ə",
+      "referenceStart": 2.421,
+      "referenceEnd": 2.721,
+      "predictedStart": 2.41,
+      "predictedEnd": 2.73,
+      "startErrorMs": -11.0,
+      "endErrorMs": 9.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 3.343,
+      "referenceEnd": 3.543,
+      "predictedStart": 3.32,
+      "predictedEnd": 3.52,
+      "startErrorMs": -23.0,
+      "endErrorMs": -23.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "нн",
+      "indices": [
+        1,
+        2
+      ],
+      "phone": "n̪ː",
+      "referenceStart": 3.543,
+      "referenceEnd": 3.833,
+      "predictedStart": 3.52,
+      "predictedEnd": 3.84,
+      "startErrorMs": -23.0,
+      "endErrorMs": 7.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 2,
+      "word": "анна",
+      "characters": "а",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 3.833,
+      "referenceEnd": 4.173,
+      "predictedStart": 3.84,
+      "predictedEnd": 4.17,
+      "startErrorMs": 7.0,
+      "endErrorMs": -3.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "л",
+      "indices": [
+        0
+      ],
+      "phone": "ʎ",
+      "referenceStart": 7.766,
+      "referenceEnd": 7.956,
+      "predictedStart": 7.9,
+      "predictedEnd": 8.02,
+      "startErrorMs": 134.0,
+      "endErrorMs": 64.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "е",
+      "indices": [
+        1
+      ],
+      "phone": "e",
+      "referenceStart": 7.956,
+      "referenceEnd": 8.286,
+      "predictedStart": 8.02,
+      "predictedEnd": 8.38,
+      "startErrorMs": 64.0,
+      "endErrorMs": 94.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "д",
+      "indices": [
+        2
+      ],
+      "phone": "dʲ",
+      "referenceStart": 8.286,
+      "referenceEnd": 8.476,
+      "predictedStart": 8.38,
+      "predictedEnd": 8.5,
+      "startErrorMs": 94.0,
+      "endErrorMs": 24.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0000",
+      "wordIndex": 5,
+      "word": "леди",
+      "characters": "и",
+      "indices": [
+        3
+      ],
+      "phone": "ɪ",
+      "referenceStart": 8.476,
+      "referenceEnd": 8.816,
+      "predictedStart": 8.5,
+      "predictedEnd": 8.77,
+      "startErrorMs": 24.0,
+      "endErrorMs": -46.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 0,
+      "word": "в",
+      "characters": "в",
+      "indices": [
+        0
+      ],
+      "phone": "f",
+      "referenceStart": 0.0,
+      "referenceEnd": 0.05,
+      "predictedStart": 0.01,
+      "predictedEnd": 0.09,
+      "startErrorMs": 10.0,
+      "endErrorMs": 40.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "б",
+      "indices": [
+        0
+      ],
+      "phone": "b",
+      "referenceStart": 0.19,
+      "referenceEnd": 0.22,
+      "predictedStart": 0.09,
+      "predictedEnd": 0.17,
+      "startErrorMs": -100.0,
+      "endErrorMs": -50.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "л",
+      "indices": [
+        1
+      ],
+      "phone": "ʎ",
+      "referenceStart": 0.22,
+      "referenceEnd": 0.28,
+      "predictedStart": 0.17,
+      "predictedEnd": 0.31,
+      "startErrorMs": -50.0,
+      "endErrorMs": 30.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "е",
+      "indices": [
+        2
+      ],
+      "phone": "ɪ",
+      "referenceStart": 0.28,
+      "referenceEnd": 0.5,
+      "predictedStart": 0.31,
+      "predictedEnd": 0.55,
+      "startErrorMs": 30.0,
+      "endErrorMs": 50.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "с",
+      "indices": [
+        3
+      ],
+      "phone": "sʲ",
+      "referenceStart": 0.5,
+      "referenceEnd": 0.67,
+      "predictedStart": 0.55,
+      "predictedEnd": 0.67,
+      "startErrorMs": 50.0,
+      "endErrorMs": 0.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "т",
+      "indices": [
+        4
+      ],
+      "phone": "t̪",
+      "referenceStart": 0.67,
+      "referenceEnd": 0.76,
+      "predictedStart": 0.67,
+      "predictedEnd": 0.75,
+      "startErrorMs": 0.0,
+      "endErrorMs": -10.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "я",
+      "indices": [
+        5
+      ],
+      "phone": "æ",
+      "referenceStart": 0.76,
+      "referenceEnd": 0.92,
+      "predictedStart": 0.75,
+      "predictedEnd": 1.05,
+      "startErrorMs": -10.0,
+      "endErrorMs": 130.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "щ",
+      "indices": [
+        6
+      ],
+      "phone": "ɕː",
+      "referenceStart": 0.92,
+      "referenceEnd": 1.16,
+      "predictedStart": 1.05,
+      "predictedEnd": 1.19,
+      "startErrorMs": 130.0,
+      "endErrorMs": 30.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "е",
+      "indices": [
+        7
+      ],
+      "phone": "e",
+      "referenceStart": 1.16,
+      "referenceEnd": 1.4,
+      "predictedStart": 1.19,
+      "predictedEnd": 1.31,
+      "startErrorMs": 30.0,
+      "endErrorMs": -90.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 1,
+      "word": "блестящей",
+      "characters": "й",
+      "indices": [
+        8
+      ],
+      "phone": "j",
+      "referenceStart": 1.4,
+      "referenceEnd": 1.482,
+      "predictedStart": 1.31,
+      "predictedEnd": 1.49,
+      "startErrorMs": -90.0,
+      "endErrorMs": 8.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "т",
+      "indices": [
+        0
+      ],
+      "phone": "t̪",
+      "referenceStart": 1.482,
+      "referenceEnd": 1.542,
+      "predictedStart": 1.49,
+      "predictedEnd": 1.59,
+      "startErrorMs": 8.0,
+      "endErrorMs": 48.0,
+      "internalStart": false,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "о",
+      "indices": [
+        1
+      ],
+      "phone": "ɐ",
+      "referenceStart": 1.542,
+      "referenceEnd": 1.692,
+      "predictedStart": 1.59,
+      "predictedEnd": 1.73,
+      "startErrorMs": 48.0,
+      "endErrorMs": 38.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "л",
+      "indices": [
+        2
+      ],
+      "phone": "ɫ",
+      "referenceStart": 1.692,
+      "referenceEnd": 1.802,
+      "predictedStart": 1.73,
+      "predictedEnd": 1.91,
+      "startErrorMs": 38.0,
+      "endErrorMs": 108.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "п",
+      "indices": [
+        3
+      ],
+      "phone": "pʲ",
+      "referenceStart": 1.802,
+      "referenceEnd": 1.972,
+      "predictedStart": 1.91,
+      "predictedEnd": 2.15,
+      "startErrorMs": 108.0,
+      "endErrorMs": 178.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 2,
+      "word": "толпе",
+      "characters": "е",
+      "indices": [
+        4
+      ],
+      "phone": "e",
+      "referenceStart": 1.972,
+      "referenceEnd": 2.352,
+      "predictedStart": 2.15,
+      "predictedEnd": 2.33,
+      "startErrorMs": 178.0,
+      "endErrorMs": -22.0,
+      "internalStart": true,
+      "startDiagnostics": []
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "д",
+      "indices": [
+        0
+      ],
+      "phone": "dʲ",
+      "referenceStart": 4.494,
+      "referenceEnd": 4.624,
+      "predictedStart": 4.46,
+      "predictedEnd": 4.62,
+      "startErrorMs": -34.0,
+      "endErrorMs": -4.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "е",
+      "indices": [
+        1
+      ],
+      "phone": "e",
+      "referenceStart": 4.624,
+      "referenceEnd": 4.894,
+      "predictedStart": 4.62,
+      "predictedEnd": 4.86,
+      "startErrorMs": -4.0,
+      "endErrorMs": -34.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "в",
+      "indices": [
+        2
+      ],
+      "phone": "v",
+      "referenceStart": 4.894,
+      "referenceEnd": 4.954,
+      "predictedStart": 4.86,
+      "predictedEnd": 4.96,
+      "startErrorMs": -34.0,
+      "endErrorMs": 6.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "о",
+      "indices": [
+        3
+      ],
+      "phone": "ə",
+      "referenceStart": 4.954,
+      "referenceEnd": 5.114,
+      "predictedStart": 4.96,
+      "predictedEnd": 5.1,
+      "startErrorMs": 6.0,
+      "endErrorMs": -14.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "ч",
+      "indices": [
+        4
+      ],
+      "phone": "tɕ",
+      "referenceStart": 5.114,
+      "referenceEnd": 5.214,
+      "predictedStart": 5.1,
+      "predictedEnd": 5.2,
+      "startErrorMs": -14.0,
+      "endErrorMs": -14.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "к",
+      "indices": [
+        5
+      ],
+      "phone": "k",
+      "referenceStart": 5.214,
+      "referenceEnd": 5.304,
+      "predictedStart": 5.2,
+      "predictedEnd": 5.3,
+      "startErrorMs": -14.0,
+      "endErrorMs": -4.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 4,
+      "word": "девочка",
+      "characters": "а",
+      "indices": [
+        6
+      ],
+      "phone": "ə",
+      "referenceStart": 5.304,
+      "referenceEnd": 5.514,
+      "predictedStart": 5.3,
+      "predictedEnd": 5.59,
+      "startErrorMs": -4.0,
+      "endErrorMs": 76.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "а",
+      "indices": [
+        0
+      ],
+      "phone": "a",
+      "referenceStart": 5.945,
+      "referenceEnd": 6.245,
+      "predictedStart": 5.92,
+      "predictedEnd": 6.22,
+      "startErrorMs": -25.0,
+      "endErrorMs": -25.0,
+      "internalStart": false,
+      "startDiagnostics": [
+        "RecognizedWord",
+        "AsrCtcBoundaryDisagreement"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "н",
+      "indices": [
+        1
+      ],
+      "phone": "ɲ",
+      "referenceStart": 6.245,
+      "referenceEnd": 6.365,
+      "predictedStart": 6.22,
+      "predictedEnd": 6.28,
+      "startErrorMs": -25.0,
+      "endErrorMs": -85.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord",
+        "AsrCtcBoundaryDisagreement"
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "word": "аня",
+      "characters": "я",
+      "indices": [
+        2
+      ],
+      "phone": "ə",
+      "referenceStart": 6.365,
+      "referenceEnd": 6.505,
+      "predictedStart": 6.28,
+      "predictedEnd": 7.16,
+      "startErrorMs": -85.0,
+      "endErrorMs": 655.0,
+      "internalStart": true,
+      "startDiagnostics": [
+        "RecognizedWord",
+        "AsrCtcBoundaryDisagreement"
+      ]
+    }
+  ]
+}

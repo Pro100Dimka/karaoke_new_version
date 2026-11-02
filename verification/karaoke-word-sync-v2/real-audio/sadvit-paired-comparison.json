@@ -1,0 +1,69 @@
+{
+  "scope": "Baseline/current real excerpt replay. Endpoint bracket distances are descriptive; brackets are not listening-certified labels.",
+  "sourceMetadata": "/tmp/karaoke-sync-v2/real-audio/sadvit-original-metadata.json",
+  "cases": [
+    {
+      "case": "phrase-93",
+      "text": "навіки",
+      "inputsIdentical": true,
+      "rawCoreIdentical": true,
+      "finalWordLettersIdentical": true,
+      "beforeStart": 85.04,
+      "afterStart": 85.04,
+      "beforeEnd": 86.82,
+      "afterEnd": 86.82,
+      "startChangeMs": 0.0,
+      "endChangeMs": 0.0,
+      "referenceEnd": [
+        86.15,
+        86.5
+      ],
+      "beforeEndDistanceToIntervalMs": 320.0,
+      "afterEndDistanceToIntervalMs": 320.0,
+      "startErrorMs": null,
+      "interpretation": "Unchanged; no improvement claimed. Existing tests use separate core lower-bound/unrelated-melody upper-bound guards, not this narrower referenceEnd field."
+    },
+    {
+      "case": "phrase-129",
+      "text": "весна?",
+      "inputsIdentical": true,
+      "rawCoreIdentical": true,
+      "finalWordLettersIdentical": true,
+      "beforeStart": 117.42,
+      "afterStart": 117.42,
+      "beforeEnd": 118.78,
+      "afterEnd": 118.78,
+      "startChangeMs": 0.0,
+      "endChangeMs": 0.0,
+      "referenceEnd": [
+        118.08,
+        118.45
+      ],
+      "beforeEndDistanceToIntervalMs": 330.0,
+      "afterEndDistanceToIntervalMs": 330.0,
+      "startErrorMs": null,
+      "interpretation": "Unchanged; no improvement claimed. Existing tests use separate core lower-bound/unrelated-melody upper-bound guards, not this narrower referenceEnd field."
+    },
+    {
+      "case": "outro",
+      "text": "навіки",
+      "inputsIdentical": true,
+      "rawCoreIdentical": true,
+      "finalWordLettersIdentical": true,
+      "beforeStart": 181.1,
+      "afterStart": 181.1,
+      "beforeEnd": 182.62,
+      "afterEnd": 182.62,
+      "startChangeMs": 0.0,
+      "endChangeMs": 0.0,
+      "referenceEnd": [
+        182.3,
+        182.6
+      ],
+      "beforeEndDistanceToIntervalMs": 20.0,
+      "afterEndDistanceToIntervalMs": 20.0,
+      "startErrorMs": null,
+      "interpretation": "Unchanged; no improvement claimed. Existing tests use separate core lower-bound/unrelated-melody upper-bound guards, not this narrower referenceEnd field."
+    }
+  ]
+}

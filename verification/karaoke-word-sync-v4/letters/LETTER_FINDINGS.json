@@ -1,0 +1,54 @@
+{
+  "scope": "Internal word letter timing investigation and minimal ctc suffix repair; parent owns word ordering and acoustic end refinement.",
+  "confirmedCauses": [
+    {
+      "function": "with_sung_letters",
+      "issue": "Successful local CTC disagreements were silently discarded when candidate acceptance failed. Real paired Wildways один stored и/н 9.38/9.40 disagrees with shifted local 9.70/9.80 by320/400ms, but v3 diagnostic list was empty. CTC confidence around0.003 is not sufficient to choose a new phonetic boundary."
+    },
+    {
+      "function": "_sung_letter_candidate",
+      "issue": "Freezing all previously stored prefix letters prevents joint repair of an already-wrong penultimate vowel. Controlled emissions specify vowel.60 and consonant1.20; existing stored.28/.30 persisted despite both local paths agreeing on vowel and strong token evidence. This mechanism is demonstrated synthetically; no new suffix boundary movement was claimed for external GTSinger recordings."
+    }
+  ],
+  "productionChanges": [
+    "with_sung_letters: reuse already-computed ordinary/bounded paths to mark unresolved credible disagreements with LetterTimingReviewRequired and ApproximateLetterTiming; preserve word and letter times when evidence insufficient.",
+    "_sung_letter_candidate: retime jointly stale single-token prefix only when ordinary/bounded prefix agree and every moved character improves its own CTC posterior by existing preference .05; preserve other prefix letters, strict multi-token handling, word times, monotonicity and bounds.",
+    "No added CTC/model invocations for diagnostic or new acceptance logic."
+  ],
+  "changedFiles": [
+    "python/backend/ai_worker/ctc.py (with_sung_letters/_sung_letter_candidate only)",
+    "python/tests/test_letter_timing_evidence.py"
+  ],
+  "tests": {
+    "baselineRed": "5 failed,6passed for initial11newcases",
+    "productionFinal": "27passed =13new+14existing sustained-tail cases",
+    "ruff": "passed",
+    "baselineLog": "/tmp/karaoke-sync-v4/letters/red-tests.log",
+    "finalLog": "/tmp/karaoke-sync-v4/letters/production-tests-final.log"
+  },
+  "realEvidence": {
+    "wildwaysOdin": "8.62–9.94, letters[8.62,9.36,9.38,9.40] unchanged; now explicitly approximate/review-required. No independent listened phone truth available.",
+    "gtsingerSuffixAudit": "6 frozen externally-labelled clips: only control0004 вдруг and лист pass sustained-consonant review gate; local ordinary/bounded paths agree and letters remain unchanged.",
+    "primaryExternalPhoneMetrics": "17eligiblewords,77phoneme groups,60internal starts; v3medianabs27ms,max197ms relative to published reference. Reference accuracy unspecified. Use compare_external_phones.py on final prediction-dir before claiming final equality.",
+    "mapping": "Frozen before baseline predictions; нн in анна is one nasal group. Do not invent a boundary between the two н glyphs.",
+    "breathyAnya": "First large extension occurs with_sung_ends raw5.98–6.42→onset5.92–6.42→sung5.92–7.16. Activity100%throughEOF includes weaker/aperiodic events; raw-signal audit is parent/audioagent scope. CTCblank high after6.42 even while annotated vowel continues to6.505, so blank alone cannot define actual release."
+  },
+  "verificationScripts": [
+    "/tmp/karaoke-sync-v4/letters/probe_letter_evidence.py",
+    "/tmp/karaoke-sync-v4/letters/compare_external_phones.py",
+    "/tmp/karaoke-sync-v4/letters/audit_cached_letter_paths.py"
+  ],
+  "artifacts": [
+    "/tmp/karaoke-sync-v4/letters/before-letter-evidence.json",
+    "/tmp/karaoke-sync-v4/letters/external-suffix-candidates.json",
+    "/tmp/karaoke-sync-v4/letters/frozen-phone-mapping.json",
+    "/tmp/karaoke-sync-v4/letters/external-phones-v3.json",
+    "/tmp/karaoke-sync-v4/letters/breathy-anya-signal-statistics.json",
+    "/tmp/karaoke-sync-v4/letters/breathy-anya-token-statistics.json"
+  ],
+  "doNotUseAsFinal": [
+    "prototype_letters.py is scratch-only monkeypatch and repeats CTC for diagnostic instrumentation; production does not.",
+    "diagnostic-only.patch is a discarded proposal subset; parent should package actual final repository diff.",
+    "External reference numbers are not our own listening annotations; suspicious j/n phone labels require audit/exclusion."
+  ]
+}

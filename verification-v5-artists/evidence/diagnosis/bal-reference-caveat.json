@@ -1,0 +1,299 @@
+{
+  "createdUTC": "2026-10-31T20:46:23.967652+00:00",
+  "case": "bal_glissando_0000",
+  "purpose": "Reference-quality caveat from the original acoustic signal. Preserve the frozen reference and all existing evaluation cases; this is not replacement word ground truth.",
+  "scope": {
+    "productionFilesChanged": false,
+    "frozenReferenceChanged": false,
+    "audioChanged": false,
+    "modelsRun": false,
+    "claimedListening": false,
+    "metricsRecomputed": false,
+    "caseExcludedFromMetrics": false,
+    "retainAll39WordOccurrences": true,
+    "candidateDiagnosticsRead": "/tmp/karaoke-v5-artists/diagnosis/bal-joint-onset-candidates.json",
+    "referenceWasFrozenBeforePredictions": true,
+    "thisFollowupWasBlindToCandidateTimings": false
+  },
+  "sources": [
+    {
+      "url": "https://arxiv.org/html/2409.13832v3#S3.SS3",
+      "sections": [
+        "3.2 Recording",
+        "3.3 Annotation",
+        "3.4 Post-Processing"
+      ],
+      "relevance": "The authors describe studio singing without accompaniment, initial MFA alignment, manual correction using listening and spectrograms, and additional sample-based checks. This supports provenance, not error-free or millisecond-certified labels."
+    },
+    {
+      "url": "https://huggingface.co/datasets/GTSinger/GTSinger",
+      "revision": "4426c862beed558b7e1cb8a4dce7e8c0c83bb208",
+      "sourcePath": "Russian/RU-Alto-1/Glissando/Бал/Glissando_Group/0000"
+    }
+  ],
+  "publishedLabels": {
+    "precedingWord": {
+      "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+      "characterCount": 6,
+      "start": 1.721,
+      "end": 2.261
+    },
+    "nonTextRegionBeforeO": {
+      "label": "<AP>",
+      "start": 2.261,
+      "end": 3.391
+    },
+    "o": {
+      "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "characterCount": 1,
+      "excerpt": "о",
+      "phone": "o",
+      "start": 3.391,
+      "end": 3.931
+    },
+    "pokhode": {
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "start": 3.931,
+      "end": 6.151,
+      "phones": [
+        {
+          "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+          "characterCount": 1,
+          "start": 3.931,
+          "end": 3.961
+        },
+        {
+          "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+          "characterCount": 1,
+          "start": 3.961,
+          "end": 3.991
+        },
+        {
+          "textSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+          "characterCount": 1,
+          "start": 3.991,
+          "end": 4.021
+        },
+        {
+          "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+          "characterCount": 1,
+          "start": 4.021,
+          "end": 4.101
+        },
+        {
+          "textSha256": "ba8b9e5fab184c97b3909666ac77b836e62606a003b66f3ba863a74d55d74e16",
+          "characterCount": 2,
+          "start": 4.101,
+          "end": 4.251
+        },
+        {
+          "textSha256": "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea",
+          "characterCount": 1,
+          "start": 4.251,
+          "end": 6.151
+        }
+      ]
+    },
+    "mappingNote": "Frozen phone mapping preserves these published identities and times. JSON/TextGrid agreement establishes data consistency, not independent acoustic accuracy."
+  },
+  "rawObservations": [
+    {
+      "kind": "early_periodic_region_one",
+      "approximateRangeSeconds": [
+        2.9,
+        3.07
+      ],
+      "interpretation": "Strong periodic/harmonic region inside the published non-text <AP> interval. Exact word identity is not independently certified."
+    },
+    {
+      "kind": "early_periodic_region_two",
+      "approximateRangeSeconds": [
+        3.1,
+        3.28
+      ],
+      "interpretation": "A second strong periodic/harmonic region, also inside published <AP>. It is not equivalent to silence or a negligible residual."
+    },
+    {
+      "kind": "weak_or_noisy_transition",
+      "approximateRangeSeconds": [
+        3.29,
+        3.42
+      ],
+      "interpretation": "Weaker/noisier transition before the long harmonic region; compatible with a consonantal transition, without asserting a unique phone from signal alone."
+    },
+    {
+      "kind": "long_harmonic_region",
+      "approximateRangeSeconds": [
+        3.41,
+        4.1
+      ],
+      "interpretation": "A long vowel-like region with changing structure toward its end. It can support a long vocal sound, but not by itself the claim that this sound is the separate word о."
+    },
+    {
+      "kind": "attenuation_and_noisy_transition",
+      "approximateRangeSeconds": [
+        4.1,
+        4.27
+      ],
+      "interpretation": "Attenuation and noisy consonant-like transition before the sustained final vowel-like sound."
+    },
+    {
+      "kind": "final_sustained_vowel_entry",
+      "approximateRangeSeconds": [
+        4.27,
+        4.31
+      ],
+      "interpretation": "Visible entry of the final sustained harmonic region. No new exact phoneme boundary is assigned."
+    }
+  ],
+  "numericSignalMeasurements": {
+    "method": "Original mono PCM24 WAV at 48000 Hz, loaded as int32 and normalized by 2^31. For each reported region, subtract its mean; RMS is sqrt(mean(x^2)). Compute full autocorrelation by FFT, normalize by zero-lag energy, and report the largest value for lags corresponding to 80–500 Hz. This is descriptive periodicity, not an AI model, phone classifier or exact F0/reference-note estimator.",
+    "regions": [
+      {
+        "region": "low_gap",
+        "start": 2.55,
+        "end": 2.8,
+        "rms": 0.002234159890279702,
+        "maxNormalizedAutoCorrelation80to500Hz": 0.18038263851457678,
+        "lagSeconds": 0.002
+      },
+      {
+        "region": "early_periodic_one",
+        "start": 2.92,
+        "end": 3.05,
+        "rms": 0.03381070616546945,
+        "maxNormalizedAutoCorrelation80to500Hz": 0.9481588525634953,
+        "lagSeconds": 0.0038125
+      },
+      {
+        "region": "early_periodic_two",
+        "start": 3.12,
+        "end": 3.25,
+        "rms": 0.042260138515745505,
+        "maxNormalizedAutoCorrelation80to500Hz": 0.9357882965957866,
+        "lagSeconds": 0.0033541666666666668
+      },
+      {
+        "region": "published_o_nucleus",
+        "start": 3.48,
+        "end": 3.85,
+        "rms": 0.042755631795150066,
+        "maxNormalizedAutoCorrelation80to500Hz": 0.8510790753549851,
+        "lagSeconds": 0.0030416666666666665
+      },
+      {
+        "region": "tail_silence_comparison",
+        "start": 6.4,
+        "end": 6.8,
+        "rms": 0.001004180927070784,
+        "maxNormalizedAutoCorrelation80to500Hz": 0.17650682383001992,
+        "lagSeconds": 0.002125
+      }
+    ]
+  },
+  "pairedControlComparison": {
+    "case": "bal_control_0000",
+    "sameSingerAndSongButSeparatePerformance": true,
+    "timeTransferPermitted": false,
+    "forcedDurationTransferPermitted": false,
+    "observedSequence": "Short vowel-like region, another short vowel-like region, a weaker/noisy transition, then a long harmonic vowel-like region occur in the same order in both recordings. Their durations differ.",
+    "controlPublishedLabels": {
+      "separate_o": {
+        "phone": "ɐ",
+        "start": 3.38,
+        "end": 3.51
+      },
+      "pokhodeInitialPhoneStarts": {
+        "p": 3.51,
+        "ɐ": 3.61,
+        "x": 3.78,
+        "o": 3.92
+      },
+      "sustained_o_end": 4.6
+    },
+    "glissandoApproximateCorrespondingAcousticEntries": [
+      2.9,
+      3.1,
+      3.29,
+      3.41
+    ],
+    "inference": "The similar acoustic sequence raises the possibility that the early glissando syllables were included in <AP> and that its later stressed vowel inside походе was labelled as the separate word о. This is a reference-quality hypothesis, not independently certified replacement annotation."
+  },
+  "candidateImplication": {
+    "lateWindowStartSeconds": 3.43,
+    "earlyWindowStartSeconds": 2.92,
+    "precedingRawCtcWordEndSeconds": 2.48,
+    "observableCoverageConcern": "A window starting at 3.43 s skips two strong periodic regions after the preceding raw CTC word ends. Their presence is demonstrated by the raw signal; their exact lexical assignment remains uncertain.",
+    "firstTokenProbabilityEarly": 0.028963137418031693,
+    "firstTokenProbabilityLate": 0.5650272369384766,
+    "pokhodeCtcScoreEarly": 0.544428071805409,
+    "pokhodeCtcScoreLate": 0.19008062401449674,
+    "interpretation": "The better first-token o peak can belong to another occurrence of an o-like vowel inside the following word. A single-token peak or reduced error against this disputed published boundary is insufficient to establish improvement. The later candidate also reduces the following word score in the provided diagnostics.",
+    "parentDecision": "Do not accept the late 3.43 s product change on this evidence."
+  },
+  "conclusion": {
+    "publishedLateBoundariesAcousticallyCertified": false,
+    "suspectedReferenceIssue": true,
+    "newWordGroundTruthAssigned": false,
+    "exactAlternativeOStartSeconds": null,
+    "exactAlternativeOEndSeconds": null,
+    "exactAlternativePokhodeStartSeconds": null,
+    "summary": "The raw signal and paired-control structure cast material doubt on using the published glissando о/походе boundaries as unquestioned targets. Preserve the original reference and all 39 evaluated word occurrences, report original metrics unchanged, and attach this cautious interpretation. Independent phonetic listening/annotation is needed to certify word identities and exact replacement times."
+  },
+  "uncertainty": [
+    "The numerical periodicity confirms structured sound, not a particular phoneme or word.",
+    "The paired performance can corroborate the order of sound types, but cannot supply timestamps for another rendition.",
+    "The follow-up inspected the supplied candidate diagnostics, so its visual judgments are not a newly blinded ground-truth annotation.",
+    "Twenty-five-millisecond spectrogram windows blur short transitions; the ranges above are approximate observations rather than millisecond-certified boundaries.",
+    "A cappella provenance reduces instrumental ambiguity but does not rule out breaths, room sound or untranscribed vocal events."
+  ],
+  "integrity": {
+    "frozenReferencePath": "/tmp/karaoke-v4-new-songs/ru-reference/frozen-reference.json",
+    "frozenReferenceSha256": "ce28ffb769d2c15418c023d71c12e7db4bed448bea594900cc8b56ed3536df7f",
+    "expectedFrozenReferenceSha256": "ce28ffb769d2c15418c023d71c12e7db4bed448bea594900cc8b56ed3536df7f",
+    "phoneMappingPath": "/tmp/karaoke-v4-new-songs/ru-reference/frozen-phone-mapping.json",
+    "phoneMappingSha256": "813655bf5ed8ef32f12a570b95ebe1dfe5852d30173276d7362bc1f25ea996df",
+    "files": [
+      {
+        "kind": "original audio",
+        "path": "/tmp/karaoke-v4-new-songs/ru-reference/data/bal_glissando_0000.wav",
+        "expectedSha256": "4c178b8ff41e77f7457f6ff82971125d0844d29e9dd92423a872c77c7e9bb4e6",
+        "actualSha256": "4c178b8ff41e77f7457f6ff82971125d0844d29e9dd92423a872c77c7e9bb4e6",
+        "matchesFrozen": true
+      },
+      {
+        "kind": "published JSON",
+        "path": "/tmp/karaoke-v4-new-songs/ru-reference/data/bal_glissando_0000.json",
+        "expectedSha256": "bad4de6c80b425e80cbf5c8710c53511a1666f78a685a7f86d6276b2ca40c00b",
+        "actualSha256": "bad4de6c80b425e80cbf5c8710c53511a1666f78a685a7f86d6276b2ca40c00b",
+        "matchesFrozen": true
+      },
+      {
+        "kind": "published TextGrid",
+        "path": "/tmp/karaoke-v4-new-songs/ru-reference/data/bal_glissando_0000.TextGrid",
+        "expectedSha256": "0a1959bdc6efcc83a2b97513c2fa5b602a0b58e1e917a83c54bae34c6c456d9b",
+        "actualSha256": "0a1959bdc6efcc83a2b97513c2fa5b602a0b58e1e917a83c54bae34c6c456d9b",
+        "matchesFrozen": true
+      }
+    ],
+    "frozenReferenceMatchesExpected": true,
+    "pairedControlAudio": {
+      "path": "/tmp/karaoke-v4-new-songs/ru-reference/data/bal_control_0000.wav",
+      "expectedSha256": "81ff873186b134560b909a2258b575d39bbfe197e87e2e1e5240274c7dc12152",
+      "actualSha256": "81ff873186b134560b909a2258b575d39bbfe197e87e2e1e5240274c7dc12152",
+      "matchesFrozen": true
+    }
+  },
+  "figures": [
+    {
+      "path": "/tmp/karaoke-v5-artists/diagnosis/bal-raw-reference-review.png",
+      "sha256": "0531516e87e287d7f82d23ec90f0224eeb62a781e437f08d1bb0ea9b5e1e9753"
+    },
+    {
+      "path": "/tmp/karaoke-v5-artists/diagnosis/bal-paired-raw-reference-review.png",
+      "sha256": "a085a598196989e00f25e127fc73c61bd3365454bc99705ad6dc27540b6eb7aa"
+    }
+  ]
+}

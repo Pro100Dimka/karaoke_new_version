@@ -1,0 +1,7 @@
+{
+  "baselineErrorCount": 60,
+  "currentErrorCount": 60,
+  "addedCategories": [],
+  "removedCategories": [],
+  "normalization": "remove changing source line numbers and numeric size/complexity magnitudes; retain file,function,rule"
+}

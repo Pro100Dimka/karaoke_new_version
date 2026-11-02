@@ -1,0 +1,335 @@
+{
+  "scope": "Newly observed non-boundary IDs from the superseded and final freeze3 gates; paired/historical evidence, no unrelated source fixes.",
+  "pairedRunResults": "/tmp/karaoke-sync-v4/failure-reruns/results.json",
+  "repeatResults": "/tmp/karaoke-sync-v4/failure-reruns/baseline-repeat-results.json",
+  "historicalProof": {
+    "v2Summary": "/tmp/karaoke-sync-v2/final-checks/summary.json",
+    "v3Summary": "/tmp/karaoke-sync-v3/backend-checks/summary.json",
+    "completeSourceMapsEqual": true,
+    "sourceFileCount": 369,
+    "v2SummarySha256": "7ad8412e50fd12d7a52c70aedb5ab8447ad843f4f9ce65652ddfeb8ced8b4e83",
+    "v3SummarySha256": "14ca8dc393ce7966d2c2dbe6de287290351dc4682223c52945c51c4473b1f044",
+    "v2LogSha256": "1d50f93d9e4295ca84881ebe4c8d80edad17a8556bda247669278184ffa09140"
+  },
+  "cases": [
+    {
+      "nodeId": "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+      "exactV3FailureReproducedIndividually": true,
+      "historicalExactFailureOnIdenticalBackendSource": true,
+      "evidence": [
+        {
+          "version": "v3",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 15.81s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/01-v3.log",
+          "logSha256": "252c35b549db9a4e2fec837264fb1c0bfd799d8218a14065feb39ab1b1500ed1",
+          "firstErrorLines": [
+            "_queue.Empty",
+            "AssertionError: Job 264c2c1d-4317-4766-aac9-69b07ef9ade0 did not finish before timeout"
+          ]
+        },
+        {
+          "version": "v4",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 14.93s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/01-v4.log",
+          "logSha256": "b8a0e76ec02cd749820b5afef2aa5ed7f52454d064cd8f51aa8c0443a7cdbc74",
+          "firstErrorLines": [
+            "AssertionError: Job a6d1be95-9b42-42f9-86bf-8444e2487acc did not finish before timeout"
+          ]
+        }
+      ],
+      "interpretation": "Exact failure reproduced on unchanged v3 in ordinary individual execution."
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_recording_name_and_status_are_backend_authoritative",
+      "exactV3FailureReproducedIndividually": true,
+      "historicalExactFailureOnIdenticalBackendSource": true,
+      "evidence": [
+        {
+          "version": "v3",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 5.03s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/02-v3.log",
+          "logSha256": "590a99b7ecb87e861c48fb85ef0402e24d7583fa39b36b48e7acac26c49c24b2",
+          "firstErrorLines": [
+            "AssertionError: assert 'Preparing' == 'Ready'",
+            "E     - Ready",
+            "+ Preparing"
+          ]
+        },
+        {
+          "version": "v4",
+          "exitCode": 0,
+          "summary": "1 passed, 2 warnings in 4.84s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/02-v4.log",
+          "logSha256": "d8573ad3495dba80d2d34b814f29844bdf16d36c0113a9d34291da2732d6c5b0",
+          "firstErrorLines": []
+        }
+      ],
+      "interpretation": "Exact failure reproduced on unchanged v3 in ordinary individual execution."
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_repeated_analysis_requests_share_the_running_job",
+      "exactV3FailureReproducedIndividually": true,
+      "historicalExactFailureOnIdenticalBackendSource": false,
+      "evidence": [
+        {
+          "version": "v3",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 8.70s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/03-v3.log",
+          "logSha256": "24ce44aa258406886708cf66212526a60fe0030498b1572c1190732bfdfa9456",
+          "firstErrorLines": [
+            "assert False",
+            "+  where False = wait(3)",
+            "+    where wait = <threading.Event at 0x7fa8e451e0c0: unset>.wait"
+          ]
+        },
+        {
+          "version": "v4",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 8.10s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/03-v4.log",
+          "logSha256": "876e41a7e7c569814b59f3464a557ee1861cb455df77c3a67b52a9c00e90cf46",
+          "firstErrorLines": [
+            "assert False",
+            "+  where False = wait(3)",
+            "+    where wait = <threading.Event at 0x7f17d3d37f80: unset>.wait"
+          ]
+        }
+      ],
+      "interpretation": "Exact failure reproduced on unchanged v3 in ordinary individual execution."
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+      "exactV3FailureReproducedIndividually": false,
+      "historicalExactFailureOnIdenticalBackendSource": true,
+      "evidence": [
+        {
+          "version": "v3",
+          "exitCode": 0,
+          "summary": "1 passed, 2 warnings in 4.21s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/04-v3.log",
+          "logSha256": "05f0443a15a378d00c382801afe7591e14c3ed080a9bf44070415481a15907e7",
+          "firstErrorLines": []
+        },
+        {
+          "version": "v4",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 3.85s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/04-v4.log",
+          "logSha256": "afe1556ab37b5ac756a934b240e9a8a4e98824718836af5904e6da581e6cc0f0",
+          "firstErrorLines": [
+            "AssertionError: {\"code\":\"StudioMasterUnavailable\",\"message\":\"Recording is not finalized\",\"details\":{},\"requestId\":\"b55b0f58-0477-471e-afe2-429d4d05cfb5\"}",
+            "assert 409 == 202",
+            "+  where 409 = <Response [409 Conflict]>.status_code"
+          ]
+        },
+        {
+          "version": "v3",
+          "exitCode": 0,
+          "summary": "1 passed, 2 warnings in 4.18s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/04-v3-repeat.log",
+          "logSha256": "776db066043973f29c517e9d78f5f20bc06b3995a3cab9efc99ce8d30b2c59be",
+          "firstErrorLines": []
+        }
+      ],
+      "interpretation": "Exact failure preserved in the historical v2 gate, whose complete backend source hash map equals v3."
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[duration]",
+      "exactV3FailureReproducedIndividually": false,
+      "historicalExactFailureOnIdenticalBackendSource": false,
+      "evidence": [
+        {
+          "version": "v3",
+          "exitCode": 0,
+          "summary": "1 passed, 2 warnings in 3.77s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/05-v3.log",
+          "logSha256": "86151376a0eb150a370ec74d9f629b9894459f2455e2ae953cd1ada8dc0f4ad9",
+          "firstErrorLines": []
+        },
+        {
+          "version": "v4",
+          "exitCode": 1,
+          "summary": "1 failed, 2 warnings in 6.75s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/05-v4.log",
+          "logSha256": "675c0f7287e2cfa643e10f5c687c0682ee5588ea5437164a95911c81822bc1d8",
+          "firstErrorLines": [
+            "KeyError: 'jobId'"
+          ]
+        },
+        {
+          "version": "v3",
+          "exitCode": 0,
+          "summary": "1 passed, 2 warnings in 3.77s",
+          "log": "/tmp/karaoke-sync-v4/failure-reruns/05-v3-repeat.log",
+          "logSha256": "86151376a0eb150a370ec74d9f629b9894459f2455e2ae953cd1ada8dc0f4ad9",
+          "firstErrorLines": []
+        }
+      ],
+      "interpretation": "Exact duration parameter passed both isolated v3 runs. The identical function previously failed for effects at the same missing-jobId line, before property_name is read; the prior failure mechanism is established, not an earlier exact duration-node failure."
+    },
+    {
+      "nodeId": "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+      "exactV3FailureReproducedIndividually": false,
+      "historicalExactFailureOnIdenticalBackendSource": false,
+      "historicalExactFailureBeforeV4": true,
+      "historicalFailureMechanism": "missing_analysis_job_id",
+      "evidence": [
+        {
+          "nodeId": "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+          "historicalDirectory": "/tmp/karaoke-sync-v2/baseline-checks",
+          "historicalLogSha256": "3236ea7672a5d471ed5f8a13b40b25746f3c591fd7b7f4eb6aac0fdd8c9315f9",
+          "historicalSummarySha256": "78f111a71a062169e8cdb3878d43916a41e97710a0a9803cd1804a98b3b0e00d",
+          "historicalSourceUnchangedDuringGate": true,
+          "completeBackendSourceMapEqualsV3": false,
+          "historicalSourceFileCount": 366,
+          "v3SourceFileCount": 369,
+          "involvedSourceHashes": {
+            "tests/test_recordings_analysis.py": {
+              "historicalSha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811",
+              "v3Sha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811",
+              "identical": true
+            },
+            "tests/fakes.py": {
+              "historicalSha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4",
+              "v3Sha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4",
+              "identical": true
+            },
+            "tests/helpers.py": {
+              "historicalSha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88",
+              "v3Sha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88",
+              "identical": true
+            },
+            "tests/conftest.py": {
+              "historicalSha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031",
+              "v3Sha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031",
+              "identical": true
+            },
+            "backend/recordings/register_recording.py": {
+              "historicalSha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff",
+              "v3Sha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff",
+              "identical": true
+            },
+            "backend/analysis/start_analysis.py": {
+              "historicalSha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb",
+              "v3Sha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb",
+              "identical": true
+            },
+            "backend/infrastructure/job_executor.py": {
+              "historicalSha256": "1cab054d0565005ec477c0ecab1975da6f7aa2b30fceca5eefa98b1e43d554d7",
+              "v3Sha256": "1cab054d0565005ec477c0ecab1975da6f7aa2b30fceca5eefa98b1e43d554d7",
+              "identical": true
+            }
+          },
+          "traceExcerpt": "tests/test_recordings_analysis.py:330: in test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores\n    job = wait_for_job(client, started.json()[\"jobId\"])\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'",
+          "immediateFailureMechanism": "missing_analysis_job_id",
+          "completedTargetAssertions": false,
+          "limits": "The short traceback does not include the actual HTTP response body. It proves missing jobId before the subsequent separation/pitch or crash-state assertions; preparing-state timing is supported by source analysis but this specific response is not printed."
+        }
+      ],
+      "interpretation": "Exact ID and same KeyError/jobId failure appear in a retained pre-v4 full gate. This is an older source snapshot, not exact v3; all involved test/FakeAI/recording/analysis/job files are identical to v3."
+    },
+    {
+      "nodeId": "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+      "exactV3FailureReproducedIndividually": false,
+      "historicalExactFailureOnIdenticalBackendSource": true,
+      "historicalExactFailureBeforeV4": true,
+      "historicalFailureMechanism": "missing_analysis_job_id",
+      "evidence": [
+        {
+          "nodeId": "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+          "historicalDirectory": "/tmp/karaoke-sync-v2/final-checks",
+          "historicalLogSha256": "1d50f93d9e4295ca84881ebe4c8d80edad17a8556bda247669278184ffa09140",
+          "historicalSummarySha256": "7ad8412e50fd12d7a52c70aedb5ab8447ad843f4f9ce65652ddfeb8ced8b4e83",
+          "historicalSourceUnchangedDuringGate": true,
+          "completeBackendSourceMapEqualsV3": true,
+          "historicalSourceFileCount": 369,
+          "v3SourceFileCount": 369,
+          "involvedSourceHashes": {
+            "tests/test_release_regressions.py": {
+              "historicalSha256": "9ef761becda22d4d7b64612459dd3bb1ebf26884ba4b8526911d96cc4ca1cf1d",
+              "v3Sha256": "9ef761becda22d4d7b64612459dd3bb1ebf26884ba4b8526911d96cc4ca1cf1d",
+              "identical": true
+            },
+            "tests/fakes.py": {
+              "historicalSha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4",
+              "v3Sha256": "1fb60116c24a82e36e80873d5c0094ae47e1d7095c23ed4b9b89ed9ac03b0cd4",
+              "identical": true
+            },
+            "tests/test_recordings_analysis.py": {
+              "historicalSha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811",
+              "v3Sha256": "db4fe37bda582a02feb74dc154d8c455133052cdc6194f24ed09e07047805811",
+              "identical": true
+            },
+            "tests/helpers.py": {
+              "historicalSha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88",
+              "v3Sha256": "a301b8a5912eaaacda19ce2570a404089b2b35a91e7efbcb8698487898525e88",
+              "identical": true
+            },
+            "tests/conftest.py": {
+              "historicalSha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031",
+              "v3Sha256": "4cd713716716e3894e58a1a8e643024c18b0526e76f6dc971d6a8f739c2dd031",
+              "identical": true
+            },
+            "backend/recordings/register_recording.py": {
+              "historicalSha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff",
+              "v3Sha256": "7064c2ef7d266f89402450cee699faff11a019c0d983d149b862e09d157f29ff",
+              "identical": true
+            },
+            "backend/analysis/start_analysis.py": {
+              "historicalSha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb",
+              "v3Sha256": "e79dbeb2a4365e3ab25704cb590de713c0b8771624b665744725daa07ee464eb",
+              "identical": true
+            },
+            "backend/infrastructure/job_executor.py": {
+              "historicalSha256": "1cab054d0565005ec477c0ecab1975da6f7aa2b30fceca5eefa98b1e43d554d7",
+              "v3Sha256": "1cab054d0565005ec477c0ecab1975da6f7aa2b30fceca5eefa98b1e43d554d7",
+              "identical": true
+            }
+          },
+          "traceExcerpt": "tests/test_release_regressions.py:89: in test_an_analysis_that_crashes_is_marked_failed_not_left_running\n    job = wait_for_job(client, started.json()[\"jobId\"])\n                               ^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'",
+          "immediateFailureMechanism": "missing_analysis_job_id",
+          "completedTargetAssertions": false,
+          "limits": "The short traceback does not include the actual HTTP response body. It proves missing jobId before the subsequent separation/pitch or crash-state assertions; preparing-state timing is supported by source analysis but this specific response is not printed."
+        }
+      ],
+      "interpretation": "Exact ID and same KeyError/jobId failure appear in a retained pre-v4 full gate. The complete369-file backend source map equals v3."
+    }
+  ],
+  "callPathEvidence": [
+    {
+      "file": "tests/fakes.py",
+      "function": "FakeAiProvider.align",
+      "finding": "Returns fixed WordTiming(text,0.05,0.95,0.99); does not call ctc.py, speech.py, word_guidance.py or recognition.py."
+    },
+    {
+      "file": "tests/test_recordings_analysis.py",
+      "function": "register_recording",
+      "finding": "Returns response.json immediately after HTTP201; does not wait for fileStatus Ready."
+    },
+    {
+      "file": "backend/recordings/register_recording.py",
+      "function": "RegisterRecording.execute/_schedule/_prepare",
+      "finding": "Marks Preparing, schedules RECORDING_PREPARATION and returns; the asynchronous worker later sets Ready."
+    },
+    {
+      "file": "backend/recordings/start_studio_master.py",
+      "function": "_recording",
+      "finding": "Rejects any file_status other than Ready with StudioMasterUnavailable/409."
+    },
+    {
+      "file": "backend/analysis/start_analysis.py",
+      "function": "_inputs",
+      "finding": "Rejects Preparing/PreparationFailed with RecordingPreparing/409 before pitch extraction."
+    }
+  ],
+  "limits": [
+    "The exact [duration] v3 failure was not reproduced in two individual runs; the existing shared failure occurs before its parameter-dependent duration assertion.",
+    "A package job timing out does not establish the complete reason its background work exceeded10s.",
+    "This evidence does not replace the final complete backend gate."
+  ],
+  "finalFreeze3HistoricalEvidence": "/tmp/karaoke-sync-v4/failure-reruns/freeze3-historical-analysis-failures.json"
+}

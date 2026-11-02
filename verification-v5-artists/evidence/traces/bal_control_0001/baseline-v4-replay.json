@@ -1,0 +1,2252 @@
+{
+  "sourceTraceSha256": "88ad5ce031d43f536cb6f458cdb73d13257383fc8f520adcf80524f91687a7d1",
+  "case": "bal_control_0001",
+  "events": [
+    {
+      "sequence": 1,
+      "stage": "speech.read_mono",
+      "elapsedSeconds": 0.14621003400316113
+    },
+    {
+      "stage": "alignment_evidence",
+      "elapsedSeconds": 0.03499781099890242
+    },
+    {
+      "sequence": 2,
+      "stage": "speech.align_words",
+      "elapsedSeconds": 3.1348431699989305,
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 3,
+      "stage": "speech.singing_frames",
+      "elapsedSeconds": 0.005330185998900561
+    },
+    {
+      "sequence": 4,
+      "stage": "speech.voiced_frames",
+      "elapsedSeconds": 0.0016914689986151643
+    },
+    {
+      "sequence": 5,
+      "stage": "speech.vocal_onsets",
+      "elapsedSeconds": 0.001349180001852801
+    },
+    {
+      "sequence": 7,
+      "stage": "ctc._align_window",
+      "elapsedSeconds": 0.003717694999068044,
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 8,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 9.171300189336762e-05,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 6,
+      "stage": "speech.align_guided",
+      "elapsedSeconds": 0.0066832299999077804,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 10,
+      "stage": "ctc._align_window",
+      "elapsedSeconds": 0.0053122369972697925,
+      "outputWords": [
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 11,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 0.00011411000014049932,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 12,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 0.0005884999991394579,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 13,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 4.182199700153433e-05,
+      "inputWords": [
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 14,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 3.3526001061545685e-05,
+      "inputWords": [
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 15,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 4.418699973030016e-05,
+      "inputWords": [
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 9,
+      "stage": "speech.with_word_guidance",
+      "elapsedSeconds": 0.01845370100272703,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 16,
+      "stage": "speech.with_voice_onsets",
+      "elapsedSeconds": 0.00024490600117133,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.14,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.06,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 3.24,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.36,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.14,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 17,
+      "stage": "speech.with_sung_ends",
+      "elapsedSeconds": 0.0009261169980163686,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.14,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.06,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 3.24,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.36,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.14,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 18,
+      "stage": "speech.ordered",
+      "elapsedSeconds": 7.861199992476031e-05,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 20,
+      "stage": "ctc._align_window",
+      "elapsedSeconds": 0.0069954660029907245,
+      "outputWords": [
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.359999999999999,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 21,
+      "stage": "ctc._align_window",
+      "elapsedSeconds": 0.0013571380004577804,
+      "outputWords": [
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 19,
+      "stage": "speech.with_word_guidance",
+      "elapsedSeconds": 0.013689927000086755,
+      "reviewed": [
+        2,
+        4
+      ],
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.04,
+          "end": 0.14,
+          "letters": [
+            0.04,
+            0.12
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.36,
+          "end": 2.06,
+          "letters": [
+            0.36,
+            0.46,
+            0.58,
+            0.74,
+            0.84,
+            1.02,
+            1.12,
+            1.22,
+            1.36,
+            1.52,
+            1.64,
+            1.92
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.66,
+          "end": 3.24,
+          "letters": [
+            2.66,
+            2.76,
+            2.92,
+            3.1,
+            3.22
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.16,
+          "end": 7.36,
+          "letters": [
+            6.16,
+            6.26,
+            6.46,
+            6.58,
+            6.68,
+            7.08,
+            7.34
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.44,
+          "end": 8.14,
+          "letters": [
+            7.44,
+            7.64,
+            7.8,
+            7.92,
+            8.12
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 22,
+      "stage": "speech.with_sung_letters",
+      "elapsedSeconds": 2.247399970656261e-05,
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 23,
+      "stage": "speech.alignment_payload",
+      "elapsedSeconds": 3.428399941185489e-05,
+      "reviewed": [
+        2,
+        4
+      ],
+      "inputWords": [
+        {
+          "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+          "characterCount": 2,
+          "start": 0.02,
+          "end": 0.34,
+          "letters": [
+            0.02,
+            0.1
+          ],
+          "score": 0.9761040508747101,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+          "characterCount": 12,
+          "start": 0.34,
+          "end": 2.64,
+          "letters": [
+            0.34,
+            0.44,
+            0.56,
+            0.72,
+            0.82,
+            1.0,
+            1.1,
+            1.2,
+            1.34,
+            1.5,
+            1.62,
+            1.9
+          ],
+          "score": 0.5477620154332337,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+          "characterCount": 5,
+          "start": 2.64,
+          "end": 5.25,
+          "letters": [
+            2.64,
+            2.74,
+            2.9,
+            3.08,
+            3.2
+          ],
+          "score": 0.5090012036031112,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+          "characterCount": 7,
+          "start": 6.14,
+          "end": 7.42,
+          "letters": [
+            6.14,
+            6.24,
+            6.44,
+            6.56,
+            6.66,
+            7.06,
+            7.32
+          ],
+          "score": 0.6186020803725114,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+          "characterCount": 5,
+          "start": 7.42,
+          "end": 8.34,
+          "letters": [
+            7.42,
+            7.62,
+            7.78,
+            7.9,
+            8.1
+          ],
+          "score": 0.6618922472000122,
+          "diagnostics": []
+        }
+      ]
+    }
+  ]
+}

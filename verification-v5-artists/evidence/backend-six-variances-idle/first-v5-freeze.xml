@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="6" time="22.912" timestamp="2026-10-31T21:47:32.941989+01:00" hostname="cd9b16f8b000"><testcase classname="tests.test_recordings_analysis" name="test_recording_name_and_status_are_backend_authoritative" time="2.256" /><testcase classname="tests.test_recordings_analysis" name="test_repeated_analysis_requests_share_the_running_job" time="3.751"><failure message="assert False&#10; +  where False = wait(3)&#10; +    where wait = &lt;threading.Event at 0x7fd52c9fbc20: unset&gt;.wait">tests/test_recordings_analysis.py:373: in test_repeated_analysis_requests_share_the_running_job
+    assert entered.wait(3)
+E   assert False
+E    +  where False = wait(3)
+E    +    where wait = &lt;threading.Event at 0x7fd52c9fbc20: unset&gt;.wait</failure></testcase><testcase classname="tests.test_recordings_analysis" name="test_studio_master_creates_a_separate_adaptively_balanced_recording" time="0.933" /><testcase classname="tests.test_release_regressions" name="test_an_analysis_that_crashes_is_marked_failed_not_left_running" time="0.715"><failure message="KeyError: 'jobId'">tests/test_release_regressions.py:89: in test_an_analysis_that_crashes_is_marked_failed_not_left_running
+    job = wait_for_job(client, started.json()["jobId"])
+                               ^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'jobId'</failure></testcase><testcase classname="tests.test_packages_e2e" name="test_exported_repetitive_audio_obeys_import_compression_policy" time="14.037" /><testcase classname="tests.test_recordings_analysis" name="test_old_analysis_algorithm_is_stale_without_deleting_its_history" time="0.833" /></testsuite></testsuites>

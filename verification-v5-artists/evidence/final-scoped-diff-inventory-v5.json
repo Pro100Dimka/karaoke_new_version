@@ -1,0 +1,168 @@
+{
+  "createdUtc": "2026-10-31T20:49:41.977065+00:00",
+  "scope": "Final freeze850eb1... relative immutable v4: all changed Python files plus regenerated Kaggle notebook. Existing test expectations remain unchanged.",
+  "freezeManifestSha256": "850eb1f660dcca0bafb3e3390d34ec4aef17f8ce42607a1861d22f754897a68d",
+  "pythonFiles": [
+    {
+      "file": "python/backend/ai_worker/ctc.py",
+      "status": "modified",
+      "addedLines": 40,
+      "removedLines": 21,
+      "beforeSha256": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+      "afterSha256": "bcf625390de5148fc8d38143edcf8c10218b5b108786234df28748c085620bec",
+      "modifiedFunctions": [
+        "with_voice_onsets"
+      ],
+      "addedFunctions": [
+        "_voice_entries"
+      ],
+      "removedFunctions": [],
+      "newTests": []
+    },
+    {
+      "file": "python/backend/ai_worker/word_guidance.py",
+      "status": "modified",
+      "addedLines": 118,
+      "removedLines": 2,
+      "beforeSha256": "511069fee53fb76cbfde86236757b47a490ad5d66e9b51cc6abaaa0725e155f4",
+      "afterSha256": "e8fde00e4f3f9ce74ae4ffb37199939ed1f9e70703834c50bcff7ebcfdd28ca2",
+      "modifiedFunctions": [
+        "_candidates",
+        "_review_candidates",
+        "_reviewed_words",
+        "_supported_review"
+      ],
+      "addedFunctions": [
+        "_active_core_candidates",
+        "_active_replacement",
+        "_active_review_candidates",
+        "_inactive_core",
+        "_review_entries"
+      ],
+      "removedFunctions": [],
+      "newTests": []
+    },
+    {
+      "file": "python/tests/test_confirmed_voice_onsets.py",
+      "status": "added",
+      "addedLines": 67,
+      "removedLines": 0,
+      "beforeSha256": null,
+      "afterSha256": "b80c38b7f4053b3eb9f07f1f5ef2def5f24d46df78ce6823b299433ff6d4090b",
+      "modifiedFunctions": [],
+      "addedFunctions": [
+        "_activity",
+        "test_a_local_voice_entry_survives_a_shorter_ctc_pause",
+        "test_a_louder_nasal_entry_cannot_erase_the_recognized_quiet_fricative",
+        "test_a_recovered_acoustic_entry_does_not_inherit_an_unrelated_phrase_lag"
+      ],
+      "removedFunctions": [],
+      "newTests": [
+        {
+          "name": "test_a_local_voice_entry_survives_a_shorter_ctc_pause",
+          "parameterizedCases": 1
+        },
+        {
+          "name": "test_a_louder_nasal_entry_cannot_erase_the_recognized_quiet_fricative",
+          "parameterizedCases": 1
+        },
+        {
+          "name": "test_a_recovered_acoustic_entry_does_not_inherit_an_unrelated_phrase_lag",
+          "parameterizedCases": 1
+        }
+      ]
+    },
+    {
+      "file": "python/tests/test_guidance_acoustic_fallback.py",
+      "status": "added",
+      "addedLines": 106,
+      "removedLines": 0,
+      "beforeSha256": null,
+      "afterSha256": "b1644d31f23ecf9a40b27eba724434f29bd8e27ba055edf65640a2197f903dc5",
+      "modifiedFunctions": [],
+      "addedFunctions": [
+        "choose",
+        "competing_cores",
+        "test_a_rejected_ctc_alternative_does_not_remove_the_only_usable_fallback",
+        "test_coarse_asr_end_cannot_replace_an_admissible_acoustic_suffix_with_even_spacing",
+        "test_failed_ctc_retains_an_explicit_zero_confidence_fallback"
+      ],
+      "removedFunctions": [],
+      "newTests": [
+        {
+          "name": "test_coarse_asr_end_cannot_replace_an_admissible_acoustic_suffix_with_even_spacing",
+          "parameterizedCases": 1
+        },
+        {
+          "name": "test_failed_ctc_retains_an_explicit_zero_confidence_fallback",
+          "parameterizedCases": 1
+        },
+        {
+          "name": "test_a_rejected_ctc_alternative_does_not_remove_the_only_usable_fallback",
+          "parameterizedCases": 1
+        }
+      ]
+    },
+    {
+      "file": "python/tests/test_inactive_core_review.py",
+      "status": "added",
+      "addedLines": 180,
+      "removedLines": 0,
+      "beforeSha256": null,
+      "afterSha256": "b7a04e24cde60cbddb46f4a58e269fa70ff5ba54ed41a46716da0d23b58d7457",
+      "modifiedFunctions": [],
+      "addedFunctions": [
+        "_case",
+        "_guide",
+        "_word",
+        "test_coarse_asr_exception_requires_both_missing_old_activity_and_supported_candidate",
+        "test_coarse_asr_start_does_not_veto_strong_active_replacement_of_inactive_core",
+        "test_inactive_later_core_uses_existing_onset_without_retiming_context",
+        "test_local_alternative_does_not_discard_supported_or_unrecoverable_core",
+        "test_rejected_stronger_onset_cannot_hide_an_acceptable_local_candidate"
+      ],
+      "removedFunctions": [],
+      "newTests": [
+        {
+          "name": "test_inactive_later_core_uses_existing_onset_without_retiming_context",
+          "parameterizedCases": 2
+        },
+        {
+          "name": "test_local_alternative_does_not_discard_supported_or_unrecoverable_core",
+          "parameterizedCases": 4
+        },
+        {
+          "name": "test_coarse_asr_start_does_not_veto_strong_active_replacement_of_inactive_core",
+          "parameterizedCases": 1
+        },
+        {
+          "name": "test_rejected_stronger_onset_cannot_hide_an_acceptable_local_candidate",
+          "parameterizedCases": 2
+        },
+        {
+          "name": "test_coarse_asr_exception_requires_both_missing_old_activity_and_supported_candidate",
+          "parameterizedCases": 5
+        }
+      ]
+    }
+  ],
+  "notebook": {
+    "file": "kaggle/ad_voice_p100.ipynb",
+    "type": "Regenerated existing worker bundle using kaggle/build_notebook.py",
+    "beforeSha256": "9760f481dcf577e0a5ca43f9d878e3155ac6f53d616eafb8b8f6f6b09ee2d03f",
+    "afterSha256": "285e80ce71a867ada5fb1e9a26914226df76fbcec084e8c40f38628671e5aaf7",
+    "beforeRevision": "d52b5be2b81a4d6849018abb28c422a8effcef68d70608d77ddaf5fa4223de45",
+    "afterRevision": "8bf9eb09f017a92eee433f0f153d122f7132e3a29175920bcbd28f6792f790e5",
+    "assetCount": 38,
+    "changedEmbeddedFiles": [
+      "python/backend/ai_worker/ctc.py",
+      "python/backend/ai_worker/word_guidance.py"
+    ],
+    "allEmbeddedFilesEqualCurrentSource": true
+  },
+  "productionAddedLines": 158,
+  "productionRemovedLines": 23,
+  "testAddedLines": 353,
+  "newParameterizedTestCases": 20,
+  "changedExistingTestFiles": []
+}

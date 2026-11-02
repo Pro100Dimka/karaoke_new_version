@@ -4,6 +4,7 @@ import difflib
 import threading
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import whisper
 
 from backend.ai.catalog import SPEECH_MODEL
 from backend.lyrics.discovery import performed_phrases
+from backend.moment_spreading import is_tied_with
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.ctc import (
     AlignedWord,
@@ -35,7 +37,13 @@ from backend.ai_worker.runtime import (
     cpu_threads,
     device,
 )
-from backend.ai_worker.timing import singing_frames, vocal_onsets, voiced_frames
+from backend.ai_worker.timing import (
+    audible_frames,
+    harmonic_evidence,
+    singing_frames,
+    vocal_onsets,
+    voiced_frames,
+)
 from backend.ai_worker.recognition import (
     HeardWord,
     alignment_payload,
@@ -602,23 +610,35 @@ def align(
             anchors={index: interval[0] for index, interval in supported.items()},
         )
     )
-    started = with_voice_onsets(guided, audio)
-    timed = ordered(with_sung_ends(started, audio, backing, activity))
+    acoustic = harmonic_evidence(audio, _SAMPLE_RATE, _HOP)
+    harmonics = acoustic if backing is not None else None
+    audible = audible_frames(audio, _HOP)
+    started = with_voice_onsets(guided, audio, voiced)
+    timed = ordered(
+        with_sung_ends(started, audio, backing, activity, harmonics, audible, acoustic[1])
+    )
     intervals = independent_timings(words, [heard, *views], timed) | supported
     reviewed = rate_review_indices(timed, lyrics, heard=intervals, activity=activity)
     reviewed |= boundary_conflicts(guided)
     recovered: frozenset[int] = frozenset()
     if reviewed:
         cores = guide(guided, heard=intervals, voiced=activity, reviewed=frozenset(reviewed))
-        adjusted = with_voice_onsets(cores, audio)
-        # Recalibrating one onset must not shift distant unchanged cores. Keep
-        # jointly accepted neighbours, then recompute the affected preceding ends.
-        local = [word if cores[i] != guided[i] else started[i] for i, word in enumerate(adjusted)]
-        repaired = ordered(with_sung_ends(local, audio, backing, activity))
-        # Guidance has already compared the local acoustic evidence. Commit the
-        # accepted sequence together: restoring its old neighbour would cut it again.
-        recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
-        timed = repaired
+        if cores != guided:
+            adjusted = with_voice_onsets(cores, audio, voiced)
+            # Recalibrating one onset must not shift distant unchanged cores. Keep
+            # jointly accepted neighbours, then recompute the affected preceding ends.
+            local = [
+                _preserved_onset_letters(guided[i], cores[i], started[i], word)
+                if cores[i] != guided[i]
+                else started[i]
+                for i, word in enumerate(adjusted)
+            ]
+            repaired = ordered(
+                with_sung_ends(local, audio, backing, activity, harmonics, audible, acoustic[1])
+            )
+            # Commit the accepted sequence together: restoring its old neighbour cuts it again.
+            recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
+            timed = repaired
     timed = with_sung_letters(timed, scores, step, activity, intervals)
     return alignment_payload(
         timed,
@@ -626,3 +646,46 @@ def align(
         recovered=recovered,
         reviewed=frozenset(rate_review_indices(timed, lyrics, heard=intervals, activity=activity)),
     )
+
+
+def _preserved_onset_letters(
+    before: AlignedWord, core: AlignedWord, started: AlignedWord, adjusted: AlignedWord
+) -> AlignedWord:
+    """A cropped opening does not measure a new lag for unchanged interior CTC anchors."""
+    if "OnsetRecovered" not in core.diagnostics or before.end != core.end:
+        return adjusted
+    if len({len(word.letters) for word in (before, core, started, adjusted)}) != 1:
+        return adjusted
+    letters = list(adjusted.letters)
+    for index in range(1, len(letters)):
+        if (
+            before.letters[index] == core.letters[index]
+            and adjusted.start < started.letters[index] < adjusted.end
+        ):
+            letters[index] = started.letters[index]
+    if tuple(letters) == adjusted.letters:
+        return adjusted
+    flags = tuple(
+        dict.fromkeys(
+            (*adjusted.diagnostics, "ApproximateLetterTiming", "LetterTimingReviewRequired")
+        )
+    )
+    if not _compatible_letter_anchors(letters, started.letters, adjusted.letters):
+        return replace(adjusted, diagnostics=flags)
+    return replace(adjusted, letters=tuple(letters), diagnostics=flags)
+
+
+def _compatible_letter_anchors(
+    letters: Sequence[float], previous: Sequence[float], candidate: Sequence[float]
+) -> bool:
+    """Keep existing silent-character ties, but never create a crossing or a new tied run."""
+    for index, (first, second) in enumerate(zip(letters, letters[1:])):
+        if first > second:
+            return False
+        if (
+            is_tied_with(second, first)
+            and not is_tied_with(previous[index + 1], previous[index])
+            and not is_tied_with(candidate[index + 1], candidate[index])
+        ):
+            return False
+    return True

@@ -1,0 +1,2463 @@
+[
+  {
+    "sequence": 1,
+    "stage": "speech.read_mono",
+    "startedOffsetSeconds": 0.0010728130000643432,
+    "elapsedSeconds": 0.19512550799845485
+  },
+  {
+    "stage": "alignment_evidence",
+    "scores": {
+      "shape": [
+        358,
+        28
+      ],
+      "dtype": "float32",
+      "sha256": "ba09a6f369c986ce2406973685fe2ddca2993ea8e267863f9aa865cc94f81318"
+    },
+    "frameSeconds": 0.02,
+    "elapsedSeconds": 0.03644192199863028,
+    "heardWordCount": 6,
+    "independentViewWordCounts": [
+      6
+    ],
+    "distributionRedaction": "Independent ASR text omitted; counts and score-array fingerprint retained."
+  },
+  {
+    "sequence": 2,
+    "stage": "speech.align_words",
+    "startedOffsetSeconds": 0.23459852400264936,
+    "elapsedSeconds": 3.861050842999248,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.5200000000000005,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 3,
+    "stage": "speech.singing_frames",
+    "startedOffsetSeconds": 4.096970449001674,
+    "elapsedSeconds": 0.0025104740016104188,
+    "outputArray": {
+      "shape": [
+        717
+      ],
+      "dtype": "bool",
+      "sha256": "9cc3d78b9c9aa61088c310fac6abf59e0ea5e53d28284332e4c9d05020565ca9"
+    }
+  },
+  {
+    "sequence": 4,
+    "stage": "speech.voiced_frames",
+    "startedOffsetSeconds": 4.137214226000651,
+    "elapsedSeconds": 0.001015287998598069,
+    "outputArray": {
+      "shape": [
+        717
+      ],
+      "dtype": "bool",
+      "sha256": "9cc3d78b9c9aa61088c310fac6abf59e0ea5e53d28284332e4c9d05020565ca9"
+    }
+  },
+  {
+    "sequence": 5,
+    "stage": "speech.vocal_onsets",
+    "startedOffsetSeconds": 4.178981968001608,
+    "elapsedSeconds": 0.0016381250025006011,
+    "outputArray": {
+      "shape": [
+        10
+      ],
+      "dtype": "float64",
+      "sha256": "4672aec84e9ce448b7189aebb1e5d101b78a392c6cebd500a4d6543e8e3e8819"
+    }
+  },
+  {
+    "sequence": 7,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 4.216294353002013,
+    "elapsedSeconds": 0.005196459998842329,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.5200000000000005,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 8,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.2223910780012375,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.5200000000000005,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00030310399961308576,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 6,
+    "stage": "speech.align_guided",
+    "startedOffsetSeconds": 4.216158805000305,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.5200000000000005,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.007566855998447863,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 10,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.2272990599994955,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0001477289988542907,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 11,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.229187673001434,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.93109985452611e-05,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 12,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.230619410001964,
+    "inputWords": [
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 6.69190012558829e-05,
+    "outputWords": [
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 13,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.2320877610000025,
+    "inputWords": [
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 6.718499935232103e-05,
+    "outputWords": [
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 14,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.233406745999673,
+    "inputWords": [
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.139199907309376e-05,
+    "outputWords": [
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 15,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 4.23482376299944,
+    "inputWords": [
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 2.9236001864774153e-05,
+    "outputWords": [
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 9,
+    "stage": "speech.with_word_guidance",
+    "startedOffsetSeconds": 4.226252144002501,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.009687587000371423,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 16,
+    "stage": "speech.with_voice_onsets",
+    "startedOffsetSeconds": 5.183123287999479,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0004563530019368045,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.04,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.34,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.18,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.24,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.38,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.42,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 17,
+    "stage": "speech.with_sung_ends",
+    "startedOffsetSeconds": 5.186060292002367,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.04,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.34,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.18,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.24,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.38,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.42,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0012340819994278718,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 18,
+    "stage": "speech.ordered",
+    "startedOffsetSeconds": 5.1894659339996,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0001025140009005554,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 20,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 5.193841656000586,
+    "elapsedSeconds": 0.003539751000062097,
+    "outputWords": [
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.380000000000001,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 19,
+    "stage": "speech.with_word_guidance",
+    "startedOffsetSeconds": 5.1934012310011894,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "reviewed": [
+      4
+    ],
+    "elapsedSeconds": 0.007696698001382174,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.02,
+        "end": 0.04,
+        "letters": [
+          0.02
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.1,
+        "end": 1.34,
+        "letters": [
+          0.1,
+          0.18,
+          0.32,
+          0.56,
+          0.68,
+          0.76,
+          1.06,
+          1.2,
+          1.32
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.5,
+        "end": 2.18,
+        "letters": [
+          1.5,
+          1.6,
+          1.74,
+          1.92,
+          2.16
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.18,
+        "end": 4.24,
+        "letters": [
+          3.18,
+          3.3,
+          3.66,
+          3.74,
+          3.76,
+          4.1
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.52,
+        "end": 5.38,
+        "letters": [
+          4.52,
+          4.68,
+          4.92,
+          5.02,
+          5.16,
+          5.26,
+          5.36
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.98,
+        "end": 6.42,
+        "letters": [
+          5.98,
+          6.28,
+          6.34
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 21,
+    "stage": "speech.with_sung_letters",
+    "startedOffsetSeconds": 5.2044008420016326,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00020102100097574294,
+    "outputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 22,
+    "stage": "speech.alignment_payload",
+    "startedOffsetSeconds": 5.2086471670008905,
+    "inputWords": [
+      {
+        "text": "в",
+        "start": 0.01,
+        "end": 0.09,
+        "letters": [
+          0.01
+        ],
+        "score": 0.22764845192432404,
+        "diagnostics": []
+      },
+      {
+        "text": "блестящей",
+        "start": 0.09,
+        "end": 1.49,
+        "letters": [
+          0.09,
+          0.17,
+          0.31,
+          0.55,
+          0.67,
+          0.75,
+          1.05,
+          1.19,
+          1.31
+        ],
+        "score": 0.40711046303980625,
+        "diagnostics": []
+      },
+      {
+        "text": "толпе",
+        "start": 1.49,
+        "end": 2.33,
+        "letters": [
+          1.49,
+          1.59,
+          1.73,
+          1.91,
+          2.15
+        ],
+        "score": 0.2640996851027012,
+        "diagnostics": []
+      },
+      {
+        "text": "бедная",
+        "start": 3.12,
+        "end": 4.46,
+        "letters": [
+          3.12,
+          3.24,
+          3.6,
+          3.68,
+          3.7,
+          4.04
+        ],
+        "score": 0.679956097574177,
+        "diagnostics": []
+      },
+      {
+        "text": "девочка",
+        "start": 4.46,
+        "end": 5.59,
+        "letters": [
+          4.46,
+          4.62,
+          4.86,
+          4.96,
+          5.1,
+          5.2,
+          5.3
+        ],
+        "score": 0.698884419281967,
+        "diagnostics": []
+      },
+      {
+        "text": "аня",
+        "start": 5.92,
+        "end": 6.57,
+        "letters": [
+          5.92,
+          6.22,
+          6.28
+        ],
+        "score": 0.8922384828329086,
+        "diagnostics": []
+      }
+    ],
+    "reviewed": [
+      4
+    ],
+    "elapsedSeconds": 3.61400016117841e-05,
+    "payload": {
+      "words": [
+        {
+          "text": "в",
+          "start": 0.01,
+          "end": 0.09,
+          "confidence": 0.22764845192432404,
+          "letters": [
+            0.01
+          ],
+          "diagnostics": [
+            "RecognizedWord"
+          ]
+        },
+        {
+          "text": "блестящей",
+          "start": 0.09,
+          "end": 1.49,
+          "confidence": 0.40711046303980625,
+          "letters": [
+            0.09,
+            0.17,
+            0.31,
+            0.55,
+            0.67,
+            0.75,
+            1.05,
+            1.19,
+            1.31
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "толпе",
+          "start": 1.49,
+          "end": 2.33,
+          "confidence": 0.2640996851027012,
+          "letters": [
+            1.49,
+            1.59,
+            1.73,
+            1.91,
+            2.15
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "бедная",
+          "start": 3.12,
+          "end": 4.46,
+          "confidence": 0.679956097574177,
+          "letters": [
+            3.12,
+            3.24,
+            3.6,
+            3.68,
+            3.7,
+            4.04
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "девочка",
+          "start": 4.46,
+          "end": 5.59,
+          "confidence": 0.698884419281967,
+          "letters": [
+            4.46,
+            4.62,
+            4.86,
+            4.96,
+            5.1,
+            5.2,
+            5.3
+          ],
+          "diagnostics": [
+            "TimingReviewRequired",
+            "RecognizedWord"
+          ]
+        },
+        {
+          "text": "аня",
+          "start": 5.92,
+          "end": 6.57,
+          "confidence": 0.8922384828329086,
+          "letters": [
+            5.92,
+            6.22,
+            6.28
+          ],
+          "diagnostics": [
+            "RecognizedWord"
+          ]
+        }
+      ]
+    }
+  }
+]

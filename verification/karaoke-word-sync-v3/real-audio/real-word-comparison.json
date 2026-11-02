@@ -1,0 +1,3314 @@
+{
+  "scope": "Factual retained real-excerpt outputs, with explicit absence of word-boundary ground truth.",
+  "notAllRowsAreConfirmedErrors": true,
+  "inputs": {
+    "v1Clean": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/odin/baseline-v1-clean-paired.json",
+      "sha256": "9e8daae33af887ed3cae0ee3baae53b7b0112d426e4a04de2f4da917e1d957c2"
+    },
+    "v2Clean": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/odin/production-clean-paired.json",
+      "sha256": "0cb73ea611597944a4507645134557a2e22a1cf7ee00893d037c130fc2350b58"
+    },
+    "v1Performance": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/performance/v1.json",
+      "sha256": "13d7c493caf1d95faa2053fb6c7d08a65671c4de8539c47ae0d6e28c52623395"
+    },
+    "v2Performance": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/performance/final.json",
+      "sha256": "57cbf019d6de6f0554063f076abe777971167e22a151a14743c587a28c162fe7"
+    },
+    "v1SadSvit": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/real-audio/sadvit-baseline-v1.json",
+      "sha256": "ca16a462bcec4862195a754903cd79e7f3e9aa442afaf9632b548cde78b2c28c"
+    },
+    "v2SadSvit": {
+      "path": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/real-audio/sadvit-current-final.json",
+      "sha256": "38067c7d268556a69cc994f5c060ef4ebe7c5a5f8064e05d2e2b71854c58217d"
+    },
+    "finalClean": {
+      "path": "/tmp/karaoke-sync-v3/real-audio/final-clean-paired.json",
+      "sha256": "db9ed695664e1239d212e608347a96b7086d0c00d856f8a1b5f5ee8877944844"
+    },
+    "finalPerformance": {
+      "path": "/tmp/karaoke-sync-v3/performance/final.json",
+      "sha256": "44ac3659edbea5bc2c2275525b56758c4c4e78f5746259f8f7ccbeeae0a85ada"
+    },
+    "finalSadSvit": {
+      "path": "/tmp/karaoke-sync-v3/real-audio/final-sadvit.json",
+      "sha256": "dd326c48a0b62ff366a0af9c740b34aaa5f619d73078a51ab38973eaf784ef29"
+    }
+  },
+  "sourceInformation": {
+    "clean_entry": {
+      "song": "Wildways fixture (full source title not retained)",
+      "language": "Russian",
+      "timebase": "seconds from the 17-second stored excerpt start",
+      "waveformAndScoresPaired": true,
+      "inputs": {
+        "vocalSha256": "b723fa7903c3a68d27e8def6fea9879b78ffe38e769701ce5af7778cf43f7a2c",
+        "instrumentalSha256": "b74f233de7754a72fb63283ce72cf1e42c118bb423511c58ff003666b942392d",
+        "scoresSha256": "a39795c089c7442493f24357fa4c0fcb2f21e36861a0e96b8c4101291e38f4f2",
+        "duration": 17.0,
+        "hintsDerivedFrom": "existing clean_entry_metadata.windows heard_start and text ranges",
+        "hints": [
+          {
+            "start": 1.3400000000000034,
+            "text": "Дома было бы намного легче"
+          },
+          {
+            "start": 5.859999999999999,
+            "text": "Но за столом я один"
+          },
+          {
+            "start": 9.290000000000006,
+            "text": "23 этаж, будто новый рассказ"
+          }
+        ],
+        "localAsrProvenance": "existing clean_entry_metadata.recognized; treated as local contextual output, not asserted independent unprompted ASR"
+      },
+      "freshAiInference": false,
+      "scope": "speech.align using retained real CTC/ASR and actual waveform postprocessing"
+    },
+    "reply": {
+      "song": "Wildways fixture (full source title not retained)",
+      "language": "Russian",
+      "timebase": "seconds from the 40-second stored excerpt start; original offset110s",
+      "waveformAndScoresPaired": true,
+      "inputs": {
+        "vocalSha256": "1195cd7eb15151535f4a1291b3218e3c22bd8a5539a789e685568d93f7e6c9c3",
+        "instrumentalSha256": "bd3583dc8f7471f3181330142e61001937a6f692ee698c98cbf6699b697d6bd1",
+        "emissionsSha256": "d50c2f32d04d7cb3b731d899773f6902e125858827fa5f3533b8557628b6efcf"
+      },
+      "freshAiInference": false,
+      "scope": "speech.align with cached CTC/independent ASR/singing mask; no additional local ASR output available"
+    },
+    "sadvit": {
+      "song": "SadSvit — Небо",
+      "language": "Ukrainian",
+      "timebase": "absolute seconds in source song",
+      "freshAiInference": false,
+      "scope": "phrase ends: with_sung_ends from retained cores; outro: align_words + with_sung_ends"
+    }
+  },
+  "rows": [
+    {
+      "source": "clean_entry",
+      "wordIndex": 0,
+      "text": "Дома",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 1.3,
+        "end": 1.88,
+        "durationMs": 580.0,
+        "letters": [
+          1.3,
+          1.4,
+          1.7,
+          1.84
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          300.0,
+          140.0,
+          40.0
+        ],
+        "confidence": 0.06777564669027925,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 1.3,
+        "end": 1.88,
+        "durationMs": 580.0,
+        "letters": [
+          1.3,
+          1.4,
+          1.7,
+          1.84
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          300.0,
+          140.0,
+          40.0
+        ],
+        "confidence": 0.06777564669027925,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 1.3,
+        "end": 1.88,
+        "durationMs": 580.0,
+        "letters": [
+          1.3,
+          1.4,
+          1.7,
+          1.84
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          300.0,
+          140.0,
+          40.0
+        ],
+        "confidence": 0.06777564669027925,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "дома",
+          "start": 1.2999999999999972,
+          "end": 2.1799999999999997
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 1,
+      "text": "было",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 1.88,
+        "end": 2.57,
+        "durationMs": 690.0,
+        "letters": [
+          1.88,
+          2.02,
+          2.04,
+          2.22
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          20.0,
+          180.0,
+          350.0
+        ],
+        "confidence": 0.003307879116619006,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 1.88,
+        "end": 2.58,
+        "durationMs": 700.0,
+        "letters": [
+          1.88,
+          2.02,
+          2.04,
+          2.22
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          20.0,
+          180.0,
+          360.0
+        ],
+        "confidence": 0.003307879116619006,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 1.88,
+        "end": 2.58,
+        "durationMs": 700.0,
+        "letters": [
+          1.88,
+          2.02,
+          2.04,
+          2.22
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          20.0,
+          180.0,
+          360.0
+        ],
+        "confidence": 0.003307879116619006,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "было",
+          "start": 2.1799999999999997,
+          "end": 2.6799999999999997
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 2,
+      "text": "бы",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 2.58,
+        "end": 3.26,
+        "durationMs": 680.0,
+        "letters": [
+          2.58,
+          2.92
+        ],
+        "letterIntervalsMs": [
+          340.0,
+          340.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 2.58,
+        "end": 3.26,
+        "durationMs": 680.0,
+        "letters": [
+          2.58,
+          2.92
+        ],
+        "letterIntervalsMs": [
+          340.0,
+          340.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 2.58,
+        "end": 3.26,
+        "durationMs": 680.0,
+        "letters": [
+          2.58,
+          2.92
+        ],
+        "letterIntervalsMs": [
+          340.0,
+          340.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "бы",
+          "start": 2.6799999999999997,
+          "end": 3.3599999999999994
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Approximate letters retained with zero confidence; timings are not phoneme measurements."
+      ]
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 3,
+      "text": "намного",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 3.26,
+        "end": 4.57,
+        "durationMs": 1310.0,
+        "letters": [
+          3.26,
+          3.38,
+          3.5,
+          3.62,
+          3.74,
+          3.86,
+          3.98
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          590.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 3.26,
+        "end": 4.58,
+        "durationMs": 1320.0,
+        "letters": [
+          3.26,
+          3.38,
+          3.5,
+          3.62,
+          3.74,
+          3.86,
+          3.98
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          600.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 3.26,
+        "end": 4.58,
+        "durationMs": 1320.0,
+        "letters": [
+          3.26,
+          3.38,
+          3.5,
+          3.62,
+          3.74,
+          3.86,
+          3.98
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          120.0,
+          600.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "намного",
+          "start": 3.3599999999999994,
+          "end": 4.200000000000003
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Approximate letters retained with zero confidence; timings are not phoneme measurements."
+      ]
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 4,
+      "text": "легче",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 4.58,
+        "end": 5.75,
+        "durationMs": 1170.0,
+        "letters": [
+          4.58,
+          4.7,
+          5.12,
+          5.2,
+          5.32
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          420.0,
+          80.0,
+          120.0,
+          430.0
+        ],
+        "confidence": 0.015880145598202944,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 4.58,
+        "end": 5.76,
+        "durationMs": 1180.0,
+        "letters": [
+          4.58,
+          4.7,
+          5.12,
+          5.2,
+          5.32
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          420.0,
+          80.0,
+          120.0,
+          440.0
+        ],
+        "confidence": 0.015880145598202944,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 4.58,
+        "end": 5.76,
+        "durationMs": 1180.0,
+        "letters": [
+          4.58,
+          4.7,
+          5.12,
+          5.2,
+          5.32
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          420.0,
+          80.0,
+          120.0,
+          440.0
+        ],
+        "confidence": 0.015880145598202944,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "легче",
+          "start": 4.200000000000003,
+          "end": 5.479999999999997
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 5,
+      "text": "Но",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 5.76,
+        "end": 6.05,
+        "durationMs": 290.0,
+        "letters": [
+          5.76,
+          5.84
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          210.0
+        ],
+        "confidence": 0.22667451202869415,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 5.76,
+        "end": 6.06,
+        "durationMs": 300.0,
+        "letters": [
+          5.76,
+          5.84
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          220.0
+        ],
+        "confidence": 0.22667451202869415,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 5.76,
+        "end": 6.06,
+        "durationMs": 300.0,
+        "letters": [
+          5.76,
+          5.84
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          220.0
+        ],
+        "confidence": 0.22667451202869415,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "но",
+          "start": 5.899999999999999,
+          "end": 6.020000000000003
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 6,
+      "text": "за",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 6.06,
+        "end": 6.47,
+        "durationMs": 410.0,
+        "letters": [
+          6.06,
+          6.18
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          290.0
+        ],
+        "confidence": 0.19903258047997952,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 6.06,
+        "end": 6.48,
+        "durationMs": 420.0,
+        "letters": [
+          6.06,
+          6.18
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          300.0
+        ],
+        "confidence": 0.19903258047997952,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 6.06,
+        "end": 6.48,
+        "durationMs": 420.0,
+        "letters": [
+          6.06,
+          6.18
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          300.0
+        ],
+        "confidence": 0.19903258047997952,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "за",
+          "start": 6.020000000000003,
+          "end": 6.399999999999999
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 7,
+      "text": "столом",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 6.48,
+        "end": 8.51,
+        "durationMs": 2030.0,
+        "letters": [
+          6.48,
+          6.56,
+          6.66,
+          6.98,
+          7.08,
+          7.64
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          100.0,
+          320.0,
+          100.0,
+          560.0,
+          870.0
+        ],
+        "confidence": 0.21618553132672483,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "v2": {
+        "start": 6.48,
+        "end": 8.52,
+        "durationMs": 2040.0,
+        "letters": [
+          6.48,
+          6.56,
+          6.66,
+          6.98,
+          7.08,
+          7.64
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          100.0,
+          320.0,
+          100.0,
+          560.0,
+          880.0
+        ],
+        "confidence": 0.21618553132672483,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "final": {
+        "start": 6.48,
+        "end": 8.52,
+        "durationMs": 2040.0,
+        "letters": [
+          6.48,
+          6.56,
+          6.66,
+          6.98,
+          7.08,
+          7.64
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          100.0,
+          320.0,
+          100.0,
+          560.0,
+          880.0
+        ],
+        "confidence": 0.21618553132672483,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "столом",
+          "start": 6.399999999999999,
+          "end": 7.560000000000002
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 8,
+      "text": "я",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 8.52,
+        "end": 8.62,
+        "durationMs": 100.0,
+        "letters": [
+          8.52
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.004279331682482734,
+        "diagnostics": [
+          "TimingReviewRequired"
+        ]
+      },
+      "v2": {
+        "start": 8.52,
+        "end": 8.62,
+        "durationMs": 100.0,
+        "letters": [
+          8.52
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.004279331682482734,
+        "diagnostics": [
+          "TimingReviewRequired"
+        ]
+      },
+      "final": {
+        "start": 8.52,
+        "end": 8.62,
+        "durationMs": 100.0,
+        "letters": [
+          8.52
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.004279331682482734,
+        "diagnostics": [
+          "TimingReviewRequired"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Neighbour of Odin; ordered removes100ms after onset adjustment, but no independent seam reference proves this wrong."
+      ]
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 9,
+      "text": "один",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 8.62,
+        "end": 9.93,
+        "durationMs": 1310.0,
+        "letters": [
+          8.62,
+          9.36,
+          9.38,
+          9.4
+        ],
+        "letterIntervalsMs": [
+          740.0,
+          20.0,
+          20.0,
+          530.0
+        ],
+        "confidence": 0.0019060261965933023,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 8.62,
+        "end": 9.94,
+        "durationMs": 1320.0,
+        "letters": [
+          8.62,
+          9.36,
+          9.38,
+          9.4
+        ],
+        "letterIntervalsMs": [
+          740.0,
+          20.0,
+          20.0,
+          540.0
+        ],
+        "confidence": 0.0019060261965933023,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 8.62,
+        "end": 9.94,
+        "durationMs": 1320.0,
+        "letters": [
+          8.62,
+          9.36,
+          9.38,
+          9.4
+        ],
+        "letterIntervalsMs": [
+          740.0,
+          20.0,
+          20.0,
+          540.0
+        ],
+        "confidence": 0.0019060261965933023,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Exact paired Odin control: initial seam not independently labelled; i occupies20ms and n540ms in v2."
+      ]
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 10,
+      "text": "23",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 9.94,
+        "end": 10.7,
+        "durationMs": 760.0,
+        "letters": [
+          9.94,
+          10.24
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          460.0
+        ],
+        "confidence": 0.22871203844393181,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 9.94,
+        "end": 10.7,
+        "durationMs": 760.0,
+        "letters": [
+          9.94,
+          10.24
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          460.0
+        ],
+        "confidence": 0.22871203844393181,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 9.94,
+        "end": 10.7,
+        "durationMs": 760.0,
+        "letters": [
+          9.94,
+          10.24
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          460.0
+        ],
+        "confidence": 0.22871203844393181,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 11,
+      "text": "этаж,",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 10.7,
+        "end": 12.35,
+        "durationMs": 1650.0,
+        "letters": [
+          10.7,
+          10.9,
+          11.0,
+          11.34,
+          11.38
+        ],
+        "letterIntervalsMs": [
+          200.0,
+          100.0,
+          340.0,
+          40.0,
+          970.0
+        ],
+        "confidence": 0.5688083648681641,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 10.7,
+        "end": 12.36,
+        "durationMs": 1660.0,
+        "letters": [
+          10.7,
+          10.9,
+          11.0,
+          11.34,
+          11.38
+        ],
+        "letterIntervalsMs": [
+          200.0,
+          100.0,
+          340.0,
+          40.0,
+          980.0
+        ],
+        "confidence": 0.5688083648681641,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 10.7,
+        "end": 12.36,
+        "durationMs": 1660.0,
+        "letters": [
+          10.7,
+          10.9,
+          11.0,
+          11.34,
+          11.38
+        ],
+        "letterIntervalsMs": [
+          200.0,
+          100.0,
+          340.0,
+          40.0,
+          980.0
+        ],
+        "confidence": 0.5688083648681641,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 12,
+      "text": "будто",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 12.36,
+        "end": 12.66,
+        "durationMs": 300.0,
+        "letters": [
+          12.36,
+          12.44,
+          12.46,
+          12.52,
+          12.6
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          20.0,
+          60.0,
+          80.0,
+          60.0
+        ],
+        "confidence": 0.15515744939330034,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 12.36,
+        "end": 12.66,
+        "durationMs": 300.0,
+        "letters": [
+          12.36,
+          12.44,
+          12.46,
+          12.52,
+          12.6
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          20.0,
+          60.0,
+          80.0,
+          60.0
+        ],
+        "confidence": 0.15515744939330034,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 12.36,
+        "end": 12.66,
+        "durationMs": 300.0,
+        "letters": [
+          12.36,
+          12.44,
+          12.46,
+          12.52,
+          12.6
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          20.0,
+          60.0,
+          80.0,
+          60.0
+        ],
+        "confidence": 0.15515744939330034,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 13,
+      "text": "новый",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 12.66,
+        "end": 13.0,
+        "durationMs": 340.0,
+        "letters": [
+          12.66,
+          12.76,
+          12.86,
+          12.9,
+          12.92
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          100.0,
+          40.0,
+          20.0,
+          80.0
+        ],
+        "confidence": 0.5609796442091465,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 12.66,
+        "end": 13.0,
+        "durationMs": 340.0,
+        "letters": [
+          12.66,
+          12.76,
+          12.86,
+          12.9,
+          12.92
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          100.0,
+          40.0,
+          20.0,
+          80.0
+        ],
+        "confidence": 0.5609796442091465,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 12.66,
+        "end": 13.0,
+        "durationMs": 340.0,
+        "letters": [
+          12.66,
+          12.76,
+          12.86,
+          12.9,
+          12.92
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          100.0,
+          40.0,
+          20.0,
+          80.0
+        ],
+        "confidence": 0.5609796442091465,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "clean_entry",
+      "wordIndex": 14,
+      "text": "рассказ",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 13.0,
+        "end": 16.43,
+        "durationMs": 3430.0,
+        "letters": [
+          13.0,
+          13.06,
+          13.12,
+          13.2,
+          13.3,
+          13.4,
+          13.74
+        ],
+        "letterIntervalsMs": [
+          60.0,
+          60.0,
+          80.0,
+          100.0,
+          100.0,
+          340.0,
+          2690.0
+        ],
+        "confidence": 0.6429001708914127,
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "v2": {
+        "start": 13.0,
+        "end": 16.43,
+        "durationMs": 3430.0,
+        "letters": [
+          13.0,
+          13.06,
+          13.12,
+          13.2,
+          13.3,
+          13.4,
+          13.74
+        ],
+        "letterIntervalsMs": [
+          60.0,
+          60.0,
+          80.0,
+          100.0,
+          100.0,
+          340.0,
+          2690.0
+        ],
+        "confidence": 0.6429001708914127,
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "final": {
+        "start": 13.0,
+        "end": 16.43,
+        "durationMs": 3430.0,
+        "letters": [
+          13.0,
+          13.06,
+          13.12,
+          13.2,
+          13.3,
+          13.4,
+          13.74
+        ],
+        "letterIntervalsMs": [
+          60.0,
+          60.0,
+          80.0,
+          100.0,
+          100.0,
+          340.0,
+          2690.0
+        ],
+        "confidence": 0.6429001708914127,
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "рассказ",
+          "start": 9.239999999999995,
+          "end": 10.599999999999994
+        },
+        {
+          "text": "рассказ",
+          "start": 14.019999999999996,
+          "end": 14.819999999999993
+        },
+        {
+          "text": "рассказ",
+          "start": 14.819999999999993,
+          "end": 16.099999999999994
+        },
+        {
+          "text": "рассказ",
+          "start": 16.819999999999993,
+          "end": 18.0
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 4,
+      "text": "один",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 4.06,
+        "end": 5.79,
+        "durationMs": 1730.0,
+        "letters": [
+          4.06,
+          4.36,
+          4.5,
+          4.9
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          140.0,
+          400.0,
+          890.0
+        ],
+        "confidence": 0.037594566121697426,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 4.06,
+        "end": 5.79,
+        "durationMs": 1730.0,
+        "letters": [
+          4.06,
+          4.36,
+          4.5,
+          4.9
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          140.0,
+          400.0,
+          890.0
+        ],
+        "confidence": 0.037594566121697426,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 4.06,
+        "end": 5.79,
+        "durationMs": 1730.0,
+        "letters": [
+          4.06,
+          4.36,
+          4.5,
+          4.9
+        ],
+        "letterIntervalsMs": [
+          300.0,
+          140.0,
+          400.0,
+          890.0
+        ],
+        "confidence": 0.037594566121697426,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 5,
+      "text": "Я",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 6.8,
+        "end": 7.07,
+        "durationMs": 270.0,
+        "letters": [
+          6.8
+        ],
+        "letterIntervalsMs": [
+          270.0
+        ],
+        "confidence": 0.7753123342990875,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "v2": {
+        "start": 6.8,
+        "end": 7.08,
+        "durationMs": 280.0,
+        "letters": [
+          6.8
+        ],
+        "letterIntervalsMs": [
+          280.0
+        ],
+        "confidence": 0.7753123342990875,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "final": {
+        "start": 6.8,
+        "end": 7.08,
+        "durationMs": 280.0,
+        "letters": [
+          6.8
+        ],
+        "letterIntervalsMs": [
+          280.0
+        ],
+        "confidence": 0.7753123342990875,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "я",
+          "start": 3.319999999999993,
+          "end": 3.8400000000000034
+        },
+        {
+          "text": "я",
+          "start": 4.640000000000001,
+          "end": 7.040000000000006
+        },
+        {
+          "text": "я",
+          "start": 25.54000000000002,
+          "end": 26.24000000000001
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 11,
+      "text": "сердце",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 9.5,
+        "end": 10.19,
+        "durationMs": 690.0,
+        "letters": [
+          9.5,
+          9.64,
+          9.78,
+          9.84,
+          9.88,
+          10.06
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          60.0,
+          40.0,
+          180.0,
+          130.0
+        ],
+        "confidence": 0.3830995973465698,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 9.5,
+        "end": 10.19,
+        "durationMs": 690.0,
+        "letters": [
+          9.5,
+          9.64,
+          9.78,
+          9.84,
+          9.88,
+          10.06
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          60.0,
+          40.0,
+          180.0,
+          130.0
+        ],
+        "confidence": 0.3830995973465698,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 9.5,
+        "end": 10.19,
+        "durationMs": 690.0,
+        "letters": [
+          9.5,
+          9.64,
+          9.78,
+          9.84,
+          9.88,
+          10.06
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          60.0,
+          40.0,
+          180.0,
+          130.0
+        ],
+        "confidence": 0.3830995973465698,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "сердце",
+          "start": 9.439999999999998,
+          "end": 10.280000000000001
+        },
+        {
+          "text": "сердце",
+          "start": 28.639999999999986,
+          "end": 29.47999999999999
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 12,
+      "text": "отдать",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 10.44,
+        "end": 13.31,
+        "durationMs": 2870.0,
+        "letters": [
+          10.44,
+          10.56,
+          10.7,
+          10.8,
+          13.0,
+          13.02
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          100.0,
+          2200.0,
+          20.0,
+          290.0
+        ],
+        "confidence": 0.005648208770435303,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 10.44,
+        "end": 13.32,
+        "durationMs": 2880.0,
+        "letters": [
+          10.44,
+          10.56,
+          10.7,
+          10.8,
+          13.0,
+          13.02
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          100.0,
+          2200.0,
+          20.0,
+          300.0
+        ],
+        "confidence": 0.005648208770435303,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 10.44,
+        "end": 13.32,
+        "durationMs": 2880.0,
+        "letters": [
+          10.44,
+          10.56,
+          10.7,
+          10.8,
+          13.0,
+          13.02
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          100.0,
+          2200.0,
+          20.0,
+          300.0
+        ],
+        "confidence": 0.005648208770435303,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "отдать",
+          "start": 10.280000000000001,
+          "end": 13.079999999999998
+        },
+        {
+          "text": "отдать",
+          "start": 29.47999999999999,
+          "end": 30.879999999999995
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Repeated word, independently retained performance duration; no forced duration equality.",
+        "Final soft sign has no CTC token but frontend v2 gives it a separate progress interval."
+      ]
+    },
+    {
+      "source": "reply",
+      "wordIndex": 13,
+      "text": "В",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 13.32,
+        "end": 13.89,
+        "durationMs": 570.0,
+        "letters": [
+          13.32
+        ],
+        "letterIntervalsMs": [
+          570.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment"
+        ]
+      },
+      "v2": {
+        "start": 13.32,
+        "end": 13.9,
+        "durationMs": 580.0,
+        "letters": [
+          13.32
+        ],
+        "letterIntervalsMs": [
+          580.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment"
+        ]
+      },
+      "final": {
+        "start": 13.32,
+        "end": 13.9,
+        "durationMs": 580.0,
+        "letters": [
+          13.32
+        ],
+        "letterIntervalsMs": [
+          580.0
+        ],
+        "confidence": 0.0,
+        "diagnostics": [
+          "ApproximateAlignment"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 15,
+      "text": "руки",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 14.88,
+        "end": 15.94,
+        "durationMs": 1060.0,
+        "letters": [
+          14.88,
+          14.98,
+          15.14,
+          15.6
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          160.0,
+          460.0,
+          340.0
+        ],
+        "confidence": 0.002281932844198309,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "v2": {
+        "start": 14.88,
+        "end": 15.94,
+        "durationMs": 1060.0,
+        "letters": [
+          14.88,
+          14.98,
+          15.14,
+          15.6
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          160.0,
+          460.0,
+          340.0
+        ],
+        "confidence": 0.002281932844198309,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "final": {
+        "start": 14.88,
+        "end": 15.94,
+        "durationMs": 1060.0,
+        "letters": [
+          14.88,
+          14.98,
+          15.14,
+          15.6
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          160.0,
+          460.0,
+          340.0
+        ],
+        "confidence": 0.002281932844198309,
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "руки",
+          "start": 14.819999999999993,
+          "end": 15.299999999999997
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 16,
+      "text": "Я",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 26.0,
+        "end": 26.29,
+        "durationMs": 290.0,
+        "letters": [
+          26.0
+        ],
+        "letterIntervalsMs": [
+          290.0
+        ],
+        "confidence": 0.37867923080921173,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 25.98,
+        "end": 26.3,
+        "durationMs": 320.0,
+        "letters": [
+          25.98
+        ],
+        "letterIntervalsMs": [
+          320.0
+        ],
+        "confidence": 0.4665830135345459,
+        "diagnostics": [
+          "RateReviewRetimed",
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 25.98,
+        "end": 26.3,
+        "durationMs": 320.0,
+        "letters": [
+          25.98
+        ],
+        "letterIntervalsMs": [
+          320.0
+        ],
+        "confidence": 0.4665830135345459,
+        "diagnostics": [
+          "RateReviewRetimed",
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": -20.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "я",
+          "start": 3.319999999999993,
+          "end": 3.8400000000000034
+        },
+        {
+          "text": "я",
+          "start": 4.640000000000001,
+          "end": 7.040000000000006
+        },
+        {
+          "text": "я",
+          "start": 25.54000000000002,
+          "end": 26.24000000000001
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "20ms v1→v2 earlier start from bounded review; not a certified20ms acoustic accuracy gain."
+      ]
+    },
+    {
+      "source": "reply",
+      "wordIndex": 22,
+      "text": "сердце",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 28.7,
+        "end": 29.63,
+        "durationMs": 930.0,
+        "letters": [
+          28.7,
+          28.84,
+          28.98,
+          29.1,
+          29.12,
+          29.28
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          120.0,
+          20.0,
+          160.0,
+          350.0
+        ],
+        "confidence": 0.4734153893909284,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 28.7,
+        "end": 29.64,
+        "durationMs": 940.0,
+        "letters": [
+          28.7,
+          28.84,
+          28.98,
+          29.1,
+          29.12,
+          29.28
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          120.0,
+          20.0,
+          160.0,
+          360.0
+        ],
+        "confidence": 0.4734153893909284,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 28.7,
+        "end": 29.64,
+        "durationMs": 940.0,
+        "letters": [
+          28.7,
+          28.84,
+          28.98,
+          29.1,
+          29.12,
+          29.28
+        ],
+        "letterIntervalsMs": [
+          140.0,
+          140.0,
+          120.0,
+          20.0,
+          160.0,
+          360.0
+        ],
+        "confidence": 0.4734153893909284,
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "сердце",
+          "start": 9.439999999999998,
+          "end": 10.280000000000001
+        },
+        {
+          "text": "сердце",
+          "start": 28.639999999999986,
+          "end": 29.47999999999999
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 23,
+      "text": "отдать",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 29.64,
+        "end": 30.82,
+        "durationMs": 1180.0,
+        "letters": [
+          29.64,
+          29.76,
+          29.9,
+          30.04,
+          30.74,
+          30.76
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          140.0,
+          700.0,
+          20.0,
+          60.0
+        ],
+        "confidence": 0.3274597943527624,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "v2": {
+        "start": 29.64,
+        "end": 30.82,
+        "durationMs": 1180.0,
+        "letters": [
+          29.64,
+          29.76,
+          29.9,
+          30.04,
+          30.74,
+          30.76
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          140.0,
+          700.0,
+          20.0,
+          60.0
+        ],
+        "confidence": 0.3274597943527624,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "final": {
+        "start": 29.64,
+        "end": 30.82,
+        "durationMs": 1180.0,
+        "letters": [
+          29.64,
+          29.76,
+          29.9,
+          30.04,
+          30.74,
+          30.76
+        ],
+        "letterIntervalsMs": [
+          120.0,
+          140.0,
+          140.0,
+          700.0,
+          20.0,
+          60.0
+        ],
+        "confidence": 0.3274597943527624,
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [
+        {
+          "text": "отдать",
+          "start": 10.280000000000001,
+          "end": 13.079999999999998
+        },
+        {
+          "text": "отдать",
+          "start": 29.47999999999999,
+          "end": 30.879999999999995
+        }
+      ],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Repeated word, independently retained performance duration; no forced duration equality.",
+        "Final soft sign has no CTC token but frontend v2 gives it a separate progress interval."
+      ]
+    },
+    {
+      "source": "reply",
+      "wordIndex": 24,
+      "text": "В",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 30.82,
+        "end": 30.86,
+        "durationMs": 40.0,
+        "letters": [
+          30.82
+        ],
+        "letterIntervalsMs": [
+          40.0
+        ],
+        "confidence": 0.001968059688806534,
+        "diagnostics": [
+          "BoundaryConflict",
+          "TimingReviewRequired"
+        ]
+      },
+      "v2": {
+        "start": 30.82,
+        "end": 30.86,
+        "durationMs": 40.0,
+        "letters": [
+          30.82
+        ],
+        "letterIntervalsMs": [
+          40.0
+        ],
+        "confidence": 0.001968059688806534,
+        "diagnostics": [
+          "BoundaryConflict",
+          "TimingReviewRequired"
+        ]
+      },
+      "final": {
+        "start": 30.82,
+        "end": 30.86,
+        "durationMs": 40.0,
+        "letters": [
+          30.82
+        ],
+        "letterIntervalsMs": [
+          40.0
+        ],
+        "confidence": 0.001968059688806534,
+        "diagnostics": [
+          "BoundaryConflict",
+          "TimingReviewRequired"
+        ]
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "40ms word preserved; short duration alone does not prove an error."
+      ]
+    },
+    {
+      "source": "reply",
+      "wordIndex": 25,
+      "text": "нужные",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 30.86,
+        "end": 31.71,
+        "durationMs": 850.0,
+        "letters": [
+          30.86,
+          30.96,
+          31.08,
+          31.18,
+          31.22,
+          31.28
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          120.0,
+          100.0,
+          40.0,
+          60.0,
+          430.0
+        ],
+        "confidence": 0.22600180895200797,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 30.86,
+        "end": 31.72,
+        "durationMs": 860.0,
+        "letters": [
+          30.86,
+          30.96,
+          31.08,
+          31.18,
+          31.22,
+          31.28
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          120.0,
+          100.0,
+          40.0,
+          60.0,
+          440.0
+        ],
+        "confidence": 0.22600180895200797,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 30.86,
+        "end": 31.72,
+        "durationMs": 860.0,
+        "letters": [
+          30.86,
+          30.96,
+          31.08,
+          31.18,
+          31.22,
+          31.28
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          120.0,
+          100.0,
+          40.0,
+          60.0,
+          440.0
+        ],
+        "confidence": 0.22600180895200797,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 10.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "reply",
+      "wordIndex": 27,
+      "text": "в",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 33.12,
+        "end": 33.22,
+        "durationMs": 100.0,
+        "letters": [
+          33.12
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.2788349390029907,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 33.12,
+        "end": 33.22,
+        "durationMs": 100.0,
+        "letters": [
+          33.12
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.2788349390029907,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 33.12,
+        "end": 33.22,
+        "durationMs": 100.0,
+        "letters": [
+          33.12
+        ],
+        "letterIntervalsMs": [
+          100.0
+        ],
+        "confidence": 0.2788349390029907,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": []
+    },
+    {
+      "source": "sadvit",
+      "wordIndex": "phrase-93",
+      "text": "навіки",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 85.04,
+        "end": 86.82,
+        "durationMs": 1780.0,
+        "letters": [
+          85.04,
+          85.12,
+          85.36,
+          85.48,
+          85.7,
+          85.82
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          240.0,
+          120.0,
+          220.0,
+          120.0,
+          1000.0
+        ],
+        "confidence": 0.42591306132574874,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 85.04,
+        "end": 86.82,
+        "durationMs": 1780.0,
+        "letters": [
+          85.04,
+          85.12,
+          85.36,
+          85.48,
+          85.7,
+          85.82
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          240.0,
+          120.0,
+          220.0,
+          120.0,
+          1000.0
+        ],
+        "confidence": 0.42591306132574874,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 85.04,
+        "end": 86.82,
+        "durationMs": 1780.0,
+        "letters": [
+          85.04,
+          85.12,
+          85.36,
+          85.48,
+          85.7,
+          85.82
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          240.0,
+          120.0,
+          220.0,
+          120.0,
+          1000.0
+        ],
+        "confidence": 0.42591306132574874,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Original metadata listened:false. Legacy acoustic bracket is not sufficient for an exact vocal endpoint/error claim."
+      ],
+      "legacyAcousticEndBracket": [
+        86.15,
+        86.5
+      ],
+      "legacyAcousticBracketIsCertifiedWordBoundary": false,
+      "legacyEndBracketDistanceMs": {
+        "v1": 319.9999999999932,
+        "v2": 319.9999999999932,
+        "final": 319.9999999999932
+      }
+    },
+    {
+      "source": "sadvit",
+      "wordIndex": "phrase-129",
+      "text": "весна?",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 117.42,
+        "end": 118.78,
+        "durationMs": 1360.0,
+        "letters": [
+          117.42,
+          117.5,
+          117.64,
+          117.74,
+          117.84,
+          117.86
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          140.0,
+          100.0,
+          100.0,
+          20.0,
+          920.0
+        ],
+        "confidence": 0.960038137435913,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 117.42,
+        "end": 118.78,
+        "durationMs": 1360.0,
+        "letters": [
+          117.42,
+          117.5,
+          117.64,
+          117.74,
+          117.84,
+          117.86
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          140.0,
+          100.0,
+          100.0,
+          20.0,
+          920.0
+        ],
+        "confidence": 0.960038137435913,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 117.42,
+        "end": 118.78,
+        "durationMs": 1360.0,
+        "letters": [
+          117.42,
+          117.5,
+          117.64,
+          117.74,
+          117.84,
+          117.86
+        ],
+        "letterIntervalsMs": [
+          80.0,
+          140.0,
+          100.0,
+          100.0,
+          20.0,
+          920.0
+        ],
+        "confidence": 0.960038137435913,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Original metadata listened:false. Legacy acoustic bracket is not sufficient for an exact vocal endpoint/error claim."
+      ],
+      "legacyAcousticEndBracket": [
+        118.08,
+        118.45
+      ],
+      "legacyAcousticBracketIsCertifiedWordBoundary": false,
+      "legacyEndBracketDistanceMs": {
+        "v1": 329.9999999999983,
+        "v2": 329.9999999999983,
+        "final": 329.9999999999983
+      }
+    },
+    {
+      "source": "sadvit",
+      "wordIndex": "outro",
+      "text": "навіки",
+      "reference": {
+        "start": null,
+        "end": null,
+        "listened": false,
+        "humanCertified": false,
+        "reason": "No independent manually adjudicated word boundaries for this waveform."
+      },
+      "v1": {
+        "start": 181.1,
+        "end": 182.62,
+        "durationMs": 1520.0,
+        "letters": [
+          181.1,
+          181.2,
+          181.44,
+          181.52,
+          181.78,
+          181.88
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          240.0,
+          80.0,
+          260.0,
+          100.0,
+          740.0
+        ],
+        "confidence": 0.23531521980961165,
+        "diagnostics": []
+      },
+      "v2": {
+        "start": 181.1,
+        "end": 182.62,
+        "durationMs": 1520.0,
+        "letters": [
+          181.1,
+          181.2,
+          181.44,
+          181.52,
+          181.78,
+          181.88
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          240.0,
+          80.0,
+          260.0,
+          100.0,
+          740.0
+        ],
+        "confidence": 0.23531521980961165,
+        "diagnostics": []
+      },
+      "final": {
+        "start": 181.1,
+        "end": 182.62,
+        "durationMs": 1520.0,
+        "letters": [
+          181.1,
+          181.2,
+          181.44,
+          181.52,
+          181.78,
+          181.88
+        ],
+        "letterIntervalsMs": [
+          100.0,
+          240.0,
+          80.0,
+          260.0,
+          100.0,
+          740.0
+        ],
+        "confidence": 0.23531521980961165,
+        "diagnostics": []
+      },
+      "errorsMs": {
+        "v1": {
+          "start": null,
+          "end": null
+        },
+        "v2": {
+          "start": null,
+          "end": null
+        },
+        "final": {
+          "start": null,
+          "end": null
+        }
+      },
+      "v1ToV2ChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "v2ToFinalChangeMs": {
+        "start": 0.0,
+        "end": 0.0
+      },
+      "independentAsrObservations": [],
+      "asrIsGroundTruth": false,
+      "observations": [
+        "Original metadata listened:false. Legacy acoustic bracket is not sufficient for an exact vocal endpoint/error claim."
+      ],
+      "legacyAcousticEndBracket": [
+        182.3,
+        182.6
+      ],
+      "legacyAcousticBracketIsCertifiedWordBoundary": false,
+      "legacyEndBracketDistanceMs": {
+        "v1": 20.000000000010232,
+        "v2": 20.000000000010232,
+        "final": 20.000000000010232
+      }
+    }
+  ],
+  "metrics": {
+    "wordRows": 30,
+    "certifiedStartReferences": 0,
+    "certifiedEndReferences": 0,
+    "medianAbsoluteStartErrorMs": null,
+    "maximumAbsoluteStartErrorMs": null,
+    "medianAbsoluteEndErrorMs": null,
+    "maximumAbsoluteEndErrorMs": null,
+    "reason": "These metrics require independent word-boundary references; none are supplied. Model agreement and word movement are different quantities."
+  },
+  "missingMaterials": [
+    "Exact source audio that produced uncertain_scores, and its preprocessing/hash/offset, to validate9.10s rather than the related recording variant.",
+    "Complete Russian and Ukrainian source/reference-vocal/instrumental files for the failing user projects, with original lyricsSync.json and processing report.",
+    "Independent listened/adjudicated start/end labels for the suspect words and neighbours, with an uncertainty interval for fused transitions.",
+    "For held-vowel/consonant accuracy: independent phoneme or letter-group labels on the same waveform; ASR and CTC cannot serve as their own ground truth.",
+    "Real project playback on the target Electron/Windows system to verify visible line/letter transitions against the unchanged recording."
+  ]
+}

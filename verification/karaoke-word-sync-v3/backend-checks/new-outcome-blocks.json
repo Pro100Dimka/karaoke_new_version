@@ -1,0 +1,26 @@
+[
+  {
+    "nodeId": "tests/test_library_archive.py::test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing",
+    "failure": "tests/test_library_archive.py:38: in test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing\n    assert wait_for_job(client, analysis.json()[\"jobId\"])[\"state\"] == \"Succeeded\"\n                                ^^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'"
+  },
+  {
+    "nodeId": "tests/test_recordings_analysis.py::test_offline_analysis_succeeds_and_becomes_stale_after_project_revision",
+    "failure": "tests/test_recordings_analysis.py:275: in test_offline_analysis_succeeds_and_becomes_stale_after_project_revision\n    assert started.status_code == 202, started.text\nE   AssertionError: {\"code\":\"RecordingPreparing\",\"message\":\"Recording preparation is not complete\",\"details\":{},\"requestId\":\"ec5d4561-a12b-49a6-bd5b-be808ee5356f\"}\nE   assert 409 == 202\nE    +  where 409 = <Response [409 Conflict]>.status_code"
+  },
+  {
+    "nodeId": "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+    "failure": "tests/test_recordings_analysis.py:345: in test_old_analysis_algorithm_is_stale_without_deleting_its_history\n    assert wait_for_job(client, started.json()[\"jobId\"])[\"state\"] == \"Succeeded\"\n                                ^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'"
+  },
+  {
+    "nodeId": "tests/test_release_regressions.py::test_analysis_cancelled_before_execution_does_not_remain_queued",
+    "failure": "tests/test_release_regressions.py:153: in test_analysis_cancelled_before_execution_does_not_remain_queued\n    job_id = started.json()[\"jobId\"]\n             ^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'"
+  },
+  {
+    "nodeId": "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found",
+    "failure": "tests/test_release_regressions.py:70: in test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found\n    assert started.status_code == 404, started.text\nE   AssertionError: {\"code\":\"RecordingPreparing\",\"message\":\"Recording preparation is not complete\",\"details\":{},\"requestId\":\"db82d249-c539-4720-a319-e53700507459\"}\nE   assert 409 == 404\nE    +  where 409 = <Response [409 Conflict]>.status_code"
+  },
+  {
+    "nodeId": "tests/test_release_regressions.py::test_cancelled_analysis_does_not_publish_a_successful_score",
+    "failure": "tests/test_release_regressions.py:129: in test_cancelled_analysis_does_not_publish_a_successful_score\n    job_id = started.json()[\"jobId\"]\n             ^^^^^^^^^^^^^^^^^^^^^^^\nE   KeyError: 'jobId'"
+  }
+]

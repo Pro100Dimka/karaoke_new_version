@@ -1,0 +1,11 @@
+{
+  "finalSourceManifestSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "sourceFrozen": true,
+  "frontendFiles": 699,
+  "frontendMismatches": [],
+  "newNormalizedArchitectureErrors": [],
+  "architectureErrorCategoriesV3": 54,
+  "architectureErrorCategoriesFinal": 54,
+  "embeddedWorkerAssets": 38,
+  "allEmbeddedAssetsMatchFinalSource": true
+}

@@ -1,0 +1,76 @@
+{
+  "words": [
+    {
+      "text": "вдруг",
+      "start": 0.99,
+      "end": 1.6,
+      "confidence": 0.41713986665708946,
+      "letters": [
+        0.99,
+        1.07,
+        1.13,
+        1.21,
+        1.43
+      ],
+      "diagnostics": [
+        "OnsetRecovered",
+        "ApproximateLetterTiming",
+        "LetterTimingReviewRequired",
+        "RateReviewRetimed"
+      ]
+    },
+    {
+      "text": "замечаешь",
+      "start": 1.97,
+      "end": 3.37,
+      "confidence": 0.5940370567142963,
+      "letters": [
+        1.97,
+        2.05,
+        2.17,
+        2.25,
+        2.39,
+        2.57,
+        3.01,
+        3.25,
+        3.31
+      ],
+      "diagnostics": [
+        "BoundaryClipped",
+        "RecognizedWord"
+      ]
+    },
+    {
+      "text": "течение",
+      "start": 3.37,
+      "end": 5.17,
+      "confidence": 0.5630129622295499,
+      "letters": [
+        3.37,
+        3.49,
+        3.79,
+        3.95,
+        4.33,
+        4.43,
+        4.91
+      ],
+      "diagnostics": []
+    },
+    {
+      "text": "времени",
+      "start": 5.17,
+      "end": 6.63,
+      "confidence": 0.5633354906125793,
+      "letters": [
+        5.17,
+        5.27,
+        5.47,
+        5.71,
+        5.83,
+        6.15,
+        6.27
+      ],
+      "diagnostics": []
+    }
+  ]
+}

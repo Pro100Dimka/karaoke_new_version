@@ -1,0 +1,283 @@
+{
+  "scope": "CPU local forced alignment and postprocessing using existing CTC/ASR/singing masks; excludes model inference and decoding, not a full-song processing benchmark",
+  "method": "One CPU thread; v2/final then final/v2;3warmups+9timedruns per case in each process; all18observations retained",
+  "backendSourceHashesIdentical": true,
+  "cases": [
+    {
+      "case": "fast",
+      "durationSeconds": 11.0,
+      "versions": {
+        "v2": {
+          "medianMs": 98.88366050017794,
+          "minMs": 83.28987599998072,
+          "maxMs": 131.21788299940818,
+          "allRunsMs": [
+            95.89145400059351,
+            113.01403600009507,
+            114.01805199966475,
+            101.58659300032014,
+            98.16393500113918,
+            103.81154000060633,
+            98.32755800016457,
+            95.75798500009114,
+            101.424059999772,
+            83.69652900000801,
+            99.4397630001913,
+            114.29900499933865,
+            131.21788299940818,
+            87.572538999666,
+            83.28987599998072,
+            98.32510500018543,
+            92.42810800060397,
+            104.71779500039702
+          ],
+          "batchMediansMs": [
+            101.424059999772,
+            98.32510500018543
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 9,
+            "with_word_guidance": 2,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 1,
+            "with_sung_ends": 1,
+            "ordered": 1,
+            "with_sung_letters": 1
+          }
+        },
+        "final": {
+          "medianMs": 74.69800750004651,
+          "minMs": 65.88034000014886,
+          "maxMs": 97.60665599969798,
+          "allRunsMs": [
+            83.82994100065844,
+            80.80743699974846,
+            69.27429899951676,
+            78.10448900090705,
+            70.9734779993596,
+            83.89466900007392,
+            79.49141499921097,
+            90.57122599915601,
+            75.65142400017066,
+            72.35710700115305,
+            73.74459099992237,
+            67.82842400025402,
+            66.55885299915099,
+            97.60665599969798,
+            76.42103299986047,
+            65.88034000014886,
+            67.68787700093526,
+            72.86007999937283
+          ],
+          "batchMediansMs": [
+            79.49141499921097,
+            72.35710700115305
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 9,
+            "with_word_guidance": 2,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 1,
+            "with_sung_ends": 1,
+            "ordered": 1,
+            "with_sung_letters": 1
+          }
+        }
+      },
+      "sameInputs": true,
+      "samePayload": true,
+      "sameCalls": true,
+      "medianDeltaPercent": -24.458695074387848
+    },
+    {
+      "case": "native_fast",
+      "durationSeconds": 10.0,
+      "versions": {
+        "v2": {
+          "medianMs": 75.06584800012206,
+          "minMs": 63.15627700132609,
+          "maxMs": 202.95882400023402,
+          "allRunsMs": [
+            77.35459000105038,
+            65.51032400057011,
+            64.12285499936843,
+            66.97893799901067,
+            100.32164400035981,
+            69.1566649984452,
+            64.39494799997192,
+            202.95882400023402,
+            63.15627700132609,
+            84.75912299945776,
+            96.94865100027528,
+            75.95930000024964,
+            71.97052700030326,
+            73.83355300044059,
+            79.27699500032759,
+            74.17239599999448,
+            83.3516429993324,
+            89.85021199987386
+          ],
+          "batchMediansMs": [
+            66.97893799901067,
+            79.27699500032759
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 4,
+            "with_word_guidance": 1,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 1,
+            "with_sung_ends": 1,
+            "ordered": 1,
+            "with_sung_letters": 1
+          }
+        },
+        "final": {
+          "medianMs": 63.43376350014296,
+          "minMs": 57.0938560013019,
+          "maxMs": 86.13250000053085,
+          "allRunsMs": [
+            74.15179300005548,
+            86.13250000053085,
+            64.92307299959066,
+            67.61312399976305,
+            74.81614500102296,
+            64.80613299936522,
+            62.0613940009207,
+            68.41441200049303,
+            61.76317199970072,
+            59.54525899869623,
+            61.91068400039512,
+            57.52594000114186,
+            65.81447899952764,
+            57.568428999729804,
+            61.101339999368065,
+            61.43432699900586,
+            71.10004099922662,
+            57.0938560013019
+          ],
+          "batchMediansMs": [
+            67.61312399976305,
+            61.101339999368065
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 4,
+            "with_word_guidance": 1,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 1,
+            "with_sung_ends": 1,
+            "ordered": 1,
+            "with_sung_letters": 1
+          }
+        }
+      },
+      "sameInputs": true,
+      "samePayload": true,
+      "sameCalls": true,
+      "medianDeltaPercent": -15.495841064714522
+    },
+    {
+      "case": "reply",
+      "durationSeconds": 40.0,
+      "versions": {
+        "v2": {
+          "medianMs": 344.63214550032717,
+          "minMs": 306.5009290003218,
+          "maxMs": 620.2496810001321,
+          "allRunsMs": [
+            352.6010799996584,
+            402.29589699993085,
+            347.8969820007478,
+            487.9247619992384,
+            329.5534789995145,
+            432.7166339990072,
+            620.2496810001321,
+            442.4213710008189,
+            398.7811339993641,
+            341.3673089999065,
+            350.1546999996208,
+            332.9693369996676,
+            306.5009290003218,
+            314.50759600011224,
+            310.7775770004082,
+            323.0736940004135,
+            320.2141969995864,
+            309.70277799860924
+          ],
+          "batchMediansMs": [
+            402.29589699993085,
+            320.2141969995864
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 14,
+            "with_word_guidance": 2,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 2,
+            "with_sung_ends": 2,
+            "ordered": 2,
+            "with_sung_letters": 1
+          }
+        },
+        "final": {
+          "medianMs": 348.35243500037905,
+          "minMs": 243.7379080001847,
+          "maxMs": 514.337673999762,
+          "allRunsMs": [
+            347.85385000031965,
+            377.53930799954105,
+            361.3684590000048,
+            402.2523090006871,
+            342.60655700018106,
+            366.43437199927575,
+            347.7980119987478,
+            338.21064199946704,
+            394.52837700082455,
+            304.85880600099335,
+            348.85102000043844,
+            514.337673999762,
+            394.223304998377,
+            409.9416469998687,
+            252.17060800059699,
+            243.7379080001847,
+            285.45217999999295,
+            266.5607449998788
+          ],
+          "batchMediansMs": [
+            361.3684590000048,
+            304.85880600099335
+          ],
+          "calls": {
+            "align_words": 1,
+            "voiced_frames": 1,
+            "align_guided": 1,
+            "_align_window": 14,
+            "with_word_guidance": 2,
+            "harmonic_evidence": 1,
+            "with_voice_onsets": 2,
+            "with_sung_ends": 2,
+            "ordered": 2,
+            "with_sung_letters": 1
+          }
+        }
+      },
+      "sameInputs": true,
+      "samePayload": true,
+      "sameCalls": true,
+      "medianDeltaPercent": 1.0794957895325918
+    }
+  ]
+}

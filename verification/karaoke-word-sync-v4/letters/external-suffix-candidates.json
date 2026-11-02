@@ -1,0 +1,103 @@
+[
+  {
+    "case": "control_0004",
+    "wordIndex": 0,
+    "input": {
+      "text": "вдруг",
+      "start": 0.0,
+      "end": 0.59,
+      "letters": [
+        0.0,
+        0.02,
+        0.06,
+        0.14,
+        0.3
+      ],
+      "score": 0.32022783495485785,
+      "diagnostics": []
+    },
+    "heard": [
+      0.0,
+      0.36
+    ],
+    "supported": true,
+    "ordinary": {
+      "text": "вдруг",
+      "start": 0.02,
+      "end": 0.34,
+      "letters": [
+        0.02,
+        0.04,
+        0.08,
+        0.16,
+        0.32
+      ],
+      "score": 0.32022783495485785,
+      "diagnostics": []
+    },
+    "bounded": {
+      "text": "вдруг",
+      "start": 0.02,
+      "end": 0.34,
+      "letters": [
+        0.02,
+        0.04,
+        0.08,
+        0.16,
+        0.32
+      ],
+      "score": 0.32022783495485785,
+      "diagnostics": []
+    },
+    "proposedLetters": null
+  },
+  {
+    "case": "control_0004",
+    "wordIndex": 4,
+    "input": {
+      "text": "лист",
+      "start": 5.29,
+      "end": 5.91,
+      "letters": [
+        5.29,
+        5.41,
+        5.57,
+        5.65
+      ],
+      "score": 0.9339160025119781,
+      "diagnostics": []
+    },
+    "heard": [
+      4.54,
+      5.92
+    ],
+    "supported": true,
+    "ordinary": {
+      "text": "лист",
+      "start": 5.48,
+      "end": 5.86,
+      "letters": [
+        5.48,
+        5.6,
+        5.76,
+        5.84
+      ],
+      "score": 0.9339160025119781,
+      "diagnostics": []
+    },
+    "bounded": {
+      "text": "лист",
+      "start": 5.48,
+      "end": 5.86,
+      "letters": [
+        5.48,
+        5.6,
+        5.76,
+        5.84
+      ],
+      "score": 0.9339160025119781,
+      "diagnostics": []
+    },
+    "proposedLetters": null
+  }
+]

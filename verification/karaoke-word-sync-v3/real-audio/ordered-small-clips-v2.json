@@ -1,0 +1,762 @@
+[
+  {
+    "source": "performance/final.json",
+    "case": "fast",
+    "stageIndex": 14,
+    "wordIndex": 0,
+    "before": {
+      "text": "Дома",
+      "start": 1.3,
+      "end": 1.96,
+      "letters": [
+        1.3,
+        1.4,
+        1.7,
+        1.84
+      ],
+      "confidence": 0.05010348465293646,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "Дома",
+      "start": 1.3,
+      "end": 1.88,
+      "letters": [
+        1.3,
+        1.4,
+        1.7,
+        1.84
+      ],
+      "confidence": 0.05010348465293646,
+      "diagnostics": []
+    },
+    "clippingMs": 80,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "fast",
+    "stageIndex": 14,
+    "wordIndex": 2,
+    "before": {
+      "text": "бы",
+      "start": 2.54,
+      "end": 3.36,
+      "letters": [
+        2.54,
+        2.9
+      ],
+      "confidence": 0.0,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "бы",
+      "start": 2.54,
+      "end": 3.26,
+      "letters": [
+        2.54,
+        2.9
+      ],
+      "confidence": 0.0,
+      "diagnostics": []
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "fast",
+    "stageIndex": 14,
+    "wordIndex": 8,
+    "before": {
+      "text": "я",
+      "start": 7.84,
+      "end": 8.92,
+      "letters": [
+        7.84
+      ],
+      "confidence": 0.0,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "я",
+      "start": 7.84,
+      "end": 8.82,
+      "letters": [
+        7.84
+      ],
+      "confidence": 0.0,
+      "diagnostics": []
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "reply",
+    "stageIndex": 18,
+    "wordIndex": 23,
+    "before": {
+      "text": "отдать",
+      "start": 29.64,
+      "end": 30.86,
+      "letters": [
+        29.64,
+        29.76,
+        29.9,
+        30.04,
+        30.74,
+        30.76
+      ],
+      "confidence": 0.3274597943527624,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "отдать",
+      "start": 29.64,
+      "end": 30.82,
+      "letters": [
+        29.64,
+        29.76,
+        29.9,
+        30.04,
+        30.74,
+        30.76
+      ],
+      "confidence": 0.3274597943527624,
+      "diagnostics": []
+    },
+    "clippingMs": 40,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "reply",
+    "stageIndex": 18,
+    "wordIndex": 27,
+    "before": {
+      "text": "в",
+      "start": 33.12,
+      "end": 33.24,
+      "letters": [
+        33.12
+      ],
+      "confidence": 0.2788349390029907,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "в",
+      "start": 33.12,
+      "end": 33.22,
+      "letters": [
+        33.12
+      ],
+      "confidence": 0.2788349390029907,
+      "diagnostics": []
+    },
+    "clippingMs": 20,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "reply",
+    "stageIndex": 25,
+    "wordIndex": 23,
+    "before": {
+      "text": "отдать",
+      "start": 29.64,
+      "end": 30.86,
+      "letters": [
+        29.64,
+        29.76,
+        29.9,
+        30.04,
+        30.74,
+        30.76
+      ],
+      "confidence": 0.3274597943527624,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "отдать",
+      "start": 29.64,
+      "end": 30.82,
+      "letters": [
+        29.64,
+        29.76,
+        29.9,
+        30.04,
+        30.74,
+        30.76
+      ],
+      "confidence": 0.3274597943527624,
+      "diagnostics": []
+    },
+    "clippingMs": 40,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "performance/final.json",
+    "case": "reply",
+    "stageIndex": 25,
+    "wordIndex": 27,
+    "before": {
+      "text": "в",
+      "start": 33.12,
+      "end": 33.24,
+      "letters": [
+        33.12
+      ],
+      "confidence": 0.2788349390029907,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "в",
+      "start": 33.12,
+      "end": 33.22,
+      "letters": [
+        33.12
+      ],
+      "confidence": 0.2788349390029907,
+      "diagnostics": []
+    },
+    "clippingMs": 20,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 0,
+    "before": {
+      "text": "Дома",
+      "start": 1.3,
+      "end": 1.96,
+      "letters": [
+        1.3,
+        1.4,
+        1.7,
+        1.84
+      ],
+      "score": 0.06777564669027925,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "Дома",
+      "start": 1.3,
+      "end": 1.88,
+      "letters": [
+        1.3,
+        1.4,
+        1.7,
+        1.84
+      ],
+      "score": 0.06777564669027925,
+      "diagnostics": []
+    },
+    "clippingMs": 80,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 2,
+    "before": {
+      "text": "бы",
+      "start": 2.58,
+      "end": 3.36,
+      "letters": [
+        2.58,
+        2.92
+      ],
+      "score": 0.0,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "бы",
+      "start": 2.58,
+      "end": 3.26,
+      "letters": [
+        2.58,
+        2.92
+      ],
+      "score": 0.0,
+      "diagnostics": []
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 8,
+    "before": {
+      "text": "я",
+      "start": 8.52,
+      "end": 8.72,
+      "letters": [
+        8.52
+      ],
+      "score": 0.004279331682482734,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "я",
+      "start": 8.52,
+      "end": 8.62,
+      "letters": [
+        8.52
+      ],
+      "score": 0.004279331682482734,
+      "diagnostics": []
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 10,
+    "before": {
+      "text": "23",
+      "start": 9.94,
+      "end": 10.78,
+      "letters": [
+        9.94,
+        10.24
+      ],
+      "score": 0.22871203844393181,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "23",
+      "start": 9.94,
+      "end": 10.7,
+      "letters": [
+        9.94,
+        10.24
+      ],
+      "score": 0.22871203844393181,
+      "diagnostics": []
+    },
+    "clippingMs": 80,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 12,
+    "before": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.72,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.6
+      ],
+      "score": 0.15515744939330034,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.66,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.6
+      ],
+      "score": 0.15515744939330034,
+      "diagnostics": []
+    },
+    "clippingMs": 60,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-clean-paired.json",
+    "case": "paired clean_entry",
+    "stageIndex": 7,
+    "wordIndex": 13,
+    "before": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.04,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.9,
+        12.92
+      ],
+      "score": 0.5609796442091465,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.0,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.9,
+        12.92
+      ],
+      "score": 0.5609796442091465,
+      "diagnostics": []
+    },
+    "clippingMs": 40,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 7,
+    "wordIndex": 4,
+    "before": {
+      "text": "легче",
+      "start": 4.56,
+      "end": 5.88,
+      "letters": [
+        4.56,
+        4.804,
+        5.048,
+        5.292,
+        5.536
+      ],
+      "score": 0.0,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "легче",
+      "start": 4.56,
+      "end": 5.78,
+      "letters": [
+        4.56,
+        4.804,
+        5.048,
+        5.292,
+        5.536
+      ],
+      "score": 0.0,
+      "diagnostics": []
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 7,
+    "wordIndex": 9,
+    "before": {
+      "text": "один",
+      "start": 9.0,
+      "end": 9.98,
+      "letters": [
+        9.0,
+        9.36,
+        9.48,
+        9.86
+      ],
+      "score": 0.005953670734015759,
+      "diagnostics": [
+        "OnsetAtSearchBoundary",
+        "TimingReviewRequired"
+      ]
+    },
+    "after": {
+      "text": "один",
+      "start": 9.0,
+      "end": 9.88,
+      "letters": [
+        9.0,
+        9.36,
+        9.48,
+        9.86
+      ],
+      "score": 0.005953670734015759,
+      "diagnostics": [
+        "OnsetAtSearchBoundary",
+        "TimingReviewRequired"
+      ]
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 7,
+    "wordIndex": 10,
+    "before": {
+      "text": "23",
+      "start": 9.88,
+      "end": 10.78,
+      "letters": [
+        9.88,
+        10.24
+      ],
+      "score": 0.19417344548062168,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "23",
+      "start": 9.88,
+      "end": 10.72,
+      "letters": [
+        9.88,
+        10.24
+      ],
+      "score": 0.19417344548062168,
+      "diagnostics": []
+    },
+    "clippingMs": 60,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 7,
+    "wordIndex": 12,
+    "before": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.7,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.58
+      ],
+      "score": 0.16648822001880034,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.66,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.58
+      ],
+      "score": 0.16648822001880034,
+      "diagnostics": []
+    },
+    "clippingMs": 40,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 7,
+    "wordIndex": 13,
+    "before": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.02,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.88,
+        12.9
+      ],
+      "score": 0.5699486752972007,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.0,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.88,
+        12.9
+      ],
+      "score": 0.5699486752972007,
+      "diagnostics": []
+    },
+    "clippingMs": 20,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 12,
+    "wordIndex": 9,
+    "before": {
+      "text": "один",
+      "start": 9.0,
+      "end": 9.98,
+      "letters": [
+        9.0,
+        9.36,
+        9.48,
+        9.86
+      ],
+      "score": 0.005953670734015759,
+      "diagnostics": [
+        "OnsetAtSearchBoundary",
+        "TimingReviewRequired"
+      ]
+    },
+    "after": {
+      "text": "один",
+      "start": 9.0,
+      "end": 9.88,
+      "letters": [
+        9.0,
+        9.36,
+        9.48,
+        9.86
+      ],
+      "score": 0.005953670734015759,
+      "diagnostics": [
+        "OnsetAtSearchBoundary",
+        "TimingReviewRequired"
+      ]
+    },
+    "clippingMs": 100,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 12,
+    "wordIndex": 10,
+    "before": {
+      "text": "23",
+      "start": 9.88,
+      "end": 10.78,
+      "letters": [
+        9.88,
+        10.24
+      ],
+      "score": 0.19417344548062168,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "23",
+      "start": 9.88,
+      "end": 10.72,
+      "letters": [
+        9.88,
+        10.24
+      ],
+      "score": 0.19417344548062168,
+      "diagnostics": []
+    },
+    "clippingMs": 60,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 12,
+    "wordIndex": 12,
+    "before": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.7,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.58
+      ],
+      "score": 0.16648822001880034,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "будто",
+      "start": 12.36,
+      "end": 12.66,
+      "letters": [
+        12.36,
+        12.44,
+        12.46,
+        12.52,
+        12.58
+      ],
+      "score": 0.16648822001880034,
+      "diagnostics": []
+    },
+    "clippingMs": 40,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  },
+  {
+    "source": "odin/production-uncertain-related.json",
+    "case": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+    "stageIndex": 12,
+    "wordIndex": 13,
+    "before": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.02,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.88,
+        12.9
+      ],
+      "score": 0.5699486752972007,
+      "diagnostics": []
+    },
+    "after": {
+      "text": "новый",
+      "start": 12.66,
+      "end": 13.0,
+      "letters": [
+        12.66,
+        12.76,
+        12.86,
+        12.88,
+        12.9
+      ],
+      "score": 0.5699486752972007,
+      "diagnostics": []
+    },
+    "clippingMs": 20,
+    "previousStage": "with_sung_ends",
+    "hasBoundaryConflict": false
+  }
+]

@@ -20,6 +20,9 @@ from backend.ai.catalog import ALIGNMENT_MODEL
 from backend.ai_worker.paths import model_file
 from backend.ai_worker.runtime import device
 from backend.ai_worker.timing import (
+    _bridged,
+    _runs,
+    audible_frames,
     continued_frames,
     harmonic_evidence,
     singing_frames,
@@ -251,35 +254,93 @@ def with_sung_ends(
     samples: np.ndarray,
     instrumental: np.ndarray | None = None,
     voiced: np.ndarray | None = None,
+    harmonics: tuple[np.ndarray, np.ndarray] | None = None,
+    audible: np.ndarray | None = None,
+    periodicity: np.ndarray | None = None,
 ) -> list[AlignedWord]:
     """Extend phonetic cores through singing, stopping at silence or the next word."""
     if voiced is None:
         voiced = singing_frames(samples, instrumental, _VOICE_RATE, _VOICE_HOP)
-    harmonics = (
-        harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP) if instrumental is not None else None
-    )
+    if harmonics is None and instrumental is not None:
+        harmonics = harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP)
+    if periodicity is None:
+        periodicity = (harmonics or harmonic_evidence(samples, _VOICE_RATE, _VOICE_HOP))[1]
     step = _VOICE_HOP / _VOICE_RATE
+    continuation = _sung_continuation(samples, voiced, audible, periodicity)
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         limit = words[index + 1].start if index + 1 < len(words) else len(voiced) * step
         continued = continued_frames(voiced, harmonics, (word.start, word.end, limit), step)
-        frame = min(int(word.end / step), len(voiced) - 1)
-        while frame + 1 < len(continued) and continued[frame] and (frame + 1) * step < limit:
-            frame += 1
-        end = max(word.end, min(frame * step, limit))
+        end = _sung_end(word, continued, continuation, periodicity, limit)
         silence = _first_long_silence(continued, word.start, end, step)
         letters = word.letters
         if silence is not None:
             end = max(silence, word.start + 0.001)
             letters = _clamped_letters(word.letters, 0.0, word.start, end)
-        result.append(
-            replace(
-                word,
-                end=round(max(end, word.start + 0.001), 3),
-                letters=letters,
-            )
-        )
+        result.append(replace(word, end=round(max(end, word.start + 0.001), 3), letters=letters))
     return result
+
+
+def _sung_continuation(
+    samples: np.ndarray, voiced: np.ndarray, audible: np.ndarray | None, periodicity: np.ndarray
+) -> np.ndarray:
+    # Phrase activity bridges consonant closures. After a confirmed phonetic core,
+    # a real release must not bridge into a later breath, echo, or new entry.
+    continuation = _bridged(
+        audible_frames(samples, _VOICE_HOP) if audible is None else audible,
+        round(_SILENT_START_SECONDS * _VOICE_RATE / _VOICE_HOP) - 1,
+    )
+    for first, last in _runs(continuation, False):
+        if not (
+            0 < first < last < len(continuation)
+            and voiced[first:last].all()
+            and float(np.median(periodicity[first:last])) >= 0.5
+        ):
+            continue
+        # A quiet vowel can survive the loudness threshold. Short windows follow
+        # melismas, strictly inside the dip so adjacent sounds cannot fill silence.
+        gap = samples[first * _VOICE_HOP : last * _VOICE_HOP]
+        frames = np.lib.stride_tricks.sliding_window_view(gap, 4 * _VOICE_HOP)[::_VOICE_HOP]
+        spectrum = np.fft.rfft(frames - frames.mean(axis=1, keepdims=True), n=8 * _VOICE_HOP)
+        correlation = np.fft.irfft(np.abs(spectrum) ** 2, n=8 * _VOICE_HOP)
+        support = correlation[:, round(_VOICE_RATE / 1100) : round(_VOICE_RATE / 65)].max(axis=1)
+        support /= np.maximum(correlation[:, 0], 1e-12)
+        if float(np.median(support)) >= 0.5:
+            continuation[first:last] = True
+    return continuation
+
+
+def _sung_end(
+    word: AlignedWord,
+    continued: np.ndarray,
+    continuation: np.ndarray,
+    periodicity: np.ndarray,
+    limit: float,
+) -> float:
+    step = _VOICE_HOP / _VOICE_RATE
+    last_letter = max(
+        (
+            moment
+            for char, moment in zip(word.text, word.letters)
+            if char.isalnum() and char.casefold() not in "ьъ"
+        ),
+        default=word.start,
+    )
+    # Onset calibration may shift a letter into the preceding vowel. Only
+    # the ending sound can establish release; preserve quiet final fricatives
+    # and stop closures whose earlier vowel would bias a whole-letter median.
+    terminal = max(last_letter, word.end - _SILENT_START_SECONDS)
+    core = periodicity[round(terminal / step) : round(word.end / step)]
+    periodic_core = bool(len(core)) and float(np.median(core)) >= 0.5
+    frame = min(int(word.end / step), len(continued) - 1)
+    while (
+        frame + 1 < min(len(continued), len(continuation))
+        and continued[frame]
+        and (not periodic_core or continuation[frame])
+        and frame * step < limit
+    ):
+        frame += 1
+    return max(word.end, min(frame * step, limit))
 
 
 def with_sung_letters(
@@ -289,9 +350,12 @@ def with_sung_letters(
     activity: np.ndarray,
     heard: Mapping[int, tuple[float, float]],
 ) -> list[AlignedWord]:
-    """Recheck final consonants inside confirmed sung bounds; preserve word times and prefixes."""
+    """Recheck sung suffixes inside confirmed bounds; preserve word times and supported letters."""
     result = list(words)
     for index, word in enumerate(words):
+        if (review := _collapsed_letter_review(word, scores, frame_seconds, activity)) is not None:
+            result[index] = review
+            continue
         following = words[index + 1] if index + 1 < len(words) else None
         last = _sung_tail_index(word)
         if last is None or not _sung_tail_supported(
@@ -315,7 +379,92 @@ def with_sung_letters(
             result[index] = replace(
                 word, letters=letters, diagnostics=(*word.diagnostics, "SungConsonantRetimed")
             )
+        elif _sung_letters_disagree(word, original, candidate, frame_seconds):
+            flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
+            result[index] = replace(word, diagnostics=tuple(dict.fromkeys(flags)))
     return result
+
+
+def _collapsed_letter_review(
+    word: AlignedWord, scores: torch.Tensor, step: float, activity: np.ndarray
+) -> AlignedWord | None:
+    """A clipped phonetic suffix is approximate even when a bounded CTC estimate is available."""
+    first = next(
+        (
+            i
+            for i, (char, moment) in enumerate(zip(word.text, word.letters))
+            if char.isalnum() and char.casefold() not in "ьъ" and moment >= word.end
+        ),
+        None,
+    )
+    if first is None:
+        return None
+    flags = (*word.diagnostics, "LetterTimingReviewRequired", "ApproximateLetterTiming")
+    word = replace(word, diagnostics=tuple(dict.fromkeys(flags)))
+    voice_step = _VOICE_HOP / _VOICE_RATE
+    stop = round(word.end / voice_step)
+    needed = round(_SILENCE_ENDS_WORD_SECONDS / voice_step)
+    pause = activity[stop : stop + needed]
+    # A conflicting neighbour is not an acoustic endpoint. Keep it unresolved;
+    # this path only estimates letters inside a word stopped by a real pause.
+    if (
+        first == 0
+        or word.score <= 0
+        or len(word.letters) != len(word.text)
+        or len(pause) != needed
+        or pause.any()
+    ):
+        return word
+    return _bounded_letter_estimate(word, scores, step, first)
+
+
+def _bounded_letter_estimate(
+    word: AlignedWord, scores: torch.Tensor, step: float, first: int
+) -> AlignedWord:
+    """Keep intact anchors and word bounds; the replacement suffix remains approximate."""
+    begin, stop = max(0, int(word.start / step)), round(word.end / step)
+    try:
+        candidate = align_words(
+            scores[begin:stop], step, [word.text], begin * step, bounded_end=True
+        )[0]
+    except ValueError:
+        return word
+    shift = word.letters[0] - candidate.letters[0]
+    if candidate.score <= 0 or any(
+        abs(saved - (moment + shift)) > step + 1e-9
+        for saved, moment in zip(word.letters[:first], candidate.letters[:first], strict=True)
+    ):
+        return word
+    letters = (
+        *word.letters[:first],
+        *(round(moment + shift, 3) for moment in candidate.letters[first:]),
+    )
+    if (
+        letters[0] < word.start
+        or letters[-1] > word.end
+        or any(a > b for a, b in zip(letters, letters[1:]))
+        or any(
+            char.isalnum() and char.casefold() not in "ьъ" and start >= end
+            for char, start, end in zip(
+                word.text[first:], letters[first:], (*letters[first + 1 :], word.end), strict=True
+            )
+        )
+    ):
+        return word
+    return replace(word, letters=letters, score=min(word.score, candidate.score))
+
+
+def _sung_letters_disagree(
+    word: AlignedWord, original: AlignedWord, candidate: AlignedWord, step: float
+) -> bool:
+    if not max(original.score, candidate.score) >= word.score:
+        return False
+    shift = word.letters[0] - original.letters[0]
+    return any(
+        char.isalpha() and char.casefold() not in "ьъ" and abs(moment + shift - saved) > step + 1e-9
+        for aligned in (original, candidate)
+        for char, moment, saved in zip(word.text, aligned.letters, word.letters, strict=True)
+    )
 
 
 def _sung_tail_index(word: AlignedWord) -> int | None:
@@ -366,30 +515,69 @@ def _sung_letter_candidate(
     step: float,
 ) -> tuple[float, ...] | None:
     shift = word.letters[0] - original.letters[0]
-    if (
-        candidate.score < max(word.score, original.score)
-        or any(
-            abs(a - b) > step
-            for a, b in zip(candidate.letters[:last], original.letters[:last], strict=True)
-        )
-        or any(
-            abs(a + shift - b) > step for a, b in zip(original.letters, word.letters, strict=True)
-        )
+    if candidate.score < max(word.score, original.score) or any(
+        abs(a - b) > step
+        for a, b in zip(candidate.letters[:last], original.letters[:last], strict=True)
     ):
         return None
-    tokens = _character_tokens(word.text)[last]
+    characters = _character_tokens(word.text)
+    tokens = characters[last]
     if not tokens:
         return None
+    previous = original.letters[last]
+    if (
+        len(tokens) == 1
+        and abs(previous - candidate.letters[last]) <= step
+        and abs(previous + shift - word.letters[last]) > step + 1e-9
+    ):
+        previous = word.letters[last] - shift
+    if not 0 <= round(previous / step) < len(scores):
+        return None
     support = [
-        float(scores[round(aligned.letters[last] / step), tokens[0]].exp())
-        for aligned in (original, candidate)
+        float(scores[round(moment / step), tokens[0]].exp())
+        for moment in (previous, candidate.letters[last])
     ]
     if support[1] <= support[0] + _PREFERENCE:
         return None
-    tail = _clamped_letters(candidate.letters[last:], shift, word.letters[last - 1], word.end)
+    return _sung_letter_times(word, candidate, last, characters, scores, step, shift)
+
+
+def _sung_letter_times(
+    word: AlignedWord,
+    candidate: AlignedWord,
+    last: int,
+    characters: list[list[int]],
+    scores: torch.Tensor,
+    step: float,
+    shift: float,
+) -> tuple[float, ...] | None:
+    prefix = list(word.letters[:last])
+    for index, saved in enumerate(prefix):
+        proposed = candidate.letters[index] + shift
+        if abs(proposed - saved) <= step + 1e-9:
+            continue
+        # A romanized multi-token grapheme has no single posterior that can
+        # certify its whole movement. Keep it pending rather than guess a split.
+        if len(characters[index]) != 1:
+            return None
+        before, after = round((saved - shift) / step), round(candidate.letters[index] / step)
+        if not 0 <= before < len(scores):
+            return None
+        token = characters[index][0]
+        if float(scores[after, token].exp()) <= float(scores[before, token].exp()) + _PREFERENCE:
+            return None
+        prefix[index] = round(proposed, 3)
+    tail = _clamped_letters(candidate.letters[last:], shift, prefix[-1], word.end)
     if tail[0] <= word.letters[last] + step or tail[0] >= word.end:
         return None
-    return (*word.letters[:last], *tail)
+    result = (*prefix, *tail)
+    if (
+        result[0] < word.start
+        or result[-1] > word.end
+        or any(a > b for a, b in zip(result, result[1:]))
+    ):
+        return None
+    return result
 
 
 def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: float) -> float | None:
@@ -407,24 +595,18 @@ def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: floa
     return None
 
 
-def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[AlignedWord]:
+def with_voice_onsets(
+    words: list[AlignedWord], samples: np.ndarray, voiced: np.ndarray | None = None
+) -> list[AlignedWord]:
     """Moves word starts back to where the voice really starts.
 
     The model marks a letter a little after its sound begins. A word that follows a pause starts at the voice onset found
     in the audio; that entry's measured lag is removed inside its phrase, with a median fallback.
     """
-    voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
+    if voiced is None:
+        voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
-    onsets = np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1
-    found: dict[int, float] = {}
-    for index, word in enumerate(words):
-        after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
-        nearby = onsets[
-            (onsets * step >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
-            & (onsets * step <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
-        ]
-        if after_pause and len(nearby):
-            found[index] = float(nearby[np.argmin(np.abs(nearby * step - word.start))]) * step
+    found = _voice_entries(words, voiced, step)
     lags = [words[index].start - onset for index, onset in found.items()]
     lag = (
         min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags))))
@@ -436,7 +618,13 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
     for index, word in enumerate(words):
         if index in found:
             lag = min(_LARGEST_LAG_SECONDS, max(0.0, word.start - found[index]))
-        start = found.get(index, word.start - lag)
+        # A locally recovered entry supplies its own anchor. Calibrate it only from
+        # a nearby acoustic entry, never from the unrelated first word's lag.
+        start = (
+            word.start
+            if "OnsetRecovered" in word.diagnostics and index not in found
+            else found.get(index, word.start - lag)
+        )
         start = max(min(start, word.end - 0.001), floor)
         shift = start - word.start
         end = max(word.end, start + 0.001)
@@ -444,6 +632,28 @@ def with_voice_onsets(words: list[AlignedWord], samples: np.ndarray) -> list[Ali
         result.append(replace(word, start=round(start, 3), end=end, letters=letters))
         floor = start
     return result
+
+
+def _voice_entries(
+    words: Sequence[AlignedWord], voiced: np.ndarray, step: float
+) -> dict[int, float]:
+    """Find local voice entries without dropping quieter recognized initial consonants."""
+    onsets = np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1
+    found: dict[int, float] = {}
+    for index, word in enumerate(words):
+        after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
+        nearby = onsets[
+            (onsets * step >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
+            & (onsets * step <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
+        ]
+        if not after_pause:
+            # The acoustic pause can be clear even when the preceding CTC core ends late.
+            nearby = nearby[nearby * step >= words[index - 1].end]
+        if len(nearby):
+            onset = float(nearby[np.argmin(np.abs(nearby * step - word.start))]) * step
+            # A quiet initial consonant can precede the louder vowel or nasal entry.
+            found[index] = min(word.start, onset)
+    return found
 
 
 @dataclass(frozen=True, slots=True)
@@ -555,6 +765,13 @@ def align_guided(
             candidate
             for candidate in (guided, reference)
             if (not result or candidate[0].start > result[-1].start + 1e-9)
+            # A separate crop can reuse the preceding word's suffix. Its higher
+            # mean score cannot erase supported anchors, but weak forced paths may be replaced.
+            and (
+                not result
+                or result[-1].score <= _PREFERENCE
+                or not _clips_letter_anchor(result[-1], candidate[0].start)
+            )
             and (
                 not result
                 or voiced is None
@@ -681,30 +898,22 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
 
     Only reversed starts need moving. Duration alone cannot tell whether a long word or an unequal
     letter interval is wrong; audio evidence belongs to the alignment/refinement stages.
-    Significant clipping remains diagnostic evidence, even after a second normalization.
+    Clipping beyond one acoustic hop remains diagnostic evidence. Lost phonetic cores or a large
+    relative loss require joint review, even when the remaining word exceeds the rate-review floor.
     """
     starts: list[float] = []
     cursor = 0.0
     for word in words:
-        start = max(word.start, cursor)
+        start = max(round(word.start, 3), cursor)
         starts.append(start)
         # Reserve only one serialized millisecond; real fast words need no 50-ms speech minimum.
-        cursor = start + 0.001
+        cursor = round(start + 0.001, 3)
     result: list[AlignedWord] = []
     for index, word in enumerate(words):
         start = starts[index]
-        end = max(word.end, start + 0.001)
+        end = max(round(word.end, 3), round(start + 0.001, 3))
         if index + 1 < len(starts):
             end = min(end, starts[index + 1])
-        conflict = (
-            start > word.start + 0.001
-            or word.end - end > _HEARD_DISAGREEMENT_SECONDS
-            or word.end - word.start >= _CRAMMED_WORD_SECONDS
-            and end - start + 1e-9 < _CRAMMED_WORD_SECONDS
-        )
-        diagnostics = tuple(
-            dict.fromkeys((*word.diagnostics, *(("BoundaryConflict",) if conflict else ())))
-        )
         letters = _clamped_letters(word.letters, 0.0, start, end)
         result.append(
             replace(
@@ -712,7 +921,37 @@ def ordered(words: list[AlignedWord]) -> list[AlignedWord]:
                 start=round(start, 3),
                 end=round(end, 3),
                 letters=letters,
-                diagnostics=diagnostics,
+                diagnostics=_ordering_diagnostics(word, start, end),
             )
         )
     return result
+
+
+def _clips_letter_anchor(word: AlignedWord, end: float) -> bool:
+    """A sounding anchor on the new end loses its positive interval too."""
+    return any(
+        end - 1e-9 <= moment < word.end - 1e-9
+        for char, moment in zip(word.text, word.letters)
+        if char.isalnum() and char.casefold() not in "ьъ"
+    )
+
+
+def _ordering_diagnostics(word: AlignedWord, start: float, end: float) -> tuple[str, ...]:
+    clipped = word.end - end > _VOICE_HOP / _VOICE_RATE + 1e-9
+    conflict = (
+        start > word.start + 0.001
+        or word.end - end > _HEARD_DISAGREEMENT_SECONDS
+        or clipped
+        and (end - start <= (word.end - word.start) / 2 + 1e-9 or _clips_letter_anchor(word, end))
+        or word.end - word.start >= _CRAMMED_WORD_SECONDS
+        and end - start + 1e-9 < _CRAMMED_WORD_SECONDS
+    )
+    return tuple(
+        dict.fromkeys(
+            (
+                *word.diagnostics,
+                *(("BoundaryClipped",) if clipped else ()),
+                *(("BoundaryConflict",) if conflict else ()),
+            )
+        )
+    )

@@ -1,0 +1,153 @@
+{
+  "createdUtc": "2026-10-31T21:06:45.022201+00:00",
+  "status": "Full suites are not green. No new attributable synchronization regression found; one varying unchanged integration assertion remains unreproduced in focused runs. Raw counts and every failure ID remain retained.",
+  "fullRuns": {
+    "baseline-v4": "61 failed, 1315 passed, 6 skipped, 2 warnings in 268.69s (0:04:28)",
+    "phase1-v5": "63 failed, 1330 passed, 6 skipped, 2 warnings in 266.00s (0:04:25)",
+    "final-v5": "60 failed, 1336 passed, 6 skipped, 2 warnings in 238.04s (0:03:58)"
+  },
+  "newFinalFailureIDsVsBaseline": [
+    "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+    "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+    "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+  ],
+  "absentBaselineFailureIDsInFinal": [
+    "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+    "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history",
+    "tests/test_release_regressions.py::test_analysis_cancelled_before_execution_does_not_remain_queued",
+    "tests/test_release_regressions.py::test_cancelled_analysis_does_not_publish_a_successful_score"
+  ],
+  "newFinalFailures": [
+    {
+      "test": "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+      "status": "Directly reproduced on unchanged baseline-v4; not a newly introduced failing behavior.",
+      "baselineFailureProofs": [
+        {
+          "file": "backend-six-variances-idle/result.json",
+          "source": "immutable baseline-v4",
+          "result": "failed",
+          "sourceUnchanged": true
+        }
+      ]
+    },
+    {
+      "test": "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]",
+      "status": "Full final run failed once; selected paired rerun passed on both baseline and final. Failure mechanism is in unchanged recording preparation/API path, not the changed CTC/guidance. The isolated original failure itself remains unreproduced; no claim that it is fixed.",
+      "baselineFailureProofs": []
+    },
+    {
+      "test": "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found",
+      "status": "Directly reproduced on unchanged baseline-v4; not a newly introduced failing behavior.",
+      "baselineFailureProofs": [
+        {
+          "file": "backend-two-final-variances-idle/result.json",
+          "source": "immutable baseline-v4",
+          "result": "failed",
+          "sourceUnchanged": true
+        }
+      ]
+    }
+  ],
+  "pairedRuns": [
+    {
+      "file": "backend-six-variances-idle/result.json",
+      "runs": [
+        {
+          "label": "baseline-v4",
+          "pytestSummary": "=================== 5 failed, 1 passed, 2 warnings in 22.91s ===================",
+          "failureIDs": [
+            "tests/test_recordings_analysis.py::test_recording_name_and_status_are_backend_authoritative",
+            "tests/test_recordings_analysis.py::test_repeated_analysis_requests_share_the_running_job",
+            "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+            "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+            "tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history"
+          ],
+          "sourceUnchanged": true
+        },
+        {
+          "label": "first-v5-freeze",
+          "pytestSummary": "=================== 2 failed, 4 passed, 2 warnings in 22.91s ===================",
+          "failureIDs": [
+            "tests/test_recordings_analysis.py::test_repeated_analysis_requests_share_the_running_job",
+            "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running"
+          ],
+          "sourceUnchanged": true
+        }
+      ]
+    },
+    {
+      "file": "backend-two-final-variances-idle/result.json",
+      "runs": [
+        {
+          "label": "baseline-v4",
+          "pytestSummary": "=================== 1 failed, 1 passed, 2 warnings in 3.77s ====================",
+          "failureIDs": [
+            "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+          ],
+          "sourceUnchanged": true
+        },
+        {
+          "label": "final-v5",
+          "pytestSummary": "=================== 1 failed, 1 passed, 2 warnings in 3.64s ====================",
+          "failureIDs": [
+            "tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found"
+          ],
+          "sourceUnchanged": true
+        }
+      ]
+    }
+  ],
+  "regressionTests": {
+    "newCases": 20,
+    "newFiles": [
+      "tests/test_inactive_core_review.py",
+      "tests/test_confirmed_voice_onsets.py",
+      "tests/test_guidance_acoustic_fallback.py"
+    ],
+    "failuresInNewFiles": [],
+    "existingTestsEdited": false
+  },
+  "existingSynchronizationFailure": "tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda] fails on baseline and final: embedding float16 differs from expected float32. Not repaired by this timing patch.",
+  "staticGateComparison": {
+    "newArchitectureFindings": [],
+    "newFormatFiles": [],
+    "newMypyErrors": [],
+    "gateExitCodes": {
+      "compile": {
+        "baseline-v4": 0,
+        "final": 0
+      },
+      "architecture": {
+        "baseline-v4": 1,
+        "final": 1
+      },
+      "bootstrap": {
+        "baseline-v4": 0,
+        "final": 0
+      },
+      "format": {
+        "baseline-v4": 1,
+        "final": 1
+      },
+      "lint": {
+        "baseline-v4": 0,
+        "final": 0
+      },
+      "mypy": {
+        "baseline-v4": 1,
+        "final": 1
+      },
+      "pytest": {
+        "baseline-v4": 1,
+        "final": 1
+      }
+    }
+  },
+  "codeEvidencePlan": "backend-two-final-variances-plan.json",
+  "explanation": "The tests inject FakeAiProvider (or a subclass overriding separate only), whose align returns fixed WordTiming. They do not call modified CTC or word guidance. Recording registration returns Preparing while asynchronous preparation is pending; immediate analysis/studio-master may receive409 and no jobId. The related source/test/helper files are byte-identical to baseline. Passing reruns do not overwrite raw full-run failures.",
+  "limitations": [
+    "No Windows live Electron/audio/microphone/room gate was run.",
+    "Full-suite durations are verification durations, not the cached-alignment benchmark.",
+    "Absent old failures in one final run are not claimed fixed by this unrelated patch."
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "scope": "Strict cached replay of three previously verified artist excerpts, same recorded audio and ASR/MMS evidence; final product code. No new inference and no new accuracy labels.",
+  "cases": [
+    {
+      "case": "antytila_lovy_moment",
+      "words": 22,
+      "payloadIdentical": true,
+      "changedWords": [],
+      "beforeSha256": "351f9726a83800d8796632d466601cba919ac0ba19574f8435a619a30eff54eb",
+      "afterSha256": "351f9726a83800d8796632d466601cba919ac0ba19574f8435a619a30eff54eb"
+    },
+    {
+      "case": "otorvald_bez_tebe",
+      "words": 58,
+      "payloadIdentical": true,
+      "changedWords": [],
+      "beforeSha256": "a81ab8548c900ddf0dd387e2eff72695bf0e5646fb4c9c3d0c85337ce9323822",
+      "afterSha256": "a81ab8548c900ddf0dd387e2eff72695bf0e5646fb4c9c3d0c85337ce9323822"
+    },
+    {
+      "case": "pivovarov_dezhavyu_ua",
+      "words": 38,
+      "payloadIdentical": true,
+      "changedWords": [],
+      "beforeSha256": "9aea9fdae391b194468ab56241a03b8fabb7f0cc2739a53701f49e6051bec4bd",
+      "afterSha256": "9aea9fdae391b194468ab56241a03b8fabb7f0cc2739a53701f49e6051bec4bd"
+    }
+  ]
+}

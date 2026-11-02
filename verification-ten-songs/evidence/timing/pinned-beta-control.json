@@ -1,0 +1,129 @@
+{
+  "scope": "Targeted follow-up for the +18.13% exploratory Beta result, with an unchanged-output Lyudy control. Separate imported full backends A/B/B/A, fixed CPU affinity [0], same evidence and exact reference payload checks. This narrows host-core variation; it is not a full-song latency benchmark or proof of universal performance.",
+  "completed": true,
+  "order": [
+    "baseline",
+    "final",
+    "final",
+    "baseline"
+  ],
+  "cpuAffinity": [
+    0
+  ],
+  "warmupsPerCasePerProcess": 3,
+  "measurementsPerCasePerVersion": 18,
+  "cases": [
+    {
+      "case": "boombox_lyudy",
+      "baseline": {
+        "medianWallMs": 510.47537450000004,
+        "medianCpuMs": 509.614142,
+        "minimumWallMs": 467.49761,
+        "maximumWallMs": 662.13285,
+        "measurementCount": 18,
+        "blockMedians": [
+          {
+            "block": "cycle-01-1-baseline",
+            "cycle": 1,
+            "wallMs": 545.046182,
+            "cpuMs": 545.064396
+          },
+          {
+            "block": "cycle-01-4-baseline",
+            "cycle": 1,
+            "wallMs": 499.972453,
+            "cpuMs": 499.771574
+          }
+        ],
+        "allOutputsEqualReference": true,
+        "allInputsUnchanged": true,
+        "modelCalls": 0
+      },
+      "final": {
+        "medianWallMs": 531.8646575,
+        "medianCpuMs": 531.7171455,
+        "minimumWallMs": 493.05338,
+        "maximumWallMs": 626.795956,
+        "measurementCount": 18,
+        "blockMedians": [
+          {
+            "block": "cycle-01-2-final",
+            "cycle": 1,
+            "wallMs": 522.375374,
+            "cpuMs": 522.40302
+          },
+          {
+            "block": "cycle-01-3-final",
+            "cycle": 1,
+            "wallMs": 544.112393,
+            "cpuMs": 544.117753
+          }
+        ],
+        "allOutputsEqualReference": true,
+        "allInputsUnchanged": true,
+        "modelCalls": 0
+      },
+      "finalMinusBaselineWallMs": 21.389282999999978,
+      "wallChangePercent": 4.190071464456113
+    },
+    {
+      "case": "boombox_beta_karotyn",
+      "baseline": {
+        "medianWallMs": 427.710849,
+        "medianCpuMs": 427.4702805,
+        "minimumWallMs": 407.52404,
+        "maximumWallMs": 540.96633,
+        "measurementCount": 18,
+        "blockMedians": [
+          {
+            "block": "cycle-01-1-baseline",
+            "cycle": 1,
+            "wallMs": 427.661114,
+            "cpuMs": 427.625035
+          },
+          {
+            "block": "cycle-01-4-baseline",
+            "cycle": 1,
+            "wallMs": 427.760584,
+            "cpuMs": 427.315526
+          }
+        ],
+        "allOutputsEqualReference": true,
+        "allInputsUnchanged": true,
+        "modelCalls": 0
+      },
+      "final": {
+        "medianWallMs": 462.35779549999995,
+        "medianCpuMs": 462.1254025,
+        "minimumWallMs": 420.915742,
+        "maximumWallMs": 542.995305,
+        "measurementCount": 18,
+        "blockMedians": [
+          {
+            "block": "cycle-01-2-final",
+            "cycle": 1,
+            "wallMs": 471.666682,
+            "cpuMs": 471.634627
+          },
+          {
+            "block": "cycle-01-3-final",
+            "cycle": 1,
+            "wallMs": 461.644146,
+            "cpuMs": 461.668489
+          }
+        ],
+        "allOutputsEqualReference": true,
+        "allInputsUnchanged": true,
+        "modelCalls": 0
+      },
+      "finalMinusBaselineWallMs": 34.646946499999956,
+      "wallChangePercent": 8.100553582170168
+    }
+  ],
+  "timingExclusions": [
+    "Imports and decoding",
+    "ASR/MMS/model loading",
+    "Model-assisted singing-mask generation",
+    "Tracing, result comparison, hashing, JSON and all file writes"
+  ]
+}

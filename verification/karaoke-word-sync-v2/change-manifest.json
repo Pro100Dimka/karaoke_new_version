@@ -1,0 +1,164 @@
+{
+  "created_utc": "2026-10-31T15:13:08.852621+00:00",
+  "base_commit": "17229ed5db60152b21ae3697a2404d8c10a3c341",
+  "repository": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+  "scope": "All changed production/test/notebook files, including added tests, relative to the exact supplied v1 checkpoint.",
+  "input_zip": {
+    "path": "/workspace/scratch/513dbcd967bf/input-v2/karaoke_word_sync_fixed(1).zip",
+    "sha256": "f2e8b3ddefb309ef4ec1e92b79c90cf246f401a3d52463a901f1be1c1eb5de8b",
+    "archive_prefix": "karaoke_new_version-refactor-frontend-direct/"
+  },
+  "patch": {
+    "file": "karaoke_word_sync_v2.patch",
+    "sha256": "e6c5bc4d71d9af468b42767c78b7973eb4727b1cfbdc82089c9e03d4550564cd",
+    "bytes": 237487
+  },
+  "excluded_prefixes": [
+    "frontend/D:/"
+  ],
+  "files": [
+    {
+      "path": "kaggle/ad_voice_p100.ipynb",
+      "status": "modified",
+      "category": "notebook",
+      "before_sha256": "7ba50fb9c8d6feb8bc92b37895c3de63698903af33a1419c6f2e1da2546089f0",
+      "after_sha256": "0047578cd81f3e07f12efeb90c2c67ab9bc1e0108213e131cadb1f8da69b27ed",
+      "before_bytes": 95044,
+      "after_bytes": 98300,
+      "numstat": {
+        "additions": 3,
+        "deletions": 3
+      },
+      "baseline_matches_git_checkpoint": true,
+      "baseline_matches_input_zip": true,
+      "applied_sha256": "0047578cd81f3e07f12efeb90c2c67ab9bc1e0108213e131cadb1f8da69b27ed",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/backend/ai_worker/ctc.py",
+      "status": "modified",
+      "category": "production",
+      "before_sha256": "b234d08fdb06fb7d5bf1584dae990276a7f37d9234baa392b87554c4faae0271",
+      "after_sha256": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+      "before_bytes": 29586,
+      "after_bytes": 29712,
+      "numstat": {
+        "additions": 9,
+        "deletions": 6
+      },
+      "baseline_matches_git_checkpoint": true,
+      "baseline_matches_input_zip": true,
+      "applied_sha256": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/backend/ai_worker/speech.py",
+      "status": "modified",
+      "category": "production",
+      "before_sha256": "005b340e0f60646f35332b5ea52e65c75a82d2ca3e3d8677625776c922328ff4",
+      "after_sha256": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+      "before_bytes": 23054,
+      "after_bytes": 23221,
+      "numstat": {
+        "additions": 15,
+        "deletions": 12
+      },
+      "baseline_matches_git_checkpoint": true,
+      "baseline_matches_input_zip": true,
+      "applied_sha256": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/backend/ai_worker/word_guidance.py",
+      "status": "modified",
+      "category": "production",
+      "before_sha256": "68799831766fb75295bbd26afbbbaa51893702352709f11aecaf89afc9d762b6",
+      "after_sha256": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+      "before_bytes": 24317,
+      "after_bytes": 35481,
+      "numstat": {
+        "additions": 305,
+        "deletions": 19
+      },
+      "baseline_matches_git_checkpoint": true,
+      "baseline_matches_input_zip": true,
+      "applied_sha256": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/tests/test_word_timing_review.py",
+      "status": "modified",
+      "category": "test",
+      "before_sha256": "2ce680a1d559152ea0087fb95435984e7f95c265577bf7d65f003f866492a04b",
+      "after_sha256": "65dbb839cc7ab103d8f768888ed6b8570a074137a2de61b9c87591a6cfcacf65",
+      "before_bytes": 9849,
+      "after_bytes": 12122,
+      "numstat": {
+        "additions": 53,
+        "deletions": 0
+      },
+      "baseline_matches_git_checkpoint": true,
+      "baseline_matches_input_zip": true,
+      "applied_sha256": "65dbb839cc7ab103d8f768888ed6b8570a074137a2de61b9c87591a6cfcacf65",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/tests/test_phrase_boundary_recovery.py",
+      "status": "added",
+      "category": "test",
+      "before_sha256": null,
+      "after_sha256": "7ac20c2e8c44d7d77456c361edbaeff80cab3cd1d3a37fc34533b54928f8d7d0",
+      "before_bytes": 0,
+      "after_bytes": 5516,
+      "numstat": {
+        "additions": 149,
+        "deletions": 0
+      },
+      "baseline_matches_git_checkpoint": null,
+      "baseline_matches_input_zip": null,
+      "applied_sha256": "7ac20c2e8c44d7d77456c361edbaeff80cab3cd1d3a37fc34533b54928f8d7d0",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/tests/test_review_windows.py",
+      "status": "added",
+      "category": "test",
+      "before_sha256": null,
+      "after_sha256": "9944ee497c6abbc94ea47daefd6b97a72811337e9f4aeccf29970ccfd049e963",
+      "before_bytes": 0,
+      "after_bytes": 12996,
+      "numstat": {
+        "additions": 328,
+        "deletions": 0
+      },
+      "baseline_matches_git_checkpoint": null,
+      "baseline_matches_input_zip": null,
+      "applied_sha256": "9944ee497c6abbc94ea47daefd6b97a72811337e9f4aeccf29970ccfd049e963",
+      "applied_matches_current": true
+    },
+    {
+      "path": "python/tests/test_sung_end_boundaries.py",
+      "status": "added",
+      "category": "test",
+      "before_sha256": null,
+      "after_sha256": "2f7fbf6df169c491aaa7e5d390ec2c31f1d8127f15a3d37a85f6872f9017f1de",
+      "before_bytes": 0,
+      "after_bytes": 3492,
+      "numstat": {
+        "additions": 86,
+        "deletions": 0
+      },
+      "baseline_matches_git_checkpoint": null,
+      "baseline_matches_input_zip": null,
+      "applied_sha256": "2f7fbf6df169c491aaa7e5d390ec2c31f1d8127f15a3d37a85f6872f9017f1de",
+      "applied_matches_current": true
+    }
+  ],
+  "totals": {
+    "files": 8,
+    "added_files": 3,
+    "modified_files": 5,
+    "additions": 948,
+    "deletions": 40
+  }
+}

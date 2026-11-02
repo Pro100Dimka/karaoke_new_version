@@ -1,0 +1,2406 @@
+[
+  {
+    "sequence": 1,
+    "stage": "speech.read_mono",
+    "startedOffsetSeconds": 0.001566775999890524,
+    "elapsedSeconds": 0.2868744429997605
+  },
+  {
+    "sequence": 2,
+    "stage": "speech.read_mono",
+    "startedOffsetSeconds": 0.2914631469993765,
+    "elapsedSeconds": 0.011795102000178304
+  },
+  {
+    "stage": "ASR",
+    "elapsedSeconds": 30.405962077000368,
+    "requestKey": "6ad8c3ddd730c1573144e9c5ba676e6ea38246ef7b334e1cba367dba25c037a6",
+    "replay": false,
+    "distributionRedaction": "ASR request/context/transcript omitted; timing and request hash retained."
+  },
+  {
+    "stage": "MMS emission",
+    "elapsedSeconds": 12.209187407999707,
+    "scores": {
+      "shape": [
+        459,
+        28
+      ],
+      "dtype": "float32",
+      "sha256": "8bd405375d49ed235fee5f1f451e681191a6aed3b07c318232e5ec0532337764"
+    },
+    "frameSeconds": 0.02
+  },
+  {
+    "stage": "alignment_evidence",
+    "scores": {
+      "shape": [
+        459,
+        28
+      ],
+      "dtype": "float32",
+      "sha256": "8bd405375d49ed235fee5f1f451e681191a6aed3b07c318232e5ec0532337764"
+    },
+    "frameSeconds": 0.02,
+    "elapsedSeconds": 42.66771373600022,
+    "heardWordCount": 7,
+    "independentViewWordCounts": [
+      7
+    ],
+    "distributionRedaction": "Independent ASR text omitted; counts and score-array fingerprint retained."
+  },
+  {
+    "sequence": 3,
+    "stage": "speech.align_words",
+    "startedOffsetSeconds": 42.958510046999436,
+    "elapsedSeconds": 3.5995631860005233,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.9400000000000001,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6000000000000005,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 4,
+    "stage": "speech.singing_frames",
+    "startedOffsetSeconds": 46.563040515000466,
+    "elapsedSeconds": 0.007700399000896141,
+    "outputArray": {
+      "shape": [
+        920
+      ],
+      "dtype": "bool",
+      "sha256": "9b3487f1b3ea1d9d61edeedadfa66999b15ac1dbd5753560260a703e9f8cb770"
+    }
+  },
+  {
+    "sequence": 5,
+    "stage": "speech.voiced_frames",
+    "startedOffsetSeconds": 46.61201749199972,
+    "elapsedSeconds": 0.0015879769998718984,
+    "outputArray": {
+      "shape": [
+        920
+      ],
+      "dtype": "bool",
+      "sha256": "9b3487f1b3ea1d9d61edeedadfa66999b15ac1dbd5753560260a703e9f8cb770"
+    }
+  },
+  {
+    "sequence": 6,
+    "stage": "speech.vocal_onsets",
+    "startedOffsetSeconds": 46.64743217599971,
+    "elapsedSeconds": 0.00205784999889147,
+    "outputArray": {
+      "shape": [
+        8
+      ],
+      "dtype": "float64",
+      "sha256": "02c85fda20793a779463db0b61a7dc0ec7f33d74564524338e0a77066209d35e"
+    }
+  },
+  {
+    "sequence": 8,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 46.68779683399953,
+    "elapsedSeconds": 0.0036881089999951655,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.9400000000000001,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6000000000000005,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 9,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.69295818499995,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.9400000000000001,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6000000000000005,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 8.675699973537121e-05,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 7,
+    "stage": "speech.align_guided",
+    "startedOffsetSeconds": 46.6876844189992,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.9400000000000001,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6000000000000005,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00696487000095658,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 11,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 46.69760081599998,
+    "elapsedSeconds": 0.0012781250006810296,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.9400000000000001,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 12,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 46.70039259999976,
+    "elapsedSeconds": 0.0013745989999733865,
+    "outputWords": [
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 13,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 46.70296929399956,
+    "elapsedSeconds": 0.0010297680000803666,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 14,
+    "stage": "ctc._align_window",
+    "startedOffsetSeconds": 46.705867706999925,
+    "elapsedSeconds": 0.0014725660003023222,
+    "outputWords": [
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 15,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.70889926900054,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 7.11980010237312e-05,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 16,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.71072607399947,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.234999894630164e-05,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 17,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.71289006299958,
+    "inputWords": [
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.354600085003767e-05,
+    "outputWords": [
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 18,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.7160853259993,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.398999979253858e-05,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 19,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.71864650600037,
+    "inputWords": [
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 3.2529000236536376e-05,
+    "outputWords": [
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 20,
+    "stage": "ctc.ordered",
+    "startedOffsetSeconds": 46.72066740700029,
+    "inputWords": [
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 2.9838998671039008e-05,
+    "outputWords": [
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 10,
+    "stage": "speech.with_word_guidance",
+    "startedOffsetSeconds": 46.696140608999485,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.02646303999972588,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 21,
+    "stage": "speech.with_voice_onsets",
+    "startedOffsetSeconds": 46.72501551300047,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.4,
+        "end": 0.94,
+        "letters": [
+          0.4,
+          0.62,
+          0.78,
+          0.92
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.52,
+        "end": 2.52,
+        "letters": [
+          1.52,
+          1.6,
+          1.8,
+          1.9,
+          2.14,
+          2.24,
+          2.38,
+          2.5
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.4,
+        "end": 3.94,
+        "letters": [
+          3.4,
+          3.6,
+          3.78,
+          3.92
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.6,
+        "end": 5.68,
+        "letters": [
+          4.6,
+          4.72,
+          4.82,
+          4.96,
+          5.08,
+          5.2,
+          5.32,
+          5.54
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.0006155240007501561,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 0.94,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.52,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 3.94,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.68,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 22,
+    "stage": "speech.with_sung_ends",
+    "startedOffsetSeconds": 46.72797364100006,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 0.94,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.52,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 3.94,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.68,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.5,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.52,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00021654500051226933,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 23,
+    "stage": "speech.ordered",
+    "startedOffsetSeconds": 46.73121917699973,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00010315199870092329,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 24,
+    "stage": "speech.with_sung_letters",
+    "startedOffsetSeconds": 46.73632534100034,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "elapsedSeconds": 0.00021134599955985323,
+    "outputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ]
+  },
+  {
+    "sequence": 25,
+    "stage": "speech.alignment_payload",
+    "startedOffsetSeconds": 46.73997228400003,
+    "inputWords": [
+      {
+        "text": "анна",
+        "start": 0.31,
+        "end": 1.43,
+        "letters": [
+          0.31,
+          0.53,
+          0.69,
+          0.83
+        ],
+        "score": 0.8332522734999657,
+        "diagnostics": []
+      },
+      {
+        "text": "каренина",
+        "start": 1.43,
+        "end": 2.73,
+        "letters": [
+          1.43,
+          1.51,
+          1.71,
+          1.81,
+          2.05,
+          2.15,
+          2.29,
+          2.41
+        ],
+        "score": 0.7054531735338969,
+        "diagnostics": []
+      },
+      {
+        "text": "анна",
+        "start": 3.32,
+        "end": 4.17,
+        "letters": [
+          3.32,
+          3.52,
+          3.7,
+          3.84
+        ],
+        "score": 0.8038272075355053,
+        "diagnostics": []
+      },
+      {
+        "text": "вронская",
+        "start": 4.62,
+        "end": 5.85,
+        "letters": [
+          4.62,
+          4.74,
+          4.84,
+          4.98,
+          5.1,
+          5.22,
+          5.34,
+          5.56
+        ],
+        "score": 0.8406083927386336,
+        "diagnostics": []
+      },
+      {
+        "text": "гордые",
+        "start": 6.46,
+        "end": 7.9,
+        "letters": [
+          6.46,
+          6.54,
+          6.76,
+          6.9,
+          7.02,
+          7.48
+        ],
+        "score": 0.5167817280938228,
+        "diagnostics": []
+      },
+      {
+        "text": "леди",
+        "start": 7.9,
+        "end": 8.77,
+        "letters": [
+          7.9,
+          8.02,
+          8.38,
+          8.5
+        ],
+        "score": 0.6003827678505331,
+        "diagnostics": []
+      }
+    ],
+    "reviewed": [],
+    "elapsedSeconds": 5.836099990119692e-05,
+    "payload": {
+      "words": [
+        {
+          "text": "анна",
+          "start": 0.31,
+          "end": 1.43,
+          "confidence": 0.8332522734999657,
+          "letters": [
+            0.31,
+            0.53,
+            0.69,
+            0.83
+          ],
+          "diagnostics": [
+            "RecognizedWord"
+          ]
+        },
+        {
+          "text": "каренина",
+          "start": 1.43,
+          "end": 2.73,
+          "confidence": 0.7054531735338969,
+          "letters": [
+            1.43,
+            1.51,
+            1.71,
+            1.81,
+            2.05,
+            2.15,
+            2.29,
+            2.41
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "анна",
+          "start": 3.32,
+          "end": 4.17,
+          "confidence": 0.8038272075355053,
+          "letters": [
+            3.32,
+            3.52,
+            3.7,
+            3.84
+          ],
+          "diagnostics": [
+            "RecognizedWord"
+          ]
+        },
+        {
+          "text": "вронская",
+          "start": 4.62,
+          "end": 5.85,
+          "confidence": 0.8406083927386336,
+          "letters": [
+            4.62,
+            4.74,
+            4.84,
+            4.98,
+            5.1,
+            5.22,
+            5.34,
+            5.56
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "гордые",
+          "start": 6.46,
+          "end": 7.9,
+          "confidence": 0.5167817280938228,
+          "letters": [
+            6.46,
+            6.54,
+            6.76,
+            6.9,
+            7.02,
+            7.48
+          ],
+          "diagnostics": []
+        },
+        {
+          "text": "леди",
+          "start": 7.9,
+          "end": 8.77,
+          "confidence": 0.6003827678505331,
+          "letters": [
+            7.9,
+            8.02,
+            8.38,
+            8.5
+          ],
+          "diagnostics": []
+        }
+      ]
+    }
+  }
+]

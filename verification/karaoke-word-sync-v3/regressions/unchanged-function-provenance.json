@@ -1,0 +1,78 @@
+[
+  {
+    "file": "backend/ai_worker/speech.py",
+    "symbol": "_speech_model",
+    "versions": {
+      "original": {
+        "line": 86,
+        "sha256": "4231edc3fca921f53a1ea456071965ffef8a29a3f0f6b46ca0f1384f464743e9"
+      },
+      "v1": {
+        "line": 88,
+        "sha256": "4231edc3fca921f53a1ea456071965ffef8a29a3f0f6b46ca0f1384f464743e9"
+      },
+      "current": {
+        "line": 88,
+        "sha256": "4231edc3fca921f53a1ea456071965ffef8a29a3f0f6b46ca0f1384f464743e9"
+      }
+    },
+    "identical": true
+  },
+  {
+    "file": "backend/infrastructure/command_ai_provider.py",
+    "symbol": "_recognition_for",
+    "versions": {
+      "original": {
+        "line": 201,
+        "sha256": "5cff2744802c4aa247f51bbfd9e9be5bee4d0a812f171e837dd7fd0c59fc76b2"
+      },
+      "v1": {
+        "line": 201,
+        "sha256": "5cff2744802c4aa247f51bbfd9e9be5bee4d0a812f171e837dd7fd0c59fc76b2"
+      },
+      "current": {
+        "line": 201,
+        "sha256": "5cff2744802c4aa247f51bbfd9e9be5bee4d0a812f171e837dd7fd0c59fc76b2"
+      }
+    },
+    "identical": true
+  },
+  {
+    "file": "tests/test_letter_alignment.py",
+    "symbol": "test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings",
+    "versions": {
+      "original": {
+        "line": 285,
+        "sha256": "00000f7adfe182db42d94f96c1bb35fee62f83fdf3e61c4dab069e7d2a646bc6"
+      },
+      "v1": {
+        "line": 285,
+        "sha256": "00000f7adfe182db42d94f96c1bb35fee62f83fdf3e61c4dab069e7d2a646bc6"
+      },
+      "current": {
+        "line": 285,
+        "sha256": "00000f7adfe182db42d94f96c1bb35fee62f83fdf3e61c4dab069e7d2a646bc6"
+      }
+    },
+    "identical": true
+  },
+  {
+    "file": "tests/test_command_ai_provider.py",
+    "symbol": "test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job",
+    "versions": {
+      "original": {
+        "line": 254,
+        "sha256": "e12974ec9fc39bfc58024e2392f6182c70994907ce12ba3fe302db9898c7cd83"
+      },
+      "v1": {
+        "line": 254,
+        "sha256": "e12974ec9fc39bfc58024e2392f6182c70994907ce12ba3fe302db9898c7cd83"
+      },
+      "current": {
+        "line": 254,
+        "sha256": "e12974ec9fc39bfc58024e2392f6182c70994907ce12ba3fe302db9898c7cd83"
+      }
+    },
+    "identical": true
+  }
+]

@@ -1,0 +1,225 @@
+{
+  "case": "control_0003",
+  "word": "вдруг",
+  "referenceSource": "GTSinger published manually corrected phone annotations; model inputs contained transcript only, no timings",
+  "referenceSha256": "8167a802ab62111afaea1d9a4ea4ba3a9dd1546975206bc2986b2aed95b6ad1a",
+  "agentListeningClaim": false,
+  "referencePrecisionCertifiedMs": null,
+  "perPhone": [
+    {
+      "letter": "в",
+      "publishedPhone": "v",
+      "referenceStartSeconds": 0.96,
+      "referenceEndSeconds": 1.04,
+      "versions": {
+        "v3": {
+          "startSeconds": 0.01,
+          "endSeconds": 0.97,
+          "durationMs": 960,
+          "startErrorMs": -950,
+          "endErrorMs": -70
+        },
+        "intermediateV4": {
+          "startSeconds": 0.99,
+          "endSeconds": 1.07,
+          "durationMs": 80,
+          "startErrorMs": 30,
+          "endErrorMs": 30
+        },
+        "finalV4": {
+          "startSeconds": 0.99,
+          "endSeconds": 1.07,
+          "durationMs": 80,
+          "startErrorMs": 30,
+          "endErrorMs": 30
+        }
+      }
+    },
+    {
+      "letter": "д",
+      "publishedPhone": "d̪",
+      "referenceStartSeconds": 1.04,
+      "referenceEndSeconds": 1.1,
+      "versions": {
+        "v3": {
+          "startSeconds": 0.97,
+          "endSeconds": 1.13,
+          "durationMs": 160,
+          "startErrorMs": -70,
+          "endErrorMs": 30
+        },
+        "intermediateV4": {
+          "startSeconds": 1.07,
+          "endSeconds": 1.23,
+          "durationMs": 160,
+          "startErrorMs": 30,
+          "endErrorMs": 130
+        },
+        "finalV4": {
+          "startSeconds": 1.07,
+          "endSeconds": 1.13,
+          "durationMs": 60,
+          "startErrorMs": 30,
+          "endErrorMs": 30
+        }
+      }
+    },
+    {
+      "letter": "р",
+      "publishedPhone": "r",
+      "referenceStartSeconds": 1.1,
+      "referenceEndSeconds": 1.28,
+      "versions": {
+        "v3": {
+          "startSeconds": 1.13,
+          "endSeconds": 1.21,
+          "durationMs": 80,
+          "startErrorMs": 30,
+          "endErrorMs": -70
+        },
+        "intermediateV4": {
+          "startSeconds": 1.23,
+          "endSeconds": 1.31,
+          "durationMs": 80,
+          "startErrorMs": 130,
+          "endErrorMs": 30
+        },
+        "finalV4": {
+          "startSeconds": 1.13,
+          "endSeconds": 1.21,
+          "durationMs": 80,
+          "startErrorMs": 30,
+          "endErrorMs": -70
+        }
+      }
+    },
+    {
+      "letter": "у",
+      "publishedPhone": "u",
+      "referenceStartSeconds": 1.28,
+      "referenceEndSeconds": 1.45,
+      "versions": {
+        "v3": {
+          "startSeconds": 1.21,
+          "endSeconds": 1.43,
+          "durationMs": 220,
+          "startErrorMs": -70,
+          "endErrorMs": -20
+        },
+        "intermediateV4": {
+          "startSeconds": 1.31,
+          "endSeconds": 1.53,
+          "durationMs": 220,
+          "startErrorMs": 30,
+          "endErrorMs": 80
+        },
+        "finalV4": {
+          "startSeconds": 1.21,
+          "endSeconds": 1.43,
+          "durationMs": 220,
+          "startErrorMs": -70,
+          "endErrorMs": -20
+        }
+      }
+    },
+    {
+      "letter": "г",
+      "publishedPhone": "k",
+      "referenceStartSeconds": 1.45,
+      "referenceEndSeconds": 1.6,
+      "versions": {
+        "v3": {
+          "startSeconds": 1.43,
+          "endSeconds": 1.6,
+          "durationMs": 170,
+          "startErrorMs": -20,
+          "endErrorMs": 0
+        },
+        "intermediateV4": {
+          "startSeconds": 1.53,
+          "endSeconds": 1.6,
+          "durationMs": 70,
+          "startErrorMs": 80,
+          "endErrorMs": 0
+        },
+        "finalV4": {
+          "startSeconds": 1.43,
+          "endSeconds": 1.6,
+          "durationMs": 170,
+          "startErrorMs": -20,
+          "endErrorMs": 0
+        }
+      }
+    }
+  ],
+  "summary": {
+    "v3": {
+      "allFiveStartsMeanAbsoluteErrorMs": 228,
+      "allFiveStartsMaxAbsoluteErrorMs": 950,
+      "fourInternalStartsMeanAbsoluteErrorMs": 47.5,
+      "fourInternalStartsMaxAbsoluteErrorMs": 70,
+      "wordStartErrorMs": -950,
+      "wordEndErrorMs": 0,
+      "ctcWindowCalls": 3
+    },
+    "intermediateV4": {
+      "allFiveStartsMeanAbsoluteErrorMs": 60,
+      "allFiveStartsMaxAbsoluteErrorMs": 130,
+      "fourInternalStartsMeanAbsoluteErrorMs": 67.5,
+      "fourInternalStartsMaxAbsoluteErrorMs": 130,
+      "wordStartErrorMs": 30,
+      "wordEndErrorMs": 0,
+      "ctcWindowCalls": 4
+    },
+    "finalV4": {
+      "allFiveStartsMeanAbsoluteErrorMs": 36,
+      "allFiveStartsMaxAbsoluteErrorMs": 70,
+      "fourInternalStartsMeanAbsoluteErrorMs": 37.5,
+      "fourInternalStartsMaxAbsoluteErrorMs": 70,
+      "wordStartErrorMs": 30,
+      "wordEndErrorMs": 0,
+      "ctcWindowCalls": 4
+    }
+  },
+  "wordEndScoreAndNeighboursUnchangedVsIntermediate": true,
+  "newProductionConstantsFromReference": false,
+  "modelInferenceRepeated": false,
+  "diagnostics": [
+    "OnsetRecovered",
+    "ApproximateLetterTiming",
+    "LetterTimingReviewRequired",
+    "RateReviewRetimed"
+  ],
+  "cause": "The first recovered CTC token is constrained by the active crop. Reusing its10ms onset lag for unchanged raw interior anchors replaced the earlier110ms calibration and moved every internal letter100ms later. The local commit now preserves valid unchanged calibrated anchors jointly; a crossed or newly tied hybrid leaves the entire candidate intact with existing approximate-letter diagnostics.",
+  "codeScope": "Only OnsetRecovered with unchanged raw end. Only unchanged raw letter anchors are eligible; anchors outside the corrected word are not restored. No interpolation, clamping, duration floor or phoneme-specific rule. Existing silent-character ties remain valid.",
+  "remainingLimits": [
+    "The у anchor returns from the intermediate+30ms error to the baseline−70ms error. This loses one intermediate improvement and is explicitly reported.",
+    "No internal onset is worse than the original v3 reference error for this word. This is a per-case result, not a universal guarantee.",
+    "The р duration remains80ms versus the published180ms; this was already true in v3. The stored approximate-letter flags remain necessary.",
+    "These are errors against independently published annotations, whose exact acoustic tolerance is not certified."
+  ],
+  "sourceHashes": {
+    "backend/ai_worker/speech.py": "f0a7b38736a9a1a2e9b472dce389f7059939d4eb2f4172c71811d04d6b6e35a2",
+    "tests/test_silent_prefix_review.py": "858a6e5a1969bff2d09fc421dd97e221c64a01040d8da384e3d5ce5a129a228c"
+  },
+  "replayMetadata": {
+    "completed": true,
+    "mode": "cached-evidence-replay",
+    "sourceHashesUnchanged": true,
+    "audioHashUnchanged": true
+  },
+  "files": {
+    "v3": {
+      "payloadSha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e",
+      "stagesSha256": "a745de1e0ed0e0c0097c5cb15dea771b6a6c996a2e7bab52e753a5a543dc40d8"
+    },
+    "intermediateV4": {
+      "payloadSha256": "843867d6dfe5412ffda8542563e62eac50696d6f64dc1c41a91bf64d46ff1f32",
+      "stagesSha256": "8b558c446336df118e77a879454b18b2e54370f1630a260718507b521afce190"
+    },
+    "finalV4": {
+      "payloadSha256": "8ff7755320fab9ebcb2654d77219955aaee84d2756bc269fec0db9941d732c84",
+      "stagesSha256": "e5258089dcad9d9c46c6d8135254f4d7503d4eed52b869e187bd9fe93e7d9453"
+    }
+  }
+}

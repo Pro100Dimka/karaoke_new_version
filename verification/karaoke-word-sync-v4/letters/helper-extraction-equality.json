@@ -1,0 +1,672 @@
+{
+  "beforeSourceSha256": "fd3d8b363fca1f40aa1e2ded390978109b4e42f1cc79bdd2f8e078333a66e7e4",
+  "afterSourceSha256": "c642b1bf9b5c6cca74b4c87d4eacb6427c19385289e5797aa339809fe51e8770",
+  "gtsCases": [
+    {
+      "case": "breathy_0000",
+      "words": 6,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [],
+      "outputSha256": "02ea6ed2b5fefcf14040eb60e6a05265f9fbc5fb078a474d2e339c9e04b5b2e9",
+      "output": [
+        {
+          "text": "анна",
+          "start": 0.31,
+          "end": 1.43,
+          "letters": [
+            0.31,
+            0.53,
+            0.69,
+            0.83
+          ],
+          "score": 0.8332522734999657,
+          "diagnostics": []
+        },
+        {
+          "text": "каренина",
+          "start": 1.43,
+          "end": 2.73,
+          "letters": [
+            1.43,
+            1.51,
+            1.71,
+            1.81,
+            2.05,
+            2.15,
+            2.29,
+            2.41
+          ],
+          "score": 0.7054531735338969,
+          "diagnostics": []
+        },
+        {
+          "text": "анна",
+          "start": 3.32,
+          "end": 4.17,
+          "letters": [
+            3.32,
+            3.52,
+            3.7,
+            3.84
+          ],
+          "score": 0.8038272075355053,
+          "diagnostics": []
+        },
+        {
+          "text": "вронская",
+          "start": 4.62,
+          "end": 5.85,
+          "letters": [
+            4.62,
+            4.74,
+            4.84,
+            4.98,
+            5.1,
+            5.22,
+            5.34,
+            5.56
+          ],
+          "score": 0.8406083927386336,
+          "diagnostics": []
+        },
+        {
+          "text": "гордые",
+          "start": 6.46,
+          "end": 7.9,
+          "letters": [
+            6.46,
+            6.54,
+            6.76,
+            6.9,
+            7.02,
+            7.48
+          ],
+          "score": 0.5167817280938228,
+          "diagnostics": []
+        },
+        {
+          "text": "леди",
+          "start": 7.9,
+          "end": 8.77,
+          "letters": [
+            7.9,
+            8.02,
+            8.38,
+            8.5
+          ],
+          "score": 0.6003827678505331,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "words": 6,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [],
+      "outputSha256": "189786e1b871fffbf066a16a7d5cf2643a5cfbcb885aee54d52c409d63dd725e",
+      "output": [
+        {
+          "text": "в",
+          "start": 0.01,
+          "end": 0.09,
+          "letters": [
+            0.01
+          ],
+          "score": 0.22764845192432404,
+          "diagnostics": []
+        },
+        {
+          "text": "блестящей",
+          "start": 0.09,
+          "end": 1.49,
+          "letters": [
+            0.09,
+            0.17,
+            0.31,
+            0.55,
+            0.67,
+            0.75,
+            1.05,
+            1.19,
+            1.31
+          ],
+          "score": 0.40711046303980625,
+          "diagnostics": []
+        },
+        {
+          "text": "толпе",
+          "start": 1.49,
+          "end": 2.33,
+          "letters": [
+            1.49,
+            1.59,
+            1.73,
+            1.91,
+            2.15
+          ],
+          "score": 0.2640996851027012,
+          "diagnostics": []
+        },
+        {
+          "text": "бедная",
+          "start": 3.12,
+          "end": 4.46,
+          "letters": [
+            3.12,
+            3.24,
+            3.6,
+            3.68,
+            3.7,
+            4.04
+          ],
+          "score": 0.679956097574177,
+          "diagnostics": []
+        },
+        {
+          "text": "девочка",
+          "start": 4.46,
+          "end": 5.59,
+          "letters": [
+            4.46,
+            4.62,
+            4.86,
+            4.96,
+            5.1,
+            5.2,
+            5.3
+          ],
+          "score": 0.698884419281967,
+          "diagnostics": []
+        },
+        {
+          "text": "аня",
+          "start": 5.92,
+          "end": 6.57,
+          "letters": [
+            5.92,
+            6.22,
+            6.28
+          ],
+          "score": 0.8922384828329086,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "case": "control_0000",
+      "words": 6,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [],
+      "outputSha256": "a22d56ad662207caae574f6e555eb9be3a9f9622492252606bff98699e10781e",
+      "output": [
+        {
+          "text": "анна",
+          "start": 0.56,
+          "end": 1.45,
+          "letters": [
+            0.56,
+            0.8,
+            0.94,
+            1.06
+          ],
+          "score": 0.7527457603719085,
+          "diagnostics": []
+        },
+        {
+          "text": "каренина",
+          "start": 1.63,
+          "end": 2.92,
+          "letters": [
+            1.63,
+            1.71,
+            1.91,
+            2.09,
+            2.23,
+            2.33,
+            2.49,
+            2.59
+          ],
+          "score": 0.726687826710986,
+          "diagnostics": []
+        },
+        {
+          "text": "анна",
+          "start": 3.41,
+          "end": 4.31,
+          "letters": [
+            3.41,
+            3.63,
+            3.75,
+            3.89
+          ],
+          "score": 0.7523493324406445,
+          "diagnostics": []
+        },
+        {
+          "text": "вронская",
+          "start": 4.51,
+          "end": 5.91,
+          "letters": [
+            4.51,
+            4.69,
+            4.77,
+            4.91,
+            5.03,
+            5.17,
+            5.25,
+            5.49
+          ],
+          "score": 0.8846986691157023,
+          "diagnostics": []
+        },
+        {
+          "text": "гордые",
+          "start": 6.27,
+          "end": 7.73,
+          "letters": [
+            6.27,
+            6.37,
+            6.63,
+            6.73,
+            7.17,
+            7.27
+          ],
+          "score": 0.531490417951621,
+          "diagnostics": []
+        },
+        {
+          "text": "леди",
+          "start": 7.73,
+          "end": 8.71,
+          "letters": [
+            7.73,
+            7.87,
+            8.21,
+            8.37
+          ],
+          "score": 0.6956581100821495,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "case": "control_0001",
+      "words": 6,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [],
+      "outputSha256": "d5bbd2e7f1d73cff4a7a212d7afd16cf4ee8ae3121fbaeb308e55b8424d7cb7b",
+      "output": [
+        {
+          "text": "в",
+          "start": 0.0,
+          "end": 0.02,
+          "letters": [
+            0.0
+          ],
+          "score": 1.862893896031892e-06,
+          "diagnostics": []
+        },
+        {
+          "text": "блестящей",
+          "start": 0.035,
+          "end": 1.495,
+          "letters": [
+            0.035,
+            0.095,
+            0.195,
+            0.435,
+            0.575,
+            0.655,
+            1.135,
+            1.255,
+            1.275
+          ],
+          "score": 0.33277720511862824,
+          "diagnostics": []
+        },
+        {
+          "text": "толпе",
+          "start": 1.495,
+          "end": 2.51,
+          "letters": [
+            1.495,
+            1.595,
+            1.715,
+            1.855,
+            2.155
+          ],
+          "score": 0.4862406287109479,
+          "diagnostics": []
+        },
+        {
+          "text": "бедная",
+          "start": 3.22,
+          "end": 4.72,
+          "letters": [
+            3.22,
+            3.32,
+            3.64,
+            3.74,
+            3.88,
+            4.22
+          ],
+          "score": 0.8465916069009316,
+          "diagnostics": []
+        },
+        {
+          "text": "девочка",
+          "start": 4.72,
+          "end": 5.92,
+          "letters": [
+            4.72,
+            4.88,
+            5.12,
+            5.22,
+            5.38,
+            5.54,
+            5.62
+          ],
+          "score": 0.49971699115121737,
+          "diagnostics": []
+        },
+        {
+          "text": "аня",
+          "start": 6.11,
+          "end": 6.86,
+          "letters": [
+            6.11,
+            6.39,
+            6.43
+          ],
+          "score": 0.985798254609108,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "case": "control_0003",
+      "words": 4,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [],
+      "outputSha256": "5c38fa149d8c1fb1e08e3163af2232c6cce0a15da917b795f48701084a5c347c",
+      "output": [
+        {
+          "text": "вдруг",
+          "start": 0.99,
+          "end": 1.6,
+          "letters": [
+            0.99,
+            1.07,
+            1.23,
+            1.31,
+            1.53
+          ],
+          "score": 0.41713986665708946,
+          "diagnostics": [
+            "OnsetRecovered"
+          ]
+        },
+        {
+          "text": "замечаешь",
+          "start": 1.97,
+          "end": 3.37,
+          "letters": [
+            1.97,
+            2.05,
+            2.17,
+            2.25,
+            2.39,
+            2.57,
+            3.01,
+            3.25,
+            3.31
+          ],
+          "score": 0.5940370567142963,
+          "diagnostics": [
+            "BoundaryClipped"
+          ]
+        },
+        {
+          "text": "течение",
+          "start": 3.37,
+          "end": 5.17,
+          "letters": [
+            3.37,
+            3.49,
+            3.79,
+            3.95,
+            4.33,
+            4.43,
+            4.91
+          ],
+          "score": 0.5630129622295499,
+          "diagnostics": []
+        },
+        {
+          "text": "времени",
+          "start": 5.17,
+          "end": 6.63,
+          "letters": [
+            5.17,
+            5.27,
+            5.47,
+            5.71,
+            5.83,
+            6.15,
+            6.27
+          ],
+          "score": 0.5633354906125793,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "case": "control_0004",
+      "words": 6,
+      "exactFrozenStageMatch": true,
+      "exactPreExtractionMatch": true,
+      "ctcCallsUnchanged": [
+        {
+          "shape": [
+            29,
+            28
+          ],
+          "stride": 0.02,
+          "texts": [
+            "вдруг"
+          ],
+          "offset": 0.0
+        },
+        {
+          "shape": [
+            29,
+            28
+          ],
+          "stride": 0.02,
+          "texts": [
+            "вдруг"
+          ],
+          "offset": 0.0,
+          "bounded_end": true
+        },
+        {
+          "shape": [
+            32,
+            28
+          ],
+          "stride": 0.02,
+          "texts": [
+            "лист"
+          ],
+          "offset": 5.28
+        },
+        {
+          "shape": [
+            32,
+            28
+          ],
+          "stride": 0.02,
+          "texts": [
+            "лист"
+          ],
+          "offset": 5.28,
+          "bounded_end": true
+        }
+      ],
+      "outputSha256": "6dfba0035f93312bf920348240e7c4a0f0ff9b472d158a1f42df67a3e78c829f",
+      "output": [
+        {
+          "text": "вдруг",
+          "start": 0.0,
+          "end": 0.59,
+          "letters": [
+            0.0,
+            0.02,
+            0.06,
+            0.14,
+            0.3
+          ],
+          "score": 0.32022783495485785,
+          "diagnostics": []
+        },
+        {
+          "text": "понимаешь",
+          "start": 0.84,
+          "end": 2.22,
+          "letters": [
+            0.84,
+            0.94,
+            1.06,
+            1.14,
+            1.3,
+            1.4,
+            1.86,
+            2.1,
+            2.12
+          ],
+          "score": 0.5944955311715603,
+          "diagnostics": []
+        },
+        {
+          "text": "не",
+          "start": 2.22,
+          "end": 2.7,
+          "letters": [
+            2.22,
+            2.32
+          ],
+          "score": 0.6283637881278992,
+          "diagnostics": []
+        },
+        {
+          "text": "остановить",
+          "start": 2.7,
+          "end": 4.64,
+          "letters": [
+            2.7,
+            2.92,
+            3.08,
+            3.24,
+            3.58,
+            3.68,
+            4.04,
+            4.16,
+            4.48,
+            4.5
+          ],
+          "score": 0.8122322902911239,
+          "diagnostics": []
+        },
+        {
+          "text": "лист",
+          "start": 5.29,
+          "end": 5.91,
+          "letters": [
+            5.29,
+            5.41,
+            5.57,
+            5.65
+          ],
+          "score": 0.9339160025119781,
+          "diagnostics": []
+        },
+        {
+          "text": "пожелтевший",
+          "start": 6.35,
+          "end": 7.85,
+          "letters": [
+            6.35,
+            6.45,
+            6.59,
+            6.67,
+            6.69,
+            6.81,
+            6.93,
+            7.11,
+            7.27,
+            7.41,
+            7.69
+          ],
+          "score": 0.2821581047655155,
+          "diagnostics": []
+        }
+      ]
+    }
+  ],
+  "odin": {
+    "exactPreExtractionMatch": true,
+    "ctcCallsUnchanged": [
+      {
+        "shape": [
+          67,
+          28
+        ],
+        "stride": 0.02,
+        "texts": [
+          "один"
+        ],
+        "offset": 8.6
+      },
+      {
+        "shape": [
+          67,
+          28
+        ],
+        "stride": 0.02,
+        "texts": [
+          "один"
+        ],
+        "offset": 8.6,
+        "bounded_end": true
+      }
+    ],
+    "payload": {
+      "words": [
+        {
+          "text": "один",
+          "start": 8.62,
+          "end": 9.94,
+          "confidence": 0.0019060261965933023,
+          "letters": [
+            8.62,
+            9.36,
+            9.38,
+            9.4
+          ],
+          "diagnostics": [
+            "LetterTimingReviewRequired",
+            "ApproximateLetterTiming",
+            "RecognizedWord"
+          ]
+        }
+      ]
+    },
+    "payloadSha256": "d602dcc962955dc09c6d31bda331b0c36b436eb057e8e6c73b5fd29eff7e8b08"
+  }
+}

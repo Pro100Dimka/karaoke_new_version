@@ -1,0 +1,504 @@
+{
+  "scope": "Same single real CREPE extraction, unchanged production note builder, final production word payloads.",
+  "pitchIsHumanGroundTruth": false,
+  "newPitchInferencePerformed": false,
+  "noteBuilderSources": {
+    "backend/processing/algorithms.py": {
+      "baselineSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+      "currentSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+      "identical": true
+    },
+    "backend/lyrics/domain.py": {
+      "baselineSha256": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7",
+      "currentSha256": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7",
+      "identical": true
+    },
+    "backend/lyrics/codec.py": {
+      "baselineSha256": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5",
+      "currentSha256": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5",
+      "identical": true
+    }
+  },
+  "comparisons": [
+    {
+      "file": "/tmp/karaoke-sync-v2/real-audio/notes-uncertain-related-final.json",
+      "sha256": "7610a34a80bf6fcfbf15d3bf9bb48b8a7087f275b65cb24254030ad74f3b21f6",
+      "label": "Final production paired replay, uncertain emissions and related wave",
+      "comparisonStatus": "production",
+      "inputs": {
+        "comparisonScriptSha256": "5647b10c8ee8d73d5232695fbcafc1cb3f68ea0542ae1ebac3bcab25c2a159ae",
+        "beforeFile": "/tmp/karaoke-sync-v2/odin/baseline-v1-uncertain-related.json",
+        "afterFile": "/tmp/karaoke-sync-v2/odin/production-uncertain-related.json",
+        "beforeSha256": "db258e896abbeeef70569d7d23091b562db2fa631fc84497c8d9a9ff2a0ed4e2",
+        "afterSha256": "5f1e72a3d089d9568439338f41a388a53118707eb2e77a1901747c9799a316f7",
+        "pitchFile": "/tmp/karaoke-sync-v2/real-audio/clean_entry-pitch-points.json",
+        "pitchSha256": "d3e4df0663ecd4137bbeb7b2b74390ef3672689bd19db6bc063a8284ddd3c90d",
+        "algorithmsSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+        "sourceHashes": {
+          "algorithms": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+          "lyricsDomain": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7",
+          "lyricsCodec": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5",
+          "ctc": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+          "speech": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "wordGuidance": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a"
+        },
+        "beforeReplaySourceHashes": {
+          "ctc": "b234d08fdb06fb7d5bf1584dae990276a7f37d9234baa392b87554c4faae0271",
+          "speech": "005b340e0f60646f35332b5ea52e65c75a82d2ca3e3d8677625776c922328ff4",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "word_guidance": "68799831766fb75295bbd26afbbbaa51893702352709f11aecaf89afc9d762b6",
+          "recognition": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4"
+        },
+        "afterReplaySourceHashes": {
+          "ctc": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+          "speech": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "word_guidance": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+          "recognition": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4"
+        },
+        "rawPoints": 1701,
+        "stabilizedPoints": 1701,
+        "stabilizedPitchSha256": "98ae0cac8ff12c3b054f766da7012e7a15a4acf77007d746570ee69602e58ef6",
+        "duration": 16.0,
+        "beforeProvenance": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified",
+        "afterProvenance": "uncertain emissions/ASR with related clean_entry wave; not exact-source certified"
+      },
+      "checks": {
+        "pitchInputUnchanged": true,
+        "wordPayloadFilesUnchanged": true,
+        "beforeAfterReplayInputsIdentical": true,
+        "sourceFilesUnchangedDuringComparison": true,
+        "afterReplayCtcMatchesCurrentSource": true,
+        "allWordBoundariesAndLettersPreserved": [
+          true,
+          true
+        ],
+        "allNotesExactlyGlobalMelodyWordIntersections": [
+          true,
+          true
+        ],
+        "allContourAbsoluteTimesAndPitchMatchSameStabilizedInput": [
+          true,
+          true
+        ],
+        "codecRoundTrip": [
+          true,
+          true
+        ],
+        "commonContourMaxPitchDifferenceSemitones": 0.0,
+        "allUnchangedWordNotesIdentical": true,
+        "quietEndingsPreserved": true,
+        "noPreviouslyPitchedTargetFrameLost": true,
+        "allCommonPitchedTargetFramesUnchangedWithin1eMinus9": true,
+        "noPreviouslyActiveTargetFrameLost": true,
+        "targetFramesIdenticalWithin1eMinus9": false
+      },
+      "summary": {
+        "beforeNoteCount": 47,
+        "afterNoteCount": 48,
+        "beforeContourPoints": 964,
+        "afterContourPoints": 971,
+        "ownershipChangedPoints": 20,
+        "targetFrameChanges": 10,
+        "addedPitchedTargetFrames": 5,
+        "removedPitchedTargetFrames": 0,
+        "changedExistingPitchedTargetFrames": 0,
+        "addedActiveTargetFrames": 10,
+        "removedActiveTargetFrames": 0,
+        "quietThresholdRms": 0.048268191516399384,
+        "quietEndingWords": 5,
+        "quietEndingWordsWithExistingCoverage": 5,
+        "quietEndingExistingPointsRetained": 21
+      },
+      "focus": [
+        {
+          "index": 8,
+          "text": "я",
+          "beforeWord": [
+            8.52,
+            9.83
+          ],
+          "afterWord": [
+            8.52,
+            9.0
+          ],
+          "beforeLetters": [
+            8.52
+          ],
+          "afterLetters": [
+            8.52
+          ],
+          "beforeNotes": [
+            {
+              "midiNote": 62,
+              "start": 8.83,
+              "end": 9.11
+            },
+            {
+              "midiNote": 59,
+              "start": 9.74,
+              "end": 9.83
+            }
+          ],
+          "afterNotes": [
+            {
+              "midiNote": 62,
+              "start": 8.83,
+              "end": 9.0
+            }
+          ],
+          "noteCoverageBeforeMs": 370.0,
+          "noteCoverageAfterMs": 170.0,
+          "contourPointsBefore": 37,
+          "contourPointsAfter": 17
+        },
+        {
+          "index": 9,
+          "text": "один",
+          "beforeWord": [
+            9.84,
+            9.98
+          ],
+          "afterWord": [
+            9.0,
+            9.88
+          ],
+          "beforeLetters": [
+            9.84,
+            9.88,
+            9.9,
+            9.96
+          ],
+          "afterLetters": [
+            9.0,
+            9.36,
+            9.48,
+            9.86
+          ],
+          "beforeNotes": [
+            {
+              "midiNote": 59,
+              "start": 9.84,
+              "end": 9.86
+            }
+          ],
+          "afterNotes": [
+            {
+              "midiNote": 62,
+              "start": 9.0,
+              "end": 9.11
+            },
+            {
+              "midiNote": 59,
+              "start": 9.74,
+              "end": 9.86
+            }
+          ],
+          "noteCoverageBeforeMs": 20.0,
+          "noteCoverageAfterMs": 230.0,
+          "contourPointsBefore": 2,
+          "contourPointsAfter": 23
+        },
+        {
+          "index": 10,
+          "text": "23",
+          "beforeWord": [
+            9.98,
+            10.72
+          ],
+          "afterWord": [
+            9.88,
+            10.72
+          ],
+          "beforeLetters": [
+            9.98,
+            10.24
+          ],
+          "afterLetters": [
+            9.88,
+            10.24
+          ],
+          "beforeNotes": [
+            {
+              "midiNote": 62,
+              "start": 9.98,
+              "end": 10.16
+            },
+            {
+              "midiNote": 52,
+              "start": 10.39,
+              "end": 10.51
+            },
+            {
+              "midiNote": 57,
+              "start": 10.51,
+              "end": 10.72
+            }
+          ],
+          "afterNotes": [
+            {
+              "midiNote": 62,
+              "start": 9.98,
+              "end": 10.16
+            },
+            {
+              "midiNote": 52,
+              "start": 10.39,
+              "end": 10.51
+            },
+            {
+              "midiNote": 57,
+              "start": 10.51,
+              "end": 10.72
+            }
+          ],
+          "noteCoverageBeforeMs": 510.0,
+          "noteCoverageAfterMs": 510.0,
+          "contourPointsBefore": 51,
+          "contourPointsAfter": 51
+        }
+      ],
+      "removedContourPointCount": 0,
+      "addedContourPointCount": 7
+    },
+    {
+      "file": "/tmp/karaoke-sync-v2/real-audio/notes-clean-paired-final.json",
+      "sha256": "c524e7c9d0f278751ed5dfed7500a7395e55ae08cc26cc58fa355a1ef7f238cd",
+      "label": "Final production paired clean_entry replay",
+      "comparisonStatus": "production",
+      "inputs": {
+        "comparisonScriptSha256": "5647b10c8ee8d73d5232695fbcafc1cb3f68ea0542ae1ebac3bcab25c2a159ae",
+        "beforeFile": "/tmp/karaoke-sync-v2/odin/baseline-v1-clean-paired.json",
+        "afterFile": "/tmp/karaoke-sync-v2/odin/production-clean-paired.json",
+        "beforeSha256": "9e8daae33af887ed3cae0ee3baae53b7b0112d426e4a04de2f4da917e1d957c2",
+        "afterSha256": "0cb73ea611597944a4507645134557a2e22a1cf7ee00893d037c130fc2350b58",
+        "pitchFile": "/tmp/karaoke-sync-v2/real-audio/clean_entry-pitch-points.json",
+        "pitchSha256": "d3e4df0663ecd4137bbeb7b2b74390ef3672689bd19db6bc063a8284ddd3c90d",
+        "algorithmsSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+        "sourceHashes": {
+          "algorithms": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+          "lyricsDomain": "2ea315baf3a71b1063fc5bff3eb234720b8a088b4478b5aae0f3c1005e1f3df7",
+          "lyricsCodec": "7d9cfab50acf1a603ecd71e29292252c98e3f4b3393ec9c24042444297e54ba5",
+          "ctc": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+          "speech": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "wordGuidance": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a"
+        },
+        "beforeReplaySourceHashes": {
+          "ctc": "b234d08fdb06fb7d5bf1584dae990276a7f37d9234baa392b87554c4faae0271",
+          "speech": "005b340e0f60646f35332b5ea52e65c75a82d2ca3e3d8677625776c922328ff4",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "word_guidance": "68799831766fb75295bbd26afbbbaa51893702352709f11aecaf89afc9d762b6",
+          "recognition": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4"
+        },
+        "afterReplaySourceHashes": {
+          "ctc": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+          "speech": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+          "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65",
+          "word_guidance": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+          "recognition": "cea4b48638b18272a66fc3704ac35d45c14014bad318c0e0943fbbd8634ca4d4"
+        },
+        "rawPoints": 1701,
+        "stabilizedPoints": 1701,
+        "stabilizedPitchSha256": "98ae0cac8ff12c3b054f766da7012e7a15a4acf77007d746570ee69602e58ef6",
+        "duration": 17.0,
+        "beforeProvenance": "paired clean_entry",
+        "afterProvenance": "paired clean_entry"
+      },
+      "checks": {
+        "pitchInputUnchanged": true,
+        "wordPayloadFilesUnchanged": true,
+        "beforeAfterReplayInputsIdentical": true,
+        "sourceFilesUnchangedDuringComparison": true,
+        "afterReplayCtcMatchesCurrentSource": true,
+        "allWordBoundariesAndLettersPreserved": [
+          true,
+          true
+        ],
+        "allNotesExactlyGlobalMelodyWordIntersections": [
+          true,
+          true
+        ],
+        "allContourAbsoluteTimesAndPitchMatchSameStabilizedInput": [
+          true,
+          true
+        ],
+        "codecRoundTrip": [
+          true,
+          true
+        ],
+        "commonContourMaxPitchDifferenceSemitones": 0.0,
+        "allUnchangedWordNotesIdentical": true,
+        "quietEndingsPreserved": true,
+        "noPreviouslyPitchedTargetFrameLost": true,
+        "allCommonPitchedTargetFramesUnchangedWithin1eMinus9": true,
+        "noPreviouslyActiveTargetFrameLost": true,
+        "targetFramesIdenticalWithin1eMinus9": false
+      },
+      "summary": {
+        "beforeNoteCount": 49,
+        "afterNoteCount": 49,
+        "beforeContourPoints": 988,
+        "afterContourPoints": 993,
+        "ownershipChangedPoints": 0,
+        "targetFrameChanges": 8,
+        "addedPitchedTargetFrames": 4,
+        "removedPitchedTargetFrames": 0,
+        "changedExistingPitchedTargetFrames": 0,
+        "addedActiveTargetFrames": 8,
+        "removedActiveTargetFrames": 0,
+        "quietThresholdRms": 0.048268191516399384,
+        "quietEndingWords": 9,
+        "quietEndingWordsWithExistingCoverage": 9,
+        "quietEndingExistingPointsRetained": 50
+      },
+      "focus": [
+        {
+          "index": 8,
+          "text": "я",
+          "beforeWord": [
+            8.52,
+            8.62
+          ],
+          "afterWord": [
+            8.52,
+            8.62
+          ],
+          "beforeLetters": [
+            8.52
+          ],
+          "afterLetters": [
+            8.52
+          ],
+          "beforeNotes": [],
+          "afterNotes": [],
+          "noteCoverageBeforeMs": 0,
+          "noteCoverageAfterMs": 0,
+          "contourPointsBefore": 0,
+          "contourPointsAfter": 0
+        },
+        {
+          "index": 9,
+          "text": "один",
+          "beforeWord": [
+            8.62,
+            9.93
+          ],
+          "afterWord": [
+            8.62,
+            9.94
+          ],
+          "beforeLetters": [
+            8.62,
+            9.36,
+            9.38,
+            9.4
+          ],
+          "afterLetters": [
+            8.62,
+            9.36,
+            9.38,
+            9.4
+          ],
+          "beforeNotes": [
+            {
+              "midiNote": 62,
+              "start": 8.83,
+              "end": 9.11
+            },
+            {
+              "midiNote": 59,
+              "start": 9.74,
+              "end": 9.86
+            }
+          ],
+          "afterNotes": [
+            {
+              "midiNote": 62,
+              "start": 8.83,
+              "end": 9.11
+            },
+            {
+              "midiNote": 59,
+              "start": 9.74,
+              "end": 9.86
+            }
+          ],
+          "noteCoverageBeforeMs": 400.0,
+          "noteCoverageAfterMs": 400.0,
+          "contourPointsBefore": 40,
+          "contourPointsAfter": 40
+        },
+        {
+          "index": 10,
+          "text": "23",
+          "beforeWord": [
+            9.94,
+            10.7
+          ],
+          "afterWord": [
+            9.94,
+            10.7
+          ],
+          "beforeLetters": [
+            9.94,
+            10.24
+          ],
+          "afterLetters": [
+            9.94,
+            10.24
+          ],
+          "beforeNotes": [
+            {
+              "midiNote": 62,
+              "start": 9.98,
+              "end": 10.16
+            },
+            {
+              "midiNote": 52,
+              "start": 10.39,
+              "end": 10.51
+            },
+            {
+              "midiNote": 57,
+              "start": 10.51,
+              "end": 10.7
+            }
+          ],
+          "afterNotes": [
+            {
+              "midiNote": 62,
+              "start": 9.98,
+              "end": 10.16
+            },
+            {
+              "midiNote": 52,
+              "start": 10.39,
+              "end": 10.51
+            },
+            {
+              "midiNote": 57,
+              "start": 10.51,
+              "end": 10.7
+            }
+          ],
+          "noteCoverageBeforeMs": 490.0,
+          "noteCoverageAfterMs": 490.0,
+          "contourPointsBefore": 49,
+          "contourPointsAfter": 49
+        }
+      ],
+      "removedContourPointCount": 0,
+      "addedContourPointCount": 5
+    }
+  ],
+  "interpretation": [
+    "Stored absolute pitch measurements never move or change frequency/confidence. Word boundaries change their text ownership and note intersections.",
+    "The related uncertain case is not exact-source-certified for its cached CTC emissions. Clean_entry is an exact paired waveform/scores control.",
+    "The 8.83–9.11 global MIDI-62 note splits at 9.00 into adjacent ya/odin intersections, without the old 10 ms seam gap.",
+    "Related-case word-note count 47→48 comes from restoring the already-existing global MIDI-60 segment 1.99–2.00 to Doma at a former 10 ms gap. The global melody is unchanged; this is not newly inferred pitch.",
+    "Additional 10 ms target frames fill formerly unsupported word-limit gaps; no previously pitched or active target frame is removed or repitched.",
+    "Quiet-tail sample retention is a preservation check, not human F0 correctness or exact word-boundary truth."
+  ]
+}

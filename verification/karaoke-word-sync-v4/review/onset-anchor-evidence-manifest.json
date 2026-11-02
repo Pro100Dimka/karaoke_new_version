@@ -1,0 +1,30 @@
+[
+  {
+    "file": "onset-anchor-red.log",
+    "sha256": "916bf53343b8b85ea057a65286ae7ec0f54f8dcb62cf5a76887b40c7b0c2a72a"
+  },
+  {
+    "file": "onset-anchor-red.json",
+    "sha256": "d1a9d0e5bdd566fe72d24e494d2e10b8064b8acb6b58ab8865a731821daa9e82"
+  },
+  {
+    "file": "onset-anchor-green.json",
+    "sha256": "9ad24e6b845522baef3eb091618bd67ef963ab8790593b8c8122b7ab68a2023e"
+  },
+  {
+    "file": "onset-anchor-real-comparison.json",
+    "sha256": "432ed31722443270bb5da027f7965175eec68d3e64fbd08271bd35c797dfab25"
+  },
+  {
+    "file": "onset-anchor-real-comparison.txt",
+    "sha256": "5b0f8f86ab439e72932a2c2155ccdf795246d8e9a630ce737cd50f1c9348e498"
+  },
+  {
+    "file": "onset-anchor-production.patch",
+    "sha256": "eecb2b5923c2600474711ff014563ec5b9e75928ce26c3adf520f6e5f4c4b229"
+  },
+  {
+    "file": "onset-anchor-word-only-trace.json",
+    "sha256": "5e772987a6945886a49df2dd825f4b370b9199d18d3a7071c9ac8eaa8319e565"
+  }
+]

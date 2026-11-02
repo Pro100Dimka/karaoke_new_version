@@ -11,7 +11,7 @@ import numpy as np
 from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
-from backend.ai_worker.ctc import AlignedWord, Window, _PREFERENCE
+from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE
 from backend.ai.domain import WordTiming
 from backend.processing.reporting import rate_reviews
 from backend.ai_worker.timing import _runs
@@ -50,6 +50,11 @@ def rate_review_indices(
     indices = {
         index for first, last in reviews for index in range(first, last)
     } | boundary_conflicts(words)
+    indices |= {
+        index
+        for index, word in enumerate(words)
+        if _short_word_needs_review(word, heard.get(index))
+    }
     if activity is not None:
         for index, (start, end) in heard.items():
             if not 0 <= index < len(words):
@@ -64,6 +69,21 @@ def rate_review_indices(
             ):
                 indices.add(index)
     return indices
+
+
+def _short_word_needs_review(word: AlignedWord, interval: tuple[float, float] | None) -> bool:
+    # Weak CTC support is ambiguous; agreeing independent boundaries can
+    # confirm a genuinely fast word without a redundant local review.
+    return (
+        any(char.isalnum() for char in word.text)
+        and word.score <= _PREFERENCE
+        and word.end - word.start + 1e-9 < _CRAMMED_WORD_SECONDS
+        and (
+            word.score <= 0
+            or interval is None
+            or max(abs(word.start - interval[0]), abs(word.end - interval[1])) > 2 * _STEP + 1e-9
+        )
+    )
 
 
 def independent_words(

@@ -1,0 +1,34 @@
+{
+  "scope": "Serialization/privacy/consistency checks of the bounded evidence export only; no additional product tests or performance claims.",
+  "files": [
+    {
+      "file": "ten-song-results.json",
+      "bytes": 600213,
+      "sha256": "8f17ad90ff5dceaa162f8689ccc4d9b8839b183bc32fd5a36843b6f08256e5ec",
+      "literalTextFields": 11,
+      "forbiddenDataFields": []
+    },
+    {
+      "file": "selected-acoustic-reference-comparison.json",
+      "bytes": 5393,
+      "sha256": "6c285cba307ff109fadc9bdb4b9d06e6d9d441d1253db0f7a055de2db521a845",
+      "literalTextFields": 3,
+      "forbiddenDataFields": []
+    },
+    {
+      "file": "note-interpolation-kolyshnya.json",
+      "bytes": 2441,
+      "sha256": "0eb9c22d26c871a5a7ca8e31136b33de77d4e42d0e41dae73a8219c3cee0274c",
+      "literalTextFields": 0,
+      "forbiddenDataFields": []
+    },
+    {
+      "file": "note-interpolation-zhadan.json",
+      "bytes": 3896,
+      "sha256": "34d67c41f592fb8ac40a88111358ab1ceab2d352ff12884fccd41e1492dde08a",
+      "literalTextFields": 0,
+      "forbiddenDataFields": []
+    }
+  ],
+  "allPassed": true
+}

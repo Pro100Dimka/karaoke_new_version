@@ -1,0 +1,6232 @@
+{
+  "scope": "All frozen selected words, without outcome-based exclusions. External reference accuracy is unspecified. No reference times passed to inference. Cases without independent labels have null error metrics. Traced timing includes serialization and excludes full-song separation/pitch.",
+  "inputSha256": "c89bb6bf482e473e7939ddea5194dd95143aab75d72f0a94db6dc1f3741d377a",
+  "referenceSha256": "ce28ffb769d2c15418c023d71c12e7db4bed448bea594900cc8b56ed3536df7f",
+  "phoneMapSha256": "813655bf5ed8ef32f12a570b95ebe1dfe5852d30173276d7362bc1f25ea996df",
+  "sources": [
+    {
+      "case": "baikal_control_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/baikal_control_0000/payload.json",
+      "sha256": "79987c0022eae013e9e5f34d3ec42f2496cc5582ee155c9229d3bf32699ebca3"
+    },
+    {
+      "case": "baikal_control_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/baikal_control_0000/payload.json",
+      "sha256": "08e708635daecdc3ac203f689722f4a4344c26e39e75aa8a10c496773a3c3cd2"
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/baikal_breathy_0000/payload.json",
+      "sha256": "8cd07da3c8c3a1fdaa47caab216b269d2b1cacd0ac45fb5c38ece598ab25c812"
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/baikal_breathy_0000/payload.json",
+      "sha256": "75776f9877054ed751bb44a398e7f8dbee1b399be426d996905b849db5ea36eb"
+    },
+    {
+      "case": "bal_control_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/bal_control_0000/payload.json",
+      "sha256": "74de121263a5c96609b1b0097995e436303ecbdbf4a573712e2c187eb59e68b3"
+    },
+    {
+      "case": "bal_control_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/bal_control_0000/payload.json",
+      "sha256": "74de121263a5c96609b1b0097995e436303ecbdbf4a573712e2c187eb59e68b3"
+    },
+    {
+      "case": "bal_glissando_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/bal_glissando_0000/payload.json",
+      "sha256": "5a56a880e1a6c632446228c6093fe30cdc9292f8d15ff33880758ef9cf7cfeb7"
+    },
+    {
+      "case": "bal_glissando_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/bal_glissando_0000/payload.json",
+      "sha256": "5a56a880e1a6c632446228c6093fe30cdc9292f8d15ff33880758ef9cf7cfeb7"
+    },
+    {
+      "case": "lullaby_control_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/lullaby_control_0000/payload.json",
+      "sha256": "6ad8767d99d8ef5bd05cb3eb2e53550573e9d22c4afa7df571b51c3020f161aa"
+    },
+    {
+      "case": "lullaby_control_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/lullaby_control_0000/payload.json",
+      "sha256": "7b9ef4ba7a576337ab65eda8e72b52eff88f3dac9c3351765e5b5b90cd44163a"
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/lullaby_vibrato_0000/payload.json",
+      "sha256": "338aeb86aa84683af52f2cd465579ff659de9990e589fd3438456a225c657d04"
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/lullaby_vibrato_0000/payload.json",
+      "sha256": "338aeb86aa84683af52f2cd465579ff659de9990e589fd3438456a225c657d04"
+    },
+    {
+      "case": "baikal_control_0001",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/baikal_control_0001/payload.json",
+      "sha256": "0e54ea8310b773d431534b99c361e28f1b4e69a69c8c8691e4f00ac0cca267aa"
+    },
+    {
+      "case": "baikal_control_0001",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/baikal_control_0001/payload.json",
+      "sha256": "29d6abb1a872deecdcb0de4788e042937af5a08de71ba25d73bbd5c784addbf4"
+    },
+    {
+      "case": "bal_control_0001",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/bal_control_0001/payload.json",
+      "sha256": "32b5baf97d6c97108b95787eda7c2a2f7badac41529b068d460da9aca120758b"
+    },
+    {
+      "case": "bal_control_0001",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/bal_control_0001/payload.json",
+      "sha256": "32b5baf97d6c97108b95787eda7c2a2f7badac41529b068d460da9aca120758b"
+    },
+    {
+      "case": "lullaby_control_0001",
+      "version": "baseline-v4",
+      "path": "/tmp/karaoke-v4-new-songs/runs/v4-replay/lullaby_control_0001/payload.json",
+      "sha256": "59e084ec7c3a553791da39db2b2c7b310d113ecb789836e524e00fc30d5eb77b"
+    },
+    {
+      "case": "lullaby_control_0001",
+      "version": "final",
+      "path": "/tmp/karaoke-v5-artists/runs/previous-final-v5/lullaby_control_0001/payload.json",
+      "sha256": "505712b093e7cb02a755cfcea56ba309ad7ccea8de51a41764bf5ef3f6725408"
+    }
+  ],
+  "cases": [
+    {
+      "case": "baikal_control_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 1,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.741483665999112,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 1,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.029802072000166,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.640140832001634,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 5,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 2,
+            "speech.with_sung_ends": 2,
+            "speech.ordered": 2,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.151633788998879,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 3,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 5.83053174700035,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 3,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 5.843575900998985,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 5.68787790100032,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 8.183608356997865,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 5,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.22363644899815,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 5,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.003196405999915,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.729273107997869,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "ASR": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.0057954090007115,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "words": 4,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 2,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.107973949001462,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 2,
+            "ctc.ordered": 5,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.781888821002212,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "words": 5,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 6,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.340068025998335,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 4,
+            "ctc.ordered": 6,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 2,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 3.873795035000512,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "words": 6,
+      "invariantErrors": {
+        "baseline-v4": [],
+        "final": []
+      },
+      "traces": {
+        "baseline-v4": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 1,
+            "ctc.ordered": 7,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 4.300178270998003,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        },
+        "final": {
+          "stageCounts": {
+            "speech.read_mono": 1,
+            "alignment_evidence": 1,
+            "speech.align_words": 1,
+            "speech.singing_frames": 1,
+            "speech.voiced_frames": 1,
+            "speech.vocal_onsets": 1,
+            "ctc._align_window": 1,
+            "ctc.ordered": 7,
+            "speech.align_guided": 1,
+            "speech.with_word_guidance": 1,
+            "speech.with_voice_onsets": 1,
+            "speech.with_sung_ends": 1,
+            "speech.ordered": 1,
+            "speech.with_sung_letters": 1,
+            "speech.alignment_payload": 1
+          },
+          "mode": "cached-evidence-replay",
+          "tracedElapsedSeconds": 3.995735533997504,
+          "sourceHashesUnchanged": true,
+          "audioHashUnchanged": true
+        }
+      }
+    }
+  ],
+  "wordMetrics": {
+    "baseline-v4": {
+      "start": {
+        "count": 39,
+        "medianAbsMs": 50.0,
+        "maximumAbsMs": 1112.0,
+        "meanAbsMs": 144.0
+      },
+      "end": {
+        "count": 39,
+        "medianAbsMs": 119.0,
+        "maximumAbsMs": 1812.0,
+        "meanAbsMs": 211.23076923076923
+      }
+    },
+    "final": {
+      "start": {
+        "count": 39,
+        "medianAbsMs": 39.0,
+        "maximumAbsMs": 1081.0,
+        "meanAbsMs": 112.35897435897436
+      },
+      "end": {
+        "count": 39,
+        "medianAbsMs": 89.0,
+        "maximumAbsMs": 1081.0,
+        "meanAbsMs": 163.48717948717947
+      }
+    }
+  },
+  "internalPhoneMetrics": {
+    "baseline-v4": {
+      "count": 73,
+      "medianAbsMs": 90.0,
+      "maximumAbsMs": 2022.0,
+      "meanAbsMs": 359.56164383561645
+    },
+    "final": {
+      "count": 73,
+      "medianAbsMs": 69.0,
+      "maximumAbsMs": 1620.0,
+      "meanAbsMs": 232.7945205479452
+    }
+  },
+  "boundaryChangedWords": 6,
+  "letterChangedWords": 5,
+  "rows": [
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 0,
+      "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+      "characterCount": 5,
+      "referenceStart": 1.14,
+      "referenceEnd": 1.701,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+        "characterCount": 5,
+        "start": 1.14,
+        "end": 1.72,
+        "confidence": 0.3517577037940403,
+        "letters": [
+          1.14,
+          1.22,
+          1.34,
+          1.46,
+          1.56
+        ],
+        "diagnostics": [],
+        "durationMs": 580.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 19.0,
+        "letterDurationsMs": [
+          80.0,
+          120.0,
+          120.0,
+          100.0,
+          160.0
+        ]
+      },
+      "final": {
+        "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+        "characterCount": 5,
+        "start": 1.14,
+        "end": 1.72,
+        "confidence": 0.3517577037940403,
+        "letters": [
+          1.14,
+          1.22,
+          1.34,
+          1.46,
+          1.56
+        ],
+        "diagnostics": [],
+        "durationMs": 580.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 19.0,
+        "letterDurationsMs": [
+          80.0,
+          120.0,
+          120.0,
+          100.0,
+          160.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 1,
+      "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "characterCount": 1,
+      "referenceStart": 1.701,
+      "referenceEnd": 1.811,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+        "characterCount": 1,
+        "start": 1.72,
+        "end": 1.86,
+        "confidence": 0.9631209373474121,
+        "letters": [
+          1.72
+        ],
+        "diagnostics": [],
+        "durationMs": 140.0,
+        "startErrorMs": 19.0,
+        "endErrorMs": 49.0,
+        "letterDurationsMs": [
+          140.0
+        ]
+      },
+      "final": {
+        "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+        "characterCount": 1,
+        "start": 1.72,
+        "end": 1.86,
+        "confidence": 0.9631209373474121,
+        "letters": [
+          1.72
+        ],
+        "diagnostics": [],
+        "durationMs": 140.0,
+        "startErrorMs": 19.0,
+        "endErrorMs": 49.0,
+        "letterDurationsMs": [
+          140.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "referenceStart": 1.811,
+      "referenceEnd": 4.911,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+        "characterCount": 6,
+        "start": 1.86,
+        "end": 4.89,
+        "confidence": 0.5030284965566049,
+        "letters": [
+          1.86,
+          1.98,
+          2.44,
+          2.58,
+          3.38,
+          3.48
+        ],
+        "diagnostics": [],
+        "durationMs": 3030.0,
+        "startErrorMs": 49.0,
+        "endErrorMs": -21.0,
+        "letterDurationsMs": [
+          120.0,
+          460.0,
+          140.0,
+          800.0,
+          100.0,
+          1410.0
+        ]
+      },
+      "final": {
+        "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+        "characterCount": 6,
+        "start": 1.86,
+        "end": 4.89,
+        "confidence": 0.5030284965566049,
+        "letters": [
+          1.86,
+          1.98,
+          2.44,
+          2.58,
+          3.38,
+          3.48
+        ],
+        "diagnostics": [],
+        "durationMs": 3030.0,
+        "startErrorMs": 49.0,
+        "endErrorMs": -21.0,
+        "letterDurationsMs": [
+          120.0,
+          460.0,
+          140.0,
+          800.0,
+          100.0,
+          1410.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "referenceStart": 5.532,
+      "referenceEnd": 6.352,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+        "characterCount": 7,
+        "excerpt": "смотрят",
+        "start": 5.64,
+        "end": 7.01,
+        "confidence": 0.26901758430176415,
+        "letters": [
+          5.64,
+          5.8,
+          5.9,
+          6.0,
+          6.06,
+          6.16,
+          6.36
+        ],
+        "diagnostics": [],
+        "durationMs": 1370.0,
+        "startErrorMs": 108.0,
+        "endErrorMs": 658.0,
+        "letterDurationsMs": [
+          160.0,
+          100.0,
+          100.0,
+          60.0,
+          100.0,
+          200.0,
+          650.0
+        ]
+      },
+      "final": {
+        "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+        "characterCount": 7,
+        "excerpt": "смотрят",
+        "start": 5.56,
+        "end": 7.01,
+        "confidence": 0.26901758430176415,
+        "letters": [
+          5.56,
+          5.72,
+          5.82,
+          5.92,
+          5.98,
+          6.08,
+          6.34
+        ],
+        "diagnostics": [],
+        "durationMs": 1450.0,
+        "startErrorMs": 28.0,
+        "endErrorMs": 658.0,
+        "letterDurationsMs": [
+          160.0,
+          100.0,
+          100.0,
+          60.0,
+          100.0,
+          260.0,
+          670.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": true
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 0,
+      "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+      "characterCount": 5,
+      "referenceStart": 0.47,
+      "referenceEnd": 1.08,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+        "characterCount": 5,
+        "start": 0.26,
+        "end": 0.88,
+        "confidence": 0.3651081919670105,
+        "letters": [
+          0.26,
+          0.36,
+          0.5,
+          0.6,
+          0.7
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "TimingReviewRequired"
+        ],
+        "durationMs": 620.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": -200.0,
+        "letterDurationsMs": [
+          100.0,
+          140.0,
+          100.0,
+          100.0,
+          180.0
+        ]
+      },
+      "final": {
+        "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+        "characterCount": 5,
+        "start": 0.26,
+        "end": 0.88,
+        "confidence": 0.3651081919670105,
+        "letters": [
+          0.26,
+          0.36,
+          0.5,
+          0.6,
+          0.7
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "TimingReviewRequired"
+        ],
+        "durationMs": 620.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": -200.0,
+        "letterDurationsMs": [
+          100.0,
+          140.0,
+          100.0,
+          100.0,
+          180.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 1,
+      "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "characterCount": 1,
+      "referenceStart": 1.08,
+      "referenceEnd": 1.21,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+        "characterCount": 1,
+        "start": 0.88,
+        "end": 1.0,
+        "confidence": 0.6144673228263855,
+        "letters": [
+          0.88
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "BoundaryConflict",
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 120.0,
+        "startErrorMs": -200.0,
+        "endErrorMs": -210.0,
+        "letterDurationsMs": [
+          120.0
+        ]
+      },
+      "final": {
+        "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+        "characterCount": 1,
+        "start": 0.88,
+        "end": 1.0,
+        "confidence": 0.6144673228263855,
+        "letters": [
+          0.88
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "BoundaryConflict",
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 120.0,
+        "startErrorMs": -200.0,
+        "endErrorMs": -210.0,
+        "letterDurationsMs": [
+          120.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "referenceStart": 1.21,
+      "referenceEnd": 4.46,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+        "characterCount": 6,
+        "start": 1.0,
+        "end": 4.24,
+        "confidence": 0.4630051851272583,
+        "letters": [
+          1.0,
+          1.14,
+          1.6,
+          1.78,
+          2.6,
+          2.74
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 3240.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": -220.0,
+        "letterDurationsMs": [
+          140.0,
+          460.0,
+          180.0,
+          820.0,
+          140.0,
+          1500.0
+        ]
+      },
+      "final": {
+        "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+        "characterCount": 6,
+        "start": 1.0,
+        "end": 4.46,
+        "confidence": 0.4630051851272583,
+        "letters": [
+          1.0,
+          1.14,
+          1.6,
+          1.78,
+          2.6,
+          2.74
+        ],
+        "diagnostics": [
+          "RateReviewRetimed",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 3460.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": 0.0,
+        "letterDurationsMs": [
+          140.0,
+          460.0,
+          180.0,
+          820.0,
+          140.0,
+          1720.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "referenceStart": 5.352,
+      "referenceEnd": 6.452,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+        "characterCount": 7,
+        "excerpt": "смотрят",
+        "start": 4.24,
+        "end": 4.64,
+        "confidence": 0.02736839110730216,
+        "letters": [
+          4.24,
+          4.26,
+          4.3,
+          4.32,
+          4.34,
+          4.36,
+          4.4
+        ],
+        "diagnostics": [
+          "TimingReviewRequired"
+        ],
+        "durationMs": 400.0,
+        "startErrorMs": -1112.0,
+        "endErrorMs": -1812.0,
+        "letterDurationsMs": [
+          20.0,
+          40.0,
+          20.0,
+          20.0,
+          20.0,
+          40.0,
+          240.0
+        ]
+      },
+      "final": {
+        "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+        "characterCount": 7,
+        "excerpt": "смотрят",
+        "start": 5.38,
+        "end": 6.93,
+        "confidence": 0.27513495832681656,
+        "letters": [
+          5.38,
+          5.58,
+          5.7,
+          5.78,
+          5.92,
+          6.0,
+          6.14
+        ],
+        "diagnostics": [
+          "OnsetRecovered",
+          "RateReviewRetimed",
+          "TimingReviewRequired"
+        ],
+        "durationMs": 1550.0,
+        "startErrorMs": 28.0,
+        "endErrorMs": 478.0,
+        "letterDurationsMs": [
+          200.0,
+          120.0,
+          80.0,
+          140.0,
+          80.0,
+          140.0,
+          790.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": true
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 0,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "referenceStart": 0.64,
+      "referenceEnd": 2.17,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 0.68,
+        "end": 1.96,
+        "confidence": 0.4778122862408054,
+        "letters": [
+          0.68,
+          0.8,
+          0.98,
+          1.16,
+          1.28,
+          1.7,
+          1.9
+        ],
+        "diagnostics": [
+          "BoundaryClipped"
+        ],
+        "durationMs": 1280.0,
+        "startErrorMs": 40.0,
+        "endErrorMs": -210.0,
+        "letterDurationsMs": [
+          120.0,
+          180.0,
+          180.0,
+          120.0,
+          420.0,
+          200.0,
+          60.0
+        ]
+      },
+      "final": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 0.68,
+        "end": 1.96,
+        "confidence": 0.4778122862408054,
+        "letters": [
+          0.68,
+          0.8,
+          0.98,
+          1.16,
+          1.28,
+          1.7,
+          1.9
+        ],
+        "diagnostics": [
+          "BoundaryClipped"
+        ],
+        "durationMs": 1280.0,
+        "startErrorMs": 40.0,
+        "endErrorMs": -210.0,
+        "letterDurationsMs": [
+          120.0,
+          180.0,
+          180.0,
+          120.0,
+          420.0,
+          200.0,
+          60.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 1,
+      "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+      "characterCount": 6,
+      "referenceStart": 2.17,
+      "referenceEnd": 2.76,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+        "characterCount": 6,
+        "start": 1.96,
+        "end": 3.02,
+        "confidence": 0.521393190138042,
+        "letters": [
+          1.96,
+          2.08,
+          2.32,
+          2.56,
+          2.74,
+          2.76
+        ],
+        "diagnostics": [],
+        "durationMs": 1060.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": 260.0,
+        "letterDurationsMs": [
+          120.0,
+          240.0,
+          240.0,
+          180.0,
+          20.0,
+          260.0
+        ]
+      },
+      "final": {
+        "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+        "characterCount": 6,
+        "start": 1.96,
+        "end": 3.02,
+        "confidence": 0.521393190138042,
+        "letters": [
+          1.96,
+          2.08,
+          2.32,
+          2.56,
+          2.74,
+          2.76
+        ],
+        "diagnostics": [],
+        "durationMs": 1060.0,
+        "startErrorMs": -210.0,
+        "endErrorMs": 260.0,
+        "letterDurationsMs": [
+          120.0,
+          240.0,
+          240.0,
+          180.0,
+          20.0,
+          260.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "characterCount": 1,
+      "excerpt": "о",
+      "referenceStart": 3.38,
+      "referenceEnd": 3.51,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+        "characterCount": 1,
+        "excerpt": "о",
+        "start": 3.35,
+        "end": 3.51,
+        "confidence": 0.012517224997282028,
+        "letters": [
+          3.35
+        ],
+        "diagnostics": [],
+        "durationMs": 160.0,
+        "startErrorMs": -30.0,
+        "endErrorMs": 0.0,
+        "letterDurationsMs": [
+          160.0
+        ]
+      },
+      "final": {
+        "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+        "characterCount": 1,
+        "excerpt": "о",
+        "start": 3.35,
+        "end": 3.51,
+        "confidence": 0.012517224997282028,
+        "letters": [
+          3.35
+        ],
+        "diagnostics": [],
+        "durationMs": 160.0,
+        "startErrorMs": -30.0,
+        "endErrorMs": 0.0,
+        "letterDurationsMs": [
+          160.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "referenceStart": 3.51,
+      "referenceEnd": 6.76,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+        "characterCount": 6,
+        "excerpt": "походе",
+        "start": 3.51,
+        "end": 6.77,
+        "confidence": 0.6109553250883307,
+        "letters": [
+          3.51,
+          3.59,
+          3.77,
+          3.93,
+          4.63,
+          4.81
+        ],
+        "diagnostics": [],
+        "durationMs": 3260.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 10.0,
+        "letterDurationsMs": [
+          80.0,
+          180.0,
+          160.0,
+          700.0,
+          180.0,
+          1960.0
+        ]
+      },
+      "final": {
+        "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+        "characterCount": 6,
+        "excerpt": "походе",
+        "start": 3.51,
+        "end": 6.77,
+        "confidence": 0.6109553250883307,
+        "letters": [
+          3.51,
+          3.59,
+          3.77,
+          3.93,
+          4.63,
+          4.81
+        ],
+        "diagnostics": [],
+        "durationMs": 3260.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 10.0,
+        "letterDurationsMs": [
+          80.0,
+          180.0,
+          160.0,
+          700.0,
+          180.0,
+          1960.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 0,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "referenceStart": 0.22,
+      "referenceEnd": 1.611,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 0.25,
+        "end": 1.47,
+        "confidence": 0.45381884196103783,
+        "letters": [
+          0.25,
+          0.35,
+          0.51,
+          0.67,
+          0.79,
+          1.21,
+          1.35
+        ],
+        "diagnostics": [
+          "BoundaryClipped"
+        ],
+        "durationMs": 1220.0,
+        "startErrorMs": 30.0,
+        "endErrorMs": -141.0,
+        "letterDurationsMs": [
+          100.0,
+          160.0,
+          160.0,
+          120.0,
+          420.0,
+          140.0,
+          120.0
+        ]
+      },
+      "final": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 0.25,
+        "end": 1.47,
+        "confidence": 0.45381884196103783,
+        "letters": [
+          0.25,
+          0.35,
+          0.51,
+          0.67,
+          0.79,
+          1.21,
+          1.35
+        ],
+        "diagnostics": [
+          "BoundaryClipped"
+        ],
+        "durationMs": 1220.0,
+        "startErrorMs": 30.0,
+        "endErrorMs": -141.0,
+        "letterDurationsMs": [
+          100.0,
+          160.0,
+          160.0,
+          120.0,
+          420.0,
+          140.0,
+          120.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 1,
+      "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+      "characterCount": 6,
+      "referenceStart": 1.721,
+      "referenceEnd": 2.261,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+        "characterCount": 6,
+        "start": 1.47,
+        "end": 2.71,
+        "confidence": 0.41049867422164726,
+        "letters": [
+          1.47,
+          1.61,
+          1.77,
+          2.05,
+          2.23,
+          2.25
+        ],
+        "diagnostics": [
+          "TimingReviewRequired"
+        ],
+        "durationMs": 1240.0,
+        "startErrorMs": -251.0,
+        "endErrorMs": 449.0,
+        "letterDurationsMs": [
+          140.0,
+          160.0,
+          280.0,
+          180.0,
+          20.0,
+          460.0
+        ]
+      },
+      "final": {
+        "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+        "characterCount": 6,
+        "start": 1.47,
+        "end": 2.71,
+        "confidence": 0.41049867422164726,
+        "letters": [
+          1.47,
+          1.61,
+          1.77,
+          2.05,
+          2.23,
+          2.25
+        ],
+        "diagnostics": [
+          "TimingReviewRequired"
+        ],
+        "durationMs": 1240.0,
+        "startErrorMs": -251.0,
+        "endErrorMs": 449.0,
+        "letterDurationsMs": [
+          140.0,
+          160.0,
+          280.0,
+          180.0,
+          20.0,
+          460.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 2,
+      "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "characterCount": 1,
+      "excerpt": "о",
+      "referenceStart": 3.391,
+      "referenceEnd": 3.931,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+        "characterCount": 1,
+        "excerpt": "о",
+        "start": 2.71,
+        "end": 2.85,
+        "confidence": 0.028963137418031693,
+        "letters": [
+          2.71
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "TimingReviewRequired"
+        ],
+        "durationMs": 140.0,
+        "startErrorMs": -681.0,
+        "endErrorMs": -1081.0,
+        "letterDurationsMs": [
+          140.0
+        ]
+      },
+      "final": {
+        "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+        "characterCount": 1,
+        "excerpt": "о",
+        "start": 2.71,
+        "end": 2.85,
+        "confidence": 0.028963137418031693,
+        "letters": [
+          2.71
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "TimingReviewRequired"
+        ],
+        "durationMs": 140.0,
+        "startErrorMs": -681.0,
+        "endErrorMs": -1081.0,
+        "letterDurationsMs": [
+          140.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "referenceStart": 3.931,
+      "referenceEnd": 6.151,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+        "characterCount": 6,
+        "excerpt": "походе",
+        "start": 2.85,
+        "end": 6.2,
+        "confidence": 0.544428071805409,
+        "letters": [
+          2.85,
+          2.93,
+          3.11,
+          3.25,
+          3.93,
+          4.11
+        ],
+        "diagnostics": [],
+        "durationMs": 3350.0,
+        "startErrorMs": -1081.0,
+        "endErrorMs": 49.0,
+        "letterDurationsMs": [
+          80.0,
+          180.0,
+          140.0,
+          680.0,
+          180.0,
+          2090.0
+        ]
+      },
+      "final": {
+        "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+        "characterCount": 6,
+        "excerpt": "походе",
+        "start": 2.85,
+        "end": 6.2,
+        "confidence": 0.544428071805409,
+        "letters": [
+          2.85,
+          2.93,
+          3.11,
+          3.25,
+          3.93,
+          4.11
+        ],
+        "diagnostics": [],
+        "durationMs": 3350.0,
+        "startErrorMs": -1081.0,
+        "endErrorMs": 49.0,
+        "letterDurationsMs": [
+          80.0,
+          180.0,
+          140.0,
+          680.0,
+          180.0,
+          2090.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "referenceStart": 0.51,
+      "referenceEnd": 1.33,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 0.56,
+        "end": 1.21,
+        "confidence": 0.4234812210003535,
+        "letters": [
+          0.56,
+          0.66,
+          1.12
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 650.0,
+        "startErrorMs": 50.0,
+        "endErrorMs": -120.0,
+        "letterDurationsMs": [
+          100.0,
+          460.0,
+          90.0
+        ]
+      },
+      "final": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 0.54,
+        "end": 1.21,
+        "confidence": 0.4234812210003535,
+        "letters": [
+          0.54,
+          0.64,
+          1.1
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 670.0,
+        "startErrorMs": 30.0,
+        "endErrorMs": -120.0,
+        "letterDurationsMs": [
+          100.0,
+          460.0,
+          110.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": true
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "referenceStart": 1.33,
+      "referenceEnd": 1.89,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+        "characterCount": 2,
+        "start": 1.34,
+        "end": 2.06,
+        "confidence": 0.47548119025304914,
+        "letters": [
+          1.34,
+          1.44
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 720.0,
+        "startErrorMs": 10.0,
+        "endErrorMs": 170.0,
+        "letterDurationsMs": [
+          100.0,
+          620.0
+        ]
+      },
+      "final": {
+        "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+        "characterCount": 2,
+        "start": 1.34,
+        "end": 2.06,
+        "confidence": 0.47548119025304914,
+        "letters": [
+          1.34,
+          1.44
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 720.0,
+        "startErrorMs": 10.0,
+        "endErrorMs": 170.0,
+        "letterDurationsMs": [
+          100.0,
+          620.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "referenceStart": 1.89,
+      "referenceEnd": 3.6,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+        "characterCount": 4,
+        "start": 2.06,
+        "end": 3.78,
+        "confidence": 0.5942470809444785,
+        "letters": [
+          2.06,
+          2.2,
+          2.86,
+          2.92
+        ],
+        "diagnostics": [],
+        "durationMs": 1720.0,
+        "startErrorMs": 170.0,
+        "endErrorMs": 180.0,
+        "letterDurationsMs": [
+          140.0,
+          660.0,
+          60.0,
+          860.0
+        ]
+      },
+      "final": {
+        "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+        "characterCount": 4,
+        "start": 2.06,
+        "end": 3.78,
+        "confidence": 0.5942470809444785,
+        "letters": [
+          2.06,
+          2.2,
+          2.86,
+          2.92
+        ],
+        "diagnostics": [],
+        "durationMs": 1720.0,
+        "startErrorMs": 170.0,
+        "endErrorMs": 180.0,
+        "letterDurationsMs": [
+          140.0,
+          660.0,
+          60.0,
+          860.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 3,
+      "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+      "characterCount": 6,
+      "referenceStart": 3.741,
+      "referenceEnd": 6.351,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+        "characterCount": 6,
+        "start": 3.78,
+        "end": 6.32,
+        "confidence": 0.8751824696858724,
+        "letters": [
+          3.78,
+          3.9,
+          4.54,
+          4.9,
+          5.42,
+          5.56
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 2540.0,
+        "startErrorMs": 39.0,
+        "endErrorMs": -31.0,
+        "letterDurationsMs": [
+          120.0,
+          640.0,
+          360.0,
+          520.0,
+          140.0,
+          760.0
+        ]
+      },
+      "final": {
+        "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+        "characterCount": 6,
+        "start": 3.78,
+        "end": 6.32,
+        "confidence": 0.8751824696858724,
+        "letters": [
+          3.78,
+          3.9,
+          4.54,
+          4.9,
+          5.42,
+          5.56
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 2540.0,
+        "startErrorMs": 39.0,
+        "endErrorMs": -31.0,
+        "letterDurationsMs": [
+          120.0,
+          640.0,
+          360.0,
+          520.0,
+          140.0,
+          760.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "referenceStart": 0.94,
+      "referenceEnd": 1.681,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 0.86,
+        "end": 1.6,
+        "confidence": 0.5017271895582477,
+        "letters": [
+          0.86,
+          0.96,
+          1.46
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 740.0,
+        "startErrorMs": -80.0,
+        "endErrorMs": -81.0,
+        "letterDurationsMs": [
+          100.0,
+          500.0,
+          140.0
+        ]
+      },
+      "final": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 0.86,
+        "end": 1.6,
+        "confidence": 0.5017271895582477,
+        "letters": [
+          0.86,
+          0.96,
+          1.46
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 740.0,
+        "startErrorMs": -80.0,
+        "endErrorMs": -81.0,
+        "letterDurationsMs": [
+          100.0,
+          500.0,
+          140.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "referenceStart": 1.681,
+      "referenceEnd": 2.221,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+        "characterCount": 2,
+        "start": 1.6,
+        "end": 2.4,
+        "confidence": 0.001333848136710003,
+        "letters": [
+          1.6,
+          1.7
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 800.0,
+        "startErrorMs": -81.0,
+        "endErrorMs": 179.0,
+        "letterDurationsMs": [
+          100.0,
+          700.0
+        ]
+      },
+      "final": {
+        "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+        "characterCount": 2,
+        "start": 1.6,
+        "end": 2.4,
+        "confidence": 0.001333848136710003,
+        "letters": [
+          1.6,
+          1.7
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 800.0,
+        "startErrorMs": -81.0,
+        "endErrorMs": 179.0,
+        "letterDurationsMs": [
+          100.0,
+          700.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "referenceStart": 2.221,
+      "referenceEnd": 3.961,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+        "characterCount": 4,
+        "start": 2.4,
+        "end": 4.06,
+        "confidence": 0.518497799616307,
+        "letters": [
+          2.4,
+          2.54,
+          3.2,
+          3.24
+        ],
+        "diagnostics": [
+          "TimingReviewRequired"
+        ],
+        "durationMs": 1660.0,
+        "startErrorMs": 179.0,
+        "endErrorMs": 99.0,
+        "letterDurationsMs": [
+          140.0,
+          660.0,
+          40.0,
+          820.0
+        ]
+      },
+      "final": {
+        "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+        "characterCount": 4,
+        "start": 2.4,
+        "end": 4.06,
+        "confidence": 0.518497799616307,
+        "letters": [
+          2.4,
+          2.54,
+          3.2,
+          3.24
+        ],
+        "diagnostics": [
+          "TimingReviewRequired"
+        ],
+        "durationMs": 1660.0,
+        "startErrorMs": 179.0,
+        "endErrorMs": 99.0,
+        "letterDurationsMs": [
+          140.0,
+          660.0,
+          40.0,
+          820.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 3,
+      "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+      "characterCount": 6,
+      "referenceStart": 4.122,
+      "referenceEnd": 6.952,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+        "characterCount": 6,
+        "start": 4.06,
+        "end": 6.95,
+        "confidence": 0.7172238975763321,
+        "letters": [
+          4.06,
+          4.18,
+          4.84,
+          5.08,
+          5.72,
+          5.82
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2890.0,
+        "startErrorMs": -62.0,
+        "endErrorMs": -2.0,
+        "letterDurationsMs": [
+          120.0,
+          660.0,
+          240.0,
+          640.0,
+          100.0,
+          1130.0
+        ]
+      },
+      "final": {
+        "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+        "characterCount": 6,
+        "start": 4.06,
+        "end": 6.95,
+        "confidence": 0.7172238975763321,
+        "letters": [
+          4.06,
+          4.18,
+          4.84,
+          5.08,
+          5.72,
+          5.82
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2890.0,
+        "startErrorMs": -62.0,
+        "endErrorMs": -2.0,
+        "letterDurationsMs": [
+          120.0,
+          660.0,
+          240.0,
+          640.0,
+          100.0,
+          1130.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "referenceStart": 0.0,
+      "referenceEnd": 2.92,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+        "characterCount": 6,
+        "start": 0.02,
+        "end": 2.86,
+        "confidence": 0.6236561674935123,
+        "letters": [
+          0.02,
+          0.06,
+          0.16,
+          0.28,
+          1.12,
+          1.24
+        ],
+        "diagnostics": [],
+        "durationMs": 2840.0,
+        "startErrorMs": 20.0,
+        "endErrorMs": -60.0,
+        "letterDurationsMs": [
+          40.0,
+          100.0,
+          120.0,
+          840.0,
+          120.0,
+          1620.0
+        ]
+      },
+      "final": {
+        "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+        "characterCount": 6,
+        "start": 0.02,
+        "end": 2.86,
+        "confidence": 0.6236561674935123,
+        "letters": [
+          0.02,
+          0.06,
+          0.16,
+          0.28,
+          1.12,
+          1.24
+        ],
+        "diagnostics": [],
+        "durationMs": 2840.0,
+        "startErrorMs": 20.0,
+        "endErrorMs": -60.0,
+        "letterDurationsMs": [
+          40.0,
+          100.0,
+          120.0,
+          840.0,
+          120.0,
+          1620.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+      "characterCount": 4,
+      "referenceStart": 3.922,
+      "referenceEnd": 4.701,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+        "characterCount": 4,
+        "start": 4.01,
+        "end": 4.84,
+        "confidence": 0.49970010221004485,
+        "letters": [
+          4.01,
+          4.17,
+          4.39,
+          4.53
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 830.0,
+        "startErrorMs": 88.0,
+        "endErrorMs": 139.0,
+        "letterDurationsMs": [
+          160.0,
+          220.0,
+          140.0,
+          310.0
+        ]
+      },
+      "final": {
+        "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+        "characterCount": 4,
+        "start": 4.0,
+        "end": 4.84,
+        "confidence": 0.49970010221004485,
+        "letters": [
+          4.0,
+          4.16,
+          4.38,
+          4.52
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 840.0,
+        "startErrorMs": 78.0,
+        "endErrorMs": 139.0,
+        "letterDurationsMs": [
+          160.0,
+          220.0,
+          140.0,
+          320.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": true
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "referenceStart": 4.822,
+      "referenceEnd": 4.971,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 4.84,
+        "end": 5.7,
+        "confidence": 0.38758788630366325,
+        "letters": [
+          4.84,
+          4.96,
+          5.6
+        ],
+        "diagnostics": [],
+        "durationMs": 860.0,
+        "startErrorMs": 18.0,
+        "endErrorMs": 729.0,
+        "letterDurationsMs": [
+          120.0,
+          640.0,
+          100.0
+        ]
+      },
+      "final": {
+        "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+        "characterCount": 3,
+        "excerpt": "как",
+        "start": 4.84,
+        "end": 5.7,
+        "confidence": 0.38758788630366325,
+        "letters": [
+          4.84,
+          4.96,
+          5.6
+        ],
+        "diagnostics": [],
+        "durationMs": 860.0,
+        "startErrorMs": 18.0,
+        "endErrorMs": 729.0,
+        "letterDurationsMs": [
+          120.0,
+          640.0,
+          100.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 3,
+      "textSha256": "9ba068c017943ec862408b08b021bd4503ae679825a6146f688b9962a1cfcf92",
+      "characterCount": 8,
+      "referenceStart": 5.692,
+      "referenceEnd": 8.042,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "9ba068c017943ec862408b08b021bd4503ae679825a6146f688b9962a1cfcf92",
+        "characterCount": 8,
+        "start": 5.7,
+        "end": 8.01,
+        "confidence": 0.686827998993168,
+        "letters": [
+          5.7,
+          5.94,
+          6.12,
+          6.38,
+          6.52,
+          6.86,
+          7.1,
+          7.22
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2310.0,
+        "startErrorMs": 8.0,
+        "endErrorMs": -32.0,
+        "letterDurationsMs": [
+          240.0,
+          180.0,
+          260.0,
+          140.0,
+          340.0,
+          240.0,
+          120.0,
+          790.0
+        ]
+      },
+      "final": {
+        "textSha256": "9ba068c017943ec862408b08b021bd4503ae679825a6146f688b9962a1cfcf92",
+        "characterCount": 8,
+        "start": 5.7,
+        "end": 8.01,
+        "confidence": 0.686827998993168,
+        "letters": [
+          5.7,
+          5.94,
+          6.12,
+          6.38,
+          6.52,
+          6.86,
+          7.1,
+          7.22
+        ],
+        "diagnostics": [
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2310.0,
+        "startErrorMs": 8.0,
+        "endErrorMs": -32.0,
+        "letterDurationsMs": [
+          240.0,
+          180.0,
+          260.0,
+          140.0,
+          340.0,
+          240.0,
+          120.0,
+          790.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+      "characterCount": 2,
+      "referenceStart": 0.0,
+      "referenceEnd": 0.29,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+        "characterCount": 2,
+        "start": 0.02,
+        "end": 0.34,
+        "confidence": 0.9761040508747101,
+        "letters": [
+          0.02,
+          0.1
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 320.0,
+        "startErrorMs": 20.0,
+        "endErrorMs": 50.0,
+        "letterDurationsMs": [
+          80.0,
+          240.0
+        ]
+      },
+      "final": {
+        "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+        "characterCount": 2,
+        "start": 0.02,
+        "end": 0.34,
+        "confidence": 0.9761040508747101,
+        "letters": [
+          0.02,
+          0.1
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ],
+        "durationMs": 320.0,
+        "startErrorMs": 20.0,
+        "endErrorMs": 50.0,
+        "letterDurationsMs": [
+          80.0,
+          240.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+      "characterCount": 12,
+      "referenceStart": 0.29,
+      "referenceEnd": 2.64,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+        "characterCount": 12,
+        "start": 0.34,
+        "end": 2.64,
+        "confidence": 0.5477620154332337,
+        "letters": [
+          0.34,
+          0.44,
+          0.56,
+          0.72,
+          0.82,
+          1.0,
+          1.1,
+          1.2,
+          1.34,
+          1.5,
+          1.62,
+          1.9
+        ],
+        "diagnostics": [],
+        "durationMs": 2300.0,
+        "startErrorMs": 50.0,
+        "endErrorMs": 0.0,
+        "letterDurationsMs": [
+          100.0,
+          120.0,
+          160.0,
+          100.0,
+          180.0,
+          100.0,
+          100.0,
+          140.0,
+          160.0,
+          120.0,
+          280.0,
+          740.0
+        ]
+      },
+      "final": {
+        "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+        "characterCount": 12,
+        "start": 0.34,
+        "end": 2.64,
+        "confidence": 0.5477620154332337,
+        "letters": [
+          0.34,
+          0.44,
+          0.56,
+          0.72,
+          0.82,
+          1.0,
+          1.1,
+          1.2,
+          1.34,
+          1.5,
+          1.62,
+          1.9
+        ],
+        "diagnostics": [],
+        "durationMs": 2300.0,
+        "startErrorMs": 50.0,
+        "endErrorMs": 0.0,
+        "letterDurationsMs": [
+          100.0,
+          120.0,
+          160.0,
+          100.0,
+          180.0,
+          100.0,
+          100.0,
+          140.0,
+          160.0,
+          120.0,
+          280.0,
+          740.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "referenceStart": 2.64,
+      "referenceEnd": 5.22,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+        "characterCount": 5,
+        "start": 2.64,
+        "end": 5.25,
+        "confidence": 0.5090012036031112,
+        "letters": [
+          2.64,
+          2.74,
+          2.9,
+          3.08,
+          3.2
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2610.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 30.0,
+        "letterDurationsMs": [
+          100.0,
+          160.0,
+          180.0,
+          120.0,
+          2050.0
+        ]
+      },
+      "final": {
+        "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+        "characterCount": 5,
+        "start": 2.64,
+        "end": 5.25,
+        "confidence": 0.5090012036031112,
+        "letters": [
+          2.64,
+          2.74,
+          2.9,
+          3.08,
+          3.2
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "durationMs": 2610.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 30.0,
+        "letterDurationsMs": [
+          100.0,
+          160.0,
+          180.0,
+          120.0,
+          2050.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 3,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "referenceStart": 6.151,
+      "referenceEnd": 7.331,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 6.14,
+        "end": 7.42,
+        "confidence": 0.6186020803725114,
+        "letters": [
+          6.14,
+          6.24,
+          6.44,
+          6.56,
+          6.66,
+          7.06,
+          7.32
+        ],
+        "diagnostics": [],
+        "durationMs": 1280.0,
+        "startErrorMs": -11.0,
+        "endErrorMs": 89.0,
+        "letterDurationsMs": [
+          100.0,
+          200.0,
+          120.0,
+          100.0,
+          400.0,
+          260.0,
+          100.0
+        ]
+      },
+      "final": {
+        "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+        "characterCount": 7,
+        "start": 6.14,
+        "end": 7.42,
+        "confidence": 0.6186020803725114,
+        "letters": [
+          6.14,
+          6.24,
+          6.44,
+          6.56,
+          6.66,
+          7.06,
+          7.32
+        ],
+        "diagnostics": [],
+        "durationMs": 1280.0,
+        "startErrorMs": -11.0,
+        "endErrorMs": 89.0,
+        "letterDurationsMs": [
+          100.0,
+          200.0,
+          120.0,
+          100.0,
+          400.0,
+          260.0,
+          100.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 4,
+      "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+      "characterCount": 5,
+      "referenceStart": 7.331,
+      "referenceEnd": 8.221,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+        "characterCount": 5,
+        "start": 7.42,
+        "end": 8.34,
+        "confidence": 0.6618922472000122,
+        "letters": [
+          7.42,
+          7.62,
+          7.78,
+          7.9,
+          8.1
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 920.0,
+        "startErrorMs": 89.0,
+        "endErrorMs": 119.0,
+        "letterDurationsMs": [
+          200.0,
+          160.0,
+          120.0,
+          200.0,
+          240.0
+        ]
+      },
+      "final": {
+        "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+        "characterCount": 5,
+        "start": 7.42,
+        "end": 8.34,
+        "confidence": 0.6618922472000122,
+        "letters": [
+          7.42,
+          7.62,
+          7.78,
+          7.9,
+          8.1
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "durationMs": 920.0,
+        "startErrorMs": 89.0,
+        "endErrorMs": 119.0,
+        "letterDurationsMs": [
+          200.0,
+          160.0,
+          120.0,
+          200.0,
+          240.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 0,
+      "textSha256": "978f1c14c6cd2803c9ddcedef79c355d89a17ecd27f7bbd26d9fdd244eba1020",
+      "characterCount": 7,
+      "referenceStart": 0.0,
+      "referenceEnd": 1.23,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "978f1c14c6cd2803c9ddcedef79c355d89a17ecd27f7bbd26d9fdd244eba1020",
+        "characterCount": 7,
+        "start": 0.0,
+        "end": 1.28,
+        "confidence": 0.16885348975119996,
+        "letters": [
+          0.0,
+          0.04,
+          0.1,
+          0.12,
+          0.16,
+          0.26,
+          0.36
+        ],
+        "diagnostics": [],
+        "durationMs": 1280.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 50.0,
+        "letterDurationsMs": [
+          40.0,
+          60.0,
+          20.0,
+          40.0,
+          100.0,
+          100.0,
+          920.0
+        ]
+      },
+      "final": {
+        "textSha256": "978f1c14c6cd2803c9ddcedef79c355d89a17ecd27f7bbd26d9fdd244eba1020",
+        "characterCount": 7,
+        "start": 0.0,
+        "end": 1.28,
+        "confidence": 0.16885348975119996,
+        "letters": [
+          0.0,
+          0.04,
+          0.1,
+          0.12,
+          0.16,
+          0.26,
+          0.36
+        ],
+        "diagnostics": [],
+        "durationMs": 1280.0,
+        "startErrorMs": 0.0,
+        "endErrorMs": 50.0,
+        "letterDurationsMs": [
+          40.0,
+          60.0,
+          20.0,
+          40.0,
+          100.0,
+          100.0,
+          920.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "referenceStart": 1.711,
+      "referenceEnd": 4.521,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+        "characterCount": 6,
+        "excerpt": "плывут",
+        "start": 1.76,
+        "end": 4.83,
+        "confidence": 0.6341553783925823,
+        "letters": [
+          1.76,
+          2.0,
+          2.14,
+          2.86,
+          2.98,
+          4.48
+        ],
+        "diagnostics": [],
+        "durationMs": 3070.0,
+        "startErrorMs": 49.0,
+        "endErrorMs": 309.0,
+        "letterDurationsMs": [
+          240.0,
+          140.0,
+          720.0,
+          120.0,
+          1500.0,
+          350.0
+        ]
+      },
+      "final": {
+        "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+        "characterCount": 6,
+        "excerpt": "плывут",
+        "start": 1.72,
+        "end": 4.52,
+        "confidence": 0.6341553783925823,
+        "letters": [
+          1.72,
+          1.96,
+          2.1,
+          2.82,
+          2.94,
+          4.46
+        ],
+        "diagnostics": [],
+        "durationMs": 2800.0,
+        "startErrorMs": 9.0,
+        "endErrorMs": -1.0,
+        "letterDurationsMs": [
+          240.0,
+          140.0,
+          720.0,
+          120.0,
+          1520.0,
+          60.0
+        ]
+      },
+      "boundariesChanged": true,
+      "lettersChanged": true
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 2,
+      "textSha256": "312670af6a732caa51e825b0c243ec569544aebf40546727c01b0c9cef81660f",
+      "characterCount": 5,
+      "referenceStart": 5.142,
+      "referenceEnd": 7.492,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "312670af6a732caa51e825b0c243ec569544aebf40546727c01b0c9cef81660f",
+        "characterCount": 5,
+        "start": 4.99,
+        "end": 7.31,
+        "confidence": 0.9857254505157471,
+        "letters": [
+          4.99,
+          5.13,
+          5.91,
+          6.49,
+          6.63
+        ],
+        "diagnostics": [],
+        "durationMs": 2320.0,
+        "startErrorMs": -152.0,
+        "endErrorMs": -182.0,
+        "letterDurationsMs": [
+          140.0,
+          780.0,
+          580.0,
+          140.0,
+          680.0
+        ]
+      },
+      "final": {
+        "textSha256": "312670af6a732caa51e825b0c243ec569544aebf40546727c01b0c9cef81660f",
+        "characterCount": 5,
+        "start": 4.99,
+        "end": 7.31,
+        "confidence": 0.9857254505157471,
+        "letters": [
+          4.99,
+          5.13,
+          5.91,
+          6.49,
+          6.63
+        ],
+        "diagnostics": [],
+        "durationMs": 2320.0,
+        "startErrorMs": -152.0,
+        "endErrorMs": -182.0,
+        "letterDurationsMs": [
+          140.0,
+          780.0,
+          580.0,
+          140.0,
+          680.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 3,
+      "textSha256": "e259237bea74304b94c5bad293c434da3b396b0025be69bc5fdc81901c023187",
+      "characterCount": 10,
+      "referenceStart": 7.492,
+      "referenceEnd": 10.682,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [
+        "UniformPhoneSubdivisionNeedsAudit"
+      ],
+      "baseline-v4": {
+        "textSha256": "e259237bea74304b94c5bad293c434da3b396b0025be69bc5fdc81901c023187",
+        "characterCount": 10,
+        "start": 7.31,
+        "end": 10.72,
+        "confidence": 0.46511748631237426,
+        "letters": [
+          7.31,
+          7.51,
+          8.13,
+          8.39,
+          8.95,
+          9.09,
+          9.51,
+          9.77,
+          9.83,
+          9.89
+        ],
+        "diagnostics": [],
+        "durationMs": 3410.0,
+        "startErrorMs": -182.0,
+        "endErrorMs": 38.0,
+        "letterDurationsMs": [
+          200.0,
+          620.0,
+          260.0,
+          560.0,
+          140.0,
+          420.0,
+          260.0,
+          60.0,
+          60.0,
+          830.0
+        ]
+      },
+      "final": {
+        "textSha256": "e259237bea74304b94c5bad293c434da3b396b0025be69bc5fdc81901c023187",
+        "characterCount": 10,
+        "start": 7.31,
+        "end": 10.72,
+        "confidence": 0.46511748631237426,
+        "letters": [
+          7.31,
+          7.51,
+          8.13,
+          8.39,
+          8.95,
+          9.09,
+          9.51,
+          9.77,
+          9.83,
+          9.89
+        ],
+        "diagnostics": [],
+        "durationMs": 3410.0,
+        "startErrorMs": -182.0,
+        "endErrorMs": 38.0,
+        "letterDurationsMs": [
+          200.0,
+          620.0,
+          260.0,
+          560.0,
+          140.0,
+          420.0,
+          260.0,
+          60.0,
+          60.0,
+          830.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "referenceStart": 11.453,
+      "referenceEnd": 13.834,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+        "characterCount": 6,
+        "start": 11.45,
+        "end": 13.81,
+        "confidence": 0.6352446681436655,
+        "letters": [
+          11.45,
+          11.55,
+          12.17,
+          12.35,
+          12.97,
+          13.09
+        ],
+        "diagnostics": [],
+        "durationMs": 2360.0,
+        "startErrorMs": -3.0,
+        "endErrorMs": -24.0,
+        "letterDurationsMs": [
+          100.0,
+          620.0,
+          180.0,
+          620.0,
+          120.0,
+          720.0
+        ]
+      },
+      "final": {
+        "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+        "characterCount": 6,
+        "start": 11.45,
+        "end": 13.81,
+        "confidence": 0.6352446681436655,
+        "letters": [
+          11.45,
+          11.55,
+          12.17,
+          12.35,
+          12.97,
+          13.09
+        ],
+        "diagnostics": [],
+        "durationMs": 2360.0,
+        "startErrorMs": -3.0,
+        "endErrorMs": -24.0,
+        "letterDurationsMs": [
+          100.0,
+          620.0,
+          180.0,
+          620.0,
+          120.0,
+          720.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "referenceStart": 13.834,
+      "referenceEnd": 16.404,
+      "referenceAccuracyMs": null,
+      "referencePhoneQualityFlags": [],
+      "baseline-v4": {
+        "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+        "characterCount": 5,
+        "start": 13.81,
+        "end": 16.54,
+        "confidence": 0.49345718206022865,
+        "letters": [
+          13.81,
+          13.95,
+          14.65,
+          14.77,
+          16.49
+        ],
+        "diagnostics": [],
+        "durationMs": 2730.0,
+        "startErrorMs": -24.0,
+        "endErrorMs": 136.0,
+        "letterDurationsMs": [
+          140.0,
+          700.0,
+          120.0,
+          1720.0,
+          50.0
+        ]
+      },
+      "final": {
+        "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+        "characterCount": 5,
+        "start": 13.81,
+        "end": 16.54,
+        "confidence": 0.49345718206022865,
+        "letters": [
+          13.81,
+          13.95,
+          14.65,
+          14.77,
+          16.49
+        ],
+        "diagnostics": [],
+        "durationMs": 2730.0,
+        "startErrorMs": -24.0,
+        "endErrorMs": 136.0,
+        "letterDurationsMs": [
+          140.0,
+          700.0,
+          120.0,
+          1720.0,
+          50.0
+        ]
+      },
+      "boundariesChanged": false,
+      "lettersChanged": false
+    }
+  ],
+  "phoneRows": [
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 1,
+      "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "characterCount": 1,
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 1.701,
+        "end": 1.811
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.72,
+        "end": 1.86,
+        "startErrorMs": 19.0,
+        "endErrorMs": 49.0
+      },
+      "final": {
+        "start": 1.72,
+        "end": 1.86,
+        "startErrorMs": 19.0,
+        "endErrorMs": 49.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "b8012cb642c887a0a4f6f8e52fc6d97946274076ba64b113dff1db0a0ca37caa",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080",
+        "characterCount": 1,
+        "start": 1.811,
+        "end": 1.891
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.86,
+        "end": 1.98,
+        "startErrorMs": 49.0,
+        "endErrorMs": 89.0
+      },
+      "final": {
+        "start": 1.86,
+        "end": 1.98,
+        "startErrorMs": 49.0,
+        "endErrorMs": 89.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "446cdc8e3c0d7efc9b095f101a1d6a3404e91d3a26572b766e665f7d6181cfb8",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "75ddc0977d94413d2b831e7db21e767bd8aa3f7474dc71f848b5a662b03ac4d3",
+        "characterCount": 1,
+        "start": 1.891,
+        "end": 2.301
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.98,
+        "end": 2.44,
+        "startErrorMs": 89.0,
+        "endErrorMs": 139.0
+      },
+      "final": {
+        "start": 1.98,
+        "end": 2.44,
+        "startErrorMs": 89.0,
+        "endErrorMs": 139.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 2.301,
+        "end": 2.501
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.44,
+        "end": 2.58,
+        "startErrorMs": 139.0,
+        "endErrorMs": 79.0
+      },
+      "final": {
+        "start": 2.44,
+        "end": 2.58,
+        "startErrorMs": 139.0,
+        "endErrorMs": 79.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 2.501,
+        "end": 2.531
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.58,
+        "end": 3.38,
+        "startErrorMs": 79.0,
+        "endErrorMs": 849.0
+      },
+      "final": {
+        "start": 2.58,
+        "end": 3.38,
+        "startErrorMs": 79.0,
+        "endErrorMs": 849.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 2.531,
+        "end": 2.551
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.38,
+        "end": 3.48,
+        "startErrorMs": 849.0,
+        "endErrorMs": 929.0
+      },
+      "final": {
+        "start": 3.38,
+        "end": 3.48,
+        "startErrorMs": 849.0,
+        "endErrorMs": 929.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 2.551,
+        "end": 4.911
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.48,
+        "end": 4.89,
+        "startErrorMs": 929.0,
+        "endErrorMs": -21.0
+      },
+      "final": {
+        "start": 3.48,
+        "end": 4.89,
+        "startErrorMs": 929.0,
+        "endErrorMs": -21.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 5.532,
+        "end": 5.612
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 5.64,
+        "end": 5.8,
+        "startErrorMs": 108.0,
+        "endErrorMs": 188.0
+      },
+      "final": {
+        "start": 5.56,
+        "end": 5.72,
+        "startErrorMs": 28.0,
+        "endErrorMs": 108.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "7b0ff8a2e5fdd66d7cbc4556d7f54a0fddf87bee5f7a7276e66c06b05fdefa2b",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "62c66a7a5dd70c3146618063c344e531e6d4b59e379808443ce962b3abd63c5a",
+        "characterCount": 1,
+        "start": 5.612,
+        "end": 5.762
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 5.8,
+        "end": 5.9,
+        "startErrorMs": 188.0,
+        "endErrorMs": 138.0
+      },
+      "final": {
+        "start": 5.72,
+        "end": 5.82,
+        "startErrorMs": 108.0,
+        "endErrorMs": 58.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 5.762,
+        "end": 5.872
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 5.9,
+        "end": 6.0,
+        "startErrorMs": 138.0,
+        "endErrorMs": 128.0
+      },
+      "final": {
+        "start": 5.82,
+        "end": 5.92,
+        "startErrorMs": 58.0,
+        "endErrorMs": 48.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 5.872,
+        "end": 5.992
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 6.0,
+        "end": 6.06,
+        "startErrorMs": 128.0,
+        "endErrorMs": 68.0
+      },
+      "final": {
+        "start": 5.92,
+        "end": 5.98,
+        "startErrorMs": 48.0,
+        "endErrorMs": -12.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "734dbc2b54ab6c95217ac8dbd3b3419f5b9486ab4675b5d4b548ff3d0a73385d",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "5cda190f8ccccc9f57447e7a186e3abc232fe9d1a36002381321d55fe536963e",
+        "characterCount": 2,
+        "start": 5.992,
+        "end": 6.042
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 6.06,
+        "end": 6.16,
+        "startErrorMs": 68.0,
+        "endErrorMs": 118.0
+      },
+      "final": {
+        "start": 5.98,
+        "end": 6.08,
+        "startErrorMs": -12.0,
+        "endErrorMs": 38.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "9b21f5cf014c9efb35110dcccf3a74eab7fb903d1ca2f4054b3dad9ffabb7727",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "9d460d2c8f235cedd3cb4f731a3fa7149618542a09d7ccc92460850061983aba",
+        "characterCount": 1,
+        "start": 6.042,
+        "end": 6.322
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 6.16,
+        "end": 6.36,
+        "startErrorMs": 118.0,
+        "endErrorMs": 38.0
+      },
+      "final": {
+        "start": 6.08,
+        "end": 6.34,
+        "startErrorMs": 38.0,
+        "endErrorMs": 18.0
+      }
+    },
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        6
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 6.322,
+        "end": 6.352
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 6.36,
+        "end": 7.01,
+        "startErrorMs": 38.0,
+        "endErrorMs": 658.0
+      },
+      "final": {
+        "start": 6.34,
+        "end": 7.01,
+        "startErrorMs": 18.0,
+        "endErrorMs": 658.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 1,
+      "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "characterCount": 1,
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 1.08,
+        "end": 1.21
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 0.88,
+        "end": 1.0,
+        "startErrorMs": -200.0,
+        "endErrorMs": -210.0
+      },
+      "final": {
+        "start": 0.88,
+        "end": 1.0,
+        "startErrorMs": -200.0,
+        "endErrorMs": -210.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "b8012cb642c887a0a4f6f8e52fc6d97946274076ba64b113dff1db0a0ca37caa",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080",
+        "characterCount": 1,
+        "start": 1.21,
+        "end": 1.26
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.0,
+        "end": 1.14,
+        "startErrorMs": -210.0,
+        "endErrorMs": -120.0
+      },
+      "final": {
+        "start": 1.0,
+        "end": 1.14,
+        "startErrorMs": -210.0,
+        "endErrorMs": -120.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "446cdc8e3c0d7efc9b095f101a1d6a3404e91d3a26572b766e665f7d6181cfb8",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "75ddc0977d94413d2b831e7db21e767bd8aa3f7474dc71f848b5a662b03ac4d3",
+        "characterCount": 1,
+        "start": 1.26,
+        "end": 1.65
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.14,
+        "end": 1.6,
+        "startErrorMs": -120.0,
+        "endErrorMs": -50.0
+      },
+      "final": {
+        "start": 1.14,
+        "end": 1.6,
+        "startErrorMs": -120.0,
+        "endErrorMs": -50.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 1.65,
+        "end": 1.89
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.6,
+        "end": 1.78,
+        "startErrorMs": -50.0,
+        "endErrorMs": -110.0
+      },
+      "final": {
+        "start": 1.6,
+        "end": 1.78,
+        "startErrorMs": -50.0,
+        "endErrorMs": -110.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 1.89,
+        "end": 1.93
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.78,
+        "end": 2.6,
+        "startErrorMs": -110.0,
+        "endErrorMs": 670.0
+      },
+      "final": {
+        "start": 1.78,
+        "end": 2.6,
+        "startErrorMs": -110.0,
+        "endErrorMs": 670.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 1.93,
+        "end": 1.96
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.6,
+        "end": 2.74,
+        "startErrorMs": 670.0,
+        "endErrorMs": 780.0
+      },
+      "final": {
+        "start": 2.6,
+        "end": 2.74,
+        "startErrorMs": 670.0,
+        "endErrorMs": 780.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 2,
+      "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+      "characterCount": 6,
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 1.96,
+        "end": 4.46
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.74,
+        "end": 4.24,
+        "startErrorMs": 780.0,
+        "endErrorMs": -220.0
+      },
+      "final": {
+        "start": 2.74,
+        "end": 4.46,
+        "startErrorMs": 780.0,
+        "endErrorMs": 0.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "89a84f76e9cc39ccfdca00abe1889b09d440c62ce1851c044310af3385a0c4fd",
+        "characterCount": 2,
+        "start": 5.352,
+        "end": 5.452
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 4.24,
+        "end": 4.26,
+        "startErrorMs": -1112.0,
+        "endErrorMs": -1192.0
+      },
+      "final": {
+        "start": 5.38,
+        "end": 5.58,
+        "startErrorMs": 28.0,
+        "endErrorMs": 128.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "7b0ff8a2e5fdd66d7cbc4556d7f54a0fddf87bee5f7a7276e66c06b05fdefa2b",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "62c66a7a5dd70c3146618063c344e531e6d4b59e379808443ce962b3abd63c5a",
+        "characterCount": 1,
+        "start": 5.452,
+        "end": 5.642
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.26,
+        "end": 4.3,
+        "startErrorMs": -1192.0,
+        "endErrorMs": -1342.0
+      },
+      "final": {
+        "start": 5.58,
+        "end": 5.7,
+        "startErrorMs": 128.0,
+        "endErrorMs": 58.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 5.642,
+        "end": 5.822
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.3,
+        "end": 4.32,
+        "startErrorMs": -1342.0,
+        "endErrorMs": -1502.0
+      },
+      "final": {
+        "start": 5.7,
+        "end": 5.78,
+        "startErrorMs": 58.0,
+        "endErrorMs": -42.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 5.822,
+        "end": 5.972
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.32,
+        "end": 4.34,
+        "startErrorMs": -1502.0,
+        "endErrorMs": -1632.0
+      },
+      "final": {
+        "start": 5.78,
+        "end": 5.92,
+        "startErrorMs": -42.0,
+        "endErrorMs": -52.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "734dbc2b54ab6c95217ac8dbd3b3419f5b9486ab4675b5d4b548ff3d0a73385d",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "5cda190f8ccccc9f57447e7a186e3abc232fe9d1a36002381321d55fe536963e",
+        "characterCount": 2,
+        "start": 5.972,
+        "end": 6.032
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.34,
+        "end": 4.36,
+        "startErrorMs": -1632.0,
+        "endErrorMs": -1672.0
+      },
+      "final": {
+        "start": 5.92,
+        "end": 6.0,
+        "startErrorMs": -52.0,
+        "endErrorMs": -32.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "9b21f5cf014c9efb35110dcccf3a74eab7fb903d1ca2f4054b3dad9ffabb7727",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "9d460d2c8f235cedd3cb4f731a3fa7149618542a09d7ccc92460850061983aba",
+        "characterCount": 1,
+        "start": 6.032,
+        "end": 6.422
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.36,
+        "end": 4.4,
+        "startErrorMs": -1672.0,
+        "endErrorMs": -2022.0
+      },
+      "final": {
+        "start": 6.0,
+        "end": 6.14,
+        "startErrorMs": -32.0,
+        "endErrorMs": -282.0
+      }
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 3,
+      "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+      "characterCount": 7,
+      "excerpt": "смотрят",
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        6
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 6.422,
+        "end": 6.452
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.4,
+        "end": 4.64,
+        "startErrorMs": -2022.0,
+        "endErrorMs": -1812.0
+      },
+      "final": {
+        "start": 6.14,
+        "end": 6.93,
+        "startErrorMs": -282.0,
+        "endErrorMs": 478.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 2,
+      "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "characterCount": 1,
+      "excerpt": "о",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 3.38,
+        "end": 3.51
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 3.35,
+        "end": 3.51,
+        "startErrorMs": -30.0,
+        "endErrorMs": 0.0
+      },
+      "final": {
+        "start": 3.35,
+        "end": 3.51,
+        "startErrorMs": -30.0,
+        "endErrorMs": 0.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "34c6fbb62da8ce5c68089f837d44c62e43f0a983c7ca88c3806e44cf482bb935",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+        "characterCount": 1,
+        "start": 3.51,
+        "end": 3.61
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 3.51,
+        "end": 3.59,
+        "startErrorMs": 0.0,
+        "endErrorMs": -20.0
+      },
+      "final": {
+        "start": 3.51,
+        "end": 3.59,
+        "startErrorMs": 0.0,
+        "endErrorMs": -20.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 3.61,
+        "end": 3.78
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.59,
+        "end": 3.77,
+        "startErrorMs": -20.0,
+        "endErrorMs": -10.0
+      },
+      "final": {
+        "start": 3.59,
+        "end": 3.77,
+        "startErrorMs": -20.0,
+        "endErrorMs": -10.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "bb69a96efca3303efa0b31c6438eb8da40b5fb4e785e01d07eb99b82aeb66520",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "characterCount": 1,
+        "start": 3.78,
+        "end": 3.92
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.77,
+        "end": 3.93,
+        "startErrorMs": -10.0,
+        "endErrorMs": 10.0
+      },
+      "final": {
+        "start": 3.77,
+        "end": 3.93,
+        "startErrorMs": -10.0,
+        "endErrorMs": 10.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 3.92,
+        "end": 4.6
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.93,
+        "end": 4.63,
+        "startErrorMs": 10.0,
+        "endErrorMs": 30.0
+      },
+      "final": {
+        "start": 3.93,
+        "end": 4.63,
+        "startErrorMs": 10.0,
+        "endErrorMs": 30.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "1cc10a3947f7c2457d9aeb9d468b418157d72f1e3d84f82e08e81718305ff909",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "ba8b9e5fab184c97b3909666ac77b836e62606a003b66f3ba863a74d55d74e16",
+        "characterCount": 2,
+        "start": 4.6,
+        "end": 4.78
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.63,
+        "end": 4.81,
+        "startErrorMs": 30.0,
+        "endErrorMs": 30.0
+      },
+      "final": {
+        "start": 4.63,
+        "end": 4.81,
+        "startErrorMs": 30.0,
+        "endErrorMs": 30.0
+      }
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "259f56cb715ba3a3f1ca41a4ff1972cca698cb49eef1ae018dff325507da8b26",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea",
+        "characterCount": 1,
+        "start": 4.78,
+        "end": 6.76
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.81,
+        "end": 6.77,
+        "startErrorMs": 30.0,
+        "endErrorMs": 10.0
+      },
+      "final": {
+        "start": 4.81,
+        "end": 6.77,
+        "startErrorMs": 30.0,
+        "endErrorMs": 10.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 2,
+      "textSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "characterCount": 1,
+      "excerpt": "о",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 3.391,
+        "end": 3.931
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 2.71,
+        "end": 2.85,
+        "startErrorMs": -681.0,
+        "endErrorMs": -1081.0
+      },
+      "final": {
+        "start": 2.71,
+        "end": 2.85,
+        "startErrorMs": -681.0,
+        "endErrorMs": -1081.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "34c6fbb62da8ce5c68089f837d44c62e43f0a983c7ca88c3806e44cf482bb935",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+        "characterCount": 1,
+        "start": 3.931,
+        "end": 3.961
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 2.85,
+        "end": 2.93,
+        "startErrorMs": -1081.0,
+        "endErrorMs": -1031.0
+      },
+      "final": {
+        "start": 2.85,
+        "end": 2.93,
+        "startErrorMs": -1081.0,
+        "endErrorMs": -1031.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 3.961,
+        "end": 3.991
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.93,
+        "end": 3.11,
+        "startErrorMs": -1031.0,
+        "endErrorMs": -881.0
+      },
+      "final": {
+        "start": 2.93,
+        "end": 3.11,
+        "startErrorMs": -1031.0,
+        "endErrorMs": -881.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "bb69a96efca3303efa0b31c6438eb8da40b5fb4e785e01d07eb99b82aeb66520",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "characterCount": 1,
+        "start": 3.991,
+        "end": 4.021
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.11,
+        "end": 3.25,
+        "startErrorMs": -881.0,
+        "endErrorMs": -771.0
+      },
+      "final": {
+        "start": 3.11,
+        "end": 3.25,
+        "startErrorMs": -881.0,
+        "endErrorMs": -771.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 4.021,
+        "end": 4.101
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.25,
+        "end": 3.93,
+        "startErrorMs": -771.0,
+        "endErrorMs": -171.0
+      },
+      "final": {
+        "start": 3.25,
+        "end": 3.93,
+        "startErrorMs": -771.0,
+        "endErrorMs": -171.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "1cc10a3947f7c2457d9aeb9d468b418157d72f1e3d84f82e08e81718305ff909",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "ba8b9e5fab184c97b3909666ac77b836e62606a003b66f3ba863a74d55d74e16",
+        "characterCount": 2,
+        "start": 4.101,
+        "end": 4.251
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.93,
+        "end": 4.11,
+        "startErrorMs": -171.0,
+        "endErrorMs": -141.0
+      },
+      "final": {
+        "start": 3.93,
+        "end": 4.11,
+        "startErrorMs": -171.0,
+        "endErrorMs": -141.0
+      }
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 3,
+      "textSha256": "17b5ebb3a3bb0adc7b2e71d1f61017880bab189c731ffb7eca6660bbb93739d7",
+      "characterCount": 6,
+      "excerpt": "походе",
+      "characterLabelSha256": "259f56cb715ba3a3f1ca41a4ff1972cca698cb49eef1ae018dff325507da8b26",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "3f79bb7b435b05321651daefd374cdc681dc06faa65e374e38337b88ca046dea",
+        "characterCount": 1,
+        "start": 4.251,
+        "end": 6.151
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.11,
+        "end": 6.2,
+        "startErrorMs": -141.0,
+        "endErrorMs": 49.0
+      },
+      "final": {
+        "start": 4.11,
+        "end": 6.2,
+        "startErrorMs": -141.0,
+        "endErrorMs": 49.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 0.51,
+        "end": 0.57
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 0.56,
+        "end": 0.66,
+        "startErrorMs": 50.0,
+        "endErrorMs": 90.0
+      },
+      "final": {
+        "start": 0.54,
+        "end": 0.64,
+        "startErrorMs": 30.0,
+        "endErrorMs": 70.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 0.57,
+        "end": 1.04
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.66,
+        "end": 1.12,
+        "startErrorMs": 90.0,
+        "endErrorMs": 80.0
+      },
+      "final": {
+        "start": 0.64,
+        "end": 1.1,
+        "startErrorMs": 70.0,
+        "endErrorMs": 60.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 1.04,
+        "end": 1.33
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.12,
+        "end": 1.21,
+        "startErrorMs": 80.0,
+        "endErrorMs": -120.0
+      },
+      "final": {
+        "start": 1.1,
+        "end": 1.21,
+        "startErrorMs": 60.0,
+        "endErrorMs": -120.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "characterLabelSha256": "34c6fbb62da8ce5c68089f837d44c62e43f0a983c7ca88c3806e44cf482bb935",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+        "characterCount": 1,
+        "start": 1.33,
+        "end": 1.38
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.34,
+        "end": 1.44,
+        "startErrorMs": 10.0,
+        "endErrorMs": 60.0
+      },
+      "final": {
+        "start": 1.34,
+        "end": 1.44,
+        "startErrorMs": 10.0,
+        "endErrorMs": 60.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "9d460d2c8f235cedd3cb4f731a3fa7149618542a09d7ccc92460850061983aba",
+        "characterCount": 1,
+        "start": 1.38,
+        "end": 1.89
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.44,
+        "end": 2.06,
+        "startErrorMs": 60.0,
+        "endErrorMs": 170.0
+      },
+      "final": {
+        "start": 1.44,
+        "end": 2.06,
+        "startErrorMs": 60.0,
+        "endErrorMs": 170.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "7b0ff8a2e5fdd66d7cbc4556d7f54a0fddf87bee5f7a7276e66c06b05fdefa2b",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "62c66a7a5dd70c3146618063c344e531e6d4b59e379808443ce962b3abd63c5a",
+        "characterCount": 1,
+        "start": 1.89,
+        "end": 2.13
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 2.06,
+        "end": 2.2,
+        "startErrorMs": 170.0,
+        "endErrorMs": 70.0
+      },
+      "final": {
+        "start": 2.06,
+        "end": 2.2,
+        "startErrorMs": 170.0,
+        "endErrorMs": 70.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 2.13,
+        "end": 2.8
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.2,
+        "end": 2.86,
+        "startErrorMs": 70.0,
+        "endErrorMs": 60.0
+      },
+      "final": {
+        "start": 2.2,
+        "end": 2.86,
+        "startErrorMs": 70.0,
+        "endErrorMs": 60.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "734dbc2b54ab6c95217ac8dbd3b3419f5b9486ab4675b5d4b548ff3d0a73385d",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "5cda190f8ccccc9f57447e7a186e3abc232fe9d1a36002381321d55fe536963e",
+        "characterCount": 2,
+        "start": 2.8,
+        "end": 2.95
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.86,
+        "end": 2.92,
+        "startErrorMs": 60.0,
+        "endErrorMs": -30.0
+      },
+      "final": {
+        "start": 2.86,
+        "end": 2.92,
+        "startErrorMs": 60.0,
+        "endErrorMs": -30.0
+      }
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "37d43a57a463add59b4bb3f8415de9d4e315c68580d7f45961c159a0c7930292",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "ea15a6bec57a7a044ec170b7d2596063034592fa0eaaeb36de653efd81c31a5a",
+        "characterCount": 1,
+        "start": 2.95,
+        "end": 3.6
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.92,
+        "end": 3.78,
+        "startErrorMs": -30.0,
+        "endErrorMs": 180.0
+      },
+      "final": {
+        "start": 2.92,
+        "end": 3.78,
+        "startErrorMs": -30.0,
+        "endErrorMs": 180.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 0.94,
+        "end": 0.97
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 0.86,
+        "end": 0.96,
+        "startErrorMs": -80.0,
+        "endErrorMs": -10.0
+      },
+      "final": {
+        "start": 0.86,
+        "end": 0.96,
+        "startErrorMs": -80.0,
+        "endErrorMs": -10.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 0.97,
+        "end": 1.47
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.96,
+        "end": 1.46,
+        "startErrorMs": -10.0,
+        "endErrorMs": -10.0
+      },
+      "final": {
+        "start": 0.96,
+        "end": 1.46,
+        "startErrorMs": -10.0,
+        "endErrorMs": -10.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 0,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 1.47,
+        "end": 1.681
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.46,
+        "end": 1.6,
+        "startErrorMs": -10.0,
+        "endErrorMs": -81.0
+      },
+      "final": {
+        "start": 1.46,
+        "end": 1.6,
+        "startErrorMs": -10.0,
+        "endErrorMs": -81.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "characterLabelSha256": "34c6fbb62da8ce5c68089f837d44c62e43f0a983c7ca88c3806e44cf482bb935",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+        "characterCount": 1,
+        "start": 1.681,
+        "end": 1.721
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.6,
+        "end": 1.7,
+        "startErrorMs": -81.0,
+        "endErrorMs": -21.0
+      },
+      "final": {
+        "start": 1.6,
+        "end": 1.7,
+        "startErrorMs": -81.0,
+        "endErrorMs": -21.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 1,
+      "textSha256": "51ad1397c2255740f870b11d4eb9b6795e615aa8f2e38f217cde48eebec82cf5",
+      "characterCount": 2,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "9d460d2c8f235cedd3cb4f731a3fa7149618542a09d7ccc92460850061983aba",
+        "characterCount": 1,
+        "start": 1.721,
+        "end": 2.221
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.7,
+        "end": 2.4,
+        "startErrorMs": -21.0,
+        "endErrorMs": 179.0
+      },
+      "final": {
+        "start": 1.7,
+        "end": 2.4,
+        "startErrorMs": -21.0,
+        "endErrorMs": 179.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "7b0ff8a2e5fdd66d7cbc4556d7f54a0fddf87bee5f7a7276e66c06b05fdefa2b",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "62c66a7a5dd70c3146618063c344e531e6d4b59e379808443ce962b3abd63c5a",
+        "characterCount": 1,
+        "start": 2.221,
+        "end": 2.561
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 2.4,
+        "end": 2.54,
+        "startErrorMs": 179.0,
+        "endErrorMs": -21.0
+      },
+      "final": {
+        "start": 2.4,
+        "end": 2.54,
+        "startErrorMs": 179.0,
+        "endErrorMs": -21.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "65c74c15a686187bb6bbf9958f494fc6b80068034a659a9ad44991b08c58f2d2",
+        "characterCount": 1,
+        "start": 2.561,
+        "end": 3.201
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.54,
+        "end": 3.2,
+        "startErrorMs": -21.0,
+        "endErrorMs": -1.0
+      },
+      "final": {
+        "start": 2.54,
+        "end": 3.2,
+        "startErrorMs": -21.0,
+        "endErrorMs": -1.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "734dbc2b54ab6c95217ac8dbd3b3419f5b9486ab4675b5d4b548ff3d0a73385d",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "5cda190f8ccccc9f57447e7a186e3abc232fe9d1a36002381321d55fe536963e",
+        "characterCount": 2,
+        "start": 3.201,
+        "end": 3.391
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.2,
+        "end": 3.24,
+        "startErrorMs": -1.0,
+        "endErrorMs": -151.0
+      },
+      "final": {
+        "start": 3.2,
+        "end": 3.24,
+        "startErrorMs": -1.0,
+        "endErrorMs": -151.0
+      }
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 2,
+      "textSha256": "2db127fdee588dcfd40d5d3eac6284536f240ec2e0959be3bc7eb64dbbb50c0c",
+      "characterCount": 4,
+      "characterLabelSha256": "37d43a57a463add59b4bb3f8415de9d4e315c68580d7f45961c159a0c7930292",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "ea15a6bec57a7a044ec170b7d2596063034592fa0eaaeb36de653efd81c31a5a",
+        "characterCount": 1,
+        "start": 3.391,
+        "end": 3.961
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.24,
+        "end": 4.06,
+        "startErrorMs": -151.0,
+        "endErrorMs": 99.0
+      },
+      "final": {
+        "start": 3.24,
+        "end": 4.06,
+        "startErrorMs": -151.0,
+        "endErrorMs": 99.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 0.0,
+        "end": 0.02
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 0.02,
+        "end": 0.06,
+        "startErrorMs": 20.0,
+        "endErrorMs": 40.0
+      },
+      "final": {
+        "start": 0.02,
+        "end": 0.06,
+        "startErrorMs": 20.0,
+        "endErrorMs": 40.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "9aa032336a8e122c4aab83dad39e803a0023c1ae5de114e7114c391ec1a2c662",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d",
+        "characterCount": 1,
+        "start": 0.02,
+        "end": 0.06
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.06,
+        "end": 0.16,
+        "startErrorMs": 40.0,
+        "endErrorMs": 100.0
+      },
+      "final": {
+        "start": 0.06,
+        "end": 0.16,
+        "startErrorMs": 40.0,
+        "endErrorMs": 100.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "d92fff560eb5495ec2b4207be8883815a99c306ac8602cd750a74e95ac4e886c",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "c25abf5e41fc65801f7f3f69d83618e98360215a8806062efe728e944aa7fb44",
+        "characterCount": 1,
+        "start": 0.06,
+        "end": 0.09
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.16,
+        "end": 0.28,
+        "startErrorMs": 100.0,
+        "endErrorMs": 190.0
+      },
+      "final": {
+        "start": 0.16,
+        "end": 0.28,
+        "startErrorMs": 100.0,
+        "endErrorMs": 190.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 0.09,
+        "end": 0.12
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.28,
+        "end": 1.12,
+        "startErrorMs": 190.0,
+        "endErrorMs": 1000.0
+      },
+      "final": {
+        "start": 0.28,
+        "end": 1.12,
+        "startErrorMs": 190.0,
+        "endErrorMs": 1000.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 0.12,
+        "end": 0.15
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.12,
+        "end": 1.24,
+        "startErrorMs": 1000.0,
+        "endErrorMs": 1090.0
+      },
+      "final": {
+        "start": 1.12,
+        "end": 1.24,
+        "startErrorMs": 1000.0,
+        "endErrorMs": 1090.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "f19be0b0ed3c6feb33c15bec404cbb8eb454feb836c1c6e87697e7c893f353f6",
+      "characterCount": 6,
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 0.15,
+        "end": 2.92
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 1.24,
+        "end": 2.86,
+        "startErrorMs": 1090.0,
+        "endErrorMs": -60.0
+      },
+      "final": {
+        "start": 1.24,
+        "end": 2.86,
+        "startErrorMs": 1090.0,
+        "endErrorMs": -60.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+      "characterCount": 4,
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 3.922,
+        "end": 4.102
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 4.01,
+        "end": 4.17,
+        "startErrorMs": 88.0,
+        "endErrorMs": 68.0
+      },
+      "final": {
+        "start": 4.0,
+        "end": 4.16,
+        "startErrorMs": 78.0,
+        "endErrorMs": 58.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+      "characterCount": 4,
+      "characterLabelSha256": "eead37caf818d0fae6de8adfc9645ca50de4a3be6ff9756bbab0d0a139a801af",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "de7d1b721a1e0632b7cf04edf5032c8ecffa9f9a08492152b926f1a5a7e765d7",
+        "characterCount": 1,
+        "start": 4.102,
+        "end": 4.322
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.17,
+        "end": 4.39,
+        "startErrorMs": 68.0,
+        "endErrorMs": 68.0
+      },
+      "final": {
+        "start": 4.16,
+        "end": 4.38,
+        "startErrorMs": 58.0,
+        "endErrorMs": 58.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+      "characterCount": 4,
+      "characterLabelSha256": "bb69a96efca3303efa0b31c6438eb8da40b5fb4e785e01d07eb99b82aeb66520",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881",
+        "characterCount": 1,
+        "start": 4.322,
+        "end": 4.451
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.39,
+        "end": 4.53,
+        "startErrorMs": 68.0,
+        "endErrorMs": 79.0
+      },
+      "final": {
+        "start": 4.38,
+        "end": 4.52,
+        "startErrorMs": 58.0,
+        "endErrorMs": 69.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "374107b2f1f9127994a15eac8fe3b1f334693226462c3b540c3b01661ecbf78e",
+      "characterCount": 4,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "9d460d2c8f235cedd3cb4f731a3fa7149618542a09d7ccc92460850061983aba",
+        "characterCount": 1,
+        "start": 4.451,
+        "end": 4.701
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.53,
+        "end": 4.84,
+        "startErrorMs": 79.0,
+        "endErrorMs": 139.0
+      },
+      "final": {
+        "start": 4.52,
+        "end": 4.84,
+        "startErrorMs": 69.0,
+        "endErrorMs": 139.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 4.822,
+        "end": 4.871
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 4.84,
+        "end": 4.96,
+        "startErrorMs": 18.0,
+        "endErrorMs": 89.0
+      },
+      "final": {
+        "start": 4.84,
+        "end": 4.96,
+        "startErrorMs": 18.0,
+        "endErrorMs": 89.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 4.871,
+        "end": 4.942
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.96,
+        "end": 5.6,
+        "startErrorMs": 89.0,
+        "endErrorMs": 658.0
+      },
+      "final": {
+        "start": 4.96,
+        "end": 5.6,
+        "startErrorMs": 89.0,
+        "endErrorMs": 658.0
+      }
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "17eebe34f431c2184bd982f1d8fce168fd972dbf632f1c706fd755c24b44524c",
+      "characterCount": 3,
+      "excerpt": "как",
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 4.942,
+        "end": 4.971
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 5.6,
+        "end": 5.7,
+        "startErrorMs": 658.0,
+        "endErrorMs": 729.0
+      },
+      "final": {
+        "start": 5.6,
+        "end": 5.7,
+        "startErrorMs": 658.0,
+        "endErrorMs": 729.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+      "characterCount": 2,
+      "characterLabelSha256": "05d4ae78b6f1bfee6e0f28d825d74c7f622c6ea1659c2154e55fa6ed185f520d",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "f604d1465ec09ae6461cd88431b691dc82b62683fb8838b3ee5c5312e72fdbc9",
+        "characterCount": 2,
+        "start": 0.0,
+        "end": 0.06
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 0.02,
+        "end": 0.1,
+        "startErrorMs": 20.0,
+        "endErrorMs": 40.0
+      },
+      "final": {
+        "start": 0.02,
+        "end": 0.1,
+        "startErrorMs": 20.0,
+        "endErrorMs": 40.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 0,
+      "textSha256": "284852b2c5506ed24045eed776295780b4aad9cb01cdb3edf4a6fdb46f268369",
+      "characterCount": 2,
+      "characterLabelSha256": "823c4eb3e895adc925a755d89cea1c6c46954c999d23604e0091788b75496159",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb",
+        "characterCount": 1,
+        "start": 0.06,
+        "end": 0.29
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 0.1,
+        "end": 0.34,
+        "startErrorMs": 40.0,
+        "endErrorMs": 50.0
+      },
+      "final": {
+        "start": 0.1,
+        "end": 0.34,
+        "startErrorMs": 40.0,
+        "endErrorMs": 50.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "characterLabelSha256": "b8012cb642c887a0a4f6f8e52fc6d97946274076ba64b113dff1db0a0ca37caa",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080",
+        "characterCount": 1,
+        "start": 2.64,
+        "end": 2.7
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 2.64,
+        "end": 2.74,
+        "startErrorMs": 0.0,
+        "endErrorMs": 40.0
+      },
+      "final": {
+        "start": 2.64,
+        "end": 2.74,
+        "startErrorMs": 0.0,
+        "endErrorMs": 40.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "characterLabelSha256": "50338c005c41fb4e6e6b74c9f7f8d0f56ae08517102498639f8a610b06cd9859",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "a70406f0430a7c87bdebcec7f59263c1c99ce0487e23b78b02af39bc12c41aba",
+        "characterCount": 1,
+        "start": 2.7,
+        "end": 2.88
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.74,
+        "end": 2.9,
+        "startErrorMs": 40.0,
+        "endErrorMs": 20.0
+      },
+      "final": {
+        "start": 2.74,
+        "end": 2.9,
+        "startErrorMs": 40.0,
+        "endErrorMs": 20.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "characterLabelSha256": "15f2ccabeb425c29c67317f181d744944e9c477d09fb42aacdbb4f64e1afcc3f",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "189f40034be7a199f1fa9891668ee3ab6049f82d38c68be70f596eab2e1857b7",
+        "characterCount": 1,
+        "start": 2.88,
+        "end": 3.0
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.9,
+        "end": 3.08,
+        "startErrorMs": 20.0,
+        "endErrorMs": 80.0
+      },
+      "final": {
+        "start": 2.9,
+        "end": 3.08,
+        "startErrorMs": 20.0,
+        "endErrorMs": 80.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "characterLabelSha256": "05d4ae78b6f1bfee6e0f28d825d74c7f622c6ea1659c2154e55fa6ed185f520d",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "f604d1465ec09ae6461cd88431b691dc82b62683fb8838b3ee5c5312e72fdbc9",
+        "characterCount": 2,
+        "start": 3.0,
+        "end": 4.82
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.08,
+        "end": 3.2,
+        "startErrorMs": 80.0,
+        "endErrorMs": -1620.0
+      },
+      "final": {
+        "start": 3.08,
+        "end": 3.2,
+        "startErrorMs": 80.0,
+        "endErrorMs": -1620.0
+      }
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 2,
+      "textSha256": "dfb2ee2930c3839cc40ff3ea794d6a9de7170533cfab3ff8c0c8f4a3e033f194",
+      "characterCount": 5,
+      "characterLabelSha256": "beee80c256b458da481e27298893e41760a978aa0fd3eccf277eba4998540106",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "0bfe935e70c321c7ca3afc75ce0d0ca2f98b5422e008bb31c00c6d7f1f1c0ad6",
+        "characterCount": 1,
+        "start": 4.82,
+        "end": 5.22
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 3.2,
+        "end": 5.25,
+        "startErrorMs": -1620.0,
+        "endErrorMs": 30.0
+      },
+      "final": {
+        "start": 3.2,
+        "end": 5.25,
+        "startErrorMs": -1620.0,
+        "endErrorMs": 30.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "34c6fbb62da8ce5c68089f837d44c62e43f0a983c7ca88c3806e44cf482bb935",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "148de9c5a7a44d19e56cd9ae1a554bf67847afb0c58f6e12fa29ac7ddfca9940",
+        "characterCount": 1,
+        "start": 1.711,
+        "end": 1.751
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 1.76,
+        "end": 2.0,
+        "startErrorMs": 49.0,
+        "endErrorMs": 249.0
+      },
+      "final": {
+        "start": 1.72,
+        "end": 1.96,
+        "startErrorMs": 9.0,
+        "endErrorMs": 209.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "d92fff560eb5495ec2b4207be8883815a99c306ac8602cd750a74e95ac4e886c",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "c25abf5e41fc65801f7f3f69d83618e98360215a8806062efe728e944aa7fb44",
+        "characterCount": 1,
+        "start": 1.751,
+        "end": 1.781
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.0,
+        "end": 2.14,
+        "startErrorMs": 249.0,
+        "endErrorMs": 359.0
+      },
+      "final": {
+        "start": 1.96,
+        "end": 2.1,
+        "startErrorMs": 209.0,
+        "endErrorMs": 319.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "446cdc8e3c0d7efc9b095f101a1d6a3404e91d3a26572b766e665f7d6181cfb8",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "75ddc0977d94413d2b831e7db21e767bd8aa3f7474dc71f848b5a662b03ac4d3",
+        "characterCount": 1,
+        "start": 1.781,
+        "end": 3.551
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.14,
+        "end": 2.86,
+        "startErrorMs": 359.0,
+        "endErrorMs": -691.0
+      },
+      "final": {
+        "start": 2.1,
+        "end": 2.82,
+        "startErrorMs": 319.0,
+        "endErrorMs": -731.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "b8012cb642c887a0a4f6f8e52fc6d97946274076ba64b113dff1db0a0ca37caa",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "4c94485e0c21ae6c41ce1dfe7b6bfaceea5ab68e40a2476f50208e526f506080",
+        "characterCount": 1,
+        "start": 3.551,
+        "end": 3.581
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.86,
+        "end": 2.98,
+        "startErrorMs": -691.0,
+        "endErrorMs": -601.0
+      },
+      "final": {
+        "start": 2.82,
+        "end": 2.94,
+        "startErrorMs": -731.0,
+        "endErrorMs": -641.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "beee80c256b458da481e27298893e41760a978aa0fd3eccf277eba4998540106",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "0bfe935e70c321c7ca3afc75ce0d0ca2f98b5422e008bb31c00c6d7f1f1c0ad6",
+        "characterCount": 1,
+        "start": 3.581,
+        "end": 4.421
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 2.98,
+        "end": 4.48,
+        "startErrorMs": -601.0,
+        "endErrorMs": 59.0
+      },
+      "final": {
+        "start": 2.94,
+        "end": 4.46,
+        "startErrorMs": -641.0,
+        "endErrorMs": 39.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 1,
+      "textSha256": "6214b3bb0c23ac9167c693e95dc6fea166158de614ddf9e1bb422ee90202f6d4",
+      "characterCount": 6,
+      "excerpt": "плывут",
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 4.421,
+        "end": 4.521
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 4.48,
+        "end": 4.83,
+        "startErrorMs": 59.0,
+        "endErrorMs": 309.0
+      },
+      "final": {
+        "start": 4.46,
+        "end": 4.52,
+        "startErrorMs": 39.0,
+        "endErrorMs": -1.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "7b0ff8a2e5fdd66d7cbc4556d7f54a0fddf87bee5f7a7276e66c06b05fdefa2b",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "62c66a7a5dd70c3146618063c344e531e6d4b59e379808443ce962b3abd63c5a",
+        "characterCount": 1,
+        "start": 11.453,
+        "end": 12.033
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 11.45,
+        "end": 11.55,
+        "startErrorMs": -3.0,
+        "endErrorMs": -483.0
+      },
+      "final": {
+        "start": 11.45,
+        "end": 11.55,
+        "startErrorMs": -3.0,
+        "endErrorMs": -483.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "beee80c256b458da481e27298893e41760a978aa0fd3eccf277eba4998540106",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "0bfe935e70c321c7ca3afc75ce0d0ca2f98b5422e008bb31c00c6d7f1f1c0ad6",
+        "characterCount": 1,
+        "start": 12.033,
+        "end": 12.153
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 11.55,
+        "end": 12.17,
+        "startErrorMs": -483.0,
+        "endErrorMs": 17.0
+      },
+      "final": {
+        "start": 11.55,
+        "end": 12.17,
+        "startErrorMs": -483.0,
+        "endErrorMs": 17.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "3051067c6324c63f833a7bb009fdc9e6ad9a518fb37678185c68a38d346a4463",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "a853d2e84b6c8748537dc3aeac8722e15b2391f44adfff40a1676cbd5909cf06",
+        "characterCount": 2,
+        "start": 12.153,
+        "end": 12.283
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 12.17,
+        "end": 12.35,
+        "startErrorMs": 17.0,
+        "endErrorMs": 67.0
+      },
+      "final": {
+        "start": 12.17,
+        "end": 12.35,
+        "startErrorMs": 17.0,
+        "endErrorMs": 67.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "446cdc8e3c0d7efc9b095f101a1d6a3404e91d3a26572b766e665f7d6181cfb8",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "75ddc0977d94413d2b831e7db21e767bd8aa3f7474dc71f848b5a662b03ac4d3",
+        "characterCount": 1,
+        "start": 12.283,
+        "end": 12.923
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 12.35,
+        "end": 12.97,
+        "startErrorMs": 67.0,
+        "endErrorMs": 47.0
+      },
+      "final": {
+        "start": 12.35,
+        "end": 12.97,
+        "startErrorMs": 67.0,
+        "endErrorMs": 47.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "5225a95b111d47bf4c85281b89d99e31140bf124048d2b574b189225244da605",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "8254c329a92850f6d539dd376f4816ee2764517da5e0235514af433164480d7a",
+        "characterCount": 1,
+        "start": 12.923,
+        "end": 13.053
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 12.97,
+        "end": 13.09,
+        "startErrorMs": 47.0,
+        "endErrorMs": 37.0
+      },
+      "final": {
+        "start": 12.97,
+        "end": 13.09,
+        "startErrorMs": 47.0,
+        "endErrorMs": 37.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 4,
+      "textSha256": "92f86adaab58cb1323ea49e6d001e517a17e4441f0a2c13aa55dc8a50c168e43",
+      "characterCount": 6,
+      "characterLabelSha256": "beee80c256b458da481e27298893e41760a978aa0fd3eccf277eba4998540106",
+      "indices": [
+        5
+      ],
+      "reference": {
+        "textSha256": "ea15a6bec57a7a044ec170b7d2596063034592fa0eaaeb36de653efd81c31a5a",
+        "characterCount": 1,
+        "start": 13.053,
+        "end": 13.834
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 13.09,
+        "end": 13.81,
+        "startErrorMs": 37.0,
+        "endErrorMs": -24.0
+      },
+      "final": {
+        "start": 13.09,
+        "end": 13.81,
+        "startErrorMs": 37.0,
+        "endErrorMs": -24.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "characterLabelSha256": "b8012cb642c887a0a4f6f8e52fc6d97946274076ba64b113dff1db0a0ca37caa",
+      "indices": [
+        0
+      ],
+      "reference": {
+        "textSha256": "fd84c860847dc60ca3ac5d2d0c9d502ffb69c7656d1e6efa35a373b64e712da3",
+        "characterCount": 2,
+        "start": 13.834,
+        "end": 14.574
+      },
+      "internalStart": false,
+      "baseline-v4": {
+        "start": 13.81,
+        "end": 13.95,
+        "startErrorMs": -24.0,
+        "endErrorMs": -624.0
+      },
+      "final": {
+        "start": 13.81,
+        "end": 13.95,
+        "startErrorMs": -24.0,
+        "endErrorMs": -624.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "characterLabelSha256": "259f56cb715ba3a3f1ca41a4ff1972cca698cb49eef1ae018dff325507da8b26",
+      "indices": [
+        1
+      ],
+      "reference": {
+        "textSha256": "146dde700ba6a6881dc3e1e9f68342e675513b8cff4c564463a209d834dac4e9",
+        "characterCount": 1,
+        "start": 14.574,
+        "end": 14.594
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 13.95,
+        "end": 14.65,
+        "startErrorMs": -624.0,
+        "endErrorMs": 56.0
+      },
+      "final": {
+        "start": 13.95,
+        "end": 14.65,
+        "startErrorMs": -624.0,
+        "endErrorMs": 56.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "characterLabelSha256": "3051067c6324c63f833a7bb009fdc9e6ad9a518fb37678185c68a38d346a4463",
+      "indices": [
+        2
+      ],
+      "reference": {
+        "textSha256": "a853d2e84b6c8748537dc3aeac8722e15b2391f44adfff40a1676cbd5909cf06",
+        "characterCount": 2,
+        "start": 14.594,
+        "end": 14.684
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 14.65,
+        "end": 14.77,
+        "startErrorMs": 56.0,
+        "endErrorMs": 86.0
+      },
+      "final": {
+        "start": 14.65,
+        "end": 14.77,
+        "startErrorMs": 56.0,
+        "endErrorMs": 86.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "characterLabelSha256": "beee80c256b458da481e27298893e41760a978aa0fd3eccf277eba4998540106",
+      "indices": [
+        3
+      ],
+      "reference": {
+        "textSha256": "0bfe935e70c321c7ca3afc75ce0d0ca2f98b5422e008bb31c00c6d7f1f1c0ad6",
+        "characterCount": 1,
+        "start": 14.684,
+        "end": 16.354
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 14.77,
+        "end": 16.49,
+        "startErrorMs": 86.0,
+        "endErrorMs": 136.0
+      },
+      "final": {
+        "start": 14.77,
+        "end": 16.49,
+        "startErrorMs": 86.0,
+        "endErrorMs": 136.0
+      }
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 5,
+      "textSha256": "dbdc82e99b661736f8f08423153d7a404b89c5438a606fb80b8fab6a5a0353f6",
+      "characterCount": 5,
+      "characterLabelSha256": "0940401102b8a3fed0b112f47f121f8c816c7af4795f26abee4ef4b85c77d6fb",
+      "indices": [
+        4
+      ],
+      "reference": {
+        "textSha256": "c5c8a657ced92e39b95d734234f1f5f00a5728a71436b694b22fe10bff8126ca",
+        "characterCount": 2,
+        "start": 16.354,
+        "end": 16.404
+      },
+      "internalStart": true,
+      "baseline-v4": {
+        "start": 16.49,
+        "end": 16.54,
+        "startErrorMs": 136.0,
+        "endErrorMs": 136.0
+      },
+      "final": {
+        "start": 16.49,
+        "end": 16.54,
+        "startErrorMs": 136.0,
+        "endErrorMs": 136.0
+      }
+    }
+  ],
+  "phoneExcludedWords": [
+    {
+      "case": "baikal_control_0000",
+      "wordIndex": 0,
+      "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+      "characterCount": 5,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "baikal_breathy_0000",
+      "wordIndex": 0,
+      "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+      "characterCount": 5,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 0,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "bal_control_0000",
+      "wordIndex": 1,
+      "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+      "characterCount": 6,
+      "reason": "silent_sign_punctuation_or_unsupported_grapheme"
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 0,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "bal_glissando_0000",
+      "wordIndex": 1,
+      "textSha256": "1c6d0896ffc252f77de3e6baabab8a66e40ffce2c8263789c14014768d5e88d0",
+      "characterCount": 6,
+      "reason": "silent_sign_punctuation_or_unsupported_grapheme"
+    },
+    {
+      "case": "lullaby_control_0000",
+      "wordIndex": 3,
+      "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+      "characterCount": 6,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "lullaby_vibrato_0000",
+      "wordIndex": 3,
+      "textSha256": "6fb784787279fb2aefcb1ad6390d3047618de7318cd45505d30bef26bd41172f",
+      "characterCount": 6,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "baikal_control_0001",
+      "wordIndex": 3,
+      "textSha256": "9ba068c017943ec862408b08b021bd4503ae679825a6146f688b9962a1cfcf92",
+      "characterCount": 8,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 1,
+      "textSha256": "f84ec7c64a943bfd8501873d0fcfb9eaadd1ef302cf6f7a44cfa86c6d6dd37f7",
+      "characterCount": 12,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 3,
+      "textSha256": "60eac28b15b1d672168b8490aee9a504c5a7765bf05776230c8c12bebb699896",
+      "characterCount": 7,
+      "reason": "no_supported_grapheme_phone_mapping"
+    },
+    {
+      "case": "bal_control_0001",
+      "wordIndex": 4,
+      "textSha256": "6d4d96bf1f74501984122cf484988e6d0cbf839ef5e04e387bdf6c8e6db5ddf0",
+      "characterCount": 5,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 0,
+      "textSha256": "978f1c14c6cd2803c9ddcedef79c355d89a17ecd27f7bbd26d9fdd244eba1020",
+      "characterCount": 7,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 2,
+      "textSha256": "312670af6a732caa51e825b0c243ec569544aebf40546727c01b0c9cef81660f",
+      "characterCount": 5,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    },
+    {
+      "case": "lullaby_control_0001",
+      "wordIndex": 3,
+      "textSha256": "e259237bea74304b94c5bad293c434da3b396b0025be69bc5fdc81901c023187",
+      "characterCount": 10,
+      "reason": "reference_quality_flags: UniformPhoneSubdivisionNeedsAudit"
+    }
+  ]
+}

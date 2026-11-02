@@ -1,0 +1,62 @@
+{
+  "scope": "Same-process alternating AB/BA control. Independent raw multi-process ABBA results remain unchanged in benchmark-summary.json. No samples removed. This estimates cached local alignment only, not full song/model inference.",
+  "rawResult": "benchmark-paired-artists.json",
+  "completed": true,
+  "method": "One imported final module graph; only verified changed AST function definitions toggle outside each timer. Three warmup pairs; 18 measured AB/BA alternating pairs. Same cache, waveforms, imports, process, exact frozen output per version. Raw ABBA remains a separate result; no samples removed.",
+  "rows": [
+    {
+      "case": "antytila_lovy_moment",
+      "pairs": 18,
+      "baselineMedianWallMs": 172.0363655,
+      "finalMedianWallMs": 174.1518625,
+      "medianPairedWallDeltaMs": 4.407009000000002,
+      "medianPairedWallDeltaPercent": 1.892009183543708,
+      "pairwiseWinCountFinal": 6,
+      "pairedDeltaMinimumMs": -22.159069999999986,
+      "pairedDeltaMaximumMs": 58.456423,
+      "exactFrozenOutputs": true,
+      "cacheMisses": [],
+      "modelCalls": 0,
+      "baselineMedianCpuMs": 172.04719,
+      "finalMedianCpuMs": 174.13587,
+      "medianPairedCpuDeltaMs": 3.7673644999999993,
+      "medianPairedCpuDeltaPercent": 1.9512481483648814
+    },
+    {
+      "case": "otorvald_bez_tebe",
+      "pairs": 18,
+      "baselineMedianWallMs": 408.289736,
+      "finalMedianWallMs": 422.770075,
+      "medianPairedWallDeltaMs": 3.645466500000026,
+      "medianPairedWallDeltaPercent": 0.9160442466025431,
+      "pairwiseWinCountFinal": 8,
+      "pairedDeltaMinimumMs": -360.868744,
+      "pairedDeltaMaximumMs": 550.668228,
+      "exactFrozenOutputs": true,
+      "cacheMisses": [],
+      "modelCalls": 0,
+      "baselineMedianCpuMs": 408.1670445,
+      "finalMedianCpuMs": 422.526048,
+      "medianPairedCpuDeltaMs": 3.6782315000000096,
+      "medianPairedCpuDeltaPercent": 0.924607316560655
+    },
+    {
+      "case": "pivovarov_dezhavyu_ua",
+      "pairs": 18,
+      "baselineMedianWallMs": 275.155191,
+      "finalMedianWallMs": 273.7711455,
+      "medianPairedWallDeltaMs": -3.2970145000000173,
+      "medianPairedWallDeltaPercent": -1.2095964937132497,
+      "pairwiseWinCountFinal": 11,
+      "pairedDeltaMinimumMs": -16.809912000000054,
+      "pairedDeltaMaximumMs": 27.71672000000001,
+      "exactFrozenOutputs": true,
+      "cacheMisses": [],
+      "modelCalls": 0,
+      "baselineMedianCpuMs": 274.74582999999996,
+      "finalMedianCpuMs": 273.69961,
+      "medianPairedCpuDeltaMs": -3.115883499999967,
+      "medianPairedCpuDeltaPercent": -1.144551783006198
+    }
+  ]
+}

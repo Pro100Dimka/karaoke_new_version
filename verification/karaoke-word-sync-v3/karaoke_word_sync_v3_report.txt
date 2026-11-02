@@ -1,0 +1,288 @@
+КАРАОКЕ v3 — ФИНАЛЬНАЯ ПРОВЕРКА v2 И ИСПРАВЛЕНИЕ ОТОБРАЖЕНИЯ БУКВ
+Дата: 31 октября 2026 года
+
+СТАТУС: ЧАСТИЧНО ИСПРАВЛЕНО. Подтверждённые ошибки преобразования сохранённых буквенных времён в заливку текста устранены. Полная акустическая приёмка слов и букв не завершена: точное исходное аудио uncertain_scores, полные пользовательские проекты и независимая прослушанная разметка отсутствуют. Не объявляем v3 окончательно готовой версией синхронизации всех песен.
+
+Вход: karaoke_word_sync_fixed_v2(1).zip, 78 532 324 байта, SHA-256 43fc9a56d50359c5df1f0ba4f99aa9b77b8fd5f2268ff0c87b8ed057154d1fa7. Архив побайтово совпадает с предыдущей выданной v2. Полезные backend-исправления v2 сохранены полностью.
+
+1. ПРОБЛЕМА И ПОДТВЕРЖДЁННЫЕ ПРИЧИНЫ
+
+Ожидание: при достижении сохранённого начала следующей буквы граница заливки находится у этой буквы; видимый последний звук остаётся активным до сохранённого word.end.
+Фактически: karaokeLyrics.ts рассчитывал долю по числу звучащих букв. KaraokeLyrics из закреплённого @neo-ui-kit/react 1.3.2 применяет её как долю физической ширины span(word.text + пробел) и округляет до целого процента. Пропорциональный шрифт, знаки препинания и хвостовой пробел нарушают соответствие. Это воспроизведено в настоящем Electron/Chromium на сохранённых данных русских и украинских вокальных фрагментов, а не только в jsdom.
+
+Дополнительно UI считал ь/ъ и комбинируемые диакритические знаки отдельными звучащими символами, хотя у них нет отдельного произношения/CTC-токена. На реальном «отдать» собственный интервал ь составлял 300 мс в одном повторе и 60 мс в другом. Исправление объединяет отображение такой группы; оно не доказывает акустическую длительность согласного «ть».
+
+При проверке нового преобразования найден и исправлен его пограничный случай: в «мо́ре» и decomposed «ёлка» Range для диакритики совпадает с Range базовой буквы; самостоятельный интервал диакритики останавливал заливку гласной. Два теста сначала воспроизвели этот дефект, затем прошли после исключения Unicode Marks как самостоятельных звуков.
+
+2. ТРАССИРОВКА И ГРАНИЦА ИЗМЕНЕНИЯ
+
+speech.align: CTC/align_words → align_guided → with_word_guidance → with_voice_onsets → with_sung_ends → ordered → rate_review_indices/boundary_conflicts → локальная совместная проверка при необходимости → повторные onset/end/ordered только при принятом изменении → with_sung_letters → alignment_payload.
+Затем processing.algorithms.construct_document/_word_with_notes строят пересечения общей мелодии со словами; lyrics.codec сериализует абсолютные времена. EditorWord использует относительные времена букв. Ошибка, исправленная в v3, возникает после этого: letterProgress → процент ширины компонента KaraokeLyrics.
+
+В v3 backend, аудио, границы слов и букв, сохранённые ноты, модели, зависимости, формат проектов и Kaggle notebook не изменены. Не добавлен коэффициент замедления, минимальная длительность или поправка времени. existing currentLineIndex/buildLines не изменены. Переходы строк проверены существующими тестами; полное воспроизведение песни на целевой Windows-машине не выполнено.
+
+3. ИЗМЕНЁННЫЕ ФАЙЛЫ
+
+- frontend/src/features/karaoke/karaokeLyrics.ts: letterProgress/timedLetterProgress принимают необязательную геометрию букв; сохранённые времена переводятся в фактические координаты. Беззвучные знаки, пробелы и диакритика не получают самостоятельного интервала. Старый вызов с двумя аргументами совместим; fallback без букв остаётся приблизительным.
+- frontend/src/features/karaoke/useLyricFill.ts: новый небольшой адаптер к существующему компоненту. DOM Range измеряется при смене строки/шрифта, resize и загрузке шрифта. Между этими событиями используются сохранённые размеры; layout effect задаёт точную заливку на текущем времени без округления до 1%. Observer и listener удаляются при очистке.
+- frontend/src/features/karaoke/KaraokeStage.tsx: подключение адаптера к существующим словам через id и выбранный шрифт. Новых элементов управления нет.
+- frontend/src/features/karaoke/karaokeLetterFill.test.tsx: 18 регрессионных проверок.
+
+Diff относительно входной v2: 4 файла; production — 3 файла, +106/-14 строк; тесты — новый файл, 181 строка. Суммарно +287/-14. Внешний UI-пакет и node_modules не редактировались. Архив содержит также отчёт и воспроизводимые доказательства; это не дополнительные изменения приложения.
+
+4. ФАКТИЧЕСКОЕ УЛУЧШЕНИЕ ОТОБРАЖЕНИЯ
+
+Измерены 48 слов, 177 буквенных границ, включая 129 внутренних, в Electron 42.11.8/Chromium 148.0.7778.280, viewport 1280×720 и поставляемом шрифте Melodix. Для clean_entry взяты строки проверочного lyricsSync.json, созданного production construct_document; для reply — строки исходной фикстуры. Украинские окончания проверены как отдельные слова: полные исходные строки для них недоступны. Искусственный сосед/sentinel в окончательных измерениях не использован.
+
+| Измерение | v2 | v3 |
+|---|---:|---:|
+| Медиана абсолютного расхождения внутренней CSS-границы со следующей буквой | 5.696 px | <0.001 px |
+| Максимум такого расхождения | 33.188 px | <0.001 px |
+| Медиана абсолютного расчётного сдвига внутренней буквы относительно сохранённого времени | 14.0 мс | <0.001 мс |
+| Максимум такого сдвига | 330.0 мс | <0.001 мс |
+| Медиана преждевременного завершения видимых букв слова относительно word.end | 7.9 мс | <0.001 мс |
+| Максимум преждевременного завершения видимых букв | 587.5 мс | <0.001 мс |
+
+Последние четыре строки получены обращением функции прогресса на реально измеренной геометрии, включая прежнее округление процента. Это точность преобразования сохранённых данных в CSS, не физическая задержка кадра, не результат прослушивания и не ошибка относительно настоящего вокала. Нулевые значения в исходном JSON означают равенство в численной точности, а не нулевую акустическую ошибку.
+
+Например, «весна?» визуально заканчивалась в 118.1925 с при сохранённом end=118.7800: на 587.5 мс раньше. Теперь окончание отображения совпадает с 118.7800. Само акустическое окончание 118.7800 не сертифицировано: исходная метаинформация referenceEnd имеет listened:false. У «этаж,» буква «ж» начинала визуально заполняться на 129.2 мс раньше своего сохранённого начала; слово визуально завершалось на 265.2 мс раньше end. Эти геометрические ошибки устранены при неизменённых данных.
+
+5. «ОДИН»: ТРИ РАЗНЫХ СЦЕНАРИЯ
+
+| Сценарий | v1 | v2 и v3 | Что действительно проверено |
+|---|---|---|---|
+| uncertain с замороженными акустическими постпроцессорами | 9.94–10.08 | 9.10–9.98 | Constrained CTC; исходная запись для этих emissions не установлена |
+| uncertain emissions на родственном clean_entry waveform | 9.84–9.98 | 9.00–9.88 | Реальные акустические postpasses, но не доказано точное соответствие источника |
+| Exact paired clean_entry | 8.62–9.93 | 8.62–9.94 | Та же запись и её CTC; независимой разметки onset нет |
+
+У первого варианта confidence упала с 0.03993294 до 0.00595367. Флаги OnsetAtSearchBoundary и TimingReviewRequired сохраняются. 9.10 не объявляется акустически подтверждённым началом. Свежий повтор с параметрами v2 сохранил все эти результаты; исправления «для красивого отчёта» не внесены.
+
+Дополнительная диагностика exact paired «один» выявила оставшуюся неопределённость букв: финальные [8.62,9.36,9.38,9.40], end9.94 отдают «и»20 мс, «н»540 мс. Локальные обычный/bounded CTC дают иные внутренние границы [8.72,9.46,9.80,9.90/9.92]; существующий with_sung_letters отвергает вариант по нестабильному префиксу и слабой поддержке согласного. Спектральный переход9.42–9.49 не является полной фонемной разметкой. Гарантии точного произношения здесь нет; ослабление guards или перенос границ без эталона не выполнены.
+
+6. РЕАЛЬНЫЕ ФРАГМЕНТЫ И lyricsSync
+
+Прямо проверены четыре NPZ с девятью вокальными массивами, а не девять полных песен. Основные свежие прогоны: Wildways clean_entry17с, fast11с, native_fast10с, reply40с и три окончания SadSvit. Использованы реальные waveforms и ранее вычисленные CTC/ASR; новой ASR/MMS inference не было. Никакой прогон не выдаётся за полную обработку песни с исходного файла.
+Все сравнимые конечные payload v2/final идентичны. Это сохранение результатов v2, не новое акустическое улучшение. Быстрое «В»30.82–30.86 остаётся40мс. Два «отдать» остаются10.44–13.32 (2.88с) и29.64–30.82 (1.18с); повторы не приводятся к одинаковой длительности.
+
+Через production construct_document/encode_document созданы проверочные generated-documents/clean-entry/lyricsSync.json и uncertain-related/lyricsSync.json, с отдельными PROVENANCE.json. Они не подменяют пользовательские проекты. Их байты совпадают с документами, построенными из v2 на том же pitch. Также найден старый пользовательский lyricsSync.json «Ария — Беспечный ангел»:207слов,342ноты,без времён букв; его vocals.flac отсутствует. Файл изучен только для инвентаризации и не изменён, в сравнение v1/v2 не смешан.
+
+Максимальная и медианная РЕАЛЬНЫЕ ошибки начала/окончания слов: НЕ ВЫЧИСЛИМЫ. Ни для одного выбранного слова нет независимой прослушанной пары start/end. Прослушивание в этой проверке не выполнено. CTC, ASR, VAD, CREPE и прежние listened:false наблюдения не используются как собственный эталон.
+
+7. ЭТАЛОННЫЕ НОТЫ
+
+Повторно использованы те же1701 CREPE-точка. Новая модель или изменение высот не применялись. Exact clean_entry:49нот и993контурные точки в обеих версиях; uncertain+related:48нот и971точка. Изменений абсолютного времени, высоты, владельца-слова и target_frames нет. Сохранены51 и27 ранее покрытых тихих точек соответственно. Проверены точные пересечения с общей мелодией, codec round trip и target_frames на сетках10мс/5мс. Эти проверки доказывают сохранность нот v2; CREPE не становится ручным эталоном F0.
+
+8. ТЕСТИРОВАНИЕ
+
+| Проверка | Результат |
+|---|---|
+| Новые frontend-регрессии |18 passed; первые5 тестов и затем2 Unicode-случая сначала воспроизвели ошибку |
+| Профильные frontend-наборы |62 passed |
+| Полный TypeScript typecheck |passed |
+| Frontend architecture |passed |
+| Полный Vitest |947 passed /2 failed; те же ServiceProcess Windows-ID, что в v2 |
+| Electron/Node |101 passed /1 failed /4 skipped; прежний release-script с Windows cmd |
+| Полный backend pytest |1247 passed /60 failed /6 skipped;270.35с |
+| Backend compile/bootstrap/Ruff lint |passed |
+| Backend architecture / format / mypy |прежние60 диагностик /25файлов /27ошибок в8файлах |
+
+369backend-файлов и643frontend-файла сверены с хэшами финальных прогонов; исходники во время проверки не менялись. После финальной правки полный affected frontend suite выполнен, старые ожидания не ослаблены. Backend полностью идентичен v2, поэтому его свежий полный прогон остаётся применим к финальному архиву.
+
+Из текущих60backend failure-ID54совпадают с предыдущим v2,56 — с fresh-v1. Шесть новых исходов и шесть исчезнувших падений относятся к асинхронной готовности recordings/library-package. У2новых непосредственно виден RecordingPreparing/409, у4лог показывает только KeyError jobId; readiness race для них — вывод по неизменённому пути, а не наблюдённый HTTPbody. Все3ранее спорных v2 recording/StudioMaster случая в этом прогоне прошли на том же коде.
+Классификация60:4старых ASR-payload alternatives контракта;1старый CUDA Embedding half/float32;3processing infrastructure;1архитектура;51прочее вне word/letter/note alignment. Подтверждённых v2-caused sync-падений не найдено. Весь проект не объявляется зелёным.
+
+9. ПРОИЗВОДИТЕЛЬНОСТЬ
+
+Один CPU thread, два порядка запуска v2/final и final/v2, по3прогревам+9измерениям в каждом процессе; сохранены все18значений. Cached CTC/ASR/singing-mask; загрузка аудио и inference исключены. Backend-хэши, результаты и счётчики вызовов в каждой паре идентичны.
+
+| Фрагмент | v2, медиана | v3, медиана |
+|---|---:|---:|
+| fast, 11с | 98.884мс | 74.698мс |
+| native_fast, 10с | 75.066мс | 63.434мс |
+| reply, 40с | 344.632мс | 348.352мс |
+
+На40с разница+1.08%. Разброс shared host велик; код backend одинаков, поэтому разницу не называем ни новым ускорением, ни доказанной регрессией алгоритма. Ненужные вычисления v2 не вернулись: voiced/harmonic один раз, число локальных CTC-окон не выросло (9/4/14 для fast/native_fast/reply). Ограничения12слов/8с, с исключением неделимого долгого слова, сохранены. Предыдущие527→312мс относились к устранённому в v2 повторному расчёту; этот код не откатан.
+Frontend-кэш:2начальных измерения геометрии, после100изменений времени и обратного seek по-прежнему2; послеresize3; послеunmount и font event по-прежнему3. Новых измерений на каждый кадр нет. Время100синхронных обновлений одного слова сохранено только как вспомогательная величина, не как FPS/время аудиопайплайна.
+ПОЛНОЕ ВРЕМЯ ОБРАБОТКИ ПЕСНИ НЕ ИЗМЕРЕНО: полных исходных песен и соответствующих проектов в доступном наборе нет. Время unit-тестов или локального cached alignment не выдаётся за это измерение.
+
+10. ОСТАВШИЕ ПРОБЛЕМЫ И МАТЕРИАЛЫ ДЛЯ ЗАКРЫТИЯ
+
+- Нужен точный waveform, породивший uncertain_scores, с offset, preprocessing и хэшем; родственная запись не подтверждает onset9.10.
+- Нужны полные проблемные RU/UK проекты: исходная песня, использованный reference-vocal, instrumental, lyricsSync.json и processing report. Желательны конкретные слова/фрагменты с наблюдаемой ошибкой. Для численной акустической оценки нужна независимая прослушанная разметка начала/конца и диапазоны неопределённости слитных переходов; для букв — фонемные/произносимые группы.
+- В exact paired «один» внутренние буквенные границы остаются противоречивыми; UI теперь правильно отображает сохранённые значения, но не превращает их в акустическую истину.
+- Подтверждён синтетический предел диагностики ordered: дом1.00–1.30 и сосед1.10 обрезаются до1.00–1.10 без флага, если нет matched ASR. Потеря200мс ниже порога250мс, остаток100мс выше порога80мс. На реальных23малых clips причиной была штатная onset-компенсация; снижение порога без независимого подтверждения создаёт ложные reviews. Порог не менялся, остаточный риск сохранён явно.
+- Новые полные проекты/песни не создавались, существующие записи не перезаписывались. Старый fallback без букв остаётся приблизительным.
+- Обязательная живая проверка по AGENTS.md на целевом Windows/Electron, с реальным звуком и применимыми сценариями start/pause/resume/seek/stop, недоступна в этой Linux-среде. Offscreen Electron проверяет геометрию, а не этот gate.
+
+Проверенные изменения готовы к просмотру и применению. Полная задача акустической синхронизации остаётся незавершённой по перечисленным ограничениям.
+
+ПРИЛОЖЕНИЕ А. СРАВНЕНИЕ30СЛОВ
+
+ФАКТИЧЕСКИЕ СЛОВА ИЗ СОХРАНЁННЫХ РЕАЛЬНЫХ ФРАГМЕНТОВ
+Числа v1/v2/final — результаты алгоритма, не независимая акустическая разметка.
+Все реальные start/end и ошибки в мс: н/д. Прослушивание в этой проверке не выполнено.
+Некоторые строки — контрольные интервалы; все строки не объявляются ошибочными.
+clean_entry/reply — секунды фрагмента; SadSvit — секунды исходной песни.
+
+| Фрагмент / индекс | Слово | Реальное время | v1 | v2 | Финальная версия | Ошибка start/end, мс |
+|---|---|---|---|---|---|---|
+| clean_entry / 0 | Дома | н/д | 1.300–1.880 | 1.300–1.880 | 1.300–1.880 | н/д / н/д |
+| clean_entry / 1 | было | н/д | 1.880–2.570 | 1.880–2.580 | 1.880–2.580 | н/д / н/д |
+| clean_entry / 2 | бы | н/д | 2.580–3.260 | 2.580–3.260 | 2.580–3.260 | н/д / н/д |
+| clean_entry / 3 | намного | н/д | 3.260–4.570 | 3.260–4.580 | 3.260–4.580 | н/д / н/д |
+| clean_entry / 4 | легче | н/д | 4.580–5.750 | 4.580–5.760 | 4.580–5.760 | н/д / н/д |
+| clean_entry / 5 | Но | н/д | 5.760–6.050 | 5.760–6.060 | 5.760–6.060 | н/д / н/д |
+| clean_entry / 6 | за | н/д | 6.060–6.470 | 6.060–6.480 | 6.060–6.480 | н/д / н/д |
+| clean_entry / 7 | столом | н/д | 6.480–8.510 | 6.480–8.520 | 6.480–8.520 | н/д / н/д |
+| clean_entry / 8 | я | н/д | 8.520–8.620 | 8.520–8.620 | 8.520–8.620 | н/д / н/д |
+| clean_entry / 9 | один | н/д | 8.620–9.930 | 8.620–9.940 | 8.620–9.940 | н/д / н/д |
+| clean_entry / 10 | 23 | н/д | 9.940–10.700 | 9.940–10.700 | 9.940–10.700 | н/д / н/д |
+| clean_entry / 11 | этаж, | н/д | 10.700–12.350 | 10.700–12.360 | 10.700–12.360 | н/д / н/д |
+| clean_entry / 12 | будто | н/д | 12.360–12.660 | 12.360–12.660 | 12.360–12.660 | н/д / н/д |
+| clean_entry / 13 | новый | н/д | 12.660–13.000 | 12.660–13.000 | 12.660–13.000 | н/д / н/д |
+| clean_entry / 14 | рассказ | н/д | 13.000–16.430 | 13.000–16.430 | 13.000–16.430 | н/д / н/д |
+| reply / 4 | один | н/д | 4.060–5.790 | 4.060–5.790 | 4.060–5.790 | н/д / н/д |
+| reply / 5 | Я | н/д | 6.800–7.070 | 6.800–7.080 | 6.800–7.080 | н/д / н/д |
+| reply / 11 | сердце | н/д | 9.500–10.190 | 9.500–10.190 | 9.500–10.190 | н/д / н/д |
+| reply / 12 | отдать | н/д | 10.440–13.310 | 10.440–13.320 | 10.440–13.320 | н/д / н/д |
+| reply / 13 | В | н/д | 13.320–13.890 | 13.320–13.900 | 13.320–13.900 | н/д / н/д |
+| reply / 15 | руки | н/д | 14.880–15.940 | 14.880–15.940 | 14.880–15.940 | н/д / н/д |
+| reply / 16 | Я | н/д | 26.000–26.290 | 25.980–26.300 | 25.980–26.300 | н/д / н/д |
+| reply / 22 | сердце | н/д | 28.700–29.630 | 28.700–29.640 | 28.700–29.640 | н/д / н/д |
+| reply / 23 | отдать | н/д | 29.640–30.820 | 29.640–30.820 | 29.640–30.820 | н/д / н/д |
+| reply / 24 | В | н/д | 30.820–30.860 | 30.820–30.860 | 30.820–30.860 | н/д / н/д |
+| reply / 25 | нужные | н/д | 30.860–31.710 | 30.860–31.720 | 30.860–31.720 | н/д / н/д |
+| reply / 27 | в | н/д | 33.120–33.220 | 33.120–33.220 | 33.120–33.220 | н/д / н/д |
+| sadvit / phrase-93 | навіки | н/д | 85.040–86.820 | 85.040–86.820 | 85.040–86.820 | н/д / н/д |
+| sadvit / phrase-129 | весна? | н/д | 117.420–118.780 | 117.420–118.780 | 117.420–118.780 | н/д / н/д |
+| sadvit / outro | навіки | н/д | 181.100–182.620 | 181.100–182.620 | 181.100–182.620 | н/д / н/д |
+
+Медианная и максимальная ошибка: не вычисляются без независимого эталона.
+
+Необходимые материалы:
+- Exact source audio that produced uncertain_scores, and its preprocessing/hash/offset, to validate9.10s rather than the related recording variant.
+- Complete Russian and Ukrainian source/reference-vocal/instrumental files for the failing user projects, with original lyricsSync.json and processing report.
+- Independent listened/adjudicated start/end labels for the suspect words and neighbours, with an uncertainty interval for fused transitions.
+- For held-vowel/consonant accuracy: independent phoneme or letter-group labels on the same waveform; ASR and CTC cannot serve as their own ground truth.
+- Real project playback on the target Electron/Windows system to verify visible line/letter transitions against the unchanged recording.
+
+
+ПРИЛОЖЕНИЕ Б. ПОСЛОВНЫЕ ОШИБКИ ПРЕОБРАЗОВАНИЯ БУКВ В ЗАЛИВКУ
+
+Все значения ниже относятся к сохранённым временам, не к прослушанному вокалу. Знак минус — визуальное опережение, плюс — отставание. Ошибка end измерена до последней звучащей группы, без пунктуации/пробела.
+
+| Фрагмент/индекс | Слово | Наиболее смещённая буква | v2 сдвиг буквы,мс | v3,мс | v2 сдвиг видимого конца,мс | v3,мс |
+|---|---|---|---:|---:|---:|---:|
+| clean/0 | Дома | о | +42.00 | 0.00 | -0.80 | 0.00 |
+| clean/1 | было | о | -61.20 | 0.00 | -122.40 | 0.00 |
+| clean/2 | бы | ы | -37.40 | 0.00 | -3.40 | 0.00 |
+| clean/3 | намного | а | -31.80 | 0.00 | -21.00 | 0.00 |
+| clean/4 | легче | г | -52.50 | 0.00 | -187.00 | 0.00 |
+| clean/5 | Но | о | -7.20 | 0.00 | -2.20 | 0.00 |
+| clean/6 | за | а | -13.20 | 0.00 | -3.00 | 0.00 |
+| clean/7 | столом | м | -95.20 | 0.00 | -26.40 | 0.00 |
+| clean/8 | я | я | +0.00 | 0.00 | -28.50 | 0.00 |
+| clean/9 | один | н | +118.80 | 0.00 | -10.80 | 0.00 |
+| clean/10 | 23 | 3 | -3.00 | 0.00 | -4.60 | 0.00 |
+| clean/11 | этаж, | ж | -129.20 | 0.00 | -265.20 | 0.00 |
+| clean/12 | будто | у | -14.00 | 0.00 | -1.50 | 0.00 |
+| clean/13 | новый | о | -22.50 | 0.00 | -2.00 | 0.00 |
+| clean/14 | рассказ | з | +147.95 | 0.00 | -94.15 | 0.00 |
+| reply/0 | Но | о | -20.00 | 0.00 | -66.00 | 0.00 |
+| reply/1 | за | а | -15.40 | 0.00 | -2.60 | 0.00 |
+| reply/2 | столом | м | -210.80 | 0.00 | -6.00 | 0.00 |
+| reply/3 | я | я | +0.00 | 0.00 | -153.90 | 0.00 |
+| reply/4 | один | н | +195.80 | 0.00 | -17.80 | 0.00 |
+| reply/5 | Я | Я | +0.00 | 0.00 | -68.60 | 0.00 |
+| reply/6 | так | к | -46.50 | 0.00 | -48.30 | 0.00 |
+| reply/7 | и | и | +0.00 | 0.00 | -0.60 | 0.00 |
+| reply/8 | не | е | -3.60 | 0.00 | -1.80 | 0.00 |
+| reply/9 | смог | г | +12.00 | 0.00 | -2.40 | 0.00 |
+| reply/10 | своё | ё | +39.60 | 0.00 | -4.40 | 0.00 |
+| reply/11 | сердце | е | +16.90 | 0.00 | -3.90 | 0.00 |
+| reply/12 | отдать | а | +330.00 | 0.00 | -9.00 | 0.00 |
+| reply/13 | В | В | +0.00 | 0.00 | -2.90 | 0.00 |
+| reply/14 | нужные | у | -87.40 | 0.00 | -7.80 | 0.00 |
+| reply/15 | руки | к | +27.60 | 0.00 | -6.80 | 0.00 |
+| reply/16 | Я | Я | +0.00 | 0.00 | -78.40 | 0.00 |
+| reply/17 | так | к | -46.50 | 0.00 | -55.20 | 0.00 |
+| reply/18 | и | и | +0.00 | 0.00 | -1.50 | 0.00 |
+| reply/19 | не | е | -3.00 | 0.00 | -1.80 | 0.00 |
+| reply/20 | смог | г | +12.00 | 0.00 | -2.40 | 0.00 |
+| reply/21 | своё | ё | +72.00 | 0.00 | -8.00 | 0.00 |
+| reply/22 | сердце | е | +46.80 | 0.00 | -10.80 | 0.00 |
+| reply/23 | отдать | а | +105.00 | 0.00 | -1.80 | 0.00 |
+| reply/24 | В | В | +0.00 | 0.00 | -0.20 | 0.00 |
+| reply/25 | нужные | е | +57.20 | 0.00 | -13.20 | 0.00 |
+| reply/26 | руки, | к | -93.60 | 0.00 | -471.20 | 0.00 |
+| reply/27 | в | в | +0.00 | 0.00 | -0.50 | 0.00 |
+| reply/28 | нужные | ж | -23.80 | 0.00 | -5.40 | 0.00 |
+| reply/29 | руки | и | +25.60 | 0.00 | -25.60 | 0.00 |
+| phrase-93/0 | навіки | і | +85.80 | 0.00 | -30.00 | 0.00 |
+| phrase-129/0 | весна? | а | -67.50 | 0.00 | -587.50 | 0.00 |
+| outro/0 | навіки | і | +101.40 | 0.00 | -22.20 | 0.00 |
+
+ПРИЛОЖЕНИЕ В. ВСЕ60ОСТАВШИХ BACKEND FAILURE-ID
+
+- tests/test_architecture.py::test_locked_architecture_gates
+- tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-None]
+- tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-source]
+- tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-None]
+- tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-source]
+- tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda]
+- tests/test_library_archive.py::test_library_roundtrip_preserves_all_song_data_and_adds_without_replacing
+- tests/test_library_archive.py::test_library_publication_failure_rolls_back_files_and_rows
+- tests/test_process_ownership.py::test_line_process_kills_a_child_that_ignores_the_stop_request
+- tests/test_processing_e2e.py::test_clip_download_overlaps_processing_and_preserves_published_revision
+- tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[False]
+- tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[True]
+- tests/test_processing_execution.py::test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget
+- tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CPU-CPU]
+- tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CUDA-CUDA]
+- tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file]
+- tests/test_recording_startup_recovery.py::test_startup_recovers_finalized_orphan_recording_descriptor
+- tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size
+- tests/test_recordings_analysis.py::test_new_performance_is_balanced_before_registration_and_retry_preserves_capture
+- tests/test_recordings_analysis.py::test_offline_analysis_succeeds_and_becomes_stale_after_project_revision
+- tests/test_recordings_analysis.py::test_old_analysis_algorithm_is_stale_without_deleting_its_history
+- tests/test_release_regressions.py::test_analysis_of_a_take_whose_file_is_gone_is_a_clear_not_found
+- tests/test_release_regressions.py::test_cancelled_analysis_does_not_publish_a_successful_score
+- tests/test_release_regressions.py::test_analysis_cancelled_before_execution_does_not_remain_queued
+- tests/test_resource_scheduler.py::test_resource_scheduler_enforces_ram_headroom
+- tests/test_resource_scheduler.py::test_resource_scheduler_rejects_vram_requirement_without_cuda
+- tests/test_resource_scheduler.py::test_resource_scheduler_enforces_vram_fraction
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-backend]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-project]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-native]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[ownership]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[daemon-reload]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[pid]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[start]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[health]
+- tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[scheduling]
+- tests/test_room_server_deployment.py::test_deployment_reports_an_unverified_rollback_instead_of_claiming_success
+- tests/test_room_server_deployment.py::test_deployment_restores_absence_of_optional_native_files
+- tests/test_room_server_deployment.py::test_successful_deployment_keeps_the_new_version
+- tests/test_song_recognition.py::test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting
+- tests/test_song_recognition.py::test_processing_upgrades_catalog_guess_to_audio_fingerprint
+- tests/test_song_recognition.py::test_processing_retries_video_lookup_for_fingerprint_without_a_clip
+- tests/test_song_recognition.py::test_recognition_refresh_preserves_manual_title_and_artist
+- tests/test_song_recognition.py::test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog
+- tests/test_studio_master.py::test_normal_take_balance_finishes_in_one_render_without_remastering
+- tests/test_studio_master.py::test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy
+- tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.0]
+- tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.1]
+- tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-inf]
+- tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[inf]
+- tests/test_studio_master.py::test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor
+- tests/test_studio_master.py::test_studio_master_raises_quiet_vocal_to_the_original_song_balance
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.3-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.01-0.1-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.5-0.1-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.03-0.03]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.3-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.01-0.1-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.5-0.1-0.1]
+- tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.03-0.03]
+
+Подробные причины, команды, исходные измерения и хэши: verification/karaoke-word-sync-v3/EVIDENCE_INDEX.txt внутри архива. Отдельный patch проверяется и применяется к точной входной v2; результаты применения сверяются по всем4файлам.

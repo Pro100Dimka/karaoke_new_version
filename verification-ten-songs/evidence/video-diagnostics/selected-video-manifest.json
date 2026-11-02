@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "createdUtc": "2026-10-31T23:06:15.404643+00:00",
+  "scope": "Five selected-word presentation plans. Original JSON/audio/timebase preserved. No video has been rendered from this plan. Full/private transcripts are deliberately absent.",
+  "sourceAlignmentInputsPath": "/tmp/karaoke-ten-20261101/alignment-inputs.json",
+  "sourceAlignmentInputsSha256": "13f479bccdde8fb6939899a0f35da8c3178c65f649154ff0a012dc19ff3f0189",
+  "rendererPath": "/tmp/karaoke-ten-20261101/harness/render_karaoke_selected.py",
+  "rendererSha256": "5501e70e9ea653c4eff1779a2ef54609d293e4b8dfdd1fe438f364131008a54a",
+  "presentation": {
+    "label": "Выбранные слова · фактические времена JSON",
+    "indexBase": 0,
+    "maximumVisibleWordsPerSong": 10,
+    "unselected": "Neutral blocks with actual width and native progress; detail contains no letters",
+    "programmaticNotScreenRecording": true,
+    "noSmoothingOrTimeEdits": true
+  },
+  "requiredBeforeRendering": "Pass the root directory containing all five actual final lyricsSync.json documents produced by the normal note/codec pipeline; the shell script verifies all paths before rendering any clip.",
+  "distribution": {
+    "include": [
+      "*_selected_words.mp4",
+      "render-result.json",
+      "video-verification.json"
+    ],
+    "exclude": [
+      "layout.private.json",
+      "samples.private.json",
+      "full lyricsSync.json",
+      "private transcripts",
+      "full source audio"
+    ]
+  },
+  "cases": [
+    {
+      "case": "boombox_kolyshnya",
+      "artist": "Бумбокс",
+      "title": "Колишня",
+      "language": "Ukrainian",
+      "mixPath": "/tmp/karaoke-ten-20261101/sources-a/boombox_kolyshnya-selected-stereo44100.wav",
+      "mixSha256": "1e7bb3b5f1ea8322a66d4d3061e59a56ed01a017aaf539d1e19e0080ffe5797f",
+      "originOffsetSeconds": 25.0,
+      "duration": 45.0,
+      "sourcePage": "https://soundcloud.com/mfmlabel/bumboks-kolishnya",
+      "clipStartSeconds": 20.0,
+      "clipEndSeconds": 40.0,
+      "clipDurationSeconds": 20.0,
+      "visibleWordIndices": [
+        0,
+        1,
+        2
+      ],
+      "originalSongClipStartSeconds": 45.0,
+      "originalSongClipEndSeconds": 65.0,
+      "documentRelativePath": "boombox_kolyshnya/final/lyricsSync.json"
+    },
+    {
+      "case": "boombox_beta_karotyn",
+      "artist": "Бумбокс",
+      "title": "Бета-Каротин",
+      "language": "Ukrainian",
+      "mixPath": "/tmp/karaoke-ten-20261101/sources-a/boombox_beta_karotyn-selected-stereo44100.wav",
+      "mixSha256": "2f67309151bf752315b229d8867eac0dc2aa549250c7d5d3be818ce240863aa5",
+      "originOffsetSeconds": 18.0,
+      "duration": 45.0,
+      "sourcePage": "https://soundcloud.com/boomboxfamily/pyfpsn1jokod",
+      "clipStartSeconds": 20.0,
+      "clipEndSeconds": 40.0,
+      "clipDurationSeconds": 20.0,
+      "visibleWordIndices": [
+        16,
+        17
+      ],
+      "originalSongClipStartSeconds": 38.0,
+      "originalSongClipEndSeconds": 58.0,
+      "documentRelativePath": "boombox_beta_karotyn/final/lyricsSync.json"
+    },
+    {
+      "case": "tnmk_berezen",
+      "artist": "ТНМК",
+      "title": "Березень (перша версія Гранули)",
+      "language": "Ukrainian",
+      "mixPath": "/tmp/karaoke-ten-20261101/sources-b/tnmk_berezen-selected-stereo44100.wav",
+      "mixSha256": "b283cd3a5672b8ae2a0521a1b46cd77c82449732a839b98a84f0d1f872c125fc",
+      "originOffsetSeconds": 25.0,
+      "duration": 40.0,
+      "sourcePage": "https://soundcloud.com/tnmkongo/qvyacgk7hlec",
+      "clipStartSeconds": 20.0,
+      "clipEndSeconds": 40.0,
+      "clipDurationSeconds": 20.0,
+      "visibleWordIndices": [
+        29,
+        30
+      ],
+      "originalSongClipStartSeconds": 45.0,
+      "originalSongClipEndSeconds": 65.0,
+      "documentRelativePath": "tnmk_berezen/final/lyricsSync.json"
+    },
+    {
+      "case": "zhadan_malvy",
+      "artist": "Жадан і Собаки",
+      "title": "Мальви",
+      "language": "Ukrainian",
+      "mixPath": "/tmp/karaoke-ten-20261101/sources-b/zhadan_malvy-selected-stereo44100.wav",
+      "mixSha256": "bfb2302b8a7309b62e19c4e78b470b2011ed439082c8245457e95fba7b363995",
+      "originOffsetSeconds": 20.0,
+      "duration": 40.0,
+      "sourcePage": "https://soundcloud.com/zhadansobaki/ltkvn3phtj1n",
+      "clipStartSeconds": 20.0,
+      "clipEndSeconds": 40.0,
+      "clipDurationSeconds": 20.0,
+      "visibleWordIndices": [
+        24,
+        25
+      ],
+      "originalSongClipStartSeconds": 40.0,
+      "originalSongClipEndSeconds": 60.0,
+      "documentRelativePath": "zhadan_malvy/final/lyricsSync.json"
+    },
+    {
+      "case": "okeanelzy_obiymy",
+      "artist": "Океан Ельзи",
+      "title": "Обійми",
+      "language": "Ukrainian",
+      "mixPath": "/tmp/karaoke-ten-20261101/sources-b/okeanelzy_obiymy-selected-stereo44100.wav",
+      "mixSha256": "2a893afc5442e41c0988b560c5e7c9ea175c77d38642858c396194c17af7b6a7",
+      "originOffsetSeconds": 20.0,
+      "duration": 40.0,
+      "sourcePage": "https://soundcloud.com/okean-elzy/9oov0efcmaig",
+      "clipStartSeconds": 20.0,
+      "clipEndSeconds": 40.0,
+      "clipDurationSeconds": 20.0,
+      "visibleWordIndices": [
+        23
+      ],
+      "originalSongClipStartSeconds": 40.0,
+      "originalSongClipEndSeconds": 60.0,
+      "documentRelativePath": "okeanelzy_obiymy/final/lyricsSync.json"
+    }
+  ]
+}

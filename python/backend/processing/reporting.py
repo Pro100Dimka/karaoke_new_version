@@ -50,6 +50,7 @@ def rate_reviews(
             reason
             for reason, active in {
                 "BoundaryConflict": "BoundaryConflict" in word.diagnostics,
+                "OnsetReviewRequired": "OnsetReviewRequired" in word.diagnostics,
                 "TimingReviewRequired": "TimingReviewRequired" in word.diagnostics,
                 "CollapsedWord": letters > 0 and duration + 1e-9 < 0.005,
                 "HighWrittenRate": letters >= 5 and letters > 45 * duration + 1e-9,

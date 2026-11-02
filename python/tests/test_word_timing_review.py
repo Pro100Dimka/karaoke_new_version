@@ -55,6 +55,32 @@ def test_genuine_quick_word_is_not_reviewed_for_its_absolute_duration(text, dura
     )
 
 
+@pytest.mark.parametrize("text", ["в", "у", "й"])
+def test_short_unsupported_ctc_word_is_reviewed_without_an_asr_match(text):
+    # A real GTSinger entry produced one CTC frame at probability 1.86e-6;
+    # independent recognition omitted it, so neither written-rate nor ASR checks saw it.
+    word = ctc.AlignedWord(text, 0, 0.02, (0,), 1.86e-6)
+
+    assert recognition.rate_review_indices([word], text) == {0}
+    assert recognition.rate_review_indices([_word(text, 0, 0.02, 0.9)], text) == set()
+
+
+@pytest.mark.parametrize("text", ["в", "у", "й"])
+def test_independent_agreement_preserves_a_weak_but_genuinely_fast_word(text):
+    word = _word(text, 1, 1.03, 0.03)
+
+    assert (
+        recognition.rate_review_indices(
+            [word], text, heard={0: (1, 1.03)}, activity=_activity((1, 1.03))
+        )
+        == set()
+    )
+    # A proportional fallback has no acoustic support, even if its endpoints coincide.
+    assert recognition.rate_review_indices(
+        [_word(text, 1, 1.03, 0)], text, heard={0: (1, 1.03)}
+    ) == {0}
+
+
 def test_recognition_padding_over_silence_is_not_missing_singing():
     word = _word("дом", 1, 1.07)
     assert (
@@ -90,6 +116,61 @@ def test_review_realigns_neighboring_cores_together_from_cached_emissions():
     assert result[0].end == pytest.approx(2, abs=0.02)
     assert result[1].start == pytest.approx(2.04, abs=0.02)
     assert result[0].end <= result[1].start
+
+
+@pytest.mark.parametrize("texts", [("дом", "там"), ("дім", "там")])
+def test_normalized_shortening_reaches_joint_review_without_independent_asr(texts):
+    actual = [
+        ctc.AlignedWord(texts[0], 1, 1.3, (1, 1.04, 1.28), 0.99),
+        ctc.AlignedWord(texts[1], 1.3, 1.6, (1.3, 1.38, 1.58), 0.99),
+    ]
+    original = [_word(texts[0], 1, 1.3), _word(texts[1], 1.1, 1.6)]
+    normalized = ctc.ordered(original)
+    activity = _activity((1, 1.6))
+    reviewed = recognition.rate_review_indices(normalized, " ".join(texts), activity=activity)
+
+    result = word_guidance.with_word_guidance(
+        normalized,
+        _emissions(actual),
+        0.02,
+        [ctc.Window(0, 2, 0.5, 2)],
+        {},
+        activity,
+        0.6,
+        reviewed=frozenset(reviewed),
+    )
+
+    assert [(word.start, word.end) for word in ctc.ordered(result)] == [
+        (1, 1.3),
+        (1.3, 1.6),
+    ]
+    assert result[0].letters == actual[0].letters
+
+
+def test_normalization_records_small_clipping_without_rechecking_ordinary_onset_lag():
+    words = [
+        ctc.AlignedWord("дома", 1, 1.7, (1, 1.1, 1.4, 1.5), 0.9),
+        _word("мы", 1.6, 2),
+    ]
+    normalized = ctc.ordered(words)
+
+    assert "BoundaryClipped" in normalized[0].diagnostics
+    assert recognition.rate_review_indices(normalized, "дома мы") == set()
+    assert ctc.ordered(normalized) == normalized
+
+
+def test_ordering_reserves_a_positive_duration_on_the_serialized_millisecond_grid():
+    words = [
+        ctc.AlignedWord("а", 1.0015, 1.0016, (1.0015,)),
+        ctc.AlignedWord("і", 1.0024, 1.0025, (1.0024,)),
+    ]
+
+    result = ctc.ordered(words)
+
+    assert all(word.start < word.end for word in result)
+    assert result[0].end <= result[1].start
+    assert all(word.start <= word.letters[0] <= word.end for word in result)
+    assert ctc.ordered(result) == result
 
 
 def test_review_can_recover_an_acoustically_supported_word_under_eighty_milliseconds():
@@ -255,3 +336,56 @@ def test_unresolved_acoustic_review_is_exported_without_a_written_rate_warning(m
     original = [_word("дом", 1, 1.07)]
     result = _isolated_pipeline(monkeypatch, original, original, heard=[("дом", 1, 1.4)])
     assert "TimingReviewRequired" in result[0]["diagnostics"]
+
+
+def test_unchanged_local_review_keeps_timings_without_repeating_audio_postprocessing(monkeypatch):
+    from unittest.mock import patch
+
+    align = speech.align
+
+    def measured_align(*args, **kwargs):
+        with (
+            patch.object(speech, "with_voice_onsets", wraps=speech.with_voice_onsets) as onsets,
+            patch.object(speech, "with_sung_ends", wraps=speech.with_sung_ends) as ends,
+        ):
+            result = align(*args, **kwargs)
+            assert onsets.call_count == ends.call_count == 1
+            return result
+
+    monkeypatch.setattr(speech, "align", measured_align)
+    original = [_word("дом", 1, 1.07)]
+    result = _isolated_pipeline(monkeypatch, original, original, heard=[("дом", 1, 1.4)])
+    assert (result[0]["start"], result[0]["end"]) == (1, 1.07)
+    assert "TimingReviewRequired" in result[0]["diagnostics"]
+
+
+def test_accepted_local_repair_reuses_unchanged_audio_features(monkeypatch):
+    from contextlib import ExitStack
+    from unittest.mock import patch
+
+    align = speech.align
+    calls = {"voiced_frames": 0, "harmonic_evidence": 0}
+
+    def measured_align(*args, **kwargs):
+        with ExitStack() as patches:
+            for name in calls:
+                compute = getattr(ctc, name)
+
+                def measured(*args, _name=name, _compute=compute):
+                    calls[_name] += 1
+                    return _compute(*args)
+
+                for module in (ctc, speech):
+                    if hasattr(module, name):
+                        patches.enter_context(patch.object(module, name, measured))
+            for name in ("with_voice_onsets", "with_sung_ends"):
+                patches.enter_context(patch.object(speech, name, getattr(ctc, name)))
+            result = align(*args, **kwargs, instrumental=Path("backing.wav"))
+        assert calls == {"voiced_frames": 1, "harmonic_evidence": 1}
+        return result
+
+    monkeypatch.setattr(speech, "align", measured_align)
+    original = [_word("дорога", 1, 1.1), _word("домой", 1.1, 2.5)]
+    candidate = [_word("дорога", 1, 2, 0.99), _word("домой", 2, 2.5, 0.99)]
+    result = _isolated_pipeline(monkeypatch, original, candidate)
+    assert [(word["start"], word["end"]) for word in result] == [(1, 2), (2, 2.5)]

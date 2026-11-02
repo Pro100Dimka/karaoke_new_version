@@ -1,0 +1,44 @@
+[
+  {
+    "relativePath": "Аня Облонская/Control_Group/0002.json",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0002.json",
+    "size": 9885,
+    "sha256": "1f29e679ac49ff3d510371cd89ef907f4901df4e8b54da02094ad50aefa89437"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0003.json",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0003.json",
+    "size": 10354,
+    "sha256": "8167a802ab62111afaea1d9a4ea4ba3a9dd1546975206bc2986b2aed95b6ad1a"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0004.json",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0004.json",
+    "size": 14077,
+    "sha256": "095a0723a05b19166f893731485f9c56b6bc8e265cf6635fb6c919e7512da3de"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0003.wav",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0003.wav",
+    "size": 1070396,
+    "sha256": "a54f63f2d7ee5541d02f853e7f76f377108ada56a050c18348168986ef281da3"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0003.TextGrid",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0003.TextGrid",
+    "size": 16747,
+    "sha256": "06fac6ddcb54e7cddb6739e71af4f11f802ba1d94ddee993b4b9ef9111eed37e"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0004.wav",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0004.wav",
+    "size": 1177100,
+    "sha256": "791137531e62a021e03690c72eaff54d5da92dc202c128e5740f02f426ab085c"
+  },
+  {
+    "relativePath": "Аня Облонская/Control_Group/0004.TextGrid",
+    "url": "https://huggingface.co/datasets/GTSinger/GTSinger/resolve/4426c862beed558b7e1cb8a4dce7e8c0c83bb208/Russian/RU-Alto-1/Breathy/%D0%90%D0%BD%D1%8F%20%D0%9E%D0%B1%D0%BB%D0%BE%D0%BD%D1%81%D0%BA%D0%B0%D1%8F/Control_Group/0004.TextGrid",
+    "size": 22715,
+    "sha256": "c38e77abee72d87768a5a9b40092129647636cfcb2f74588eb516b472a747943"
+  }
+]

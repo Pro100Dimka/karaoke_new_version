@@ -1,0 +1,119 @@
+{
+  "scope": "Baseline-only replay validation against fresh inference, not v4",
+  "results": [
+    {
+      "case": "control_0000",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/inference-inputs.json",
+        "--case",
+        "control_0000",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/control_0000",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0000"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    },
+    {
+      "case": "control_0001",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/inference-inputs.json",
+        "--case",
+        "control_0001",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/control_0001",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0001"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    },
+    {
+      "case": "breathy_0000",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/inference-inputs.json",
+        "--case",
+        "breathy_0000",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/breathy_0000",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/breathy_0000"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    },
+    {
+      "case": "breathy_0001",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/inference-inputs.json",
+        "--case",
+        "breathy_0001",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/breathy_0001",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/breathy_0001"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    },
+    {
+      "case": "control_0003",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/additional-inference-inputs.json",
+        "--case",
+        "control_0003",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/control_0003",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0003"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    },
+    {
+      "case": "control_0004",
+      "argv": [
+        "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/run_alignment.py",
+        "--repo-python",
+        "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+        "--inputs",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/additional-inference-inputs.json",
+        "--case",
+        "control_0004",
+        "--output",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/replay-validation/control_0004",
+        "--cache-from",
+        "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0004"
+      ],
+      "exitCode": 0,
+      "payloadExactlyEqual": true
+    }
+  ]
+}

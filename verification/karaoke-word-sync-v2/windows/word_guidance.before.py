@@ -1,0 +1,675 @@
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from dataclasses import replace
+import difflib
+from difflib import SequenceMatcher
+
+import numpy as np
+import torch
+
+from backend.ai_worker import ctc
+from backend.lyrics.discovery import _line_matches, _lyrics_key
+
+
+def recognized_phrase(
+    window: ctc.Window,
+    words: Sequence[str],
+    heard: Sequence[tuple[str, float, float]],
+    margin: float,
+    *,
+    allow_utterance: bool = False,
+) -> tuple[ctc.Window | None, dict[int, tuple[float, float]]]:
+    """Use local phrase spelling support, including ASR splits and misspellings.
+
+    Catalogue time selects the occurrence; the same character evidence used in lyric
+    discovery selects its recognized span. It cannot add or replace any written text.
+    """
+    key = _lyrics_key(" ".join(words))
+    best = _best_phrase_match(window, key, heard, margin)
+    span = (
+        best[1:]
+        if best is not None
+        else _nearby_utterance(window, heard, margin)
+        if allow_utterance
+        else None
+    )
+    if span is None or (window.heard_start is None and (best is None or best[0] < len(key) * 0.5)):
+        return None, {}
+    first, last = span
+    phrase = replace(
+        window,
+        start=min(window.start, heard[first][1]) if best is not None else window.start,
+        end=min(window.end, heard[last - 1][2] + margin),
+        heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
+    )
+    return phrase, _character_intervals(
+        words, heard[first:last], window.first
+    ) if best is not None else {}
+
+
+def _best_phrase_match(
+    window: ctc.Window,
+    key: str,
+    heard: Sequence[tuple[str, float, float]],
+    margin: float,
+) -> tuple[int, int, int] | None:
+    keys = [_lyrics_key(word) for word, _, _ in heard]
+    matches = [
+        (support, first, last)
+        for first, (_, start, _) in enumerate(heard)
+        if window.start - margin <= start < min(window.end, window.start + 2 * margin)
+        for last, support in _line_matches(key, keys, first)
+        if heard[last - 1][1] < window.end and heard[last - 1][2] <= window.end + margin
+    ]
+    # Equal text support must keep the nearest occurrence, not the largest ASR index.
+    entry = window.heard_start if window.heard_start is not None else window.start
+    return max(
+        matches,
+        key=lambda match: (match[0], -abs(heard[match[1]][1] - entry)),
+        default=None,
+    )
+
+
+def _nearby_utterance(
+    window: ctc.Window,
+    heard: Sequence[tuple[str, float, float]],
+    margin: float,
+) -> tuple[int, int] | None:
+    starts = [
+        index
+        for index, (_, start, end) in enumerate(heard)
+        if window.start - margin <= start < min(window.end, window.start + 2 * margin)
+        and end <= window.end
+    ]
+    if not starts:
+        return None
+    first = min(
+        starts, key=lambda index: abs(heard[index][1] - (window.heard_start or window.start))
+    )
+    last = first + 1
+    while (
+        last < len(heard)
+        and heard[last][1] - heard[last - 1][2] <= margin
+        and heard[last][2] <= window.end
+    ):
+        last += 1
+    return first, last
+
+
+def _character_intervals(
+    words: Sequence[str],
+    heard: Sequence[tuple[str, float, float]],
+    first: int,
+) -> dict[int, tuple[float, float]]:
+    keys = [_lyrics_key(word) for word in words]
+    written = [(char, first + index) for index, key in enumerate(keys) for char in key]
+    spoken = [
+        (
+            char,
+            (
+                start + (end - start) * index / len(key),
+                start + (end - start) * (index + 1) / len(key),
+            ),
+            (start, end),
+        )
+        for word, start, end in heard
+        for key in [_lyrics_key(word)]
+        for index, char in enumerate(key)
+    ]
+    intervals = _matched_positions(written, [char for char, _, _ in spoken])
+    result: dict[int, tuple[float, float]] = {}
+    for index, positions in intervals.items():
+        precise = 2 * len(positions) > len(keys[index - first])
+        spans = [
+            part if precise else whole
+            for position in positions
+            for _, part, whole in [spoken[position]]
+        ]
+        result[index] = min(start for start, _ in spans), max(end for _, end in spans)
+    for index, positions in intervals.items():
+        if 2 * len(positions) <= len(keys[index - first]):
+            start, end = result[index]
+            result[index] = (
+                max(start, result.get(index - 1, (start, start))[1]),
+                min(end, result.get(index + 1, (end, end))[0]),
+            )
+            if result[index][1] <= result[index][0]:
+                result[index] = (spoken[positions[0]][1][0], spoken[positions[-1]][1][1])
+    return result
+
+
+def _matched_positions(
+    written: Sequence[tuple[str, int]],
+    spoken: Sequence[str],
+) -> dict[int, list[int]]:
+    matches = SequenceMatcher(
+        None, "".join(char for char, _ in written), "".join(spoken), autojunk=False
+    ).get_matching_blocks()
+    result: dict[int, list[int]] = {}
+    for block in matches:
+        for offset in range(block.size):
+            index = written[block.a + offset][1]
+            result.setdefault(index, []).append(block.b + offset)
+    return result
+
+
+def phrase_window(
+    window: ctc.Window,
+    phrase: ctc.Window | None,
+    whole_start: float,
+    last_heard: tuple[float, float] | None,
+    margin: float,
+) -> ctc.Window:
+    """Combine independent phrase evidence without treating padded ASR as a voice entry.
+
+    These bounds select phonetic cores only. Acoustic tail refinement still searches
+    the full recording, including real vowels that continue beyond recognition.
+    """
+    entry = window.heard_start
+    if entry is None:
+        return window
+    if (
+        phrase is not None
+        and phrase.heard_start is not None
+        and window.start - margin <= phrase.heard_start < min(window.end, window.start + 2 * margin)
+        and phrase.end > window.start
+    ):
+        return replace(
+            window,
+            start=min(window.start, phrase.start),
+            end=min(window.end, phrase.end),
+            heard_start=phrase.heard_start,
+        )
+    # A missing prefix must retain the catalogue entry. A supported last word can
+    # nevertheless stop the alternative search borrowing the following instrumental break.
+    if (
+        last_heard is not None
+        and abs(whole_start - entry) > margin
+        and window.start <= last_heard[0] <= last_heard[1] <= window.end
+        and entry <= last_heard[1]
+    ):
+        return replace(window, end=min(window.end, last_heard[1] + margin))
+    return window
+
+
+def with_word_guidance(
+    words: list[ctc.AlignedWord],
+    scores: torch.Tensor,
+    frame_seconds: float,
+    windows: Sequence[ctc.Window],
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    margin: float,
+    *,
+    recognized: Sequence[tuple[str, float, float]] = (),
+    onsets: Sequence[float] = (),
+    reviewed: frozenset[int] = frozenset(),
+) -> list[ctc.AlignedWord]:
+    if reviewed:
+        return _reviewed_words(
+            words, scores, frame_seconds, heard, voiced, margin, reviewed, onsets
+        )
+    result = list(words)
+    for window in windows:
+        phrase, local = recognized_phrase(
+            window,
+            [word.text for word in words[window.first : window.last]],
+            recognized,
+            margin,
+            allow_utterance=window.first - 1 in heard and window.last in heard,
+        )
+        timings = local | dict(heard)
+        first, last = max(0, window.first - 1), min(len(words), window.last + 1)
+        options = [[word] for word in result[first:last]]
+        alternatives = _recognized_cores(
+            words, scores, frame_seconds, window, timings, voiced, margin, onsets, reviewed
+        )
+        if phrase is not None or any(window.first <= index < window.last for index in timings):
+            # An unrecognized neighbour can occupy an earlier recognized word's real place.
+            # Refit that gap between heard anchors too, so the joint choice can move both.
+            alternatives += _unrecognized_runs(
+                words, scores, frame_seconds, phrase or window, timings, voiced
+            )
+        for index, candidate, interval in alternatives:
+            options[index - first].append(candidate)
+            timings[index] = interval
+        result[first:last] = _select_sequence(
+            result[first:last], options, timings, first, voiced, margin=margin
+        )
+    return result
+
+
+def _reviewed_words(
+    words: list[ctc.AlignedWord],
+    scores: torch.Tensor,
+    step: float,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    margin: float,
+    reviewed: frozenset[int],
+    onsets: Sequence[float] = (),
+) -> list[ctc.AlignedWord]:
+    """Refit disputed cores with their neighbours, using the existing full-audio emission."""
+    result = list(words)
+    for window in _review_windows(words, heard, reviewed, margin, scores.shape[0] * step):
+        if window.start >= window.end:
+            continue
+        original = words[window.first : window.last]
+        candidates = ctc._align_window(scores, step, [w.text for w in original], window)
+        if any(
+            index in heard and _crosses_confirmed_entry(before, after, heard[index], onsets)
+            for index, (before, after) in enumerate(zip(original, candidates), window.first)
+        ):
+            continue
+        if _supported_review(original, candidates, window.first, reviewed, heard, voiced, step):
+            result[window.first : window.last] = candidates
+    return result
+
+
+def _review_windows(
+    words: Sequence[ctc.AlignedWord],
+    heard: Mapping[int, tuple[float, float]],
+    reviewed: frozenset[int],
+    margin: float,
+    total: float,
+) -> list[ctc.Window]:
+    ranges: list[tuple[int, int]] = []
+    for index in sorted(reviewed):
+        first, last = max(0, index - 1), min(len(words), index + 2)
+        if ranges and first <= ranges[-1][1]:
+            ranges[-1] = ranges[-1][0], max(ranges[-1][1], last)
+        else:
+            ranges.append((first, last))
+    return [
+        ctc.Window(
+            first,
+            last,
+            max(
+                0.0,
+                words[first - 1].end if first else 0.0,
+                min(words[first].start, heard.get(first, (words[first].start, 0))[0]) - margin,
+            ),
+            min(
+                total,
+                words[last].start if last < len(words) else total,
+                max(words[last - 1].end, heard.get(last - 1, (0, words[last - 1].end))[1]) + margin,
+            ),
+        )
+        for first, last in ranges
+    ]
+
+
+def _supported_review(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    first: int,
+    reviewed: frozenset[int],
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    step: float,
+) -> bool:
+    if len(candidates) != len(original) or any(w.score <= 0 for w in candidates):
+        return False
+    if any(left.end > right.start for left, right in zip(candidates, candidates[1:])):
+        return False
+    changed = [
+        index
+        for index, (before, after) in enumerate(zip(original, candidates, strict=True))
+        if max(abs(before.start - after.start), abs(before.end - after.end)) >= step / 2
+        or before.letters != after.letters
+    ]
+    if not changed or any(
+        candidates[i].score < original[i].score * (1 - ctc._PREFERENCE) for i in changed
+    ):
+        return False
+    if any(
+        first + i in heard
+        and abs(candidates[i].start - heard[first + i][0])
+        > abs(original[i].start - heard[first + i][0]) + ctc._HEARD_DISAGREEMENT_SECONDS
+        for i in changed
+    ):
+        return False
+    return _preserved_neighbours(original, candidates, first, reviewed, step) and _review_improves(
+        original, candidates, changed, first, heard, voiced, step
+    )
+
+
+def _preserved_neighbours(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    first: int,
+    reviewed: frozenset[int],
+    step: float,
+) -> bool:
+    """Keep unflagged boundaries unless an adjacent repaired core requires the move."""
+    return not any(
+        first + index not in reviewed
+        and (
+            abs(before.start - after.start) > 2 * step
+            and not (
+                index > 0
+                and before.start < candidates[index - 1].end
+                and abs(after.start - candidates[index - 1].end) <= 2 * step + 1e-9
+            )
+            or abs(before.end - after.end) > 2 * step
+            and not (
+                index + 1 < len(candidates)
+                and before.end > candidates[index + 1].start
+                and abs(after.end - candidates[index + 1].start) <= 2 * step + 1e-9
+            )
+        )
+        for index, (before, after) in enumerate(zip(original, candidates, strict=True))
+    )
+
+
+def _review_improves(
+    original: Sequence[ctc.AlignedWord],
+    candidates: Sequence[ctc.AlignedWord],
+    changed: Sequence[int],
+    first: int,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    step: float,
+) -> bool:
+    before_fit, after_fit = (
+        sum(
+            abs(sequence[i].start - heard[first + i][0])
+            + abs(sequence[i].end - heard[first + i][1])
+            for i in changed
+            if first + i in heard
+        )
+        for sequence in (original, candidates)
+    )
+    voice_step = ctc._VOICE_HOP / ctc._VOICE_RATE
+    silent_before, silent_after = (
+        sum(
+            not voiced[max(0, int(w.start / voice_step)) : max(1, round(w.end / voice_step))].any()
+            for w in sequence
+        )
+        for sequence in (original, candidates)
+    )
+    old, new = [original[i] for i in changed], [candidates[i] for i in changed]
+    return silent_after <= silent_before and (
+        after_fit + step < before_fit
+        or ctc._confidence(new) > ctc._confidence(old) * (1 + ctc._PREFERENCE)
+    )
+
+
+def _recognized_cores(
+    words: Sequence[ctc.AlignedWord],
+    scores: torch.Tensor,
+    frame_seconds: float,
+    window: ctc.Window,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+    margin: float,
+    onsets: Sequence[float] = (),
+    reviewed: frozenset[int] = frozenset(),
+) -> list[tuple[int, ctc.AlignedWord, tuple[float, float]]]:
+    return [
+        (index, candidate, interval)
+        for index in range(window.first, window.last)
+        if (interval := heard.get(index)) is not None
+        for candidate in _candidates(
+            words[index],
+            scores,
+            frame_seconds,
+            window,
+            interval,
+            voiced,
+            margin,
+            onsets,
+            review=index in reviewed,
+        )
+    ]
+
+
+def _unrecognized_runs(
+    words: Sequence[ctc.AlignedWord],
+    scores: torch.Tensor,
+    frame_seconds: float,
+    window: ctc.Window,
+    heard: Mapping[int, tuple[float, float]],
+    voiced: np.ndarray,
+) -> list[tuple[int, ctc.AlignedWord, tuple[float, float]]]:
+    """Recheck missed words together between the independently recognized neighbours."""
+    first, start = window.first, window.start
+    result: list[tuple[int, ctc.AlignedWord, tuple[float, float]]] = []
+    for index in range(window.first, window.last + 1):
+        if index < window.last and index not in heard:
+            continue
+        end = heard[index][0] if index < window.last else window.end
+        if first < index and start < end:
+            gap = ctc.Window(
+                first, index, start, end, window.heard_start if first == window.first else None
+            )
+            candidates = ctc._align_window(
+                scores,
+                frame_seconds,
+                [w.text for w in words[first:index]],
+                gap,
+            )
+            candidates = _settle_unrecognized_entry(candidates, gap, frame_seconds)
+            for offset, candidate in enumerate(candidates):
+                word = words[first + offset]
+                if _onset_confidence(
+                    word, scores, frame_seconds
+                ) <= candidate.score + ctc._PREFERENCE and ctc._implausible(
+                    [candidate], voiced
+                ) <= ctc._implausible([word], voiced):
+                    result.append((first + offset, candidate, (start, end)))
+        first = index + 1
+        start = heard[index][1] if index < window.last else window.end
+    return result
+
+
+def _settle_unrecognized_entry(
+    words: list[ctc.AlignedWord],
+    window: ctc.Window,
+    frame_seconds: float,
+) -> list[ctc.AlignedWord]:
+    """A weak first-frame spike is a cropped search edge, not an independently heard entry."""
+    if len(words) != window.last - window.first:
+        return []
+    first = words[0]
+    entry = window.heard_start
+    limit = words[1].start if len(words) > 1 else window.end
+    if (
+        entry is None
+        or first.score > ctc._PREFERENCE
+        or abs(first.start - window.start) > frame_seconds
+        or not first.start < entry < limit
+    ):
+        return words
+    return [ctc._evenly([first.text], entry, limit)[0], *words[1:]]
+
+
+def _candidates(
+    word: ctc.AlignedWord,
+    scores: torch.Tensor,
+    frame_seconds: float,
+    window: ctc.Window,
+    interval: tuple[float, float],
+    voiced: np.ndarray,
+    margin: float,
+    onsets: Sequence[float] = (),
+    *,
+    review: bool = False,
+) -> list[ctc.AlignedWord]:
+    first, last = interval
+    miss = abs(first - word.start)
+    if miss <= ctc._HEARD_DISAGREEMENT_SECONDS and not review:
+        return []
+    return [
+        candidate
+        for candidate in _core_candidates(
+            word,
+            scores,
+            frame_seconds,
+            window,
+            interval,
+            margin,
+            review=review,
+        )
+        if (review or miss - abs(first - candidate.start) > ctc._HEARD_DISAGREEMENT_SECONDS)
+        and (candidate.score > 0 or review or not first <= word.start <= last)
+        and _onset_confidence(word, scores, frame_seconds) <= candidate.score + ctc._PREFERENCE
+        and not _crosses_confirmed_entry(word, candidate, interval, onsets)
+        and ctc._implausible([candidate], voiced) <= ctc._implausible([word], voiced)
+    ]
+
+
+def _crosses_confirmed_entry(
+    word: ctc.AlignedWord,
+    candidate: ctc.AlignedWord,
+    interval: tuple[float, float],
+    onsets: Sequence[float],
+) -> bool:
+    """Do not move a core confirmed by a fresh vocal rise onto the preceding vowel.
+
+    Recognition can include a preceding pause; a core outside its recognized
+    phrase remains movable even if accompaniment has its own energy rise.
+    """
+    return interval[0] <= word.start <= interval[1] and any(
+        candidate.start < onset <= word.start
+        and word.start - onset <= ctc._ONSET_SEARCH_BEFORE_SECONDS
+        for onset in onsets
+    )
+
+
+def _onset_confidence(word: ctc.AlignedWord, scores: torch.Tensor, step: float) -> float:
+    """Later correctly aligned letters cannot validate a misplaced opening phoneme."""
+    # Number pronunciations need phrase language; retain their existing whole-word evidence.
+    if not any(character.isalpha() for character in word.text):
+        return word.score
+    tokens = next((part for part in ctc._character_tokens(word.text) if part), [])
+    frame = round(word.start / step)
+    if not tokens or not 0 <= frame < scores.shape[0]:
+        return word.score
+    return min(word.score, float(scores[frame, tokens[0]].exp()))
+
+
+def _core_candidates(
+    word: ctc.AlignedWord,
+    scores: torch.Tensor,
+    frame_seconds: float,
+    window: ctc.Window,
+    interval: tuple[float, float],
+    margin: float,
+    *,
+    review: bool = False,
+) -> list[ctc.AlignedWord]:
+    first, last = interval
+    start, end = max(window.start, first), min(window.end, last + margin)
+    if start >= end:
+        return []
+    candidates = ctc._align_window(
+        scores,
+        frame_seconds,
+        [word.text],
+        ctc.Window(0, 1, start, end),
+    )
+    end = min(last, window.end)
+    if start < end and (review or not start <= word.start < end):
+        # A recognition span can include the previous vowel. An interpolated entry
+        # supplies no acoustic evidence against a CTC core already inside that span.
+        candidates.extend(ctc._evenly([word.text], start, end))
+    return candidates
+
+
+def _select_sequence(
+    original: list[ctc.AlignedWord],
+    options: Sequence[Sequence[ctc.AlignedWord]],
+    heard: Mapping[int, tuple[float, float]],
+    first: int,
+    voiced: np.ndarray,
+    *,
+    margin: float = 0.6,
+) -> list[ctc.AlignedWord]:
+    """Choose word cores jointly; an improvement cannot crush or reverse a neighbour."""
+    baseline = ctc.ordered(original)
+    states: list[tuple[float, float, list[ctc.AlignedWord]]] = [(0.0, 0.0, [])]
+    for index, choices in enumerate(options):
+        following: list[tuple[float, float, list[ctc.AlignedWord]]] = []
+        interval = heard.get(first + index)
+        for word in choices:
+            distance = _recognition_distance(word, interval, margin)
+            paths = [
+                (cost + distance, confidence - word.score, [*path, word])
+                for cost, confidence, path in states
+                if not path or _compatible(path[-1], word, baseline[index - 1], voiced)
+            ]
+            if paths:
+                following.append(min(paths, key=lambda item: item[:2]))
+        states = following
+    return min(states, key=lambda item: item[:2])[2] if states else original
+
+
+def _recognition_distance(
+    word: ctc.AlignedWord, interval: tuple[float, float] | None, margin: float
+) -> float:
+    if interval is None:
+        return 0.0
+    # Word spans can include the previous vowel or silence. Keep the existing
+    # recognition margin, but do not let a wide span hide an arbitrarily late onset.
+    onset = max(0.0, interval[0] - word.start, round(word.start - interval[0] - margin, 6))
+    return onset + max(0.0, interval[0] - word.end, word.end - interval[1])
+
+
+def _compatible(
+    left: ctc.AlignedWord,
+    right: ctc.AlignedWord,
+    original: ctc.AlignedWord,
+    voiced: np.ndarray,
+) -> bool:
+    return left.start < right.start and ctc._implausible(
+        [ctc.ordered([left, right])[0]], voiced
+    ) <= ctc._implausible([original], voiced)
+
+
+def _key(text: str) -> str:
+    return "".join(character for character in text.lower() if character.isalnum())
+
+
+def _matching_blocks(
+    words: list[str],
+    heard: list[tuple[str, float, float]],
+    whole: Sequence[ctc.AlignedWord] | None = None,
+) -> list[difflib.Match]:
+    keys = [_key(word) for word in words]
+    heard_keys = [item[0] for item in heard]
+    if whole is None:
+        return difflib.SequenceMatcher(a=keys, b=heard_keys, autojunk=False).get_matching_blocks()
+    # Match coverage first; bounded timing proximity only disambiguates equal-coverage repeats.
+    proximity = 1 / (min(len(words), len(heard)) + 1)
+    scores = np.zeros((len(words) + 1, len(heard) + 1))
+    for i in range(len(words) - 1, -1, -1):
+        for j in range(len(heard) - 1, -1, -1):
+            match = (
+                scores[i + 1, j + 1] + 1 + proximity / (1 + abs(whole[i].start - heard[j][1]))
+                if keys[i] == heard_keys[j]
+                else 0.0
+            )
+            scores[i, j] = max(scores[i + 1, j], scores[i, j + 1], match)
+    blocks: list[difflib.Match] = []
+    i, j = 0, 0
+    while i < len(words) and j < len(heard):
+        if keys[i] == heard_keys[j] and scores[i, j] == (
+            scores[i + 1, j + 1] + 1 + proximity / (1 + abs(whole[i].start - heard[j][1]))
+        ):
+            if (
+                blocks
+                and blocks[-1].a + blocks[-1].size == i
+                and blocks[-1].b + blocks[-1].size == j
+            ):
+                previous = blocks[-1]
+                blocks[-1] = difflib.Match(previous.a, previous.b, previous.size + 1)
+            else:
+                blocks.append(difflib.Match(i, j, 1))
+            i, j = i + 1, j + 1
+        elif scores[i + 1, j] >= scores[i, j + 1]:
+            i += 1
+        else:
+            j += 1
+    return blocks

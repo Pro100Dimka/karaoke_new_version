@@ -1,0 +1,192 @@
+{
+  "scope": "Three selected independently referenced real improvements; not an aggregate accuracy score.",
+  "referenceUncertainty": "Unspecified in published metadata; no confidence bounds invented.",
+  "referenceFedToInference": false,
+  "audioMutation": "None; read-only spectral visualization at original sample rate.",
+  "spectrogram": {
+    "window": "Hann",
+    "frameSeconds": 0.04,
+    "hopSeconds": 0.005,
+    "maximumFrequencyHz": 4000,
+    "rangeDb": [
+      -65,
+      0
+    ],
+    "normalization": "Peak magnitude within each displayed crop and 0–4 kHz band"
+  },
+  "figure": {
+    "path": "/tmp/karaoke-sync-v4/real-boundary-comparison.png",
+    "sha256": "f15530a0d3797c58c4ba94188b581670242c5898950b7327d20e3acd5bc5e207",
+    "dpi": 180
+  },
+  "script": {
+    "path": "/tmp/karaoke-sync-v4/plot_real_boundary_comparison.py",
+    "sha256": "0dd8155d1fd8c57a9e933ce3410ad46dabb3bfbcea6c035f508ce306fc600e00"
+  },
+  "versions": {
+    "numpy": "2.3.5",
+    "scipy": "1.17.0",
+    "matplotlib": "3.10.8"
+  },
+  "cases": [
+    {
+      "case": "control_0003",
+      "wordIndex": 0,
+      "sourceAudio": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0003.wav",
+        "sha256": "a54f63f2d7ee5541d02f853e7f76f377108ada56a050c18348168986ef281da3",
+        "sampleRate": 48000,
+        "frames": 356784
+      },
+      "reference": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/frozen-additional-reference.json",
+        "sha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+        "method": "published_manual_correction",
+        "accuracyMs": null
+      },
+      "predictionSources": {
+        "v3": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0003/payload.json",
+          "sha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e"
+        },
+        "v4": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-final/control_0003/payload.json",
+          "sha256": "8ff7755320fab9ebcb2654d77219955aaee84d2756bc269fec0db9941d732c84"
+        }
+      },
+      "windowSeconds": [
+        0,
+        1.85
+      ],
+      "measurements": {
+        "ref": {
+          "start": 0.96,
+          "end": 1.6,
+          "duration": 0.6400000000000001,
+          "signedStartErrorMs": 0.0,
+          "signedEndErrorMs": 0.0
+        },
+        "v3": {
+          "start": 0.01,
+          "end": 1.6,
+          "duration": 1.59,
+          "signedStartErrorMs": -950.0,
+          "signedEndErrorMs": 0.0
+        },
+        "v4": {
+          "start": 0.99,
+          "end": 1.6,
+          "duration": 0.6100000000000001,
+          "signedStartErrorMs": 30.00000000000003,
+          "signedEndErrorMs": 0.0
+        }
+      }
+    },
+    {
+      "case": "control_0000",
+      "wordIndex": 5,
+      "sourceAudio": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0000.wav",
+        "sha256": "8a15fb990da510618d338e80cd921a19d49fdd8afcee84e542cc96a18cb590d8",
+        "sampleRate": 48000,
+        "frames": 436512
+      },
+      "reference": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/frozen-reference.json",
+        "sha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+        "method": "published_manual_correction",
+        "accuracyMs": null
+      },
+      "predictionSources": {
+        "v3": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/control_0000/payload.json",
+          "sha256": "d4efd5071c7af2f7307591df5c3edb8fca985b2f886c56e8c27f31dd62c8b3a3"
+        },
+        "v4": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-final/control_0000/payload.json",
+          "sha256": "568355acc3c2be600e4810bad49095b205f97600d6b578a1907fd966c7e2ced3"
+        }
+      },
+      "windowSeconds": [
+        7.393,
+        9.094
+      ],
+      "measurements": {
+        "ref": {
+          "start": 7.643,
+          "end": 8.723,
+          "duration": 1.080000000000001,
+          "signedStartErrorMs": 0.0,
+          "signedEndErrorMs": 0.0
+        },
+        "v3": {
+          "start": 7.73,
+          "end": 8.9,
+          "duration": 1.17,
+          "signedStartErrorMs": 87.00000000000063,
+          "signedEndErrorMs": 176.9999999999996
+        },
+        "v4": {
+          "start": 7.73,
+          "end": 8.71,
+          "duration": 0.9800000000000004,
+          "signedStartErrorMs": 87.00000000000063,
+          "signedEndErrorMs": -12.9999999999999
+        }
+      }
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 5,
+      "sourceAudio": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.wav",
+        "sha256": "aee0a3e8a2cf77c61f261cbbecf7dba935bfbcc533c6af3daf17b05beeb26f2f",
+        "sampleRate": 48000,
+        "frames": 343969
+      },
+      "reference": {
+        "path": "/tmp/karaoke-sync-v4/audio-reference/frozen-reference.json",
+        "sha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+        "method": "published_manual_correction",
+        "accuracyMs": null
+      },
+      "predictionSources": {
+        "v3": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-baseline/breathy_0001/payload.json",
+          "sha256": "d4332da75574cdbdcb2d5d72f88b88bd3372d46a076b57217b40846248a3aada"
+        },
+        "v4": {
+          "path": "/tmp/karaoke-sync-v4/gtsinger-final/breathy_0001/payload.json",
+          "sha256": "453c2d318b685c34458c6204a0e114fb96939b6f84275fc4e3206e69f9d9a9d7"
+        }
+      },
+      "windowSeconds": [
+        5.67,
+        7.1660208333333335
+      ],
+      "measurements": {
+        "ref": {
+          "start": 5.945,
+          "end": 6.505,
+          "duration": 0.5599999999999996,
+          "signedStartErrorMs": 0.0,
+          "signedEndErrorMs": 0.0
+        },
+        "v3": {
+          "start": 5.92,
+          "end": 7.16,
+          "duration": 1.2400000000000002,
+          "signedStartErrorMs": -25.000000000000355,
+          "signedEndErrorMs": 655.0000000000002
+        },
+        "v4": {
+          "start": 5.92,
+          "end": 6.57,
+          "duration": 0.6500000000000004,
+          "signedStartErrorMs": -25.000000000000355,
+          "signedEndErrorMs": 65.0000000000004
+        }
+      }
+    }
+  ]
+}

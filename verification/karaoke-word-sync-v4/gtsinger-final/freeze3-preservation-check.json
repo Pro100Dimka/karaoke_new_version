@@ -1,0 +1,26 @@
+{
+  "finalSourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+  "allSixMetadataMatchFinalSource": true,
+  "wordBoundaryScoreTextUnchangedSinceFreeze2": true,
+  "changedLetterWords": [
+    {
+      "case": "control_0003",
+      "wordIndex": 0,
+      "before": [
+        0.99,
+        1.07,
+        1.23,
+        1.31,
+        1.53
+      ],
+      "after": [
+        0.99,
+        1.07,
+        1.13,
+        1.21,
+        1.43
+      ]
+    }
+  ],
+  "referenceLabelsFedToModels": false
+}

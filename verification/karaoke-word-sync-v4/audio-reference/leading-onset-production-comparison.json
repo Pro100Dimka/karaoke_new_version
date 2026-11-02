@@ -1,0 +1,261 @@
+{
+  "case": "control_0003",
+  "referenceKind": "Published GTSinger manual correction, frozen before predictions; not agent listening",
+  "referenceSha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+  "baselinePayloadSha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e",
+  "replayPayloadSha256": "843867d6dfe5412ffda8542563e62eac50696d6f64dc1c41a91bf64d46ff1f32",
+  "words": [
+    {
+      "word": "вдруг",
+      "reference": [
+        0.96,
+        1.6
+      ],
+      "before": {
+        "text": "вдруг",
+        "start": 0.01,
+        "end": 1.6,
+        "confidence": 0.41941572185605763,
+        "letters": [
+          0.01,
+          0.97,
+          1.13,
+          1.21,
+          1.43
+        ],
+        "diagnostics": []
+      },
+      "after": {
+        "text": "вдруг",
+        "start": 0.99,
+        "end": 1.6,
+        "confidence": 0.41713986665708946,
+        "letters": [
+          0.99,
+          1.07,
+          1.23,
+          1.31,
+          1.53
+        ],
+        "diagnostics": [
+          "OnsetRecovered",
+          "RateReviewRetimed"
+        ]
+      },
+      "beforeWordErrorMs": {
+        "start": -950.0,
+        "end": 0.0
+      },
+      "afterWordErrorMs": {
+        "start": 30.0,
+        "end": 0.0
+      },
+      "boundaryOrLetterChanged": true
+    },
+    {
+      "word": "замечаешь",
+      "reference": [
+        2.041,
+        3.442
+      ],
+      "before": {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "confidence": 0.5940370567142963,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "diagnostics": [
+          "RecognizedWord"
+        ]
+      },
+      "after": {
+        "text": "замечаешь",
+        "start": 1.97,
+        "end": 3.37,
+        "confidence": 0.5940370567142963,
+        "letters": [
+          1.97,
+          2.05,
+          2.17,
+          2.25,
+          2.39,
+          2.57,
+          3.01,
+          3.25,
+          3.31
+        ],
+        "diagnostics": [
+          "BoundaryClipped",
+          "RecognizedWord"
+        ]
+      },
+      "beforeWordErrorMs": {
+        "start": -71.0,
+        "end": -72.0
+      },
+      "afterWordErrorMs": {
+        "start": -71.0,
+        "end": -72.0
+      },
+      "boundaryOrLetterChanged": false
+    },
+    {
+      "word": "течение",
+      "reference": [
+        3.442,
+        5.252
+      ],
+      "before": {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "confidence": 0.5630129622295499,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "diagnostics": []
+      },
+      "after": {
+        "text": "течение",
+        "start": 3.37,
+        "end": 5.17,
+        "confidence": 0.5630129622295499,
+        "letters": [
+          3.37,
+          3.49,
+          3.79,
+          3.95,
+          4.33,
+          4.43,
+          4.91
+        ],
+        "diagnostics": []
+      },
+      "beforeWordErrorMs": {
+        "start": -72.0,
+        "end": -82.0
+      },
+      "afterWordErrorMs": {
+        "start": -72.0,
+        "end": -82.0
+      },
+      "boundaryOrLetterChanged": false
+    },
+    {
+      "word": "времени",
+      "reference": [
+        5.252,
+        6.582
+      ],
+      "before": {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "confidence": 0.5633354906125793,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "diagnostics": []
+      },
+      "after": {
+        "text": "времени",
+        "start": 5.17,
+        "end": 6.63,
+        "confidence": 0.5633354906125793,
+        "letters": [
+          5.17,
+          5.27,
+          5.47,
+          5.71,
+          5.83,
+          6.15,
+          6.27
+        ],
+        "diagnostics": []
+      },
+      "beforeWordErrorMs": {
+        "start": -82.0,
+        "end": 48.0
+      },
+      "afterWordErrorMs": {
+        "start": -82.0,
+        "end": 48.0
+      },
+      "boundaryOrLetterChanged": false
+    }
+  ],
+  "firstWordPhoneOnsetComparison": [
+    {
+      "phone": "v",
+      "referenceStart": 0.96,
+      "beforeStart": 0.01,
+      "afterStart": 0.99,
+      "beforeErrorMs": -950.0,
+      "afterErrorMs": 30.0
+    },
+    {
+      "phone": "d̪",
+      "referenceStart": 1.04,
+      "beforeStart": 0.97,
+      "afterStart": 1.07,
+      "beforeErrorMs": -70.0,
+      "afterErrorMs": 30.0
+    },
+    {
+      "phone": "r",
+      "referenceStart": 1.1,
+      "beforeStart": 1.13,
+      "afterStart": 1.23,
+      "beforeErrorMs": 30.0,
+      "afterErrorMs": 130.0
+    },
+    {
+      "phone": "u",
+      "referenceStart": 1.28,
+      "beforeStart": 1.21,
+      "afterStart": 1.31,
+      "beforeErrorMs": -70.0,
+      "afterErrorMs": 30.0
+    },
+    {
+      "phone": "k",
+      "referenceStart": 1.45,
+      "beforeStart": 1.43,
+      "afterStart": 1.53,
+      "beforeErrorMs": -20.0,
+      "afterErrorMs": 80.0
+    }
+  ],
+  "firstWordPhoneOnsetMaeMs": {
+    "before": 228.0,
+    "after": 60.0
+  },
+  "limitations": [
+    "Published manual boundaries have no certified per-phone accuracy guarantee.",
+    "Two suffix phone errors increase after the existing word-wide onset-lag recalibration.",
+    "This is a strict model-output cache replay of the final production alignment path, not fresh full-song inference.",
+    "The repair is restricted to a weak leading token in a bounded local review window; internal unanchored cases remain reviewable."
+  ]
+}

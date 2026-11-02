@@ -1,0 +1,403 @@
+{
+  "status": "Full-song pipeline attempt failed at the unchanged v3 pitch worker timeout; whole-song alignment replay verified separately.",
+  "source": {
+    "artist": "Wildways",
+    "title": "Километры",
+    "language": "Russian",
+    "sourcePage": "https://soundcloud.com/wildways/kilometry",
+    "sourceSha256": "7c6eb9aeff5ed03e58c3630ff317f0e8f7351d5301823021ab5b3c6ee60abe9a",
+    "sourceUnmodified": true,
+    "derivedStemSampleRate": 44100,
+    "derivedStemChannels": 2,
+    "derivedStemFrames": 9001984,
+    "derivedStemDurationSeconds": 204.12662131519275,
+    "derivedRawVocalSha256": "c8c2b71278312a67e4dd7099213f6f9651ab5a4a31db05cc275f350e921a1518",
+    "derivedRawInstrumentalSha256": "360afa10f6b0fc6a2cbe42f1f524a8d99f95096ece5653e241d9ca317cd66e68"
+  },
+  "fullPipeline": {
+    "completed": false,
+    "failureCode": "ProcessTimeout",
+    "failedStage": "PitchAnalysis",
+    "observedAttemptSecondsIncludingSetupImport": 3116.280573606491,
+    "observedProcessingAttemptSecondsFromFirstProgress": 3110.8344695568085,
+    "measurementEndpoint": "Final failure-metadata file write after the exception, not a successful return from PipelineOrchestrator.",
+    "successfulFullProcessingSeconds": null,
+    "pitchWorkerElapsedSeconds": 1800.072552316,
+    "stages": [
+      {
+        "stage": "DecodeNormalize",
+        "elapsedSeconds": 10.114914,
+        "completed": true
+      },
+      {
+        "stage": "MusicAnalysis",
+        "elapsedSeconds": 0.163269,
+        "completed": true
+      },
+      {
+        "stage": "StemSeparation",
+        "elapsedSeconds": 316.606131,
+        "completed": true
+      },
+      {
+        "stage": "ReferenceVocalPreparation",
+        "elapsedSeconds": 0.001219,
+        "completed": true
+      },
+      {
+        "stage": "LyricsDiscovery",
+        "elapsedSeconds": 335.353719,
+        "completed": true
+      },
+      {
+        "stage": "ForcedAlignment",
+        "elapsedSeconds": 648.471945,
+        "completed": true
+      },
+      {
+        "stage": "PitchAnalysis",
+        "elapsedSeconds": 1800.072552316,
+        "completed": false,
+        "failureCode": "ProcessTimeout"
+      }
+    ],
+    "reachedFinalLyricsSync": false,
+    "reachedNoteConstruction": false,
+    "reachedProjectPublication": false,
+    "fullSongReferenceNotesVerified": false,
+    "originalAudioUnmodified": true
+  },
+  "resourcesAndOverlap": {
+    "executionPlanCpuThreads": 1,
+    "sequentialModelStages": true,
+    "torchInitiallyConfiguredThreads": 1,
+    "observedTorchThreadsAfterWhisper": 9,
+    "numbaThreadsExplicitlyCapped": false,
+    "threadObservation": "Installed Whisper parallel Numba DTW changes shared OpenMP state. Tiny model-free controls produced Torch1→2 with NUMBA_NUM_THREADS=2 and Torch1→1 with NUMBA_NUM_THREADS=1. No production change was made for this finding.",
+    "backgroundLoads": [
+      {
+        "kind": "Six-excerpt CREPE job",
+        "estimatedFirstPitchCallStartUtc": "2026-10-31T17:32:12.405928+00:00",
+        "estimateMethod": "First pitch-result file write time minus its recorded108.032854983s inference duration; not a continuously sampled process-start timestamp.",
+        "firstHeavyPitchOverlapEstimatedSeconds": 153.03401136398315,
+        "confirmedPauseAtUtc": "2026-10-31T17:34:45.439939+00:00"
+      },
+      {
+        "kind": "Resumed six-excerpt CREPE job",
+        "resumeAtUtc": "2026-10-31T18:01:14.506430+00:00",
+        "completedByObservedUtc": "2026-10-31T18:07:45+00:00"
+      },
+      {
+        "kind": "Backend test suites and small model-free validation probes",
+        "timeBounds": "Not continuously sampled"
+      }
+    ],
+    "isolatedPerformanceClaim": false,
+    "measuredPeakRssKiBCompletedWorkers": 5215472,
+    "pitchFinalPeakRssAvailable": false,
+    "pitchWorkload": {
+      "frames": 20413,
+      "audibleFrames": 16275,
+      "batchSize": 512,
+      "expectedInferredBatches": 39,
+      "totalBatches": 40
+    }
+  },
+  "wholeSongAlignmentReplay": {
+    "wordCount": 156,
+    "v3ReplayExactlyMatchesFreshV3Payload": true,
+    "v4SourceFreezeManifest": "source-freeze-final.json (freeze3)",
+    "v4SourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+    "v4SourceFreezeVerifiedBeforeAfter": true,
+    "finalPayloadExactlyMatchesFreeze2": true,
+    "finalWordBoundariesMatchFreeze2": true,
+    "finalLetterTimesMatchFreeze2": true,
+    "freeze2ToFinalChangedWordIndices": [],
+    "identicalWordTextsAndOrder": true,
+    "identicalLetterTimesForAllWords": true,
+    "freshModelCallsDuringEitherReplay": 0,
+    "cacheMissesDuringEitherReplay": 0,
+    "localForcedAlignmentWindowCalls": {
+      "v3": 85,
+      "v4": 85
+    },
+    "orderedCalls": {
+      "v3": 210,
+      "v4": 210
+    },
+    "modelEvidenceCacheReadsPerReplay": {
+      "independentMixAsr": 1,
+      "wholeSongMmsEmissions": 1
+    },
+    "functionalElapsedSecondsNotBenchmark": {
+      "v3": 74.75371574200108,
+      "v4": 63.21012727699781
+    },
+    "functionalReplayScopes": {
+      "v3": "functional smoke check during full-song CREPE; no model inference",
+      "v4": "functional final-v4 freeze3 replay during backend test gate; no model inference"
+    },
+    "changedWordBoundaryIndices": [
+      56
+    ],
+    "changedDiagnosticIndices": [
+      1,
+      11,
+      16,
+      17,
+      21,
+      32,
+      49,
+      50,
+      56,
+      60,
+      63,
+      64,
+      67,
+      75,
+      77,
+      80,
+      81,
+      83,
+      85,
+      89,
+      90,
+      91,
+      97,
+      98,
+      106,
+      107,
+      109,
+      110,
+      114,
+      115,
+      117,
+      118,
+      123,
+      125,
+      127,
+      129,
+      132,
+      141,
+      144,
+      148,
+      149,
+      151,
+      152
+    ],
+    "diagnosticCounts": {
+      "v3": {
+        "RecognizedWord": 150,
+        "AsrCtcBoundaryDisagreement": 32,
+        "TimingReviewRequired": 73,
+        "ApproximateAlignment": 4,
+        "BoundaryConflict": 1,
+        "RateReviewRetimed": 1
+      },
+      "v4": {
+        "RecognizedWord": 150,
+        "AsrCtcBoundaryDisagreement": 31,
+        "BoundaryClipped": 42,
+        "TimingReviewRequired": 73,
+        "ApproximateAlignment": 4,
+        "BoundaryConflict": 2,
+        "RateReviewRetimed": 1
+      }
+    },
+    "numericChange": {
+      "wordIndex": 56,
+      "wordSha256": "287628788e3645ed245768d3ebc2272c709cca196c331d8de08d24c443b65bc8",
+      "changedFields": [
+        "end",
+        "diagnostics"
+      ],
+      "before": {
+        "start": 63.59,
+        "end": 65.65,
+        "letters": [
+          63.59,
+          63.67,
+          63.77,
+          64.09,
+          64.19,
+          64.75
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord",
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "confidence": 0.289067111366118
+      },
+      "after": {
+        "start": 63.59,
+        "end": 65.35,
+        "letters": [
+          63.59,
+          63.67,
+          63.77,
+          64.09,
+          64.19,
+          64.75
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "confidence": 0.289067111366118
+      },
+      "durationBefore": 2.06,
+      "durationAfter": 1.76
+    },
+    "numericChangeFirstDivergentStage": "speech.with_sung_ends",
+    "word56StageTrace": {
+      "v3": [
+        {
+          "stage": "speech.align_words",
+          "start": 63.64,
+          "end": 64.82000000000001
+        },
+        {
+          "stage": "speech.align_guided",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_word_guidance",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_voice_onsets",
+          "start": 63.59,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_sung_ends",
+          "start": 63.59,
+          "end": 65.65
+        },
+        {
+          "stage": "speech.ordered",
+          "start": 63.59,
+          "end": 65.65
+        },
+        {
+          "stage": "speech.with_word_guidance",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_voice_onsets",
+          "start": 63.59,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_sung_ends",
+          "start": 63.59,
+          "end": 65.65
+        },
+        {
+          "stage": "speech.ordered",
+          "start": 63.59,
+          "end": 65.65
+        },
+        {
+          "stage": "speech.with_sung_letters",
+          "start": 63.59,
+          "end": 65.65
+        }
+      ],
+      "v4": [
+        {
+          "stage": "speech.align_words",
+          "start": 63.64,
+          "end": 64.82000000000001
+        },
+        {
+          "stage": "speech.align_guided",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_word_guidance",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_voice_onsets",
+          "start": 63.59,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_sung_ends",
+          "start": 63.59,
+          "end": 65.35
+        },
+        {
+          "stage": "speech.ordered",
+          "start": 63.59,
+          "end": 65.35
+        },
+        {
+          "stage": "speech.with_word_guidance",
+          "start": 63.64,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_voice_onsets",
+          "start": 63.59,
+          "end": 64.82
+        },
+        {
+          "stage": "speech.with_sung_ends",
+          "start": 63.59,
+          "end": 65.35
+        },
+        {
+          "stage": "speech.ordered",
+          "start": 63.59,
+          "end": 65.35
+        },
+        {
+          "stage": "speech.with_sung_letters",
+          "start": 63.59,
+          "end": 65.35
+        }
+      ]
+    },
+    "neighborsOfWord56Unchanged": true,
+    "acousticAccuracyErrorMs": null,
+    "accuracyLimitation": "The replay alone does not establish independent acoustic truth for word56 or other full-song words. See the separate raw-audio audit. It also cannot verify full-song notes because CREPE did not finish."
+  },
+  "matchedCachedFullOrchestratorComparison": {
+    "executed": false,
+    "reason": "A complete full-song pitch payload is required. The real v3 pitch worker timed out. The prepared strict replay harness refuses an incomplete source run."
+  },
+  "reproduction": {
+    "verifiedEnvironment": "Linux, CPU-only; these verification scripts use the POSIX resource module for RSS.",
+    "processingMode": "FAST",
+    "language": "Russian",
+    "onlineLyrics": false,
+    "timingHintsProvided": false,
+    "lyricsSource": "Fresh native ASR of the separated vocal",
+    "seed": 0,
+    "models": [
+      "Existing catalog htdemucs",
+      "Existing catalog whisper-large-v3-turbo",
+      "Existing catalog mms-fa",
+      "Existing installed torchcrepe full"
+    ],
+    "harnessAdaptations": [
+      "Offline optional metadata lookup",
+      "Subprocess/event tracing",
+      "Deterministic random seeds",
+      "Retain generated temporary analysis workspace"
+    ],
+    "publicationScope": "Fresh isolated temporary profile only; no user project opened or changed.",
+    "originalFreshRunnerSha256": "cfb5dcb1091a6d240492aba997a0fd2cd1f249e5e914808eca016569bdf1d0b9",
+    "originalTraceWorkerSha256": "1d18307e897a6771f9dece0761aab9c44d3daac9d2fcd95a8d0ba991b7ba249f",
+    "deliveredRunnerDifference": "Private machine paths replaced with required --models and optional --numba-cache arguments. No model or production algorithm change."
+  },
+  "includedPrivateMediaOrLyrics": false
+}

@@ -1,0 +1,10 @@
+{
+  "initial": 2,
+  "afterUpdates": 2,
+  "afterSeek": 2,
+  "afterResize": 3,
+  "afterUnmount": 3,
+  "afterUnmountFont": 3,
+  "updates": 100,
+  "elapsedMs": 7.799999998882413
+}

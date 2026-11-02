@@ -1,0 +1,40 @@
+{
+  "createdUtc": "2026-10-31T20:20:28.307287+00:00",
+  "scope": "Existing architecture checker AST checks on two changed modules only. Interim read-only audit, not final full gate; existing file-size failures retained by full gate.",
+  "files": [
+    {
+      "file": "backend/ai_worker/word_guidance.py",
+      "beforeSha256": "511069fee53fb76cbfde86236757b47a490ad5d66e9b51cc6abaaa0725e155f4",
+      "afterSha256": "8555c9aa50db0005cecf1f0f831f7b52eb38b339ca51dbe2ea15cab1b1bb101a",
+      "beforeASTFindings": [
+        "backend/ai_worker/word_guidance.py:201: with_word_guidance has 58 lines; limit is 40",
+        "backend/ai_worker/word_guidance.py:1003: _matching_blocks has 41 lines; limit is 40"
+      ],
+      "afterASTFindings": [
+        "backend/ai_worker/word_guidance.py:201: with_word_guidance has 58 lines; limit is 40",
+        "backend/ai_worker/word_guidance.py:481: _active_review_candidates has 41 lines; limit is 40",
+        "backend/ai_worker/word_guidance.py:1101: _matching_blocks has 41 lines; limit is 40"
+      ],
+      "newASTFindingsIgnoringLineNumbers": [
+        "backend/ai_worker/word_guidance.py:481: _active_review_candidates has 41 lines; limit is 40"
+      ]
+    },
+    {
+      "file": "backend/ai_worker/ctc.py",
+      "beforeSha256": "f44ed7c34cc0326fb50c3d6a76596cb51502917521acebf30d9817aa194a90d5",
+      "afterSha256": "ec5d3dc8815e792f87ecc3f3c994daa071c5d334f969ed7770d1fd9140072751",
+      "beforeASTFindings": [
+        "backend/ai_worker/ctc.py:617: align_guided has 94 lines; limit is 40",
+        "backend/ai_worker/ctc.py:617: align_guided complexity proxy 23 exceeds 12"
+      ],
+      "afterASTFindings": [
+        "backend/ai_worker/ctc.py:526: with_voice_onsets has 51 lines; limit is 40",
+        "backend/ai_worker/ctc.py:628: align_guided has 94 lines; limit is 40",
+        "backend/ai_worker/ctc.py:628: align_guided complexity proxy 23 exceeds 12"
+      ],
+      "newASTFindingsIgnoringLineNumbers": [
+        "backend/ai_worker/ctc.py:526: with_voice_onsets has 51 lines; limit is 40"
+      ]
+    }
+  ]
+}

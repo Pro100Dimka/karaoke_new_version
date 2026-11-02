@@ -1,0 +1,26 @@
+{
+  "result": {
+    "path": "/tmp/karaoke-ten-20261101/backend-final-verified-ten/result.json",
+    "sha256": "f88081fd8639a67b6eafa04cb30b2540ada377e1bcef5122671fd1d20605eab1"
+  },
+  "comparison": {
+    "path": "/tmp/karaoke-ten-20261101/backend-final-verified-ten/diagnostics-comparison.json",
+    "sha256": "f076368adc4d7ffb8bccd4e189c80b849eed9e47f0576c3c7b876bda5fdb122b"
+  },
+  "failureInventory": {
+    "path": "/tmp/karaoke-ten-20261101/backend-final-verified-ten/failures-inventory.json",
+    "sha256": "b1b20bb2675224b44b8b59f7eed0802d6d7ef69c938205c6c8fe60357423bb8a"
+  },
+  "focused43JUnit": {
+    "path": "/tmp/karaoke-ten-20261101/backend-focused-verified-ten.xml",
+    "sha256": "f9d0ed015b64907dd5c12048834874b762f185ebe8a196a304542cb9bd979ed8"
+  },
+  "intermediateResult": {
+    "path": "/tmp/karaoke-ten-20261101/backend-final-ten/result.json",
+    "sha256": "25563287db6b76a68643c1eb08f8af7731a496702aa2bb77ae81044dc894df81"
+  },
+  "pairedFailureEvidence": {
+    "path": "/tmp/karaoke-ten-20261101/diagnosis/backend-new-failures-paired/comparison.json",
+    "sha256": "97d706c82cd99860f2d7f88ded279024e5385ed9323ca80d0898b89a48fc4e0e"
+  }
+}

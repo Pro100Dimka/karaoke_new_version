@@ -1,0 +1,101 @@
+{
+  "scope": [
+    "root ctc/speech feature reuse and unchanged-review skip",
+    "bounded review planner and coalescing",
+    "current-frame sung-end endpoint guard"
+  ],
+  "method": "Read-only baseline-v1 diff and final source inspection; adopted cursor/bisect functions compared structurally with the measured prototype; existing regression evidence reviewed; no product edits.",
+  "blockingFindings": [],
+  "confirmed": [
+    {
+      "location": "speech.align; ctc.with_voice_onsets",
+      "finding": "The reused voiced mask comes from the same samples/rate/hop as the previous recalculation. Intermediate alignment and guidance use it read-only. No global or cross-song cache was introduced."
+    },
+    {
+      "location": "speech.align; ctc.with_sung_ends; timing.continued_frames",
+      "finding": "The harmonic tuple depends only on unchanged audio and is read-only in tail refinement. The same tuple is passed to both initial and accepted-repair passes; standalone calls retain old lazy computation when not supplied."
+    },
+    {
+      "location": "speech.align if cores != guided",
+      "finding": "When cores are identical, the previous second pass recomputed onset/tails from the same started words, activity and audio. Skipping it preserves timing, empty recovered set and diagnostics; both unchanged-review and accepted-repair feature-count tests cover the branches."
+    },
+    {
+      "location": "word_guidance._review_windows/_review_stop/_separate_review_audio/_coalesce_review_windows",
+      "finding": "Targets are covered by disjoint word ranges, ordinary windows are limited to 12 words / 8 seconds, true indivisible long words remain uncut, and the audio ranges do not overlap. Coalescing is limited to complete original contexts whose chosen audio edges coincide; it does not fill audio gaps or remove chosen internal budget/acoustic cuts."
+    },
+    {
+      "location": "word_guidance._reviewed_words",
+      "finding": "Candidate changes cannot cross external neighbors; an unsafe numeric split leaves original timing/diagnostics. Existing _supported_review still protects confidence, ASR agreement and unflagged neighbors."
+    },
+    {
+      "location": "word_guidance._review_windows cursor/bisect; _review_stop last_target",
+      "finding": "The adopted planner advances a cursor through sorted targets and uses bisect_left to locate the next target. Each original range computes its own last target once; _review_stop uses that value instead of rescanning the global reviewed collection. The former repeated full-target scans are removed. Target bookkeeping now uses sorting and binary searches; this statement excludes acoustic-boundary inspection and model execution.",
+      "measuredPrototypeStructuralEquality": {
+        "_review_windows": true,
+        "_review_stop": true
+      },
+      "normalization": "Only the local _review_windows variable final is renamed to last_target for AST comparison; line positions are ignored. All control flow and expressions match."
+    },
+    {
+      "location": "ctc.with_sung_ends",
+      "finding": "The final one-line guard changes only the boundary comparison from the future frame timestamp to the current frame timestamp. An observed continuing frame can advance to the next known word start, then the existing min(frame * step, limit) clips there. The activity mask, harmonic evidence, silence test, start/letter values and confidence are unchanged by this guard. A silent frame still terminates the walk. Final production replay is required because some word ends may extend by up to one 10-ms hop; entire clean-control payload equality is no longer claimed.",
+      "regressionEvidence": {
+        "casesArtifact": "/tmp/karaoke-sync-v2/windows/sung_end_endpoint_review.json",
+        "redArtifact": "/tmp/karaoke-sync-v2/windows/endpoint_before.log",
+        "resultArtifact": "/tmp/karaoke-sync-v2/windows/endpoint_targeted.log",
+        "result": "295 passed, 1 skipped, 1 known baseline failure (CUDA embedding dtype). New endpoint tests cover frame-aligned and off-grid continuous seams, recorded pause, explicit final silent frame, and full note-intersection continuity."
+      }
+    },
+    {
+      "location": "word_guidance._review_windows/_reviewed_words; reply40s fixture",
+      "finding": "The final bounded review accepts one already-flagged index 16 Я candidate, moving its core 26.10 to 26.08 (one 20-ms frame), with score 0.378679 to 0.466583. That identical candidate already exists in the v1 wide-window trace; v1 rejects the full window because its unflagged index 15 руки would extend across the instrumental gap. Bounded context preserves руки and all 9 internal neighbours. The four acceptance/neighbor/onset helper bodies are structurally identical to v1. Final 20 changed words comprise this single onset/letter change and continuous-voice endpoint corrections; this is not an all-payload-identical control.",
+      "evidence": "/tmp/karaoke-sync-v2/odin/reply-review-diagnosis.json",
+      "limit": "No manual acoustic onset label exists for the 20-ms movement, so it is a supported existing-review selection, not a measured human-ground-truth accuracy gain."
+    }
+  ],
+  "residualRisks": [
+    {
+      "priority": "expected limitation",
+      "location": "word_guidance._reviewed_words outside-boundary veto",
+      "finding": "A conflict requiring context across an unavoidable split may remain unresolved. The implementation deliberately preserves its diagnostics instead of truncating a sung word to a work budget; the coincident/conflicting-core regression tests exercise this behavior."
+    }
+  ],
+  "sourceHashes": {
+    "ctc": "d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f",
+    "speech": "0debdddcfb50d5d6e62e9d71c1931269c08c801e633dc2345ca80ef2166e4061",
+    "word_guidance": "6657d0e55aeba9edf0be5bcc7f4dd88cbef751a8c11f7aaed75523888cd55f9a",
+    "timing": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65"
+  },
+  "plannerPerformanceEvidence": {
+    "artifact": "/tmp/karaoke-sync-v2/windows/benchmark_target_scan.json",
+    "scope": "Planner only, no CTC/models, no activity scans; exact window equality required.",
+    "labelMeaning": {
+      "current": "Previous full-target-scan implementation at measurement time",
+      "cursor": "Measured prototype adopted in the final production functions"
+    },
+    "casesRequireExactWindowEquality": true,
+    "wordCounts": [
+      100,
+      1000,
+      10000
+    ],
+    "tenThousandWordsMediansMs": [
+      {
+        "pattern": "every_third",
+        "previous": 957.582395999907,
+        "adoptedCursor": 93.94510399988576
+      },
+      {
+        "pattern": "dense",
+        "previous": 892.0432110003276,
+        "adoptedCursor": 56.24548400010099
+      }
+    ],
+    "limit": "Planner-only observations. No speedup claim is made for the noisy sub-millisecond 100-word measurements, or for full-song/model processing."
+  },
+  "regressionEvidence": {
+    "artifact": "/tmp/karaoke-sync-v2/windows/pytest_final.log",
+    "result": "47 passed"
+  },
+  "reviewUpdate": "Final freeze re-reviewed: cursor/bisect eliminates the former repeated target scans; current-frame endpoint guard matches the scoped change and silence-preserving regressions. Live hashes match root freeze, including ctc d29a70f0288b4741b5a0d7567f5757c7d9172b6ccb8176c5afdda1e4b5d8224f."
+}

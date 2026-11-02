@@ -1,0 +1,1778 @@
+{
+  "schemaVersion": 1,
+  "preparedAtUtc": "2026-10-31T18:38:19.157018+00:00",
+  "scope": "Selected verification subset; parent may add final gate, performance and full-pipeline numerical summaries later.",
+  "sourceEvidenceUnmodified": true,
+  "sourceRootAlias": "ORIGINAL_VERIFICATION_ROOT = /tmp/karaoke-sync-v4",
+  "historicalAbsolutePaths": "Retained as provenance in verbatim evidence. See REPRODUCING.md for separate working-copy relocation.",
+  "distributionPolicy": {
+    "included": "Numerical word/phone references and comparisons, 34-word excerpt predictions, sanitized stage traces, original metadata, derived graphs, 4809 model-pitch observations, note exports, regression logs and scripts.",
+    "excluded": [
+      "Downloaded source audio",
+      "Waveform/CTC/acoustic-feature arrays",
+      "Model weights/encoder reuse",
+      "Full-song source lyrics or ASR transcripts",
+      "ASR context/transcript content in stage traces",
+      "Signed URLs/secrets",
+      "Library-transfer helpers",
+      "Raw full-pipeline dump"
+    ],
+    "referenceLimitations": "No own listening; externally published manual-corrected labels have unspecified absolute accuracy. See LIMITATIONS.md and attribution."
+  },
+  "files": [
+    {
+      "path": "ATTRIBUTION.md",
+      "bytes": 3328,
+      "sha256": "e3c22add90fb6aa5e6d34a0f7e32c78a702c81fdb3930ba1030c6ba8884b07ee",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "LIMITATIONS.md",
+      "bytes": 6664,
+      "sha256": "ed97932deea91da3c7e33a1a62a9639ccb41bd60b9e7b18701358c82fe29d0af",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "README.md",
+      "bytes": 6762,
+      "sha256": "d2b4b81ecba624c747b4ac7ffafe03c4e58a3b45a033c0f7fbf0369b6dcf8257",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "REPRODUCING.md",
+      "bytes": 7673,
+      "sha256": "3c3dbb22f93ffd40f95d67a88c3b42ae9d330cec9ee023ce0e05ac6864a9983c",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/README.txt",
+      "bytes": 7563,
+      "sha256": "621ba964c3d9459bc8f0c04be54f455a0dea3bf3a2b4b51109c0996213d84a01",
+      "originalRelativePath": "audio-reference/README.txt",
+      "originalSha256": "621ba964c3d9459bc8f0c04be54f455a0dea3bf3a2b4b51109c0996213d84a01",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/additional-download-manifest.json",
+      "bytes": 2964,
+      "sha256": "2cf3b3901d8f50172bbb763d5a657534efc28ae3b5ffc0704eab1da43be3db92",
+      "originalRelativePath": "audio-reference/additional-download-manifest.json",
+      "originalSha256": "2cf3b3901d8f50172bbb763d5a657534efc28ae3b5ffc0704eab1da43be3db92",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/additional-reference-quality-audit.json",
+      "bytes": 1618,
+      "sha256": "92fb3a4de9ff7b5240d06b5b42f61f74a507520503c3e63d8959c92fa34443fa",
+      "originalRelativePath": "audio-reference/additional-reference-quality-audit.json",
+      "originalSha256": "92fb3a4de9ff7b5240d06b5b42f61f74a507520503c3e63d8959c92fa34443fa",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/additional-selected-candidates.json",
+      "bytes": 3576,
+      "sha256": "b6758daf7e9400ff48d6301ec4ca60f260f4e231b89431e8b041fad257391014",
+      "originalRelativePath": "audio-reference/additional-selected-candidates.json",
+      "originalSha256": "b6758daf7e9400ff48d6301ec4ca60f260f4e231b89431e8b041fad257391014",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/additional-selection-rule.json",
+      "bytes": 663,
+      "sha256": "5cbc975e0253e78b6bd1e8db0c71162066825c8419db4ad9ed43f36734d97214",
+      "originalRelativePath": "audio-reference/additional-selection-rule.json",
+      "originalSha256": "5cbc975e0253e78b6bd1e8db0c71162066825c8419db4ad9ed43f36734d97214",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/audit_gt_tails.py",
+      "bytes": 3943,
+      "sha256": "9898887093810edc099b02a2e246cd2349c9a3c9e95f1be994a939241b989316",
+      "originalRelativePath": "audio-reference/audit_gt_tails.py",
+      "originalSha256": "9898887093810edc099b02a2e246cd2349c9a3c9e95f1be994a939241b989316",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/breathy-anya-audit.png",
+      "bytes": 413381,
+      "sha256": "7a93b9fc5759dc1665ebc5b361660a47e5caa5b28600cd99d82d6eab3dcde20e",
+      "originalRelativePath": "audio-reference/breathy-anya-audit.png",
+      "originalSha256": "7a93b9fc5759dc1665ebc5b361660a47e5caa5b28600cd99d82d6eab3dcde20e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/compare_sadsvit_source.py",
+      "bytes": 2547,
+      "sha256": "e9aec349832aa208eecbc3c311ec2c188257b0482945279c45389b1c7e8fd6e6",
+      "originalRelativePath": "audio-reference/compare_sadsvit_source.py",
+      "originalSha256": "e9aec349832aa208eecbc3c311ec2c188257b0482945279c45389b1c7e8fd6e6",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/compare_wildways_source.py",
+      "bytes": 2460,
+      "sha256": "f953c648ecc114d5c80b0c7292a10974cd3185035f0359fa1045bb59e7771863",
+      "originalRelativePath": "audio-reference/compare_wildways_source.py",
+      "originalSha256": "f953c648ecc114d5c80b0c7292a10974cd3185035f0359fa1045bb59e7771863",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/control-anna-audit.png",
+      "bytes": 400876,
+      "sha256": "fff5bfaf56063d4915fccf085fd55f8738732869032ff099fcb32650dba66cd7",
+      "originalRelativePath": "audio-reference/control-anna-audit.png",
+      "originalSha256": "fff5bfaf56063d4915fccf085fd55f8738732869032ff099fcb32650dba66cd7",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/control-ledi-audit.png",
+      "bytes": 293992,
+      "sha256": "6420b8719f7cfadb781b594ebf51f99a11a5f6b236d9d9350cbc67edf54c9133",
+      "originalRelativePath": "audio-reference/control-ledi-audit.png",
+      "originalSha256": "6420b8719f7cfadb781b594ebf51f99a11a5f6b236d9d9350cbc67edf54c9133",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/fetch_gtsinger_reference.py",
+      "bytes": 1157,
+      "sha256": "dbeb0cbeb9872a8fa8656f6060483fa9debe5ebd07f3634da882d12a8141479c",
+      "originalRelativePath": "audio-reference/fetch_gtsinger_reference.py",
+      "originalSha256": "dbeb0cbeb9872a8fa8656f6060483fa9debe5ebd07f3634da882d12a8141479c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/final-release-guard-audit.json",
+      "bytes": 2196,
+      "sha256": "9e42fe45dc92819837619ef09119c995f4c5834126228f31e827cfc6d35c1584",
+      "originalRelativePath": "audio-reference/final-release-guard-audit.json",
+      "originalSha256": "9e42fe45dc92819837619ef09119c995f4c5834126228f31e827cfc6d35c1584",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/freeze_additional_reference.py",
+      "bytes": 4784,
+      "sha256": "20302e0ce3e5c8a17d6e43425deb896d9f9d33d72bd2a63d3490cdc90e279764",
+      "originalRelativePath": "audio-reference/freeze_additional_reference.py",
+      "originalSha256": "20302e0ce3e5c8a17d6e43425deb896d9f9d33d72bd2a63d3490cdc90e279764",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/freeze_reference.py",
+      "bytes": 4701,
+      "sha256": "107ba20f648819cf6c58a60f66c34f9285c9525ac841f113a57ca23d66027dc8",
+      "originalRelativePath": "audio-reference/freeze_reference.py",
+      "originalSha256": "107ba20f648819cf6c58a60f66c34f9285c9525ac841f113a57ca23d66027dc8",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/frozen-additional-reference.json",
+      "bytes": 17220,
+      "sha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+      "originalRelativePath": "audio-reference/frozen-additional-reference.json",
+      "originalSha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/frozen-additional-reference.sha256",
+      "bytes": 99,
+      "sha256": "eeecd2b5ec9fc0ea6b3348e52a8d865ec8b7531477eaa0d342122205ad79b9e2",
+      "originalRelativePath": "audio-reference/frozen-additional-reference.sha256",
+      "originalSha256": "eeecd2b5ec9fc0ea6b3348e52a8d865ec8b7531477eaa0d342122205ad79b9e2",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/frozen-reference.json",
+      "bytes": 34721,
+      "sha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+      "originalRelativePath": "audio-reference/frozen-reference.json",
+      "originalSha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/frozen-reference.sha256",
+      "bytes": 88,
+      "sha256": "54bddb6e3fcd6b54a3131f209ec6f0f5490129e3246cfc28774419d0f11b8d22",
+      "originalRelativePath": "audio-reference/frozen-reference.sha256",
+      "originalSha256": "54bddb6e3fcd6b54a3131f209ec6f0f5490129e3246cfc28774419d0f11b8d22",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger-fetch-manifest.json",
+      "bytes": 5414,
+      "sha256": "ade5f2540414bb96475a6e8cd402f337122a9fb0f5d30ac502fc0017ce391eef",
+      "originalRelativePath": "audio-reference/gtsinger-fetch-manifest.json",
+      "originalSha256": "ade5f2540414bb96475a6e8cd402f337122a9fb0f5d30ac502fc0017ce391eef",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.TextGrid",
+      "bytes": 20494,
+      "sha256": "eb74ce3e5f1b479d42fb2a2f5a18f0ff557da951b78454fed038e58b961a101a",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.TextGrid",
+      "originalSha256": "eb74ce3e5f1b479d42fb2a2f5a18f0ff557da951b78454fed038e58b961a101a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.json",
+      "bytes": 14918,
+      "sha256": "80a5820256527af075f2ca25c4881039bfb3e44177ac554f5e4e118bde87a8b7",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0000.json",
+      "originalSha256": "80a5820256527af075f2ca25c4881039bfb3e44177ac554f5e4e118bde87a8b7",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.TextGrid",
+      "bytes": 19352,
+      "sha256": "70b51200552f2038ae2654d31547978d7c7583b3dd3316302ab33b901e21a039",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.TextGrid",
+      "originalSha256": "70b51200552f2038ae2654d31547978d7c7583b3dd3316302ab33b901e21a039",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.json",
+      "bytes": 13805,
+      "sha256": "aaa81385285d6d521f2265774cc88c2e19d70c565a22718cc209e6b012f1c712",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Breathy_Group/0001.json",
+      "originalSha256": "aaa81385285d6d521f2265774cc88c2e19d70c565a22718cc209e6b012f1c712",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0000.TextGrid",
+      "bytes": 20508,
+      "sha256": "8352651aa51f51b32a9c03a29cf4c23be5391e9a5008fee8b5bb0bd2401be952",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0000.TextGrid",
+      "originalSha256": "8352651aa51f51b32a9c03a29cf4c23be5391e9a5008fee8b5bb0bd2401be952",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0000.json",
+      "bytes": 14914,
+      "sha256": "26fbeaa37b8d307091175b3f0f775107d9945be638f3567a0c798f9f3a84c135",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0000.json",
+      "originalSha256": "26fbeaa37b8d307091175b3f0f775107d9945be638f3567a0c798f9f3a84c135",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0001.TextGrid",
+      "bytes": 18305,
+      "sha256": "ce236bd614037ea6339f128d3da1667bc59e1598b8623c11fd515878ed5e33ca",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0001.TextGrid",
+      "originalSha256": "ce236bd614037ea6339f128d3da1667bc59e1598b8623c11fd515878ed5e33ca",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0001.json",
+      "bytes": 12081,
+      "sha256": "6edc11b397ef001356236688ba904bd68d3896efb8bda042c8faf14841451567",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0001.json",
+      "originalSha256": "6edc11b397ef001356236688ba904bd68d3896efb8bda042c8faf14841451567",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0003.TextGrid",
+      "bytes": 16747,
+      "sha256": "06fac6ddcb54e7cddb6739e71af4f11f802ba1d94ddee993b4b9ef9111eed37e",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0003.TextGrid",
+      "originalSha256": "06fac6ddcb54e7cddb6739e71af4f11f802ba1d94ddee993b4b9ef9111eed37e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0003.json",
+      "bytes": 10354,
+      "sha256": "8167a802ab62111afaea1d9a4ea4ba3a9dd1546975206bc2986b2aed95b6ad1a",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0003.json",
+      "originalSha256": "8167a802ab62111afaea1d9a4ea4ba3a9dd1546975206bc2986b2aed95b6ad1a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0004.TextGrid",
+      "bytes": 22715,
+      "sha256": "c38e77abee72d87768a5a9b40092129647636cfcb2f74588eb516b472a747943",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0004.TextGrid",
+      "originalSha256": "c38e77abee72d87768a5a9b40092129647636cfcb2f74588eb516b472a747943",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/gtsinger/Аня Облонская/Control_Group/0004.json",
+      "bytes": 14077,
+      "sha256": "095a0723a05b19166f893731485f9c56b6bc8e265cf6635fb6c919e7512da3de",
+      "originalRelativePath": "audio-reference/gtsinger/Аня Облонская/Control_Group/0004.json",
+      "originalSha256": "095a0723a05b19166f893731485f9c56b6bc8e265cf6635fb6c919e7512da3de",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/independent-tail-audit.json",
+      "bytes": 2830,
+      "sha256": "6c268d6d518b5c503eaf593b49eb562cc3d4454dfe9d70524c5609f654d6cf15",
+      "originalRelativePath": "audio-reference/independent-tail-audit.json",
+      "originalSha256": "6c268d6d518b5c503eaf593b49eb562cc3d4454dfe9d70524c5609f654d6cf15",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/leading-onset-audit.png",
+      "bytes": 334273,
+      "sha256": "7440a7eb53928faa80434d7ed820ba8bb5f830c3507a9e84b9557bcd73b90a87",
+      "originalRelativePath": "audio-reference/leading-onset-audit.png",
+      "originalSha256": "7440a7eb53928faa80434d7ed820ba8bb5f830c3507a9e84b9557bcd73b90a87",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/leading-onset-diagnosis.json",
+      "bytes": 4451,
+      "sha256": "8f49a7151af4adcae765ded33ff1b7cedaaa56e322e3456799423305256dd21d",
+      "originalRelativePath": "audio-reference/leading-onset-diagnosis.json",
+      "originalSha256": "8f49a7151af4adcae765ded33ff1b7cedaaa56e322e3456799423305256dd21d",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/leading-onset-production-comparison.json",
+      "bytes": 5783,
+      "sha256": "5696833145ba7726e6405708db19aa642f195e46efa07f3a37a20bfdfe0d6416",
+      "originalRelativePath": "audio-reference/leading-onset-production-comparison.json",
+      "originalSha256": "5696833145ba7726e6405708db19aa642f195e46efa07f3a37a20bfdfe0d6416",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/license.txt",
+      "bytes": 1463,
+      "sha256": "3f230608aebb15ce29762809690142e6284940924e9e34b938c5afb7ea4806f0",
+      "originalRelativePath": "audio-reference/license.txt",
+      "originalSha256": "3f230608aebb15ce29762809690142e6284940924e9e34b938c5afb7ea4806f0",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/outro-signal.png",
+      "bytes": 1469067,
+      "sha256": "14909d1e9f04b0ff7f2c2ce8ed05be423d6c41f855bc1b81c946e41313cb0670",
+      "originalRelativePath": "audio-reference/outro-signal.png",
+      "originalSha256": "14909d1e9f04b0ff7f2c2ce8ed05be423d6c41f855bc1b81c946e41313cb0670",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/phrase-129-signal.png",
+      "bytes": 1544253,
+      "sha256": "b96a6a0ff5bdefc1df398d51f9e9d83b7bbfb9f15ae56e95c5a41e67441cd515",
+      "originalRelativePath": "audio-reference/phrase-129-signal.png",
+      "originalSha256": "b96a6a0ff5bdefc1df398d51f9e9d83b7bbfb9f15ae56e95c5a41e67441cd515",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/phrase-93-signal.png",
+      "bytes": 1511811,
+      "sha256": "f1b1c507320975f437786859f28e95d36605099af2fe25b2297d42e188728d5c",
+      "originalRelativePath": "audio-reference/phrase-93-signal.png",
+      "originalSha256": "f1b1c507320975f437786859f28e95d36605099af2fe25b2297d42e188728d5c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/plot_leading_onset.py",
+      "bytes": 1369,
+      "sha256": "5fae58fb009f5d101bfadbb42e9628c7047846c7f3b47a33e506bd5fdcd707db",
+      "originalRelativePath": "audio-reference/plot_leading_onset.py",
+      "originalSha256": "5fae58fb009f5d101bfadbb42e9628c7047846c7f3b47a33e506bd5fdcd707db",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/plot_sadsvit_tails.py",
+      "bytes": 1915,
+      "sha256": "52829d926b3938cf29674f406e43b4dea223c9d4836883aff3c44bf641661e9f",
+      "originalRelativePath": "audio-reference/plot_sadsvit_tails.py",
+      "originalSha256": "52829d926b3938cf29674f406e43b4dea223c9d4836883aff3c44bf641661e9f",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/reference-quality-audit.json",
+      "bytes": 1678,
+      "sha256": "e17f81f6e2a4b734d6565c76c381e7b49f0bda9d5d239a49cb1e0d68b9b7b15a",
+      "originalRelativePath": "audio-reference/reference-quality-audit.json",
+      "originalSha256": "e17f81f6e2a4b734d6565c76c381e7b49f0bda9d5d239a49cb1e0d68b9b7b15a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/review_quiet_glide.json",
+      "bytes": 1617,
+      "sha256": "5a7b778a98bebc0011ea41b221fe7578d7f89d53d4ba92c567ebbe1679414cd1",
+      "originalRelativePath": "audio-reference/review_quiet_glide.json",
+      "originalSha256": "5a7b778a98bebc0011ea41b221fe7578d7f89d53d4ba92c567ebbe1679414cd1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/review_quiet_glide.py",
+      "bytes": 3145,
+      "sha256": "0631f52b6d945e6ec610b15d6502f2abdf3b10028e0220871027033f282c2565",
+      "originalRelativePath": "audio-reference/review_quiet_glide.py",
+      "originalSha256": "0631f52b6d945e6ec610b15d6502f2abdf3b10028e0220871027033f282c2565",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/sadsvit-source-comparison.json",
+      "bytes": 1321,
+      "sha256": "a60d7b3e1856ecb050c04c8e4521c03811172b4955d98a4c8027a968ce784af4",
+      "originalRelativePath": "audio-reference/sadsvit-source-comparison.json",
+      "originalSha256": "a60d7b3e1856ecb050c04c8e4521c03811172b4955d98a4c8027a968ce784af4",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/select_additional.py",
+      "bytes": 3048,
+      "sha256": "97345607ae15ce2973064e64b953951ce588411d5c4d9e329ba7efd3ab6cc21b",
+      "originalRelativePath": "audio-reference/select_additional.py",
+      "originalSha256": "97345607ae15ce2973064e64b953951ce588411d5c4d9e329ba7efd3ab6cc21b",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/upstream-revision.json",
+      "bytes": 200,
+      "sha256": "f78f9d2c3378ad2f7c7b1435f8811001642f7d9d5aedf4fce01246d9fdfe5f81",
+      "originalRelativePath": "audio-reference/upstream-revision.json",
+      "originalSha256": "f78f9d2c3378ad2f7c7b1435f8811001642f7d9d5aedf4fce01246d9fdfe5f81",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/web-sources.json",
+      "bytes": 1056,
+      "sha256": "f092e7d2f15909fd4871c57805551c76854b56a3734c1cb2aa8581b6a8d08f76",
+      "originalRelativePath": "audio-reference/web-sources.json",
+      "originalSha256": "f092e7d2f15909fd4871c57805551c76854b56a3734c1cb2aa8581b6a8d08f76",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "audio-reference/wildways-source-comparison.json",
+      "bytes": 1640,
+      "sha256": "9c792d69f29d2a0adf5050d18cac055c9c41efaf73c389c5f4e333af63c9a475",
+      "originalRelativePath": "audio-reference/wildways-source-comparison.json",
+      "originalSha256": "9c792d69f29d2a0adf5050d18cac055c9c41efaf73c389c5f4e333af63c9a475",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "compare_words.py",
+      "bytes": 4980,
+      "sha256": "c4eb164f139b2e9370c7b3897b5cd98cd541f2900f61c3af0320ce8bb9ef7986",
+      "originalRelativePath": "compare_words.py",
+      "originalSha256": "c4eb164f139b2e9370c7b3897b5cd98cd541f2900f61c3af0320ce8bb9ef7986",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "core-green.log",
+      "bytes": 889,
+      "sha256": "d3320e590d0d189fe8666e99f4a31705594331824876fa54df1845718d24d7a0",
+      "originalRelativePath": "core-green.log",
+      "originalSha256": "d3320e590d0d189fe8666e99f4a31705594331824876fa54df1845718d24d7a0",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/README.txt",
+      "bytes": 4330,
+      "sha256": "08d7216f7153a9b072894be741c745ccb12d05741e593e54ee826e0d007531f1",
+      "originalRelativePath": "gtsinger-baseline/README.txt",
+      "originalSha256": "08d7216f7153a9b072894be741c745ccb12d05741e593e54ee826e0d007531f1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/additional-inference-inputs.json",
+      "bytes": 995,
+      "sha256": "2bcef08ee97346657965bfb181a801a0b7308f9c86d581317cf7d86bd733d043",
+      "originalRelativePath": "gtsinger-baseline/additional-inference-inputs.json",
+      "originalSha256": "2bcef08ee97346657965bfb181a801a0b7308f9c86d581317cf7d86bd733d043",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0000/metadata.json",
+      "bytes": 30827,
+      "sha256": "1e85e5b2d9bff034a733231cd65214ca5f608bfe338331f3de22ee7a3cdee59d",
+      "originalRelativePath": "gtsinger-baseline/breathy_0000/metadata.json",
+      "originalSha256": "1e85e5b2d9bff034a733231cd65214ca5f608bfe338331f3de22ee7a3cdee59d",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0000/payload.json",
+      "bytes": 1592,
+      "sha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+      "originalRelativePath": "gtsinger-baseline/breathy_0000/payload.json",
+      "originalSha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0000/stages.json",
+      "bytes": 46471,
+      "sha256": "e049b40db16ccb6685683b9d920a84e579e16eba89ab11d7202e43c65015eb65",
+      "originalRelativePath": "gtsinger-baseline/breathy_0000/stages.json",
+      "originalSha256": "290d1e43492cbda7578eecab04e9a4e7d82c6c0b7aaac8e6631390b9b3d9384c",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0001/metadata.json",
+      "bytes": 30822,
+      "sha256": "91d0e7a512ae0120ca15b1355b2ca0fe7d79697a797e0ef575331c3d5d1e66f6",
+      "originalRelativePath": "gtsinger-baseline/breathy_0001/metadata.json",
+      "originalSha256": "91d0e7a512ae0120ca15b1355b2ca0fe7d79697a797e0ef575331c3d5d1e66f6",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0001/payload.json",
+      "bytes": 1648,
+      "sha256": "d4332da75574cdbdcb2d5d72f88b88bd3372d46a076b57217b40846248a3aada",
+      "originalRelativePath": "gtsinger-baseline/breathy_0001/payload.json",
+      "originalSha256": "d4332da75574cdbdcb2d5d72f88b88bd3372d46a076b57217b40846248a3aada",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/breathy_0001/stages.json",
+      "bytes": 48121,
+      "sha256": "63977ea9b45e3a3f4f0f5f0c638e44a67bb63d84f80a144dea08c05d1bda5997",
+      "originalRelativePath": "gtsinger-baseline/breathy_0001/stages.json",
+      "originalSha256": "f9386b9257fd081f4c9b49179153ead2806b1ca8f92aab010b05a94a1bb4a642",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/control_0000/metadata.json",
+      "bytes": 30815,
+      "sha256": "f4501273bb9f14769619ed8322c1254b8a5180dd267514245433430ea0911653",
+      "originalRelativePath": "gtsinger-baseline/control_0000/metadata.json",
+      "originalSha256": "f4501273bb9f14769619ed8322c1254b8a5180dd267514245433430ea0911653",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0000/payload.json",
+      "bytes": 1659,
+      "sha256": "d4efd5071c7af2f7307591df5c3edb8fca985b2f886c56e8c27f31dd62c8b3a3",
+      "originalRelativePath": "gtsinger-baseline/control_0000/payload.json",
+      "originalSha256": "d4efd5071c7af2f7307591df5c3edb8fca985b2f886c56e8c27f31dd62c8b3a3",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0000/stages.json",
+      "bytes": 50448,
+      "sha256": "44d907d7497c9ac2cb754e77d4b8e8bd87382180ddad85a4337ecd7a12147e60",
+      "originalRelativePath": "gtsinger-baseline/control_0000/stages.json",
+      "originalSha256": "356971e37a1c68999bc3e92e32ace81a9d8e76ee2c1aaa068488af6b8f287ef3",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/control_0001/metadata.json",
+      "bytes": 30822,
+      "sha256": "35691560913eeed02f180010e4856e10e7c072675741c953403611339f3fcd6d",
+      "originalRelativePath": "gtsinger-baseline/control_0001/metadata.json",
+      "originalSha256": "35691560913eeed02f180010e4856e10e7c072675741c953403611339f3fcd6d",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0001/payload.json",
+      "bytes": 1666,
+      "sha256": "47950d76d8b384263435348fbd8085e3f9e81a251adb61b28f83a0ba73bedc13",
+      "originalRelativePath": "gtsinger-baseline/control_0001/payload.json",
+      "originalSha256": "47950d76d8b384263435348fbd8085e3f9e81a251adb61b28f83a0ba73bedc13",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0001/stages.json",
+      "bytes": 55010,
+      "sha256": "3e9311fddf69662598c9b713ab394230ffe0b0abf8623250ec7f6574510b1287",
+      "originalRelativePath": "gtsinger-baseline/control_0001/stages.json",
+      "originalSha256": "c38dfc6fe750764dd3ef173b815b9399b8599b13be2a3dce18f98f8177d3c956",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews",
+        "row[7].request",
+        "row[7].result"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/control_0003/metadata.json",
+      "bytes": 30801,
+      "sha256": "a38b26e1fc94fb016ecb7886db6d8152a12c273a24327c371e4547c54a4aeadf",
+      "originalRelativePath": "gtsinger-baseline/control_0003/metadata.json",
+      "originalSha256": "a38b26e1fc94fb016ecb7886db6d8152a12c273a24327c371e4547c54a4aeadf",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0003/payload.json",
+      "bytes": 1147,
+      "sha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e",
+      "originalRelativePath": "gtsinger-baseline/control_0003/payload.json",
+      "originalSha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0003/stages.json",
+      "bytes": 34130,
+      "sha256": "6407aa85d52a6f1946fb544ae46542871dbefe1b31befaa6b001f70d9ee37fd5",
+      "originalRelativePath": "gtsinger-baseline/control_0003/stages.json",
+      "originalSha256": "a745de1e0ed0e0c0097c5cb15dea771b6a6c996a2e7bab52e753a5a543dc40d8",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/control_0004/metadata.json",
+      "bytes": 30828,
+      "sha256": "9b6cae266bf5e74ce7bda27778c0e20c811007154c40085fb8203c1d1ba08c7b",
+      "originalRelativePath": "gtsinger-baseline/control_0004/metadata.json",
+      "originalSha256": "9b6cae266bf5e74ce7bda27778c0e20c811007154c40085fb8203c1d1ba08c7b",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0004/payload.json",
+      "bytes": 1868,
+      "sha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+      "originalRelativePath": "gtsinger-baseline/control_0004/payload.json",
+      "originalSha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/control_0004/stages.json",
+      "bytes": 60173,
+      "sha256": "ddcdfd68c714c6e31ec35bac5670ed82dda4b93fffd9b7f1ee095bed5f75ebf8",
+      "originalRelativePath": "gtsinger-baseline/control_0004/stages.json",
+      "originalSha256": "1bea81522eda421167d65c3e37583edd03e8e6abbdfce3415e9351070221c276",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[2].request",
+        "row[2].result",
+        "row[4].heard",
+        "row[4].independentViews",
+        "row[7].request",
+        "row[7].result"
+      ]
+    },
+    {
+      "path": "gtsinger-baseline/inference-inputs.json",
+      "bytes": 1860,
+      "sha256": "59806b5ca0c28edab811bba8736847cda865da931ea96d7e95cf6d2b24d139f8",
+      "originalRelativePath": "gtsinger-baseline/inference-inputs.json",
+      "originalSha256": "59806b5ca0c28edab811bba8736847cda865da931ea96d7e95cf6d2b24d139f8",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/replay-validation.json",
+      "bytes": 4381,
+      "sha256": "17898ab5385df39ee566cae59ddd72da8d243ad85df74555cd76658bbd7b5ae9",
+      "originalRelativePath": "gtsinger-baseline/replay-validation.json",
+      "originalSha256": "17898ab5385df39ee566cae59ddd72da8d243ad85df74555cd76658bbd7b5ae9",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/run_alignment.py",
+      "bytes": 11132,
+      "sha256": "6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f",
+      "originalRelativePath": "gtsinger-baseline/run_alignment.py",
+      "originalSha256": "6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/script-versions/68ce02b5aae1abbb309e78960294079cb97495d812c6635658038cdc6836204e.py",
+      "bytes": 10941,
+      "sha256": "68ce02b5aae1abbb309e78960294079cb97495d812c6635658038cdc6836204e",
+      "originalRelativePath": "gtsinger-baseline/script-versions/68ce02b5aae1abbb309e78960294079cb97495d812c6635658038cdc6836204e.py",
+      "originalSha256": "68ce02b5aae1abbb309e78960294079cb97495d812c6635658038cdc6836204e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-baseline/script-versions/6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f.py",
+      "bytes": 11132,
+      "sha256": "6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f",
+      "originalRelativePath": "gtsinger-baseline/script-versions/6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f.py",
+      "originalSha256": "6a6d6135799e4a843d5f7dde39d3a30a127c1a637cefcd154084f456056a962f",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/breathy_0000/metadata.json",
+      "bytes": 30818,
+      "sha256": "ac23da2593a6b44bee3a9ac754a1d77444ceb756fa5a6c0ff5d0e1f2d6c1dabe",
+      "originalRelativePath": "gtsinger-final/breathy_0000/metadata.json",
+      "originalSha256": "ac23da2593a6b44bee3a9ac754a1d77444ceb756fa5a6c0ff5d0e1f2d6c1dabe",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/breathy_0000/payload.json",
+      "bytes": 1592,
+      "sha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+      "originalRelativePath": "gtsinger-final/breathy_0000/payload.json",
+      "originalSha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/breathy_0000/stages.json",
+      "bytes": 45756,
+      "sha256": "2caefceca1e37dd3eae6043efe7e4308c41376c36a01ca3201616a11221ba981",
+      "originalRelativePath": "gtsinger-final/breathy_0000/stages.json",
+      "originalSha256": "e885069f55b0dff03244d827c6b846d49c6d4e2ef26e156a58265d84b774c2a5",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-final/breathy_0001/metadata.json",
+      "bytes": 30813,
+      "sha256": "527a59b8b1d27aba837c2f5891ac2a0bc964ed1fa45986b172b152832303eb1c",
+      "originalRelativePath": "gtsinger-final/breathy_0001/metadata.json",
+      "originalSha256": "527a59b8b1d27aba837c2f5891ac2a0bc964ed1fa45986b172b152832303eb1c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/breathy_0001/payload.json",
+      "bytes": 1610,
+      "sha256": "453c2d318b685c34458c6204a0e114fb96939b6f84275fc4e3206e69f9d9a9d7",
+      "originalRelativePath": "gtsinger-final/breathy_0001/payload.json",
+      "originalSha256": "453c2d318b685c34458c6204a0e114fb96939b6f84275fc4e3206e69f9d9a9d7",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/breathy_0001/stages.json",
+      "bytes": 47357,
+      "sha256": "bd3e51a099735ea6338638d4faccd9c248a4bb420439aff55e577a4dd3ed488d",
+      "originalRelativePath": "gtsinger-final/breathy_0001/stages.json",
+      "originalSha256": "3691f8d9b2be13016fd90fa7a2a36b68c34d5b8082780666d8564419101fa559",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-final/control_0000/metadata.json",
+      "bytes": 30806,
+      "sha256": "8061340281d421ef2741e20c3c6b765f8edc67ab22347bb0eae3d2284e49b7d4",
+      "originalRelativePath": "gtsinger-final/control_0000/metadata.json",
+      "originalSha256": "8061340281d421ef2741e20c3c6b765f8edc67ab22347bb0eae3d2284e49b7d4",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0000/payload.json",
+      "bytes": 1660,
+      "sha256": "568355acc3c2be600e4810bad49095b205f97600d6b578a1907fd966c7e2ced3",
+      "originalRelativePath": "gtsinger-final/control_0000/payload.json",
+      "originalSha256": "568355acc3c2be600e4810bad49095b205f97600d6b578a1907fd966c7e2ced3",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0000/stages.json",
+      "bytes": 49721,
+      "sha256": "02c297b9a4dc7b55bda0d6adae01c483636f5c6c896b446b629a2085d1e1c7b4",
+      "originalRelativePath": "gtsinger-final/control_0000/stages.json",
+      "originalSha256": "bd002f041e5c9244d1de81a1ec7ff359014fbcfa1587001587c180c388587156",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-final/control_0001/metadata.json",
+      "bytes": 30813,
+      "sha256": "3c981bfc97603f214f33b0d640995abe196f24086058a4552cbe91c7dab5674c",
+      "originalRelativePath": "gtsinger-final/control_0001/metadata.json",
+      "originalSha256": "3c981bfc97603f214f33b0d640995abe196f24086058a4552cbe91c7dab5674c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0001/payload.json",
+      "bytes": 1704,
+      "sha256": "09f957269d79798001164936d629255b5749e6932bb7184eb8d033cf8068bab5",
+      "originalRelativePath": "gtsinger-final/control_0001/payload.json",
+      "originalSha256": "09f957269d79798001164936d629255b5749e6932bb7184eb8d033cf8068bab5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0001/stages.json",
+      "bytes": 55066,
+      "sha256": "9fd9600327ed02d7fc75fe22c1f8b3ca5ca07b67584040b289920e29c492a465",
+      "originalRelativePath": "gtsinger-final/control_0001/stages.json",
+      "originalSha256": "b0c2c1a929c1868a7166a2de04ea0bc547b2ce4796e76f25eb0952cbc312b5fb",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews",
+        "row[4].request",
+        "row[4].result"
+      ]
+    },
+    {
+      "path": "gtsinger-final/control_0003/metadata.json",
+      "bytes": 30792,
+      "sha256": "27e889fff71f86951c320bfa8a61fcc8c2e0c724301a9446a8a9dfeed15a3a62",
+      "originalRelativePath": "gtsinger-final/control_0003/metadata.json",
+      "originalSha256": "27e889fff71f86951c320bfa8a61fcc8c2e0c724301a9446a8a9dfeed15a3a62",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0003/payload.json",
+      "bytes": 1308,
+      "sha256": "8ff7755320fab9ebcb2654d77219955aaee84d2756bc269fec0db9941d732c84",
+      "originalRelativePath": "gtsinger-final/control_0003/payload.json",
+      "originalSha256": "8ff7755320fab9ebcb2654d77219955aaee84d2756bc269fec0db9941d732c84",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0003/stages.json",
+      "bytes": 46288,
+      "sha256": "20560e7c134989948ea069466b95a31b55578f1f122ade694b087dec812da205",
+      "originalRelativePath": "gtsinger-final/control_0003/stages.json",
+      "originalSha256": "e5258089dcad9d9c46c6d8135254f4d7503d4eed52b869e187bd9fe93e7d9453",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews"
+      ]
+    },
+    {
+      "path": "gtsinger-final/control_0004/metadata.json",
+      "bytes": 30820,
+      "sha256": "50eeab98667ead55cdb5f77d6c171c05dd6ccb571906cec918da742e6f85bab1",
+      "originalRelativePath": "gtsinger-final/control_0004/metadata.json",
+      "originalSha256": "50eeab98667ead55cdb5f77d6c171c05dd6ccb571906cec918da742e6f85bab1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0004/payload.json",
+      "bytes": 1868,
+      "sha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+      "originalRelativePath": "gtsinger-final/control_0004/payload.json",
+      "originalSha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/control_0004/stages.json",
+      "bytes": 59460,
+      "sha256": "f43c4e465ef4324464a9b15674cbc65e9a5660f6bba8486ffcc9f6f1d06689f4",
+      "originalRelativePath": "gtsinger-final/control_0004/stages.json",
+      "originalSha256": "202c7ec7df27a0913e9618cd1c4be72a044e1ceec810324d6c2eeb957d6551d8",
+      "transformation": "ASR-content-redacted stage projection",
+      "removedFields": [
+        "row[1].heard",
+        "row[1].independentViews",
+        "row[4].request",
+        "row[4].result"
+      ]
+    },
+    {
+      "path": "gtsinger-final/executions.json",
+      "bytes": 740,
+      "sha256": "948ce319ec7bd284902ca7e609dd845f91ba755881e0b93f1ddc3099a9088d01",
+      "originalRelativePath": "gtsinger-final/executions.json",
+      "originalSha256": "948ce319ec7bd284902ca7e609dd845f91ba755881e0b93f1ddc3099a9088d01",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/freeze3-preservation-check.json",
+      "bytes": 520,
+      "sha256": "90fda6e02727dd302d248ed54785a7e8c9ae62f4342ba944a8175fa9e5e0ec7d",
+      "originalRelativePath": "gtsinger-final/freeze3-preservation-check.json",
+      "originalSha256": "90fda6e02727dd302d248ed54785a7e8c9ae62f4342ba944a8175fa9e5e0ec7d",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/freeze3-replay-provenance.json",
+      "bytes": 1164,
+      "sha256": "4b610253f051d4d7850007961cf989f1352b478a614efb8faf211fc83a8ef733",
+      "originalRelativePath": "gtsinger-final/freeze3-replay-provenance.json",
+      "originalSha256": "4b610253f051d4d7850007961cf989f1352b478a614efb8faf211fc83a8ef733",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/phone-comparison.json",
+      "bytes": 34951,
+      "sha256": "220ce4c995b3f85e24fd6a7c5f7a69deb4726846ffbb372e0f925e0c8f034aac",
+      "originalRelativePath": "gtsinger-final/phone-comparison.json",
+      "originalSha256": "220ce4c995b3f85e24fd6a7c5f7a69deb4726846ffbb372e0f925e0c8f034aac",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "gtsinger-final/word-comparison.json",
+      "bytes": 53734,
+      "sha256": "b1b82f554e613f6857f33b30655f49629012447c0052a25a63615cf5051edba3",
+      "originalRelativePath": "gtsinger-final/word-comparison.json",
+      "originalSha256": "b1b82f554e613f6857f33b30655f49629012447c0052a25a63615cf5051edba3",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "legacy-final/clean_replay.py",
+      "bytes": 5384,
+      "sha256": "908897900dd99441832cab18c3a1af239892c1064a3c465017d1aedf1aa5bd7a",
+      "originalRelativePath": "EXISTING_V2_VERIFICATION/odin/clean_replay.py",
+      "originalSha256": "908897900dd99441832cab18c3a1af239892c1064a3c465017d1aedf1aa5bd7a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "legacy-final/odin-paired.json",
+      "bytes": 43697,
+      "sha256": "437e5c8cba67197d18e1f2812913565ec03e44ba603c8d6ea06c0b01074bccad",
+      "originalRelativePath": "legacy-final/odin-paired.json",
+      "originalSha256": "26443364039f0b27aa64b2fc9b1f51aea8657bbb3a7376ba12f66cc46ef5d51b",
+      "transformation": "legacy numeric projection with explicit distribution redactions",
+      "removedFields": [
+        "contextRequests[*].prompt_text",
+        "inputs.hints[*].text"
+      ]
+    },
+    {
+      "path": "legacy-final/refreshed-source-verification.json",
+      "bytes": 1852,
+      "sha256": "dfb9f98c3ed8a70071895e36089c2d6099f6c88e3750297b064dc5df088698b0",
+      "originalRelativePath": "legacy-final/refreshed-source-verification.json",
+      "originalSha256": "dfb9f98c3ed8a70071895e36089c2d6099f6c88e3750297b064dc5df088698b0",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "legacy-final/replay_sadvit.py",
+      "bytes": 5008,
+      "sha256": "e9a7d8b341bf71418cdf74c45fd814c9792317634a091d8c4e22175a976795fb",
+      "originalRelativePath": "EXISTING_V2_VERIFICATION/real-audio/replay_sadvit.py",
+      "originalSha256": "e9a7d8b341bf71418cdf74c45fd814c9792317634a091d8c4e22175a976795fb",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "legacy-final/sadsvit.json",
+      "bytes": 11472,
+      "sha256": "39c9a3eb48f16c307557a5790210dfa36eddadab173d83e27f58d5fa2b18096e",
+      "originalRelativePath": "legacy-final/sadsvit.json",
+      "originalSha256": "91a75a4bad47165aa1d180eafa687021667da457f8358ea43f74a8b5d9e764ef",
+      "transformation": "legacy numeric projection with explicit distribution redactions",
+      "removedFields": [
+        "/priorSourceMetadata/vocal/path",
+        "/priorSourceMetadata/instrumental/path",
+        "/priorSourceMetadata/original/path"
+      ]
+    },
+    {
+      "path": "letters/LETTER_FINDINGS.json",
+      "bytes": 4304,
+      "sha256": "f15a32ca312ac6720e98bb13dadef652b807ea23b8245855bf6a9c62a35be72b",
+      "originalRelativePath": "letters/LETTER_FINDINGS.json",
+      "originalSha256": "f15a32ca312ac6720e98bb13dadef652b807ea23b8245855bf6a9c62a35be72b",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/before-letter-evidence.json",
+      "bytes": 3725,
+      "sha256": "575ed4737df8633492c7a3d1b01e0e305a2815c4c07ebfb564c34c4f40a783e1",
+      "originalRelativePath": "letters/before-letter-evidence.json",
+      "originalSha256": "575ed4737df8633492c7a3d1b01e0e305a2815c4c07ebfb564c34c4f40a783e1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/compare_external_phones.py",
+      "bytes": 2681,
+      "sha256": "a31a9128fc93dc27c2acc3a689e1af2a936272e3410363b57a9ffd8cd0546771",
+      "originalRelativePath": "letters/compare_external_phones.py",
+      "originalSha256": "a31a9128fc93dc27c2acc3a689e1af2a936272e3410363b57a9ffd8cd0546771",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/ctc-before-helper-extraction.py",
+      "bytes": 34885,
+      "sha256": "fd3d8b363fca1f40aa1e2ded390978109b4e42f1cc79bdd2f8e078333a66e7e4",
+      "originalRelativePath": "letters/ctc-before-helper-extraction.py",
+      "originalSha256": "fd3d8b363fca1f40aa1e2ded390978109b4e42f1cc79bdd2f8e078333a66e7e4",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/external-phones-v3.json",
+      "bytes": 35018,
+      "sha256": "a1025a415669490060f73c9a5aa69eb4e66774e919fbb7daddab45d5684f2f63",
+      "originalRelativePath": "letters/external-phones-v3.json",
+      "originalSha256": "a1025a415669490060f73c9a5aa69eb4e66774e919fbb7daddab45d5684f2f63",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/external-suffix-candidates.json",
+      "bytes": 1743,
+      "sha256": "b6ca12f46e4b3415b3d43aad45cc202a1dba29fa6ec47ff26c245c0f2c39aafa",
+      "originalRelativePath": "letters/external-suffix-candidates.json",
+      "originalSha256": "b6ca12f46e4b3415b3d43aad45cc202a1dba29fa6ec47ff26c245c0f2c39aafa",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/frozen-phone-mapping.json",
+      "bytes": 24450,
+      "sha256": "472b96b0b99d86f61f4c6e71c5113cff52f28750ae9020eceb085505c3217892",
+      "originalRelativePath": "letters/frozen-phone-mapping.json",
+      "originalSha256": "472b96b0b99d86f61f4c6e71c5113cff52f28750ae9020eceb085505c3217892",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/helper-architecture.json",
+      "bytes": 492,
+      "sha256": "1e19327cdce6b2726e49af53772a2c6958a4205df4fc476f71dd9f42740dce00",
+      "originalRelativePath": "letters/helper-architecture.json",
+      "originalSha256": "1e19327cdce6b2726e49af53772a2c6958a4205df4fc476f71dd9f42740dce00",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/helper-extraction-equality.json",
+      "bytes": 14362,
+      "sha256": "18aa6623aca8a675966c41a438ac2c9a3a44e0d131bd319d0ea54b66f46d2ffe",
+      "originalRelativePath": "letters/helper-extraction-equality.json",
+      "originalSha256": "18aa6623aca8a675966c41a438ac2c9a3a44e0d131bd319d0ea54b66f46d2ffe",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/helper-extraction-equality.log",
+      "bytes": 318,
+      "sha256": "140b5823557f73408f517b8f52ef8043adc958b1f3b50993d2395b4f8de111c5",
+      "originalRelativePath": "letters/helper-extraction-equality.log",
+      "originalSha256": "140b5823557f73408f517b8f52ef8043adc958b1f3b50993d2395b4f8de111c5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/helper-extraction-tests.log",
+      "bytes": 890,
+      "sha256": "284a3768316c6c5083a3282d59af60598496eb7648c5f6c041e7ea3b4bdbafd6",
+      "originalRelativePath": "letters/helper-extraction-tests.log",
+      "originalSha256": "284a3768316c6c5083a3282d59af60598496eb7648c5f6c041e7ea3b4bdbafd6",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/probe_letter_evidence.py",
+      "bytes": 3136,
+      "sha256": "af4f5e5ed388af953c84a837db0f1d3a98280fdc6792cce0dce60f42bfcfcb55",
+      "originalRelativePath": "letters/probe_letter_evidence.py",
+      "originalSha256": "af4f5e5ed388af953c84a837db0f1d3a98280fdc6792cce0dce60f42bfcfcb55",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/production-tests-final.log",
+      "bytes": 889,
+      "sha256": "615e04554d383749e27a2b26d8984c88779e478f7c8ce75906d165f8450e71fb",
+      "originalRelativePath": "letters/production-tests-final.log",
+      "originalSha256": "615e04554d383749e27a2b26d8984c88779e478f7c8ce75906d165f8450e71fb",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/red-tests.log",
+      "bytes": 7678,
+      "sha256": "7e021bd9c06d81daf486a9e790fb357d3547081f547c6daeea45df6259322e1a",
+      "originalRelativePath": "letters/red-tests.log",
+      "originalSha256": "7e021bd9c06d81daf486a9e790fb357d3547081f547c6daeea45df6259322e1a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "letters/verify_helper_extraction.py",
+      "bytes": 4824,
+      "sha256": "2aa2c59d4ea4896b1af50ae133fba64a6912bad1fbe72be7bd2d8522105f7e01",
+      "originalRelativePath": "letters/verify_helper_extraction.py",
+      "originalSha256": "2aa2c59d4ea4896b1af50ae133fba64a6912bad1fbe72be7bd2d8522105f7e01",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "model-downloads.json",
+      "bytes": 809,
+      "sha256": "4a0fb516d818b40b3d41b4ee3af228e632fa2eb89bacc18cecbeab315d737a4c",
+      "originalRelativePath": "model-downloads.json",
+      "originalSha256": "4a0fb516d818b40b3d41b4ee3af228e632fa2eb89bacc18cecbeab315d737a4c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "normalization-green.log",
+      "bytes": 889,
+      "sha256": "ce748f7b0d4180490437197002d77998b6e8799aad2c6d07be35c3c2697a7000",
+      "originalRelativePath": "normalization-green.log",
+      "originalSha256": "ce748f7b0d4180490437197002d77998b6e8799aad2c6d07be35c3c2697a7000",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "normalization-red.log",
+      "bytes": 4774,
+      "sha256": "b403dca26931f012ea03163a055ec8ece186dad102952e9fc32a9874af05f292",
+      "originalRelativePath": "normalization-red.log",
+      "originalSha256": "b403dca26931f012ea03163a055ec8ece186dad102952e9fc32a9874af05f292",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/cache_real_pitch.py",
+      "bytes": 1830,
+      "sha256": "d3b98220dd7bca66489b478eb072962526c24a5c0787023756d47ef147e9cccd",
+      "originalRelativePath": "notes/cache_real_pitch.py",
+      "originalSha256": "d3b98220dd7bca66489b478eb072962526c24a5c0787023756d47ef147e9cccd",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/compare_real_notes.py",
+      "bytes": 4960,
+      "sha256": "5efdf9aec54a302077c029ccf17d4011682c661c57b1191eca4eb19418df8982",
+      "originalRelativePath": "notes/compare_real_notes.py",
+      "originalSha256": "5efdf9aec54a302077c029ccf17d4011682c661c57b1191eca4eb19418df8982",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/README.md",
+      "bytes": 5458,
+      "sha256": "741bbeffbc019f70578d2d3ab8a9b5c01655b7e5b9b325be76286b404e6bac3c",
+      "originalRelativePath": "notes/final/README.md",
+      "originalSha256": "741bbeffbc019f70578d2d3ab8a9b5c01655b7e5b9b325be76286b404e6bac3c",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/breathy_0000/v3/lyricsSync.json",
+      "bytes": 29372,
+      "sha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+      "originalRelativePath": "notes/final/breathy_0000/v3/lyricsSync.json",
+      "originalSha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/breathy_0000/v4/lyricsSync.json",
+      "bytes": 29372,
+      "sha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+      "originalRelativePath": "notes/final/breathy_0000/v4/lyricsSync.json",
+      "originalSha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/breathy_0001/v3/lyricsSync.json",
+      "bytes": 21574,
+      "sha256": "d40170db46e52f1173bdeb47b78360c4fb9dac149406e0711c7ec8bbc21ab8cb",
+      "originalRelativePath": "notes/final/breathy_0001/v3/lyricsSync.json",
+      "originalSha256": "d40170db46e52f1173bdeb47b78360c4fb9dac149406e0711c7ec8bbc21ab8cb",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/breathy_0001/v4/lyricsSync.json",
+      "bytes": 21465,
+      "sha256": "9cbae59a60193466cdf20ceb6d4dbdb863654b606a6746a640c3b5ae667ce752",
+      "originalRelativePath": "notes/final/breathy_0001/v4/lyricsSync.json",
+      "originalSha256": "9cbae59a60193466cdf20ceb6d4dbdb863654b606a6746a640c3b5ae667ce752",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0000/v3/lyricsSync.json",
+      "bytes": 32434,
+      "sha256": "e017a4a489c1fafd2c9e00cc85683caa75bd974200093d0ea4d708b520273305",
+      "originalRelativePath": "notes/final/control_0000/v3/lyricsSync.json",
+      "originalSha256": "e017a4a489c1fafd2c9e00cc85683caa75bd974200093d0ea4d708b520273305",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0000/v4/lyricsSync.json",
+      "bytes": 32407,
+      "sha256": "e060db738db0c0988f3c562a787643dd9352bcd1b8192ddebddf930db5b020a1",
+      "originalRelativePath": "notes/final/control_0000/v4/lyricsSync.json",
+      "originalSha256": "e060db738db0c0988f3c562a787643dd9352bcd1b8192ddebddf930db5b020a1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0001/v3/lyricsSync.json",
+      "bytes": 23622,
+      "sha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+      "originalRelativePath": "notes/final/control_0001/v3/lyricsSync.json",
+      "originalSha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0001/v4/lyricsSync.json",
+      "bytes": 23622,
+      "sha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+      "originalRelativePath": "notes/final/control_0001/v4/lyricsSync.json",
+      "originalSha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0003/v3/lyricsSync.json",
+      "bytes": 22866,
+      "sha256": "6dbff496c1ac0b0841691fda960999f0c0e143187092698790dc75146705a206",
+      "originalRelativePath": "notes/final/control_0003/v3/lyricsSync.json",
+      "originalSha256": "6dbff496c1ac0b0841691fda960999f0c0e143187092698790dc75146705a206",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0003/v4/lyricsSync.json",
+      "bytes": 22865,
+      "sha256": "bbd894465a5915d127174ba0c174757d6694485722d5eb7594afc0edeff542e1",
+      "originalRelativePath": "notes/final/control_0003/v4/lyricsSync.json",
+      "originalSha256": "bbd894465a5915d127174ba0c174757d6694485722d5eb7594afc0edeff542e1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0004/v3/lyricsSync.json",
+      "bytes": 26056,
+      "sha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+      "originalRelativePath": "notes/final/control_0004/v3/lyricsSync.json",
+      "originalSha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/control_0004/v4/lyricsSync.json",
+      "bytes": 26056,
+      "sha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+      "originalRelativePath": "notes/final/control_0004/v4/lyricsSync.json",
+      "originalSha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/note-audit.json",
+      "bytes": 5101,
+      "sha256": "41a6759f4d2a13f72f1811d54d05129a6736e839611b8196cf4d82c5e41a66be",
+      "originalRelativePath": "notes/final/note-audit.json",
+      "originalSha256": "41a6759f4d2a13f72f1811d54d05129a6736e839611b8196cf4d82c5e41a66be",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/note-comparison.json",
+      "bytes": 10732,
+      "sha256": "444e225473f178767ab20115fc1953d27f94d42ef682651aa96a326d584957f0",
+      "originalRelativePath": "notes/final/note-comparison.json",
+      "originalSha256": "444e225473f178767ab20115fc1953d27f94d42ef682651aa96a326d584957f0",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/final/note-evidence.sha256",
+      "bytes": 1421,
+      "sha256": "dea4ecf06f58fa1f90dccfddacb9156ab13c743d436a4677ef9648932de2bba1",
+      "originalRelativePath": "notes/final/note-evidence.sha256",
+      "originalSha256": "dea4ecf06f58fa1f90dccfddacb9156ab13c743d436a4677ef9648932de2bba1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/pitch-process-pause.json",
+      "bytes": 522,
+      "sha256": "f5ba9c825588474312e4bed99d9a346ee13ff94365ca0f1c49431377ac7da23e",
+      "originalRelativePath": "notes/pitch-process-pause.json",
+      "originalSha256": "f5ba9c825588474312e4bed99d9a346ee13ff94365ca0f1c49431377ac7da23e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/pitch-process-resume.json",
+      "bytes": 566,
+      "sha256": "8c0d32b04a84e99f866209ee66f99da8cb6537e7c69955705ad4c3e1fb4d834b",
+      "originalRelativePath": "notes/pitch-process-resume.json",
+      "originalSha256": "8c0d32b04a84e99f866209ee66f99da8cb6537e7c69955705ad4c3e1fb4d834b",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/breathy_0000.json",
+      "bytes": 72466,
+      "sha256": "91190927d981fda7ee9b9c5331abb7f5f330966ca7556bbe0f618c3affbffabc",
+      "originalRelativePath": "notes/real-pitch/breathy_0000.json",
+      "originalSha256": "91190927d981fda7ee9b9c5331abb7f5f330966ca7556bbe0f618c3affbffabc",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/breathy_0001.json",
+      "bytes": 56378,
+      "sha256": "5ec16d64fbaf05a5108c1234f7911aaf7ae97b903be415b0543f860662975b83",
+      "originalRelativePath": "notes/real-pitch/breathy_0001.json",
+      "originalSha256": "5ec16d64fbaf05a5108c1234f7911aaf7ae97b903be415b0543f860662975b83",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/control_0000.json",
+      "bytes": 71706,
+      "sha256": "927159715cd029dc4569634db71e3146771ceca377939a258d593a9563130f28",
+      "originalRelativePath": "notes/real-pitch/control_0000.json",
+      "originalSha256": "927159715cd029dc4569634db71e3146771ceca377939a258d593a9563130f28",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/control_0001.json",
+      "bytes": 55099,
+      "sha256": "aaa9c7d572dad44b8d98e0b91bc5c68885a2e4805ff81ac62893688d7c060bac",
+      "originalRelativePath": "notes/real-pitch/control_0001.json",
+      "originalSha256": "aaa9c7d572dad44b8d98e0b91bc5c68885a2e4805ff81ac62893688d7c060bac",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/control_0003.json",
+      "bytes": 58649,
+      "sha256": "092faace17830ae19cf1d579ff0da810888c68aa21a55d0f85971ef377ca5b77",
+      "originalRelativePath": "notes/real-pitch/control_0003.json",
+      "originalSha256": "092faace17830ae19cf1d579ff0da810888c68aa21a55d0f85971ef377ca5b77",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/control_0004.json",
+      "bytes": 64377,
+      "sha256": "b09d561323a0cc10113b29c2e43ce50a930bc495ece0e6f9899115b4bb7f40ca",
+      "originalRelativePath": "notes/real-pitch/control_0004.json",
+      "originalSha256": "b09d561323a0cc10113b29c2e43ce50a930bc495ece0e6f9899115b4bb7f40ca",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "notes/real-pitch/metadata.json",
+      "bytes": 3650,
+      "sha256": "2a16984659b302dde978e941b4843f1bfda47ac97cfbdaba8cf42d13efeb7882",
+      "originalRelativePath": "notes/real-pitch/metadata.json",
+      "originalSha256": "2a16984659b302dde978e941b4843f1bfda47ac97cfbdaba8cf42d13efeb7882",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "plot_real_boundary_comparison.py",
+      "bytes": 10654,
+      "sha256": "0dd8155d1fd8c57a9e933ce3410ad46dabb3bfbcea6c035f508ce306fc600e00",
+      "originalRelativePath": "plot_real_boundary_comparison.py",
+      "originalSha256": "0dd8155d1fd8c57a9e933ce3410ad46dabb3bfbcea6c035f508ce306fc600e00",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "real-boundary-comparison.manifest.json",
+      "bytes": 6304,
+      "sha256": "a09e83d4b7c4b349c58486904fdc67653373c1f0cc6632e8f0a6569fffde35d6",
+      "originalRelativePath": "real-boundary-comparison.manifest.json",
+      "originalSha256": "a09e83d4b7c4b349c58486904fdc67653373c1f0cc6632e8f0a6569fffde35d6",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "real-boundary-comparison.png",
+      "bytes": 717129,
+      "sha256": "f15530a0d3797c58c4ba94188b581670242c5898950b7327d20e3acd5bc5e207",
+      "originalRelativePath": "real-boundary-comparison.png",
+      "originalSha256": "f15530a0d3797c58c4ba94188b581670242c5898950b7327d20e3acd5bc5e207",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "real-boundary-comparison.sha256",
+      "bytes": 299,
+      "sha256": "40323de8ab5c56c016a6ca088b7d50f8d4e972fafcffd445c997b7580eb4d388",
+      "originalRelativePath": "real-boundary-comparison.sha256",
+      "originalSha256": "40323de8ab5c56c016a6ca088b7d50f8d4e972fafcffd445c997b7580eb4d388",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "real-boundary-comparison.visual-review.json",
+      "bytes": 431,
+      "sha256": "a455abbed3c55fb079ec6a9c45af388099270f71d428a09f8d244466761842cf",
+      "originalRelativePath": "real-boundary-comparison.visual-review.json",
+      "originalSha256": "a455abbed3c55fb079ec6a9c45af388099270f71d428a09f8d244466761842cf",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "refresh_final_evidence.py",
+      "bytes": 3853,
+      "sha256": "b0966693f00e5f1378f027a7f251e53a3d53c439398e7320b7af64c2067b2ef9",
+      "originalRelativePath": "refresh_final_evidence.py",
+      "originalSha256": "b0966693f00e5f1378f027a7f251e53a3d53c439398e7320b7af64c2067b2ef9",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "reproduction/portability-check.json",
+      "bytes": 1125,
+      "sha256": "d67e05e680810808ccf3ef6c1ec059c98b31e4fcd6059e49cbb4deaed24f239c",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "reproduction/prepare_replay_workspace.py",
+      "bytes": 2807,
+      "sha256": "6cb04b00a96539e704c024c393302c91285deb75d1542e4e7d4b5efbe559c59b",
+      "originalRelativePath": null,
+      "originalSha256": null,
+      "transformation": "generated handoff documentation or offline relocation verification",
+      "removedFields": []
+    },
+    {
+      "path": "review-regressions-red.log",
+      "bytes": 4305,
+      "sha256": "0a1da7356dae6e3050655ec9477c25f3bffaf3184fb4eb391b25c2073f9adbd8",
+      "originalRelativePath": "review-regressions-red.log",
+      "originalSha256": "0a1da7356dae6e3050655ec9477c25f3bffaf3184fb4eb391b25c2073f9adbd8",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/fast-glissando-green.log",
+      "bytes": 889,
+      "sha256": "b0c67c7008eab9d789bf2fca4fc9dfc67a162ece43e2345ff6e974593b4e6ae1",
+      "originalRelativePath": "review/fast-glissando-green.log",
+      "originalSha256": "b0c67c7008eab9d789bf2fca4fc9dfc67a162ece43e2345ff6e974593b4e6ae1",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/fast-glissando-red.log",
+      "bytes": 3131,
+      "sha256": "1556741ce208d346e49b6c04553a8b9202a53cd3f10c73a1586ec9364797de31",
+      "originalRelativePath": "review/fast-glissando-red.log",
+      "originalSha256": "1556741ce208d346e49b6c04553a8b9202a53cd3f10c73a1586ec9364797de31",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/final-guards-red.log",
+      "bytes": 5848,
+      "sha256": "36a5dd9a86d9c33be8ce1d07c79383b4da48034fc0dfdeffe789b7e8f5012725",
+      "originalRelativePath": "review/final-guards-red.log",
+      "originalSha256": "36a5dd9a86d9c33be8ce1d07c79383b4da48034fc0dfdeffe789b7e8f5012725",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/hop-tolerance-green.log",
+      "bytes": 889,
+      "sha256": "910e2ceed2607e19290329b9da2ab65cbf578c63c1134fe5aff290e97d260ade",
+      "originalRelativePath": "review/hop-tolerance-green.log",
+      "originalSha256": "910e2ceed2607e19290329b9da2ab65cbf578c63c1134fe5aff290e97d260ade",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/melisma-recheck.json",
+      "bytes": 617,
+      "sha256": "5757c150522ba610fbf9fd31bd25f3f4c21b27ac128691ec166e702b005e1521",
+      "originalRelativePath": "review/melisma-recheck.json",
+      "originalSha256": "5757c150522ba610fbf9fd31bd25f3f4c21b27ac128691ec166e702b005e1521",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-green.json",
+      "bytes": 1297,
+      "sha256": "9ad24e6b845522baef3eb091618bd67ef963ab8790593b8c8122b7ab68a2023e",
+      "originalRelativePath": "review/onset-anchor-green.json",
+      "originalSha256": "9ad24e6b845522baef3eb091618bd67ef963ab8790593b8c8122b7ab68a2023e",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-independent-probe.json",
+      "bytes": 592,
+      "sha256": "c344c3723303b600d738a4f2a0890644eaeb022a3e15669c2d290c99c384da74",
+      "originalRelativePath": "review/onset-anchor-independent-probe.json",
+      "originalSha256": "c344c3723303b600d738a4f2a0890644eaeb022a3e15669c2d290c99c384da74",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-independent-probe.log",
+      "bytes": 593,
+      "sha256": "4ebee15ee6438c81e114b128b8d12a9d0d1965868a09a103394a20fbaedc6e14",
+      "originalRelativePath": "review/onset-anchor-independent-probe.log",
+      "originalSha256": "4ebee15ee6438c81e114b128b8d12a9d0d1965868a09a103394a20fbaedc6e14",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-independent-probe.py",
+      "bytes": 3059,
+      "sha256": "912af311e0e10b3df50041660f1e94ff59d2950b38483ff3b53d809513ff8d4f",
+      "originalRelativePath": "review/onset-anchor-independent-probe.py",
+      "originalSha256": "912af311e0e10b3df50041660f1e94ff59d2950b38483ff3b53d809513ff8d4f",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-real-comparison.json",
+      "bytes": 7397,
+      "sha256": "432ed31722443270bb5da027f7965175eec68d3e64fbd08271bd35c797dfab25",
+      "originalRelativePath": "review/onset-anchor-real-comparison.json",
+      "originalSha256": "432ed31722443270bb5da027f7965175eec68d3e64fbd08271bd35c797dfab25",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-real-comparison.txt",
+      "bytes": 1580,
+      "sha256": "5b0f8f86ab439e72932a2c2155ccdf795246d8e9a630ce737cd50f1c9348e498",
+      "originalRelativePath": "review/onset-anchor-real-comparison.txt",
+      "originalSha256": "5b0f8f86ab439e72932a2c2155ccdf795246d8e9a630ce737cd50f1c9348e498",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-red.json",
+      "bytes": 525,
+      "sha256": "d1a9d0e5bdd566fe72d24e494d2e10b8064b8acb6b58ab8865a731821daa9e82",
+      "originalRelativePath": "review/onset-anchor-red.json",
+      "originalSha256": "d1a9d0e5bdd566fe72d24e494d2e10b8064b8acb6b58ab8865a731821daa9e82",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/onset-anchor-red.log",
+      "bytes": 5416,
+      "sha256": "916bf53343b8b85ea057a65286ae7ec0f54f8dcb62cf5a76887b40c7b0c2a72a",
+      "originalRelativePath": "review/onset-anchor-red.log",
+      "originalSha256": "916bf53343b8b85ea057a65286ae7ec0f54f8dcb62cf5a76887b40c7b0c2a72a",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/probe_melisma.py",
+      "bytes": 1142,
+      "sha256": "33ac3aaedde0bf3cb6c49307e7afb568da36d2061af046c935c601587c438156",
+      "originalRelativePath": "review/probe_melisma.py",
+      "originalSha256": "33ac3aaedde0bf3cb6c49307e7afb568da36d2061af046c935c601587c438156",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/probe_quiet_melisma.py",
+      "bytes": 712,
+      "sha256": "a257e1ba6fac077aad3d8599e3581d3908b861df1d0d857216173dd086f4fd17",
+      "originalRelativePath": "review/probe_quiet_melisma.py",
+      "originalSha256": "a257e1ba6fac077aad3d8599e3581d3908b861df1d0d857216173dd086f4fd17",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/quiet-melisma-v3.json",
+      "bytes": 213,
+      "sha256": "f32aa844035b3a221cd6973973b05befc8b6df241697aaff33c0a1fcffa4b6b5",
+      "originalRelativePath": "review/quiet-melisma-v3.json",
+      "originalSha256": "f32aa844035b3a221cd6973973b05befc8b6df241697aaff33c0a1fcffa4b6b5",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/quiet-melisma-v4.json",
+      "bytes": 209,
+      "sha256": "fadaa727fdc9bc3aa03456f3fd0b86ffb4e64c32a94cd8cf9c0531975d8c8df8",
+      "originalRelativePath": "review/quiet-melisma-v4.json",
+      "originalSha256": "fadaa727fdc9bc3aa03456f3fd0b86ffb4e64c32a94cd8cf9c0531975d8c8df8",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/recheck-review.json",
+      "bytes": 684,
+      "sha256": "507998eee7b691721a7a0209a827927f44b21eb02f13bc4fc56dba24d4424d94",
+      "originalRelativePath": "review/recheck-review.json",
+      "originalSha256": "507998eee7b691721a7a0209a827927f44b21eb02f13bc4fc56dba24d4424d94",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/recheck-source-hashes.json",
+      "bytes": 548,
+      "sha256": "f6983137f6382f2ac8b86b687af793fece2f9147a08ad31b47c823858841633f",
+      "originalRelativePath": "review/recheck-source-hashes.json",
+      "originalSha256": "f6983137f6382f2ac8b86b687af793fece2f9147a08ad31b47c823858841633f",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "review/recheck_review.py",
+      "bytes": 1644,
+      "sha256": "ef8c2225365310cf26b4127dd74208087d63a3f644466a4306fd8561f69bd717",
+      "originalRelativePath": "review/recheck_review.py",
+      "originalSha256": "ef8c2225365310cf26b4127dd74208087d63a3f644466a4306fd8561f69bd717",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "source-freeze-final.json",
+      "bytes": 2281,
+      "sha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+      "originalRelativePath": "source-freeze-final.json",
+      "originalSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "sung-release-red.log",
+      "bytes": 3545,
+      "sha256": "13bf82b0aa892dbc5e7fd777c17f414437f468dc2987bc87fe09b9a2bb5b3b02",
+      "originalRelativePath": "sung-release-red.log",
+      "originalSha256": "13bf82b0aa892dbc5e7fd777c17f414437f468dc2987bc87fe09b9a2bb5b3b02",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    },
+    {
+      "path": "weak-ctc-red.log",
+      "bytes": 3555,
+      "sha256": "0e478f9656599c1f03acf235516854176a93d0c920cb1ac228cd20b78f0364b0",
+      "originalRelativePath": "weak-ctc-red.log",
+      "originalSha256": "0e478f9656599c1f03acf235516854176a93d0c920cb1ac228cd20b78f0364b0",
+      "transformation": "verbatim copy",
+      "removedFields": []
+    }
+  ],
+  "fileCount": 186,
+  "totalBytes": 9177608,
+  "sourceFreeze": "freeze3 final; exact per-case execution hashes in metadata, final source list in source-freeze-final.json.",
+  "distributionScan": {
+    "forbiddenBinaryFiles": 0,
+    "signedAuthUrls": 0,
+    "asrStageTranscriptFields": 0,
+    "legacyContextTextFields": 0,
+    "legacyPrivateWindowsPaths": 0
+  },
+  "offlineReproduction": {
+    "wordMetricsRows": "exact",
+    "phoneMetricsRows": "exact",
+    "all12NoteExports": "byte-identical",
+    "finalSourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95"
+  },
+  "sourceFreezeSha256": "957fb67899b3f208e0dbc77cd72ca4d1ad982dc4a7d7cc8327c0d1f921665b95"
+}

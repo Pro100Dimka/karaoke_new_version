@@ -1,0 +1,291 @@
+{
+  "scope": "Production stabilize_pitch/construct_document/_word_with_notes/codec on exact same fresh CREPE full-model observations for both versions. F0 estimates are not independent manual truth. Note intersections/ownership/pitch changes reported explicitly; independent word labels are not used to manufacture pitch.",
+  "algorithmSourceSha256": "361cf85f43e486c464a6c2a3afce088a61530fdcecfee2349fc4ecc022dc600d",
+  "missingCases": [],
+  "cases": [
+    {
+      "case": "control_0000",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0000.json",
+      "pitchSha256": "927159715cd029dc4569634db71e3146771ceca377939a258d593a9563130f28",
+      "pitchPoints": 910,
+      "globalNoteCount": 18,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0000/v3/lyricsSync.json",
+          "sha256": "e017a4a489c1fafd2c9e00cc85683caa75bd974200093d0ea4d708b520273305",
+          "sourcePayloadSha256": "d4efd5071c7af2f7307591df5c3edb8fca985b2f886c56e8c27f31dd62c8b3a3",
+          "notes": 19,
+          "contourPoints": 654
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0000/v4/lyricsSync.json",
+          "sha256": "e060db738db0c0988f3c562a787643dd9352bcd1b8192ddebddf930db5b020a1",
+          "sourcePayloadSha256": "568355acc3c2be600e4810bad49095b205f97600d6b578a1907fd966c7e2ced3",
+          "notes": 19,
+          "contourPoints": 654
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 648,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 5
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 1297,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 10
+        }
+      ]
+    },
+    {
+      "case": "control_0001",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0001.json",
+      "pitchSha256": "aaa9c7d572dad44b8d98e0b91bc5c68885a2e4805ff81ac62893688d7c060bac",
+      "pitchPoints": 700,
+      "globalNoteCount": 13,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0001/v3/lyricsSync.json",
+          "sha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+          "sourcePayloadSha256": "47950d76d8b384263435348fbd8085e3f9e81a251adb61b28f83a0ba73bedc13",
+          "notes": 14,
+          "contourPoints": 475
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0001/v4/lyricsSync.json",
+          "sha256": "710f5c758f1d72d44b28d3d466439aba1119771fff243cba4dcc4f9e25bed293",
+          "sourcePayloadSha256": "09f957269d79798001164936d629255b5749e6932bb7184eb8d033cf8068bab5",
+          "notes": 14,
+          "contourPoints": 475
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 472,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 944,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        }
+      ]
+    },
+    {
+      "case": "breathy_0000",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/breathy_0000.json",
+      "pitchSha256": "91190927d981fda7ee9b9c5331abb7f5f330966ca7556bbe0f618c3affbffabc",
+      "pitchPoints": 920,
+      "globalNoteCount": 19,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/breathy_0000/v3/lyricsSync.json",
+          "sha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+          "sourcePayloadSha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+          "notes": 20,
+          "contourPoints": 588
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/breathy_0000/v4/lyricsSync.json",
+          "sha256": "50510e6d129d1d0ba8bea5e9edbd6dc32d1f4cdbd5262e8b020a42346b6236c5",
+          "sourcePayloadSha256": "4e816cb78c30129b241c7d80343cd9469e11136a14440a661717c65e94fbd351",
+          "notes": 20,
+          "contourPoints": 588
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 579,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 1156,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        }
+      ]
+    },
+    {
+      "case": "breathy_0001",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/breathy_0001.json",
+      "pitchSha256": "5ec16d64fbaf05a5108c1234f7911aaf7ae97b903be415b0543f860662975b83",
+      "pitchPoints": 717,
+      "globalNoteCount": 15,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/breathy_0001/v3/lyricsSync.json",
+          "sha256": "d40170db46e52f1173bdeb47b78360c4fb9dac149406e0711c7ec8bbc21ab8cb",
+          "sourcePayloadSha256": "d4332da75574cdbdcb2d5d72f88b88bd3372d46a076b57217b40846248a3aada",
+          "notes": 16,
+          "contourPoints": 432
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/breathy_0001/v4/lyricsSync.json",
+          "sha256": "9cbae59a60193466cdf20ceb6d4dbdb863654b606a6746a640c3b5ae667ce752",
+          "sourcePayloadSha256": "453c2d318b685c34458c6204a0e114fb96939b6f84275fc4e3206e69f9d9a9d7",
+          "notes": 15,
+          "contourPoints": 431
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [
+        {
+          "time": 7.15,
+          "frequency": 307.17,
+          "confidence": 0.721,
+          "beforeOwner": 5,
+          "afterOwner": null
+        }
+      ],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 426,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 36
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 851,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 74
+        }
+      ]
+    },
+    {
+      "case": "control_0003",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0003.json",
+      "pitchSha256": "092faace17830ae19cf1d579ff0da810888c68aa21a55d0f85971ef377ca5b77",
+      "pitchPoints": 744,
+      "globalNoteCount": 13,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0003/v3/lyricsSync.json",
+          "sha256": "6dbff496c1ac0b0841691fda960999f0c0e143187092698790dc75146705a206",
+          "sourcePayloadSha256": "e66af52dcf022b430e19458267e560d36460bfdf8be63680696a46af71239e0e",
+          "notes": 15,
+          "contourPoints": 464
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0003/v4/lyricsSync.json",
+          "sha256": "bbd894465a5915d127174ba0c174757d6694485722d5eb7594afc0edeff542e1",
+          "sourcePayloadSha256": "8ff7755320fab9ebcb2654d77219955aaee84d2756bc269fec0db9941d732c84",
+          "notes": 15,
+          "contourPoints": 464
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 459,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 2
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 917,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 4
+        }
+      ]
+    },
+    {
+      "case": "control_0004",
+      "pitchPath": "/tmp/karaoke-sync-v4/notes/real-pitch/control_0004.json",
+      "pitchSha256": "b09d561323a0cc10113b29c2e43ce50a930bc495ece0e6f9899115b4bb7f40ca",
+      "pitchPoints": 818,
+      "globalNoteCount": 13,
+      "exports": [
+        {
+          "label": "v3",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0004/v3/lyricsSync.json",
+          "sha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+          "sourcePayloadSha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+          "notes": 15,
+          "contourPoints": 525
+        },
+        {
+          "label": "v4",
+          "path": "/tmp/karaoke-sync-v4/notes/final/control_0004/v4/lyricsSync.json",
+          "sha256": "3b221e38c3f90279061e932d652ad11d982e863bade40a298e8a9901c788b5d5",
+          "sourcePayloadSha256": "468f245b82dd6fd04477c75fa015a120a700cf3b6406b4c4e78a90ee8c542da2",
+          "notes": 15,
+          "contourPoints": 525
+        }
+      ],
+      "allNotesAreExactGlobalMelodyIntersections": true,
+      "codecRoundTrips": true,
+      "lostStrongPitchPoints": [],
+      "gainedStrongPitchPoints": [],
+      "reassignedStrongPitchPoints": [],
+      "targetFrames": [
+        {
+          "step": 0.01,
+          "commonPitchedFrames": 508,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        },
+        {
+          "step": 0.005,
+          "commonPitchedFrames": 1016,
+          "commonFramePitchDifferences": 0,
+          "maxPitchDifferenceSemitones": 0.0,
+          "activityChanges": 0
+        }
+      ]
+    }
+  ]
+}

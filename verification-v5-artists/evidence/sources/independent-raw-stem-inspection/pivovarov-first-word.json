@@ -1,0 +1,174 @@
+{
+  "createdUTC": "2026-10-31T20:37:28.135782+00:00",
+  "case": "pivovarov_dezhavyu_ua",
+  "candidateFirstWordFromPublishedText": "Хвилями",
+  "blindInspection": {
+    "readAlignmentOutput": false,
+    "readPayload": false,
+    "readASR": false,
+    "ranModels": false,
+    "claimedListening": false,
+    "firstWordTextIsOnlyACandidateNotRecognizedByThisInspection": true,
+    "candidateWordIdentityAcousticallyEstablished": false
+  },
+  "inputs": {
+    "sourceCropLeftEdgeSeconds": 40.0,
+    "cropDurationSeconds": 33.0,
+    "contextOriginalOffsetSeconds": 35.0,
+    "contextPath": "/tmp/karaoke-v5-artists/sources/pivovarov_dezhavyu_ua-context-stereo44100.wav",
+    "contextSha256": "09b0d0d20e6252f8d307fdd3dabf5072b75d0354359948f27438892bb8967bd8",
+    "stemPath": "/tmp/karaoke-v5-artists/preflight/pivovarov_dezhavyu_ua/stems/vocals.wav",
+    "stemSha256": "de04f4b5b67f23d3eb7e9486064f62413d870554e3556d7e88474acd6902d21f",
+    "stemHasNoAudioBeforeSource40Seconds": true
+  },
+  "method": {
+    "rawSourceContext": "Waveform and 25 ms spectrogram windows with approximately 2 ms hop, inspected around 37–44s, then39.4–40.8s. Additional 44.1 kHz context inspection retains frequencies up to 12 kHz; initial mono overview was 16 kHz.",
+    "comparison": "Same original-time axis for mix and existing crop stem. No semantic timestamps or phoneme labels imported.",
+    "plots": [
+      "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word-context.png",
+      "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word-edge.png",
+      "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word-high-frequency.png",
+      "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word-continuity.png",
+      "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word-continuity-low.png"
+    ],
+    "additionalContinuityInspection": "Raw 44.1 kHz stereo context from 35–41 s; mid and side displayed separately. A 64 ms window was used only for the low-frequency continuity detail, with approximately 2 ms hop. Mid/side is a linear view of the mix, not vocal separation."
+  },
+  "observations": [
+    {
+      "kind": "prominent_changing_harmonic_entry",
+      "sourceRangeSeconds": [
+        40.15,
+        40.22
+      ],
+      "clipRangeSeconds": [
+        0.15,
+        0.22
+      ],
+      "confidence": "moderate for a change to prominent harmonic/formant-like structure; not evidence of a particular word onset",
+      "evidence": "The prominent changing harmonic/formant structure and waveform amplitude rise after the clip edge in both the raw mix and stem. A change of structure may mark a new word, a new syllable or another sound; its lexical identity is unestablished."
+    },
+    {
+      "kind": "weak_early_structure",
+      "sourceRangeSeconds": [
+        40.05,
+        40.18
+      ],
+      "clipRangeSeconds": [
+        0.05,
+        0.18
+      ],
+      "confidence": "low for lexical identity",
+      "evidence": "Low-amplitude low-frequency structure precedes the strong rise in the stem. The raw mix also carries earlier tonal material across the crop edge. An earlier sound tail, a quiet incoming transition, instrument leakage or separation artefact are possible; this interval is not assigned to the candidate word or any letter."
+    },
+    {
+      "kind": "candidate_fricative_or_breath_noise",
+      "sourceRangeSeconds": [
+        40.08,
+        40.2
+      ],
+      "clipRangeSeconds": [
+        0.08,
+        0.2
+      ],
+      "confidence": "low to moderate for noise-like energy; low for a specific consonant",
+      "evidence": "The 44.1 kHz stem shows a weak broad high-frequency component before the strongest harmonic region. A fricative contribution is possible, but percussion/leakage and lexical identity cannot be resolved from spectra alone."
+    },
+    {
+      "kind": "pre_crop_audio",
+      "sourceRangeSeconds": [
+        39.6,
+        40.0
+      ],
+      "confidence": "high that the raw mix is non-silent; low for phonetic identity",
+      "evidence": "The original context contains ongoing instrumental and harmonic material up to the cut, with broadband transients. It does not provide a clean isolated quiet-consonant onset. The separated stem has no pre-cut samples."
+    },
+    {
+      "kind": "tonal_continuity_across_crop_edge",
+      "sourceRangeSeconds": [
+        39.75,
+        40.1
+      ],
+      "confidence": "moderate for tonal continuity in the mixture, insufficient for vocal or lexical attribution",
+      "evidence": "Low-frequency bands around 450/700/900 Hz in the earlier mixture pattern extend to or slightly across 40.0 s and then weaken/change within approximately the first 0.1 s of the crop. Related structure is present in both mid and side views. There is no clean mix silence at 40.0 s. This does not establish that a singer sustains one phoneme across the cut; instruments and stereo vocal effects remain alternatives.",
+      "exactEndOfEarlierSoundSeconds": null,
+      "belongsToPreviousWord": null,
+      "belongsToFirstCandidateWord": null
+    }
+  ],
+  "answer": {
+    "strongVowelOrVoicedNucleusVisiblyCutAtLeftEdge": null,
+    "absenceOfQuietInitialConsonantClippingProven": false,
+    "completeFirstWordProven": false,
+    "cropClippedFirstWordProven": false,
+    "tonalMaterialCrossesCropEdge": true,
+    "continuousVocalAcrossCropEdgeProven": false,
+    "vocalPauseAtCropEdgeProven": false,
+    "strongStructureEntryIsAWordStartProven": false,
+    "summary": "A new prominent harmonic/formant-like structure is visible after the crop edge, but earlier tonal material in the mix crosses the edge and cannot be assigned confidently to voice, an instrument, the previous word or the candidate first word. The weak early stem structure must not automatically be attributed to Хвилями. Neither completeness nor clipping of that word is proved. No independent exact word/letter onset or verified vocal pause is assigned.",
+    "exactWordOnsetSeconds": null,
+    "independentWordOnsetRangeSeconds": null,
+    "exactFirstLetterOnsetSeconds": null
+  },
+  "numericEnergyObservation": {
+    "stemRmsWindows": [
+      {
+        "clipStartSeconds": 0.0,
+        "clipEndSeconds": 0.025,
+        "rms": 0.0005586453716949582,
+        "peakAbsoluteAmplitude": 0.0015671849250793457
+      },
+      {
+        "clipStartSeconds": 0.025,
+        "clipEndSeconds": 0.05,
+        "rms": 0.0007385924321424979,
+        "peakAbsoluteAmplitude": 0.0028365254402160645
+      },
+      {
+        "clipStartSeconds": 0.05,
+        "clipEndSeconds": 0.1,
+        "rms": 0.020446839476504844,
+        "peakAbsoluteAmplitude": 0.04571712017059326
+      },
+      {
+        "clipStartSeconds": 0.1,
+        "clipEndSeconds": 0.15,
+        "rms": 0.02186977010652539,
+        "peakAbsoluteAmplitude": 0.056964218616485596
+      },
+      {
+        "clipStartSeconds": 0.15,
+        "clipEndSeconds": 0.2,
+        "rms": 0.10436634072793222,
+        "peakAbsoluteAmplitude": 0.3544267416000366
+      },
+      {
+        "clipStartSeconds": 0.2,
+        "clipEndSeconds": 0.3,
+        "rms": 0.14726017465110397,
+        "peakAbsoluteAmplitude": 0.4507538080215454
+      },
+      {
+        "clipStartSeconds": 0.3,
+        "clipEndSeconds": 0.5,
+        "rms": 0.15631786953906676,
+        "peakAbsoluteAmplitude": 0.4941868782043457
+      }
+    ],
+    "usage": "Descriptive amplitudes only, not a threshold-based definition of a phonetic boundary."
+  },
+  "uncertainty": [
+    "The mix before 40.0 s contains backing sound, so lack of an isolated visible fricative is not proof of absence.",
+    "The existing Demucs output begins at the crop edge; separation and padding can affect weak early energy.",
+    "A 25 ms window blurs small transitions; broader acoustic/identity uncertainty is more important than the 2 ms display hop.",
+    "Spectra cannot establish whether any particular noisy interval belongs to the published initial consonant without independent listening/annotation.",
+    "The 64 ms low-frequency detail can smear very short transitions by tens of milliseconds; it supports broad continuity inspection only, not a precise endpoint."
+  ],
+  "minimumAdditionalEvidenceForStrongerClaim": "Inspect the available 35–78 s context by independent listening, or compare a vocal extraction retaining pre-40 s context against the original mix. This blind task did neither and did not move any boundaries.",
+  "updatedUTC": "2026-10-31T20:39:42.706374+00:00",
+  "conclusionRussian": "В исходном mix тональная структура продолжается через границу 40.0 с, но её вокальное происхождение и связь со словами не установлены. Более выраженная смена гармонической/формантной структуры заметна около 40.15–40.22 с. Это акустическое наблюдение, а не подтверждённое начало первого слова. Слабый ранний сигнал нельзя уверенно присвоить «Хвилями»: возможны хвост предыдущего звука, новый тихий переход, инструментальный остаток и эффект разделения. Полнота слова и факт его обрезания остаются неподтверждёнными.",
+  "revisionAudit": {
+    "previousObservationFile": "/tmp/karaoke-v5-artists/sources/independent-raw-stem-inspection/pivovarov-first-word.initial-inspection.json",
+    "reason": "Parent requested explicit distinction between earlier sound continuity and new-word attribution. Additional raw stereo inspection, still blind to recognition/alignment, shows that generic tonal continuity must not be equated with first-word voice.",
+    "readAnyPredictionDuringRevision": false
+  }
+}

@@ -1,0 +1,144 @@
+{
+  "case": "zhadan_malvy",
+  "commonPitchTargetDifferencesAt5ms": [
+    {
+      "time": 31.155,
+      "beforePitchMidi": 60.07029309249005,
+      "afterPitchMidi": 60.06930447496785,
+      "deltaCents": -0.09886175221964777,
+      "versions": {
+        "baseline-v5": {
+          "wordIndex": 24,
+          "wordBounds": [
+            30.92,
+            31.16
+          ],
+          "noteMidi": 60,
+          "noteBounds": [
+            31.11,
+            31.16
+          ],
+          "nearbyContourPoints": [
+            {
+              "time": 31.13,
+              "offsetSemitones": 0.22055939006784797,
+              "confidence": 0.696
+            },
+            {
+              "time": 31.14,
+              "offsetSemitones": 0.14263620998963233,
+              "confidence": 0.736
+            },
+            {
+              "time": 31.15,
+              "offsetSemitones": 0.07029309249004712,
+              "confidence": 0.828
+            }
+          ]
+        },
+        "final": {
+          "wordIndex": 24,
+          "wordBounds": [
+            30.92,
+            31.6
+          ],
+          "noteMidi": 60,
+          "noteBounds": [
+            31.11,
+            31.35
+          ],
+          "nearbyContourPoints": [
+            {
+              "time": 31.14,
+              "offsetSemitones": 0.14263620998963233,
+              "confidence": 0.736
+            },
+            {
+              "time": 31.15,
+              "offsetSemitones": 0.07029309249004712,
+              "confidence": 0.828
+            },
+            {
+              "time": 31.16,
+              "offsetSemitones": 0.06831585744565416,
+              "confidence": 0.851
+            }
+          ]
+        }
+      }
+    },
+    {
+      "time": 31.595000000000002,
+      "beforePitchMidi": 57.35728185371332,
+      "afterPitchMidi": 57.27403027593976,
+      "deltaCents": -8.32515777735594,
+      "versions": {
+        "baseline-v5": {
+          "wordIndex": 25,
+          "wordBounds": [
+            31.16,
+            32.0
+          ],
+          "noteMidi": 61,
+          "noteBounds": [
+            31.58,
+            31.79
+          ],
+          "nearbyContourPoints": [
+            {
+              "time": 31.59,
+              "offsetSemitones": -3.725969724060242,
+              "confidence": 0.633
+            },
+            {
+              "time": 31.6,
+              "offsetSemitones": -3.55946656851318,
+              "confidence": 0.669
+            },
+            {
+              "time": 31.61,
+              "offsetSemitones": -2.328509427528104,
+              "confidence": 0.554
+            }
+          ]
+        },
+        "final": {
+          "wordIndex": 24,
+          "wordBounds": [
+            30.92,
+            31.6
+          ],
+          "noteMidi": 61,
+          "noteBounds": [
+            31.58,
+            31.6
+          ],
+          "nearbyContourPoints": [
+            {
+              "time": 31.58,
+              "offsetSemitones": -3.7282935801442676,
+              "confidence": 0.633
+            },
+            {
+              "time": 31.59,
+              "offsetSemitones": -3.725969724060242,
+              "confidence": 0.633
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "commonPitchTargetDifferencesAt10ms": 0,
+  "lostStrongPoints": 0,
+  "gainedStrongPoints": 0,
+  "reassignedStrongPoints": 21,
+  "noteCountBefore": 85,
+  "noteCountAfter": 85,
+  "explanation": "Identical F0 observations and note pitches. Moving the text boundary moves which clipped note has the next measured contour point, so the half-frame interpolation/edge hold changes. This is a real target-frame difference, not a detector frequency edit or lost measured note.",
+  "documents": {
+    "baseline-v5": "bc2288bccec545f424cfc3af50cefb4d6c887b96cb1a7f0749ab20c24ce2d623",
+    "final": "330b66131f1aea0e203b036e843cd4ed65cd1076f9235ad9921e6dc295618541"
+  },
+  "independentPitchGroundTruth": null
+}

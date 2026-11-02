@@ -1,0 +1,36 @@
+{
+  "ctcSha256": "5207cb8cb343db92e26f0bf3dd49f3163134d12be6b33e88e59bfece63789886",
+  "tailCases": [
+    {
+      "kind": "quiet_dip",
+      "start": 1,
+      "end": 3.01,
+      "diagnostics": [],
+      "periodicityGapMedian": 0.9913314580917358
+    },
+    {
+      "kind": "breath_after_release",
+      "start": 1,
+      "end": 2.01,
+      "diagnostics": [],
+      "periodicityGapMedian": 0.37088117003440857
+    },
+    {
+      "kind": "pitched_echo_after_release",
+      "start": 1,
+      "end": 2.01,
+      "diagnostics": [],
+      "periodicityGapMedian": 0.7237810492515564
+    }
+  ],
+  "roundedIntervals": [
+    [
+      1.002,
+      1.003
+    ],
+    [
+      2,
+      3
+    ]
+  ]
+}

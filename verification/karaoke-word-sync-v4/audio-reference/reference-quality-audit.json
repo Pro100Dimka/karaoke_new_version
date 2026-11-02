@@ -1,0 +1,30 @@
+{
+  "frozenReferenceSha256": "66d013885747828a0dfc90d6bfb53fd1117fdb7c1e080640dde0dce7be5e7a97",
+  "createdWithoutModelOutput": true,
+  "publicationManualCorrectionClaimVerified": true,
+  "metadataWordTierEqualsTextGrid": true,
+  "publishedBoundaryAccuracyMs": null,
+  "wordCount": 24,
+  "distinctWordStrings": 11,
+  "phoneMetricEligibleWordCount": 17,
+  "wordBoundaryCautions": [
+    {
+      "case": "control_0001",
+      "wordIndex": 0,
+      "word": "в",
+      "flag": "AtClipStartPossibleLeftCensoring",
+      "note": "Reference onset equals clip origin; no evidence about consonant onset before the cut. Keep reported metric but identify separately."
+    },
+    {
+      "case": "breathy_0001",
+      "wordIndex": 0,
+      "word": "в",
+      "flag": "AtClipStartPossibleLeftCensoring",
+      "note": "Reference onset equals clip origin; no evidence about consonant onset before the cut. Keep reported metric but identify separately."
+    }
+  ],
+  "phoneCautions": "Uniform subintervals excluded (вронская both, бедная both, блестящей control); prolonged /j/ in гордые both also needs audit, excluded from phoneme metric. One /n:/ in анна maps to the two-letter нн group; no manual seam between two н glyphs exists.",
+  "notesCaution": "Published note labels are realistic music-score annotations; do not treat every note_start/note_end as an independent exact performed-note truth or compare phoneme pitch to them blindly.",
+  "listeningPerformedByAgent": false,
+  "listenReference": "The corpus authors report independent listening and spectrogram review. This agent obtained their annotations rather than claiming to have listened."
+}

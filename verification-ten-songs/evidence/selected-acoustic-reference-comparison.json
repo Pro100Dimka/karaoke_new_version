@@ -1,0 +1,148 @@
+{
+  "scope": "Three uncertain independent waveform/STFT reference ranges, not exact phonetic labels or manual listening. Compare distance outside a range, not claimed point-ground-truth error.",
+  "sourceReferenceSha256": "1baf587eab812a2815e2ee585bec351b0eb1db0e04b54292228e916df9a66399",
+  "sourceReferenceCreatedUtc": "2026-10-31T22:28:04.100698+00:00",
+  "referenceFrozenBeforeCtc": true,
+  "blindnessAtReferenceSelection": {
+    "ctcOrFinalPayloadRead": false,
+    "asrTextAndItsTimestampsPreviouslySeen": true,
+    "asrBoundariesUsedAsReference": false,
+    "manualListeningPerformed": false,
+    "publishedCanonicalUsedOnlyForIdentity": true
+  },
+  "manualListeningPerformed": false,
+  "method": {
+    "stftWindowSeconds": 0.032,
+    "stftHopSeconds": 0.005,
+    "rmsHopSeconds": 0.005,
+    "description": "Visual review of isolated waveform/spectral islands in the original mix and existing vocal stem. ASR/published text used only for tentative lexical identity; no reference time was passed into alignment."
+  },
+  "distanceFormulaMilliseconds": "max(range.lo - boundary, 0, boundary - range.hi) * 1000",
+  "signedDistanceConvention": "Negative before the range; positive after it; zero inside.",
+  "quietTailAndReverbUncertainty": true,
+  "references": [
+    {
+      "case": "boombox_kolyshnya",
+      "wordIndex": 0,
+      "text": "Холодний",
+      "sourceOffsetSeconds": 25.0,
+      "onsetRangeSeconds": [
+        22.97,
+        23.04
+      ],
+      "endRangeSeconds": [
+        24.58,
+        24.72
+      ],
+      "identityConfidence": "medium",
+      "notPhoneticGroundTruth": true,
+      "audioSha256": "1e7bb3b5f1ea8322a66d4d3061e59a56ed01a017aaf539d1e19e0080ffe5797f",
+      "vocalStemSha256": "d5ed37aff2ec3f1af6a44251163e7c2708412f2a9f9080f47605427fb58a9cc2",
+      "sourcePlotSha256": "f32dcc01ab83c4e2af65858897e7ea2b269a28aeefa7ce32404765f9cb922111",
+      "baseline-v5": {
+        "start": 24.16,
+        "end": 24.92,
+        "durationSeconds": 0.76,
+        "startSignedOutsideRangeMilliseconds": 1120.0,
+        "startDistanceOutsideRangeMilliseconds": 1120.0,
+        "endSignedOutsideRangeMilliseconds": 200.0,
+        "endDistanceOutsideRangeMilliseconds": 200.0
+      },
+      "final": {
+        "start": 22.97,
+        "end": 24.92,
+        "durationSeconds": 1.95,
+        "startSignedOutsideRangeMilliseconds": 0,
+        "startDistanceOutsideRangeMilliseconds": 0,
+        "endSignedOutsideRangeMilliseconds": 200.0,
+        "endDistanceOutsideRangeMilliseconds": 200.0
+      }
+    },
+    {
+      "case": "boombox_kolyshnya",
+      "wordIndex": 1,
+      "text": "завчасно",
+      "sourceOffsetSeconds": 25.0,
+      "onsetRangeSeconds": [
+        25.38,
+        25.46
+      ],
+      "endRangeSeconds": [
+        27.54,
+        27.7
+      ],
+      "identityConfidence": "medium",
+      "notPhoneticGroundTruth": true,
+      "audioSha256": "1e7bb3b5f1ea8322a66d4d3061e59a56ed01a017aaf539d1e19e0080ffe5797f",
+      "vocalStemSha256": "d5ed37aff2ec3f1af6a44251163e7c2708412f2a9f9080f47605427fb58a9cc2",
+      "sourcePlotSha256": "f32dcc01ab83c4e2af65858897e7ea2b269a28aeefa7ce32404765f9cb922111",
+      "baseline-v5": {
+        "start": 25.5,
+        "end": 26.96,
+        "durationSeconds": 1.46,
+        "startSignedOutsideRangeMilliseconds": 40.0,
+        "startDistanceOutsideRangeMilliseconds": 40.0,
+        "endSignedOutsideRangeMilliseconds": -580.0,
+        "endDistanceOutsideRangeMilliseconds": 580.0
+      },
+      "final": {
+        "start": 25.5,
+        "end": 27.81,
+        "durationSeconds": 2.31,
+        "startSignedOutsideRangeMilliseconds": 40.0,
+        "startDistanceOutsideRangeMilliseconds": 40.0,
+        "endSignedOutsideRangeMilliseconds": 110.0,
+        "endDistanceOutsideRangeMilliseconds": 110.0
+      }
+    },
+    {
+      "case": "boombox_lyudy",
+      "wordIndex": 2,
+      "text": "ти",
+      "sourceOffsetSeconds": 20.0,
+      "onsetRangeSeconds": [
+        3.22,
+        3.28
+      ],
+      "endRangeSeconds": [
+        3.59,
+        3.67
+      ],
+      "identityConfidence": "medium",
+      "notPhoneticGroundTruth": true,
+      "audioSha256": "be4dd5f4f0c751e365189751f5ad983b880ae6a0bb724f5ab9f04ca6817f765b",
+      "vocalStemSha256": "917cfc585463cb7c6448033c9ee6a400b988775b8507465e4ca2f887cd811c0d",
+      "sourcePlotSha256": "9ff6bb37f4bdd0f2ae902f71fc43f4569f6f8eec89125d69d84f8a4d2b158b4b",
+      "baseline-v5": {
+        "start": 3.175,
+        "end": 3.7,
+        "durationSeconds": 0.525,
+        "startSignedOutsideRangeMilliseconds": -45.0,
+        "startDistanceOutsideRangeMilliseconds": 45.0,
+        "endSignedOutsideRangeMilliseconds": 30.0,
+        "endDistanceOutsideRangeMilliseconds": 30.0
+      },
+      "final": {
+        "start": 3.175,
+        "end": 3.7,
+        "durationSeconds": 0.525,
+        "startSignedOutsideRangeMilliseconds": -45.0,
+        "startDistanceOutsideRangeMilliseconds": 45.0,
+        "endSignedOutsideRangeMilliseconds": 30.0,
+        "endDistanceOutsideRangeMilliseconds": 30.0
+      }
+    }
+  ],
+  "aggregateAcrossSixBoundariesOnly": {
+    "baseline-v5": {
+      "boundaryCount": 6,
+      "medianDistanceOutsideRangeMilliseconds": 122.5,
+      "maxDistanceOutsideRangeMilliseconds": 1120.0
+    },
+    "final": {
+      "boundaryCount": 6,
+      "medianDistanceOutsideRangeMilliseconds": 42.5,
+      "maxDistanceOutsideRangeMilliseconds": 200.0
+    }
+  }
+}

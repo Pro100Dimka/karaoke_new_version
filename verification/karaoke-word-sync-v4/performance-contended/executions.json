@@ -1,0 +1,66 @@
+[
+  {
+    "version": "v3",
+    "suffix": "",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-sync-v4/performance/cached_pipeline_evidence.py",
+      "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+      "/tmp/karaoke-sync-v4/performance/v3.json",
+      "--fixtures",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures",
+      "--iterations",
+      "9"
+    ],
+    "exitCode": 0,
+    "seconds": 16.244042734000686
+  },
+  {
+    "version": "v4",
+    "suffix": "",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-sync-v4/performance/cached_pipeline_evidence.py",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "/tmp/karaoke-sync-v4/performance/v4.json",
+      "--fixtures",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures",
+      "--iterations",
+      "9"
+    ],
+    "exitCode": 0,
+    "seconds": 23.069653563999964
+  },
+  {
+    "version": "v4",
+    "suffix": "-reverse",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-sync-v4/performance/cached_pipeline_evidence.py",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "/tmp/karaoke-sync-v4/performance/v4-reverse.json",
+      "--fixtures",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures",
+      "--iterations",
+      "9"
+    ],
+    "exitCode": 0,
+    "seconds": 25.194676461998824
+  },
+  {
+    "version": "v3",
+    "suffix": "-reverse",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-sync-v4/performance/cached_pipeline_evidence.py",
+      "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+      "/tmp/karaoke-sync-v4/performance/v3-reverse.json",
+      "--fixtures",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures",
+      "--iterations",
+      "9"
+    ],
+    "exitCode": 0,
+    "seconds": 25.285070803000053
+  }
+]

@@ -1,0 +1,1465 @@
+{
+  "sourceTraceSha256": "3c41b2f0a60eb06e5ba5d4b9e9f9f1394daabc10c672a3defb3ce98df0c73498",
+  "case": "baikal_control_0000",
+  "events": [
+    {
+      "sequence": 1,
+      "stage": "speech.read_mono",
+      "elapsedSeconds": 0.2207398339996871
+    },
+    {
+      "stage": "alignment_evidence",
+      "elapsedSeconds": 0.02697489099955419
+    },
+    {
+      "sequence": 2,
+      "stage": "speech.align_words",
+      "elapsedSeconds": 3.3864499920018716,
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.1400000000000001,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.5600000000000005,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 3,
+      "stage": "speech.singing_frames",
+      "elapsedSeconds": 0.0035971239994978532
+    },
+    {
+      "sequence": 4,
+      "stage": "speech.voiced_frames",
+      "elapsedSeconds": 0.0010840089998964686
+    },
+    {
+      "sequence": 5,
+      "stage": "speech.vocal_onsets",
+      "elapsedSeconds": 0.001761711999279214
+    },
+    {
+      "sequence": 7,
+      "stage": "ctc._align_window",
+      "elapsedSeconds": 0.00285725700086914,
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.1400000000000001,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.5600000000000005,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 8,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 7.16499998816289e-05,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.1400000000000001,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.5600000000000005,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 6,
+      "stage": "speech.align_guided",
+      "elapsedSeconds": 0.004614580000634305,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.1400000000000001,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.5600000000000005,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 10,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 5.950500053586438e-05,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 11,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 4.022100256406702e-05,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 12,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 3.4363001759629697e-05,
+      "inputWords": [
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 13,
+      "stage": "ctc.ordered",
+      "elapsedSeconds": 7.39860006433446e-05,
+      "inputWords": [
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 9,
+      "stage": "speech.with_word_guidance",
+      "elapsedSeconds": 0.007275717001903104,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 14,
+      "stage": "speech.with_voice_onsets",
+      "elapsedSeconds": 0.00030804299967712723,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.56,
+          "end": 6.36,
+          "letters": [
+            5.56,
+            5.72,
+            5.82,
+            5.92,
+            5.98,
+            6.08,
+            6.34
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 6.36,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 15,
+      "stage": "speech.with_sung_ends",
+      "elapsedSeconds": 0.000995803999103373,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.58,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.74,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 3.5,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 6.36,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 16,
+      "stage": "speech.ordered",
+      "elapsedSeconds": 9.949800005415455e-05,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 17,
+      "stage": "speech.with_sung_letters",
+      "elapsedSeconds": 4.0507002267986536e-05,
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ],
+      "outputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    },
+    {
+      "sequence": 18,
+      "stage": "speech.alignment_payload",
+      "elapsedSeconds": 8.100800187094137e-05,
+      "reviewed": [],
+      "inputWords": [
+        {
+          "textSha256": "cd5973372c2736b156d862aab37e4f8836e0f07f9ec5daef5a8287a1b5eb1d09",
+          "characterCount": 5,
+          "start": 1.14,
+          "end": 1.72,
+          "letters": [
+            1.14,
+            1.22,
+            1.34,
+            1.46,
+            1.56
+          ],
+          "score": 0.3517577037940403,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "a1f5d39a12e8f6bed437ee6c16fa961dcd6a5af84e1518290a577a029e7501e2",
+          "characterCount": 1,
+          "start": 1.72,
+          "end": 1.86,
+          "letters": [
+            1.72
+          ],
+          "score": 0.9631209373474121,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "d880c9b7cf707f4f05ea7119284d6724d4b602ba925b536658dd3035d6b71cf5",
+          "characterCount": 6,
+          "start": 1.86,
+          "end": 4.89,
+          "letters": [
+            1.86,
+            1.98,
+            2.44,
+            2.58,
+            3.38,
+            3.48
+          ],
+          "score": 0.5030284965566049,
+          "diagnostics": []
+        },
+        {
+          "textSha256": "edb3d858ff4cff128b45b46fd97d71d5c6d2580914c9fd656ba3073f05e28a8b",
+          "characterCount": 7,
+          "excerpt": "смотрят",
+          "start": 5.64,
+          "end": 7.01,
+          "letters": [
+            5.64,
+            5.8,
+            5.9,
+            6.0,
+            6.06,
+            6.16,
+            6.36
+          ],
+          "score": 0.26901758430176415,
+          "diagnostics": []
+        }
+      ]
+    }
+  ]
+}

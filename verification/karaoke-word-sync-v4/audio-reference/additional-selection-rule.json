@@ -1,0 +1,5 @@
+{
+  "createdAtUtc": "2026-10-31T17:11:26.016109+00:00",
+  "rule": "Additional diagnostic set, does not replace the first24-word holdout. Enumerate Control_Group of the same first Russian Breathy song in ascending numeric index, excluding previously selected0000/0001. Select first two clips having at least two words with pronounced final consonant spelling; inspect external annotation only, no prediction. Final consonant regex [бвгджзйклмнпрстфхцчшщ][ьъ]?$; verifies a final consonant phoneme in published label. If insufficient, extend to next song in directory order. No preferred model outcome.",
+  "selectionUsesModelOutput": false
+}

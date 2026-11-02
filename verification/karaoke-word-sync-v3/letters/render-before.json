@@ -1,0 +1,1475 @@
+{
+  "renderer": {
+    "node": "24.19.0",
+    "acorn": "8.17.0",
+    "ada": "3.4.4",
+    "amaro": "1.1.10",
+    "ares": "1.34.6",
+    "brotli": "1.2.0",
+    "cldr": "48.0",
+    "icu": "78.2",
+    "llhttp": "9.4.3",
+    "merve": "1.2.2",
+    "modules": "146",
+    "napi": "10",
+    "nbytes": "0.1.4",
+    "ncrypto": "0.0.1",
+    "nghttp2": "1.69.0",
+    "nghttp3": "",
+    "ngtcp2": "",
+    "openssl": "0.0.0",
+    "simdjson": "4.6.4",
+    "simdutf": "7.7.0",
+    "sqlite": "3.53.3",
+    "tz": "2025c",
+    "undici": "7.29.0",
+    "unicode": "17.0",
+    "uv": "1.52.1",
+    "uvwasi": "0.0.23",
+    "v8": "14.8.178.38-electron.0",
+    "zlib": "1.3.2.1-motley",
+    "zstd": "1.6.0",
+    "electron": "42.11.8",
+    "chrome": "148.0.7778.280"
+  },
+  "results": [
+    {
+      "word": {
+        "text": "Дома",
+        "start": 1.3,
+        "end": 1.88,
+        "confidence": 0.06777564669027925,
+        "letters": [
+          0,
+          0.1724137931034481,
+          0.6896551724137931,
+          0.931034482758621
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 0,
+        "id": "word-0"
+      },
+      "letterIndex": 0,
+      "time": 1.3,
+      "progress": 0,
+      "width": 242.125,
+      "textWidth": 224.265625,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "Дома",
+        "start": 1.3,
+        "end": 1.88,
+        "confidence": 0.06777564669027925,
+        "letters": [
+          0,
+          0.1724137931034481,
+          0.6896551724137931,
+          0.931034482758621
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 0,
+        "id": "word-0"
+      },
+      "letterIndex": 1,
+      "time": 1.4,
+      "progress": 0.25,
+      "width": 242.125,
+      "textWidth": 224.265625,
+      "glyphBoundaryX": 63.796875,
+      "fillPercent": 25,
+      "fillX": 60.53125,
+      "errorPx": -3.265625,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "Дома",
+        "start": 1.3,
+        "end": 1.88,
+        "confidence": 0.06777564669027925,
+        "letters": [
+          0,
+          0.1724137931034481,
+          0.6896551724137931,
+          0.931034482758621
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 0,
+        "id": "word-0"
+      },
+      "letterIndex": 2,
+      "time": 1.7,
+      "progress": 0.5,
+      "width": 242.125,
+      "textWidth": 224.265625,
+      "glyphBoundaryX": 114.890625,
+      "fillPercent": 50,
+      "fillX": 121.0625,
+      "errorPx": 6.171875,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "Дома",
+        "start": 1.3,
+        "end": 1.88,
+        "confidence": 0.06777564669027925,
+        "letters": [
+          0,
+          0.1724137931034481,
+          0.6896551724137931,
+          0.931034482758621
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 0,
+        "id": "word-0"
+      },
+      "letterIndex": 3,
+      "time": 1.84,
+      "progress": 0.75,
+      "width": 242.125,
+      "textWidth": 224.265625,
+      "glyphBoundaryX": 172.6875,
+      "fillPercent": 75,
+      "fillX": 181.59375,
+      "errorPx": 8.90625,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 0,
+      "time": 3.26,
+      "progress": 0,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 1,
+      "time": 3.38,
+      "progress": 0.14285714285714285,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 35.25,
+      "fillPercent": 14,
+      "fillX": 48.321875,
+      "errorPx": 13.071874999999999,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 2,
+      "time": 3.5,
+      "progress": 0.2857142857142857,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 86.8125,
+      "fillPercent": 29,
+      "fillX": 100.0953125,
+      "errorPx": 13.282812500000006,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 3,
+      "time": 3.62,
+      "progress": 0.42857142857142855,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 144.609375,
+      "fillPercent": 43,
+      "fillX": 148.4171875,
+      "errorPx": 3.8078125000000114,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 4,
+      "time": 3.74,
+      "progress": 0.5714285714285714,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 179.859375,
+      "fillPercent": 57,
+      "fillX": 196.7390625,
+      "errorPx": 16.87968749999999,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 5,
+      "time": 3.86,
+      "progress": 0.7142857142857143,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 230.953125,
+      "fillPercent": 71,
+      "fillX": 245.0609375,
+      "errorPx": 14.107812499999994,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "намного",
+        "start": 3.26,
+        "end": 4.58,
+        "confidence": 0,
+        "letters": [
+          0,
+          0.09090909090909097,
+          0.18181818181818193,
+          0.27272727272727293,
+          0.36363636363636387,
+          0.45454545454545453,
+          0.5454545454545455
+        ],
+        "diagnostics": [
+          "ApproximateAlignment",
+          "RecognizedWord"
+        ],
+        "case": "clean",
+        "index": 3,
+        "id": "word-1"
+      },
+      "letterIndex": 6,
+      "time": 3.98,
+      "progress": 0.8571428571428571,
+      "width": 345.15625,
+      "textWidth": 327.296875,
+      "glyphBoundaryX": 276.1875,
+      "fillPercent": 86,
+      "fillX": 296.834375,
+      "errorPx": 20.646875000000023,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.94,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          0,
+          0.5606060606060607,
+          0.5757575757575768,
+          0.5909090909090916
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 9,
+        "id": "word-2"
+      },
+      "letterIndex": 0,
+      "time": 8.62,
+      "progress": 0,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.94,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          0,
+          0.5606060606060607,
+          0.5757575757575768,
+          0.5909090909090916
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 9,
+        "id": "word-2"
+      },
+      "letterIndex": 1,
+      "time": 9.36,
+      "progress": 0.25,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 51.078125,
+      "fillPercent": 25,
+      "fillX": 49.765625,
+      "errorPx": -1.3125,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.94,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          0,
+          0.5606060606060607,
+          0.5757575757575768,
+          0.5909090909090916
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 9,
+        "id": "word-2"
+      },
+      "letterIndex": 2,
+      "time": 9.38,
+      "progress": 0.5,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 103.578125,
+      "fillPercent": 50,
+      "fillX": 99.53125,
+      "errorPx": -4.046875,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.94,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          0,
+          0.5606060606060607,
+          0.5757575757575768,
+          0.5909090909090916
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 9,
+        "id": "word-2"
+      },
+      "letterIndex": 3,
+      "time": 9.4,
+      "progress": 0.75,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 145.9375,
+      "fillPercent": 75,
+      "fillX": 149.296875,
+      "errorPx": 3.359375,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "этаж,",
+        "start": 10.7,
+        "end": 12.36,
+        "confidence": 0.5688083648681641,
+        "letters": [
+          0,
+          0.12048192771084401,
+          0.18072289156626548,
+          0.3855421686746991,
+          0.40963855421686834
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 11,
+        "id": "word-3"
+      },
+      "letterIndex": 0,
+      "time": 10.7,
+      "progress": 0,
+      "width": 235.640625,
+      "textWidth": 217.78125,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "этаж,",
+        "start": 10.7,
+        "end": 12.36,
+        "confidence": 0.5688083648681641,
+        "letters": [
+          0,
+          0.12048192771084401,
+          0.18072289156626548,
+          0.3855421686746991,
+          0.40963855421686834
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 11,
+        "id": "word-3"
+      },
+      "letterIndex": 1,
+      "time": 10.9,
+      "progress": 0.25,
+      "width": 235.640625,
+      "textWidth": 217.78125,
+      "glyphBoundaryX": 44.84375,
+      "fillPercent": 25,
+      "fillX": 58.91015625,
+      "errorPx": 14.06640625,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "этаж,",
+        "start": 10.7,
+        "end": 12.36,
+        "confidence": 0.5688083648681641,
+        "letters": [
+          0,
+          0.12048192771084401,
+          0.18072289156626548,
+          0.3855421686746991,
+          0.40963855421686834
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 11,
+        "id": "word-3"
+      },
+      "letterIndex": 2,
+      "time": 11,
+      "progress": 0.5,
+      "width": 235.640625,
+      "textWidth": 217.78125,
+      "glyphBoundaryX": 91.40625,
+      "fillPercent": 50,
+      "fillX": 117.8203125,
+      "errorPx": 26.4140625,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "этаж,",
+        "start": 10.7,
+        "end": 12.36,
+        "confidence": 0.5688083648681641,
+        "letters": [
+          0,
+          0.12048192771084401,
+          0.18072289156626548,
+          0.3855421686746991,
+          0.40963855421686834
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 11,
+        "id": "word-3"
+      },
+      "letterIndex": 3,
+      "time": 11.34,
+      "progress": 0.75,
+      "width": 235.640625,
+      "textWidth": 217.78125,
+      "glyphBoundaryX": 142.96875,
+      "fillPercent": 75,
+      "fillX": 176.73046875,
+      "errorPx": 33.76171875,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "этаж,",
+        "start": 10.7,
+        "end": 12.36,
+        "confidence": 0.5688083648681641,
+        "letters": [
+          0,
+          0.12048192771084401,
+          0.18072289156626548,
+          0.3855421686746991,
+          0.40963855421686834
+        ],
+        "diagnostics": [],
+        "case": "clean",
+        "index": 11,
+        "id": "word-3"
+      },
+      "letterIndex": 4,
+      "time": 11.38,
+      "progress": 0.7598039215686276,
+      "width": 235.640625,
+      "textWidth": 217.78125,
+      "glyphBoundaryX": 203.734375,
+      "fillPercent": 76,
+      "fillX": 179.086875,
+      "errorPx": -24.647500000000008,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 0,
+      "time": 13,
+      "progress": 0,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 1,
+      "time": 13.06,
+      "progress": 0.14285714285714285,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 41.5625,
+      "fillPercent": 14,
+      "fillX": 47.0990625,
+      "errorPx": 5.536562500000002,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 2,
+      "time": 13.12,
+      "progress": 0.2857142857142857,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 93.125,
+      "fillPercent": 29,
+      "fillX": 97.56234375,
+      "errorPx": 4.437343749999997,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 3,
+      "time": 13.2,
+      "progress": 0.42857142857142855,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 137.890625,
+      "fillPercent": 43,
+      "fillX": 144.66140625,
+      "errorPx": 6.770781249999999,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 4,
+      "time": 13.3,
+      "progress": 0.5714285714285714,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 182.671875,
+      "fillPercent": 57,
+      "fillX": 191.76046875,
+      "errorPx": 9.088593750000001,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 5,
+      "time": 13.4,
+      "progress": 0.7142857142857143,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 225.171875,
+      "fillPercent": 71,
+      "fillX": 238.85953125,
+      "errorPx": 13.687656250000003,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "рассказ",
+        "start": 13,
+        "end": 16.43,
+        "confidence": 0.6429001708914127,
+        "letters": [
+          0,
+          0.017492711370262537,
+          0.034985422740524554,
+          0.05830903790087443,
+          0.08746355685131217,
+          0.11661807580174939,
+          0.21574344023323624
+        ],
+        "diagnostics": [
+          "AsrCtcBoundaryDisagreement"
+        ],
+        "case": "clean",
+        "index": 14,
+        "id": "word-4"
+      },
+      "letterIndex": 6,
+      "time": 13.74,
+      "progress": 0.8571428571428571,
+      "width": 336.421875,
+      "textWidth": 318.5625,
+      "glyphBoundaryX": 276.734375,
+      "fillPercent": 86,
+      "fillX": 289.3228125,
+      "errorPx": 12.588437499999998,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 4.06,
+        "end": 5.79,
+        "confidence": 0.037594566121697426,
+        "letters": [
+          0,
+          0.17341040462427781,
+          0.2543352601156071,
+          0.4855491329479772
+        ],
+        "diagnostics": [],
+        "case": "reply",
+        "index": 4,
+        "id": "word-5"
+      },
+      "letterIndex": 0,
+      "time": 4.06,
+      "progress": 0,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 4.06,
+        "end": 5.79,
+        "confidence": 0.037594566121697426,
+        "letters": [
+          0,
+          0.17341040462427781,
+          0.2543352601156071,
+          0.4855491329479772
+        ],
+        "diagnostics": [],
+        "case": "reply",
+        "index": 4,
+        "id": "word-5"
+      },
+      "letterIndex": 1,
+      "time": 4.36,
+      "progress": 0.25,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 51.078125,
+      "fillPercent": 25,
+      "fillX": 49.765625,
+      "errorPx": -1.3125,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 4.06,
+        "end": 5.79,
+        "confidence": 0.037594566121697426,
+        "letters": [
+          0,
+          0.17341040462427781,
+          0.2543352601156071,
+          0.4855491329479772
+        ],
+        "diagnostics": [],
+        "case": "reply",
+        "index": 4,
+        "id": "word-5"
+      },
+      "letterIndex": 2,
+      "time": 4.5,
+      "progress": 0.5,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 103.578125,
+      "fillPercent": 50,
+      "fillX": 99.53125,
+      "errorPx": -4.046875,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "один",
+        "start": 4.06,
+        "end": 5.79,
+        "confidence": 0.037594566121697426,
+        "letters": [
+          0,
+          0.17341040462427781,
+          0.2543352601156071,
+          0.4855491329479772
+        ],
+        "diagnostics": [],
+        "case": "reply",
+        "index": 4,
+        "id": "word-5"
+      },
+      "letterIndex": 3,
+      "time": 4.9,
+      "progress": 0.75,
+      "width": 199.0625,
+      "textWidth": 181.203125,
+      "glyphBoundaryX": 145.9375,
+      "fillPercent": 75,
+      "fillX": 149.296875,
+      "errorPx": 3.359375,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 0,
+      "time": 10.44,
+      "progress": 0,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 1,
+      "time": 10.56,
+      "progress": 0.16666666666666666,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 51.078125,
+      "fillPercent": 17,
+      "fillX": 51.8075,
+      "errorPx": 0.7293749999999974,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 2,
+      "time": 10.7,
+      "progress": 0.3333333333333333,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 97.640625,
+      "fillPercent": 33,
+      "fillX": 100.5675,
+      "errorPx": 2.9268749999999955,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 3,
+      "time": 10.8,
+      "progress": 0.5,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 150.140625,
+      "fillPercent": 50,
+      "fillX": 152.375,
+      "errorPx": 2.234375,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 4,
+      "time": 13,
+      "progress": 0.6666666666666666,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 201.703125,
+      "fillPercent": 67,
+      "fillX": 204.1825,
+      "errorPx": 2.4793750000000045,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 10.44,
+        "end": 13.32,
+        "confidence": 0.005648208770435303,
+        "letters": [
+          0,
+          0.041666666666667,
+          0.09027777777777768,
+          0.1250000000000004,
+          0.8888888888888888,
+          0.8958333333333331
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 12,
+        "id": "word-6"
+      },
+      "letterIndex": 5,
+      "time": 13.02,
+      "progress": 0.8333333333333334,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 248.265625,
+      "fillPercent": 83,
+      "fillX": 252.9425,
+      "errorPx": 4.6768749999999955,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "В",
+        "start": 13.32,
+        "end": 13.9,
+        "confidence": 0,
+        "letters": [
+          0
+        ],
+        "diagnostics": [
+          "ApproximateAlignment"
+        ],
+        "case": "reply",
+        "index": 13,
+        "id": "word-7"
+      },
+      "letterIndex": 0,
+      "time": 13.32,
+      "progress": 0,
+      "width": 72.546875,
+      "textWidth": 54.6875,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 0,
+      "time": 29.64,
+      "progress": 0,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 1,
+      "time": 29.76,
+      "progress": 0.16666666666666666,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 51.078125,
+      "fillPercent": 17,
+      "fillX": 51.8075,
+      "errorPx": 0.7293749999999974,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 2,
+      "time": 29.9,
+      "progress": 0.3333333333333333,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 97.640625,
+      "fillPercent": 33,
+      "fillX": 100.5675,
+      "errorPx": 2.9268749999999955,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 3,
+      "time": 30.04,
+      "progress": 0.5,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 150.140625,
+      "fillPercent": 50,
+      "fillX": 152.375,
+      "errorPx": 2.234375,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 4,
+      "time": 30.74,
+      "progress": 0.6666666666666666,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 201.703125,
+      "fillPercent": 67,
+      "fillX": 204.1825,
+      "errorPx": 2.4793750000000045,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "отдать",
+        "start": 29.64,
+        "end": 30.82,
+        "confidence": 0.3274597943527624,
+        "letters": [
+          0,
+          0.10169491525423816,
+          0.22033898305084582,
+          0.3389830508474565,
+          0.9322033898305069,
+          0.9491525423728824
+        ],
+        "diagnostics": [
+          "TimingReviewRequired",
+          "RecognizedWord"
+        ],
+        "case": "reply",
+        "index": 23,
+        "id": "word-8"
+      },
+      "letterIndex": 5,
+      "time": 30.76,
+      "progress": 0.8333333333333334,
+      "width": 304.75,
+      "textWidth": 286.890625,
+      "glyphBoundaryX": 248.265625,
+      "fillPercent": 83,
+      "fillX": 252.9425,
+      "errorPx": 4.6768749999999955,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "В",
+        "start": 30.82,
+        "end": 30.86,
+        "confidence": 0.001968059688806534,
+        "letters": [
+          0
+        ],
+        "diagnostics": [
+          "BoundaryConflict",
+          "TimingReviewRequired"
+        ],
+        "case": "reply",
+        "index": 24,
+        "id": "word-9"
+      },
+      "letterIndex": 0,
+      "time": 30.82,
+      "progress": 0,
+      "width": 72.546875,
+      "textWidth": 54.6875,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    },
+    {
+      "word": {
+        "text": "в",
+        "start": 33.12,
+        "end": 33.22,
+        "confidence": 0.2788349390029907,
+        "letters": [
+          0
+        ],
+        "diagnostics": [],
+        "case": "reply",
+        "index": 27,
+        "id": "word-10"
+      },
+      "letterIndex": 0,
+      "time": 33.12,
+      "progress": 0,
+      "width": 63.109375,
+      "textWidth": 45.25,
+      "glyphBoundaryX": 0,
+      "fillPercent": 0,
+      "fillX": 0,
+      "errorPx": 0,
+      "font": "800 78px / 89.7px Measured"
+    }
+  ]
+}

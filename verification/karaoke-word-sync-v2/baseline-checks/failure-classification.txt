@@ -1,0 +1,120 @@
+READ-ONLY BASELINE FAILURE CLASSIFICATION
+62 failures; all preserved as gates.
+
+architecture_debt: 1
+Architecture checker returns60 violations, beginning with ctc.py 718 lines versus 500 limit.
+Confirmed checker result; individual architectural causes are in architecture.log.
+Evidence: tests/test_architecture.py::test_locked_architecture_gates
+
+asynchronous_job_timeout: 1
+wait_for_job exhausts its 10 s event wait while preparing the song, before the compression-policy assertion.
+Immediate timeout confirmed; exact background job state/root cause absent from saved traceback. This outcome differs from the historical run; do not call it a new alignment regression or assume harmless flakiness.
+Evidence: tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy
+
+clip_cancellation_contract: 2
+Clip-stopped event is not set when job resources are released. True variant also records an assertion that cancellation Event objects differ.
+Immediate failures confirmed. Product uses a separate clip cancellation flow; whether test or behavior should change requires a separate contract review.
+Evidence: tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[False]
+
+clip_publication_behavior: 1
+Song videoUrl remains the YouTube URL instead of the expected local /songs/<id>/clip URL.
+Observed publication mismatch; full root cause not established from this assertion alone.
+Evidence: tests/test_processing_e2e.py::test_clip_download_overlaps_processing_and_preserves_published_revision
+
+cuda_embedding_dtype: 1
+CUDA code path calls half() on Embedding; assertion requires float32 but receives float16.
+Confirmed implementation/test mismatch. The test mocks model.to, so no actual CUDA hardware is needed; absence of GPU does not explain this failure.
+Evidence: tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda]
+
+library_api_contract: 1
+Test accesses SqlLibraryStorage._publish, which is absent.
+Confirmed missing API/test hook; rollback behavior is not reached by this test.
+Evidence: tests/test_library_archive.py::test_library_publication_failure_rolls_back_files_and_rows
+
+linux_deployment_sandbox_path: 12
+Sandbox deploy.sh fails before injection because interpreter path contains the temporary directory twice; interpreter not found, exit 127 in successful variant.
+Confirmed test path rewrite error: first replacing /opt/... with a path under /tmp then globally replacing /tmp also rewrites the newly inserted path. This test never reaches the intended deployment failure/rollback gate.
+Evidence: tests/test_room_server_deployment.py::test_deployment_reports_an_unverified_rollback_instead_of_claiming_success
+
+prepared_audio_test_fixture: 1
+The test PreparedAudio substitute is SimpleNamespace without music; document_pipeline.run reads prepared.music.bpm.
+Confirmed incomplete test fixture at the reporting boundary. Failure is not CUDA execution or real-device unavailability.
+Evidence: tests/test_processing_execution.py::test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget
+
+process_pipe_contract: 1
+read_line raises RuntimeError for closed native control pipe; test expects empty string.
+Confirmed API behavior mismatch after process termination.
+Evidence: tests/test_process_ownership.py::test_line_process_kills_a_child_that_ignores_the_stop_request
+
+recognition_payload_contract: 4
+Alignment runner input has an additional alternatives field; test requires equality to the original recognition object.
+Confirmed payload/test contract mismatch; not an audio boundary inference or hardware failure.
+Evidence: tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-None]
+
+recording_analysis_registry: 1
+POST returned 409 as expected, but analysis registry is empty, causing IndexError at json()[0].
+Immediate registry mismatch confirmed; failure reason for 409 is not printed. Outcome changed versus historical run, but scheduling/race root cause is not proven.
+Evidence: tests/test_release_regressions.py::test_rejected_analysis_submission_is_settled_in_the_recording_registry
+
+recording_analysis_submission: 4
+Analysis POST response lacks jobId; test raises KeyError before reaching the intended processing/cancellation assertion.
+Immediate API failure confirmed. Saved traceback omits response status/body, so precise cause is unresolved; do not invent a CUDA or alignment cause.
+Evidence: tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores
+
+recording_capture_contract: 1
+Expected recording.original.wav does not exist after registration.
+Confirmed missing expected preservation artifact; registration/mastering lifecycle requires separate review.
+Evidence: tests/test_recordings_analysis.py::test_new_performance_is_balanced_before_registration_and_retry_preserves_capture
+
+recording_cleanup_behavior: 1
+Deleting an empty take with recording-recovery.json returns 204; test expects 409 and retained files.
+Observed deletion/recovery-descriptor contract mismatch; exact intended retention behavior not adjudicated.
+Evidence: tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file]
+
+recording_delete_conflict: 1
+Delete returns 409 Conflict instead of expected 204.
+Observed conflict; response body and active-job state not printed, so exact cause remains unresolved.
+Evidence: tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata
+
+recording_startup_behavior: 2
+Recording lookup returns 404 RecordingNotFound after preparing a recovery descriptor; test expects recovered recording 200.
+Observed startup recovery failure; detailed cause not determined by the saved response alone.
+Evidence: tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size
+
+resource_policy_contract: 3
+Resource admission raises InsufficientRam instead of expected ResourceBudgetExceeded with no existing reservation.
+Confirmed changed error classification: scheduler explicitly uses InsufficientRam before any reservation and ResourceBudgetExceeded for contention.
+Evidence: tests/test_resource_scheduler.py::test_resource_scheduler_enforces_ram_headroom
+
+resource_probe_test_fixture: 2
+Job fails InsufficientRam before AI stages: test probe reports availableRAM16 GiB but totalRAM16000 bytes; default minimum free RAM is 512 MiB.
+Confirmed contradictory fixture. Scheduler total-RAM guard rejects both CPU/CUDA cases regardless of actual machine RAM/GPU.
+Evidence: tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CPU-CPU]
+
+song_metadata_refresh: 5
+Expected refreshed title/artist/video/catalogue album/genre is absent or old in the returned song.
+Observed metadata refresh mismatch; one assertion per case does not establish a single shared root cause.
+Evidence: tests/test_song_recognition.py::test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting
+
+studio_master_api_contract: 11
+Test calls absent balance_recording/_integrated_loudness or unsupported render(enhance=...).
+Confirmed test/API incompatibility in unrelated recording mastering component.
+Evidence: tests/test_studio_master.py::test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy
+
+studio_master_fixture_input: 1
+render immediately calls sf.info on performance_mix take.wav, which the mock test has not provided; libsndfile reports system error.
+Missing actual input file at the current render boundary is confirmed; expected mock behavior differs.
+Evidence: tests/test_studio_master.py::test_studio_master_raises_quiet_vocal_to_the_original_song_balance
+
+studio_master_loudness_behavior: 4
+Measured integrated output loudness is -10.95, -20.85, -6.55 or -20.35 LUFS, versus test target -14±0.25.
+Observed mastering/loudness behavior mismatch. No justification to classify as CPU/CUDA or word timing.
+Evidence: tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.01-0.1-0.1]
+
+targeted_word_alignment: 1
+Natural cached uncertain case places один at 9.94 s instead of the existing <9.5 s regression bound.
+Confirmed targeted timing failure. Separate Odin/acoustic reports analyze underlying token borrowing and independent anchors.
+Evidence: tests/test_letter_alignment.py::test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_own_phrase[uncertain]
+
+ASYNC OUTCOME VARIATION
+Historical 64 vs current 62:59 shared failures;3 newly failing,5 not failing now. Outcome variation is observed; blanket flaky/hardware attribution is unjustified.

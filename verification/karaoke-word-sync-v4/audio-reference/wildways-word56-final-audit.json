@@ -1,0 +1,144 @@
+{
+  "case": "Wildways full recording, word index56, столом",
+  "source": "https://soundcloud.com/wildways/kilometry",
+  "sourceSha256": "7c6eb9aeff5ed03e58c3630ff317f0e8f7351d5301823021ab5b3c6ee60abe9a",
+  "audioSources": {
+    "vocal": {
+      "path": "/tmp/karaoke-sync-v4/full-pipeline/cache-mode-final-smoke/vocals.wav",
+      "sha256": "c8c2b71278312a67e4dd7099213f6f9651ab5a4a31db05cc275f350e921a1518",
+      "sampleRate": 44100,
+      "offsetSeconds": 63.5
+    },
+    "backing": {
+      "path": "/tmp/karaoke-sync-v4/full-pipeline/cache-mode-final-smoke/instrumental.wav",
+      "sha256": "360afa10f6b0fc6a2cbe42f1f524a8d99f95096ece5653e241d9ca317cd66e68",
+      "sampleRate": 44100,
+      "offsetSeconds": 63.5
+    },
+    "original_mix": {
+      "path": "/tmp/karaoke-sync-v4/audio-reference/wildways-whole-song-audit-original.wav",
+      "sha256": "e82bf9a4b709e388c1301c173d6131a5b5943ea3473bd751b2437c1e4b84c570",
+      "sampleRate": 44100,
+      "offsetSeconds": 63.5
+    }
+  },
+  "protocol": [
+    "Inspect raw original mix and byte-identical Demucs stems in63.5–66.5s and64.9–65.9s without model overlays.",
+    "Freeze raw findings before reading word text, letter timings, or numeric v3/v4 payload.",
+    "Read stored word/neighbor payload only after signal observations; do not use it to generate a reference label."
+  ],
+  "listenedByAgent": false,
+  "humanIndependentReferenceAvailable": false,
+  "numericComparison": {
+    "wordIndex": 56,
+    "wordSha256": "287628788e3645ed245768d3ebc2272c709cca196c331d8de08d24c443b65bc8",
+    "changedFields": [
+      "end",
+      "diagnostics"
+    ],
+    "before": {
+      "start": 63.59,
+      "end": 65.65,
+      "letters": [
+        63.59,
+        63.67,
+        63.77,
+        64.09,
+        64.19,
+        64.75
+      ],
+      "diagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord",
+        "AsrCtcBoundaryDisagreement"
+      ],
+      "confidence": 0.289067111366118
+    },
+    "after": {
+      "start": 63.59,
+      "end": 65.35,
+      "letters": [
+        63.59,
+        63.67,
+        63.77,
+        64.09,
+        64.19,
+        64.75
+      ],
+      "diagnostics": [
+        "TimingReviewRequired",
+        "RecognizedWord"
+      ],
+      "confidence": 0.289067111366118
+    },
+    "durationBefore": 2.06,
+    "durationAfter": 1.76
+  },
+  "rawSignalObservations": [
+    {
+      "interval": [
+        65.0,
+        65.1
+      ],
+      "observation": "Rapid decay of preceding vocal energy; median40ms RMS falls from−32.2 to−38.0dBFS across successive50ms bins."
+    },
+    {
+      "interval": [
+        65.3,
+        65.45
+      ],
+      "observation": "Preceding decay falls to−50.8,−55.4,−56.6dBFS in50ms bins, with normalized40ms periodicity0.342,0.337,0.322. No continuous strong nasal or held-vowel harmonics are evident."
+    },
+    {
+      "interval": [
+        65.45,
+        65.7
+      ],
+      "observation": "Separate onset after the gap around65.46s, followed by broadband high-frequency energy. At65.60–65.65, high/low band ratio4.642; normalized periodicity0.239. This sound is not a continuous voiced nasal /m/."
+    },
+    {
+      "interval": [
+        65.78,
+        65.85
+      ],
+      "observation": "New harmonic growth following the noisy segment; the median65.80–65.85periodicity is0.789 and RMS−19.9dBFS."
+    }
+  ],
+  "conclusion": "No observed raw-signal evidence of a cut held vowel or continuous nasal in the removed65.35–65.65s interval. The change stops the previous word before a deep low-energy gap and a separate later noisy onset. Acoustic evidence supports removal of the later sound from the previous word, but does not certify65.350s as a human phonetic boundary.",
+  "referenceStartSeconds": null,
+  "referenceEndSeconds": null,
+  "startErrorMs": null,
+  "endErrorMsBefore": null,
+  "endErrorMsAfter": null,
+  "wordLettersUnchanged": true,
+  "wordStartUnchanged": true,
+  "notesClaim": "No fresh pitch inference was used. Raw signal audit does not independently verify reference-note correspondence; the separate note integrity checks remain necessary.",
+  "limits": [
+    "The original commercial mix contains instruments and reverberation, and the Demucs stem is an estimate. Very quiet voice masked by instruments cannot be excluded at sample precision.",
+    "Spectral evidence separates continuous voiced ending from a later noise onset but alone cannot prove whether the later noise is inhalation, aspiration, or a linguistic consonant of the next word.",
+    "No manual listening annotation was performed. Do not describe the300ms change as an independently measured300ms accuracy gain.",
+    "The actual prior direct vocal release can occur before65.35s; retaining a low-level decay does not prove the final endpoint is optimal."
+  ],
+  "evidence": [
+    {
+      "file": "audit_wildways_word56.py",
+      "sha256": "82ab22ec497426218fa7a04a703f8c2dd5c2fd1ba6223b438197c405705552bc"
+    },
+    {
+      "file": "wildways-word56-raw-findings.json",
+      "sha256": "b9bcb17a93da5079934d37a8c861d521dc155e17a17de9d10aa67a5bb97fc87b"
+    },
+    {
+      "file": "wildways-word56-raw-audit.json",
+      "sha256": "02dd0b407c1369f5487a7415d8530ffc514f717f691af6078ef3c59a58ab37b5"
+    },
+    {
+      "file": "wildways-word56-context.png",
+      "sha256": "7936b10a15864f04a82fec97e692b84c2a90a9338e14e782671cc3848842e93e"
+    },
+    {
+      "file": "wildways-word56-release.png",
+      "sha256": "892ddfbbf9f06e6366b8ca06dd3af4c37732814a314a66bad9476ee76569dc24"
+    }
+  ]
+}

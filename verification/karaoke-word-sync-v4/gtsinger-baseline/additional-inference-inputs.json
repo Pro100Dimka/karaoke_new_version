@@ -1,0 +1,24 @@
+{
+  "referenceSha256": "14fa21f2589a3088dd68c6ed8a1ecf363181e43f4c2fa985d8ee1ccdbb646d70",
+  "boundaryLabelsAvailableToInference": false,
+  "cases": [
+    {
+      "case": "control_0003",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0003.wav",
+      "lyrics": "вдруг замечаешь течение времени",
+      "audioSha256": "a54f63f2d7ee5541d02f853e7f76f377108ada56a050c18348168986ef281da3",
+      "duration": 7.433,
+      "language": "Russian",
+      "timingHints": []
+    },
+    {
+      "case": "control_0004",
+      "audioPath": "/tmp/karaoke-sync-v4/audio-reference/gtsinger/Аня Облонская/Control_Group/0004.wav",
+      "lyrics": "вдруг понимаешь не остановить лист пожелтевший",
+      "audioSha256": "791137531e62a021e03690c72eaff54d5da92dc202c128e5740f02f426ab085c",
+      "duration": 8.174,
+      "language": "Russian",
+      "timingHints": []
+    }
+  ]
+}

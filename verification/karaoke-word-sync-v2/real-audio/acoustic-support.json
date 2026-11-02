@@ -1,0 +1,58 @@
+{
+  "method": "Raw float waveform, 10-ms nonoverlapping RMS, independent of CTC/ASR; intervals inspected in unannotated spectrogram. A trough/change does not identify a word without contextual inference.",
+  "listened": false,
+  "measurements": [
+    {
+      "vocalArray": "fast_vocal",
+      "arraySha256": "e0ecc3e10c06f5a7e47f5367cd38687827016169cc78e0d9d93947b1e28c695c",
+      "durationSeconds": 11.0,
+      "troughFrameSeconds": [
+        9.45,
+        9.46
+      ],
+      "troughRmsDbfs": -34.585830507064536,
+      "previousPlateauMedianDbfs": -23.528662993617374,
+      "followingPlateauMedianDbfs": -26.536365865961802,
+      "interpretation": "Strong acoustic articulation separates two voiced regions near9.44; plausible medial consonant in target word, not certified word-start."
+    },
+    {
+      "vocalArray": "native_fast_vocal",
+      "arraySha256": "4e15a2adefc63ed0701d6ac2dcea5d4139fc19816aee25d01c1a0e8edac2614f",
+      "durationSeconds": 10.0,
+      "troughFrameSeconds": [
+        9.45,
+        9.46
+      ],
+      "troughRmsDbfs": -34.59023406252735,
+      "previousPlateauMedianDbfs": -23.79193997118821,
+      "followingPlateauMedianDbfs": -26.382667194900968,
+      "interpretation": "Strong acoustic articulation separates two voiced regions near9.44; plausible medial consonant in target word, not certified word-start."
+    },
+    {
+      "vocalArray": "clean_entry_vocal",
+      "arraySha256": "58d312ec202c0241c72749657010c4bdca1f87c8bd26c1ff704f9acc4ede70dc",
+      "durationSeconds": 17.0,
+      "troughFrameSeconds": [
+        9.45,
+        9.46
+      ],
+      "troughRmsDbfs": -34.97408064598496,
+      "previousPlateauMedianDbfs": -23.721558178152932,
+      "followingPlateauMedianDbfs": -26.535152779751964,
+      "interpretation": "Strong acoustic articulation separates two voiced regions near9.44; plausible medial consonant in target word, not certified word-start."
+    }
+  ],
+  "exactUncertainWaveMapping": false,
+  "referenceBoundaries": {
+    "onset": {
+      "humanMeasured": null,
+      "acousticSeam": "No clear silence separates the preceding word and initial vowel. Exact seam around8.9–9.2 cannot be resolved confidently from the available spectra.",
+      "conditionalUpperBoundSeconds": 9.49,
+      "condition": "Assuming contextual identification of9.42–9.49 articulation as medial consonant/new vowel belonging to один. This is inference from source acoustics, not independent human ground truth."
+    },
+    "end": {
+      "humanMeasured": null,
+      "limitation": "Continuous voiced transition into following words; no certified exact boundary."
+    }
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "case": "100 words, every third word flagged (33 flags), 80 seconds total",
+  "windows": [
+    {
+      "first": 0,
+      "last": 2,
+      "start": 0.0,
+      "end": 1.4000000000000001,
+      "heard_start": null,
+      "words": 2,
+      "seconds": 1.4000000000000001
+    },
+    {
+      "first": 2,
+      "last": 5,
+      "start": 1.4000000000000001,
+      "end": 3.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999995
+    },
+    {
+      "first": 5,
+      "last": 8,
+      "start": 3.8,
+      "end": 6.200000000000001,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000012
+    },
+    {
+      "first": 8,
+      "last": 11,
+      "start": 6.200000000000001,
+      "end": 8.600000000000001,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000004
+    },
+    {
+      "first": 11,
+      "last": 14,
+      "start": 8.600000000000001,
+      "end": 11.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 14,
+      "last": 17,
+      "start": 11.0,
+      "end": 13.400000000000002,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.400000000000002
+    },
+    {
+      "first": 17,
+      "last": 20,
+      "start": 13.400000000000002,
+      "end": 15.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 20,
+      "last": 23,
+      "start": 15.8,
+      "end": 18.200000000000003,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.400000000000002
+    },
+    {
+      "first": 23,
+      "last": 26,
+      "start": 18.200000000000003,
+      "end": 20.6,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 26,
+      "last": 29,
+      "start": 20.6,
+      "end": 23.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 29,
+      "last": 32,
+      "start": 23.0,
+      "end": 25.4,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 32,
+      "last": 35,
+      "start": 25.4,
+      "end": 27.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.400000000000002
+    },
+    {
+      "first": 35,
+      "last": 38,
+      "start": 27.8,
+      "end": 30.200000000000003,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.400000000000002
+    },
+    {
+      "first": 38,
+      "last": 41,
+      "start": 30.200000000000003,
+      "end": 32.6,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 41,
+      "last": 44,
+      "start": 32.6,
+      "end": 35.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 44,
+      "last": 47,
+      "start": 35.0,
+      "end": 37.400000000000006,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 47,
+      "last": 50,
+      "start": 37.400000000000006,
+      "end": 39.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999915
+    },
+    {
+      "first": 50,
+      "last": 53,
+      "start": 39.8,
+      "end": 42.2,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 53,
+      "last": 56,
+      "start": 42.2,
+      "end": 44.6,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 56,
+      "last": 59,
+      "start": 44.6,
+      "end": 47.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 59,
+      "last": 62,
+      "start": 47.0,
+      "end": 49.400000000000006,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 62,
+      "last": 65,
+      "start": 49.400000000000006,
+      "end": 51.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999915
+    },
+    {
+      "first": 65,
+      "last": 68,
+      "start": 51.8,
+      "end": 54.2,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 68,
+      "last": 71,
+      "start": 54.2,
+      "end": 56.6,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 71,
+      "last": 74,
+      "start": 56.6,
+      "end": 59.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999986
+    },
+    {
+      "first": 74,
+      "last": 77,
+      "start": 59.0,
+      "end": 61.400000000000006,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 77,
+      "last": 80,
+      "start": 61.400000000000006,
+      "end": 63.8,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999915
+    },
+    {
+      "first": 80,
+      "last": 83,
+      "start": 63.8,
+      "end": 66.20000000000002,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.40000000000002
+    },
+    {
+      "first": 83,
+      "last": 86,
+      "start": 66.20000000000002,
+      "end": 68.6,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.3999999999999773
+    },
+    {
+      "first": 86,
+      "last": 89,
+      "start": 68.6,
+      "end": 71.0,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 89,
+      "last": 92,
+      "start": 71.0,
+      "end": 73.4,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 92,
+      "last": 95,
+      "start": 73.4,
+      "end": 75.80000000000001,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.4000000000000057
+    },
+    {
+      "first": 95,
+      "last": 98,
+      "start": 75.80000000000001,
+      "end": 78.4,
+      "heard_start": null,
+      "words": 3,
+      "seconds": 2.5999999999999943
+    }
+  ],
+  "summary": {
+    "calls": 33,
+    "max_words": 3,
+    "max_seconds": 2.5999999999999943,
+    "assigned_words": 98,
+    "audio_seconds_total": 78.4,
+    "audio_overlap_seconds": 0,
+    "flag_assignments": 33
+  },
+  "measurement": "Planning/call dimensions only; not a wall-time speedup claim"
+}

@@ -1,0 +1,1237 @@
+{
+  "baselinePython": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python",
+  "currentPython": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+  "runtimePython": "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+  "groups": [
+    {
+      "group": "local_review_and_preservation",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_word_timing_review.py",
+      "sha256": "32b20e0c886bee71db016fac696c1659e229f4def978ef9e4975b89e94bd43fb",
+      "testFunctions": [
+        {
+          "name": "test_short_word_is_reviewed_when_independent_span_and_singing_disagree",
+          "line": 40
+        },
+        {
+          "name": "test_genuine_quick_word_is_not_reviewed_for_its_absolute_duration",
+          "line": 48
+        },
+        {
+          "name": "test_short_unsupported_ctc_word_is_reviewed_without_an_asr_match",
+          "line": 59
+        },
+        {
+          "name": "test_independent_agreement_preserves_a_weak_but_genuinely_fast_word",
+          "line": 69
+        },
+        {
+          "name": "test_recognition_padding_over_silence_is_not_missing_singing",
+          "line": 84
+        },
+        {
+          "name": "test_conflicting_cores_are_reviewed_together_before_ordering",
+          "line": 94
+        },
+        {
+          "name": "test_review_realigns_neighboring_cores_together_from_cached_emissions",
+          "line": 99
+        },
+        {
+          "name": "test_normalized_shortening_reaches_joint_review_without_independent_asr",
+          "line": 122
+        },
+        {
+          "name": "test_normalization_records_small_clipping_without_rechecking_ordinary_onset_lag",
+          "line": 150
+        },
+        {
+          "name": "test_ordering_reserves_a_positive_duration_on_the_serialized_millisecond_grid",
+          "line": 162
+        },
+        {
+          "name": "test_review_can_recover_an_acoustically_supported_word_under_eighty_milliseconds",
+          "line": 176
+        },
+        {
+          "name": "test_review_does_not_promote_a_proportional_fallback_to_an_acoustic_repair",
+          "line": 191
+        },
+        {
+          "name": "test_review_does_not_erase_a_conflict_by_discarding_strong_phonetic_bodies",
+          "line": 211
+        },
+        {
+          "name": "test_review_respects_an_independently_confirmed_voice_entry",
+          "line": 234
+        },
+        {
+          "name": "test_joint_review_does_not_shorten_an_unflagged_neighbors_confirmed_end",
+          "line": 252
+        },
+        {
+          "name": "test_pipeline_preserves_the_neighbor_move_required_by_an_accepted_joint_repair",
+          "line": 306
+        },
+        {
+          "name": "test_acoustically_better_fast_word_is_kept_even_if_rate_warning_remains",
+          "line": 313
+        },
+        {
+          "name": "test_local_onset_repair_does_not_recalibrate_distant_unchanged_words",
+          "line": 320
+        },
+        {
+          "name": "test_unresolved_acoustic_review_is_exported_without_a_written_rate_warning",
+          "line": 335
+        },
+        {
+          "name": "test_unchanged_local_review_keeps_timings_without_repeating_audio_postprocessing",
+          "line": 341
+        },
+        {
+          "name": "test_accepted_local_repair_reuses_unchanged_audio_features",
+          "line": 362
+        }
+      ],
+      "functionCount": 21,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "local_review_and_preservation",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_review_windows.py",
+      "sha256": "9944ee497c6abbc94ea47daefd6b97a72811337e9f4aeccf29970ccfd049e963",
+      "testFunctions": [
+        {
+          "name": "test_sparse_reviews_do_not_transitively_align_almost_the_whole_song",
+          "line": 36
+        },
+        {
+          "name": "test_contiguous_complete_contexts_are_packed_under_both_budgets",
+          "line": 47
+        },
+        {
+          "name": "test_packing_does_not_fill_the_gaps_between_sparse_reviews",
+          "line": 59
+        },
+        {
+          "name": "test_packing_does_not_add_an_instrumental_gap_between_contiguous_contexts",
+          "line": 71
+        },
+        {
+          "name": "test_packing_preserves_chosen_acoustic_splits_even_when_the_parts_could_fit_together",
+          "line": 79
+        },
+        {
+          "name": "test_a_distant_target_does_not_split_a_complete_local_review",
+          "line": 89
+        },
+        {
+          "name": "test_dense_reviews_respect_both_word_and_audio_budgets",
+          "line": 101
+        },
+        {
+          "name": "test_a_real_silent_gap_is_preferred_to_a_numerical_split",
+          "line": 108
+        },
+        {
+          "name": "test_independently_supported_boundary_is_preferred_when_singing_is_continuous",
+          "line": 120
+        },
+        {
+          "name": "test_a_conflicting_pair_at_the_budget_boundary_keeps_joint_context",
+          "line": 136
+        },
+        {
+          "name": "test_a_single_sustained_word_is_not_clipped_to_the_audio_budget",
+          "line": 145
+        },
+        {
+          "name": "test_a_long_context_word_does_not_expand_the_following_review",
+          "line": 154
+        },
+        {
+          "name": "test_no_valid_targets_produce_no_review_windows",
+          "line": 163
+        },
+        {
+          "name": "test_invalid_target_indices_do_not_discard_valid_reviews",
+          "line": 169
+        },
+        {
+          "name": "test_padded_recognition_cannot_repeat_audio_across_distant_reviews",
+          "line": 176
+        },
+        {
+          "name": "test_each_review_target_reuses_the_cached_emission_only_once",
+          "line": 188
+        },
+        {
+          "name": "test_an_accepted_local_candidate_cannot_cross_an_outside_neighbor",
+          "line": 209
+        },
+        {
+          "name": "test_real_ctc_recovers_both_sides_of_a_conflict_near_a_split",
+          "line": 227
+        },
+        {
+          "name": "test_an_unavoidable_uncertain_seam_keeps_diagnostics_and_attempts_every_target",
+          "line": 280
+        },
+        {
+          "name": "test_coincident_cores_without_separate_audio_remain_diagnosed_through_export",
+          "line": 304
+        }
+      ],
+      "functionCount": 20,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "local_review_and_preservation",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_silent_prefix_review.py",
+      "sha256": "858a6e5a1969bff2d09fc421dd97e221c64a01040d8da384e3d5ce5a129a228c",
+      "testFunctions": [
+        {
+          "name": "test_a_weak_opening_in_silence_is_flagged_before_onset_normalization",
+          "line": 46
+        },
+        {
+          "name": "test_local_review_uses_an_active_phonetic_anchor_without_retiming_neighbours",
+          "line": 57
+        },
+        {
+          "name": "test_a_held_initial_nasal_or_fricative_is_not_cut_to_the_later_vowel",
+          "line": 83
+        },
+        {
+          "name": "test_strong_ctc_evidence_preserves_a_quiet_initial_consonant",
+          "line": 91
+        },
+        {
+          "name": "test_an_intervening_active_sound_prevents_silent_prefix_recovery",
+          "line": 101
+        },
+        {
+          "name": "test_an_onset_repair_cannot_trade_away_supported_phonetic_context",
+          "line": 110
+        },
+        {
+          "name": "test_an_onset_only_repair_keeps_an_unchanged_neighbours_frame_jitter",
+          "line": 129
+        },
+        {
+          "name": "test_a_silent_prefix_review_does_not_override_an_independent_contradiction",
+          "line": 149
+        },
+        {
+          "name": "test_a_genuinely_fast_word_keeps_its_short_duration",
+          "line": 160
+        },
+        {
+          "name": "test_a_recovered_onset_is_stable_and_does_not_repeat_ctc",
+          "line": 167
+        },
+        {
+          "name": "test_onset_only_commit_preserves_supported_calibrated_letters",
+          "line": 224
+        },
+        {
+          "name": "test_a_separately_changed_raw_letter_keeps_its_new_calibrated_anchor",
+          "line": 248
+        },
+        {
+          "name": "test_crossed_or_newly_tied_calibrated_anchors_keep_the_complete_candidate",
+          "line": 263
+        },
+        {
+          "name": "test_anchor_preservation_is_limited_to_an_onset_only_recovery",
+          "line": 280
+        },
+        {
+          "name": "test_existing_silent_character_ties_remain_valid_during_anchor_preservation",
+          "line": 298
+        }
+      ],
+      "functionCount": 15,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_letter_alignment.py",
+      "sha256": "f0599c3991cf5eb5262bf1d7ea956101163c5c1ec656497c3ee39c6beee6ef03",
+      "testFunctions": [
+        {
+          "name": "test_alignment_reuse_preserves_encoder_results_and_invalidates_changed_audio",
+          "line": 29
+        },
+        {
+          "name": "test_alignment_reuse_keeps_context_options_and_absolute_times",
+          "line": 53
+        },
+        {
+          "name": "test_alignment_reuse_recalculates_with_low_disk_space",
+          "line": 87
+        },
+        {
+          "name": "test_alignment_reuse_keeps_lyric_evidence_independent_of_reused_audio",
+          "line": 101
+        },
+        {
+          "name": "test_alignment_reuse_preserves_independent_views_across_changed_lyrics",
+          "line": 132
+        },
+        {
+          "name": "test_grouped_transcription_loads_once_and_releases_the_model_between_groups",
+          "line": 159
+        },
+        {
+          "name": "test_alignment_recovers_a_leading_phrase_before_a_late_full_song_asr_anchor",
+          "line": 197
+        },
+        {
+          "name": "test_returning_voice_can_precede_its_coarse_recognized_entry",
+          "line": 255
+        },
+        {
+          "name": "test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings",
+          "line": 285
+        },
+        {
+          "name": "test_encoder_reuse_checks_audio_values_and_restores_forward_after_errors",
+          "line": 329
+        },
+        {
+          "name": "test_native_word_timing_reuses_encoder_without_redecoding_the_audio",
+          "line": 371
+        },
+        {
+          "name": "test_source_evidence_bounds_spectral_memory_without_changing_chunk_seams",
+          "line": 399
+        },
+        {
+          "name": "test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings",
+          "line": 439
+        },
+        {
+          "name": "test_alignment_loads_one_speech_model_for_its_refinements_only",
+          "line": 466
+        },
+        {
+          "name": "test_recognition_context_does_not_cut_off_a_word_after_an_internal_vocal_pause",
+          "line": 515
+        },
+        {
+          "name": "test_transcription_keeps_word_evidence_for_the_following_alignment",
+          "line": 530
+        },
+        {
+          "name": "test_alignment_reuses_independent_recognition_instead_of_decoding_it_again",
+          "line": 541
+        },
+        {
+          "name": "test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_replies",
+          "line": 574
+        },
+        {
+          "name": "test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_phrase",
+          "line": 625
+        },
+        {
+          "name": "test_default_recognizer_recovers_all_performed_choruses_from_a_fresh_import",
+          "line": 651
+        },
+        {
+          "name": "test_real_chorus_entry_can_move_past_an_unrecognized_misplaced_neighbour",
+          "line": 704
+        },
+        {
+          "name": "test_accelerator_preparation_bootstraps_the_verified_native_checkpoint",
+          "line": 734
+        },
+        {
+          "name": "test_alignment_uses_the_more_complete_independent_audio_view",
+          "line": 757
+        },
+        {
+          "name": "test_verified_local_checkpoint_restores_official_word_alignment_heads",
+          "line": 788
+        },
+        {
+          "name": "test_voiced_frames_follow_the_sound_and_ignore_a_silent_intro",
+          "line": 828
+        },
+        {
+          "name": "test_voiced_frames_bridge_a_brief_dropout_between_continuous_sounds",
+          "line": 836
+        },
+        {
+          "name": "test_a_character_without_a_sound_starts_with_the_next_one",
+          "line": 842
+        },
+        {
+          "name": "test_a_fast_consonant_cluster_on_the_same_frame_is_spread_across_the_gap",
+          "line": 846
+        },
+        {
+          "name": "test_a_tied_run_at_the_end_of_a_word_spreads_to_the_word_end",
+          "line": 853
+        },
+        {
+          "name": "test_a_near_tie_not_bit_identical_is_still_spread",
+          "line": 859
+        },
+        {
+          "name": "test_evenly_spreads_letters_when_a_window_is_too_short_for_its_word",
+          "line": 872
+        },
+        {
+          "name": "test_letters_far_enough_apart_are_not_treated_as_tied",
+          "line": 885
+        },
+        {
+          "name": "test_silent_characters_are_not_touched_by_spreading",
+          "line": 892
+        },
+        {
+          "name": "test_genuinely_distinct_letters_are_left_alone",
+          "line": 899
+        },
+        {
+          "name": "test_a_word_with_nothing_to_pronounce_sits_between_its_neighbours",
+          "line": 903
+        },
+        {
+          "name": "test_a_held_vowel_stretches_its_word_to_the_end_of_the_sound",
+          "line": 913
+        },
+        {
+          "name": "test_a_genuine_long_vowel_follows_audio_without_a_duration_ceiling",
+          "line": 927
+        },
+        {
+          "name": "test_actual_final_word_releases_untranscribed_instrumental_outro",
+          "line": 936
+        },
+        {
+          "name": "test_actual_phrase_end_does_not_follow_a_different_instrumental_source",
+          "line": 954
+        },
+        {
+          "name": "test_sung_extension_preserves_harmonic_melisma_over_backing",
+          "line": 982
+        },
+        {
+          "name": "test_quiet_independent_voice_survives_backing_dominated_spectral_power",
+          "line": 1010
+        },
+        {
+          "name": "test_a_word_never_stretches_into_the_next_one",
+          "line": 1032
+        },
+        {
+          "name": "test_letter_timings_survive_saving_and_are_validated",
+          "line": 1040
+        },
+        {
+          "name": "test_a_word_after_a_pause_starts_when_the_voice_starts",
+          "line": 1051
+        },
+        {
+          "name": "test_the_typical_lag_is_removed_from_words_inside_a_phrase",
+          "line": 1066
+        },
+        {
+          "name": "test_text_is_split_into_stretches_pinned_to_where_whisper_heard_it",
+          "line": 1079
+        },
+        {
+          "name": "test_without_any_recognised_run_the_whole_song_is_one_stretch",
+          "line": 1103
+        },
+        {
+          "name": "test_heard_repeated_choruses_match_their_temporal_occurrence_when_one_is_missing",
+          "line": 1113
+        },
+        {
+          "name": "test_words_from_overlapping_windows_end_up_ordered_and_with_positive_length",
+          "line": 1135
+        },
+        {
+          "name": "test_ordered_settles_an_overlap_without_moving_the_following_word",
+          "line": 1151
+        },
+        {
+          "name": "test_ordered_preserves_long_unequal_letters_without_audio_evidence",
+          "line": 1166
+        },
+        {
+          "name": "test_an_erroneous_word_end_does_not_shift_the_rest_of_the_phrase",
+          "line": 1177
+        },
+        {
+          "name": "test_ordered_preserves_independently_timed_words_shorter_than_fifty_ms",
+          "line": 1194
+        },
+        {
+          "name": "test_boundary_refinement_retains_model_alignment_scores",
+          "line": 1207
+        },
+        {
+          "name": "test_speech_alignment_reports_supported_score_instead_of_perfect_confidence",
+          "line": 1215
+        },
+        {
+          "name": "test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_scores",
+          "line": 1232
+        },
+        {
+          "name": "test_ordered_still_trusts_a_plausible_short_hold",
+          "line": 1253
+        },
+        {
+          "name": "test_ordered_never_leaves_two_words_overlapping",
+          "line": 1262
+        },
+        {
+          "name": "test_moving_a_start_back_never_puts_a_word_before_the_previous_one",
+          "line": 1277
+        },
+        {
+          "name": "test_native_recognition_finishes_before_ctc_to_bound_model_memory",
+          "line": 1290
+        },
+        {
+          "name": "test_ctc_chunks_keep_one_fixed_frame_grid_through_the_end_of_long_audio",
+          "line": 1320
+        },
+        {
+          "name": "test_local_mms_model_applies_the_bundles_required_waveform_normalization",
+          "line": 1348
+        },
+        {
+          "name": "test_alignment_guidance_uses_native_cpu_precision_and_preserves_word_timestamps",
+          "line": 1380
+        },
+        {
+          "name": "test_native_alignment_recognition_disables_sampling_fallback",
+          "line": 1446
+        },
+        {
+          "name": "test_catalog_line_timings_still_ask_whisper_which_phrase_a_word_belongs_to",
+          "line": 1467
+        },
+        {
+          "name": "test_catalog_line_timings_become_alignment_windows",
+          "line": 1491
+        },
+        {
+          "name": "test_catalog_timing_tolerates_extra_words_in_the_preferred_plain_lyrics",
+          "line": 1508
+        },
+        {
+          "name": "test_alignment_guidance_keeps_the_faster_native_whisper_path_on_cuda",
+          "line": 1525
+        },
+        {
+          "name": "test_coverage_transcription_uses_independent_full_text_even_with_cuda_alignment",
+          "line": 1542
+        },
+        {
+          "name": "test_coverage_recognition_preserves_precision_and_uses_the_same_mono_decode",
+          "line": 1554
+        },
+        {
+          "name": "test_phrase_guidance_separates_repeats_when_asr_merges_or_misspells_words",
+          "line": 1592
+        },
+        {
+          "name": "test_fuzzy_phrase_start_reaches_alignment_choice_as_independent_evidence",
+          "line": 1607
+        },
+        {
+          "name": "test_phrase_matching_does_not_take_a_shared_suffix_from_a_different_line",
+          "line": 1631
+        },
+        {
+          "name": "test_a_unique_recognized_word_cannot_cross_the_surrounding_phrase_anchors",
+          "line": 1645
+        },
+        {
+          "name": "test_local_boundary_improvement_is_not_diluted_by_unchanged_words",
+          "line": 1664
+        },
+        {
+          "name": "test_independent_recognition_can_settle_one_bad_word_inside_an_otherwise_correct_phrase",
+          "line": 1682
+        },
+        {
+          "name": "test_an_accepted_repeat_cannot_be_followed_by_words_from_the_previous_repeat",
+          "line": 1693
+        },
+        {
+          "name": "test_untranscribed_leading_audio_stays_outside_the_first_word",
+          "line": 1713
+        },
+        {
+          "name": "test_a_number_written_as_digits_keeps_its_sung_interval_before_the_next_word",
+          "line": 1731
+        },
+        {
+          "name": "test_a_catalog_line_confirmed_by_a_voice_onset_supplies_a_timing_anchor",
+          "line": 1750
+        },
+        {
+          "name": "test_a_catalog_entry_remains_a_soft_anchor_when_no_nearby_onset_is_detected",
+          "line": 1760
+        },
+        {
+          "name": "test_actual_verse_entry_survives_missing_first_words_in_independent_recognition",
+          "line": 1771
+        },
+        {
+          "name": "test_catalog_and_recognized_phrase_jointly_keep_a_short_line_out_of_the_following_pause",
+          "line": 1798
+        },
+        {
+          "name": "test_an_early_coarse_asr_entry_still_bounds_phonemes_when_it_spans_the_catalog_entry",
+          "line": 1818
+        },
+        {
+          "name": "test_a_long_asr_prefix_padding_cannot_move_a_catalog_entry_into_an_instrumental_break",
+          "line": 1838
+        },
+        {
+          "name": "test_unhinted_phrase_recovers_a_word_whose_first_letter_was_borrowed_from_the_previous_vowel",
+          "line": 1861
+        },
+        {
+          "name": "test_a_partial_transcript_cannot_anchor_an_entire_unhinted_phrase",
+          "line": 1882
+        },
+        {
+          "name": "test_a_catalog_entry_and_a_supported_last_word_can_bound_a_partly_recognized_phrase",
+          "line": 1893
+        },
+        {
+          "name": "test_actual_short_reply_does_not_pull_the_previous_vowel_into_a_long_pause",
+          "line": 1912
+        },
+        {
+          "name": "test_actual_internal_word_run_does_not_flash_a_word_before_its_sung_syllable",
+          "line": 1940
+        },
+        {
+          "name": "test_recognized_word_intervals_preserve_a_genuine_fast_cluster",
+          "line": 1972
+        },
+        {
+          "name": "test_a_supported_word_run_does_not_cap_a_quiet_long_vowel_at_its_asr_endpoint",
+          "line": 1996
+        },
+        {
+          "name": "test_a_recognition_run_cannot_replace_strong_acoustic_cores_with_weak_late_tokens",
+          "line": 2015
+        },
+        {
+          "name": "test_a_supported_phonetic_core_inside_a_coarse_word_interval_beats_an_approximation",
+          "line": 2045
+        },
+        {
+          "name": "test_one_inconsistent_recognition_run_does_not_cancel_an_unrelated_valid_correction",
+          "line": 2059
+        },
+        {
+          "name": "test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_break",
+          "line": 2093
+        },
+        {
+          "name": "test_a_misrecognized_prefix_keeps_its_word_order_before_a_supported_last_word",
+          "line": 2118
+        },
+        {
+          "name": "test_locally_recognized_utterance_can_bound_misspelled_words_without_replacing_the_text",
+          "line": 2148
+        },
+        {
+          "name": "test_unrelated_recognition_without_surrounding_phrase_support_cannot_shorten_a_long_phrase",
+          "line": 2171
+        },
+        {
+          "name": "test_a_word_correction_cannot_collapse_its_neighbour_to_a_tied_start",
+          "line": 2188
+        },
+        {
+          "name": "test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_own_phrase",
+          "line": 2221
+        },
+        {
+          "name": "test_a_mostly_unrecognized_word_uses_its_speech_span_instead_of_false_character_precision",
+          "line": 2244
+        },
+        {
+          "name": "test_whole_song_recognition_does_not_copy_catalogue_text_into_unheard_audio",
+          "line": 2257
+        },
+        {
+          "name": "test_alignment_uses_the_same_recognition_backend_independently_of_the_ctc_device",
+          "line": 2280
+        },
+        {
+          "name": "test_a_missing_prefix_does_not_treat_a_weak_crop_edge_as_a_sung_entry",
+          "line": 2305
+        },
+        {
+          "name": "test_a_partly_recognized_phrase_cannot_move_a_catalogued_entry_to_its_later_words",
+          "line": 2334
+        },
+        {
+          "name": "test_a_voice_entering_after_silence_is_an_onset_but_a_held_tone_is_not",
+          "line": 2365
+        },
+        {
+          "name": "test_a_word_stops_lighting_once_the_voice_has_paused",
+          "line": 2373
+        },
+        {
+          "name": "test_a_short_breath_inside_a_word_does_not_end_it",
+          "line": 2386
+        },
+        {
+          "name": "test_catalog_lines_open_where_the_voice_enters_and_never_reach_into_the_next_line",
+          "line": 2394
+        },
+        {
+          "name": "test_a_catalog_timing_made_for_another_release_is_moved_onto_this_recording",
+          "line": 2410
+        },
+        {
+          "name": "test_catalog_timings_that_already_fit_are_left_alone",
+          "line": 2426
+        },
+        {
+          "name": "test_whisper_settles_which_phrase_a_word_belongs_to_when_the_model_is_unsure",
+          "line": 2440
+        },
+        {
+          "name": "test_whisper_is_not_followed_into_silence",
+          "line": 2459
+        },
+        {
+          "name": "test_a_weak_but_better_phonetic_core_inside_its_phrase_beats_a_later_echo",
+          "line": 2478
+        },
+        {
+          "name": "test_clean_import_recovers_a_phrase_missing_from_full_recording_recognition",
+          "line": 2490
+        },
+        {
+          "name": "test_coarse_recognition_span_is_not_a_license_to_start_a_weak_word_at_its_end",
+          "line": 2523
+        },
+        {
+          "name": "test_context_recognition_can_recover_words_outside_a_wrongly_short_first_asr_window",
+          "line": 2534
+        },
+        {
+          "name": "test_recognition_margin_does_not_move_a_word_into_the_previous_syllable",
+          "line": 2561
+        },
+        {
+          "name": "test_a_strong_word_average_does_not_hide_its_unsupported_first_phoneme",
+          "line": 2571
+        },
+        {
+          "name": "test_fresh_phrase_recovery_preserves_the_acoustic_entry_after_the_previous_vowel",
+          "line": 2589
+        }
+      ],
+      "functionCount": 121,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_letter_timing_evidence.py",
+      "sha256": "74b942c84d9525111a52041d09ca55d5f3d8eab9437236783d0f3a8a619fb3b0",
+      "testFunctions": [
+        {
+          "name": "test_real_disagreeing_odin_letters_remain_explicitly_unresolved",
+          "line": 29
+        },
+        {
+          "name": "test_confirmed_joint_suffix_repair_does_not_freeze_a_collapsed_vowel",
+          "line": 62
+        },
+        {
+          "name": "test_a_strong_tail_cannot_authorize_an_unsupported_prefix_change",
+          "line": 77
+        },
+        {
+          "name": "test_agreeing_local_paths_can_replace_an_unsupported_stored_suffix",
+          "line": 92
+        },
+        {
+          "name": "test_one_subtoken_cannot_certify_retiming_a_whole_multitoken_grapheme",
+          "line": 109
+        },
+        {
+          "name": "test_a_genuinely_held_nasal_retains_its_early_onset",
+          "line": 124
+        },
+        {
+          "name": "test_a_genuinely_fast_word_has_no_sustained_letter_repair",
+          "line": 139
+        },
+        {
+          "name": "test_silence_before_a_later_echo_prevents_a_suffix_repair",
+          "line": 151
+        },
+        {
+          "name": "test_a_joint_letter_repair_preserves_a_legato_neighbour",
+          "line": 162
+        }
+      ],
+      "functionCount": 9,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_sung_boundary_regressions.py",
+      "sha256": "47e7df84a710dd9d6f192a8699ab315e8cfecf2791526439bb6fa9e06116fe03",
+      "testFunctions": [
+        {
+          "name": "test_sung_end_does_not_invent_fifty_ms_for_a_genuine_fast_word",
+          "line": 21
+        },
+        {
+          "name": "test_onset_refinement_keeps_the_actual_start_of_a_fast_word",
+          "line": 29
+        },
+        {
+          "name": "test_ordering_cannot_hide_a_destroyed_phonetic_core",
+          "line": 39
+        },
+        {
+          "name": "test_normal_boundary_rounding_does_not_request_an_acoustic_repair",
+          "line": 52
+        },
+        {
+          "name": "test_quiet_sustained_tail_stops_at_silence_before_a_delayed_echo",
+          "line": 61
+        }
+      ],
+      "functionCount": 5,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_sung_end_boundaries.py",
+      "sha256": "4a27e186c210c595471aee4f30024f51ead46833d7b62051d513ced7788dae2f",
+      "testFunctions": [
+        {
+          "name": "test_continuing_singing_reaches_the_next_word_at_or_between_activity_frames",
+          "line": 25
+        },
+        {
+          "name": "test_a_silent_frame_still_stops_singing_before_the_next_word",
+          "line": 37
+        },
+        {
+          "name": "test_sung_end_does_not_bridge_a_release_into_a_later_breath",
+          "line": 51
+        },
+        {
+          "name": "test_a_pitched_echo_after_a_real_pause_cannot_continue_a_released_vowel",
+          "line": 69
+        },
+        {
+          "name": "test_a_brief_closure_inside_a_confirmed_word_is_not_a_release",
+          "line": 87
+        },
+        {
+          "name": "test_a_quiet_final_stop_release_is_not_lost_after_letter_onset_calibration",
+          "line": 98
+        },
+        {
+          "name": "test_quiet_continuation_after_the_ctc_core_is_not_a_release",
+          "line": 120
+        },
+        {
+          "name": "test_a_quiet_melisma_after_the_ctc_core_keeps_its_performed_end",
+          "line": 148
+        },
+        {
+          "name": "test_one_global_note_stays_continuous_when_intersected_with_refined_words",
+          "line": 178
+        }
+      ],
+      "functionCount": 9,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_word_sync_finalization.py",
+      "sha256": "b0372d5f38969c0e54ddf831a993cf7275cf0d480aa8d52427a0638c941c1721",
+      "testFunctions": [
+        {
+          "name": "test_material_normalization_loss_remains_visible_in_final_processing_report",
+          "line": 15
+        },
+        {
+          "name": "test_joint_repair_preserves_melisma_quiet_tail_and_fast_word_after_serialization",
+          "line": 44
+        }
+      ],
+      "functionCount": 2,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "word_and_letter_core",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_refine_words.py",
+      "sha256": "ddb8812143178313f5fb14f4c76a2acdfa178f6d4f576f721ea6ee224c750ecf",
+      "testFunctions": [
+        {
+          "name": "test_pitch_refinement_preserves_aligned_words_and_every_letter",
+          "line": 36
+        },
+        {
+          "name": "test_pitch_cannot_move_independently_aligned_word_and_consonant_boundaries",
+          "line": 50
+        },
+        {
+          "name": "test_corrected_joint_word_boundary_restores_held_note_without_changing_melody",
+          "line": 63
+        },
+        {
+          "name": "test_repeated_words_keep_distinct_holds_and_fast_word_does_not_fill_silence",
+          "line": 101
+        }
+      ],
+      "functionCount": 4,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "notes_and_codec",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_note_construction.py",
+      "sha256": "867146756cf010a0b286fc41097093e1e46c9694941eb2344376595fdf7240eb",
+      "testFunctions": [
+        {
+          "name": "test_full_pitch_model_keeps_sung_notes_with_less_than_half_the_cuda_working_memory",
+          "line": 19
+        },
+        {
+          "name": "test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line_breaks",
+          "line": 55
+        },
+        {
+          "name": "test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition",
+          "line": 70
+        },
+        {
+          "name": "test_phrases_follow_original_vocal_silence_even_when_alignment_bridges_it",
+          "line": 94
+        },
+        {
+          "name": "test_word_boundaries_do_not_turn_a_vibrato_peak_into_a_different_sung_note",
+          "line": 113
+        },
+        {
+          "name": "test_short_note_never_overlaps_the_next_one",
+          "line": 133
+        },
+        {
+          "name": "test_notes_stay_inside_the_word_whatever_the_gaps",
+          "line": 148
+        },
+        {
+          "name": "test_a_brief_wobble_does_not_split_off_its_own_note",
+          "line": 156
+        },
+        {
+          "name": "test_a_note_change_sustained_long_enough_is_still_recognised",
+          "line": 168
+        },
+        {
+          "name": "test_a_sustained_fast_octave_change_cannot_be_declared_noise_only_by_duration",
+          "line": 179
+        },
+        {
+          "name": "test_a_note_a_third_away_held_long_enough_to_sing_is_kept",
+          "line": 202
+        },
+        {
+          "name": "test_a_long_note_far_from_its_neighbours_is_kept",
+          "line": 209
+        },
+        {
+          "name": "test_a_scoop_into_a_held_note_does_not_draw_a_staircase",
+          "line": 223
+        },
+        {
+          "name": "test_vibrato_around_a_semitone_boundary_stays_one_note",
+          "line": 236
+        },
+        {
+          "name": "test_a_point_on_the_last_instant_of_a_word_never_yields_an_empty_note",
+          "line": 247
+        },
+        {
+          "name": "test_unobserved_pitch_gap_and_word_tail_do_not_become_a_required_held_note",
+          "line": 254
+        },
+        {
+          "name": "test_actual_silence_and_pitch_dropout_with_continuing_audio_are_distinct",
+          "line": 290
+        },
+        {
+          "name": "test_note_smoothing_cannot_absorb_a_brief_note_across_an_unobserved_gap",
+          "line": 306
+        },
+        {
+          "name": "test_long_melisma_preserves_every_sustained_note_without_a_word_duration_cap",
+          "line": 317
+        },
+        {
+          "name": "test_a_clean_fast_ornament_is_not_erased_only_because_it_lasts_100_ms",
+          "line": 330
+        },
+        {
+          "name": "test_pitch_frame_cadence_does_not_change_a_sustained_fast_transition",
+          "line": 338
+        },
+        {
+          "name": "test_octave_stabilization_does_not_borrow_pitch_context_across_a_missing_time_span",
+          "line": 349
+        },
+        {
+          "name": "test_a_legacy_provider_without_activity_does_not_fill_its_low_confidence_hole",
+          "line": 354
+        },
+        {
+          "name": "test_legacy_pitch_activity_uncertainty_is_visible_in_technical_diagnostics",
+          "line": 380
+        },
+        {
+          "name": "test_a_clean_fast_middle_plateau_is_preserved_in_a_monotonic_melisma",
+          "line": 386
+        },
+        {
+          "name": "test_a_continuous_short_glide_is_not_converted_into_distinct_middle_holds",
+          "line": 401
+        }
+      ],
+      "functionCount": 26,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "notes_and_codec",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_melody_reference.py",
+      "sha256": "46c2f9ba07bd0286134e946cafd89e8076e34a4d0c9fc7752281b5224e50047e",
+      "testFunctions": [
+        {
+          "name": "test_renders_a_wav_spanning_the_documents_own_duration",
+          "line": 14
+        },
+        {
+          "name": "test_stays_silent_outside_any_note_and_sounds_during_one",
+          "line": 22
+        },
+        {
+          "name": "test_an_instrumental_document_with_no_notes_renders_pure_silence",
+          "line": 34
+        },
+        {
+          "name": "test_note_crossing_time_zero_is_clipped_to_the_audio_start",
+          "line": 41
+        }
+      ],
+      "functionCount": 4,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "pipeline_integration",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_e2e.py",
+      "sha256": "cfdcd6bd76fa67c72b3c7e06b007e6886f18a0b699421cccee1e7fb2faecc944",
+      "testFunctions": [
+        {
+          "name": "test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quiet_originals",
+          "line": 22
+        },
+        {
+          "name": "test_independently_recognized_repeat_is_not_removed_solely_for_weak_ctc",
+          "line": 47
+        },
+        {
+          "name": "test_failed_clip_download_keeps_discovered_url_for_retry",
+          "line": 69
+        },
+        {
+          "name": "test_full_processing_flow_publishes_ready_revision",
+          "line": 85
+        },
+        {
+          "name": "test_reprocessing_an_older_active_revision_preserves_all_saved_revisions",
+          "line": 113
+        },
+        {
+          "name": "test_clip_download_overlaps_processing_and_preserves_published_revision",
+          "line": 147
+        },
+        {
+          "name": "test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job",
+          "line": 197
+        },
+        {
+          "name": "test_late_clip_save_preserves_new_song_state_and_manual_metadata",
+          "line": 268
+        },
+        {
+          "name": "test_clip_metadata_save_waits_for_project_publication",
+          "line": 293
+        },
+        {
+          "name": "test_processing_idempotency_returns_same_job",
+          "line": 320
+        },
+        {
+          "name": "test_missing_ai_models_or_provider_is_rejected_before_heavy_processing",
+          "line": 337
+        },
+        {
+          "name": "test_cuda_oom_fails_only_job_and_backend_stays_live",
+          "line": 363
+        },
+        {
+          "name": "test_melody_reprocess_uses_existing_artifacts_and_only_pitch_provider",
+          "line": 394
+        },
+        {
+          "name": "test_approximate_alignment_is_reported_and_persisted",
+          "line": 459
+        },
+        {
+          "name": "test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_language",
+          "line": 501
+        },
+        {
+          "name": "test_existing_project_reprocess_routes_kaggle_without_local_models",
+          "line": 560
+        },
+        {
+          "name": "test_existing_project_remote_reprocess_propagates_stale_worker_protocol",
+          "line": 601
+        },
+        {
+          "name": "test_existing_project_can_realign_words_without_original_and_preserve_rollback",
+          "line": 656
+        },
+        {
+          "name": "test_generated_reprocessing_does_not_overwrite_manual_edits",
+          "line": 707
+        },
+        {
+          "name": "test_unexpected_provider_crash_does_not_leave_the_song_processing",
+          "line": 738
+        }
+      ],
+      "functionCount": 20,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "pipeline_integration",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_execution.py",
+      "sha256": "1c05a16b44eedbede1681e36cdda64927b26f6c42ae6e74542bca3ebf79ac0eb",
+      "testFunctions": [
+        {
+          "name": "test_original_recognition_overlaps_separation_and_uses_the_catalogue_language",
+          "line": 22
+        },
+        {
+          "name": "test_failed_job_removes_alignment_intermediates_and_releases_the_provider",
+          "line": 145
+        },
+        {
+          "name": "test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget",
+          "line": 204
+        },
+        {
+          "name": "test_full_and_existing_alignment_receive_the_backing_from_the_same_timeline",
+          "line": 249
+        },
+        {
+          "name": "test_melody_reprocess_uses_one_settings_snapshot",
+          "line": 270
+        },
+        {
+          "name": "test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initial_report",
+          "line": 305
+        },
+        {
+          "name": "test_every_ai_stage_receives_the_selected_device_and_cpu_budget",
+          "line": 344
+        }
+      ],
+      "functionCount": 7,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "pipeline_integration",
+      "path": "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python/tests/test_processing_ownership.py",
+      "sha256": "4faf0e5a669c9eae93d7b2bbb31a94e8ee188a1a7fd461b768a8e49b1cdbe929",
+      "testFunctions": [
+        {
+          "name": "test_rejected_processing_request_does_not_release_another_owner",
+          "line": 15
+        },
+        {
+          "name": "test_processing_admission_always_settles_song_status",
+          "line": 43
+        }
+      ],
+      "functionCount": 2,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    },
+    {
+      "group": "new_inactive_core",
+      "path": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/test_inactive_core_review.py",
+      "sha256": "04b019b6ab0a538afd44e204afae6aa3c92bf92ebd15cac72a743a9e606bbb6a",
+      "testFunctions": [
+        {
+          "name": "test_inactive_later_core_uses_existing_onset_without_retiming_context",
+          "line": 67
+        },
+        {
+          "name": "test_local_alternative_does_not_discard_supported_or_unrecoverable_core",
+          "line": 85
+        },
+        {
+          "name": "test_coarse_asr_start_does_not_veto_strong_active_replacement_of_inactive_core",
+          "line": 105
+        },
+        {
+          "name": "test_coarse_asr_exception_requires_both_missing_old_activity_and_supported_candidate",
+          "line": 122
+        }
+      ],
+      "functionCount": 4,
+      "countNote": "Function definitions, not parametrized pytest case count"
+    }
+  ],
+  "initialRegressionEvidence": {
+    "baseline": "/tmp/karaoke-v5-artists/inactive-core-red/result.json",
+    "result": "3 failed, 9 passed; only acoustic recovery and coarse-ASR-veto positives fail",
+    "afterPatch": "/tmp/karaoke-v5-artists/inactive-core-after-patch/result.json",
+    "afterPatchResult": "97 passed with 3 existing affected files"
+  },
+  "fullGate": {
+    "runner": "/tmp/karaoke-v5-artists/harness/run_backend_gate.py",
+    "baselineOutput": "/tmp/karaoke-v5-artists/backend-baseline-v4-unconfined",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "NUMBA_CACHE_DIR": "/tmp/karaoke-numba-cache"
+    },
+    "scope": "Every constituent of check.bat backend (compile, architecture, bootstrap, required Ruff format/lint and mypy, all pytest). Linux equivalent; no Windows/Electron/live microphone verification.",
+    "sandboxLimitation": "Starlette TestClient.__enter__ stalls inside network sandbox. Same test outside passes; full baseline uses authorized require_escalated. Original incomplete attempt retained separately.",
+    "runtimeLimitation": "Concurrent model work means this gate wall time is not a performance benchmark."
+  }
+}

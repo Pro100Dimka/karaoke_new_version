@@ -1,0 +1,686 @@
+[
+  {
+    "id": "tests/test_architecture.py::test_locked_architecture_gates",
+    "file": "tests/test_architecture.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert ['backend/ai_...eds 500', ...] == []"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-None]",
+    "file": "tests/test_command_ai_provider.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[1-source]",
+    "file": "tests/test_command_ai_provider.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-None]",
+    "file": "tests/test_command_ai_provider.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_command_ai_provider.py::test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job[2000-source]",
+    "file": "tests/test_command_ai_provider.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert {'alternative...ext': 'verse'} == {'segments': ...ext': 'verse'}"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_letter_alignment.py::test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings[cuda]",
+    "file": "tests/test_letter_alignment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert torch.float16 == torch.float32",
+      "E    +  where torch.float16 = Parameter containing:\\ntensor([[ 0.5664,  1.3037,  0.3860,  0.4639],\\n        [ 1.4688, -0.8672,  0.3184,  0.4160],\\n    ...0742,  1.5615,  0.9536],\\n        [ 0.0665, -0.8374, -1.2588, -1.6885]], dtype=torch.float16,\\n       requires_grad=True).dtype",
+      "E    +    where Parameter containing:\\ntensor([[ 0.5664,  1.3037,  0.3860,  0.4639],\\n        [ 1.4688, -0.8672,  0.3184,  0.4160],\\n    ...0742,  1.5615,  0.9536],\\n        [ 0.0665, -0.8374, -1.2588, -1.6885]], dtype=torch.float16,\\n       requires_grad=True) = Embedding(8, 4).weight",
+      "E    +  and   torch.float32 = <module 'torch' from '/workspace/scratch/513dbcd967bf/runtime/venv/lib/python3.12/site-packages/torch/__init__.py'>.float32"
+    ],
+    "classification": "Existing CUDA dtype expectation mismatch, observed on previous full v5 gate; unchanged speech.py."
+  },
+  {
+    "id": "tests/test_library_archive.py::test_library_publication_failure_rolls_back_files_and_rows",
+    "file": "tests/test_library_archive.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: type object 'SqlLibraryStorage' has no attribute '_publish'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_packages_e2e.py::test_exported_repetitive_audio_obeys_import_compression_policy",
+    "file": "tests/test_packages_e2e.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: Job 9b416c84-2f2d-4aec-afe5-8841bae4b114 did not finish before timeout"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_process_ownership.py::test_line_process_kills_a_child_that_ignores_the_stop_request",
+    "file": "tests/test_process_ownership.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   RuntimeError: Native voice relay closed its control pipe"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_e2e.py::test_clip_download_overlaps_processing_and_preserves_published_revision",
+    "file": "tests/test_processing_e2e.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert False",
+      "E    +  where False = <built-in method endswith of str object at 0x7fb03a9c0fd0>('/songs/f977b6cb-bbb4-414d-83dd-45567542033d/clip')",
+      "E    +    where <built-in method endswith of str object at 0x7fb03a9c0fd0> = 'https://www.youtube.com/watch?v=test'.endswith"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[False]",
+    "file": "tests/test_processing_e2e.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: Job released its resources before the clip stopped",
+      "E   assert False",
+      "E    +  where False = is_set()",
+      "E    +    where is_set = <threading.Event at 0x7fb05bb2c7a0: unset>.is_set"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_e2e.py::test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job[True]",
+    "file": "tests/test_processing_e2e.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: Job released its resources before the clip stopped",
+      "E   assert False",
+      "E    +  where False = is_set()",
+      "E    +    where is_set = <threading.Event at 0x7fb0608ec3b0: unset>.is_set"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_execution.py::test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budget",
+    "file": "tests/test_processing_execution.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'types.SimpleNamespace' object has no attribute 'music'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CPU-CPU]",
+    "file": "tests/test_processing_execution.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: {'entityId': 'cfc34098-f9dc-4dd7-b0d0-ebb639fa6714', 'error': {'code': 'InsufficientRam', 'details': {}, 'message': 'T...this computer has'}, 'finishedAt': '2026-10-31T23:20:18.122382Z', 'jobId': '430ecf7d-f285-4a37-a7e6-ec4d658e4b9d', ...}",
+      "E   assert 'Failed' == 'Succeeded'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_processing_execution.py::test_every_ai_stage_receives_the_selected_device_and_cpu_budget[CUDA-CUDA]",
+    "file": "tests/test_processing_execution.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: {'entityId': '2f007bb3-0e6e-4579-ad23-c7505a272aa6', 'error': {'code': 'InsufficientRam', 'details': {}, 'message': 'T...this computer has'}, 'finishedAt': '2026-10-31T23:20:18.527733Z', 'jobId': '2895136f-e0aa-4151-9353-38ead70d1ea6', ...}",
+      "E   assert 'Failed' == 'Succeeded'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file]",
+    "file": "tests/test_recording_empty_cleanup.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError:",
+      "E   assert 204 == 409",
+      "E    +  where 204 = <Response [204 No Content]>.status_code"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_recording_startup_recovery.py::test_startup_recovers_finalized_orphan_recording_descriptor",
+    "file": "tests/test_recording_startup_recovery.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: {\"code\":\"RecordingNotFound\",\"message\":\"Recording was not found\",\"details\":{\"recordingId\":\"orphan-recording\"},\"requestId\":\"c381fa0b-688b-42fd-9b45-00f30b7315c1\"}",
+      "E   assert 404 == 200",
+      "E    +  where 404 = <Response [404 Not Found]>.status_code"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size",
+    "file": "tests/test_recording_startup_recovery.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: {\"code\":\"RecordingNotFound\",\"message\":\"Recording was not found\",\"details\":{\"recordingId\":\"sized-recording\"},\"requestId\":\"24ad0a28-8a57-4241-999a-2c144374fa1a\"}",
+      "E   assert 404 == 200",
+      "E    +  where 404 = <Response [404 Not Found]>.status_code"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_recordings_analysis.py::test_new_performance_is_balanced_before_registration_and_retry_preserves_capture",
+    "file": "tests/test_recordings_analysis.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   FileNotFoundError: [Errno 2] No such file or directory: '/tmp/pytest-of-root/pytest-122/test_new_performance_is_balanc0/runtime/recordings/d27c8d3e-2d2d-48ea-abbb-0cbf0e539434/recording.original.wav'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_recordings_analysis.py::test_offline_analysis_succeeds_and_becomes_stale_after_project_revision",
+    "file": "tests/test_recordings_analysis.py",
+    "presentInPreviousFullV5Run": false,
+    "newAgainstPreviousFullV5Run": true,
+    "errorLines": [
+      "E   AssertionError: {\"code\":\"RecordingPreparing\",\"message\":\"Recording preparation is not complete\",\"details\":{},\"requestId\":\"06658940-d912-4a01-b161-82e96173a0a1\"}",
+      "E   assert 409 == 202",
+      "E    +  where 409 = <Response [409 Conflict]>.status_code"
+    ],
+    "classification": "Recording preparation prerequisite race in unchanged test/API path; not a changed alignment-code path.",
+    "evidence": [
+      "All use unchanged tests.test_recordings_analysis.register_recording, which returns201 immediately without waiting for Ready.",
+      "Unchanged RegisterRecording.execute persists Preparing and schedules a background job.",
+      "Unchanged FakeAiProvider.align returns fixed WordTiming and does not execute changed ai_worker code.",
+      "This exact final full-run traceback explicitly contains HTTP409 RecordingPreparing, expected202."
+    ]
+  },
+  {
+    "id": "tests/test_recordings_analysis.py::test_analysis_uses_separated_vocal_and_reference_pitch_instead_of_live_ui_scores",
+    "file": "tests/test_recordings_analysis.py",
+    "presentInPreviousFullV5Run": false,
+    "newAgainstPreviousFullV5Run": true,
+    "errorLines": [
+      "E   KeyError: 'jobId'"
+    ],
+    "classification": "Recording preparation prerequisite race in unchanged test/API path; not a changed alignment-code path.",
+    "evidence": [
+      "All use unchanged tests.test_recordings_analysis.register_recording, which returns201 immediately without waiting for Ready.",
+      "Unchanged RegisterRecording.execute persists Preparing and schedules a background job.",
+      "Unchanged FakeAiProvider.align returns fixed WordTiming and does not execute changed ai_worker code.",
+      "Separate paired run captured HTTP409 RecordingPreparing for the same KeyError(jobId); see diagnosis/backend-new-failures-paired/comparison.json."
+    ]
+  },
+  {
+    "id": "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+    "file": "tests/test_recordings_analysis.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: {\"code\":\"StudioMasterUnavailable\",\"message\":\"Recording is not finalized\",\"details\":{},\"requestId\":\"ea267329-facb-4f83-8adc-dc833c4efe80\"}",
+      "E   assert 409 == 202",
+      "E    +  where 409 = <Response [409 Conflict]>.status_code"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_release_regressions.py::test_an_analysis_that_crashes_is_marked_failed_not_left_running",
+    "file": "tests/test_release_regressions.py",
+    "presentInPreviousFullV5Run": false,
+    "newAgainstPreviousFullV5Run": true,
+    "errorLines": [
+      "E   KeyError: 'jobId'"
+    ],
+    "classification": "Recording preparation prerequisite race in unchanged test/API path; not a changed alignment-code path.",
+    "evidence": [
+      "All use unchanged tests.test_recordings_analysis.register_recording, which returns201 immediately without waiting for Ready.",
+      "Unchanged RegisterRecording.execute persists Preparing and schedules a background job.",
+      "Unchanged FakeAiProvider.align returns fixed WordTiming and does not execute changed ai_worker code.",
+      "Separate paired run captured HTTP409 RecordingPreparing for the same KeyError(jobId); see diagnosis/backend-new-failures-paired/comparison.json.",
+      "Same ID failed on frozen whole v5 backend in paired replay with RecordingPreparing."
+    ]
+  },
+  {
+    "id": "tests/test_release_regressions.py::test_rejected_analysis_submission_is_settled_in_the_recording_registry",
+    "file": "tests/test_release_regressions.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   IndexError: list index out of range"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_ram_headroom",
+    "file": "tests/test_resource_scheduler.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert 'InsufficientRam' == 'ResourceBudgetExceeded'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_resource_scheduler.py::test_resource_scheduler_rejects_vram_requirement_without_cuda",
+    "file": "tests/test_resource_scheduler.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   Failed: DID NOT RAISE <class 'backend.domain_errors.DependencyError'>"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_resource_scheduler.py::test_resource_scheduler_enforces_vram_fraction",
+    "file": "tests/test_resource_scheduler.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   Failed: DID NOT RAISE <class 'backend.domain_errors.DependencyError'>"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-backend]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r0/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-project]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r1/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[install-native]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r2/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[ownership]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r3/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[daemon-reload]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r4/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[pid]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r5/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[start]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r6/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[health]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r7/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_the_running_version_after_any_activation_failure[scheduling]",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8/root/.venv/bin/python: No such file or directory",
+      "E   assert False",
+      "E    +  where False = is_file()",
+      "E    +    where is_file = (PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8') / 'failed-once').is_file",
+      "E    +      where PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8') = PosixPath('/tmp/pytest-of-root/pytest-122/test_deployment_restores_the_r8/service-state').parent"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_reports_an_unverified_rollback_instead_of_claiming_success",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert 'ROOM_SERVER_ROLLBACK=failed' in '/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/tes..._unv0/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n'",
+      "E    +  where '/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/tes..._unv0/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n' = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/deploy.sh', '2...unv0/tmp/pytest-of-root/pytest-122/test_deployment_reports_an_unv0/root/.venv/bin/python: No such file or directory\\n').stderr"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_deployment_restores_absence_of_optional_native_files",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_deployment_restores_absen0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_deployment_restores_absen0/tmp/pytest-of-root/pytest-122/test_deployment_restores_absen0/root/.venv/bin/python: No such file or directory",
+      "E   assert 'ROOM_SERVER_ROLLBACK=restored' in ''",
+      "E    +  where '' = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-122/test_deployment_restores_absen0/deploy.sh', '2...sen0/tmp/pytest-of-root/pytest-122/test_deployment_restores_absen0/root/.venv/bin/python: No such file or directory\\n').stdout"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_room_server_deployment.py::test_successful_deployment_keeps_the_new_version",
+    "file": "tests/test_room_server_deployment.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: /tmp/pytest-of-root/pytest-122/test_successful_deployment_kee0/deploy.sh: line 52: /tmp/pytest-of-root/pytest-122/test_successful_deployment_kee0/tmp/pytest-of-root/pytest-122/test_successful_deployment_kee0/root/.venv/bin/python: No such file or directory",
+      "E   assert 127 == 0",
+      "E    +  where 127 = CompletedProcess(args=['/usr/bin/bash', '/tmp/pytest-of-root/pytest-122/test_successful_deployment_kee0/deploy.sh', '2...kee0/tmp/pytest-of-root/pytest-122/test_successful_deployment_kee0/root/.venv/bin/python: No such file or directory\\n').returncode"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_song_recognition.py::test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting",
+    "file": "tests/test_song_recognition.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert 'Old title' == 'Correct title'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_song_recognition.py::test_processing_upgrades_catalog_guess_to_audio_fingerprint",
+    "file": "tests/test_song_recognition.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert 'The Native Architects' == 'Architects'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_song_recognition.py::test_processing_retries_video_lookup_for_fingerprint_without_a_clip",
+    "file": "tests/test_song_recognition.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert None == 'https://www.youtube.com/watch?v=xAPf954XNwk'",
+      "E    +  where 'https://www.youtube.com/watch?v=xAPf954XNwk' = RecognizedSong(title='Не треба', artist='Skryabin', album='Хробак', genre='Rock', artwork_url=None, video_url='https://www.youtube.com/watch?v=xAPf954XNwk', provider='Shazam', external_id='track-1').video_url"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_song_recognition.py::test_recognition_refresh_preserves_manual_title_and_artist",
+    "file": "tests/test_song_recognition.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert (None, None) == ('Album', 'Pop')"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_song_recognition.py::test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_catalog",
+    "file": "tests/test_song_recognition.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AssertionError: assert None == 'Бісайди'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_normal_take_balance_finishes_in_one_render_without_remastering",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   TypeError: FfmpegStudioMasterRenderer.render() got an unexpected keyword argument 'enhance'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_a_silent_microphone_keeps_the_take_without_leaving_a_backing_copy",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.0]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-70.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[-inf]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_mastering_rejects_the_ebur128_silence_floor_before_calculating_gain[inf]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_mastering_keeps_measurable_quiet_audio_above_the_ebur128_floor",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute '_integrated_loudness'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_raises_quiet_vocal_to_the_original_song_balance",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   soundfile.LibsndfileError: Error opening '/tmp/pytest-of-root/pytest-122/test_studio_master_raises_quie0/take.wav': System error."
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.3-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   assert -10.95 == -14 ± 0.25"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.01-0.1-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   assert -20.85 == -14 ± 0.25"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.5-0.1-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   assert -6.55 == -14 ± 0.25"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[False-0.1-0.03-0.03]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   assert -20.35 == -14 ± 0.25"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.3-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.01-0.1-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.5-0.1-0.1]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  },
+  {
+    "id": "tests/test_studio_master.py::test_studio_master_preserves_loudness_and_the_requested_vocal_balance[True-0.1-0.03-0.03]",
+    "file": "tests/test_studio_master.py",
+    "presentInPreviousFullV5Run": true,
+    "newAgainstPreviousFullV5Run": false,
+    "errorLines": [
+      "E   AttributeError: 'FfmpegStudioMasterRenderer' object has no attribute 'balance_recording'"
+    ],
+    "classification": "Existing failure also observed in previous full v5 gate."
+  }
+]

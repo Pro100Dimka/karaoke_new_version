@@ -1,0 +1,765 @@
+{
+  "scope": "Read-only classification of actual cached CTC requests. Audio crop seconds are not compute seconds; observed stage timing is not a controlled performance benchmark.",
+  "totals": {
+    "cases": 10,
+    "callsBefore": 250,
+    "callsAfter": 257,
+    "netAdditionalCalls": 7,
+    "newDistinctRequestKeys": 10,
+    "replacedLocalReviewRequests": 3,
+    "additionalCallsFrames": 406,
+    "additionalCallsAudioCropSecondsSum": 8.12,
+    "allFramesBefore": 59724,
+    "allFramesAfter": 60184,
+    "netExtraFramesIncludingReplacedCrops": 460,
+    "relativeFrameGrowthPercent": 0.7702096309691246,
+    "additionalCallsObservedElapsedMsSum": 8.508936,
+    "allAdditionalCallsSingleWord": true,
+    "maxAdditionalCallAudioSeconds": 1.44,
+    "newExactDuplicateRequests": 0,
+    "preexistingDuplicateRequestsBefore": 2,
+    "preexistingDuplicateRequestsAfter": 2
+  },
+  "additionalCalls": [
+    {
+      "case": "boombox_beta_karotyn",
+      "wordIndex": 16,
+      "purpose": "existing sung-tail ordinary path",
+      "sequence": 145,
+      "phase": "speech.with_sung_letters:initial",
+      "window": null,
+      "request": {
+        "frames": 71,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 24.22,
+        "boundedEnd": false
+      },
+      "audioCropSeconds": 1.42,
+      "transcriptSha256": "7d3025d667b7371149f38c6653b7cf2f9b099ead608dff572860c16e8d46dc1e",
+      "elapsedMs": 0.865292,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "boombox_beta_karotyn",
+      "wordIndex": 16,
+      "purpose": "existing sung-tail bounded path",
+      "sequence": 146,
+      "phase": "speech.with_sung_letters:initial",
+      "window": null,
+      "request": {
+        "frames": 71,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 24.22,
+        "boundedEnd": true
+      },
+      "audioCropSeconds": 1.42,
+      "transcriptSha256": "7d3025d667b7371149f38c6653b7cf2f9b099ead608dff572860c16e8d46dc1e",
+      "elapsedMs": 1.358682,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "okeanelzy_obiymy",
+      "wordIndex": 23,
+      "purpose": "bounded approximate collapsed-vowel estimate",
+      "sequence": 102,
+      "phase": "speech.with_sung_letters:initial",
+      "window": null,
+      "request": {
+        "frames": 72,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 35.82,
+        "boundedEnd": true
+      },
+      "audioCropSeconds": 1.44,
+      "transcriptSha256": "370b0bda096c2a2d43ca1c9afe402ba769e384a747f443ac593541f950d62210",
+      "elapsedMs": 0.74742,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "tnmk_berezen",
+      "wordIndex": 30,
+      "purpose": "local ASR/CTC disagreement check",
+      "sequence": 94,
+      "phase": "speech.with_word_guidance:initial",
+      "window": {
+        "first": 0,
+        "last": 1,
+        "start": 32.56,
+        "end": 33.800000000000004,
+        "heard_start": null
+      },
+      "request": {
+        "frames": 62,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 32.56,
+        "boundedEnd": false
+      },
+      "audioCropSeconds": 1.24,
+      "transcriptSha256": "591ad328dda6ea552abb93266669b0253bf07e861f7b72506156f89a0483d577",
+      "elapsedMs": 2.115523,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "zhadan_malvy",
+      "wordIndex": 25,
+      "purpose": "local ASR/CTC disagreement check",
+      "sequence": 72,
+      "phase": "speech.with_word_guidance:initial",
+      "window": {
+        "first": 0,
+        "last": 1,
+        "start": 31.28,
+        "end": 32.52,
+        "heard_start": null
+      },
+      "request": {
+        "frames": 62,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 31.28,
+        "boundedEnd": false
+      },
+      "audioCropSeconds": 1.24,
+      "transcriptSha256": "4baccbaa5f6d0cbd06f6ed84c6a1006522653e74496d70c7db60b13e48931e45",
+      "elapsedMs": 1.177257,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "zhadan_malvy",
+      "wordIndex": 24,
+      "purpose": "existing sung-tail ordinary path",
+      "sequence": 110,
+      "phase": "speech.with_sung_letters:initial",
+      "window": null,
+      "request": {
+        "frames": 34,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 30.92,
+        "boundedEnd": false
+      },
+      "audioCropSeconds": 0.68,
+      "transcriptSha256": "d4c87652fb0cdce1629e27a70896781e89290258128001a5e7335954d63825e7",
+      "elapsedMs": 1.291215,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    },
+    {
+      "case": "zhadan_malvy",
+      "wordIndex": 24,
+      "purpose": "existing sung-tail bounded path",
+      "sequence": 111,
+      "phase": "speech.with_sung_letters:initial",
+      "window": null,
+      "request": {
+        "frames": 34,
+        "wordCount": 1,
+        "frameSeconds": 0.02,
+        "offsetSeconds": 30.92,
+        "boundedEnd": true
+      },
+      "audioCropSeconds": 0.68,
+      "transcriptSha256": "d4c87652fb0cdce1629e27a70896781e89290258128001a5e7335954d63825e7",
+      "elapsedMs": 0.953547,
+      "error": null,
+      "exactRequestOccurrencesInFinal": 1
+    }
+  ],
+  "replacedReviewCrops": [
+    {
+      "case": "boombox_beta_karotyn",
+      "before": {
+        "sequence": 134,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 15,
+          "last": 18,
+          "start": 23.26,
+          "end": 26.04,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 139,
+          "wordCount": 3,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 23.26,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 2.78,
+        "transcriptSha256": "0ddbb8b3c3e4c8cc39af0727580eedbfe730281c187c9d3c514b4bf68ac80c06",
+        "elapsedMs": 5.560368,
+        "error": null
+      },
+      "after": {
+        "sequence": 133,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 15,
+          "last": 19,
+          "start": 23.26,
+          "end": 26.22,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 148,
+          "wordCount": 4,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 23.26,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 2.96,
+        "transcriptSha256": "d7069f78f846d04e2b05751fce9e52b24ef2dcc8df8ed4240b450c76ee0bbc34",
+        "elapsedMs": 2.777002,
+        "error": null
+      },
+      "extraFrames": 9,
+      "extraAudioSeconds": 0.18
+    },
+    {
+      "case": "boombox_kolyshnya",
+      "before": {
+        "sequence": 67,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 0,
+          "last": 4,
+          "start": 23.560000000000002,
+          "end": 30.835,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 363,
+          "wordCount": 4,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 23.56,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 7.26,
+        "transcriptSha256": "d24b22708a89c8072dce6d1606fbe193bf20164eed2d019940eb81281ff8c40c",
+        "elapsedMs": 8.218797,
+        "error": null
+      },
+      "after": {
+        "sequence": 64,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 0,
+          "last": 4,
+          "start": 22.835,
+          "end": 30.835,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 400,
+          "wordCount": 4,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 22.82,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 8.0,
+        "transcriptSha256": "d24b22708a89c8072dce6d1606fbe193bf20164eed2d019940eb81281ff8c40c",
+        "elapsedMs": 2.372742,
+        "error": null
+      },
+      "extraFrames": 37,
+      "extraAudioSeconds": 0.74
+    },
+    {
+      "case": "zhadan_malvy",
+      "before": {
+        "sequence": 105,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 22,
+          "last": 26,
+          "start": 29.96,
+          "end": 32.06,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 105,
+          "wordCount": 4,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 29.96,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 2.1,
+        "transcriptSha256": "1a5919deefbac98d02151cbd6fd13aa7be7b4aeb3fde4bc0f29c7fbd5bdef0eb",
+        "elapsedMs": 1.496352,
+        "error": null
+      },
+      "after": {
+        "sequence": 104,
+        "phase": "speech.with_word_guidance:review",
+        "window": {
+          "first": 22,
+          "last": 27,
+          "start": 29.96,
+          "end": 32.22,
+          "heard_start": null
+        },
+        "request": {
+          "frames": 113,
+          "wordCount": 5,
+          "frameSeconds": 0.02,
+          "offsetSeconds": 29.96,
+          "boundedEnd": false
+        },
+        "audioCropSeconds": 2.26,
+        "transcriptSha256": "d6781cf6c2d55259c80bb4c5c2f9b85c6b597685627d7cde34a2ba5fd79a283f",
+        "elapsedMs": 2.88891,
+        "error": null
+      },
+      "extraFrames": 8,
+      "extraAudioSeconds": 0.16
+    }
+  ],
+  "caseTotals": [
+    {
+      "case": "boombox_beta_karotyn",
+      "callsBefore": 31,
+      "callsAfter": 33,
+      "netAddedCalls": 2,
+      "framesBefore": 6638,
+      "framesAfter": 6789,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 8,
+        "speech.with_word_guidance:initial": 12,
+        "speech.with_word_guidance:review": 4,
+        "speech.with_sung_letters:initial": 6
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 8,
+        "speech.with_word_guidance:initial": 12,
+        "speech.with_word_guidance:review": 4,
+        "speech.with_sung_letters:initial": 8
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "boombox_kolyshnya",
+      "callsBefore": 18,
+      "callsAfter": 18,
+      "netAddedCalls": 0,
+      "framesBefore": 5222,
+      "framesAfter": 5259,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 4,
+        "speech.with_word_guidance:initial": 8,
+        "speech.with_word_guidance:review": 3,
+        "speech.with_sung_letters:initial": 2
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 4,
+        "speech.with_word_guidance:initial": 8,
+        "speech.with_word_guidance:review": 3,
+        "speech.with_sung_letters:initial": 2
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "boombox_lyudy",
+      "callsBefore": 44,
+      "callsAfter": 44,
+      "netAddedCalls": 0,
+      "framesBefore": 7977,
+      "framesAfter": 7977,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 17,
+        "speech.with_word_guidance:initial": 15,
+        "speech.with_word_guidance:review": 9,
+        "speech.with_sung_letters:initial": 2
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 17,
+        "speech.with_word_guidance:initial": 15,
+        "speech.with_word_guidance:review": 9,
+        "speech.with_sung_letters:initial": 2
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "jamala_zamanyly",
+      "callsBefore": 23,
+      "callsAfter": 23,
+      "netAddedCalls": 0,
+      "framesBefore": 6050,
+      "framesAfter": 6050,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 9,
+        "speech.with_word_guidance:initial": 7,
+        "speech.with_word_guidance:review": 6
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 9,
+        "speech.with_word_guidance:initial": 7,
+        "speech.with_word_guidance:review": 6
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "julia_sanina_oi_de_ty",
+      "callsBefore": 20,
+      "callsAfter": 20,
+      "netAddedCalls": 0,
+      "framesBefore": 5464,
+      "framesAfter": 5464,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 3,
+        "speech.with_word_guidance:initial": 9,
+        "speech.with_word_guidance:review": 3,
+        "speech.with_sung_letters:initial": 4
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 3,
+        "speech.with_word_guidance:initial": 9,
+        "speech.with_word_guidance:review": 3,
+        "speech.with_sung_letters:initial": 4
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "okeanelzy_obiymy",
+      "callsBefore": 23,
+      "callsAfter": 24,
+      "netAddedCalls": 1,
+      "framesBefore": 6566,
+      "framesAfter": 6638,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 6,
+        "speech.with_word_guidance:initial": 10,
+        "speech.with_word_guidance:review": 4,
+        "speech.with_sung_letters:initial": 2
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 6,
+        "speech.with_word_guidance:initial": 10,
+        "speech.with_word_guidance:review": 4,
+        "speech.with_sung_letters:initial": 3
+      },
+      "exactDuplicateRequestsBefore": 1,
+      "exactDuplicateRequestsAfter": 1
+    },
+    {
+      "case": "onuka_zenit",
+      "callsBefore": 18,
+      "callsAfter": 18,
+      "netAddedCalls": 0,
+      "framesBefore": 5748,
+      "framesAfter": 5748,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 5,
+        "speech.with_word_guidance:initial": 8,
+        "speech.with_word_guidance:review": 4
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 5,
+        "speech.with_word_guidance:initial": 8,
+        "speech.with_word_guidance:review": 4
+      },
+      "exactDuplicateRequestsBefore": 1,
+      "exactDuplicateRequestsAfter": 1
+    },
+    {
+      "case": "skryabin_spy_sobi_sama",
+      "callsBefore": 29,
+      "callsAfter": 29,
+      "netAddedCalls": 0,
+      "framesBefore": 6148,
+      "framesAfter": 6148,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 10,
+        "speech.with_word_guidance:initial": 10,
+        "speech.with_word_guidance:review": 8
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 10,
+        "speech.with_word_guidance:initial": 10,
+        "speech.with_word_guidance:review": 8
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "tnmk_berezen",
+      "callsBefore": 25,
+      "callsAfter": 26,
+      "netAddedCalls": 1,
+      "framesBefore": 5234,
+      "framesAfter": 5296,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 9,
+        "speech.with_word_guidance:initial": 6,
+        "speech.with_word_guidance:review": 5,
+        "speech.with_sung_letters:initial": 4
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 9,
+        "speech.with_word_guidance:initial": 7,
+        "speech.with_word_guidance:review": 5,
+        "speech.with_sung_letters:initial": 4
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    },
+    {
+      "case": "zhadan_malvy",
+      "callsBefore": 19,
+      "callsAfter": 22,
+      "netAddedCalls": 3,
+      "framesBefore": 4677,
+      "framesAfter": 4815,
+      "byPhaseBefore": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 6,
+        "speech.with_word_guidance:initial": 5,
+        "speech.with_word_guidance:review": 7
+      },
+      "byPhaseAfter": {
+        "speech.align_words": 1,
+        "speech.align_guided:initial": 6,
+        "speech.with_word_guidance:initial": 6,
+        "speech.with_word_guidance:review": 7,
+        "speech.with_sung_letters:initial": 2
+      },
+      "exactDuplicateRequestsBefore": 0,
+      "exactDuplicateRequestsAfter": 0
+    }
+  ],
+  "modelReuseEvidence": [
+    {
+      "case": "boombox_beta_karotyn",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 1,
+      "asrRequestCountAfter": 1,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "boombox_kolyshnya",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "boombox_lyudy",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "jamala_zamanyly",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 1,
+      "asrRequestCountAfter": 1,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "julia_sanina_oi_de_ty",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "okeanelzy_obiymy",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 1,
+      "asrRequestCountAfter": 1,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "onuka_zenit",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "skryabin_spy_sobi_sama",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 1,
+      "asrRequestCountAfter": 1,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "tnmk_berezen",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    },
+    {
+      "case": "zhadan_malvy",
+      "mmsEmissionEventsBefore": 1,
+      "mmsEmissionEventsAfter": 0,
+      "asrRequestCountBefore": 0,
+      "asrRequestCountAfter": 0,
+      "asrRequestKeysIdentical": true,
+      "allAsrCallsReplayedFromExistingCache": true
+    }
+  ],
+  "unchangedExistingDuplicateRequests": [
+    {
+      "case": "okeanelzy_obiymy",
+      "count": 2,
+      "requests": [
+        {
+          "sequence": 9,
+          "phase": "speech.align_guided:initial",
+          "window": {
+            "first": 0,
+            "last": 2,
+            "start": 0.0,
+            "end": 4.18,
+            "heard_start": 0.0
+          },
+          "request": {
+            "frames": 208,
+            "wordCount": 2,
+            "frameSeconds": 0.02,
+            "offsetSeconds": 0.0,
+            "boundedEnd": false
+          },
+          "audioCropSeconds": 4.16,
+          "transcriptSha256": "3dad792e06c705317a0f19d6b26108defd99c34c48a065edf465ffc4b3dc4855",
+          "elapsedMs": 2.554351,
+          "error": null
+        },
+        {
+          "sequence": 92,
+          "phase": "speech.with_word_guidance:review",
+          "window": {
+            "first": 0,
+            "last": 2,
+            "start": 0.0,
+            "end": 4.18,
+            "heard_start": null
+          },
+          "request": {
+            "frames": 208,
+            "wordCount": 2,
+            "frameSeconds": 0.02,
+            "offsetSeconds": 0.0,
+            "boundedEnd": false
+          },
+          "audioCropSeconds": 4.16,
+          "transcriptSha256": "3dad792e06c705317a0f19d6b26108defd99c34c48a065edf465ffc4b3dc4855",
+          "elapsedMs": 1.956066,
+          "error": null
+        }
+      ]
+    },
+    {
+      "case": "onuka_zenit",
+      "count": 2,
+      "requests": [
+        {
+          "sequence": 23,
+          "phase": "speech.align_guided:initial",
+          "window": {
+            "first": 17,
+            "last": 20,
+            "start": 36.8,
+            "end": 44.56,
+            "heard_start": 37.4
+          },
+          "request": {
+            "frames": 389,
+            "wordCount": 3,
+            "frameSeconds": 0.02,
+            "offsetSeconds": 36.78,
+            "boundedEnd": false
+          },
+          "audioCropSeconds": 7.78,
+          "transcriptSha256": "6719ff89bab2e1734312a44ba74ee4ed4a63eb86f31a905002a54480bccdb71e",
+          "elapsedMs": 1.857571,
+          "error": null
+        },
+        {
+          "sequence": 84,
+          "phase": "speech.with_word_guidance:review",
+          "window": {
+            "first": 17,
+            "last": 20,
+            "start": 36.8,
+            "end": 44.56,
+            "heard_start": null
+          },
+          "request": {
+            "frames": 389,
+            "wordCount": 3,
+            "frameSeconds": 0.02,
+            "offsetSeconds": 36.78,
+            "boundedEnd": false
+          },
+          "audioCropSeconds": 7.78,
+          "transcriptSha256": "6719ff89bab2e1734312a44ba74ee4ed4a63eb86f31a905002a54480bccdb71e",
+          "elapsedMs": 2.054205,
+          "error": null
+        }
+      ]
+    }
+  ],
+  "interpretation": [
+    "Beta and Zhadan each gain two existing sung-tail checks after the recovered suffix has a positive sustained interval. Ordinary wildcard-tail and bounded-end paths have different constraints; these are not identical retries.",
+    "Okean gains one bounded estimate inside unchanged word bounds, explicitly approximate.",
+    "TNMK and Zhadan each gain one local ASR/CTC comparison: restored raw onset disagrees with ASR by560ms/380ms; previously borrowed onset disagreed by only80ms/60ms and skipped that check.",
+    "Three review calls are replacements, not added windows. Beta2.78→2.96s, Zhadan2.10→2.26s each gain one neighbor; Kolishnya7.26→8.00s begins740ms earlier after its recovered entry.",
+    "All seven additional calls are one-word crops of0.68–1.44s, occur exactly once for their request key, and do not rerun MMS/ASR or the whole clip.",
+    "Two preexisting identical request repetitions remain one each in Okean and ONUKA. They are unchanged from baseline; none of the seven additions duplicates a request."
+  ],
+  "newModelInference": false,
+  "performanceConclusionDeferredToControlledBenchmark": true
+}

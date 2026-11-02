@@ -1,0 +1,50 @@
+[
+  {
+    "nodeId": "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording",
+    "version": "v3",
+    "case": 4,
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--tb=short",
+      "tests/test_recordings_analysis.py::test_studio_master_creates_a_separate_adaptively_balanced_recording"
+    ],
+    "cwd": "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "NUMBA_CACHE_DIR": "/tmp/karaoke-numba-cache"
+    },
+    "exitCode": 0,
+    "seconds": 8.57,
+    "summary": "1 passed, 2 warnings in 4.18s",
+    "log": "/tmp/karaoke-sync-v4/failure-reruns/04-v3-repeat.log"
+  },
+  {
+    "nodeId": "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[duration]",
+    "version": "v3",
+    "case": 5,
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--tb=short",
+      "tests/test_recordings_analysis.py::test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[duration]"
+    ],
+    "cwd": "/workspace/scratch/513dbcd967bf/baseline-v3/karaoke_new_version-refactor-frontend-direct/python",
+    "environment": {
+      "OMP_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "NUMBA_CACHE_DIR": "/tmp/karaoke-numba-cache"
+    },
+    "exitCode": 0,
+    "seconds": 9.167,
+    "summary": "1 passed, 2 warnings in 3.77s",
+    "log": "/tmp/karaoke-sync-v4/failure-reruns/05-v3-repeat.log"
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "page": "https://sadsvit.bandcamp.com/track/--15",
+  "id": "1589573077",
+  "title": "SadSvit - Небо",
+  "format": "mp3-128",
+  "durationSeconds": 219.84725,
+  "audioSha256": "6a616f2b375ede9e75db442821d7d41a1a9b038ecdac58bd5627ab1bd4224a9f",
+  "decodedSha256": "0938ba8eb4d18bec46d206637698208d41b3336eb3f3a91c73a79cada1dbdf75",
+  "method": "Normalized cross-correlation of the unmodified fixture vocal+instrumental sum against official public mixed stream, searched +/-2 s. A reference waveform copy was decoded to mono16k; original source files were untouched. This establishes matching rendition and offset, not word/phone ground truth.",
+  "comparisons": [
+    {
+      "case": "phrase_93",
+      "fixtureOffset": 84,
+      "duration": 16.0,
+      "bestTrackOffset": 84.0,
+      "shiftSamples": 0,
+      "shiftMs": 0.0,
+      "pearsonCorrelation": 0.9986482650119286
+    },
+    {
+      "case": "phrase_129",
+      "fixtureOffset": 116,
+      "duration": 26.0,
+      "bestTrackOffset": 116.0,
+      "shiftSamples": 0,
+      "shiftMs": 0.0,
+      "pearsonCorrelation": 0.9987492273427634
+    },
+    {
+      "case": "outro",
+      "fixtureOffset": 181,
+      "duration": 6.0,
+      "bestTrackOffset": 181.0,
+      "shiftSamples": 0,
+      "shiftMs": 0.0,
+      "pearsonCorrelation": 0.9976001722470111
+    }
+  ]
+}

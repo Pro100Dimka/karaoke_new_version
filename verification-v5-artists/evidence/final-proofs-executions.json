@@ -1,0 +1,179 @@
+[
+  {
+    "name": "artist-comparison",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/compare_alignment.py",
+      "--inputs",
+      "/tmp/karaoke-v5-artists/alignment-inputs.json",
+      "--before-dir",
+      "/tmp/karaoke-v5-artists/runs/baseline-v4-replay",
+      "--after-dir",
+      "/tmp/karaoke-v5-artists/runs/final-v5",
+      "--output",
+      "/tmp/karaoke-v5-artists/artist-comparison.json"
+    ],
+    "exitCode": 0,
+    "seconds": 0.19607326999903307
+  },
+  {
+    "name": "ru-comparison",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/compare_alignment.py",
+      "--inputs",
+      "/tmp/karaoke-v4-new-songs/ru-reference/inference-inputs.json",
+      "--before-dir",
+      "/tmp/karaoke-v4-new-songs/runs/v4-replay",
+      "--after-dir",
+      "/tmp/karaoke-v5-artists/runs/previous-final-v5",
+      "--output",
+      "/tmp/karaoke-v5-artists/ru-comparison.json",
+      "--reference",
+      "/tmp/karaoke-v4-new-songs/ru-reference/frozen-reference.json",
+      "--phone-map",
+      "/tmp/karaoke-v4-new-songs/ru-reference/frozen-phone-mapping.json"
+    ],
+    "exitCode": 0,
+    "seconds": 0.13055640799939283
+  },
+  {
+    "name": "notes-artists",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/check_notes.py",
+      "compare",
+      "--repo-python",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "--inputs",
+      "/tmp/karaoke-v5-artists/alignment-inputs.json",
+      "--pitch-dir",
+      "/tmp/karaoke-v5-artists/pitch-cache",
+      "--before-dir",
+      "/tmp/karaoke-v5-artists/runs/baseline-v4-replay",
+      "--after-dir",
+      "/tmp/karaoke-v5-artists/runs/final-v5",
+      "--output-dir",
+      "/tmp/karaoke-v5-artists/notes-artists"
+    ],
+    "exitCode": 0,
+    "seconds": 0.9670871639973484
+  },
+  {
+    "name": "frontend-artists",
+    "command": [
+      "node",
+      "/tmp/karaoke-v5-artists/harness/check_frontend.mjs",
+      "--repo",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "--inputs",
+      "/tmp/karaoke-v5-artists/alignment-inputs.json",
+      "--documents-dir",
+      "/tmp/karaoke-v5-artists/notes-artists",
+      "--output",
+      "/tmp/karaoke-v5-artists/frontend-artists.json"
+    ],
+    "exitCode": 0,
+    "seconds": 1.2885720990016125
+  },
+  {
+    "name": "notes-previous",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/check_notes.py",
+      "compare",
+      "--repo-python",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "--inputs",
+      "/tmp/karaoke-v4-new-songs/notes-inputs.json",
+      "--pitch-dir",
+      "/tmp/karaoke-v4-new-songs/pitch-cache",
+      "--before-dir",
+      "/tmp/karaoke-v4-new-songs/runs/v4-replay",
+      "--after-dir",
+      "/tmp/karaoke-v5-artists/runs/previous-final-v5",
+      "--output-dir",
+      "/tmp/karaoke-v5-artists/notes-previous"
+    ],
+    "exitCode": 0,
+    "seconds": 0.6441519440013508
+  },
+  {
+    "name": "frontend-previous",
+    "command": [
+      "node",
+      "/tmp/karaoke-v5-artists/harness/check_frontend.mjs",
+      "--repo",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct",
+      "--inputs",
+      "/tmp/karaoke-v4-new-songs/notes-inputs.json",
+      "--documents-dir",
+      "/tmp/karaoke-v5-artists/notes-previous",
+      "--output",
+      "/tmp/karaoke-v5-artists/frontend-previous.json"
+    ],
+    "exitCode": 0,
+    "seconds": 0.4974561150011141
+  },
+  {
+    "name": "notes-reference-comparison",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/notes_against_reference.py",
+      "--repo-python",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "--reference",
+      "/tmp/karaoke-v4-new-songs/ru-reference/frozen-reference.json",
+      "--pitch-dir",
+      "/tmp/karaoke-v4-new-songs/pitch-cache",
+      "--documents-dir",
+      "/tmp/karaoke-v5-artists/notes-previous",
+      "--before-dir",
+      "/tmp/karaoke-v4-new-songs/runs/v4-replay",
+      "--after-dir",
+      "/tmp/karaoke-v5-artists/runs/previous-final-v5",
+      "--output",
+      "/tmp/karaoke-v5-artists/notes-reference-comparison.json",
+      "--case",
+      "baikal_breathy_0000",
+      "--case",
+      "bal_control_0000",
+      "--case",
+      "lullaby_vibrato_0000",
+      "--case",
+      "lullaby_control_0001"
+    ],
+    "exitCode": 0,
+    "seconds": 0.3582111489995441
+  },
+  {
+    "name": "suffix-reproducer-baseline",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/reproduce_acoustic_suffix.py",
+      "--repo-python",
+      "/workspace/scratch/513dbcd967bf/baseline-v4-artists/karaoke_new_version-refactor-frontend-direct/python",
+      "--features",
+      "/tmp/karaoke-v5-artists/runs/baseline-v4-fresh/pivovarov_dezhavyu_ua/acoustic-cache.npz",
+      "--output",
+      "/tmp/karaoke-v5-artists/diagnosis/suffix-reproducer-baseline.json"
+    ],
+    "exitCode": 0,
+    "seconds": 4.953757995997876
+  },
+  {
+    "name": "suffix-reproducer-final",
+    "command": [
+      "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python",
+      "/tmp/karaoke-v5-artists/harness/reproduce_acoustic_suffix.py",
+      "--repo-python",
+      "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python",
+      "--features",
+      "/tmp/karaoke-v5-artists/runs/baseline-v4-fresh/pivovarov_dezhavyu_ua/acoustic-cache.npz",
+      "--output",
+      "/tmp/karaoke-v5-artists/diagnosis/suffix-reproducer-final.json"
+    ],
+    "exitCode": 0,
+    "seconds": 4.869945228998404
+  }
+]

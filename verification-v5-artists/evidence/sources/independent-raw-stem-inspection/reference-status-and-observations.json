@@ -1,0 +1,130 @@
+{
+  "createdUTC": "2026-10-31T20:22:33.247989+00:00",
+  "scope": "Read-only external-reference and acoustic inspection of already selected recordings. No AI inference run; no production edits; no recognition.json or alignment output read.",
+  "referenceStatus": "No independently verified word/phone ground truth. Do not compute word start/end error in milliseconds against these observations.",
+  "versionVerification": {
+    "methodRequired": "Audio correlation between artist SoundCloud stream and official video audio, ideally across several separated windows. Matching title/duration alone is insufficient.",
+    "status": "not_completed",
+    "reason": "Public official YouTube audio fetch returned HTTP429 and sign-in/anti-bot wall for all three clips. No authentication bypass attempted. No official-video audio exists locally for correlation.",
+    "cases": [
+      {
+        "case": "antytila_lovy_moment",
+        "soundcloudDurationSeconds": 188.011973,
+        "officialVideoMetadataDurationSeconds": 372.0,
+        "officialVideo": "https://www.youtube.com/watch?v=adzOwkpyWDQ",
+        "audioCorrelation": null,
+        "captionClockTransferVerified": false
+      },
+      {
+        "case": "otorvald_bez_tebe",
+        "soundcloudDurationSeconds": 210.674649,
+        "officialVideoMetadataDurationSeconds": 210.0,
+        "officialVideo": "https://www.youtube.com/watch?v=lVnhKCT5YNY",
+        "audioCorrelation": null,
+        "captionClockTransferVerified": false
+      },
+      {
+        "case": "pivovarov_dezhavyu_ua",
+        "soundcloudDurationSeconds": 244.134603,
+        "officialVideoMetadataDurationSeconds": 243.0,
+        "officialVideo": "https://www.youtube.com/watch?v=D83kYtgLZpI",
+        "audioCorrelation": null,
+        "captionClockTransferVerified": false
+      }
+    ]
+  },
+  "publishedLineReferences": {
+    "antytila": {
+      "status": "publisher subtitle track available",
+      "sourceFile": "/tmp/karaoke-v5-artists/sources/antytila_lovy_moment-official-subs.uk.srt",
+      "sha256": "7e71e36c6fe8efe0c9f7c9670b5d22be7ab43b32db7133b2c152dfcbfef0e76a",
+      "trackType": "subtitles, not automatic_captions, according to downloader metadata",
+      "firstVerseCaptionRangesInVideoSeconds": [
+        [
+          12.1,
+          17.98
+        ],
+        [
+          18.7,
+          23.02
+        ],
+        [
+          24.52,
+          29.44
+        ],
+        [
+          30.38,
+          34.0
+        ]
+      ],
+      "humanAuthorshipVerified": false,
+      "wordLevel": false,
+      "timingPrecisionVerified": false,
+      "usableFor": "Checking candidate phrase text/coverage; not word error scoring or unverified clock transfer."
+    },
+    "otorvald": {
+      "status": "No publisher subtitle track in retrieved metadata. Automatic captions are present but were not used as ground truth."
+    },
+    "pivovarov": {
+      "status": "No publisher lyric subtitle track in retrieved metadata; live_chat is not lyric alignment."
+    },
+    "lrclib": {
+      "status": "lookup_failed",
+      "reason": "Three structured API searches and one ASCII keyword query all returned HTTP502. Web retrieval of the search URLs was unavailable. This does not show that records do not exist.",
+      "logPaths": [
+        "/tmp/karaoke-v5-artists/sources/external-line-references/retrieval-log.json",
+        "/tmp/karaoke-v5-artists/sources/external-line-references/ascii-query-check.json"
+      ],
+      "apiDocumentation": "https://lrclib.net/docs.txt"
+    }
+  },
+  "acousticObservations": [
+    {
+      "case": "antytila_lovy_moment",
+      "sourceOffsetSeconds": 11.2,
+      "strongChangingHarmonicsEntryRangeSourceSeconds": [
+        12.8,
+        13.2
+      ],
+      "entryInterpretation": "First clearly prominent changing harmonic/formant-like structure in the selected Demucs stem. Earlier low-energy tonal material is ambiguous; this range is not the first phoneme boundary.",
+      "quietStemInteriorRangeSourceSeconds": [
+        22.6,
+        24.6
+      ],
+      "quietInterpretation": "Interior of a visible low-energy gap in the stem, also separating prominent harmonic groups. Separation may suppress quiet voice; this is a phrase-level inspection aid, not silence ground truth.",
+      "lastPhraseEndRangeSourceSeconds": null,
+      "endReason": "Weak tonal tail remains at the selected clip end34.2s. Available wider raw context extends to39.2s; the selected stem alone cannot settle the lexical end.",
+      "publishedFirstCaptionStartsBeforeStrongStemEntry": true,
+      "captionMismatchExplanation": "Could be display lead-in, quiet consonants, different clocks or versions. Without video audio correlation, no unique cause is established."
+    },
+    {
+      "case": "otorvald_bez_tebe",
+      "sourceOffsetSeconds": 22.0,
+      "prominentBroadbandAndHarmonicEntryRangeSourceSeconds": [
+        22.7,
+        23.2
+      ],
+      "entryInterpretation": "Near-silent stem lead-in, then broadband material and changing harmonics. This bounds a probable vocal entry coarsely; it does not identify a word or phoneme.",
+      "lastPhraseEndRangeSourceSeconds": null,
+      "endReason": "Strong changing harmonic/formant-like material continues at selected endpoint54.0s. This crop endpoint cannot be treated as a phrase-end reference; use retained context through59.0s to check complete textual coverage."
+    },
+    {
+      "case": "pivovarov_dezhavyu_ua",
+      "sourceOffsetSeconds": 40.0,
+      "firstWordOnsetRangeSourceSeconds": null,
+      "entryReason": "Strong vocal-like material begins almost immediately after the clip starts. The precise consonant/word onset is not established without interpreting earlier context.",
+      "terminalProminentHarmonicDecayRangeSourceSeconds": [
+        72.5,
+        73.0
+      ],
+      "decayInterpretation": "Prominent changing harmonic energy falls near the clip end. A small residual remains; lexical end versus reverb is unresolved. This is a broad signal decay range, not word-end ground truth.",
+      "lastPhraseEndRangeSourceSeconds": null
+    }
+  ],
+  "limitations": [
+    "Raw mixes contain instruments; Demucs can leave leakage or remove quiet endings. Neither source is sufficient to assign every phonetic boundary without further listening/annotation.",
+    "No exact timestamp was assigned where vocal identity or ending was ambiguous.",
+    "No ASR or CTC times were used to choose the reported acoustic ranges.",
+    "All original selection/candidate manifests remain unchanged; the observation file adds warnings rather than revising the test to favour an alignment outcome."
+  ]
+}

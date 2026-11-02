@@ -1,0 +1,26 @@
+{
+  "createdAtUtc": "2026-10-31T14:30:41.937624+00:00",
+  "sourceFixture": "/workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures/wildways-verse-entry.npz",
+  "sourceArray": "clean_entry_vocal",
+  "sourceSamples": 272000,
+  "sampleRate": 16000,
+  "vocalFloat32Sha256": "b723fa7903c3a68d27e8def6fea9879b78ffe38e769701ce5af7778cf43f7a2c",
+  "inputUnchanged": true,
+  "pitchCodeSha256": "d3f2088e98a6c8b02e45bbfe7c2d24ce0f22046966f8cec8b2bac429c28745e2",
+  "model": "torchcrepe full",
+  "weightsPath": "/workspace/scratch/513dbcd967bf/runtime/venv/lib/python3.12/site-packages/torchcrepe/assets/full.pth",
+  "weightsSha256": "133225604dedd2e4005f8bbd1bd0a2ec073ba8b7a6cd31ff6d5edbbfa3539986",
+  "device": "cpu",
+  "torchThreads": 1,
+  "interopThreads": 1,
+  "extractionRuns": 1,
+  "durationSeconds": 153.8002964299999,
+  "pointCount": 1701,
+  "pitchFileSha256": "d3e4df0663ecd4137bbeb7b2b74390ef3672689bd19db6bc063a8284ddd3c90d",
+  "confidentFrames": 929,
+  "method": "Production pitch.pitch unchanged: CREPE full inference, decoder, audio activity and median confidence filtering; only read_mono supplied fixture samples and device selected CPU.",
+  "limitations": [
+    "Model-derived pitch measurements; not independently manually annotated F0 truth.",
+    "Runtime is one cold pitch extraction including model load; not a before/after performance benchmark."
+  ]
+}

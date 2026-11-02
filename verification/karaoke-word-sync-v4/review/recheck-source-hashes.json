@@ -1,0 +1,7 @@
+{
+  "python/backend/ai_worker/ctc.py": "5207cb8cb343db92e26f0bf3dd49f3163134d12be6b33e88e59bfece63789886",
+  "python/backend/ai_worker/speech.py": "4a2ddbde63dff4a13648ae3261e31f78bbdfbe0d9cb352e98975d4e1dc1704a7",
+  "python/backend/ai_worker/recognition.py": "2b0ca357295dff46a22a608bf38edd4ee043d58aaff0dfaf159262e21fc4b340",
+  "python/backend/processing/reporting.py": "241cc6cf183a2a80fc4d46771ed962b1c4bb17e6fccbbd79b797144685378d0b",
+  "python/backend/ai_worker/timing.py": "71cf4eda03951f605baa93d704e27ec1a7a25d598466256482319ebbe18a0d65"
+}

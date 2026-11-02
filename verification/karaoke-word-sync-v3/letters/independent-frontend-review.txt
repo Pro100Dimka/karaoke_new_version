@@ -1,0 +1,22 @@
+Независимый READ-ONLY review frontend karaoke fill
+
+Проверены useLyricFill.ts, karaokeLyrics.ts, KaraokeStage.tsx и regressiontests. Production и тесты reviewer не менял.
+
+Найден и передан builder подтверждённый Unicode edge: реальный Electron Range объединяет combining mark с базовой гласной, прежняя новая геометрическая функция считала mark следующим звуком и замораживала fill. На мо́ре pos0.4 progress0.30517 (начало о); на ёлка progress0. Исправление builder: \p{M} в silentCharacter с uflag. Это не изменение времён и не нормализация текста; исходные индексы сохранены. Source fix просмотрен, итоговые gate/test logs находятся у builder/root.
+
+Остальных подтверждённых blocking production findings не найдено.
+
+Проверенные инварианты:
+actual node binding: KaraokeLyrics1.3.2 emits current p.ad-lyrics-current with key=currentKey, spans in word order and first text child=word.text, followed by a space. id propagates through mark(). The hook binds current, never preview/next. Changing line changes line.words ref and replaces observer/geometry.
+countdown / visibility: Stable noWords array while hidden; transitions into final countdown second select actual current.words and force measure. Going backward to hidden removes measured entries. CurrentLineIndex and line timing rules unchanged.
+geometry cache: Measurement effect dependencies id, words, font; playback/seek uses paint only. ResizeObserver observes current line; FontFaceSet.loadingdone remeasures. No layout reads in per-render paint.
+cleanup: Dependency change/unmount disconnects observer, removes font listener, clears measured ref. No timers or animation loops added.
+font / transforms: Heading font choice is passed explicitly. Responsive line dimensions trigger ResizeObserver. Existing beat scale transforms glyph and word bounds equally, so ratio stays valid without every-frame measurements.
+codepoints / UTF16: Array iteration uses codepoints as Python letter arrays do; DOM Range offsets advance by character.length (UTF16 code units), preserving surrogate pair offsets. No text normalization that would change saved indices.
+silent signs / punctuation: ь/ъ/apostrophe/whitespace/combining marks have no independent display interval. Glyph width shares previous sounding group; trailing punctuation and layout space do not consume sound time. This does NOT establish acoustic duration of final consonants.
+data and notes: Helper reads EditorWord and changes only existing DOM --ad-lyric-fill. It neither mutates words/letters/notes nor changes audio, word times, currentLineIndex, model inference, persistence, or schemas.
+fallback: Without timings, existing consonant/vowel heuristic stays approximate; physical mapping uses glyph geometry. No global minimum duration or delay introduced.
+
+Отдельно: non-null assertions новых тестов убраны согласно check-rules; рекомендуется точный expected fill для двух combining fixtures вместо одного lower bound.
+
+Граница вывода: точность пикселей относительно сохранённых letter starts не равна точности относительно голоса. Объединение ть в отображении не доказывает продолжительность согласного; backend quiet tail остаётся отдельной акустической неопределённостью. UI не добавляет кнопок/настроек и не меняет слова, ноты или длительность аудио.

@@ -1,0 +1,57 @@
+<!DOCTYPE html><meta charset="utf-8"><style>@font-face{font-family:Measured;font-weight:800;src:url("file:///workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/frontend/node_modules/@neo-ui-kit/react/dist/fonts/melodix/Melodix-800.woff2")}body{margin:0;background:#000;color:#fff;--ad-font-family-heading:Measured}/* Styles owned by KaraokeLyrics: big filling words in the theme's colours, swelling with the drums. */
+.ad-karaoke-lyrics {
+  --ad-lyric-kick: 0;
+  --ad-lyric-snare: 0;
+  --ad-lyric-pulse: 0;
+  display: grid;
+  justify-items: center;
+  gap: 0.4em;
+  padding-inline: 7%;
+  text-align: center;
+  text-shadow: 0 0.2rem 1rem #000;
+  pointer-events: none;
+}
+.ad-karaoke-lyrics > p {
+  margin: 0;
+  animation: ad-lyric-in 0.22s ease both;
+}
+.ad-lyrics-current {
+  font: 750 clamp(1.75rem, 1rem + 3.2vw, 3.25rem) / 1.15 var(--ad-font-family-heading);
+  letter-spacing: -0.02em;
+  min-block-size: 1.15em;
+  filter:
+    brightness(calc(1.08 + var(--ad-lyric-pulse) * 0.28))
+    saturate(calc(1.04 + var(--ad-lyric-kick) * 0.22))
+    drop-shadow(0 0 calc(0.15rem + var(--ad-lyric-snare) * 0.25rem) rgb(255 238 244 / calc(0.28 + var(--ad-lyric-snare) * 0.4)))
+    drop-shadow(0 0 calc(0.2rem + var(--ad-lyric-kick) * 0.4rem) rgb(from var(--ad-primary) r g b / calc(0.3 + var(--ad-lyric-kick) * 0.36)));
+  transition: filter 55ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ad-lyrics-current[data-message] {
+  color: #fff;
+}
+.ad-lyrics-next {
+  min-block-size: 1.2em;
+  color: rgb(255 255 255 / 0.45);
+  font: 500 clamp(1rem, 0.7rem + 1.4vw, 1.6rem) / 1.2 var(--ad-font-family-heading);
+}
+/* A word fills with the theme's glowing gradient as it is sung; the rest stays white. */
+.ad-lyrics-current .ad-lyric-word {
+  color: transparent;
+  background-image:
+    linear-gradient(180deg, #fff 0%, var(--ad-secondary-100) 18%, var(--ad-primary) 62%, var(--ad-secondary) 100%),
+    linear-gradient(#fff, #fff);
+  background-size: var(--ad-lyric-fill, 0%) 100%, 100% 100%;
+  background-position: left, left;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+@keyframes ad-lyric-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.3em);
+  }
+}
+ .ad-lyrics-current{font-size:78px;font-family:Measured;font-weight:750;letter-spacing:-.02em}.ad-karaoke-lyrics>p{animation:none}</style><div id="app"></div><script src="render-final.js"></script>

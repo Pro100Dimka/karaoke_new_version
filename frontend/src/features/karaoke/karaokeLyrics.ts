@@ -139,16 +139,36 @@ export const upcomingLinePhase = (
 };
 
 const vowels = /[aeiouyаеёиоуыэюяіїє]/i;
-// Punctuation carries no sound of its own, so it never claims a share of the fill -- it rides along
-// with whichever real letter comes right before it instead of visibly holding the highlight itself.
-const punctuation = /[.,!?;:'"()\-–—…«»„“”]/;
+// Punctuation and silent signs have no separate sound; they share the preceding sounding group.
+const punctuation = /[\s.,!?;:'’ʼ‘"()\-–—…«»„“”]/;
+const silentCharacter = /[\p{M}\s.,!?;:'’ʼ‘"()\-–—…«»„“”ьъ]/iu;
+export type LetterGeometry = readonly (readonly [number, number])[];
+const spokenIndices = (text: string): number[] => [...text]
+  .map((character, index) => silentCharacter.test(character) ? -1 : index)
+  .filter((index) => index >= 0);
+
+/** Convert a phonetic interval to the actual glyph width; spacing and punctuation are untimed. */
+const glyphProgress = (
+  text: string, indices: readonly number[], position: number, fraction: number,
+  geometry?: LetterGeometry,
+): number => {
+  if (!geometry) return (position + fraction) / indices.length;
+  const first = indices[position] ?? 0;
+  const next = indices[position + 1];
+  const characters = [...text];
+  let last = characters.length - 1;
+  while (last > first && punctuation.test(characters[last] ?? "")) last--;
+  const start = geometry[first]?.[0] ?? 0;
+  const end = next === undefined ? (geometry[last]?.[1] ?? 1) : (geometry[next]?.[0] ?? 1);
+  return start + (end - start) * fraction;
+};
 const consonantSeconds = 0.07;
 const consonantShareLimit = 0.4;
 
 /** Seconds each character takes: consonants are brief, the vowels share the rest, so a held "друууууг" lingers on the vowel. */
 const characterSeconds = (text: string, duration: number): number[] => {
   const letters = [...text].filter(
-    (character) => !punctuation.test(character),
+    (character) => !silentCharacter.test(character),
   );
   if (letters.length === 0) return [];
   const vowelCount = letters.filter((character) =>
@@ -171,7 +191,7 @@ const characterSeconds = (text: string, duration: number): number[] => {
  * Fraction of the word's text (0..1) that has been sung, using the saved word and letter boundaries.
  * Without letter timings the consonant/vowel distribution is approximate; it never changes the word's bounds.
  */
-export const letterProgress = (word: EditorWord, position: number): number => {
+export const letterProgress = (word: EditorWord, position: number, geometry?: LetterGeometry): number => {
   if (position <= word.start) return 0;
   if (position >= word.end) return 1;
   const duration = Math.max(word.end - word.start, 0.001);
@@ -180,12 +200,13 @@ export const letterProgress = (word: EditorWord, position: number): number => {
       word.letters,
       word.text,
       (position - word.start) / duration,
+      geometry,
     );
   const seconds = characterSeconds(word.text, duration);
   let remaining = position - word.start;
   for (const [index, seconds_] of seconds.entries()) {
     if (remaining < seconds_)
-      return (index + remaining / seconds_) / seconds.length;
+      return glyphProgress(word.text, spokenIndices(word.text), index, remaining / seconds_, geometry);
     remaining -= seconds_;
   }
   return 1;
@@ -194,18 +215,16 @@ export const letterProgress = (word: EditorWord, position: number): number => {
 /**
  * The letters array has one measured start time per character of the word's text (including punctuation,
  * which the backend times the same way it times every character, even though it never actually sounds).
- * Punctuation is skipped here so it never gets its own share of the fill -- without this, a trailing "."
- * or "-" after a held vowel would claim the last slice of the highlight for itself, visibly pausing the
- * fill on a mark instead of the letter that is genuinely still sounding.
+ * Punctuation, whitespace and silent signs are skipped as independent sounds. Otherwise a trailing
+ * period or ь can claim the final interval while the preceding sounding group is still active.
  */
 const timedLetterProgress = (
   starts: readonly number[],
   text: string,
   fraction: number,
+  geometry?: LetterGeometry,
 ): number => {
-  const realIndices = [...text]
-    .map((character, index) => (punctuation.test(character) ? -1 : index))
-    .filter((index) => index >= 0);
+  const realIndices = spokenIndices(text);
   const count = realIndices.length;
   if (count === 0) return 1;
   let position = 0;
@@ -223,7 +242,7 @@ const timedLetterProgress = (
   const span = Math.max(next - start, 1e-6);
   return Math.min(
     1,
-    (position + Math.min(1, Math.max(0, (fraction - start) / span))) / count,
+    glyphProgress(text, realIndices, position, Math.min(1, Math.max(0, (fraction - start) / span)), geometry),
   );
 };
 

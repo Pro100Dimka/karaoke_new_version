@@ -1,0 +1,17 @@
+{
+  "observedUtc": "2026-10-31T17:33:58.272424+00:00",
+  "processes": [
+    {
+      "pid": 50781,
+      "status": "finished_before_signal"
+    }
+  ],
+  "note": "Pause requested while root full-pipeline baseline running; elapsed times must not be claimed as isolated benchmarks.",
+  "confirmedSignal": {
+    "pid": 50781,
+    "signal": "SIGSTOP",
+    "exitCode": 0,
+    "observedUtc": "2026-10-31T17:34:45.439939+00:00",
+    "sandboxEscalation": "Needed because default sandbox process IDs do not map to host ps PIDs"
+  }
+}

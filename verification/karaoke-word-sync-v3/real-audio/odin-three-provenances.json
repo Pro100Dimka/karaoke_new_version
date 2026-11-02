@@ -1,0 +1,217 @@
+{
+  "input": "/workspace/scratch/513dbcd967bf/deliverables-v2/verification/karaoke-word-sync-v2/odin/production-comparison.json",
+  "threeCasesMustNotBeMixed": true,
+  "cases": [
+    {
+      "case": "uncertain-frozen",
+      "v1": {
+        "text": "один",
+        "start": 9.94,
+        "end": 10.08,
+        "confidence": 0.03993293904932216,
+        "letters": [
+          9.94,
+          9.98,
+          10.0,
+          10.06
+        ],
+        "diagnostics": []
+      },
+      "v2": {
+        "text": "один",
+        "start": 9.1,
+        "end": 9.98,
+        "confidence": 0.005953670734015759,
+        "letters": [
+          9.1,
+          9.46,
+          9.58,
+          9.96
+        ],
+        "diagnostics": [
+          "OnsetAtSearchBoundary",
+          "TimingReviewRequired"
+        ]
+      },
+      "rawCtcV1": {
+        "text": "один",
+        "start": 9.94,
+        "end": 10.08,
+        "letters": [
+          9.94,
+          9.98,
+          10.0,
+          10.06
+        ],
+        "score": 0.03993293904932216,
+        "diagnostics": []
+      },
+      "rawCtcV2": {
+        "text": "один",
+        "start": 9.1,
+        "end": 9.98,
+        "letters": [
+          9.1,
+          9.46,
+          9.58,
+          9.96
+        ],
+        "score": 0.005953670734015759,
+        "diagnostics": [
+          "OnsetAtSearchBoundary",
+          "TimingReviewRequired"
+        ]
+      },
+      "onsetTruth": null,
+      "endTruth": null,
+      "beforeAfterErrorsMs": {
+        "start": null,
+        "end": null
+      },
+      "interpretation": "Existing unit-test scenario, with acoustic postprocessors frozen;9.10 is a constrained CTC boundary, not a waveform-adjudicated onset."
+    },
+    {
+      "case": "uncertain-related-wave",
+      "v1": {
+        "text": "один",
+        "start": 9.84,
+        "end": 9.98,
+        "confidence": 0.03993293904932216,
+        "letters": [
+          9.84,
+          9.88,
+          9.9,
+          9.96
+        ],
+        "diagnostics": []
+      },
+      "v2": {
+        "text": "один",
+        "start": 9.0,
+        "end": 9.88,
+        "confidence": 0.005953670734015759,
+        "letters": [
+          9.0,
+          9.36,
+          9.48,
+          9.86
+        ],
+        "diagnostics": [
+          "OnsetAtSearchBoundary",
+          "TimingReviewRequired"
+        ]
+      },
+      "rawCtcV1": {
+        "text": "один",
+        "start": 9.94,
+        "end": 10.08,
+        "letters": [
+          9.94,
+          9.98,
+          10.0,
+          10.06
+        ],
+        "score": 0.03993293904932216,
+        "diagnostics": []
+      },
+      "rawCtcV2": {
+        "text": "один",
+        "start": 9.1,
+        "end": 9.98,
+        "letters": [
+          9.1,
+          9.46,
+          9.58,
+          9.96
+        ],
+        "score": 0.005953670734015759,
+        "diagnostics": [
+          "OnsetAtSearchBoundary",
+          "TimingReviewRequired"
+        ]
+      },
+      "onsetTruth": null,
+      "endTruth": null,
+      "beforeAfterErrorsMs": {
+        "start": null,
+        "end": null
+      },
+      "interpretation": "Actual acoustic postprocessing of related clean_entry wave with uncertain scores; exact-source pairing not established.9.00 final differs from9.10 raw due100ms onset adjustment."
+    },
+    {
+      "case": "clean-paired-control",
+      "v1": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.93,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          8.62,
+          9.36,
+          9.38,
+          9.4
+        ],
+        "diagnostics": []
+      },
+      "v2": {
+        "text": "один",
+        "start": 8.62,
+        "end": 9.94,
+        "confidence": 0.0019060261965933023,
+        "letters": [
+          8.62,
+          9.36,
+          9.38,
+          9.4
+        ],
+        "diagnostics": []
+      },
+      "rawCtcV1": {
+        "text": "один",
+        "start": 8.72,
+        "end": 9.52,
+        "letters": [
+          8.72,
+          9.46,
+          9.48,
+          9.5
+        ],
+        "score": 0.0019060261965933023,
+        "diagnostics": []
+      },
+      "rawCtcV2": {
+        "text": "один",
+        "start": 8.72,
+        "end": 9.52,
+        "letters": [
+          8.72,
+          9.46,
+          9.48,
+          9.5
+        ],
+        "score": 0.0019060261965933023,
+        "diagnostics": []
+      },
+      "onsetTruth": null,
+      "endTruth": null,
+      "beforeAfterErrorsMs": {
+        "start": null,
+        "end": null
+      },
+      "interpretation": "Waveform and CTC from the same clean_entry fixture; independent exact initial-vowel seam not labelled.8.62 unchanged word start; internal20ms i remains suspicious."
+    }
+  ],
+  "exactWordOnsetReference": null,
+  "exactWordEndReference": null,
+  "listenedThisRun": false,
+  "localCtcObjective": {
+    "sameAudioSeconds": [
+      7.96,
+      11.84
+    ],
+    "unconstrainedLogLikelihood": -76.44490814208984,
+    "boundedLogLikelihood": -81.66227912902832,
+    "boundedLossNats": 5.217370986938477,
+    "interpretation": "CTC alone prefers the late path; independent neighboring timing anchors select a lower-likelihood constrained path. The improvement claim concerns acoustic-event placement and phrase ownership, not greater model confidence."
+  }
+}

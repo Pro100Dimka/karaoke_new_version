@@ -1,0 +1,48 @@
+{
+  "page": "https://soundcloud.com/wildways/kilometry",
+  "id": "700502890",
+  "title": "Километры/Kilometers",
+  "format": "hls_aac_160k",
+  "durationSeconds": 204.126625,
+  "audioSha256": "7c6eb9aeff5ed03e58c3630ff317f0e8f7351d5301823021ab5b3c6ee60abe9a",
+  "decodedSha256": "2e57e2be308751cfbc5990a8974a0e6e0cd74d3e4d7e65158358895526569cf8",
+  "method": "Normalized cross-correlation of the unmodified fixture vocal+instrumental sum against official public mixed stream, searched +/-2 s. A reference waveform copy was decoded to mono16k; original source files were untouched. This establishes matching rendition and offset, not word/phone ground truth.",
+  "comparisons": [
+    {
+      "case": "clean_entry",
+      "fixtureOffset": 57,
+      "duration": 17.0,
+      "bestTrackOffset": 57.060625,
+      "shiftSamples": 970,
+      "shiftMs": 60.625000000001705,
+      "pearsonCorrelation": 0.9937372674131875
+    },
+    {
+      "case": "fast",
+      "fixtureOffset": 57,
+      "duration": 11.0,
+      "bestTrackOffset": 57.060625,
+      "shiftSamples": 970,
+      "shiftMs": 60.625000000001705,
+      "pearsonCorrelation": 0.9934051545905347
+    },
+    {
+      "case": "native_fast",
+      "fixtureOffset": 57,
+      "duration": 10.0,
+      "bestTrackOffset": 57.060625,
+      "shiftSamples": 970,
+      "shiftMs": 60.625000000001705,
+      "pearsonCorrelation": 0.9934039796255816
+    },
+    {
+      "case": "reply",
+      "fixtureOffset": 110,
+      "duration": 40.0,
+      "bestTrackOffset": 110.060625,
+      "shiftSamples": 970,
+      "shiftMs": 60.625000000001705,
+      "pearsonCorrelation": 0.9957834496309098
+    }
+  ]
+}

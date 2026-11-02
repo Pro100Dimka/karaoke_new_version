@@ -1,0 +1,63 @@
+KARAOKE WORD SYNC V2 — VERIFICATION INDEX
+
+Start with karaoke_word_sync_v2_report.txt. It distinguishes implemented fixes,
+real-audio evidence, unresolved test failures, and unavailable acceptance gates.
+
+FINAL evidence (the files carrying final production hashes):
+- change-manifest.json / patch-validation.json: exact v1 input, source delta,
+  successful isolated patch application, unchanged original audio/fixtures.
+- final-checks/summary.json / result.json / pytest.log: the complete backend run
+  after the last source edit; 1247 passed, 60 failed, 6 skipped, exit 1.
+- final-checks/baseline-comparison.json, failure-classification-final.json/.txt,
+  new-outcome-evidence.json and failure-ids.txt: every remaining failure and the
+  limits of the paired baseline/current checks. Do not interpret count changes
+  as causal fixes for asynchronous recording tests.
+- final-checks/post-evidence-source-check.json: final source remained frozen.
+- frontend-checks/: TypeScript, Vitest, Node logs and unchanged source hashes.
+- odin/production-comparison.json and production-*.json: exact-v1/final word and
+  letter traces. The uncertain/related waveform pairing is explicitly labelled.
+- odin/reply-review-diagnosis.json: why a bounded review recovers the 20 ms
+  candidate for a flagged word without moving the distant confirmed neighbour.
+- windows/after_chain.json: final 100 words / 33 flags plan, 11 calls, max 9 words
+  and 7.4 seconds. The generic limits are 12 words/8 seconds, with a documented
+  single sustained-word exception. No target omission or repeated audio.
+- windows/endpoint_before.log / endpoint_targeted.log: true red/green evidence
+  for the one-frame artificial seam, with real-silence counterexamples.
+- real-audio/notes-final-summary.json / notes-*-final.json: same 1701 measured
+  CREPE points before/after, no removed targets or repitched common points.
+- real-audio/sadvit-paired-comparison-final.json: final UK-fragment comparison.
+  Its referenceEnd intervals are not human-certified phoneme boundaries.
+- performance/comparison.json: all 18 samples per version/case from two execution
+  orders. original/v1/final are separate source snapshots. Cached alignment only;
+  these timings must not be presented as end-to-end song-processing times.
+
+DIAGNOSIS / INTERMEDIATE evidence:
+Files containing prototype, pre-endpoint, before, or after_initial document
+experiments and earlier states. Their source hashes intentionally differ from
+the final artifact. Window microbenchmarks compare design prototypes; final
+production alignment timings are in performance/comparison.json. Older v1
+delivery evidence stays in the separate verification/karaoke-word-sync directory.
+
+Reproduction entry points (use the repository's configured Python environment):
+- From repository root on Windows: check.bat backend and check.bat frontend.
+- From python/: python -m pytest -q tests/test_phrase_boundary_recovery.py
+  tests/test_review_windows.py tests/test_sung_end_boundaries.py
+  tests/test_word_timing_review.py
+- Full backend Linux-compatible gate: python <this-directory>/run_verification.py
+  <repository>/python <output-directory>. It preserves every command exit code.
+- Cached alignment replay: python <this-directory>/performance/cached_pipeline_evidence.py
+  <repository>/python <output.json> --iterations 9
+- Real note replay: real-audio/compare_real_notes.py --help; pass the saved before/
+  after payloads, clean_entry-pitch-points.json, and the repository fixture. No new
+  pitch inference is needed. Use --comparison-status production for final payloads.
+- SadSvit replay and phrase traces: real-audio/replay_sadvit.py --help and
+  odin/clean_replay.py --help / odin/trace_odin.py --help.
+
+Raw helper logs retain original absolute execution paths for provenance. Do not
+expect the prior scratch paths to exist on another machine; CLI arguments above
+let the portable evidence scripts use the extracted repository and local outputs.
+
+Limitations: no complete original songs or user lyricsSync.json; no certified
+phoneme/F0 annotation; no full AI-model pipeline benchmark; no Windows/Electron
+live acceptance run. The full test suite remains red. Read the report before
+treating the project as release-ready.

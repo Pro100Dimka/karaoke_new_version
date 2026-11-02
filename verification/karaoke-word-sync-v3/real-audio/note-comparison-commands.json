@@ -1,0 +1,30 @@
+{
+  "commands": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "label": "clean-paired",
+        "cmd": "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python /tmp/karaoke-sync-v2/real-audio/compare_real_notes.py --repo-python /workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python --before /tmp/karaoke-sync-v2/odin/production-clean-paired.json --after /tmp/karaoke-sync-v3/real-audio/final-clean-paired.json --pitch /tmp/karaoke-sync-v2/real-audio/clean_entry-pitch-points.json --output /tmp/karaoke-sync-v3/real-audio/notes-v2-final-clean-paired.json --fixture /workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures/wildways-verse-entry.npz --label v2-to-final-clean-paired --comparison-status production > /tmp/karaoke-sync-v3/real-audio/notes-v2-final-clean-paired.log 2>&1",
+        "chunk_id": "4717c8",
+        "wall_time_seconds": 0.289050606,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "label": "uncertain-related",
+        "cmd": "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python /tmp/karaoke-sync-v2/real-audio/compare_real_notes.py --repo-python /workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python --before /tmp/karaoke-sync-v2/odin/production-uncertain-related.json --after /tmp/karaoke-sync-v3/real-audio/final-uncertain-related.json --pitch /tmp/karaoke-sync-v2/real-audio/clean_entry-pitch-points.json --output /tmp/karaoke-sync-v3/real-audio/notes-v2-final-uncertain-related.json --fixture /workspace/scratch/513dbcd967bf/project/karaoke_new_version-refactor-frontend-direct/python/tests/fixtures/wildways-verse-entry.npz --label v2-to-final-uncertain-related --comparison-status production > /tmp/karaoke-sync-v3/real-audio/notes-v2-final-uncertain-related.log 2>&1",
+        "chunk_id": "d4f3d4",
+        "wall_time_seconds": 0.284514209,
+        "exit_code": 0,
+        "original_token_count": 0,
+        "output": ""
+      }
+    }
+  ],
+  "exportCommand": "/workspace/scratch/513dbcd967bf/runtime/venv/bin/python /tmp/karaoke-sync-v3/real-audio/export_lyric_documents.py",
+  "exportExitCode": 0
+}
