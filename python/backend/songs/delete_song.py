@@ -13,6 +13,7 @@ from backend.recovery.ports import RecoveryJournal
 from backend.songs.ports import SongStorage
 from backend.recordings.ports import RecordingStorage
 from backend.processing.job_manager import ProcessingJobManager
+from backend.processing.domain import JobType
 
 
 class DeleteSong:
@@ -38,9 +39,11 @@ class DeleteSong:
 
     def execute(self, song_id: str) -> None:
         with self._operations.acquire(song_id, SongOperation.DELETE):
+            # Processing holds per-song locks; imports write only newly allocated song folders.
             self._jobs.run_when_idle(
                 lambda: self._delete(song_id),
                 busy_error=ConflictError("LibraryInUse", "Wait for background jobs to finish before deleting songs"),
+                allow_job_types=(JobType.SONG_PROCESSING, JobType.SONG_IMPORT),
             )
 
     def _delete(self, song_id: str) -> None:

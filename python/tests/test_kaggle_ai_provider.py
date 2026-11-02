@@ -83,6 +83,46 @@ class _Provider(KaggleAiProvider):
         return str(path)
 
 
+def test_vocal_operation_checks_the_notebook_once_even_when_uploading(tmp_path, monkeypatch):
+    from unittest.mock import Mock
+
+    client = _Client(tmp_path / "unused.wav", tmp_path / "vocal.wav")
+    provider = _Provider(client)
+    connection = Mock(return_value=client)
+    monkeypatch.setattr(provider, "_client", connection)
+    for expected in (1, 2):
+        provider.pitch(
+            tmp_path / "vocal.wav",
+            threading.Event(),
+            execution=ExecutionContext(ComputeDevice.CPU, 1),
+        )
+        assert connection.call_count == expected
+    assert [name for name, _ in client.calls] == ["/prepare_vocal", "/pitch", "/pitch"]
+
+
+def test_failed_health_connection_is_recreated(monkeypatch):
+    from unittest.mock import Mock
+    from gradio_client.exceptions import AppError
+
+    health = {
+        "protocolVersion": 7,
+        "sessionGeneration": "live",
+        "workerRevision": kaggle_provider_module.KaggleNotebookAutomation().revision,
+    }
+    expired = Mock()
+    expired.predict.side_effect = [health, AppError("expired authentication")]
+    renewed = Mock()
+    renewed.predict.return_value = health
+    factory = Mock(side_effect=[expired, renewed])
+    monkeypatch.setattr(kaggle_provider_module, "Client", factory)
+    provider = KaggleAiProvider(lambda: BackendSettings(2))
+    assert provider._health_generation("https://example.gradio.live", "token") == "live"
+    with pytest.raises(AppError):
+        provider._health_generation("https://example.gradio.live", "token")
+    assert provider._health_generation("https://example.gradio.live", "token") == "live"
+    assert factory.call_count == 2
+
+
 @pytest.mark.parametrize("fail", [False, True])
 def test_alignment_reuse_is_scoped_to_one_job_and_released_without_restarting(tmp_path, fail):
     from concurrent.futures import Future
@@ -505,6 +545,21 @@ def test_shutdown_discards_cached_vocal_sessions(tmp_path):
     assert provider._sessions == {}
 
 
+def test_shutdown_accepts_the_server_closing_its_own_stream(monkeypatch):
+    from concurrent.futures import CancelledError
+    from unittest.mock import Mock
+
+    client = Mock()
+    client.predict.side_effect = CancelledError()
+    monkeypatch.setattr(kaggle_provider_module, "Client", Mock(return_value=client))
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(2, kaggle_url="https://example.gradio.live", kaggle_token="token"),
+        discovery_transport=httpx.MockTransport(lambda _: httpx.Response(404)),
+    )
+    provider.shutdown()
+    client.predict.assert_called_once_with(api_name="/shutdown")
+
+
 def test_unrelated_remote_errors_do_not_reupload_the_vocal(tmp_path):
     from gradio_client.exceptions import AppError
 
@@ -667,6 +722,8 @@ def test_kaggle_health_check_uses_a_short_timeout_and_rejects_stale_timing_worke
         assert error.value.code == "KaggleProtocolMismatch"
         assert timeouts == [20]
     else:
+        provider.validate_configuration()
+        assert timeouts == [20, 15 * 60]
         provider.validate_configuration()
         assert timeouts == [20, 15 * 60]
 

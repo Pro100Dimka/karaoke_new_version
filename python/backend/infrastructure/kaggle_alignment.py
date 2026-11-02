@@ -16,6 +16,9 @@ from gradio_client.exceptions import (
     ValidationError as GradioValidationError,
 )
 
+from backend.domain_errors import DependencyError
+from backend.serialization import loads_object
+
 CLIENT_ERRORS = (
     AppError,
     AuthenticationError,
@@ -57,3 +60,19 @@ def _cleanup_done(job: Future[object]) -> None:
         logger.warning("Kaggle alignment cleanup was cancelled")
     elif (error := job.exception()) is not None:
         logger.warning("Kaggle alignment cleanup failed: %s", type(error).__name__)
+
+
+def invocation_error(error: Exception, provider_id: str) -> DependencyError:
+    if isinstance(error, AppError):
+        try:
+            code = loads_object(str(error)).get("code")
+        except ValueError:
+            code = None
+        if code == "KaggleSessionExpired":
+            return DependencyError(code, "The remote vocal session expired", providerId=provider_id)
+    return DependencyError(
+        "KaggleUnavailable",
+        "Kaggle GPU notebook is unavailable. Start the notebook; its address is detected automatically.",
+        providerId=provider_id,
+        reason=type(error).__name__,
+    )

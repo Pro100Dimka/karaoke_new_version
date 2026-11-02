@@ -6,13 +6,13 @@ import shutil
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import CancelledError
 from contextlib import AbstractContextManager
 from pathlib import Path
 
 import httpx
 import soundfile as sf
 from gradio_client import Client, handle_file
-from gradio_client.exceptions import AppError
 
 from backend.ai.domain import (
     AiCapability,
@@ -28,6 +28,7 @@ from backend.infrastructure.kaggle_alignment import (
     CLIENT_ERRORS as _CLIENT_ERRORS,
     AlignmentScopes,
     alignment_scope,
+    invocation_error,
 )
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
@@ -85,6 +86,7 @@ class KaggleAiProvider(AiProvider):
         self._session_lock = threading.Lock()
         self._sessions: dict[Path, tuple[str, Path | None]] = {}
         self._clients: dict[tuple[str, str], Client] = {}
+        self._health_clients: dict[tuple[str, str], Client] = {}
         self._session_generation: tuple[str, str, str] | None = None
         self._alignment_scopes: AlignmentScopes = {}
 
@@ -117,11 +119,12 @@ class KaggleAiProvider(AiProvider):
                 httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
             )
             client.predict(api_name="/shutdown")
-        except (AttributeError, DependencyError, *_CLIENT_ERRORS):
+        except (AttributeError, CancelledError, DependencyError, *_CLIENT_ERRORS):
             pass
         finally:
             with self._lock:
                 self._clients.clear()
+                self._health_clients.clear()
                 self._sessions.clear()
                 self._session_generation = None
 
@@ -193,10 +196,16 @@ class KaggleAiProvider(AiProvider):
             raise self._invalid("Pitch response is malformed")
         return tuple(self._pitch(value) for value in values)
 
-    def _invoke(self, api_name: str, cancel: threading.Event, *arguments: object) -> object:
+    def _invoke(
+        self,
+        api_name: str,
+        cancel: threading.Event,
+        *arguments: object,
+        client: Client | None = None,
+    ) -> object:
         _ensure_not_cancelled(cancel)
         try:
-            client = self._client(cancel=cancel)
+            client = client if client is not None else self._client(cancel=cancel)
             with self._lock:
                 scope = self._alignment_scopes.get(cancel) if api_name == "/align" else None
                 if scope is not None:
@@ -214,25 +223,7 @@ class KaggleAiProvider(AiProvider):
             raise
         except _CLIENT_ERRORS as exc:
             _ensure_not_cancelled(cancel)
-            raise self._invocation_error(exc) from exc
-
-    @staticmethod
-    def _invocation_error(error: Exception) -> DependencyError:
-        if isinstance(error, AppError):
-            try:
-                code = loads_object(str(error)).get("code")
-            except ValueError:
-                code = None
-            if code == "KaggleSessionExpired":
-                return DependencyError(
-                    code, "The remote vocal session expired", providerId=_PROVIDER_ID
-                )
-        return DependencyError(
-            "KaggleUnavailable",
-            "Kaggle GPU notebook is unavailable. Start the notebook; its address is detected automatically.",
-            providerId=_PROVIDER_ID,
-            reason=type(error).__name__,
-        )
+            raise invocation_error(exc, _PROVIDER_ID) from exc
 
     def _invoke_vocal(
         self,
@@ -242,9 +233,9 @@ class KaggleAiProvider(AiProvider):
         *arguments: object,
         instrumental: Path | None = None,
     ) -> object:
-        session = self._session(vocal, cancel, instrumental)
+        session, client = self._session(vocal, cancel, instrumental)
         try:
-            return self._invoke(api_name, cancel, session, *arguments)
+            return self._invoke(api_name, cancel, session, *arguments, client=client)
         except DependencyError as error:
             if error.code != "KaggleSessionExpired":
                 raise
@@ -252,9 +243,8 @@ class KaggleAiProvider(AiProvider):
             cached = self._sessions.get(vocal.resolve())
             if cached is not None and cached[0] == session:
                 self._sessions.pop(vocal.resolve())
-        return self._invoke(
-            api_name, cancel, self._session(vocal, cancel, instrumental), *arguments
-        )
+        session, client = self._session(vocal, cancel, instrumental)
+        return self._invoke(api_name, cancel, session, *arguments, client=client)
 
     def _client(self, *, allow_start: bool = True, cancel: threading.Event | None = None) -> Client:
         settings = self._settings()
@@ -368,13 +358,21 @@ class KaggleAiProvider(AiProvider):
             ) from exc
 
     def _health_generation(self, url: str, token: str) -> str:
-        probe = Client(
-            url,
-            auth=("advoice", token),
-            verbose=False,
-            httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
-        )
-        health = self._json_result(probe.predict(api_name="/health"))
+        with self._lock:
+            probe = self._health_clients.get((url, token))
+        if probe is None:
+            probe = Client(
+                url,
+                auth=("advoice", token),
+                verbose=False,
+                httpx_kwargs={"timeout": _HEALTH_TIMEOUT_SECONDS},
+            )
+        try:
+            health = self._json_result(probe.predict(api_name="/health"))
+        except _CLIENT_ERRORS:
+            with self._lock:
+                self._health_clients.pop((url, token), None)
+            raise
         generation = health.get("sessionGeneration")
         if (
             health.get("protocolVersion") != _PROTOCOL_VERSION
@@ -383,6 +381,8 @@ class KaggleAiProvider(AiProvider):
             or not generation
         ):
             raise DependencyError("KaggleProtocolMismatch", "Kaggle worker does not match this app")
+        with self._lock:
+            self._health_clients = {(url, token): probe}
         return generation
 
     @staticmethod
@@ -396,13 +396,13 @@ class KaggleAiProvider(AiProvider):
 
     def _session(
         self, vocal: Path, cancel: threading.Event, instrumental: Path | None = None
-    ) -> str:
+    ) -> tuple[str, Client]:
         _ensure_not_cancelled(cancel)
         while not self._session_lock.acquire(timeout=0.2):
             _ensure_not_cancelled(cancel)
         try:
             _ensure_not_cancelled(cancel)
-            self._client(cancel=cancel)
+            client = self._client(cancel=cancel)
             backing = instrumental.resolve() if instrumental is not None else None
             with self._lock:
                 session = self._sessions.get(vocal.resolve())
@@ -412,13 +412,14 @@ class KaggleAiProvider(AiProvider):
                     cancel,
                     self._handle_file(vocal),
                     self._handle_file(instrumental) if instrumental else None,
+                    client=client,
                 )
                 if not isinstance(uploaded, str) or not uploaded.strip():
                     raise self._invalid("Vocal upload response has no remote session id")
                 session = (uploaded.strip(), backing)
                 with self._lock:
                     self._sessions[vocal.resolve()] = session
-            return session[0]
+            return session[0], client
         finally:
             self._session_lock.release()
 

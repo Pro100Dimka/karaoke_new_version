@@ -44,6 +44,7 @@ class ProcessingJobManager:
         self._events = events
         # Serialize job transitions with progress so stale snapshots cannot undo cancellation.
         self._state_lock = threading.RLock()
+        self._active_job_types: dict[str, JobType] = {}
 
     def start(
         self,
@@ -73,15 +74,21 @@ class ProcessingJobManager:
             transaction.jobs.add(job)
             transaction.commit()
         with self._state_lock:
+            submitted = False
+            self._active_job_types[job.job_id] = job_type
             try:
                 self._publish(job)
                 self._executor.submit(
                     job.job_id,
                     lambda cancel: self._run(job.job_id, work, cancel, on_finally, admit),
                 )
+                submitted = True
             except DomainError as exc:
                 self._fail(job.job_id, exc)
                 raise
+            finally:
+                if not submitted:
+                    self._active_job_types.pop(job.job_id, None)
         return job
 
     def get(self, job_id: str) -> Job:
@@ -96,10 +103,16 @@ class ProcessingJobManager:
         action: Callable[[], None],
         *,
         busy_error: ConflictError | None = None,
+        allow_job_types: tuple[JobType, ...] = (),
     ) -> None:
         """Keep removal atomic with submission; cancelled workers may still own files."""
         with self._state_lock:
-            if self._executor.stats().get("activeOrQueued", 0):
+            busy = (
+                any(kind not in allow_job_types for kind in self._active_job_types.values())
+                if allow_job_types
+                else bool(self._executor.stats().get("activeOrQueued", 0))
+            )
+            if busy:
                 raise busy_error or ConflictError(
                     "ModelsInUse", "Wait for background jobs to finish before deleting models"
                 )
@@ -162,8 +175,12 @@ class ProcessingJobManager:
             logger.exception("Unexpected background job error", extra={"jobId": job_id})
             self._fail(job_id, DomainError("InternalJobError", "Background job failed", 500))
         finally:
-            if on_finally:
-                on_finally()
+            try:
+                if on_finally:
+                    on_finally()
+            finally:
+                with self._state_lock:
+                    self._active_job_types.pop(job_id, None)
 
     def _execute(self, job_id: str, work: JobWork, cancel: threading.Event) -> None:
         with self._state_lock:

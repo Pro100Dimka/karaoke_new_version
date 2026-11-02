@@ -20,6 +20,11 @@ it('ships a strict policy without the development server or arbitrary inline scr
   expect(policy).not.toMatch(/localhost|5173|unsafe-eval/);
 });
 
+it('allows local rendering workers without allowing blob scripts in the page', () => {
+  expect(policy.match(/worker-src ([^;]+)/)?.[1]).toBe("'self' blob:");
+  expect(policy.match(/script-src ([^;]+)/)?.[1]).not.toContain('blob:');
+});
+
 it('allows only the pinned QuantumBackground scripts, with three.js shipped beside the app', () => {
   const host = document.createElement('div');
   // As the Library renders it: three.js from the app's own vendor folder.
