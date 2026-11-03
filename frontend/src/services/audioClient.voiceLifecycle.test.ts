@@ -94,6 +94,34 @@ it('releases the Windows mode even if failed-join cleanup is rejected', async ()
   expect(backend).toBe('WASAPI Shared');
 });
 
+it('preserves the selected configuration when recording cannot pause for a switch', async () => {
+  installBridge(({ command }) => ({
+    status: command === 'PauseRecording' ? 5 : 0,
+    text: command === 'PauseRecording' ? 'Pause rejected'
+      : command === 'GetDevices' ? 'asio,Audient Driver,3,0,2\nasio,Audient Driver,3,1,2'
+      : ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+        ? 'SessionState: Running\nBackend: WASAPI Shared\nRuntimeOutputSampleRate: 48000' : 'Ok',
+  }), { pythonRequest: vi.fn(async request => ({ ok: true, status: 200,
+    body: request.path === '/recordings/target' ? { recordingId: 'take', filePath: 'D:/take.wav' } : {},
+  })) });
+  const { audioClient } = await import('./audioClient');
+  const { recordingCoordinator } = await import('./recordingCoordinator');
+  const previous = audioClient.preferredConfiguration();
+  await recordingCoordinator.start({ id: 'song', activeRevision: 1, title: 'Song', artist: 'Artist',
+    language: 'Auto', status: 'ready', durationSeconds: 1, createdAt: '2026-11-03',
+    coverState: 'Fallback', projectFormatVersion: 1,
+  });
+  try {
+    await expect(audioClient.applyConfiguration({ backend: 'ASIO', userSelectedAsio: true,
+      inputDeviceId: 'asio', outputDeviceId: 'asio', sampleRate: 48000, periodFrames: 0,
+    })).rejects.toThrow('Pause rejected');
+    expect(audioClient.preferredConfiguration()).toEqual(previous);
+  } finally {
+    recordingCoordinator.interrupt();
+    await recordingCoordinator.stop();
+  }
+});
+
 it('restores the server mix slot after every room voice session recreation', async () => {
   const requests = installBridge(undefined, {
     joinRoomVoice: vi.fn(async () => undefined),

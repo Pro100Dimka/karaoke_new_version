@@ -514,9 +514,9 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
             return ControlResponse{ControlStatus::Ok,
                                    std::to_string(static_cast<int>(recording_.state()))};
         const auto result = recording_.result();
+        constexpr std::array pausedStates{RecordingState::Paused, RecordingState::Prepared};
         const auto pausedDetails = boolValue(request.value("paused"), false) &&
-                                   (recording_.state() == RecordingState::Paused ||
-                                    recording_.state() == RecordingState::Prepared);
+                                   std::ranges::find(pausedStates, recording_.state()) != pausedStates.end();
         if (!result.finalized && !pausedDetails)
             return ControlResponse{ControlStatus::InvalidState, "Recording is not finalized"};
         using Field = std::pair<std::string_view, std::uint64_t>;

@@ -45,8 +45,9 @@ void retainPeak(std::atomic<float>& target, float value) noexcept {
 } // namespace
 
 void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation, bool preserveRecording) {
+    constexpr std::array pausedStates{RecordingState::Paused, RecordingState::Prepared};
     if (preserveRecording &&
-        (recording_.state() == RecordingState::Paused || recording_.state() == RecordingState::Prepared)) {
+        std::ranges::find(pausedStates, recording_.state()) != pausedStates.end()) {
         const auto take = recording_.result();
         if (take.sampleRateHz != plan.internalSampleRateHz || take.channels != plan.outputChannels)
             throw std::runtime_error("The new device format cannot continue the open recording");
@@ -118,8 +119,9 @@ void RealtimeEngine::invalidate(GenerationId generation, bool preserveRecording)
     // Fence stale callbacks first, but preserve the recording generation until its pending
     // aligned PCM is saved. Device recovery/reset must not clear a live take's tail.
     const auto recordingState = recording_.state();
+    constexpr std::array activeStates{RecordingState::Recording, RecordingState::Paused};
     if (recording_.selectedTap() == RecordingTap::PerformanceMix &&
-        (recordingState == RecordingState::Recording || recordingState == RecordingState::Paused)) {
+        std::ranges::find(activeStates, recordingState) != activeStates.end()) {
         try {
             if (!preserveRecording || recordingState == RecordingState::Recording)
                 (void)finishRecording(preserveRecording ? RecordingState::Paused : RecordingState::Finished);

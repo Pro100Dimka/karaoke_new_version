@@ -107,8 +107,8 @@ const applyConfiguration = async (configuration: RequestedAudioConfiguration) =>
   const previous = audioState.active;
   const previousPreferred = audioState.preferred;
   const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
-  audioState.preferred = configuration;
   await recordingCoordinator.reconfigure(async (format) => {
+    audioState.preferred = configuration;
     try {
       await activateConfiguration(effectiveConfiguration(configuration), checkpoint, format);
     } catch (error) {
@@ -169,7 +169,7 @@ export const audioClient: AudioServiceClient = {
         let values = await diagnostics();
         // A replacement process is Running with an Idle session. A failed device also leaves the
         // control pipe alive. Reopen either before advertising usable audio; Suspended is deliberate.
-        if (values.SessionState === 'Idle' || values.SessionState === 'Failed') {
+        if (['Idle', 'Failed'].includes(values.SessionState ?? '')) {
           await ensureSession();
           values = await diagnostics();
         }

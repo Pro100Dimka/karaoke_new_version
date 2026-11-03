@@ -264,11 +264,11 @@ void RecordingEngine::setGeneration(GenerationId generation, bool preservePaused
     if (generation_.exchange(generation) == generation)
         return;
     auto current = state_.load();
-    if (preservePaused &&
-        (current == RecordingState::Paused || current == RecordingState::Prepared))
+    constexpr std::array pausedStates{RecordingState::Paused, RecordingState::Prepared};
+    constexpr std::array openStates{RecordingState::Recording, RecordingState::Paused, RecordingState::Prepared};
+    if (preservePaused && std::ranges::find(pausedStates, current) != pausedStates.end())
         return;
-    while (current == RecordingState::Recording || current == RecordingState::Paused ||
-           current == RecordingState::Prepared) {
+    while (std::ranges::find(openStates, current) != openStates.end()) {
         if (state_.compare_exchange_weak(current, RecordingState::Finalizing))
             break;
     }
