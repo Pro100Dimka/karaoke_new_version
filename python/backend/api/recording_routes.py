@@ -85,9 +85,12 @@ class AnalysisDto(ApiModel):
 
 
 @router.post("/target", response_model=RecordingTargetDto)
-def allocate_target(app: ContainerDep, body: RecordingContextDto | None = None) -> RecordingTargetDto:
+def allocate_target(
+    app: ContainerDep, body: RecordingContextDto | None = None
+) -> RecordingTargetDto:
     target = app.recordings.allocate(
-        body.song_id if body else None, body.song_revision if body else None,
+        body.song_id if body else None,
+        body.song_revision if body else None,
     )
     return RecordingTargetDto(recording_id=target.recording_id, file_path=str(target.file_path))
 
@@ -152,7 +155,9 @@ def update_recording(
 def delete_recording(recording_id: str, app: ContainerDep) -> Response:
     app.system.jobs.run_when_idle(
         lambda: app.recordings.delete.execute(recording_id),
-        busy_error=ConflictError("LibraryInUse", "Wait for background jobs before deleting recordings"),
+        busy_error=ConflictError(
+            "LibraryInUse", "Wait for background jobs before deleting recordings"
+        ),
     )
     return Response(status_code=204)
 

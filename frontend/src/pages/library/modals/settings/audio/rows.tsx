@@ -14,6 +14,18 @@ import type {
   SettingsFormValues,
 } from '../../../../../utils/contracts';
 import FormButton from '../form-button';
+import { observer } from 'mobx-react-lite';
+import type { IObservableValue } from 'mobx';
+
+const InputLevelMeter = observer(
+  ({ level, active }: { level: IObservableValue<number>; active: boolean }) => (
+    <LevelMeter
+      value={Math.min(1, level.get() * 4) * 100}
+      active={active}
+      label={tr('liveInputLevel')}
+    />
+  ),
+);
 
 const rotaryProps = {
   size: 'sm',
@@ -26,6 +38,7 @@ const rotaryProps = {
 export const blocks = (
   values: Pick<SettingsFormValues, 'audio' | 'audioStatus'>,
   showDiagnostics: () => void,
+  inputLevel: IObservableValue<number>,
 ) => {
   const status = values.audioStatus;
   const runtime = status.runtime;
@@ -58,10 +71,9 @@ export const blocks = (
           kind: 'custom',
           render: () => (
             <Stack gap={3}>
-              <LevelMeter
-                value={Math.min(1, status.inputLevel * 4) * 100}
+              <InputLevelMeter
+                level={inputLevel}
                 active={values.audio.voice.monitoring}
-                label={tr('liveInputLevel')}
               />
               <Stack direction="row" gap={3} align="center" wrap>
                 <Typography

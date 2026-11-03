@@ -1,3 +1,8 @@
+import {
+  observeOperation,
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../../../shared/errors';
 import { useQueryClient } from '@tanstack/react-query';
 import { refreshSongs } from '../../../../api/api-service';
 import { tr, useLocale } from '@neo-ui-kit/react';
@@ -19,6 +24,11 @@ import { ru } from '../../../../i18n/messages.ru';
 import type { MessageKey } from '../../../../i18n/messages';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import {
+  backendPollInterval,
+  nextRecordingChange,
+  onRecordingsChange,
+} from '../../../../services/backendEvents';
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
@@ -80,6 +90,7 @@ export const useSongRecordings = (
       if (request !== requests.current.analysis) return null;
       if (stored) return stored;
       while (request === requests.current.analysis && ownsRun()) {
+        const changed = nextRecordingChange(750);
         const items = await catalog.listRecordings(songId);
         if (request !== requests.current.analysis || !ownsRun()) return null;
         if (listRequest === requests.current.recordings) setRecordings(items);
@@ -106,7 +117,7 @@ export const useSongRecordings = (
             progress: 0,
           },
         }));
-        await new Promise((resolve) => window.setTimeout(resolve, 750));
+        await changed;
       }
       if (request !== requests.current.analysis || !ownsRun()) return null;
       clearFailure();
@@ -130,7 +141,10 @@ export const useSongRecordings = (
       if (ownsRun())
         setAnalysisProgress(({ [recordingId]: _, ...items }) => items);
       if (started) {
-        const items = await catalog.listRecordings(songId).catch(() => null);
+        const items = await observeOperation(
+          'errors.recordings',
+          catalog.listRecordings(songId),
+        ).catch(() => null);
         if (items && listRequest === requests.current.recordings)
           setRecordings(items);
       }
@@ -139,27 +153,40 @@ export const useSongRecordings = (
 
   useEffect(() => {
     const target = song ?? (analysisRecordId ? analysisSong : null);
-    if (
-      !target ||
-      !recordings.some((item) =>
-        ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
-      )
-    )
-      return;
+    if (!target) return;
     let active = true;
+    let pending = false;
     const request = requests.current.recordings;
-    const timer = window.setTimeout(() => {
+    const refresh = () => {
+      if (pending) return;
+      pending = true;
       void catalog
         .listRecordings(target.id)
         .then((items) => {
-          if (active && request === requests.current.recordings)
+          if (active && request === requests.current.recordings) {
+            clearOperationFailure('errors.recordings');
             setRecordings(items);
+          }
         })
-        .catch(() => undefined);
-    }, 1000);
+        .catch((error: unknown) => {
+          if (active && request === requests.current.recordings)
+            reportOperationFailure('errors.recordings', error);
+        })
+        .finally(() => {
+          pending = false;
+        });
+    };
+    const stop = onRecordingsChange(refresh);
+    const preparing = recordings.some((item) =>
+      ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
+    );
+    const timer = preparing
+      ? window.setInterval(refresh, backendPollInterval(1000))
+      : undefined;
     return () => {
       active = false;
-      window.clearTimeout(timer);
+      stop();
+      window.clearInterval(timer);
     };
   }, [song, analysisSong, analysisRecordId, recordings]);
 

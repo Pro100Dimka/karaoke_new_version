@@ -43,7 +43,9 @@ class ModelDto(ApiModel):
 
 @router.get("", response_model=list[ModelDto])
 def list_models(
-    app: ContainerDep, purpose: AiCapability | None = None, catalog_only: bool = False,
+    app: ContainerDep,
+    purpose: AiCapability | None = None,
+    catalog_only: bool = False,
 ) -> list[ModelDto]:
     current = {(spec.model_id, spec.version) for spec in CATALOG}
     with app.database.create() as transaction:

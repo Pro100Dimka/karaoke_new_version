@@ -137,6 +137,7 @@ export interface SongPatch {
   artist?: string;
   language?: SongDto['language'];
   coverPath?: string;
+  videoPath?: string;
 }
 export interface ImportProgress {
   jobId: string;
@@ -329,6 +330,16 @@ export interface PlaybackSchedule {
 }
 
 export interface AudioServiceClient {
+  observeSnapshots(
+    onValue: (value: PlaybackSnapshot) => void,
+    onError: (error: unknown) => void,
+    intervalMs?: number,
+  ): () => void;
+  observeSpectrum(
+    onValue: (value: { bands: readonly number[]; backingBands: readonly number[] }) => void,
+    onError: (error: unknown) => void,
+    intervalMs?: number,
+  ): () => void;
   health(): Promise<{
     status: 'ready' | 'unavailable';
     version: string;
@@ -449,6 +460,10 @@ export interface AudioServiceClient {
   stopRecordingPreview(owner?: symbol): Promise<void>;
   setPreviewVolume(gain: number): Promise<void>;
   recordingPreviewStatus(owner?: symbol): Promise<RecordingPreviewStatus>;
+  observeRecordingPreview(
+    owner: symbol, onValue: (value: RecordingPreviewStatus) => void,
+    onError: (error: unknown) => void,
+  ): () => void;
 }
 
 /** State of the take that AudioService currently holds for preview; `recordingId` is null when none was loaded. */

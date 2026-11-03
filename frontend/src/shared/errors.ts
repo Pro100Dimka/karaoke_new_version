@@ -3,6 +3,58 @@ import { ru } from '../i18n/messages.ru';
 import { unverifiedAsioMonitoring } from '../contracts/models';
 import type { AppError } from '../contracts/models';
 import type { MessageKey } from '../i18n/messages';
+import { createCommandQueue } from '../app/desktop/shellBus';
+
+export const operationFailures = createCommandQueue<{
+  operation: string;
+  error: unknown;
+}>();
+const failedOperations = new Set<string>();
+
+export const clearOperationFailure = (operation: string): void => {
+  failedOperations.delete(operation);
+};
+
+export const reportOperationFailure = (
+  operation: string,
+  error: unknown,
+): void => {
+  const errors: unknown[] =
+    error instanceof AggregateError ? error.errors : [error];
+  if (
+    errors.every(
+      (item) =>
+        item &&
+        typeof item === 'object' &&
+        (('name' in item &&
+          ['AbortError', 'AcousticMeasurementCancelled'].includes(
+            String(item.name),
+          )) ||
+          ('code' in item && item.code === 'JobCancelled')),
+    )
+  )
+    return;
+  if (failedOperations.has(operation)) return;
+  failedOperations.add(operation);
+  console.error(operation, error);
+  operationFailures.push({ operation, error });
+};
+
+/** A successful retry rearms the notice; repeated failures stay silent until recovery. */
+export const observeOperation = <T>(
+  operation: string,
+  promise: Promise<T>,
+): Promise<T> =>
+  promise.then(
+    (value) => {
+      clearOperationFailure(operation);
+      return value;
+    },
+    (error: unknown) => {
+      reportOperationFailure(operation, error);
+      throw error;
+    },
+  );
 
 export const toAppError = (value: unknown): AppError => {
   if (

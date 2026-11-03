@@ -1,3 +1,4 @@
+import { toAppError } from '../../shared/errors';
 import type { ProjectCompatibility } from '../../contracts/clients';
 import type { SongDto } from '../../contracts/models';
 import type { KaraokeBackendPort } from './KaraokePorts';
@@ -31,14 +32,19 @@ export const resolveKaraokeLoad = async (
   let song: SongDto;
   try {
     song = await pythonClient.getSong(songId);
-  } catch {
+  } catch (error) {
+    if (
+      !['SongNotFound', 'NotFound', 'Http404'].includes(toAppError(error).code)
+    )
+      throw error;
     return { load: { kind: 'notFound' }, prefs: null };
   }
   if (song.status !== 'ready')
     return { load: { kind: 'notProcessed', song }, prefs: null };
-  const compatibility = await pythonClient
-    .projectCompatibility(song.id, song.activeRevision)
-    .catch((): ProjectCompatibility => 'Invalid');
+  const compatibility = await pythonClient.projectCompatibility(
+    song.id,
+    song.activeRevision,
+  );
   if (compatibility !== 'Current')
     return { load: { kind: 'projectIssue', song, compatibility }, prefs: null };
   return { load: { kind: 'ready', song }, prefs: loadSongPreferences(song.id) };

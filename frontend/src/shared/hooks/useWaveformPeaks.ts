@@ -1,3 +1,4 @@
+import { reportOperationFailure, clearOperationFailure } from '../errors';
 import { useEffect, useState } from 'react';
 import { desktopClient } from '../../services/desktopClient';
 
@@ -13,8 +14,18 @@ const usePeaks = (
     setPeaks(null);
     if (!key) return;
     load()
-      .then((values) => active && setPeaks(values.length > 0 ? values : null))
-      .catch(() => active && setPeaks(null));
+      .then((values) => {
+        if (active) {
+          clearOperationFailure('errors.waveform');
+          setPeaks(values.length > 0 ? values : null);
+        }
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setPeaks(null);
+          reportOperationFailure('errors.waveform', error);
+        }
+      });
     return () => {
       active = false;
     };

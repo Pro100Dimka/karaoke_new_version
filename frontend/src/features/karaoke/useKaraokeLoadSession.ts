@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import { store } from '../../providers/store';
 import { editorApi } from '../../pages/editor/editorApi';
 import { audioClient } from '../../services/audioClient';
@@ -56,7 +60,12 @@ export const useKaraokeLoadSession = (
                 : current,
             );
         })
-        .catch(() => undefined);
+        .then(() => {
+          if (active) clearOperationFailure('errors.songRefresh');
+        })
+        .catch((error: unknown) => {
+          if (active) reportOperationFailure('errors.songRefresh', error);
+        });
       return () => {
         active = false;
       };

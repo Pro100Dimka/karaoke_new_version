@@ -107,7 +107,8 @@ const machineId = createHash('sha256')
   .slice(0, 32);
 let activeVoice: ActiveVoiceSession | undefined;
 let latestVoiceLevels: Record<string, number> = {};
-let pushedVoiceLevels = false;
+let pushedVoiceLevelsAt: number | undefined;
+const voiceLevelsFreshMs = 2000;
 let nextLegacyLevelsRequestAt = 0;
 let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
@@ -154,7 +155,7 @@ const closeActiveVoice = async (force = false): Promise<void> => {
   const session = activeVoice;
   activeVoice = undefined;
   latestVoiceLevels = {};
-  pushedVoiceLevels = false;
+  pushedVoiceLevelsAt = undefined;
   nextLegacyLevelsRequestAt = 0;
   if (session || force)
     await sendAudioRequest({ command: 'LeaveMediaSession' }).catch(
@@ -239,7 +240,11 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   const session = activeVoice;
   if (!session) return {};
   const now = Date.now();
-  if (pushedVoiceLevels || now < nextLegacyLevelsRequestAt)
+  if (
+    (pushedVoiceLevelsAt !== undefined &&
+      now - pushedVoiceLevelsAt < voiceLevelsFreshMs) ||
+    now < nextLegacyLevelsRequestAt
+  )
     return { ...latestVoiceLevels };
   nextLegacyLevelsRequestAt = now + 1_000;
   const response = await roomServerRequest({
@@ -338,5 +343,5 @@ export const acceptRoomVoiceLevels = (message: unknown): void => {
       (entry): entry is [string, number] => typeof entry[1] === 'number',
     ),
   );
-  pushedVoiceLevels = true;
+  pushedVoiceLevelsAt = Date.now();
 };

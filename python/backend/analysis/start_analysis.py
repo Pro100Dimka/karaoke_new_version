@@ -189,7 +189,9 @@ class StartRecordingAnalysis:
         if recording.file_status in {"Preparing", "PreparationFailed"}:
             raise DomainError("RecordingPreparing", "Recording preparation is not complete", 409)
         if recording.file_status == "RecoveredIncomplete":
-            raise DomainError("RecordingTimingUnavailable", "Interrupted recording has no verified timing", 409)
+            raise DomainError(
+                "RecordingTimingUnavailable", "Interrupted recording has no verified timing", 409
+            )
         if recording.song_id is None or recording.song_revision is None:
             raise DomainError(
                 "AnalysisFailed", "Recording is not associated with a song revision", 409

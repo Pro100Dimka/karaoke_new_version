@@ -189,18 +189,24 @@ export const RollFx = ({
   view: RollView;
   playing?: boolean;
 }) => {
-  const canvas = useRef<HTMLCanvasElement>(null);
+  const container = useRef<HTMLDivElement>(null);
   const activeRenderer = useRef<RollFxRenderer | null>(null);
   const current = useRef<RollView | undefined>(view);
   current.current = view;
   useEffect(() => {
-    const element = canvas.current;
+    const element = container.current;
     const frame = element?.parentElement;
     if (!element || !frame) return;
-    const renderer = new RollFxRenderer(element, engine, frame, current);
+    const canvas = document.createElement('canvas');
+    canvas.className = 'showRollFx';
+    element.append(canvas);
+    const renderer = new RollFxRenderer(canvas, engine, frame, current, undefined, () =>
+      new Worker(new URL('./rollFxWorker.ts', import.meta.url), { type: 'module' }),
+    );
     activeRenderer.current = renderer;
     return () => {
       renderer.stop();
+      canvas.remove();
       activeRenderer.current = null;
     };
   }, [engine]);
@@ -211,5 +217,5 @@ export const RollFx = ({
   useEffect(() => {
     if (!playing) activeRenderer.current?.setPlaying(false);
   }, [playing, view]);
-  return <canvas ref={canvas} className="showRollFx" aria-hidden />;
+  return <div ref={container} style={{ display: 'contents' }} aria-hidden />;
 };

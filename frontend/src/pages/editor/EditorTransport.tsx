@@ -39,7 +39,7 @@ export const EditorTransport = ({
     <section className="editorTransport" aria-label={tr(ru.editorTransport)}>
       <IconButton
         round
-        size="lg"
+        size="sm"
         variant="primary"
         icon={playing ? 'pause' : 'play'}
         disabled={!audioReady}

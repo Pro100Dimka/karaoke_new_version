@@ -6,6 +6,7 @@ import pytest
 import torch
 
 from backend.ai_worker import ctc, speech, word_guidance
+from backend.ai_worker.guidance_windows import _REVIEW_MAX_SECONDS
 
 
 _STEP = 0.02
@@ -76,7 +77,7 @@ def test_local_review_uses_an_active_phonetic_anchor_without_retiming_neighbours
     assert "OnsetReviewRequired" not in result[0].diagnostics
     assert len(calls) == 1
     assert calls[0].last - calls[0].first == 2
-    assert calls[0].end - calls[0].start <= word_guidance._REVIEW_MAX_SECONDS
+    assert calls[0].end - calls[0].start <= _REVIEW_MAX_SECONDS
 
 
 @pytest.mark.parametrize("text", ["мир", "шум"])

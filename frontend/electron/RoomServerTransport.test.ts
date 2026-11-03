@@ -259,6 +259,16 @@ describe('central room voice transport', () => {
     await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.4 });
 
     expect(requests.filter((path) => path === '/voice/levels')).toHaveLength(1);
+    transport.acceptRoomVoiceLevels({
+      type: 'voiceLevels',
+      roomId: 'room-1',
+      levels: { host: 0.1 },
+    });
+    await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.1 });
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 5000);
+    await expect(transport.roomVoiceLevels()).resolves.toEqual({ host: 0.4 });
+    expect(requests.filter((path) => path === '/voice/levels')).toHaveLength(2);
+    vi.restoreAllMocks();
     await transport.leaveRoomVoice();
   });
 

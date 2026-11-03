@@ -30,6 +30,7 @@ def _to_domain(row: ModelRow) -> AiModel:
 class SqlModelRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+        self.changed: set[str] = set()
 
     def get(self, model_id: str, version: str) -> AiModel | None:
         row = self._session.scalar(
@@ -55,6 +56,7 @@ class SqlModelRepository:
         row.selected = model.selected
         row.download_url = model.download_url
         row.updated_at = model.updated_at
+        self.changed.add(model.model_id)
 
     def list(self, purpose: AiCapability | None = None) -> Sequence[AiModel]:
         query = select(ModelRow)
@@ -73,6 +75,7 @@ class SqlModelRepository:
             update(ModelRow).where(ModelRow.purpose == row.purpose).values(selected=False)
         )
         row.selected = True
+        self.changed.add(model_id)
         return _to_domain(row)
 
     def missing(self, required: Sequence[RequiredModel]) -> Sequence[RequiredModel]:

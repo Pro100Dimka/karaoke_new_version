@@ -1,8 +1,11 @@
+import {
+  observeOperation,
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../../../shared/errors';
 import { audioClient as preview } from '../../../../services/audioClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RecordingDto } from '../../../../contracts/models';
-
-const pollMilliseconds = 16;
 
 /**
  * Playback of one take through AudioService. Only one take is loaded at a time: when another player loads its own take,
@@ -14,7 +17,6 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
   const owns = useRef(false);
   const owner = useRef(Symbol('recording-preview'));
   const generation = useRef(0);
-  const polling = useRef(false);
   const pendingSeek = useRef<number | null>(null);
   const id = recording.id;
 
@@ -40,51 +42,43 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
         if (request !== generation.current) return;
         pendingSeek.current = null;
       }
+      clearOperationFailure('errors.previewPlayback');
       setPlaying(true);
-    } catch {
-      if (request === generation.current) release();
+    } catch (error) {
+      if (request === generation.current) {
+        release();
+        reportOperationFailure('errors.previewPlayback', error);
+      }
     }
   }, [id, playing, release, preview]);
 
   const seek = useCallback(
     async (seconds: number) => {
-      setPosition(seconds);
       if (!owns.current) {
+        setPosition(seconds);
         pendingSeek.current = seconds;
         return;
       }
-      await preview
-        .seekRecordingPreview(seconds, owner.current)
-        .catch(() => undefined);
+      await observeOperation(
+        'errors.previewSeek',
+        preview.seekRecordingPreview(seconds, owner.current),
+      ).then(
+        () => setPosition(seconds),
+        () => undefined,
+      );
     },
     [preview],
   );
 
   useEffect(() => {
     if (!playing) return;
-    let active = true;
-    const timer = window.setInterval(() => {
-      if (polling.current) return;
-      polling.current = true;
-      void preview
-        .recordingPreviewStatus(owner.current)
-        .then((status) => {
-          if (!active) return;
-          if (status.recordingId !== id || status.state === 'finished')
-            release();
-          else setPosition(status.positionSeconds);
-        })
-        .catch(() => {
-          if (active) release();
-        })
-        .finally(() => {
-          polling.current = false;
-        });
-    }, pollMilliseconds);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
+    return preview.observeRecordingPreview(owner.current, status => {
+      if (status.recordingId !== id || status.state === 'finished') release();
+      else setPosition(status.positionSeconds);
+    }, error => {
+      release();
+      reportOperationFailure('errors.previewPlayback', error);
+    });
   }, [playing, id, release, preview]);
 
   useEffect(() => {

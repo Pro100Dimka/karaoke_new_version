@@ -27,6 +27,8 @@ export const ipcChannels = {
   keyboardLightingCapabilities: 'desktop:keyboard-lighting-capabilities',
   setKeyboardLighting: 'desktop:set-keyboard-lighting',
   audioRequest: 'services:audio-request',
+  audioSubscribe: 'services:audio-subscribe',
+  audioNotification: 'services:audio-notification',
   resolveProjectArtifacts: 'services:resolve-project-artifacts',
   revealProject: 'services:reveal-project',
   inspectWave: 'services:inspect-wave',

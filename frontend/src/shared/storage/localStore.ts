@@ -1,3 +1,4 @@
+import { reportOperationFailure, clearOperationFailure } from '../errors';
 /**
  * The only module that touches browser storage. Every key is namespaced and versioned; unreadable or
  * unavailable storage degrades to "nothing stored" so persistence never breaks a feature.
@@ -10,8 +11,11 @@ export const storageKey = (name: string, version = 1): string =>
 export const readJson = (key: string): unknown => {
   try {
     const raw = window.localStorage.getItem(key);
-    return raw === null ? null : (JSON.parse(raw) as unknown);
-  } catch {
+    const value: unknown = raw === null ? null : JSON.parse(raw);
+    clearOperationFailure('errors.storageRead');
+    return value;
+  } catch (error) {
+    reportOperationFailure('errors.storageRead', error);
     return null;
   }
 };
@@ -19,7 +23,9 @@ export const readJson = (key: string): unknown => {
 export const writeJson = (key: string, value: unknown): void => {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
+    clearOperationFailure('errors.storageWrite');
+  } catch (error) {
+    reportOperationFailure('errors.storageWrite', error);
     // Persisted values are conveniences; the caller keeps its in-memory value.
   }
 };
@@ -27,8 +33,11 @@ export const writeJson = (key: string, value: unknown): void => {
 /** A plain string value, for keys written before values were stored as JSON. */
 export const readText = (key: string): string | null => {
   try {
-    return window.localStorage.getItem(key);
-  } catch {
+    const value = window.localStorage.getItem(key);
+    clearOperationFailure('errors.storageRead');
+    return value;
+  } catch (error) {
+    reportOperationFailure('errors.storageRead', error);
     return null;
   }
 };
@@ -36,7 +45,9 @@ export const readText = (key: string): string | null => {
 export const writeText = (key: string, value: string): void => {
   try {
     window.localStorage.setItem(key, value);
-  } catch {
+    clearOperationFailure('errors.storageWrite');
+  } catch (error) {
+    reportOperationFailure('errors.storageWrite', error);
     // Persisted values are conveniences; the caller keeps its in-memory value.
   }
 };
@@ -44,7 +55,9 @@ export const writeText = (key: string, value: string): void => {
 export const removeKey = (key: string): void => {
   try {
     window.localStorage.removeItem(key);
-  } catch {
+    clearOperationFailure('errors.storageWrite');
+  } catch (error) {
+    reportOperationFailure('errors.storageWrite', error);
     // Nothing to remove when storage is unavailable.
   }
 };
@@ -53,7 +66,9 @@ export const removeKey = (key: string): void => {
 export const clearStorage = (): void => {
   try {
     window.localStorage.clear();
-  } catch {
+    clearOperationFailure('errors.storageWrite');
+  } catch (error) {
+    reportOperationFailure('errors.storageWrite', error);
     // Nothing to clear when storage is unavailable.
   }
 };
@@ -63,7 +78,8 @@ export const hasKeyWithPrefix = (prefix: string): boolean => {
     return Object.keys(window.localStorage).some((key) =>
       key.startsWith(prefix),
     );
-  } catch {
+  } catch (error) {
+    reportOperationFailure('errors.storageRead', error);
     return false;
   }
 };

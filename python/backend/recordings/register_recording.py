@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from functools import partial
+from backend.infrastructure.job_executor import job_failure
+
 import hashlib
 import threading
 import logging
@@ -71,14 +74,13 @@ class RegisterRecording:
         metadata = self._inspector.inspect(path)
         self._validate_metadata(request, metadata.duration, metadata.sample_rate, metadata.channels)
         self._validate_song_revision(request)
-        recording = Recording(
-            request.recording_id, path, request.duration, request.sample_rate, request.channels,
-            request.created_at, request.song_id, request.song_revision, tuple(request.gaps),
-            request.session_metadata, request.display_name, request.file_status,
+        recording = _recording_from_request(request, path)
+        prepare = (
+            request.file_status == "Ready"
+            and self._prepare_recording is not None
+            and recording.song_id is not None
+            and not (recording.session_metadata or {}).get("studioMaster")
         )
-        prepare = (request.file_status == "Ready" and self._prepare_recording is not None
-                   and recording.song_id is not None
-                   and not (recording.session_metadata or {}).get("studioMaster"))
         if prepare and self._jobs is not None:
             recording = replace(recording, file_status="Preparing")
         self._storage.write_recovery_descriptor(recording)
@@ -119,15 +121,18 @@ class RegisterRecording:
                 return
             self._pending.add(recording.recording_id)
             self._set_status(recording.recording_id, "Preparing")
-            try:
-                self._jobs.start(JobType.RECORDING_PREPARATION,
-                                 lambda context: self._prepare(recording, context),
-                                 entity_id=recording.recording_id,
-                                 on_finally=lambda: self._release(recording.recording_id))
-            except Exception:
-                self._pending.discard(recording.recording_id)
-                self._set_status(recording.recording_id, "PreparationFailed")
-                logging.getLogger(__name__).exception("Recording preparation could not be queued")
+            with job_failure(partial(self._queue_failed, recording), suppress=True):
+                self._jobs.start(
+                    JobType.RECORDING_PREPARATION,
+                    lambda context: self._prepare(recording, context),
+                    entity_id=recording.recording_id,
+                    on_finally=lambda: self._release(recording.recording_id),
+                )
+
+    def _queue_failed(self, recording: Recording) -> None:
+        self._pending.discard(recording.recording_id)
+        self._set_status(recording.recording_id, "PreparationFailed")
+        logging.getLogger(__name__).exception("Recording preparation could not be queued")
 
     def _release(self, recording_id: str) -> None:
         with self._lock:
@@ -143,23 +148,24 @@ class RegisterRecording:
     def _prepare(self, recording: Recording, context: JobContext) -> dict[str, object]:
         acquired = False
         try:
-            while not acquired:
+            with job_failure(partial(self._preparation_failed, recording, context)):
+                while not acquired:
+                    context.ensure_not_cancelled()
+                    acquired = self._prepare_slot.acquire(timeout=0.1)
                 context.ensure_not_cancelled()
-                acquired = self._prepare_slot.acquire(timeout=0.1)
-            context.ensure_not_cancelled()
-            if self._prepare_recording is not None:
-                self._prepare_recording(recording, context.cancel)
-            context.ensure_not_cancelled()
-            self._set_status(recording.recording_id, "Ready")
-            self._storage.remove_recovery_descriptor(recording.recording_id)
-            return {"recordingId": recording.recording_id}
-        except Exception:
-            context.ensure_not_cancelled()
-            self._set_status(recording.recording_id, "PreparationFailed")
-            raise
+                if self._prepare_recording is not None:
+                    self._prepare_recording(recording, context.cancel)
+                context.ensure_not_cancelled()
+                self._set_status(recording.recording_id, "Ready")
+                self._storage.remove_recovery_descriptor(recording.recording_id)
+                return {"recordingId": recording.recording_id}
         finally:
             if acquired:
                 self._prepare_slot.release()
+
+    def _preparation_failed(self, recording: Recording, context: JobContext) -> None:
+        context.ensure_not_cancelled()
+        self._set_status(recording.recording_id, "PreparationFailed")
 
     def _existing(self, recording_id: str) -> Recording | None:
         with self._uow.create() as transaction:
@@ -170,13 +176,23 @@ class RegisterRecording:
             return
         with self._uow.create() as transaction:
             song = transaction.songs.get(request.song_id)
-            revision = (transaction.projects.get(request.song_id, request.song_revision)
-                        if request.song_revision is not None else None)
+            revision = (
+                transaction.projects.get(request.song_id, request.song_revision)
+                if request.song_revision is not None
+                else None
+            )
         if song is None:
             raise NotFoundError("SongNotFound", "Recording references an unknown song")
-        if request.song_revision is not None and request.song_revision != song.active_revision and (
-            (request.file_status != "RecoveredIncomplete" and not request.allow_historical_revision)
-            or revision is None
+        if (
+            request.song_revision is not None
+            and request.song_revision != song.active_revision
+            and (
+                (
+                    request.file_status != "RecoveredIncomplete"
+                    and not request.allow_historical_revision
+                )
+                or revision is None
+            )
         ):
             raise ConflictError(
                 "RevisionConflict", "Recording references a non-active song revision"
@@ -236,3 +252,21 @@ def _request_hash(request: RegisterRecordingRequest) -> str:
         ]
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _recording_from_request(request: RegisterRecordingRequest, path: Path) -> Recording:
+    recording = Recording(
+        request.recording_id,
+        path,
+        request.duration,
+        request.sample_rate,
+        request.channels,
+        request.created_at,
+        request.song_id,
+        request.song_revision,
+        tuple(request.gaps),
+        request.session_metadata,
+        request.display_name,
+        request.file_status,
+    )
+    return recording

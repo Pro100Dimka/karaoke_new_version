@@ -76,8 +76,10 @@ export class OpenRgbKeyboardLighting {
   }
 
   async apply(request: KeyboardLightingRequest): Promise<void> {
-    if (!this.keyboards.length && !(await this.capabilities()).available)
+    if (!this.keyboards.length && !(await this.capabilities()).available) {
+      if (request.enabled) throw new Error('Keyboard lighting is unavailable');
       return;
+    }
     const color =
       request.enabled && /^[0-9a-f]{6}$/i.test(request.color)
         ? request.color.toUpperCase()

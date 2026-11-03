@@ -1,3 +1,4 @@
+import { observeOperation } from '../../../shared/errors';
 import { store } from '../../../providers/store';
 import { audioClient as audio } from '../../../services/audioClient';
 import { useEffect } from 'react';
@@ -51,9 +52,9 @@ export const useVoiceChain = (): void => {
   const { preferences } = store;
   const { voiceGain, karaokeEffects, noiseSuppression } = preferences;
   useEffect(() => {
-    void applyVoiceChain(
-      { voiceGain, karaokeEffects, noiseSuppression },
-      audio,
+    void observeOperation(
+      'errors.voiceEffects',
+      applyVoiceChain({ voiceGain, karaokeEffects, noiseSuppression }, audio),
     ).catch(() => undefined);
   }, [voiceGain, karaokeEffects, noiseSuppression]);
 };

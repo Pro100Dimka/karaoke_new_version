@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../shared/errors';
 import { useEffect, useRef } from 'react';
 import { desktopClient } from '../services/desktopClient';
 
@@ -16,14 +20,15 @@ export const subscribeCloseRequests = () => {
         for (const guard of [...guards]) {
           if (!(await guard())) return;
         }
+        clearOperationFailure('errors.close');
         allowed = true;
       } catch (error) {
-        console.error('Cannot finish work before closing', error);
+        reportOperationFailure('errors.close', error);
       } finally {
         running = false;
         await desktopClient.confirmClose(allowed);
       }
-    })().catch((error) => console.error('Cannot report close decision', error));
+    })().catch((error) => reportOperationFailure('errors.close', error));
   });
 };
 

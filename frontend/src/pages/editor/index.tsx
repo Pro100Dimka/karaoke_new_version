@@ -1,4 +1,5 @@
 import './editor.css';
+import { Observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   useRouter,
@@ -7,6 +8,7 @@ import {
   IconButton,
   PianoRoll,
   ProgressBar,
+  Popover,
   ToggleButton,
   Toolbar,
   Typography,
@@ -82,6 +84,8 @@ export const EditorPage = () => {
   const [snap, setSnap] = useState(true);
   const [grid, setGrid] = useState(true);
   const [follow, setFollow] = useState(true);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpAnchor = useRef<HTMLButtonElement>(null);
   const { document, selection } = session;
   const range = useMemo(
     () => (document ? pitchRange(document) : [48, 84]),
@@ -238,113 +242,136 @@ export const EditorPage = () => {
 
   return (
     <main className="editorPage" ref={page}>
-      <EditorHeader
-        title={`${song.title} — ${song.artist}`}
-        revision={document.revision}
-        dirty={session.dirty}
-        saving={session.saving}
-        canUndo={session.canUndo}
-        canRedo={session.canRedo}
-        onBack={() => void leave()}
-        onUndo={session.undo}
-        onRedo={session.redo}
-        onSave={() => void session.save()}
-      />
-      <EditorTransport
-        songId={song.id}
-        revision={song.activeRevision}
-        playing={session.playing}
-        position={session.position}
-        duration={duration}
-        audioReady={session.audioReady}
-        onTogglePlay={() => void session.togglePlay()}
-        onSeek={(value) => void session.seek(value)}
-      />
+      <section className="editorControls" aria-label={tr(ru.editorTools)}>
+        <EditorHeader
+          title={`${song.title} — ${song.artist}`}
+          revision={document.revision}
+          dirty={session.dirty}
+          saving={session.saving}
+          canUndo={session.canUndo}
+          canRedo={session.canRedo}
+          onBack={() => void leave()}
+          onUndo={session.undo}
+          onRedo={session.redo}
+          onSave={() => void session.save()}
+        />
+        <Observer>
+          {() => (
+            <EditorTransport
+              songId={song.id}
+              revision={song.activeRevision}
+              playing={session.playing}
+              position={session.position}
+              duration={duration}
+              audioReady={session.audioReady}
+              onTogglePlay={() => void session.togglePlay()}
+              onSeek={(value) => void session.seek(value)}
+            />
+          )}
+        </Observer>
 
-      <Toolbar className="editorTools" aria-label={tr(ru.editorTools)}>
-        {toggles.map(([icon, label, checked, onValueChange]) => (
-          <ToggleButton
-            key={icon}
-            size="sm"
-            icon={icon}
-            label={tr(ru[label])}
-            checked={checked}
-            onValueChange={onValueChange}
-          />
-        ))}
-        <span className="editorZoom">
+        <Toolbar className="editorTools" aria-label={tr(ru.editorTools)}>
+          {toggles.map(([icon, label, checked, onValueChange]) => (
+            <ToggleButton
+              key={icon}
+              size="sm"
+              icon={icon}
+              label={tr(ru[label])}
+              checked={checked}
+              onValueChange={onValueChange}
+            />
+          ))}
+          <span className="editorZoom">
+            <IconButton
+              size="sm"
+              icon="minus"
+              label={tr(ru.zoomOut)}
+              disabled={zoomIndex <= 0}
+              onClick={() =>
+                setZoom(zoomSteps[Math.max(0, zoomIndex - 1)] ?? 1)
+              }
+            />
+            <Typography variant="mono" aria-label={tr(ru.zoom)}>
+              {Math.round(zoom * 100)}%
+            </Typography>
+            <IconButton
+              size="sm"
+              icon="plus"
+              label={tr(ru.zoomIn)}
+              disabled={zoom >= maxZoom}
+              onClick={() =>
+                setZoom(zoomSteps.find((step) => step > zoom) ?? zoom)
+              }
+            />
+            <IconButton
+              size="sm"
+              icon="fit"
+              label={tr(ru.editorZoomReset)}
+              disabled={zoom === 1}
+              onClick={() => setZoom(1)}
+            />
+          </span>
           <IconButton
             size="sm"
-            icon="minus"
-            label={tr(ru.zoomOut)}
-            disabled={zoomIndex <= 0}
-            onClick={() => setZoom(zoomSteps[Math.max(0, zoomIndex - 1)] ?? 1)}
+            icon="trash"
+            label={tr(ru.editorDeleteNotes)}
+            disabled={selection.size === 0}
+            onClick={() => session.remove(selection)}
           />
-          <Typography variant="mono" aria-label={tr(ru.zoom)}>
-            {Math.round(zoom * 100)}%
-          </Typography>
           <IconButton
+            ref={helpAnchor}
             size="sm"
-            icon="plus"
-            label={tr(ru.zoomIn)}
-            disabled={zoom >= maxZoom}
-            onClick={() =>
-              setZoom(zoomSteps.find((step) => step > zoom) ?? zoom)
+            icon="info"
+            label={tr(ru.helpTitle)}
+            aria-expanded={helpOpen}
+            onClick={() => setHelpOpen((open) => !open)}
+          />
+          <Popover
+            open={helpOpen}
+            onOpenChange={setHelpOpen}
+            anchorRef={helpAnchor}
+            align="end"
+            label={tr(ru.editorTools)}
+          >
+            <Typography className="editorHint" variant="caption" tone="muted">
+              {tr(ru.editorHint)}
+            </Typography>
+          </Popover>
+        </Toolbar>
+      </section>
+
+      <Observer>
+        {() => (
+          <PianoRoll
+            className="editorRoll"
+            label={tr(ru.melodyEditor)}
+            notes={document.notes}
+            words={document.words}
+            duration={duration}
+            position={session.position}
+            selected={selection}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            minPitch={lowest}
+            maxPitch={highest}
+            follow={follow && session.playing}
+            grid={grid}
+            nudgeSeconds={snapGridSeconds}
+            onSelect={session.select}
+            onSelectArea={(ids, additive) =>
+              session.setSelection(
+                (current) => new Set([...(additive ? current : []), ...ids]),
+              )
+            }
+            onSeek={(value) => void session.seek(value)}
+            onNoteDrag={drag}
+            onNoteDragEnd={dragEnd}
+            onNudge={(id, pitch, seconds) =>
+              session.move(new Set([id]), pitch, seconds)
             }
           />
-          <IconButton
-            size="sm"
-            icon="fit"
-            label={tr(ru.editorZoomReset)}
-            disabled={zoom === 1}
-            onClick={() => setZoom(1)}
-          />
-        </span>
-        <IconButton
-          size="sm"
-          icon="trash"
-          label={tr(ru.editorDeleteNotes)}
-          disabled={selection.size === 0}
-          onClick={() => session.remove(selection)}
-        />
-        <Typography
-          className="editorHint"
-          variant="caption"
-          tone="muted"
-          truncate
-        >
-          {tr(ru.editorHint)}
-        </Typography>
-      </Toolbar>
-
-      <PianoRoll
-        className="editorRoll"
-        label={tr(ru.melodyEditor)}
-        notes={document.notes}
-        words={document.words}
-        duration={duration}
-        position={session.position}
-        selected={selection}
-        zoom={zoom}
-        onZoomChange={setZoom}
-        minPitch={lowest}
-        maxPitch={highest}
-        follow={follow && session.playing}
-        grid={grid}
-        nudgeSeconds={snapGridSeconds}
-        onSelect={session.select}
-        onSelectArea={(ids, additive) =>
-          session.setSelection(
-            (current) => new Set([...(additive ? current : []), ...ids]),
-          )
-        }
-        onSeek={(value) => void session.seek(value)}
-        onNoteDrag={drag}
-        onNoteDragEnd={dragEnd}
-        onNudge={(id, pitch, seconds) =>
-          session.move(new Set([id]), pitch, seconds)
-        }
-      />
+        )}
+      </Observer>
     </main>
   );
 };

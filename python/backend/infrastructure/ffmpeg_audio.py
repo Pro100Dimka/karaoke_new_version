@@ -12,7 +12,10 @@ from backend.serialization import loads_object
 
 
 def loudnorm_filter(
-    measured: dict[str, float] | None = None, *, lra: int = 7, target_i: float = -14,
+    measured: dict[str, float] | None = None,
+    *,
+    lra: int = 7,
+    target_i: float = -14,
 ) -> str:
     settings = f"loudnorm=I={target_i:g}:LRA={lra}:TP=-1"
     if measured is None:

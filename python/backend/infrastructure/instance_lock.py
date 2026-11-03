@@ -93,10 +93,14 @@ class BackendInstanceLock:
 
     def transfer_to(self, pid: int) -> None:
         if not self._owned or pid <= 0 or not _process_exists(pid):
-            raise ConflictError("BackendMigrationUnavailable", "Storage migration worker is unavailable")
+            raise ConflictError(
+                "BackendMigrationUnavailable", "Storage migration worker is unavailable"
+            )
         data = loads_object(self._path.read_text(encoding="utf-8"))
         if data.get("token") != self._token:
-            raise ConflictError("BackendAlreadyRunning", "Library ownership changed during migration")
+            raise ConflictError(
+                "BackendAlreadyRunning", "Library ownership changed during migration"
+            )
         atomic_write_text(self._path, dumps({"pid": pid, "token": self._token}))
         self._owned = False
         self._release_guard()

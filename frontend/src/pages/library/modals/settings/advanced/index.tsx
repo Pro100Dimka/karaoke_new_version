@@ -1,4 +1,4 @@
-import { Grid } from '@neo-ui-kit/react';
+import { Grid, MessageBar, tr } from '@neo-ui-kit/react';
 import { AboutPanel } from './about/index';
 import { DiagnosticsPanel } from './diagnostics/index';
 import { HistoryPanel } from './history/index';
@@ -11,6 +11,11 @@ export const AdvancedSettings = () => {
 
   return (
     <Grid columns={12} gap={3}>
+      {health.failed && (
+        <Grid span="full">
+          <MessageBar tone="error">{tr('errors.diagnostics')}</MessageBar>
+        </Grid>
+      )}
       <Grid span={{ base: 'full', sm: 4 }}>
         <StoragePanel
           usage={health.backend?.storage ?? null}

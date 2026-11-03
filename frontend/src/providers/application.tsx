@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../shared/errors';
 import { reaction, runInAction } from 'mobx';
 import {
   QueryObserver,
@@ -18,7 +22,9 @@ import { audioClient } from '../services/audioClient';
 import { desktopClient } from '../services/desktopClient';
 import { pythonClient } from '../services/pythonClient';
 import {
-  backendEventsAvailable,
+  backendPollInterval,
+  onJobChange,
+  onModelsChange,
   refreshOnJobChanges,
 } from '../services/backendEvents';
 import { roomClient } from '../services/roomClient';
@@ -81,7 +87,7 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
         }
       }
     },
-    refetchInterval: backendEventsAvailable() ? 5000 : 1000,
+    refetchInterval: backendPollInterval(1000),
     refetchIntervalInBackground: true,
   });
   const updateJobs = () =>
@@ -116,6 +122,17 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
       { cancelRefetch: false },
     );
   }, 250);
+  const stopJobQueries = onJobChange((_jobId, job) => {
+    const queryKey =
+      typeof job?.type === 'string' && typeof job.entityId === 'string'
+        ? ['job', job.type, job.entityId]
+        : ['job'];
+    void client.invalidateQueries({ queryKey });
+  });
+  const stopModels = onModelsChange(() => {
+    for (const queryKey of [['models'], ['model-free-space']])
+      void client.invalidateQueries({ queryKey });
+  });
   const stopMotion = reaction(
     () =>
       [
@@ -151,6 +168,8 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     stopJobs();
     jobs.destroy();
     stopEvents();
+    stopJobQueries();
+    stopModels();
     stopRoom();
     stopVisibility();
     stopMotion();
@@ -236,8 +255,10 @@ export const subscribeAudioFocus = (settingsOpen: () => boolean) => {
       .then(() =>
         next ? audioClient.suspendSession() : audioClient.resumeSession(),
       )
-      .catch(() => {
+      .then(() => clearOperationFailure('errors.audioFocus'))
+      .catch((error: unknown) => {
         suspended = false;
+        reportOperationFailure('errors.audioFocus', error);
       });
   };
   const suspend = () => {

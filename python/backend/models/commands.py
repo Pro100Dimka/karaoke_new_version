@@ -121,8 +121,11 @@ class EnsureRequiredModels:
 
 class DeleteModel:
     def __init__(
-        self, uow: UnitOfWorkFactory, jobs: ProcessingJobManager,
-        storage: ModelStorage, clock: Clock,
+        self,
+        uow: UnitOfWorkFactory,
+        jobs: ProcessingJobManager,
+        storage: ModelStorage,
+        clock: Clock,
     ) -> None:
         self._uow, self._jobs, self._storage, self._clock = uow, jobs, storage, clock
 
@@ -133,11 +136,17 @@ class DeleteModel:
                 if model is None:
                     raise NotFoundError("ModelMissing", "AI model was not found")
                 self._storage.delete(self._storage.final_path(model_id, version))
-                transaction.models.add_or_update(replace(
-                    model, state=ModelState.MISSING, local_path=None,
-                    selected=False, updated_at=self._clock.now(),
-                ))
+                transaction.models.add_or_update(
+                    replace(
+                        model,
+                        state=ModelState.MISSING,
+                        local_path=None,
+                        selected=False,
+                        updated_at=self._clock.now(),
+                    )
+                )
                 transaction.commit()
+
         self._jobs.run_when_idle(remove)
 
 

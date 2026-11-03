@@ -1,3 +1,4 @@
+import { observeOperation } from '../../shared/errors';
 import { store } from '../../providers/store';
 import { useLocale } from '@neo-ui-kit/react';
 import { monitoringErrorText } from '../../shared/errors';
@@ -62,14 +63,21 @@ export const useKaraokeControls = ({
 
   const publishPracticeParameters = useCallback(
     async (playbackRate: number, keyShift: number) => {
-      if (!room || !canControlRoom(room) || room.playbackLocked) return false;
-      const updated = await roomPlayback
-        ?.updateSharedState({
+      if (
+        !room ||
+        !roomPlayback ||
+        !canControlRoom(room) ||
+        room.playbackLocked
+      )
+        return false;
+      const updated = await observeOperation(
+        'errors.practice',
+        roomPlayback.updateSharedState({
           ...sharedStateOf(room),
           playbackRate,
           keyShift,
-        })
-        .catch(() => null);
+        }),
+      ).catch(() => null);
       if (!updated) return false;
       return true;
     },
@@ -79,11 +87,17 @@ export const useKaraokeControls = ({
   const seek = useCallback(
     async (seconds: number) => {
       if (room) {
-        if (!canControlRoom(room)) return;
-        await roomPlayback?.control('Seek', seconds).catch(() => null);
+        if (!roomPlayback || !canControlRoom(room)) return;
+        await observeOperation(
+          'errors.seek',
+          roomPlayback.control('Seek', seconds),
+        ).catch(() => null);
         return;
       }
-      const snapshot = await audioClient.seek(seconds).catch(() => null);
+      const snapshot = await observeOperation(
+        'errors.seek',
+        audioClient.seek(seconds),
+      ).catch(() => null);
       if (!snapshot) return;
       position.current = snapshot.positionSeconds;
       setPosition(snapshot.positionSeconds);
@@ -95,9 +109,16 @@ export const useKaraokeControls = ({
     async (value: number) => {
       if (room && !(await publishPracticeParameters(value, key.current)))
         return;
+      const applied = await observeOperation(
+        'errors.tempo',
+        audioClient.setPlaybackRate(value),
+      ).then(
+        () => true,
+        () => false,
+      );
+      if (!applied) return;
       speed.current = value;
       setSpeed(value);
-      await audioClient.setPlaybackRate(value).catch(() => undefined);
       recordingCoordinator.updatePlaybackAdjustment({
         sourceSeconds: position.current,
         playbackRate: value,
@@ -112,9 +133,16 @@ export const useKaraokeControls = ({
       const next = Math.max(-12, Math.min(12, key.current + delta));
       if (room && !(await publishPracticeParameters(speed.current, next)))
         return;
+      const applied = await observeOperation(
+        'errors.pitch',
+        audioClient.setPitchShift(next),
+      ).then(
+        () => true,
+        () => false,
+      );
+      if (!applied) return;
       key.current = next;
       setKeyShift(next);
-      await audioClient.setPitchShift(next).catch(() => undefined);
       recordingCoordinator.updatePlaybackAdjustment({
         sourceSeconds: position.current,
         playbackRate: speed.current,
@@ -126,16 +154,26 @@ export const useKaraokeControls = ({
 
   const changeGain = useCallback(
     async (channel: keyof MixerChannelGains, value: number) => {
+      if (channel !== 'mic') {
+        const applied = await observeOperation(
+          'errors.mixer',
+          audioClient.setMixer(channel, value),
+        ).then(
+          () => true,
+          () => false,
+        );
+        if (!applied) return;
+      }
       setGains((current) => ({ ...current, [channel]: value }));
       updatePreferences({ [gainPreferences[channel]]: value });
-      // The microphone is applied by the voice chain from the stored value (a room holds it at full).
-      if (channel === 'mic') return;
-      await audioClient.setMixer(channel, value).catch(() => undefined);
     },
     [setGains, updatePreferences],
   );
 
-  const monitoringChange = useRef<{ id: number; pending: boolean | null }>({ id: 0, pending: null });
+  const monitoringChange = useRef<{ id: number; pending: boolean | null }>({
+    id: 0,
+    pending: null,
+  });
   const toggleMonitoring = useCallback(async () => {
     if (!microphoneReady) return;
     const id = ++monitoringChange.current.id;

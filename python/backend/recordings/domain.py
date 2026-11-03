@@ -32,3 +32,12 @@ class Recording:
     session_metadata: Mapping[str, object] | None = None
     display_name: str | None = None
     file_status: str = "Ready"
+
+
+def recording_adjustments(recording: Recording) -> list[Mapping[str, object]]:
+    raw = (recording.session_metadata or {}).get("playbackAdjustments", ())
+    return (
+        [item if isinstance(item, Mapping) else {} for item in raw]
+        if isinstance(raw, (list, tuple))
+        else [{}]
+    )

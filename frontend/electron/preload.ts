@@ -1,7 +1,59 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { ipcChannels, roomParticipantArgument } from './ipcChannels';
 
+type AudioNotification = { status: number; text: string; observedAt: number } | null;
+const audioListeners = new Map<string, Map<(value: AudioNotification) => void, {
+  intervalMs: number; nextAt?: number;
+}>>();
+const audioIntervals = new Map<string, number>();
+const updateAudioSubscription = (command: string) => {
+  const listeners = audioListeners.get(command);
+  const interval = listeners?.size
+    ? Math.min(...Array.from(listeners.values(), value => value.intervalMs)) : null;
+  if ((audioIntervals.get(command) ?? null) === interval) return;
+  if (interval === null) audioIntervals.delete(command);
+  else audioIntervals.set(command, interval);
+  void ipcRenderer.invoke(ipcChannels.audioSubscribe, { command, intervalMs: interval })
+    .catch(() => { for (const listener of listeners?.keys() ?? []) listener(null); });
+};
+ipcRenderer.on(ipcChannels.audioNotification, (_event, message: {
+  command: string; value: AudioNotification;
+}) => {
+  for (const [listener, state] of audioListeners.get(message.command) ?? []) {
+    const value = message.value;
+    if (!value) {
+      state.nextAt = undefined;
+      listener(null);
+      continue;
+    }
+    const interval = state.intervalMs * 1e6;
+    const fastest = state.intervalMs === audioIntervals.get(message.command);
+    if (!fastest && value.observedAt < (state.nextAt ?? 0)) continue;
+    const due = state.nextAt ?? value.observedAt;
+    state.nextAt = fastest ? value.observedAt + interval
+      : due + (Math.floor(Math.max(0, value.observedAt - due) / interval) + 1) * interval;
+    listener(value);
+  }
+});
+
 const desktopApi = {
+  onAudioNotification: (
+    command: string, intervalMs: number, listener: (value: AudioNotification) => void,
+  ): (() => void) => {
+    intervalMs = Math.floor(intervalMs);
+    let listeners = audioListeners.get(command);
+    if (!listeners) {
+      listeners = new Map();
+      audioListeners.set(command, listeners);
+    }
+    listeners.set(listener, { intervalMs });
+    updateAudioSubscription(command);
+    return () => {
+      listeners.delete(listener);
+      updateAudioSubscription(command);
+      if (!listeners.size) audioListeners.delete(command);
+    };
+  },
   initialLanguage: process.env.AD_VOICE_LANGUAGE,
   fixedStorageRoot: process.env.AD_VOICE_FIXED_STORAGE === '1',
   roomE2e: process.env.AD_VOICE_ROOM_E2E === '1',

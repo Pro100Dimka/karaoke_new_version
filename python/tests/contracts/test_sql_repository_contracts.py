@@ -12,6 +12,7 @@ from backend.history.domain import HistoryEvent
 from backend.idempotency import IdempotencyRecord
 from backend.infrastructure.database import Database
 from backend.infrastructure.migrations import DatabaseMigrator
+from backend.infrastructure.event_stream import EventStream
 from backend.models.domain import AiModel, ModelState
 from backend.processing.domain import Job, JobState, JobType
 from backend.projects.domain import ProjectRevision
@@ -20,6 +21,7 @@ from backend.settings.domain import BackendSettings
 from backend.songs.domain import CoverState, Song, SongStatus, SourceState
 from backend.version import SETTINGS_SCHEMA_VERSION
 from tests.contracts.repository_contract import RepositoryCase, assert_repository_contract
+from tests.fakes import FakeClock
 
 _NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
@@ -172,6 +174,31 @@ def test_model_repository_contract(database: Database) -> None:
         transaction.commit()
     with database.create() as transaction:
         assert transaction.models.get(model.model_id, model.version) == updated
+
+
+def test_model_and_recording_events_are_published_only_after_commit(database, monkeypatch):
+    events = EventStream(FakeClock())
+    monkeypatch.setattr(database, "_events", events)
+    model = AiModel("model", AiCapability.ASR, "1", 10, "d" * 64, ModelState.MISSING, False, _NOW)
+    with events.subscribe() as subscriber:
+        with database.create() as transaction:
+            transaction.models.add_or_update(model)
+            transaction.recordings.add(_recording())
+            assert subscriber.empty()
+            transaction.rollback()
+        assert subscriber.empty()
+        with database.create() as transaction:
+            transaction.models.add_or_update(model)
+            transaction.recordings.add(_recording())
+            transaction.commit()
+        published = {}
+        while not subscriber.empty():
+            event = subscriber.get_nowait()
+            published[event.event_type] = event.data
+        assert published == {
+            "models.changed": {"modelIds": ["model"]},
+            "recordings.changed": {"recordingIds": ["recording-contract"]},
+        }
 
 
 def test_settings_repository_contract(database: Database) -> None:

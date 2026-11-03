@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-import os
-import threading
+from collections.abc import Sequence
 from contextlib import ExitStack
+from functools import partial
 
 from backend.ai.ports import AiProvider
 from backend.cpu_info import logical_cpu_count
@@ -12,7 +11,7 @@ from backend.bootstrap.config import BackendConfig
 from backend.bootstrap.container import ApplicationContainer, SystemCases
 from backend.bootstrap.model_wiring import build_model_cases
 from backend.bootstrap.package_wiring import build_package_cases
-from backend.bootstrap.recording_wiring import build_recording_cases
+from backend.bootstrap.recording_wiring import build_recording_cases, prepare_recording
 from backend.bootstrap.room_wiring import build_room_cases
 from backend.bootstrap.song_wiring import build_song_cases
 from backend.bootstrap.system_wiring import build_system_cases, set_ready_state, validated_settings
@@ -62,8 +61,7 @@ from backend.projects.operations import SongOperationRegistry
 from backend.projects.validator import ProjectValidator
 from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.register_recording import RegisterRecording
-from backend.recordings.domain import Recording
-from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recovery.reconcile_library import ReconcileLibrary
 from backend.recovery.recover_transactions import RecoverTransactions
 from backend.recovery.reconcile_songs import ReconcileInterruptedSongs
@@ -115,9 +113,7 @@ def _processing_wiring(
     if not providers:
         if database is None:
             raise ValueError("Database is required for configured AI providers")
-        providers = configured_ai_providers(
-            config, processes, lambda: get_settings(database)
-        )
+        providers = configured_ai_providers(config, processes, lambda: get_settings(database))
     registry = AiProviderRegistry(providers)
     return ProcessingWiring(
         jobs,
@@ -170,11 +166,15 @@ def _build_locked(
             recovery,
             validated_settings(database),
         )
-        if container.recordings.archive:
-            container.recordings.archive.start()
-            startup.callback(container.recordings.archive.stop)
-        startup.pop_all()
-        return container
+        return _finish_startup(container, startup)
+
+
+def _finish_startup(container: ApplicationContainer, startup: ExitStack) -> ApplicationContainer:
+    if container.recordings.archive:
+        container.recordings.archive.start()
+        startup.callback(container.recordings.archive.stop)
+    startup.pop_all()
+    return container
 
 
 def _initialized_storage(config: BackendConfig, clock: UtcClock) -> LocalStorageSystem:
@@ -219,37 +219,12 @@ def _start_executor(config: BackendConfig, startup: ExitStack) -> BoundedJobExec
 
 
 def _recording_wiring(
-    runtime: RuntimeWiring, jobs: ProcessingJobManager,
+    runtime: RuntimeWiring,
+    jobs: ProcessingJobManager,
 ) -> tuple[LocalRecordingStorage, RegisterRecording]:
     storage = LocalRecordingStorage(runtime.config.roots)
     renderer = FfmpegStudioMasterRenderer(runtime.processes)
     projects = LocalProjectStorage(runtime.config.roots)
-
-    def prepare_recording(recording: Recording, cancel: threading.Event) -> None:
-        path = recording.file_path
-        renderer.preserve_stems(path)
-        stems = recording_stems(path)
-        if stems is None or recording.song_id is None or recording.song_revision is None:
-            return
-        reference = projects.artifact_path(recording.song_id, recording.song_revision, "referenceVocal")
-        instrumental = projects.artifact_path(recording.song_id, recording.song_revision, "instrumental")
-        if not reference.is_file() or not instrumental.is_file():
-            return
-        raw = (recording.session_metadata or {}).get("playbackAdjustments", ())
-        adjustments = ([item if isinstance(item, Mapping) else {} for item in raw]
-                       if isinstance(raw, (list, tuple)) else [{}])
-        temporary = path.with_suffix(".balancing.wav")
-        try:
-            renderer.render(
-                *stems, reference, instrumental, temporary, cancel,
-                performance_mix=path, exact_stems=True, process_voice=False,
-                adjustments=adjustments,
-            )
-            if cancel.is_set():
-                return
-            os.replace(temporary, path)
-        finally:
-            temporary.unlink(missing_ok=True)
 
     register = RegisterRecording(
         runtime.database,
@@ -257,7 +232,7 @@ def _recording_wiring(
         WaveRecordingInspector(),
         runtime.clock,
         runtime.ids,
-        prepare_recording=prepare_recording,
+        prepare_recording=partial(prepare_recording, renderer, projects),
         jobs=jobs,
     )
     return storage, register

@@ -1,4 +1,5 @@
 from __future__ import annotations
+from backend.ai_worker import ctc_emission, ctc_tokens, guidance_candidates
 
 from pathlib import Path
 
@@ -24,6 +25,29 @@ from backend.moment_spreading import spread_tied_moments as _spread_tied_letters
 _RATE = 16_000
 _HOP = 160
 _STEP = _HOP / _RATE
+
+
+def test_guided_alignment_retains_the_recovered_voice_entry(monkeypatch):
+    from backend.ai_worker import ctc
+    import torch
+
+    reference = ctc.AlignedWord("так", 0.8, 2.0, (0.8, 0.9, 1.9), 0.9)
+    recovered = ctc.AlignedWord("так", 1.4, 2.0, (1.4, 1.5, 1.9), 0.1)
+    voiced = np.zeros(300, dtype=bool)
+    voiced[80:100] = True
+    voiced[140:220] = True
+    monkeypatch.setattr(ctc, "_align_window", lambda *args, **kwargs: [recovered])
+
+    result = ctc.align_guided(
+        torch.zeros(150, 28),
+        0.02,
+        ["так"],
+        [ctc.Window(0, 1, 0, 3, heard_start=1.5)],
+        voiced=voiced,
+        whole=[reference],
+    )
+
+    assert result == [recovered]
 
 
 @pytest.mark.parametrize(
@@ -100,7 +124,7 @@ def test_common_alignment_characters_do_not_load_multilingual_resources(monkeypa
     )
     characters += characters.upper()
     romanizer = ctc._romanizer()
-    dictionary = ctc.MMS_FA.get_dict(star=None)
+    dictionary = ctc_tokens.MMS_FA.get_dict(star=None)
     expected = [
         [
             dictionary[letter]
@@ -113,7 +137,7 @@ def test_common_alignment_characters_do_not_load_multilingual_resources(monkeypa
     def unexpected():
         pytest.fail("Common character tokens must not initialize multilingual resources")
 
-    monkeypatch.setattr(ctc, "_romanizer", unexpected)
+    monkeypatch.setattr(ctc_tokens, "_romanizer", unexpected)
     assert ctc._character_tokens(characters) == expected
 
 
@@ -133,7 +157,7 @@ def test_uncommon_and_number_tokens_preserve_multilingual_romanization(
 
     calls = []
     romanizer = ctc._romanizer()
-    dictionary = ctc.MMS_FA.get_dict(star=None)
+    dictionary = ctc_tokens.MMS_FA.get_dict(star=None)
     expected = [
         [
             dictionary[letter]
@@ -147,7 +171,7 @@ def test_uncommon_and_number_tokens_preserve_multilingual_romanization(
         calls.append(True)
         return romanizer
 
-    monkeypatch.setattr(ctc, "_romanizer", load)
+    monkeypatch.setattr(ctc_tokens, "_romanizer", load)
     assert ctc._character_tokens(word, context) == expected
     assert bool(calls) is uses_resources
 
@@ -1669,8 +1693,8 @@ def test_ctc_chunks_keep_one_fixed_frame_grid_through_the_end_of_long_audio(
             return torch.stack((torch.zeros_like(times), times), dim=-1), None
 
     samples = np.arange(round(total * _RATE), dtype=np.float32) / (_RATE * 1000)
-    monkeypatch.setattr(ctc, "_model", FixedStrideModel)
-    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+    monkeypatch.setattr(ctc_emission, "_model", FixedStrideModel)
+    monkeypatch.setattr(ctc_emission, "device", lambda: "cpu")
 
     scores, frame_seconds = ctc.emission(samples)
 
@@ -1696,9 +1720,11 @@ def test_local_mms_model_applies_the_bundles_required_waveform_normalization(
         def forward(self, audio, lengths=None):
             return audio, lengths
 
-    monkeypatch.setattr(ctc.torchaudio.models, "wav2vec2_model", lambda **_kwargs: CapturingModel())
-    monkeypatch.setattr(ctc, "model_file", lambda _spec: Path("unused-model.bin"))
-    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+    monkeypatch.setattr(
+        ctc_emission.torchaudio.models, "wav2vec2_model", lambda **_kwargs: CapturingModel()
+    )
+    monkeypatch.setattr(ctc_emission, "model_file", lambda _spec: Path("unused-model.bin"))
+    monkeypatch.setattr(ctc_emission, "device", lambda: "cpu")
     monkeypatch.setattr(
         ctc.torch,
         "load",
@@ -1737,9 +1763,11 @@ def test_local_mms_loading_skips_random_storage_and_preserves_checkpoint_values(
     }
     checkpoint = tmp_path / "model.bin"
     torch.save(weights, checkpoint)
-    monkeypatch.setattr(ctc.torchaudio.models, "wav2vec2_model", lambda **_kwargs: SmallModel())
-    monkeypatch.setattr(ctc, "model_file", lambda _spec: checkpoint)
-    monkeypatch.setattr(ctc, "device", lambda: "cpu")
+    monkeypatch.setattr(
+        ctc_emission.torchaudio.models, "wav2vec2_model", lambda **_kwargs: SmallModel()
+    )
+    monkeypatch.setattr(ctc_emission, "model_file", lambda _spec: checkpoint)
+    monkeypatch.setattr(ctc_emission, "device", lambda: "cpu")
     ctc._model.cache_clear()
     try:
         model = ctc._model()
@@ -2960,7 +2988,7 @@ def test_a_strong_word_average_does_not_hide_its_unsupported_first_phoneme(monke
     scores = torch.zeros(300, 28)
     first_token = ctc._character_tokens("we")[0][0]
     scores[200, first_token] = np.log(0.001)
-    monkeypatch.setattr(word_guidance, "_core_candidates", lambda *_, **__: [approximate])
+    monkeypatch.setattr(guidance_candidates, "_core_candidates", lambda *_, **__: [approximate])
 
     candidates = word_guidance._candidates(
         word, scores, 0.02, ctc.Window(0, 1, 0, 5), (3.0, 3.5), np.ones(500, bool), 0.6

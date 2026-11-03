@@ -15,7 +15,6 @@ export const useEnvironmentSettings = () => {
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
   useLocale();
   const notify = useNotify();
-  const [now, setNow] = useState(Date.now);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const pending = useRef(
     new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>(),
@@ -97,12 +96,6 @@ export const useEnvironmentSettings = () => {
   useEffect(() => {
     void store.load();
   }, [store]);
-  useEffect(() => {
-    if (snapshot.kaggleStartedAt === null) return;
-    setNow(Date.now());
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [snapshot.kaggleStartedAt]);
 
   const save = async (key: string, value: string) => {
     discard(key);
@@ -138,10 +131,7 @@ export const useEnvironmentSettings = () => {
     },
     kaggle: {
       kaggleAction: snapshot.kaggleAction,
-      kaggleElapsedSeconds:
-        snapshot.kaggleStartedAt === null
-          ? 0
-          : Math.max(0, Math.floor((now - snapshot.kaggleStartedAt) / 1000)),
+      kaggleStartedAt: snapshot.kaggleStartedAt,
       runKaggleAction,
       verifyKaggle: store.verifyKaggle,
     },

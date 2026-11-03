@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { ru } from '../../i18n/messages.ru';
 import { audioClient } from '../../services/audioClient';
@@ -113,8 +117,15 @@ export const useEditorSession = (songId: string) => {
         }
         await audioClient
           .prepareSong(loaded)
-          .then(() => active && setAudioReady(true))
-          .catch(() => undefined);
+          .then(() => {
+            if (active) {
+              clearOperationFailure('errors.editorAudio');
+              setAudioReady(true);
+            }
+          })
+          .catch((error: unknown) => {
+            if (active) reportOperationFailure('errors.editorAudio', error);
+          });
       } catch {
         if (active) setLoad({ kind: 'failed' });
       }
@@ -271,7 +282,9 @@ export const useEditorSession = (songId: string) => {
     dirty,
     selection,
     playing: preview.playing,
-    position: preview.position,
+    get position() {
+      return preview.position;
+    },
     saving,
     audioReady,
     canUndo: (history?.past.length ?? 0) > 0,

@@ -1,5 +1,5 @@
 import { openSettings } from '../../pages/library/modals/settings';
-import { observer } from 'mobx-react-lite';
+import { Observer, observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import { canControlRoom } from '../../application/room/roomModel';
 import './karaoke.css';
@@ -204,10 +204,6 @@ export const KaraokeScreen = observer(
       () => rangeOf((session.document?.notes ?? []).map((note) => note.pitch)),
       [session.document],
     );
-    const microphoneReady = microphoneAvailableForKaraoke(
-      session.capabilities.microphone,
-      session.pitchHz,
-    );
     const finishedSongId = state.kind === 'finished' ? song?.id : undefined;
     const takeId = session.recordingId;
     const canFinish = ['ready', 'playing', 'paused'].includes(state.kind);
@@ -317,32 +313,40 @@ export const KaraokeScreen = observer(
     if (!song) return null;
 
     const scene = (
-      <SceneBackdrop
-        theme={theme}
-        videoUrl={sceneVideoUrl(
-          mode,
-          session.songPrefs?.videoUrl,
-          song.videoUrl,
+      <Observer>
+        {() => (
+          <SceneBackdrop
+            theme={theme}
+            videoUrl={sceneVideoUrl(
+              mode,
+              session.songPrefs?.videoUrl,
+              song.videoUrl,
+            )}
+            positionSeconds={session.position}
+            playing={state.kind === 'playing'}
+            rate={session.speed}
+          />
         )}
-        positionSeconds={session.position}
-        playing={state.kind === 'playing'}
-        rate={session.speed}
-      />
+      </Observer>
     );
     const stage = (
-      <KaraokeStage
-        songTitle={song.title}
-        position={session.position}
-        playing={state.kind === 'playing'}
-        rate={session.speed}
-        keyShift={session.keyShift}
-        document={session.document}
-        layers={layers}
-        vocalRange={session.songPrefs?.vocalRange ?? 'auto'}
-        pitchHz={session.pitchHz}
-        pitchFrames={session.pitchFrames}
-        onNoteScoreChange={session.updateKaraokeNoteScore}
-      />
+      <Observer>
+        {() => (
+          <KaraokeStage
+            songTitle={song.title}
+            position={session.position}
+            playing={state.kind === 'playing'}
+            rate={session.speed}
+            keyShift={session.keyShift}
+            document={session.document}
+            layers={layers}
+            vocalRange={session.songPrefs?.vocalRange ?? 'auto'}
+            pitchHz={session.pitchHz}
+            pitchFrames={session.pitchFrames}
+            onNoteScoreChange={session.updateKaraokeNoteScore}
+          />
+        )}
+      </Observer>
     );
     return place(
       <main
@@ -405,21 +409,33 @@ export const KaraokeScreen = observer(
         ) : (
           stage
         )}
-        <div className="karaokeConsole">
-          {!microphoneReady && (
-            <MessageBar tone="info">{tr(ru.noMicrophoneMode)}</MessageBar>
-          )}
-          <KaraokeConsole
-            song={song}
-            state={state}
-            session={session}
-            visible={autoHide.consoleVisible}
-            hasNotes={capabilities.hasNotes}
-            hasLyrics={capabilities.hasLyrics}
-            range={range}
-            microphoneAvailable={microphoneReady}
-          />
-        </div>
+        <Observer>
+          {() => {
+            const microphoneReady =
+              session.capabilities.microphone === 'ready' ||
+              microphoneAvailableForKaraoke(
+                session.capabilities.microphone,
+                session.pitchHz,
+              );
+            return (
+              <div className="karaokeConsole">
+                {!microphoneReady && (
+                  <MessageBar tone="info">{tr(ru.noMicrophoneMode)}</MessageBar>
+                )}
+                <KaraokeConsole
+                  song={song}
+                  state={state}
+                  session={session}
+                  visible={autoHide.consoleVisible}
+                  hasNotes={capabilities.hasNotes}
+                  hasLyrics={capabilities.hasLyrics}
+                  range={range}
+                  microphoneAvailable={microphoneReady}
+                />
+              </div>
+            );
+          }}
+        </Observer>
       </main>,
     );
   },

@@ -35,6 +35,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   }),
   setKeyboardLighting: unavailable,
   audioRequest: requireBridge,
+  onAudioNotification: () => () => undefined,
   waveformPeaks: async () => [],
   recordingPeaks: async () => [],
   resolveProjectArtifacts: requireBridge,

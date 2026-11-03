@@ -1,3 +1,8 @@
+import {
+  observeOperation,
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import { tr, useLocale, useRouter } from '@neo-ui-kit/react';
@@ -121,7 +126,10 @@ export const DesktopShellBridge = observer(() => {
     ],
   );
   useEffect(() => {
-    void desktopClient.reportShellStatus(status).catch(() => undefined);
+    void observeOperation(
+      'errors.desktopStatus',
+      desktopClient.reportShellStatus(status),
+    ).catch(() => undefined);
   }, [status]);
 
   // Commands read the latest values through a ref: the subscription stays put while they change.
@@ -141,6 +149,19 @@ export const DesktopShellBridge = observer(() => {
           else navigate(routes.library);
         };
         switch (command.type) {
+          case 'operationFailure':
+            if (
+              typeof command.operation === 'string' &&
+              command.operation.startsWith('errors.')
+            ) {
+              if (command.failed)
+                reportOperationFailure(
+                  command.operation,
+                  new Error(command.operation),
+                );
+              else clearOperationFailure(command.operation);
+            }
+            break;
           case 'togglePlayback':
             nowPlaying.get()?.togglePlayback();
             break;
@@ -176,10 +197,14 @@ export const DesktopShellBridge = observer(() => {
             break;
           case 'toggleMicrophone':
             if (voice)
-              void voice
-                .setMicrophoneEnabled(!voice.microphoneEnabled())
-                .then(() => microphoneToggled.set(microphoneToggled.get() + 1))
-                .catch(() => undefined);
+              void observeOperation(
+                'errors.microphone',
+                voice
+                  .setMicrophoneEnabled(!voice.microphoneEnabled())
+                  .then(() =>
+                    microphoneToggled.set(microphoneToggled.get() + 1),
+                  ),
+              ).catch(() => undefined);
             break;
           case 'power':
             onBattery.set(command.onBattery === true);

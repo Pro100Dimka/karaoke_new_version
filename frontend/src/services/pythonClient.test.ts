@@ -31,6 +31,39 @@ const installBridge = (
 };
 
 describe('pythonClient contract', () => {
+  it('discards a recording snapshot read across a backend reconnection', async () => {
+    const recording = {
+      recordingId: 'take', filePath: 'E:/recording.wav', duration: 1,
+      sampleRate: 44100, channels: 2, createdAt: '2026-01-01T00:00:00Z',
+      songId: 'song', songRevision: 1, sizeBytes: 100,
+    };
+    const reply = (fileStatus: string) => ({
+      status: 200, ok: true, body: { items: [{ ...recording, fileStatus }] },
+    });
+    let deliver: ((event: unknown) => void) | undefined;
+    let finish!: (value: ReturnType<typeof reply>) => void;
+    const request = vi.fn()
+      .mockImplementationOnce(() => new Promise<ReturnType<typeof reply>>((resolve) => { finish = resolve; }))
+      .mockResolvedValue(reply('Ready'));
+    Object.assign(window, { desktop: {
+      pythonRequest: request,
+      onBackendEvent: (listener: (event: unknown) => void) => {
+        deliver = listener;
+        return () => { deliver = undefined; };
+      },
+    } });
+    try {
+      const pending = pythonClient.listRecordings('song');
+      deliver?.({ type: 'connected' });
+      finish(reply('Preparing'));
+      expect(await pending).toMatchObject([{ fileStatus: 'Ready' }]);
+      expect(request).toHaveBeenCalledTimes(2);
+      expect(deliver).toBeUndefined();
+    } finally {
+      Reflect.deleteProperty(window, 'desktop');
+    }
+  });
+
   it.each(['export', 'import'] as const)(
     'follows library %s progress until the completed report',
     async (action) => {

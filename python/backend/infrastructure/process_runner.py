@@ -364,3 +364,23 @@ class LineProcess:
 
     def kill(self) -> None:
         self._process.kill()
+
+
+def start_handoff(command: Sequence[str], log: IO[bytes]) -> ProcessHandle:
+    """Start a completion worker; its caller verifies readiness before transferring owned locks."""
+    return subprocess.Popen(
+        list(command),
+        stdin=subprocess.DEVNULL,
+        stdout=log,
+        stderr=log,
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+    )
+
+
+def run_entrypoint(work: Callable[[], int], report_error: Callable[[Exception], None]) -> int:
+    """Translate a CLI failure to its diagnostic and exit code at the process boundary."""
+    try:
+        return work()
+    except Exception as exc:
+        report_error(exc)
+        return 1

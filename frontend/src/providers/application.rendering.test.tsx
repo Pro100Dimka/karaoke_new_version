@@ -6,6 +6,8 @@ import { act, render } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { roomSession } from './application';
 import type { ProcessingJobDto } from '../contracts/models';
+import { QueryClient, QueryObserver } from '@tanstack/react-query';
+import { subscribeApplication } from './application';
 
 const jobs = vi.hoisted(() => ({
   list: vi.fn<() => Promise<ProcessingJobDto[]>>(async () => []),
@@ -14,8 +16,8 @@ const jobs = vi.hoisted(() => ({
 vi.mock('../services/pythonClient', () => ({
   pythonClient: { listJobs: jobs.list },
 }));
-vi.mock('../services/backendEvents', () => ({
-  backendEventsAvailable: () => true,
+vi.mock('../services/backendEvents', async (original) => ({
+  ...(await original<typeof import('../services/backendEvents')>()),
   refreshOnJobChanges: (refresh: () => void) => {
     jobs.refresh = refresh;
     return () => {};
@@ -108,4 +110,49 @@ it('disposes the connection without erasing the persisted room for the next moun
   expect(store.online.room).toBeNull();
   expect(readText(key)).toBe('joined');
   removeKey(key);
+});
+
+it('refreshes active model caches after events and reconnection without a polling tick', async () => {
+  const listeners = new Set<(event: unknown) => void>();
+  Object.assign(window, { desktop: { onBackendEvent: (listener: (event: unknown) => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  let generation = 1;
+  const read = vi.fn(async () => generation);
+  const observers = [
+    ['models', 'required'], ['model-free-space'],
+    ['job', 'ModelDownload', 'model:1'], ['job', 'ModelDownload', 'other:1'],
+  ].map((queryKey) =>
+    new QueryObserver(client, { queryKey, queryFn: read }),
+  );
+  const stops = observers.map((observer) => observer.subscribe(() => undefined));
+  const stop = subscribeApplication(client);
+  try {
+    await vi.waitFor(() => expect(client.getQueryData(['models', 'required'])).toBe(1));
+    for (const type of ['models.changed', 'connected', 'resync']) {
+      generation += 1;
+      listeners.forEach((listener) => listener({ type }));
+      await vi.waitFor(() => {
+        expect(client.getQueryData(['models', 'required'])).toBe(generation);
+        expect(client.getQueryData(['model-free-space'])).toBe(generation);
+      });
+    }
+    expect(read).toHaveBeenCalledTimes(14);
+    generation += 1;
+    listeners.forEach((listener) => listener({
+      type: 'job.changed', data: { jobId: 'j1', type: 'ModelDownload', entityId: 'model:1' },
+    }));
+    await vi.waitFor(() => expect(client.getQueryData(['job', 'ModelDownload', 'model:1'])).toBe(5));
+    expect(client.getQueryData(['job', 'ModelDownload', 'other:1'])).toBe(4);
+    expect(read).toHaveBeenCalledTimes(15);
+  } finally {
+    stop();
+    stops.forEach((unsubscribe) => unsubscribe());
+    observers.forEach((observer) => observer.destroy());
+    client.clear();
+    Reflect.deleteProperty(window, 'desktop');
+  }
+  expect(listeners.size).toBe(0);
 });

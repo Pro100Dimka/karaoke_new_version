@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../../../shared/errors';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../../providers/store';
 import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
@@ -64,9 +68,14 @@ const useDisk = (open: boolean): Disk => {
           storage.cache +
           storage.recordings +
           storage.temp;
-        if (active) setDisk({ free: storage.free, used });
+        if (active) {
+          clearOperationFailure('errors.disk');
+          setDisk({ free: storage.free, used });
+        }
       })
-      .catch(() => undefined);
+      .catch((error: unknown) => {
+        if (active) reportOperationFailure('errors.disk', error);
+      });
     return () => {
       active = false;
     };

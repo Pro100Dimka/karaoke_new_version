@@ -32,6 +32,7 @@ export interface ShellStatus {
 
 /** What the desktop asks the interface to do (taskbar buttons, tray, jump list, links, hotkeys). */
 export type ShellCommand =
+  | { type: 'operationFailure'; operation: string; failed: boolean }
   | { type: 'togglePlayback' }
   | { type: 'toggleRadio' }
   | { type: 'nextStation' }

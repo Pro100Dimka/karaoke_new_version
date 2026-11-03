@@ -48,7 +48,11 @@ class RefreshSongRecognition:
             album=recognized.album or song.album,
             genre=recognized.genre or song.genre,
             artwork_url=recognized.artwork_url or song.artwork_url,
-            video_url=recognized.video_url or song.video_url,
+            video_url=(
+                song.video_url
+                if "video" in song.user_overrides
+                else recognized.video_url or song.video_url
+            ),
             recognition_provider=recognized.provider or song.recognition_provider,
             recognition_external_id=recognized.external_id or song.recognition_external_id,
             metadata_provenance=provenance,

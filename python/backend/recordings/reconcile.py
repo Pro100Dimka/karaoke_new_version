@@ -32,8 +32,13 @@ class ReconcileRecordings:
                     pass
                 metadata = self._storage.recover_file(request.file_path)
                 recording = self._register.execute(
-                    replace(request, duration=metadata.duration, sample_rate=metadata.sample_rate,
-                            channels=metadata.channels, file_status="RecoveredIncomplete")
+                    replace(
+                        request,
+                        duration=metadata.duration,
+                        sample_rate=metadata.sample_rate,
+                        channels=metadata.channels,
+                        file_status="RecoveredIncomplete",
+                    )
                 )
                 recovered.append(recording.recording_id)
             except (DomainError, OSError, ValueError, TypeError, KeyError) as error:

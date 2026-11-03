@@ -21,7 +21,6 @@ export const defaultSongPreferences: SongPreferences = {
   defaultSpeed: 1,
   vocalRange: 'auto',
 };
-export const practiceSpeeds = [0.5, 0.65, 0.75, 0.85, 1] as const;
 
 const key = storageKey('songPreferences');
 
@@ -42,8 +41,12 @@ export const loadSongPreferences = (songId: string): SongPreferences => {
         ? Math.round(stored.defaultKey)
         : defaultSongPreferences.defaultKey,
     defaultSpeed:
-      practiceSpeeds.find((speed) => speed === stored.defaultSpeed) ??
-      defaultSongPreferences.defaultSpeed,
+      typeof stored.defaultSpeed === 'number' &&
+      Number.isFinite(stored.defaultSpeed) &&
+      stored.defaultSpeed >= 0.5 &&
+      stored.defaultSpeed <= 1.5
+        ? stored.defaultSpeed
+        : defaultSongPreferences.defaultSpeed,
     vocalRange:
       stored.vocalRange === 'octave' || stored.vocalRange === 'twoOctaves'
         ? stored.vocalRange

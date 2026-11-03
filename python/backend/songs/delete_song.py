@@ -42,7 +42,9 @@ class DeleteSong:
             # Processing holds per-song locks; imports write only newly allocated song folders.
             self._jobs.run_when_idle(
                 lambda: self._delete(song_id),
-                busy_error=ConflictError("LibraryInUse", "Wait for background jobs to finish before deleting songs"),
+                busy_error=ConflictError(
+                    "LibraryInUse", "Wait for background jobs to finish before deleting songs"
+                ),
                 allow_job_types=(JobType.SONG_PROCESSING, JobType.SONG_IMPORT),
             )
 
@@ -50,10 +52,13 @@ class DeleteSong:
         recordings = self._recordings_for_song(song_id)
         entry = self._journal.begin(
             RecoveryOperation.SONG_DELETE,
-            {"songId": song_id, "recordings": [
-                {"recordingId": recording_id, "filePath": str(path)}
-                for recording_id, path in recordings.items()
-            ]},
+            {
+                "songId": song_id,
+                "recordings": [
+                    {"recordingId": recording_id, "filePath": str(path)}
+                    for recording_id, path in recordings.items()
+                ],
+            },
         )
         quarantine = None
         moved: list[tuple[Path, Path]] = []
@@ -85,7 +90,9 @@ class DeleteSong:
             recordings = {
                 recording.recording_id: recording.file_path
                 for recording in transaction.recordings.list(
-                    song_id=song_id, limit=transaction.recordings.count(song_id=song_id), offset=0,
+                    song_id=song_id,
+                    limit=transaction.recordings.count(song_id=song_id),
+                    offset=0,
                 )
             }
         for descriptor in self._recordings.recovery_descriptors():

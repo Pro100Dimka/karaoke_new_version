@@ -1,7 +1,8 @@
+import { observeOperation } from '../../../../shared/errors';
 import { pythonClient } from '../../../../services/pythonClient';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { audioClient as preview } from '../../../../services/audioClient';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Button,
   tr,
@@ -48,36 +49,49 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
   return <ReadyRecordingPlayer recording={recording} />;
 };
 
-const ReadyRecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
-  const locale = useLocale();
+const ReadyRecordingPlayer = ({ recording }: { recording: RecordingDto }) => (
+  <div className="recordingPlayer">
+    <RecordingTransport recording={recording} />
+    <div className="recordingVolume">
+      <RecordingVolume />
+    </div>
+  </div>
+);
+
+const RecordingVolume = () => {
+  useLocale();
+  const [volume, setVolume] = useState(1);
+  return (
+    <RotaryKnob
+      diameter={58}
+      style={fixedKnobWidth(58)}
+      label={tr(ru.recordingVolume)}
+      showLabel
+      min={0}
+      max={1}
+      step={0.01}
+      displayScale={100}
+      resetValue={1}
+      value={volume}
+      onValueChange={(value) => {
+        void observeOperation(
+          'errors.previewVolume',
+          preview.setPreviewVolume(value),
+        ).then(
+          () => setVolume(value),
+          () => undefined,
+        );
+      }}
+    />
+  );
+};
+
+const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
+  useLocale();
   const peaks = useRecordingPeaks(recording.id);
   const { playing, position, toggle, seek } = useRecordingPlayback(recording);
-  const [volume, setVolume] = useState(1);
-
-  const volumeControl = useMemo(
-    () => (
-      <RotaryKnob
-        diameter={58}
-        style={fixedKnobWidth(58)}
-        label={tr(ru.recordingVolume)}
-        showLabel
-        min={0}
-        max={1}
-        step={0.01}
-        displayScale={100}
-        resetValue={1}
-        value={volume}
-        onValueChange={(value) => {
-          setVolume(value);
-          void preview.setPreviewVolume(value).catch(() => undefined);
-        }}
-      />
-    ),
-    [locale, volume],
-  );
-
   return (
-    <div className="recordingPlayer">
+    <>
       <IconButton
         round
         variant="primary"
@@ -97,7 +111,6 @@ const ReadyRecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
           {formatTime(position)} / {formatTime(recording.durationSeconds)}
         </Typography>
       </div>
-      <div className="recordingVolume">{volumeControl}</div>
-    </div>
+    </>
   );
 };

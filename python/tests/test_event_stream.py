@@ -12,6 +12,18 @@ def test_event_subscribers_cannot_have_unbounded_capacity(capacity):
         EventStream(FakeClock(), subscriber_capacity=capacity)
 
 
+def test_overflow_tells_sse_consumer_to_reload_authoritative_state():
+    events = EventStream(FakeClock(), subscriber_capacity=2)
+    with events.subscribe() as subscriber:
+        events.publish("library.changed", {"songIds": ["song"]})
+        events.publish("job.changed", {"jobId": "first"})
+        events.publish("job.changed", {"jobId": "second"})
+        pending = []
+        while not subscriber.empty():
+            pending.append(subscriber.get_nowait().event_type)
+        assert "resync" in pending
+
+
 def test_consumer_drain_during_overflow_does_not_lose_latest_event(monkeypatch):
     events = EventStream(FakeClock(), subscriber_capacity=1)
     with events.subscribe() as subscriber:
@@ -28,7 +40,7 @@ def test_consumer_drain_during_overflow_does_not_lose_latest_event(monkeypatch):
         assert original_get().event_type == "latest"
 
 
-def test_concurrent_overflow_publishers_do_not_raise_or_lose_latest_event(monkeypatch):
+def test_concurrent_overflow_publishers_preserve_the_request_to_reload_state(monkeypatch):
     events = EventStream(FakeClock(), subscriber_capacity=1)
     paused, resume, second_started = threading.Event(), threading.Event(), threading.Event()
     errors = []
@@ -68,4 +80,4 @@ def test_concurrent_overflow_publishers_do_not_raise_or_lose_latest_event(monkey
                 second.join(timeout=2)
         assert not first.is_alive() and not second.is_alive()
         assert not errors
-        assert original_get().event_type == "second"
+        assert original_get().event_type == "resync"

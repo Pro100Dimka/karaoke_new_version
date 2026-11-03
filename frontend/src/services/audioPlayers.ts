@@ -1,5 +1,7 @@
 import type { AudioServiceClient } from '../contracts/clients';
 import type { PlaybackSnapshot } from '../contracts/models';
+import { observeAudioTelemetry } from './audioSession';
+import { parseKeyValues } from './audioProtocol';
 
 /** What the radio and the recording preview need from the audio client they belong to. */
 export interface AudioPlayerOperations {
@@ -24,6 +26,7 @@ type AudioPlayers = Pick<
   | 'stopRecordingPreview'
   | 'setPreviewVolume'
   | 'recordingPreviewStatus'
+  | 'observeRecordingPreview'
 >;
 
 // PlaybackState numbers AudioService reports for the radio and the recording preview slots.
@@ -56,6 +59,14 @@ export const createAudioPlayers = (
   let previewGeneration = 0;
   const ownsPreview = (owner?: symbol) =>
     owner === undefined || owner === previewOwner;
+  const previewStatus = (values: Record<string, string>, owner?: symbol) => {
+    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate) || 0;
+    return {
+      recordingId: ownsPreview(owner) ? previewRecordingId : null,
+      state: previewStates[Number(values.PreviewState ?? readyState)] ?? 'ready',
+      positionSeconds: sampleRate > 0 ? (Number(values.PreviewPositionFrames) || 0) / sampleRate : 0,
+    };
+  };
 
   const waitFor = async (
     field: string,
@@ -163,20 +174,11 @@ export const createAudioPlayers = (
       await ops.command('SetGain', { target: 'preview', value: gain });
     },
     async recordingPreviewStatus(owner) {
-      const values = await ops.diagnostics(true);
-      const sampleRate =
-        Number(
-          values.RuntimeOutputSampleRate || values.RequestedSampleRate || 0,
-        ) || 0;
-      const stateNumber = Number(values.PreviewState ?? readyState);
-      return {
-        recordingId: ownsPreview(owner) ? previewRecordingId : null,
-        state: previewStates[stateNumber] ?? 'ready',
-        positionSeconds:
-          sampleRate > 0
-            ? (Number(values.PreviewPositionFrames || 0) || 0) / sampleRate
-            : 0,
-      };
+      return previewStatus(await ops.diagnostics(true), owner);
+    },
+    observeRecordingPreview(owner, onValue, onError) {
+      return observeAudioTelemetry('GetPlaybackSnapshot', 16,
+        text => onValue(previewStatus(parseKeyValues(text), owner)), onError);
     },
   };
 };

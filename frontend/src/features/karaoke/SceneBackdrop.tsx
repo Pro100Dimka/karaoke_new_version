@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import { desktopClient } from '../../services/desktopClient';
 import { useEffect, useRef, useState } from 'react';
 import type { ThemeName } from '../../contracts/models';
@@ -48,7 +52,12 @@ export const SceneBackdrop = ({
     void desktopClient
       .sceneVideoUrl()
       .then((url) => active && setSceneUrl(url ?? ''))
-      .catch(() => undefined);
+      .then(() => {
+        if (active) clearOperationFailure('errors.video');
+      })
+      .catch((error: unknown) => {
+        if (active) reportOperationFailure('errors.video', error);
+      });
     return () => {
       active = false;
     };
@@ -96,7 +105,13 @@ export const SceneBackdrop = ({
         !document.hidden &&
         !(isOwnVideo && target >= duration)
       )
-        void video.play().catch(() => undefined);
+        void video.play().then(
+          () => clearOperationFailure('errors.video'),
+          (error: unknown) => {
+            if (document.hidden || videoRef.current !== video) return;
+            reportOperationFailure('errors.video', error);
+          },
+        );
       if (!playing && !video.paused) video.pause();
     };
     synchronize();
@@ -126,7 +141,10 @@ export const SceneBackdrop = ({
           muted
           playsInline
           preload="auto"
-          onError={() => setFailedUrl(source)}
+          onError={(event) => {
+            setFailedUrl(source);
+            reportOperationFailure('errors.video', event.currentTarget.error);
+          }}
         />
       ) : null}
     </div>

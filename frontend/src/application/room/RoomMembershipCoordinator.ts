@@ -1,3 +1,4 @@
+import { observeOperation } from '../../shared/errors';
 import type {
   AudioServiceClient,
   DesktopClient,
@@ -57,9 +58,10 @@ export class RoomMembershipCoordinator {
       participantId,
     );
     if (!this.scope.isCurrent()) return undefined;
-    await this.voice
-      .removeRemoteParticipant(participantId)
-      .catch(() => undefined);
+    await observeOperation(
+      'errors.roomParticipant',
+      this.voice.removeRemoteParticipant(participantId),
+    ).catch(() => undefined);
     const latest = this.scope.getRoom();
     return !!latest &&
       latest.songId === selected.songId &&

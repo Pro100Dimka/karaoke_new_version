@@ -1,3 +1,4 @@
+import { observeOperation } from '../../shared/errors';
 import type { EditorRepository } from '../editor/EditorPorts';
 import type { EditorDocument } from '../editor/editorModel';
 import type {
@@ -54,9 +55,10 @@ export const prepareKaraokeSession = async (
       options.onResolved(resolved);
       return;
     }
-    const document = await repository
-      .load(resolved.load.song.id)
-      .catch(() => null);
+    const document = await observeOperation(
+      'errors.songDocument',
+      repository.load(resolved.load.song.id),
+    ).catch(() => null);
     if (!isCurrent()) return;
     if (document && document.revision !== resolved.load.song.activeRevision) {
       if (attempt === 0) continue;
@@ -71,7 +73,10 @@ export const prepareKaraokeSession = async (
     options.onResolved(resolved);
     options.onDocument(document);
     try {
-      const capabilities = await audio.capabilities().catch(() => noMicrophone);
+      const capabilities = await observeOperation(
+        'errors.microphoneCapabilities',
+        audio.capabilities(),
+      ).catch(() => noMicrophone);
       if (!isCurrent()) return;
       options.onCapabilities(capabilities);
       await audio.prepareSong(resolved.load.song);

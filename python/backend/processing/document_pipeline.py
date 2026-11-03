@@ -136,15 +136,11 @@ class BuildProcessingDocument:
         *,
         prepared_lyrics: PreparedLyrics | None = None,
     ) -> BuiltDocument:
-        align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
-        align_execution = replace(execution, cpu_threads=align_threads)
-        pitch_execution = replace(execution, cpu_threads=pitch_threads)
         discovery = self._discover(
             song, prepared, providers, options, context, reports, execution, prepared_lyrics
         )
         parallel = not discovery.timing_hints or execution.device is ComputeDevice.CUDA
-        if not parallel:
-            align_execution = pitch_execution = execution
+        align_execution, pitch_execution = _stage_executions(execution, parallel)
         pitch_reports: list[StageReport] = []
         stable: tuple[PitchPoint, ...] = ()
         words: tuple[WordTiming, ...] = ()
@@ -157,26 +153,36 @@ class BuildProcessingDocument:
 
         def run_align() -> None:
             nonlocal words, discovery
-            alignment = providers.alignment
-            reuse = (
-                alignment.reuse_alignment(prepared.reference_vocal.parent, context.cancel)
-                if discovery.repeat_baseline and isinstance(alignment, AlignmentReuseProvider)
-                else nullcontext()
+            discovery, words = self._align_reusing(
+                song, prepared, discovery, providers, context, reports, align_execution
             )
-            with reuse:
-                discovery, words = self._align(
-                    song, prepared, discovery, providers, context, reports, align_execution
-                )
 
         self._run_stages(execution, run_align, run_pitch, parallel=parallel)
         reports.extend(pitch_reports)
         document = self._construct(song, prepared, discovery, words, stable, context, reports)
-        warnings = (
-            discovery.warnings
-            + alignment_warnings(words, lyrics=discovery.lyrics, bpm=prepared.music.bpm)
-            + pitch_warnings(stable)
-        )
+        warnings = _document_warnings(discovery, words, stable, prepared.music.bpm)
         return BuiltDocument(replace(document, rhythm=prepared.rhythm), discovery, warnings)
+
+    def _align_reusing(
+        self,
+        song: Song,
+        prepared: PreparedAudio,
+        discovery: LyricsDiscoveryResult,
+        providers: ProcessingProviders,
+        context: JobContext,
+        reports: list[StageReport],
+        align_execution: ExecutionContext,
+    ) -> tuple[LyricsDiscoveryResult, tuple[WordTiming, ...]]:
+        alignment = providers.alignment
+        reuse = (
+            alignment.reuse_alignment(prepared.reference_vocal.parent, context.cancel)
+            if discovery.repeat_baseline and isinstance(alignment, AlignmentReuseProvider)
+            else nullcontext()
+        )
+        with reuse:
+            return self._align(
+                song, prepared, discovery, providers, context, reports, align_execution
+            )
 
     def find_lyrics(
         self,
@@ -353,3 +359,28 @@ class BuildProcessingDocument:
             ),
             progress=0.93,
         )
+
+
+def _stage_executions(
+    execution: ExecutionContext, parallel: bool
+) -> tuple[ExecutionContext, ExecutionContext]:
+    if not parallel:
+        return execution, execution
+    align_threads, pitch_threads = concurrent_stage_thread_split(execution.cpu_threads)
+    return replace(execution, cpu_threads=align_threads), replace(
+        execution, cpu_threads=pitch_threads
+    )
+
+
+def _document_warnings(
+    discovery: LyricsDiscoveryResult,
+    words: tuple[WordTiming, ...],
+    stable: tuple[PitchPoint, ...],
+    bpm: float | None,
+) -> tuple[str, ...]:
+    warnings = (
+        discovery.warnings
+        + alignment_warnings(words, lyrics=discovery.lyrics, bpm=bpm)
+        + pitch_warnings(stable)
+    )
+    return warnings

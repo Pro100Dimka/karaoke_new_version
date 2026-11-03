@@ -1,3 +1,4 @@
+import { observeOperation } from '../shared/errors';
 import { desktopBridge } from './desktopBridge';
 import {
   roomServerMixParticipantId,
@@ -221,7 +222,10 @@ export const createRoomVoice = (
           backendName(running) !== effectiveConfiguration().backend
         ) {
           const selected = audioState.preferred;
-          await applyConfiguration(selected).catch(() => {
+          await observeOperation(
+            'errors.audioRestore',
+            applyConfiguration(selected),
+          ).catch(() => {
             // A temporary device failure may keep the room on its working fallback, but it must not
             // turn that fallback into the user's selection. A later join/recovery retries ASIO.
             audioState.preferred = selected;
@@ -229,7 +233,11 @@ export const createRoomVoice = (
         }
         await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
         await desktopBridge().joinRoomVoice(roomId, participantId);
-        voice.session = { roomId, participantId, serverClockOffsetMilliseconds };
+        voice.session = {
+          roomId,
+          participantId,
+          serverClockOffsetMilliseconds,
+        };
         await restoreRemoteParticipants();
       } catch (error) {
         voice.session = null;
@@ -261,7 +269,8 @@ export const createRoomVoice = (
         voice.effects.clear();
         voice.muted.clear();
         try {
-          if (resetDelay) await command('SetRoomPlayoutDelay', { milliseconds: 0 });
+          if (resetDelay)
+            await command('SetRoomPlayoutDelay', { milliseconds: 0 });
         } finally {
           await reconcileWindowsMode();
         }

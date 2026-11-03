@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../shared/errors';
 import { observer } from 'mobx-react-lite';
 import { store } from '../providers/store';
 import { useEffect, useState, type ReactNode } from 'react';
@@ -36,7 +40,12 @@ export const BootstrapGate = observer(
             audioClient.setPreferredConfiguration(safe);
             updatePreferences({ audio: safe });
           })
-          .catch(() => undefined);
+          .then(() => {
+            if (active) clearOperationFailure('errors.audioDevices');
+          })
+          .catch((error: unknown) => {
+            if (active) reportOperationFailure('errors.audioDevices', error);
+          });
       }
       return () => {
         active = false;

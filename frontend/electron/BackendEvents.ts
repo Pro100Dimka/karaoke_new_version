@@ -31,8 +31,9 @@ export const parseServerSentEvents = (
         typeof (value as BackendEvent).type === 'string'
       )
         events.push(value as BackendEvent);
+      else events.push({ type: 'resync' });
     } catch {
-      // A malformed message is skipped; the next one is independent.
+      events.push({ type: 'resync' });
     }
   }
   return { events, rest };

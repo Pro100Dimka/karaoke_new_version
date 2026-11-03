@@ -1,3 +1,4 @@
+import { reportOperationFailure, clearOperationFailure } from '../errors';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -256,11 +257,14 @@ export const useDetachedPanel = (
           ),
         )
           .then(() => {
-            if (!panel.closed && opened.current === panel)
+            if (!panel.closed && opened.current === panel) {
+              clearOperationFailure('errors.detachedPanel');
               flushSync(() => setContainer(mount));
+            }
           })
           .catch((error: unknown) => {
-            console.error(error);
+            if (!panel.closed && opened.current === panel)
+              reportOperationFailure('errors.detachedPanel', error);
             panel.close();
           });
       } else setContainer(mount);

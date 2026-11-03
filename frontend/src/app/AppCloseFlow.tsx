@@ -21,41 +21,53 @@ export const AppCloseFlow = observer(() => {
   useLocale();
 
   useCloseGuard(async () => {
-    const jobs = await pythonClient.listJobs().catch(() => []);
-    const active = jobs.filter((job) => activeStates.has(job.state));
-    if (active.length > 0) {
-      const choice = await ask({
-        title: tr(ru.closeWithProcessingTitle),
-        body: tr(ru.closeWithProcessingBody, { count: active.length }),
-        actions: [
-          { id: 'keep', label: tr(ru.keepOpen) },
-          {
-            id: 'exit',
-            label: tr(ru.cancelJobsAndExit),
-            appearance: 'primary',
-          },
-        ],
-      });
-      if (choice !== 'exit') return false;
-      await Promise.all(
-        active.map((job) =>
-          pythonClient.cancelJob(job.id).catch(() => undefined),
-        ),
-      );
-      // Running stages finish safely first; shutdown waits for the backend to confirm.
-      for (let attempt = 0; attempt < cancelWaitAttempts; attempt += 1) {
-        const remaining = (
-          await pythonClient.listJobs().catch(() => [])
-        ).filter((job) => activeStates.has(job.state));
-        if (remaining.length === 0) break;
-        await sleep(cancelWaitMilliseconds);
+    try {
+      const jobs = await pythonClient.listJobs();
+      const active = jobs.filter((job) => activeStates.has(job.state));
+      if (active.length > 0) {
+        const choice = await ask({
+          title: tr(ru.closeWithProcessingTitle),
+          body: tr(ru.closeWithProcessingBody, { count: active.length }),
+          actions: [
+            { id: 'keep', label: tr(ru.keepOpen) },
+            {
+              id: 'exit',
+              label: tr(ru.cancelJobsAndExit),
+              appearance: 'primary',
+            },
+          ],
+        });
+        if (choice !== 'exit') return false;
+        await Promise.all(active.map((job) => pythonClient.cancelJob(job.id)));
+        // Running stages finish safely first; shutdown waits for the backend to confirm.
+        for (let attempt = 0; attempt < cancelWaitAttempts; attempt += 1) {
+          const remaining = (await pythonClient.listJobs()).filter((job) =>
+            activeStates.has(job.state),
+          );
+          if (remaining.length === 0) break;
+          if (attempt === cancelWaitAttempts - 1)
+            throw new Error('Background jobs are still running');
+          await sleep(cancelWaitMilliseconds);
+        }
       }
+      if (room) {
+        await roomSession.leave();
+      }
+      await audioClient.stop();
+      return true;
+    } catch (error) {
+      console.error('Cannot finish work before closing', error);
+      return (
+        (await ask({
+          title: tr('errors.close'),
+          body: tr('errors.closeUnconfirmed'),
+          actions: [
+            { id: 'keep', label: tr(ru.keepOpen) },
+            { id: 'exit', label: tr('errors.closeAnyway') },
+          ],
+        })) === 'exit'
+      );
     }
-    if (room) {
-      await roomSession.leave().catch(() => undefined);
-    }
-    await audioClient.stop().catch(() => undefined);
-    return true;
   });
 
   return null;

@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import type {
   DesktopClient,
   ProjectImportDecision,
@@ -175,8 +179,10 @@ export class RoomProjectCoordinator {
             transferBytes: progress.transferredBytes,
             transferTotalBytes: progress.totalBytes,
           });
-        } catch {
-          // The next byte sample retries without interrupting the transfer.
+          clearOperationFailure('errors.roomProgress');
+        } catch (error) {
+          if (this.scope.isCurrent())
+            reportOperationFailure('errors.roomProgress', error);
         }
       },
     );
@@ -278,8 +284,10 @@ export class RoomProjectCoordinator {
         } finally {
           library.uploadId = undefined;
         }
-      } catch {
-        // The next interval retries while local library use remains available.
+        clearOperationFailure('errors.roomLibrary');
+      } catch (error) {
+        if (this.library === library && this.scope.isCurrent())
+          reportOperationFailure('errors.roomLibrary', error);
       }
     })();
     this.publishing = publishing;

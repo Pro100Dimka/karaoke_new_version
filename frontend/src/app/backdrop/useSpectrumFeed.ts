@@ -1,5 +1,5 @@
 import { store } from '../../providers/store';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { audioClient } from '../../services/audioClient';
 
 // Silence draws nothing new, so it is sampled rarely; after a second of full-rate silent frames every
@@ -121,8 +121,7 @@ export const toSpectrumFrame = (
 };
 
 /**
- * Feeds the backdrop with the output spectrum measured by AudioService. One request is in flight at a time and
- * polling stops while the service is not ready or the window is hidden, so it never queues behind real commands.
+ * Subscribes to AudioService's output spectrum while the service is ready and the window is visible.
  */
 export const useSpectrumFeed = (
   enabled: boolean,
@@ -131,43 +130,21 @@ export const useSpectrumFeed = (
 ): void => {
   const { audio } = store.application.services;
   const ready = audio.kind === 'ready';
-  const inFlight = useRef(false);
+  const [quiet, setQuiet] = useState(false);
+  const lastSound = useRef(performance.now());
 
   useEffect(() => {
     if (!enabled || !ready) return;
-    let stopped = false;
-    let timer = 0;
-    let silentFrames = 0;
-    const tick = async () => {
-      if (stopped) return;
-      const started = performance.now();
-      if (!inFlight.current) {
-        inFlight.current = true;
-        try {
-          const { bands, backingBands } = await audioClient.spectrum();
-          const frame = toSpectrumFrame(bands, backingBands);
-          silentFrames = isSilent(frame) ? silentFrames + 1 : 0;
-          if (!stopped) onFrame(frame);
-        } catch {
-          // The service health polling reports outages; the animation simply idles.
-        } finally {
-          inFlight.current = false;
-        }
+    return audioClient.observeSpectrum(({ bands, backingBands }) => {
+      const frame = toSpectrumFrame(bands, backingBands);
+      if (isSilent(frame)) {
+        if (performance.now() - lastSound.current > 1000) setQuiet(true);
+      } else {
+        lastSound.current = performance.now();
+        setQuiet(false);
       }
-      const delay =
-        silentFrames > 1000 / pollMilliseconds
-          ? silentPollMilliseconds
-          : pollMilliseconds;
-      if (!stopped)
-        timer = window.setTimeout(
-          () => void tick(),
-          Math.max(4, delay - (performance.now() - started)),
-        );
-    };
-    void tick();
-    return () => {
-      stopped = true;
-      window.clearTimeout(timer);
-    };
-  }, [enabled, ready, onFrame, pollMilliseconds]);
+      onFrame(frame);
+    // The service banner owns outage reporting; a decorative frame may simply be absent.
+    }, () => undefined, quiet ? silentPollMilliseconds : pollMilliseconds);
+  }, [enabled, ready, onFrame, pollMilliseconds, quiet]);
 };

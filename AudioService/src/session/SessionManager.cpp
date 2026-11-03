@@ -132,6 +132,8 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
     const auto independent = runtime.inputChannels != 0 &&
                              (runtime.clockRelationship == ClockRelationship::Independent ||
                               runtime.inputSampleRateHz != runtime.outputSampleRateHz);
+    // Independent capture can arrive one callback after render. Keep that packet in addition
+    // to the drift/interpolation reserve; a common-clock ASIO callback needs no extra packet.
     return {runtime.inputSampleRateHz,
             runtime.outputSampleRateHz,
             maxBlock,
@@ -141,7 +143,8 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
             independent,
             static_cast<std::uint32_t>(bridgeCapacity),
             ClockBridge::recommendedTargetFrames(static_cast<std::uint32_t>(bridgeCapacity),
-                                                 runtime.inputSampleRateHz),
+                                                 runtime.inputSampleRateHz) +
+                (independent ? runtime.inputPeriodFrames : 0U),
             requested_.backend == BackendKind::WasapiShared && !requested_.exclusiveInput};
 }
 

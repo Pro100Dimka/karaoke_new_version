@@ -494,9 +494,9 @@ void RealtimeEngine::onCapture(GenerationId generation, const BackendAudioBuffer
         diagnosticFileEofFrames_.fetch_add(eofFrames, std::memory_order_relaxed);
         captureInput = {diagnosticCaptureInput_.data(), inputSamples};
     }
-    signal_.observe(captureInput);
     auto mapped = buffers_.buffer(0, buffer.frames);
     mapMicrophone(captureInput, buffer.channels, mapped, plan_.outputChannels, buffer.frames);
+    signal_.observe(mapped);
     for (std::uint32_t frame = 0; frame < buffer.frames; ++frame)
         for (std::uint32_t channel = 0; channel < plan_.outputChannels; ++channel)
             captureBridgePcm_[(frame * 2U + 1U) * plan_.outputChannels + channel] =

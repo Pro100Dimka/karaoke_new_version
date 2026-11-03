@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import {
   Badge,
   Button,
@@ -53,6 +54,26 @@ const GroupArt = ({ group }: { group: EnvironmentGroup }) => {
   );
 };
 
+const KaggleElapsed = ({ startedAt }: { startedAt: number | null }) => {
+  useLocale();
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    if (startedAt === null) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
+  const elapsed =
+    startedAt === null
+      ? 0
+      : Math.max(0, Math.floor((now - startedAt) / 1000));
+  return (
+    <Typography variant="caption" tone="muted">
+      {tr(ru.kaggleDeployProgressTiming, { elapsed: formatElapsed(elapsed) })}
+    </Typography>
+  );
+};
+
 /** Kaggle deployment progress, or the sign-in and deploy actions while the notebook is not ready. */
 const KaggleControls = ({
   kaggle,
@@ -62,7 +83,7 @@ const KaggleControls = ({
   ready: boolean;
 }) => {
   useLocale();
-  const { kaggleAction, kaggleElapsedSeconds, runKaggleAction } = kaggle;
+  const { kaggleAction, kaggleStartedAt, runKaggleAction } = kaggle;
   return (
     <>
       {kaggleAction === 'deploy' && (
@@ -75,11 +96,7 @@ const KaggleControls = ({
           <Typography as="strong" variant="body-sm">
             {tr(ru.kaggleDeployProgressTitle)}
           </Typography>
-          <Typography variant="caption" tone="muted">
-            {tr(ru.kaggleDeployProgressTiming, {
-              elapsed: formatElapsed(kaggleElapsedSeconds),
-            })}
-          </Typography>
+          <KaggleElapsed startedAt={kaggleStartedAt} />
         </Stack>
       )}
       {!ready && (

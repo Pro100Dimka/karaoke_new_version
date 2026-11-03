@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import difflib
 import os
-import threading
-from collections import Counter
-from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import replace
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
@@ -14,8 +11,9 @@ import torch
 import whisper
 
 from backend.ai.catalog import SPEECH_MODEL
-from backend.lyrics.discovery import performed_phrases
-from backend.moment_spreading import is_tied_with
+from backend.ai_worker.ctc_bounds import (
+    _preserved_onset_letters as _preserved_onset_letters,
+)
 from backend.ai_worker.audio_io import read_mono
 from backend.ai_worker.ctc import (
     AlignedWord,
@@ -51,7 +49,6 @@ from backend.ai_worker.recognition import (
     boundary_conflicts,
     guidance_positions,
     contextual_guidance,
-    unhinted_windows,
     phrase_coverage,
     independent_words,
     independent_timings,
@@ -63,23 +60,21 @@ from backend.ai_worker.recognition import (
 from backend.ai_worker.word_guidance import (
     _character_intervals,
     _key,
-    _matching_blocks,
-    phrase_window,
-    recognized_phrase,
     with_word_guidance,
 )
 
-_SAMPLE_RATE = 16_000
-_MINIMUM_BLOCK = 3
-_MARGIN_SECONDS = 0.6
-_HOP = 160
-# Snap approximate catalogue entries to nearby vocal onsets without borrowing neighbouring phrases.
-_ONSET_SNAP_LATER_SECONDS = 0.3
-_ONSET_LEAD_SECONDS = 0.05
-# Correct catalogue release offsets only when CTC line starts show a consistent nontrivial shift.
-_CATALOG_SHIFT_MINIMUM_SECONDS = 0.3
-_CATALOG_SHIFT_MAXIMUM_SPREAD_SECONDS = 0.5
-_CATALOG_SHIFT_MINIMUM_LINES = 5
+from backend.ai_worker.speech_windows import (
+    _HOP as _HOP,
+    _MARGIN_SECONDS as _MARGIN_SECONDS,
+    _MINIMUM_BLOCK as _MINIMUM_BLOCK,
+    _SAMPLE_RATE as _SAMPLE_RATE,
+    _alignment_windows as _alignment_windows,
+    _hint_windows as _hint_windows,
+    _phrase_windows as _phrase_windows,
+    _shifted_hints as _shifted_hints,
+    _unique_anchors as _unique_anchors,
+    _windows as _windows,
+)
 
 
 def prepare_accelerator() -> dict[str, str]:
@@ -280,45 +275,6 @@ def transcribe_many(
     }
 
 
-def _windows(
-    words: list[str],
-    heard: list[tuple[str, float, float]],
-    total: float,
-    whole: Sequence[AlignedWord] | None = None,
-    *,
-    blocks: Sequence[difflib.Match] | None = None,
-) -> list[Window]:
-    """Pin matching runs to ASR time; put intervening text in the audio between those runs."""
-    if blocks is None:
-        blocks = [
-            block for block in _matching_blocks(words, heard, whole) if block.size >= _MINIMUM_BLOCK
-        ]
-    if not blocks:
-        return [Window(0, len(words), 0.0, total)]
-    windows: list[Window] = []
-    text_cursor, audio_cursor = 0, 0.0
-    for block in blocks:
-        start, end = (
-            heard[block.b][1] - _MARGIN_SECONDS,
-            heard[block.b + block.size - 1][2] + _MARGIN_SECONDS,
-        )
-        if block.a > text_cursor:
-            windows.append(Window(text_cursor, block.a, audio_cursor, max(start, audio_cursor)))
-        windows.append(
-            Window(
-                block.a,
-                block.a + block.size,
-                max(start, 0.0),
-                end,
-                heard[block.b][1],
-            )
-        )
-        text_cursor, audio_cursor = block.a + block.size, end
-    if text_cursor < len(words):
-        windows.append(Window(text_cursor, len(words), audio_cursor, total))
-    return windows
-
-
 def _alignment_evidence(
     vocal: Path,
     samples: np.ndarray,
@@ -360,231 +316,6 @@ def _alignment_evidence(
     return scores, frame_seconds, heard
 
 
-def _line_first_words(
-    words: list[str], hints: Sequence[Mapping[str, object]]
-) -> list[tuple[int, float, str]]:
-    """(index of the line's first lyric word, timestamp, text) for every catalog line found in order."""
-    keys = [_key(word) for word in words]
-    found: list[tuple[int, float, str]] = []
-    cursor = 0
-    for item in hints:
-        start, text = item.get("start"), item.get("text")
-        if not (
-            isinstance(start, (int, float))
-            and not isinstance(start, bool)
-            and isinstance(text, str)
-        ):
-            continue
-        line = [_key(word) for word in text.split() if _key(word)]
-        first = next(
-            (
-                position
-                for position in range(cursor, len(keys) - len(line) + 1)
-                if keys[position : position + len(line)] == line
-            ),
-            None,
-        )
-        if first is None or not line:
-            continue
-        found.append((first, float(start), text))
-        cursor = first + len(line)
-    return found
-
-
-def _shifted_hints(
-    words: list[str],
-    hints: Sequence[Mapping[str, object]],
-    whole: Sequence[AlignedWord],
-    heard: Sequence[HeardWord] = (),
-) -> list[dict[str, object]]:
-    """Correct release offsets and stale line entries against independently recognized phrases."""
-    lines = _line_first_words(words, hints)
-    differences = [whole[first].start - start for first, start, _ in lines]
-    shift = 0.0
-    if len(differences) >= _CATALOG_SHIFT_MINIMUM_LINES:
-        middle = float(np.median(differences))
-        spread = float(np.percentile(differences, 75) - np.percentile(differences, 25))
-        if (
-            abs(middle) >= _CATALOG_SHIFT_MINIMUM_SECONDS
-            and spread <= _CATALOG_SHIFT_MAXIMUM_SPREAD_SECONDS
-        ):
-            shift = middle
-    supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
-    result: list[dict[str, object]] = []
-    for first, start, text in lines:
-        entry = start + shift
-        interval = supported.get(first)
-        phrase_support = {
-            _key(words[index])
-            for index in range(first, first + len(text.split()))
-            if index in supported
-        }
-        if (
-            interval is not None
-            and len(phrase_support) >= _MINIMUM_BLOCK
-            and not interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS
-        ):
-            entry = interval[0]
-        result.append({"start": entry, "text": text})
-    return result
-
-
-def _line_start(hint: float, onsets: np.ndarray) -> tuple[float, bool]:
-    """Where a catalog line's window opens, and whether a clear voice entry confirmed it."""
-    near = onsets[(onsets >= hint - _MARGIN_SECONDS) & (onsets <= hint + _ONSET_SNAP_LATER_SECONDS)]
-    if len(near):
-        return float(near[np.argmin(np.abs(near - hint))]) - _ONSET_LEAD_SECONDS, True
-    return hint - _MARGIN_SECONDS, False
-
-
-def _hint_windows(
-    lyrics: str,
-    hints: Sequence[Mapping[str, object]],
-    total: float,
-    onsets: np.ndarray = np.empty(0),
-) -> list[Window]:
-    words = lyrics.split()
-    lines = _line_first_words(words, hints)
-    opens = [_line_start(start, onsets) for _, start, _ in lines]
-    windows: list[Window] = []
-    cursor, audio_cursor, matched = 0, 0.0, 0
-    for index, (first, hint, text) in enumerate(lines):
-        last = first + sum(1 for word in text.split() if _key(word))
-        window_start = max(0.0, opens[index][0])
-        window_end = _line_end(index, lines, opens, total)
-        if first > cursor:
-            windows.append(Window(cursor, first, audio_cursor, max(audio_cursor, window_start)))
-        windows.append(
-            Window(
-                first,
-                last,
-                window_start,
-                window_end,
-                window_start + _ONSET_LEAD_SECONDS if opens[index][1] else hint,
-            )
-        )
-        cursor, audio_cursor, matched = last, window_end, matched + last - first
-    if cursor < len(words):
-        windows.append(Window(cursor, len(words), audio_cursor, total))
-    return windows if matched >= _MINIMUM_BLOCK else []
-
-
-def _line_end(
-    index: int,
-    lines: Sequence[tuple[int, float, str]],
-    opens: Sequence[tuple[float, bool]],
-    total: float,
-) -> float:
-    """A line's window closes where the next line's voice enters, or a margin after its timestamp."""
-    if index + 1 >= len(lines):
-        return total
-    if opens[index + 1][1]:
-        return opens[index + 1][0]
-    return min(total, lines[index + 1][1] + _MARGIN_SECONDS)
-
-
-def _alignment_windows(
-    lyrics: str,
-    timing_hints: Sequence[Mapping[str, object]],
-    heard: list[tuple[str, float, float]],
-    whole: Sequence[AlignedWord],
-    samples: np.ndarray,
-) -> list[Window]:
-    words, total = lyrics.split(), len(samples) / _SAMPLE_RATE
-    if timing_hints:
-        hints = _shifted_hints(words, timing_hints, whole, heard)
-        onsets = vocal_onsets(samples, _SAMPLE_RATE, _HOP)
-        windows = _hint_windows(lyrics, hints, total, onsets)
-        if windows:
-            supported = _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK)
-            return unhinted_windows(
-                [
-                    phrase_window(
-                        window,
-                        recognized_phrase(
-                            window,
-                            words[window.first : window.last],
-                            heard,
-                            _MARGIN_SECONDS,
-                            allow_utterance=window.first - 1 in supported
-                            and window.last in supported,
-                        )[0],
-                        whole[window.first].start,
-                        supported.get(window.last - 1),
-                        _MARGIN_SECONDS,
-                    )
-                    for window in windows
-                ],
-                whole,
-                _MARGIN_SECONDS,
-            )
-    return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
-
-
-def _phrase_windows(
-    lyrics: str,
-    heard: list[tuple[str, float, float]],
-    total: float,
-    whole: Sequence[AlignedWord],
-) -> list[Window]:
-    if len(lyrics.splitlines()) < 2:
-        return []
-    phrases = performed_phrases(lyrics, [word for word, _, _ in heard], threading.Event())
-    lines = [line for line in lyrics.splitlines() if line.split()]
-    firsts = [0]
-    for line in lines:
-        firsts.append(firsts[-1] + len(line.split()))
-    heard_lines = [(text, heard[first][1], heard[last - 1][2]) for text, first, last in phrases]
-    matches = _matching_blocks(
-        lines,
-        [(_key(text), start, end) for text, start, end in heard_lines],
-        [whole[first] for first in firsts[:-1]],
-    )
-    expanded: list[tuple[str, float, float]] = []
-    blocks: list[difflib.Match] = []
-    for match in matches:
-        for offset in range(match.size):
-            text, start, end = heard_lines[match.b + offset]
-            words = text.split()
-            blocks.append(difflib.Match(firsts[match.a + offset], len(expanded), len(words)))
-            expanded.extend(
-                (
-                    _key(word),
-                    start + (end - start) * i / len(words),
-                    start + (end - start) * (i + 1) / len(words),
-                )
-                for i, word in enumerate(words)
-            )
-    if not blocks:
-        return []
-    _unique_anchors(lyrics.split(), heard, blocks, expanded)
-    return _windows(lyrics.split(), expanded, total, blocks=sorted(blocks, key=lambda b: b.a))
-
-
-def _unique_anchors(
-    words: list[str],
-    heard: list[tuple[str, float, float]],
-    blocks: list[difflib.Match],
-    expanded: list[tuple[str, float, float]],
-) -> None:
-    keys = [_key(word) for word in words]
-    counts, heard_counts = Counter(keys), Counter(word for word, _, _ in heard)
-    occupied = {block.a + i for block in blocks for i in range(block.size)}
-    positions = {word: index for index, (word, _, _) in enumerate(heard)}
-    for index, key in enumerate(keys):
-        if index not in occupied and counts[key] == heard_counts[key] == 1:
-            candidate = heard[positions[key]]
-            before = max(
-                (expanded[b.b + b.size - 1][1] for b in blocks if b.a + b.size <= index),
-                default=0.0,
-            )
-            after = min((expanded[b.b][2] for b in blocks if b.a > index), default=float("inf"))
-            # ASR may skip this occurrence: require the surrounding phrases even for unique spelling.
-            if before <= candidate[1] <= candidate[2] <= after:
-                blocks.append(difflib.Match(index, len(expanded), 1))
-                expanded.append(candidate)
-
-
 def align(
     vocal: Path,
     lyrics: str,
@@ -608,121 +339,159 @@ def align(
         views := list[list[HeardWord]](),
     )
     scores, step, heard = evidence() if reuse is None else evidence(reuse=reuse)
-    whole = align_words(scores, step, words)
     recognize = partial(_accelerated_guidance, audio, language, None, model_cache=[], reuse=reuse)
-    heard = recover_leading_words(lyrics, whole, heard, recognize)
-    windows = _alignment_windows(lyrics, timing_hints, heard, whole, audio)
-    windows, supported = contextual_guidance(
-        words,
-        windows,
-        whole,
-        _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK, windows=windows),
-        activity := singing_frames(audio, backing, _SAMPLE_RATE, _HOP),
-        recognize,
+    return _AlignmentPass(audio, backing, scores, step, words, lyrics, heard, views).run(
+        timing_hints, recognize
     )
-    positions = guidance_positions(
-        _heard_timings(words, heard, whole, windows=windows) | supported, windows
-    )
-    voiced = voiced_frames(audio, _SAMPLE_RATE, _HOP)
-    guide = partial(
-        with_word_guidance,
-        scores=scores,
-        frame_seconds=step,
-        windows=windows,
-        heard=supported,
-        voiced=voiced,
-        margin=_MARGIN_SECONDS,
-        recognized=heard,
-        onsets=vocal_onsets(audio, _SAMPLE_RATE, _HOP).tolist(),
-    )
-    guided = guide(
-        align_guided(
-            scores,
-            step,
-            words,
+
+
+@dataclass(slots=True)
+class _AlignmentPass:
+    audio: np.ndarray
+    backing: np.ndarray | None
+    scores: torch.Tensor
+    step: float
+    words: list[str]
+    lyrics: str
+    heard: list[HeardWord]
+    views: list[list[HeardWord]]
+
+    def run(
+        self,
+        timing_hints: Sequence[Mapping[str, object]],
+        recognize: partial[Mapping[str, object]],
+    ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
+        whole = align_words(self.scores, self.step, self.words)
+        self.heard = recover_leading_words(self.lyrics, whole, self.heard, recognize)
+        guided, guide, voiced, activity, supported = self._guide_alignment(
+            timing_hints, whole, recognize
+        )
+        return self._refine_alignment(supported, guided, guide, voiced, activity)
+
+    def _guide_alignment(
+        self,
+        timing_hints: Sequence[Mapping[str, object]],
+        whole: list[AlignedWord],
+        recognize: partial[Mapping[str, object]],
+    ) -> tuple[
+        list[AlignedWord],
+        partial[list[AlignedWord]],
+        np.ndarray,
+        np.ndarray,
+        dict[int, tuple[float, float]],
+    ]:
+        windows = _alignment_windows(self.lyrics, timing_hints, self.heard, whole, self.audio)
+        windows, supported = contextual_guidance(
+            self.words,
             windows,
-            positions,
-            voiced,
             whole,
-            anchors={index: interval[0] for index, interval in supported.items()},
+            _heard_timings(
+                self.words, self.heard, whole, minimum_block=_MINIMUM_BLOCK, windows=windows
+            ),
+            activity := singing_frames(self.audio, self.backing, _SAMPLE_RATE, _HOP),
+            recognize,
         )
-    )
-    acoustic = harmonic_evidence(audio, _SAMPLE_RATE, _HOP)
-    harmonics = acoustic if backing is not None else None
-    audible = audible_frames(audio, _HOP)
-    started = with_voice_onsets(guided, audio, voiced)
-    timed = ordered(
-        with_sung_ends(started, audio, backing, activity, harmonics, audible, acoustic[1])
-    )
-    intervals = independent_timings(words, [heard, *views], timed) | supported
-    reviewed = rate_review_indices(timed, lyrics, heard=intervals, activity=activity)
-    reviewed |= boundary_conflicts(guided)
-    recovered: frozenset[int] = frozenset()
-    if reviewed:
-        cores = guide(guided, heard=intervals, voiced=activity, reviewed=frozenset(reviewed))
-        if cores != guided:
-            adjusted = with_voice_onsets(cores, audio, voiced)
-            # Recalibrating one onset must not shift distant unchanged cores. Keep
-            # jointly accepted neighbours, then recompute the affected preceding ends.
-            local = [
-                _preserved_onset_letters(guided[i], cores[i], started[i], word)
-                if cores[i] != guided[i]
-                else started[i]
-                for i, word in enumerate(adjusted)
-            ]
-            repaired = ordered(
-                with_sung_ends(local, audio, backing, activity, harmonics, audible, acoustic[1])
+        positions = guidance_positions(
+            _heard_timings(self.words, self.heard, whole, windows=windows) | supported, windows
+        )
+        guided, guide, voiced = self._guided_words(windows, supported, whole, positions)
+        return guided, guide, voiced, activity, supported
+
+    def _guided_words(
+        self,
+        windows: Sequence[Window],
+        supported: dict[int, tuple[float, float]],
+        whole: list[AlignedWord],
+        positions: Mapping[int, float],
+    ) -> tuple[list[AlignedWord], partial[list[AlignedWord]], np.ndarray]:
+        voiced = voiced_frames(self.audio, _SAMPLE_RATE, _HOP)
+        guide = partial(
+            with_word_guidance,
+            scores=self.scores,
+            frame_seconds=self.step,
+            windows=windows,
+            heard=supported,
+            voiced=voiced,
+            margin=_MARGIN_SECONDS,
+            recognized=self.heard,
+            onsets=vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
+        )
+        guided = guide(
+            align_guided(
+                self.scores,
+                self.step,
+                self.words,
+                windows,
+                positions,
+                voiced,
+                whole,
+                anchors={index: interval[0] for index, interval in supported.items()},
             )
-            # Commit the accepted sequence together: restoring its old neighbour cuts it again.
-            recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
-            timed = repaired
-    timed = with_sung_letters(timed, scores, step, activity, intervals)
-    return alignment_payload(
-        timed,
-        independent_timings(words, [heard, *views], timed),
-        recovered=recovered,
-        reviewed=frozenset(rate_review_indices(timed, lyrics, heard=intervals, activity=activity)),
-    )
-
-
-def _preserved_onset_letters(
-    before: AlignedWord, core: AlignedWord, started: AlignedWord, adjusted: AlignedWord
-) -> AlignedWord:
-    """A cropped opening does not measure a new lag for unchanged interior CTC anchors."""
-    if "OnsetRecovered" not in core.diagnostics or before.end != core.end:
-        return adjusted
-    if len({len(word.letters) for word in (before, core, started, adjusted)}) != 1:
-        return adjusted
-    letters = list(adjusted.letters)
-    for index in range(1, len(letters)):
-        if (
-            before.letters[index] == core.letters[index]
-            and adjusted.start < started.letters[index] < adjusted.end
-        ):
-            letters[index] = started.letters[index]
-    if tuple(letters) == adjusted.letters:
-        return adjusted
-    flags = tuple(
-        dict.fromkeys(
-            (*adjusted.diagnostics, "ApproximateLetterTiming", "LetterTimingReviewRequired")
         )
-    )
-    if not _compatible_letter_anchors(letters, started.letters, adjusted.letters):
-        return replace(adjusted, diagnostics=flags)
-    return replace(adjusted, letters=tuple(letters), diagnostics=flags)
+        return guided, guide, voiced
 
+    def _refine_alignment(
+        self,
+        supported: dict[int, tuple[float, float]],
+        guided: list[AlignedWord],
+        guide: partial[list[AlignedWord]],
+        voiced: np.ndarray,
+        activity: np.ndarray,
+    ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
+        acoustic = harmonic_evidence(self.audio, _SAMPLE_RATE, _HOP)
+        harmonics = acoustic if self.backing is not None else None
+        audible = audible_frames(self.audio, _HOP)
+        started = with_voice_onsets(guided, self.audio, voiced)
 
-def _compatible_letter_anchors(
-    letters: Sequence[float], previous: Sequence[float], candidate: Sequence[float]
-) -> bool:
-    """Keep existing silent-character ties, but never create a crossing or a new tied run."""
-    for index, (first, second) in enumerate(zip(letters, letters[1:])):
-        if first > second:
-            return False
-        if (
-            is_tied_with(second, first)
-            and not is_tied_with(previous[index + 1], previous[index])
-            and not is_tied_with(candidate[index + 1], candidate[index])
-        ):
-            return False
-    return True
+        def sung_ends(values: list[AlignedWord]) -> list[AlignedWord]:
+            return with_sung_ends(
+                values, self.audio, self.backing, activity, harmonics, audible, acoustic[1]
+            )
+
+        timed = ordered(sung_ends(started))
+        intervals = independent_timings(self.words, [self.heard, *self.views], timed) | supported
+        reviewed = rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
+        reviewed |= boundary_conflicts(guided)
+        timed, recovered = self._recover_alignment(
+            guided, started, timed, reviewed, intervals, guide, activity, voiced, sung_ends
+        )
+        timed = with_sung_letters(timed, self.scores, self.step, activity, intervals)
+        return alignment_payload(
+            timed,
+            independent_timings(self.words, [self.heard, *self.views], timed),
+            recovered=recovered,
+            reviewed=frozenset(
+                rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
+            ),
+        )
+
+    def _recover_alignment(
+        self,
+        guided: list[AlignedWord],
+        started: list[AlignedWord],
+        timed: list[AlignedWord],
+        reviewed: set[int],
+        intervals: Mapping[int, tuple[float, float]],
+        guide: partial[list[AlignedWord]],
+        activity: np.ndarray,
+        voiced: np.ndarray,
+        sung_ends: Callable[[list[AlignedWord]], list[AlignedWord]],
+    ) -> tuple[list[AlignedWord], frozenset[int]]:
+        recovered: frozenset[int] = frozenset()
+        if reviewed:
+            cores = guide(guided, heard=intervals, voiced=activity, reviewed=frozenset(reviewed))
+            if cores != guided:
+                adjusted = with_voice_onsets(cores, self.audio, voiced)
+                # Recalibrating one onset must not shift distant unchanged cores. Keep
+                # jointly accepted neighbours, then recompute the affected preceding ends.
+                local = [
+                    _preserved_onset_letters(guided[i], cores[i], started[i], word)
+                    if cores[i] != guided[i]
+                    else started[i]
+                    for i, word in enumerate(adjusted)
+                ]
+                repaired = ordered(sung_ends(local))
+                # Commit the accepted sequence together: restoring its old neighbour cuts it again.
+                recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
+                timed = repaired
+        return timed, recovered

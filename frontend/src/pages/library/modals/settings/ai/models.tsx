@@ -19,8 +19,7 @@ import {
 } from '../../../../../api/api-service';
 import { useNotify } from '../../../../../providers/notifications';
 import { ask } from '../../../../../providers/dialog';
-import { useEffect } from 'react';
-import { refreshOnJobChanges } from '../../../../../services/backendEvents';
+import { backendPollInterval } from '../../../../../services/backendEvents';
 import ModelCard from './model-card';
 
 const Models = () => {
@@ -30,18 +29,10 @@ const Models = () => {
   const space = useQuery({
     queryKey: ['model-free-space'],
     queryFn: () => pythonClient.freeStorageBytes('models'),
-    refetchInterval: 5000,
+    refetchInterval: backendPollInterval(5000),
   });
   const onError = (error: unknown) =>
     notify(error instanceof Error ? error.message : String(error), 'error');
-  useEffect(
-    () =>
-      refreshOnJobChanges(() => {
-        void client.invalidateQueries({ queryKey: ['models'] });
-        void client.invalidateQueries({ queryKey: ['job', 'ModelDownload'] });
-      }, 500),
-    [client],
-  );
   const { data: models, error, refetch } = useQuery(modelsQuery);
   const refresh = () =>
     Promise.all([

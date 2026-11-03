@@ -43,8 +43,31 @@ interface Moment {
   noteId?: string;
 }
 
+type PaintContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+type PaintCanvas = HTMLCanvasElement | OffscreenCanvas;
+export type RollEngine = Pick<ShowEngine, 'state' | 'voiceHistory' | 'voicePoint' | 'onCommand'>;
+export interface RollLayout {
+  lane: { left: number; top: number; width: number; height: number };
+  page: { left: number; top: number };
+  ratio: number;
+  glow?: { width: number; height: number; radius: number[]; blur: number };
+}
+export interface RollFrame {
+  type: 'frame';
+  now: number;
+  layout?: RollLayout;
+  state: ShowEngine['state'];
+  history: ShowEngine['voiceHistory'];
+  resetHistory: boolean;
+  historyFrom: number;
+  view: (Omit<RollView, 'notes'> & { notes?: readonly ShowNote[] }) | undefined;
+  commands: FxCommand[];
+}
+const paintCanvas = (): PaintCanvas => typeof document === 'undefined'
+  ? new OffscreenCanvas(1, 1) : document.createElement('canvas');
+
 interface ContourTexture {
-  canvas: HTMLCanvasElement;
+  canvas: PaintCanvas;
   top: number;
 }
 
@@ -71,16 +94,28 @@ const traceHoldSeconds = 2.4;
  * twice per frame — blurred for bloom, then sharp — and never over the notes' own height, length or position.
  */
 export class RollFxRenderer {
-  private context: CanvasRenderingContext2D | null;
+  private context: PaintContext | null;
   // Bloom is made small: the light is drawn at a third of the size, blurred there (cheap) and stretched back.
-  private light: HTMLCanvasElement = document.createElement('canvas');
-  private lightContext: CanvasRenderingContext2D | null;
-  private bloom: HTMLCanvasElement = document.createElement('canvas');
-  private bloomContext: CanvasRenderingContext2D | null;
+  private light = paintCanvas();
+  private lightContext: PaintContext | null;
+  private bloom = paintCanvas();
+  private bloomContext: PaintContext | null;
+  private worker: Worker | undefined;
+  private workerAvailable = false;
+  private queued = false;
+  private sentVoice: ShowEngine['voiceHistory'][number] | undefined;
+  private sentNotes: readonly ShowNote[] | undefined;
+  private commands: FxCommand[] = [];
+  private ratio = 1;
+  private workerLayout: RollLayout | undefined;
+  private glowLayout: RollLayout['glow'];
+  private glowRoot: HTMLElement | undefined;
+  private glowContext: PaintContext | null = null;
+  private fallbackCanvas: HTMLCanvasElement | undefined;
   private frame = 0;
   private lane = { left: 0, top: 0, width: 0, height: 0 };
   private page = { left: 0, top: 0 };
-  private laneAt = 0;
+  private laneAt = -Infinity;
   private traces = new Map<string, Trace[]>();
   private sparkles: Moment[] = [];
   private glints: Moment[] = [];
@@ -95,15 +130,68 @@ export class RollFxRenderer {
   private contourSize = '';
 
   constructor(
-    private canvas: HTMLCanvasElement,
-    private engine: ShowEngine,
-    private frameElement: HTMLElement,
+    private canvas: PaintCanvas,
+    private engine: RollEngine,
+    private frameElement: HTMLElement | undefined,
     private view: { current: RollView | undefined },
+    private glowCanvas?: PaintCanvas,
+    createWorker?: () => Worker,
   ) {
-    this.context = canvas.getContext('2d');
+    this.context = null;
+    if (createWorker && frameElement && canvas instanceof HTMLCanvasElement && typeof Worker !== 'undefined' && canvas.transferControlToOffscreen) {
+      try {
+        const worker = createWorker();
+        this.worker = worker;
+        worker.onmessage = ({ data }) => {
+          if (this.worker !== worker) return;
+          if (data.type === 'failed') { this.restoreCanvas(); return; }
+          this.workerAvailable = true;
+          this.engine.voicePoint = data.voicePoint;
+          if (data.type === 'frame' && !this.glowRoot?.hasAttribute('data-show-roll-glow')) this.glowRoot?.setAttribute('data-show-roll-glow', '');
+          if (this.queued) { this.queued = false; this.draw(performance.now()); }
+        };
+        worker.onerror = () => { if (this.worker === worker) this.restoreCanvas(); };
+        const offscreen = canvas.transferControlToOffscreen();
+        this.glowRoot = frameElement.matches('.ad-melody-roll') ? frameElement : frameElement.querySelector<HTMLElement>('.ad-melody-roll') ?? undefined;
+        const glow = document.createElement('canvas');
+        glow.className = 'showRollGlow';
+        glow.setAttribute('aria-hidden', 'true');
+        this.glowRoot?.append(glow);
+        this.glowCanvas = glow;
+        const glowOffscreen = glow.transferControlToOffscreen();
+        worker.postMessage({ type: 'init', canvas: offscreen, glow: glowOffscreen }, [offscreen, glowOffscreen]);
+      } catch { this.restoreCanvas(); }
+    }
+    if (!this.worker) { this.context = this.canvas.getContext('2d'); this.glowContext = this.glowCanvas?.getContext('2d') ?? null; }
     this.lightContext = this.light.getContext('2d');
     this.bloomContext = this.bloom.getContext('2d');
-    this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
+    this.unsubscribe = engine.onCommand((command) => {
+      if (this.worker) this.commands.push(command);
+      else this.onCommand(command);
+    });
+  }
+
+  private restoreCanvas(): void {
+    this.worker?.terminate();
+    this.worker = undefined;
+    this.workerAvailable = false;
+    this.glowRoot?.removeAttribute('data-show-roll-glow');
+    if (this.glowCanvas instanceof HTMLCanvasElement) this.glowCanvas.remove();
+    this.glowCanvas = undefined;
+    if (this.canvas instanceof HTMLCanvasElement) {
+      const replacement = document.createElement('canvas');
+      replacement.className = this.canvas.className;
+      replacement.setAttribute('aria-hidden', 'true');
+      replacement.style.cssText = this.canvas.style.cssText;
+      this.canvas.after(replacement);
+      this.canvas.style.display = 'none';
+      this.canvas = replacement;
+      this.fallbackCanvas = replacement;
+      this.context = replacement.getContext('2d');
+      this.laneAt = -Infinity;
+    }
+    for (const command of this.commands) this.onCommand(command);
+    this.commands = [];
   }
 
   start(): void {
@@ -129,6 +217,10 @@ export class RollFxRenderer {
     this.unsubscribe();
     this.engine.voicePoint = undefined;
     this.contourTextures.clear();
+    this.worker?.terminate();
+    this.fallbackCanvas?.remove();
+    this.glowRoot?.removeAttribute('data-show-roll-glow');
+    if (typeof HTMLCanvasElement !== 'undefined' && this.glowCanvas instanceof HTMLCanvasElement) this.glowCanvas.remove();
   }
 
   private onCommand(command: FxCommand): void {
@@ -160,7 +252,7 @@ export class RollFxRenderer {
   }
 
   private measureLane(now: number): void {
-    if (now - this.laneAt < 250) return;
+    if (!this.frameElement || !(this.canvas instanceof HTMLCanvasElement) || now - this.laneAt < 250) return;
     this.laneAt = now;
     const lane = this.frameElement
       .querySelector('.ad-melody-roll-lane')
@@ -180,7 +272,29 @@ export class RollFxRenderer {
     style.width = `${this.lane.width + margin * 2}px`;
     style.height = `${this.lane.height + margin * 2}px`;
     style.clipPath = `inset(${margin}px)`;
-    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    if (this.glowRoot && this.glowCanvas instanceof HTMLCanvasElement) {
+      const style = getComputedStyle(this.glowRoot);
+      const blur = parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.6;
+      const width = this.glowRoot.offsetWidth, height = this.glowRoot.offsetHeight;
+      this.glowLayout = { width, height, blur, radius: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius].map(parseFloat) };
+      const pad = Math.ceil(blur * 2);
+      Object.assign(this.glowCanvas.style, { position: 'absolute', pointerEvents: 'none', zIndex: '-1', left: `${-pad}px`, top: `${-pad}px`, width: `${width + pad * 2}px`, height: `${height + pad * 2}px` });
+    }
+    this.resize({ lane: this.lane, page: this.page, glow: this.glowLayout, ratio: Math.min(2, window.devicePixelRatio || 1) });
+  }
+
+  resize({ lane, page, ratio, glow }: RollLayout): void {
+    this.glowLayout = glow;
+    this.lane = lane;
+    this.page = page;
+    this.ratio = ratio;
+    if (this.worker) { this.workerLayout = {lane, page, ratio, glow}; return; }
+    if (glow && this.glowCanvas) {
+      const pad = Math.ceil(glow.blur * 2);
+      const width = Math.round((glow.width + pad * 2) * ratio), height = Math.round((glow.height + pad * 2) * ratio);
+      if (this.glowCanvas.width !== width) this.glowCanvas.width = width;
+      if (this.glowCanvas.height !== height) this.glowCanvas.height = height;
+    }
     const width = Math.round((this.lane.width + margin * 2) * ratio);
     const height = Math.round((this.lane.height + margin * 2) * ratio);
     if (this.canvas.width !== width || this.canvas.height !== height) {
@@ -218,13 +332,35 @@ export class RollFxRenderer {
     };
   }
 
-  private draw(now: number): void {
+  draw(now: number): void {
+    this.measureLane(now);
+    if (this.worker) {
+      if (this.workerAvailable) {
+        this.workerAvailable = false;
+        const view = this.view.current;
+        const history = this.engine.voiceHistory;
+        const last = this.sentVoice ? history.indexOf(this.sentVoice) : -1;
+        const message: RollFrame = {
+          type: 'frame', now: performance.timeOrigin + now,
+          layout: this.workerLayout,
+          state: this.engine.state, history: history.slice(last + 1),
+          resetHistory: last < 0, historyFrom: history[0]?.position ?? Infinity,
+          view: view ? { ...view, notes: view.notes === this.sentNotes ? undefined : view.notes } : undefined, commands: this.commands,
+        };
+        this.commands = [];
+        this.workerLayout = undefined;
+        this.sentNotes = view?.notes;
+        this.sentVoice = history.at(-1);
+        this.worker.postMessage(message);
+      } else this.queued = true;
+      return;
+    }
+    this.drawGlow();
     const context = this.context;
     const small = this.lightContext;
     const blurred = this.bloomContext;
     const view = this.view.current;
     if (!context || !small || !blurred) return;
-    this.measureLane(now);
     const fullWidth = this.lane.width + margin * 2;
     const ratio = this.canvas.width / Math.max(1, fullWidth);
     context.setTransform(1, 0, 0, 1, 0, 0);
@@ -256,8 +392,33 @@ export class RollFxRenderer {
     context.globalCompositeOperation = 'source-over';
   }
 
+  private drawGlow(): void {
+    const context = this.glowContext, layout = this.glowLayout;
+    if (!context || !layout) return;
+    const { width, height, radius, blur } = layout;
+    const pad = Math.ceil(blur * 2), ratio = this.ratio;
+    const amount = Number(this.engine.state.ambient.rollGlow.toFixed(3));
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width + pad * 2, height + pad * 2);
+    if (amount <= 0) return;
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, width + pad * 2, height + pad * 2);
+    context.roundRect(pad, pad, width, height, radius);
+    context.clip('evenodd');
+    const offset = width + pad * 4;
+    context.shadowOffsetX = offset * ratio;
+    context.shadowBlur = blur * amount * ratio;
+    context.shadowColor = `rgb(255 46 138 / ${amount * 0.28})`;
+    context.fillStyle = '#000';
+    context.beginPath();
+    context.roundRect(pad - offset, pad, width, height, radius);
+    context.fill();
+    context.restore();
+  }
+
   private paint(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
     now: number,
@@ -273,7 +434,7 @@ export class RollFxRenderer {
 
   /** The fine reference contour is visible over the held-note capsules used for phrasing. */
   private drawTarget(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
   ): void {
@@ -309,7 +470,7 @@ export class RollFxRenderer {
           this.drawContour(context, note, geometry);
           continue;
         }
-        const canvas = document.createElement('canvas');
+        const canvas = paintCanvas();
         canvas.width = Math.max(1, Math.ceil(width * scale));
         canvas.height = Math.max(1, Math.ceil(height * scale));
         const brush = canvas.getContext('2d');
@@ -333,7 +494,7 @@ export class RollFxRenderer {
     }
   }
 
-  private drawContour(context: CanvasRenderingContext2D, note: ShowNote, geometry: Geometry): void {
+  private drawContour(context: PaintContext, note: ShowNote, geometry: Geometry): void {
       context.beginPath();
       let started = false;
       for (const [index, point] of (note.contour ?? []).entries()) {
@@ -377,7 +538,7 @@ export class RollFxRenderer {
     this.traces.set(live.note.id, trace);
   }
 
-  private drawHalo(context: CanvasRenderingContext2D, view: RollView): void {
+  private drawHalo(context: PaintContext, view: RollView): void {
     const glow = this.engine.state.ambient.rollGlow;
     const strength = glow * 0.22;
     if (strength < 0.01) return;
@@ -392,7 +553,7 @@ export class RollFxRenderer {
 
   /** A note about to reach the playhead is outlined softly, to help the singer prepare to enter it. */
   private drawUpcoming(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
   ): void {
@@ -416,7 +577,7 @@ export class RollFxRenderer {
 
   /** The voice's light on the notes: thick and white-hot where it was true, thin and pink where it drifted. */
   private drawTraces(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
   ): void {
@@ -452,7 +613,7 @@ export class RollFxRenderer {
   }
 
   private drawMoments(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
     now: number,
@@ -524,7 +685,7 @@ export class RollFxRenderer {
 
   /** A four-point star: hot core, soft glow and the two glare streaks of a bright light. */
   private star(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     x: number,
     y: number,
     size: number,
@@ -558,7 +719,7 @@ export class RollFxRenderer {
    * level of the show — visible progress makes the next reward feel within reach.
    */
   private drawVoice(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
     now: number,
@@ -651,7 +812,7 @@ export class RollFxRenderer {
   }
 
   private drawVoiceTrail(
-    context: CanvasRenderingContext2D,
+    context: PaintContext,
     view: RollView,
     geometry: Geometry,
   ): void {

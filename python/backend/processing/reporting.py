@@ -45,33 +45,44 @@ def rate_reviews(
     for index, word in enumerate(words):
         duration = max(word.end - word.start, 0.001)
         letters, syllables = _timing_load(word.text)
-        examples = repeated[_lyrics_key(word.text)]
-        reasons = [
-            reason
-            for reason, active in {
-                "BoundaryConflict": "BoundaryConflict" in word.diagnostics,
-                "OnsetReviewRequired": "OnsetReviewRequired" in word.diagnostics,
-                "TimingReviewRequired": "TimingReviewRequired" in word.diagnostics,
-                "CollapsedWord": letters > 0 and duration + 1e-9 < 0.005,
-                "HighWrittenRate": letters >= 5 and letters > 45 * duration + 1e-9,
-                "HighVowelGroupRate": syllables >= 2 and syllables > 15 * duration + 1e-9,
-                "ShortAgainstSameWord": letters >= 2
-                and len(examples) >= 3
-                and duration < 0.3
-                and median(examples) > 3 * duration + 1e-9,
-                "CollapsedLetterRun": sum(
-                    right - left + 1e-9 < 0.005
-                    for left, right in zip(word.letters, word.letters[1:])
-                )
-                >= 3,
-            }.items()
-            if active
-        ]
+        reasons = _word_rate_reasons(word, repeated[_lyrics_key(word.text)])
         if reasons:
             warnings[index, index + 1] = (
                 f"AlignmentRateReview:wordIndex={index};lettersPerSecond={letters / duration:.2f};"
                 f"vowelGroupsPerSecond={syllables / duration:.2f};reasons={','.join(reasons)}"
             )
+    warnings.update(_phrase_reviews(words, lyrics, bpm))
+    return warnings
+
+
+def _word_rate_reasons(word: WordTiming, examples: Sequence[float]) -> list[str]:
+    duration = max(word.end - word.start, 0.001)
+    letters, syllables = _timing_load(word.text)
+    return [
+        reason
+        for reason, active in {
+            "BoundaryConflict": "BoundaryConflict" in word.diagnostics,
+            "OnsetReviewRequired": "OnsetReviewRequired" in word.diagnostics,
+            "TimingReviewRequired": "TimingReviewRequired" in word.diagnostics,
+            "CollapsedWord": letters > 0 and duration + 1e-9 < 0.005,
+            "HighWrittenRate": letters >= 5 and letters > 45 * duration + 1e-9,
+            "HighVowelGroupRate": syllables >= 2 and syllables > 15 * duration + 1e-9,
+            "ShortAgainstSameWord": letters >= 2
+            and len(examples) >= 3
+            and duration < 0.3
+            and median(examples) > 3 * duration + 1e-9,
+            "CollapsedLetterRun": sum(
+                right - left + 1e-9 < 0.005 for left, right in zip(word.letters, word.letters[1:])
+            )
+            >= 3,
+        }.items()
+        if active
+    ]
+
+
+def _phrase_rates(
+    words: Sequence[WordTiming], lyrics: str
+) -> list[tuple[int, int, str, float, int]]:
     phrases: list[tuple[int, int, str, float, int]] = []
     first = 0
     for line in lyrics.splitlines():
@@ -87,6 +98,14 @@ def rate_reviews(
             rate = letters / max(span[-1].end - span[0].start, 0.001)
             phrases.append((first, last, _lyrics_key(line), rate, syllables))
         first = last
+    return phrases
+
+
+def _phrase_reviews(
+    words: Sequence[WordTiming], lyrics: str, bpm: float | None
+) -> dict[tuple[int, int], str]:
+    phrases = _phrase_rates(words, lyrics)
+    warnings: dict[tuple[int, int], str] = {}
     baseline = median(item[3] for item in phrases) if phrases else 0.0
     rates: dict[str, list[float]] = defaultdict(list)
     for _, _, key, rate, _ in phrases:

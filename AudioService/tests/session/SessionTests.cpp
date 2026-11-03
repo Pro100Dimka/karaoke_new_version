@@ -843,6 +843,10 @@ void captureDiagnosticsReportIndividualAsioChannels() {
     expect(snapshot.selectedInputChannel == 3 && snapshot.inputChannelRms[3] > 0.1F &&
                snapshot.inputChannelRms[0] < 0.001F,
            "capture diagnostics distinguish a real microphone on a later ASIO channel");
+    const auto level = fixture.service.handleLine("1|GetInputLevel").text;
+    const auto rms = level.find("rms=");
+    expect(rms != std::string::npos && std::abs(std::stof(level.substr(rms + 4)) - 0.4F) < 0.001F,
+           "microphone meter measures the selected voice without dilution by silent ASIO channels");
 }
 
 void asioMicrophoneDoesNotJumpBetweenNearlyEqualChannels() {
@@ -1131,6 +1135,32 @@ void clockBridgeCapacityUsesTheInputClock() {
                                runtime.inputSampleRateHz / runtime.outputSampleRateHz;
     expect(service.session().plan().clockBridgeCapacityFrames > requiredInput,
            "the capture queue must hold a render period converted to the actual input clock");
+}
+
+void independentCapturePacketJitterKeepsMicrophoneContinuous() {
+    FakeBackendSettings settings;
+    settings.runtime.inputPeriodFrames = settings.runtime.outputPeriodFrames = 133;
+    settings.runtime.inputSampleRateHz = settings.runtime.outputSampleRateHz = 44100;
+    settings.runtime.clockRelationship = ClockRelationship::Independent;
+    AudioService service(std::make_unique<FakeAudioBackend>(settings));
+    (void)service.session().prepare({});
+    const auto plan = service.session().plan();
+    ClockBridge bridge;
+    bridge.prepare(plan.clockBridgeCapacityFrames, plan.clockBridgeTargetFrames, 1, 44100);
+    std::vector<float> input(133, 0.25F), output(133);
+    (void)bridge.push(input, 133);
+    bool continuous = true;
+    for (unsigned block = 0; block < 20000; ++block) {
+        const bool late = block > 7000 && block % 200 == 0;
+        if (!late) (void)bridge.push(input, 133);
+        const auto frames = bridge.pull(output, 133, 1.000003);
+        if (block > 7000)
+            continuous = continuous && frames == 133 &&
+                std::all_of(output.begin(), output.end(), [](float value) { return std::abs(value - 0.25F) < 1.e-6F; });
+        if (late) (void)bridge.push(input, 133);
+    }
+    expect(continuous, "independent capture events may arrive after render without inserting silence into the voice");
+    expect(bridge.snapshot().droppedFrames == 0, "capture jitter must not discard recorded voice samples");
 }
 
 void sessionLifecycleIsExposedThroughIpc() {

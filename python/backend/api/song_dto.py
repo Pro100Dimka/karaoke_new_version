@@ -56,6 +56,7 @@ class UpdateSongDto(ApiModel):
     artist: str | None = Field(default=None, max_length=300)
     language: Language | None = None
     cover_path: str | None = Field(default=None, max_length=4096)
+    video_path: str | None = Field(default=None, max_length=4096)
 
 
 class StartProcessingDto(ApiModel):

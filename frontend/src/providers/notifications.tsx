@@ -14,6 +14,7 @@ import successUrl from '../assets/sounds/notice-success.ogg';
 import warningUrl from '../assets/sounds/notice-warning.ogg';
 import errorUrl from '../assets/sounds/notice-error.ogg';
 import invitationUrl from '../assets/sounds/notice-invitation.ogg';
+import { operationFailures } from '../shared/errors';
 
 export type NotificationIntent = 'info' | 'success' | 'warning' | 'error';
 type Notify = (
@@ -62,6 +63,7 @@ export const useErrorHandler = () => {
 export const NotificationsProvider = ({ children }: PropsWithChildren) => {
   const [container] = useState(() => document.createElement('div'));
   const [toast, setToast] = useState<Notification>();
+  const [failures, setFailures] = useState<string[]>([]);
   const notify = useCallback(
     (
       message: string,
@@ -73,7 +75,16 @@ export const NotificationsProvider = ({ children }: PropsWithChildren) => {
     },
     [],
   );
-  const visible = !!toast;
+  useLayoutEffect(
+    () =>
+      operationFailures.subscribe(({ operation }) => {
+        setFailures((current) =>
+          current.includes(operation) ? current : [...current, operation],
+        );
+      }),
+    [],
+  );
+  const visible = !!toast || failures.length > 0;
   useLayoutEffect(() => {
     if (!visible) return;
     const place = () => {
@@ -99,14 +110,16 @@ export const NotificationsProvider = ({ children }: PropsWithChildren) => {
   return (
     <Context value={notify}>
       {children}
-      {toast &&
+      {visible &&
         createPortal(
           <Toast
-            key={toast.id}
+            key={toast?.id ?? 'operation-failures'}
             floating
-            tone={toast.tone}
-            message={toast.message}
-            onClose={() => setToast(undefined)}
+            tone={toast?.tone ?? 'error'}
+            message={
+              toast?.message ?? failures.map((key) => tr(key)).join('\n')
+            }
+            onClose={() => (toast ? setToast(undefined) : setFailures([]))}
           />,
           container,
         )}

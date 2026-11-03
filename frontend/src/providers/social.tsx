@@ -1,3 +1,4 @@
+import { observeOperation } from '../shared/errors';
 import { tr } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { store } from './store';
@@ -68,13 +69,14 @@ export const SocialConnection = observer(() => {
 
   const roomId = room?.code ?? null;
   useEffect(() => {
-    void socialClient
-      .setPresence({
+    void observeOperation(
+      'errors.presence',
+      socialClient.setPresence({
         displayName: preferences.displayName,
         participantId,
         roomId,
-      })
-      .catch(() => undefined);
+      }),
+    ).catch(() => undefined);
   }, [preferences.displayName, roomId]);
 
   return <SocialAlerts inbox={inbox} />;

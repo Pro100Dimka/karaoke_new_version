@@ -1,102 +1,59 @@
 import { act, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioClient } from '../../services/audioClient';
+import type { PlaybackSnapshot } from '../../contracts/models';
 import { useEditorPreview } from './useEditorPreview';
 
-vi.mock('../../services/audioClient', () => ({
-  audioClient: {
-    play: vi.fn(),
-    pause: vi.fn(),
-    seek: vi.fn(),
-    snapshot: vi.fn(),
-  },
-}));
-
-describe('editor preview lifecycle', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.clearAllMocks();
-    vi.mocked(audioClient.play).mockResolvedValue({} as never);
-    vi.mocked(audioClient.pause).mockResolvedValue({} as never);
-    vi.mocked(audioClient.seek).mockResolvedValue({} as never);
-    vi.mocked(audioClient.snapshot).mockResolvedValue({
-      positionSeconds: 12.5,
-      state: 'playing',
-    } as never);
+vi.mock('../../services/audioClient', () => ({ audioClient: {
+  play:vi.fn(),pause:vi.fn(),seek:vi.fn(),observeSnapshots:vi.fn(),
+} }));
+let emit: (snapshot: PlaybackSnapshot) => void;
+let stop: ReturnType<typeof vi.fn<() => void>>;
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(audioClient.play).mockResolvedValue({} as never);
+  vi.mocked(audioClient.pause).mockResolvedValue({} as never);
+  vi.mocked(audioClient.seek).mockImplementation(async positionSeconds => ({positionSeconds} as PlaybackSnapshot));
+  vi.mocked(audioClient.observeSnapshots).mockImplementation(onValue => {
+    emit = onValue;
+    stop = vi.fn();
+    return stop;
   });
-  afterEach(() => vi.useRealTimers());
-
-  it('owns preview play, seek and authoritative position polling', async () => {
-    const failed = vi.fn();
-    const { result } = renderHook(() => useEditorPreview(true, failed));
-
+});
+describe('editor preview lifecycle', () => {
+  it('uses authoritative notifications for playback and the seek result for a seek', async () => {
+    const {result} = renderHook(() => useEditorPreview(true,vi.fn()));
     await act(() => result.current.togglePlay());
     expect(audioClient.play).toHaveBeenCalled();
-    expect(result.current.playing).toBe(true);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(100);
-    });
+    act(() => emit({positionSeconds:12.5,state:'playing'} as PlaybackSnapshot));
     expect(result.current.position).toBe(12.5);
-
     await act(() => result.current.seek(7));
     expect(audioClient.seek).toHaveBeenCalledWith(7);
     expect(result.current.position).toBe(7);
   });
-
-  it('starts playback after audio is replaced while the old preview was playing', async () => {
-    const { result, rerender } = renderHook(
-      ({ audioReady }) => useEditorPreview(audioReady, vi.fn()),
-      { initialProps: { audioReady: true } },
-    );
-    await act(async () => result.current.togglePlay());
-    expect(result.current.playing).toBe(true);
-
-    rerender({ audioReady: false });
+  it('releases the previous subscription when audio is replaced and can play again', async () => {
+    const failed = vi.fn();
+    const {result,rerender} = renderHook(({audioReady}) => useEditorPreview(audioReady,failed),{initialProps:{audioReady:true}});
+    await act(() => result.current.togglePlay());
+    const previousStop = stop;
+    rerender({audioReady:false});
     expect(result.current.playing).toBe(false);
-
-    rerender({ audioReady: true });
-    await act(async () => result.current.togglePlay());
+    expect(previousStop).toHaveBeenCalledOnce();
+    rerender({audioReady:true});
+    await act(() => result.current.togglePlay());
     expect(audioClient.play).toHaveBeenCalledTimes(2);
     expect(audioClient.pause).not.toHaveBeenCalled();
   });
-
-  it('polls only during playback, never queues overlapping requests, and ignores a reply after pause', async () => {
-    vi.useFakeTimers();
-    vi.mocked(audioClient.play).mockResolvedValue({} as never);
-    vi.mocked(audioClient.pause).mockResolvedValue({} as never);
-    let resolve!: (value: { positionSeconds: number; state: string }) => void;
-    vi.mocked(audioClient.snapshot).mockImplementation(
-      () =>
-        new Promise((done) => {
-          resolve = done as typeof resolve;
-        }),
-    );
-    const { result, unmount } = renderHook(() =>
-      useEditorPreview(true, vi.fn()),
-    );
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(audioClient.snapshot).not.toHaveBeenCalled();
-    await act(async () => {
-      await result.current.togglePlay();
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(audioClient.snapshot).toHaveBeenCalledTimes(1);
-    await act(async () => {
-      await result.current.togglePlay();
-    });
-    await act(async () => {
-      resolve({ positionSeconds: 8, state: 'playing' });
-    });
-    expect(result.current.position).toBe(0);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(audioClient.snapshot).toHaveBeenCalledTimes(1);
+  it('subscribes only during playback and unsubscribes on pause and unmount', async () => {
+    const {result,unmount} = renderHook(() => useEditorPreview(true,vi.fn()));
+    expect(audioClient.observeSnapshots).not.toHaveBeenCalled();
+    await act(() => result.current.togglePlay());
+    const firstStop = stop;
+    await act(() => result.current.togglePlay());
+    expect(firstStop).toHaveBeenCalledOnce();
+    await act(() => result.current.togglePlay());
+    const secondStop = stop;
     unmount();
+    expect(secondStop).toHaveBeenCalledOnce();
   });
 });

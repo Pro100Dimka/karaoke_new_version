@@ -5,7 +5,8 @@ import os
 import queue
 import threading
 from dataclasses import dataclass
-from typing import Callable, Mapping
+from typing import Callable, Mapping, Iterator
+from contextlib import contextmanager
 
 from backend.domain_errors import ConflictError
 
@@ -197,3 +198,14 @@ class ThreadConcurrentRunner:
         for outcome in outcomes:
             if outcome is not None:
                 raise outcome
+
+
+@contextmanager
+def job_failure(on_error: Callable[[], None], *, suppress: bool = False) -> Iterator[None]:
+    """Report unexpected callback failures at the owning background-work boundary."""
+    try:
+        yield
+    except Exception:
+        on_error()
+        if not suppress:
+            raise

@@ -26,12 +26,13 @@ struct RunningPipe {
             completion.set_exception(std::current_exception());
         }
     }};
-    HANDLE connect() {
+    HANDLE connect(std::string_view suffix = {}) {
+        const auto endpoint = name + std::string{suffix};
         const auto deadline = std::chrono::steady_clock::now() + 2s;
         do {
             const auto handle =
-                CreateFileA(name.c_str(), GENERIC_READ | GENERIC_WRITE | READ_CONTROL, 0, nullptr,
-                            OPEN_EXISTING, 0, nullptr);
+                CreateFileA(endpoint.c_str(), GENERIC_READ | GENERIC_WRITE | READ_CONTROL, 0,
+                            nullptr, OPEN_EXISTING, 0, nullptr);
             if (handle != INVALID_HANDLE_VALUE)
                 return handle;
             std::this_thread::sleep_for(1ms);
@@ -61,6 +62,58 @@ bool waitForReply(HANDLE client) {
 } // namespace
 #endif
 namespace Tests {
+void controlNotificationsPreserveCommandsAndReconnect() {
+#ifdef _WIN32
+    RunningPipe pipe;
+    for (unsigned connection = 0; connection < 2; ++connection) {
+        const auto client = pipe.connect(".events");
+        expect(client != INVALID_HANDLE_VALUE, "notification subscriber connects");
+        if (client == INVALID_HANDLE_VALUE)
+            return;
+        constexpr std::string_view request = "1|GetPlaybackSnapshot|intervalMs=16\n";
+        DWORD transferred = 0;
+        expect(WriteFile(client, request.data(), static_cast<DWORD>(request.size()), &transferred,
+                         nullptr) != FALSE,
+               "notification subscription is written once");
+        for (unsigned frame = 0; frame < 3; ++frame) {
+            expect(waitForReply(client), "snapshots arrive without another request");
+            std::array<char, 65536> response{};
+            DWORD read = 0;
+            if (!waitForReply(client))
+                break;
+            expect(ReadFile(client, response.data(), static_cast<DWORD>(response.size()), &read,
+                            nullptr) != FALSE &&
+                       read > 4,
+                   "notification is a bounded complete frame");
+            if (read <= 4)
+                break;
+            const auto* bytes = reinterpret_cast<const unsigned char*>(response.data());
+            const auto length = static_cast<std::uint32_t>(bytes[0]) |
+                                (static_cast<std::uint32_t>(bytes[1]) << 8) |
+                                (static_cast<std::uint32_t>(bytes[2]) << 16) |
+                                (static_cast<std::uint32_t>(bytes[3]) << 24);
+            expect(length == read - 4 && std::string_view{response.data() + 4, length}.find(
+                                             "PlaybackPositionFrames:") != std::string_view::npos,
+                   "length framing preserves the multiline native snapshot");
+        }
+        const auto commandClient = pipe.connect();
+        expect(commandClient != INVALID_HANDLE_VALUE, "notifications leave control available");
+        if (commandClient != INVALID_HANDLE_VALUE) {
+            constexpr std::string_view command = "1|GetClock\n";
+            expect(WriteFile(commandClient, command.data(), static_cast<DWORD>(command.size()),
+                             &transferred, nullptr) != FALSE &&
+                       waitForReply(commandClient),
+                   "a command finishes while notifications remain connected");
+            CloseHandle(commandClient);
+        }
+        CloseHandle(client);
+    }
+    pipe.server.stop();
+    expect(pipe.done.wait_for(300ms) == std::future_status::ready,
+           "stop cancels notification listeners without client cooperation");
+#endif
+}
+
 void controlPipeRestrictsItsAccessDescriptor() {
 #ifdef _WIN32
     RunningPipe pipe;

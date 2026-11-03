@@ -1,3 +1,7 @@
+import {
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import { ru } from '../../i18n/messages.ru';
 import { monitoringErrorText } from '../../shared/errors';
 import { useEffect, useRef, useState } from 'react';
@@ -71,7 +75,10 @@ export const RoomLinkCard = () => {
             monitoringWarningShown.current = false;
           }
         })
-        .catch(() => undefined);
+        .then(() => clearOperationFailure('errors.monitoringStatus'))
+        .catch((error: unknown) => {
+          if (active) reportOperationFailure('errors.monitoringStatus', error);
+        });
       history.current = [...history.current, report].slice(
         -(linkWindowReports + 1),
       );

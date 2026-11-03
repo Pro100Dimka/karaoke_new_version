@@ -55,13 +55,13 @@ export const EditorHeader = ({
       {slot ? createPortal(back, slot) : back}
       <Planet className="editorPlanet" />
       <div className="editorTitle">
-        <Typography variant="eyebrow" tone="accent">
-          {tr(ru.melodyEditor)}
-        </Typography>
-        <Typography as="h1" variant="h3" truncate>
+        <Typography as="h1" variant="body" truncate>
           {title}
         </Typography>
         <span className="editorRevision">
+          <Typography variant="caption" tone="accent">
+            {tr(ru.melodyEditor)}
+          </Typography>
           <Typography variant="caption" tone="muted">
             {tr(ru.editorRevision, { revision })}
           </Typography>
@@ -70,18 +70,21 @@ export const EditorHeader = ({
       </div>
       <Toolbar className="editorActions" aria-label={tr(ru.editorHistory)}>
         <IconButton
+          size="sm"
           icon="undo"
           label={tr(ru.undo)}
           disabled={!canUndo}
           onClick={onUndo}
         />
         <IconButton
+          size="sm"
           icon="redo"
           label={tr(ru.redo)}
           disabled={!canRedo}
           onClick={onRedo}
         />
         <Button
+          size="sm"
           variant="primary"
           icon="save"
           loading={saving}

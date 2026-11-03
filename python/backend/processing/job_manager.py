@@ -73,9 +73,19 @@ class ProcessingJobManager:
         with self._uow.create() as transaction:
             transaction.jobs.add(job)
             transaction.commit()
+        self._submit(job, work, on_finally, admit)
+        return job
+
+    def _submit(
+        self,
+        job: Job,
+        work: JobWork,
+        on_finally: Callable[[], None] | None,
+        admit: Callable[[threading.Event], None] | None,
+    ) -> None:
         with self._state_lock:
             submitted = False
-            self._active_job_types[job.job_id] = job_type
+            self._active_job_types[job.job_id] = job.job_type
             try:
                 self._publish(job)
                 self._executor.submit(
@@ -89,7 +99,6 @@ class ProcessingJobManager:
             finally:
                 if not submitted:
                     self._active_job_types.pop(job.job_id, None)
-        return job
 
     def get(self, job_id: str) -> Job:
         with self._uow.create() as transaction:

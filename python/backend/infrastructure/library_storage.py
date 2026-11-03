@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import Callable, Mapping, Sequence, cast
 
 from sqlalchemy import DateTime, Float, MetaData, Table, select
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, RowMapping
 
 from backend.analysis.domain import AnalysisState
 from backend.domain_errors import ConflictError
@@ -57,7 +57,11 @@ class SqlLibraryStorage:
     """Portable library rows and media, merged without replacing the recipient's data."""
 
     def __init__(
-        self, database: Database, roots: StorageRoots, storage: StorageSystem, margin: int,
+        self,
+        database: Database,
+        roots: StorageRoots,
+        storage: StorageSystem,
+        margin: int,
         journal: RecoveryJournal,
     ) -> None:
         self._database, self._roots = database, roots
@@ -79,28 +83,33 @@ class SqlLibraryStorage:
                 if "id" not in table.c:
                     continue
                 for record in connection.execute(select(table)).mappings().all():
-                    changes: LibraryRow = {}
-                    for field, value in record.items():
-                        if not isinstance(value, str):
-                            continue
-                        if field.endswith("_json"):
-                            try:
-                                parsed = loads_value(value)
-                            except ValueError:
-                                continue
-                            relocated = transform(parsed)
-                            if relocated != parsed:
-                                changes[field] = dumps(relocated)
-                        elif field.endswith("_path"):
-                            relocated = transform(value)
-                            if relocated != value:
-                                changes[field] = relocated
+                    changes = _relocation_changes(record, transform)
                     if changes:
-                        connection.execute(table.update().where(table.c.id == record["id"]).values(**changes))
+                        connection.execute(
+                            table.update().where(table.c.id == record["id"]).values(**changes)
+                        )
         rows = self._snapshot_rows(self.song_ids())
         for row in rows["songs"]:
             portable_component(str(row["song_id"]))
         sources = {row["song_id"]: row["source_path"] for row in rows["songs"]}
+        candidates = self._relocation_candidates(rows, sources)
+        rows["project_revisions"] = candidates
+        self._source_references(rows, self._roots.app)
+        with self._database.engine.begin() as connection:
+            table = _TABLES["project_revisions"]
+            for row in rows["project_revisions"]:
+                connection.execute(
+                    table.update()
+                    .where(table.c.id == row["id"])
+                    .values(fingerprint=row["fingerprint"])
+                )
+        return tuple((str(row["song_id"]), int(str(row["revision"]))) for row in candidates)
+
+    def _relocation_candidates(
+        self,
+        rows: LibraryRows,
+        sources: Mapping[object, object],
+    ) -> list[LibraryRow]:
         candidates: list[LibraryRow] = []
         for row in rows["project_revisions"]:
             revision = int(str(row["revision"]))
@@ -116,17 +125,18 @@ class SqlLibraryStorage:
             except ValueError:
                 logger.warning("Existing revision metadata is invalid; copied unchanged: %s", root)
                 continue
-            if any(item.relative_path.root or item.relative_path.drive or ".." in item.relative_path.parts for item in project.artifacts):
-                logger.warning("Existing revision has unsafe artifact paths; copied unchanged: %s", root)
+            if any(
+                item.relative_path.root
+                or item.relative_path.drive
+                or ".." in item.relative_path.parts
+                for item in project.artifacts
+            ):
+                logger.warning(
+                    "Existing revision has unsafe artifact paths; copied unchanged: %s", root
+                )
                 continue
             candidates.append(row)
-        rows["project_revisions"] = candidates
-        self._source_references(rows, self._roots.app)
-        with self._database.engine.begin() as connection:
-            table = _TABLES["project_revisions"]
-            for row in rows["project_revisions"]:
-                connection.execute(table.update().where(table.c.id == row["id"]).values(fingerprint=row["fingerprint"]))
-        return tuple((str(row["song_id"]), int(str(row["revision"]))) for row in candidates)
+        return candidates
 
     def song_ids(self) -> tuple[str, ...]:
         with self._database.engine.connect() as connection:
@@ -263,7 +273,8 @@ class SqlLibraryStorage:
         songs = {str(row["song_id"]) for row in rows["songs"]}
         recording_paths = [PurePosixPath(str(row["file_path"])) for row in rows["recordings"]]
         files = [
-            path for path in workspace.rglob("*")
+            path
+            for path in workspace.rglob("*")
             if path.is_file() and path != workspace / "library.json"
         ]
         for source in files:
@@ -329,7 +340,10 @@ class SqlLibraryStorage:
                 self._relocate_json(row, portable=False)
 
     def _publish_files(
-        self, selected: LibraryRows, workspace: Path, published: list[Path],
+        self,
+        selected: LibraryRows,
+        workspace: Path,
+        published: list[Path],
         entries: list[RecoveryEntry],
     ) -> None:
         groups = (
@@ -342,7 +356,9 @@ class SqlLibraryStorage:
                 source = workspace / folder / identity
                 target = ensure_within(self._roots.app / folder / identity, self._roots.app)
                 if target.exists():
-                    raise ConflictError("PackageConflict", "Library files already exist at the import target")
+                    raise ConflictError(
+                        "PackageConflict", "Library files already exist at the import target"
+                    )
                 if not source.is_dir():
                     raise ValueError("Library item directory is missing from the archive")
                 data: dict[str, object] = {key: identity}
@@ -455,3 +471,26 @@ def _validated_row(table: Table, row: object) -> LibraryRow:
         elif not isinstance(value, column.type.python_type):
             raise ValueError("Invalid library value type")
     return result
+
+
+def _relocation_changes(
+    record: RowMapping,
+    transform: Callable[[object], object],
+) -> LibraryRow:
+    changes: LibraryRow = {}
+    for field, value in record.items():
+        if not isinstance(value, str):
+            continue
+        if field.endswith("_json"):
+            try:
+                parsed = loads_value(value)
+            except ValueError:
+                continue
+            relocated = transform(parsed)
+            if relocated != parsed:
+                changes[field] = dumps(relocated)
+        elif field.endswith("_path"):
+            relocated = transform(value)
+            if relocated != value:
+                changes[field] = relocated
+    return changes

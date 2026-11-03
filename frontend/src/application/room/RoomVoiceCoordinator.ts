@@ -1,3 +1,8 @@
+import {
+  observeOperation,
+  reportOperationFailure,
+  clearOperationFailure,
+} from '../../shared/errors';
 import type {
   AudioServiceClient,
   RoomClient,
@@ -125,9 +130,15 @@ export class RoomVoiceCoordinator {
       void this.audio
         .roomTiming()
         .then((report) => {
-          if (active && this.scope.isCurrent()) listener(report);
+          if (active && this.scope.isCurrent()) {
+            clearOperationFailure('errors.roomTiming');
+            listener(report);
+          }
         })
-        .catch(() => undefined);
+        .catch((error: unknown) => {
+          if (active && this.scope.isCurrent())
+            reportOperationFailure('errors.roomTiming', error);
+        });
     };
     refresh();
     const timer = setInterval(refresh, 2000);
@@ -158,10 +169,17 @@ export class RoomVoiceCoordinator {
       if (levelPending || !this.scope.isCurrent()) return;
       const pending = Promise.all([this.audio.roomLevels(), room.voiceLevels()])
         .then(([local, remote]) => {
-          if (active && this.scope.isCurrent())
+          if (active && this.scope.isCurrent()) {
+            clearOperationFailure('errors.roomLevels');
             publishSpeakingLevels({ local: local.local, remote });
+          }
         })
-        .catch(() => undefined)
+        .catch((error: unknown) => {
+          if (active && this.scope.isCurrent()) {
+            publishSpeakingLevels({ local: 0, remote: {} });
+            reportOperationFailure('errors.roomLevels', error);
+          }
+        })
         .then(() => {
           if (levelPending === pending) levelPending = undefined;
         });
@@ -266,8 +284,10 @@ export class RoomVoiceCoordinator {
           lastMixMeasured = mixMeasured;
           lastRoute = report.voiceRoute;
           this.scope.setSnapshot(updated);
-        } catch {
-          // Later measurements retry with the last stable deadline.
+          clearOperationFailure('errors.roomTimingPublish');
+        } catch (error) {
+          if (active && this.scope.isCurrent())
+            reportOperationFailure('errors.roomTimingPublish', error);
         }
       })().finally(() => {
         if (timingPending === pending) timingPending = undefined;
@@ -332,7 +352,10 @@ export class RoomVoiceCoordinator {
       this.registered.add(id);
     }
     for (const id of change.remove) {
-      await this.audio.removeRemoteParticipant(id).catch(() => undefined);
+      await observeOperation(
+        'errors.roomParticipant',
+        this.audio.removeRemoteParticipant(id),
+      ).catch(() => undefined);
       if (!current()) return;
       this.registered.delete(id);
     }
@@ -342,7 +365,10 @@ export class RoomVoiceCoordinator {
     this.stopPolling?.();
     this.timingSubscriptions.forEach((cancel) => cancel());
     if (!this.audio.microphoneEnabled())
-      void this.audio.setMicrophoneEnabled(true).catch(() => undefined);
+      void observeOperation(
+        'errors.microphone',
+        this.audio.setMicrophoneEnabled(true),
+      ).catch(() => undefined);
     this.calibrationCancels.forEach((cancel) => cancel());
     this.calibrationCancels.clear();
     this.registered.clear();

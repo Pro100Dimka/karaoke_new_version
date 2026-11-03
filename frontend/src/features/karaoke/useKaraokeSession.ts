@@ -1,3 +1,5 @@
+import { observeOperation } from '../../shared/errors';
+import { observable, runInAction } from 'mobx';
 import { openSettings } from '../../pages/library/modals/settings';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { ru } from '../../i18n/messages.ru';
@@ -75,10 +77,26 @@ export const useKaraokeSession = (
   const [state, dispatch] = useReducer(reduceKaraoke, {
     kind: 'preparing',
   } as KaraokeState);
-  const [position, setPosition] = useState(0);
-  const [pitchHz, setPitchHz] = useState<number | undefined>();
-  const [pitchFrames, setPitchFrames] =
-    useState<PlaybackSnapshot['pitchFrames']>();
+  // Display consumers subscribe locally; audio lifecycle stays with this session.
+  const [playback] = useState(() =>
+    observable.object<
+      Pick<PlaybackSnapshot, 'pitchHz' | 'pitchFrames'> & { position: number }
+    >(
+      { position: 0, pitchHz: undefined, pitchFrames: undefined },
+      {},
+      { deep: false },
+    ),
+  );
+  const setPosition = useCallback(
+    (value: number | ((previous: number) => number)) => {
+      runInAction(() => {
+        playback.position =
+          typeof value === 'function' ? value(playback.position) : value;
+      });
+    },
+    [playback],
+  );
+  const readPosition = useCallback(() => playback.position, [playback]);
   const [speed, setSpeed] = useState(1);
   const [keyShift, setKeyShift] = useState(0);
   const [monitoring, setMonitoring] = useState(false);
@@ -248,14 +266,16 @@ export const useKaraokeSession = (
       if (stateRef.current.kind === 'playing')
         recordingCoordinator.observePosition(seconds);
     },
-    [recordingCoordinator],
+    [recordingCoordinator, setPosition],
   );
   const monitoringWarningShown = useRef(false);
   const onAudioSnapshot = useCallback(
     (snapshot: PlaybackSnapshot) => {
       if (stateRef.current.kind === 'playing') {
-        setPitchHz(snapshot.pitchHz);
-        setPitchFrames(snapshot.pitchFrames);
+        runInAction(() => {
+          playback.pitchHz = snapshot.pitchHz;
+          playback.pitchFrames = snapshot.pitchFrames;
+        });
       }
       setMonitoring(snapshot.monitoring);
       if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
@@ -265,7 +285,7 @@ export const useKaraokeSession = (
         monitoringWarningShown.current = false;
       }
     },
-    [notify, locale],
+    [notify, locale, playback],
   );
   const onLost = useCallback(() => {
     if (['playing', 'paused'].includes(stateRef.current.kind)) {
@@ -314,7 +334,7 @@ export const useKaraokeSession = (
   useKeyboardLighting(
     preferences.keyboardLighting,
     preferences.theme,
-    position,
+    readPosition,
     state.kind === 'playing',
   );
 
@@ -525,15 +545,19 @@ export const useKaraokeSession = (
   // Solo and room pauses both land here: the take pauses with the song and resumes where the song resumes.
   useEffect(() => {
     if (state.kind === 'paused')
-      void recordingCoordinator.pause().catch(() => undefined);
+      void observeOperation(
+        'errors.recordingPause',
+        recordingCoordinator.pause(),
+      ).catch(() => undefined);
     if (state.kind === 'playing') {
-      void recordingCoordinator
-        .resume({
+      void observeOperation(
+        'errors.recordingResume',
+        recordingCoordinator.resume({
           sourceSeconds: positionRef.current,
           playbackRate: speedRef.current,
           keyShift: keyRef.current,
-        })
-        .catch(() => undefined);
+        }),
+      ).catch(() => undefined);
     }
   }, [state.kind]);
 
@@ -558,9 +582,15 @@ export const useKaraokeSession = (
   return {
     load,
     state,
-    position,
-    pitchHz,
-    pitchFrames,
+    get position() {
+      return playback.position;
+    },
+    get pitchHz() {
+      return playback.pitchHz;
+    },
+    get pitchFrames() {
+      return playback.pitchFrames;
+    },
     document,
     songPrefs,
     capabilities,

@@ -1,8 +1,8 @@
-/* Melody editor layout: banner, transport and tools on top, the piano roll fills the rest. */
+/* Compact editor controls share one surface; the roll takes the remaining height. */
 .editorPage {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--ad-space-3, 0.75rem);
   box-sizing: border-box;
   height: 100%;
@@ -16,20 +16,31 @@
   justify-items: center;
 }
 
+.editorControls {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: 'header header' 'tools transport';
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgb(from var(--ad-primary) r g b / 0.25);
+  border-radius: var(--ad-radius-lg, 1rem);
+  background: var(--ad-neutral-950);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+
 .editorHeader {
+  grid-area: header;
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--ad-space-4, 1rem);
+  gap: 1rem;
   overflow: hidden;
-  min-height: clamp(4.5rem, 12dvh, 6.5rem);
-  padding: var(--ad-space-3, 0.75rem) clamp(1rem, 3vw, 2rem);
-  border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.25);
-  border-radius: var(--ad-radius-lg, 1rem);
-  background: var(--ad-neutral-950);
+  min-width: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: inherit;
+  border-bottom: 1px solid rgb(from var(--ad-primary) r g b / 0.15);
 }
 
-/* The planet glows behind the title like a horizon; the text keeps its own contrast over it. */
 .editorPlanet {
   position: absolute;
   inset: 0;
@@ -52,53 +63,109 @@
 
 .editorTitle {
   display: grid;
-  gap: 0.15rem;
-  flex: 1 1 14rem;
+  gap: 0.125rem;
+  flex: 1;
   min-width: 0;
 }
 
-.editorRevision {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--ad-space-2, 0.5rem);
+.editorTitle h1 {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.25;
 }
 
+.editorRevision,
 .editorActions,
 .editorTools,
 .editorZoom {
   display: flex;
   align-items: center;
-  gap: var(--ad-space-2, 0.5rem);
+  gap: 0.375rem;
 }
 
-.editorTransport {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--ad-space-3, 0.75rem);
-  padding: var(--ad-space-2, 0.5rem) var(--ad-space-4, 1rem);
-  border: 0.0625rem solid rgb(from var(--ad-primary) r g b / 0.2);
-  border-radius: var(--ad-radius-lg, 1rem);
-  background: var(--ad-neutral-900);
+.editorRevision {
+  flex-wrap: wrap;
+  column-gap: 0.75rem;
+}
+
+.editorActions,
+.editorTools {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.editorActions {
+  flex-shrink: 0;
+  padding: 0;
 }
 
 .editorTools {
+  grid-area: tools;
   flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+}
+
+.editorZoom {
+  padding-inline: 0.375rem;
+  border-inline: 1px solid rgb(from var(--ad-primary) r g b / 0.18);
+}
+
+.editorZoom > .ad-typography {
+  min-width: 3ch;
+  text-align: center;
+}
+
+.editorTransport {
+  grid-area: transport;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+  padding: 0.5rem 0.875rem;
+  border-left: 1px solid rgb(from var(--ad-primary) r g b / 0.15);
+}
+
+.editorTransport .ad-waveform {
+  height: 2.5rem;
+  min-height: 0;
 }
 
 .editorHint {
-  flex: 1;
-  min-width: 12rem;
+  display: block;
+  max-width: min(26rem, calc(100vw - 3rem));
+  line-height: 1.6;
+  white-space: normal;
 }
 
 .editorRoll {
   min-height: 0;
 }
 
+@media (max-width: 68rem) {
+  .editorControls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'header' 'transport' 'tools';
+  }
+
+  .editorTransport {
+    border-left: 0;
+  }
+
+  .editorTools {
+    padding-top: 0;
+  }
+}
+
 @media (max-width: 40rem) {
   .editorHeader {
     flex-wrap: wrap;
+  }
+
+  .editorTitle {
+    flex-basis: 100%;
   }
 
   .editorTransport {

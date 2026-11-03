@@ -18,7 +18,9 @@ class DeleteRecording:
                 return
             raise NotFoundError("RecordingNotFound", "Recording was not found")
         if recording.file_status == "Preparing":
-            raise ConflictError("RecordingPreparing", "Wait for recording preparation before deletion")
+            raise ConflictError(
+                "RecordingPreparing", "Wait for recording preparation before deletion"
+            )
         quarantine = self._storage.quarantine(recording_id, recording.file_path)
         committed = False
         try:

@@ -1,4 +1,5 @@
 import { Card, IconButton, tr, useLocale } from '@neo-ui-kit/react';
+import { Observer } from 'mobx-react-lite';
 import { useCallback, useMemo, useState } from 'react';
 import {
   readText,
@@ -177,23 +178,31 @@ export const KaraokeConsole = ({
         <Card border shell padding="sm" className="karaokeConsoleCard">
           {dockButtons}
           <div className="consoleTopRow">
-            <SongStrip
-              song={song}
-              position={shown ? session.position : 0}
-              duration={song.durationSeconds}
-              locked={seekLocked}
-              playing={shown && state.kind === 'playing'}
-              onSeek={session.seek}
-            />
-            <Transport
-              state={state}
-              position={session.position}
-              duration={song.durationSeconds}
-              seekLocked={seekLocked}
-              onSeek={session.seek}
-              onTogglePlay={session.togglePlay}
-              onStop={session.finishPerformance}
-            />
+            <Observer>
+              {() => (
+                <SongStrip
+                  song={song}
+                  position={shown ? session.position : 0}
+                  duration={song.durationSeconds}
+                  locked={seekLocked}
+                  playing={shown && state.kind === 'playing'}
+                  onSeek={session.seek}
+                />
+              )}
+            </Observer>
+            <Observer>
+              {() => (
+                <Transport
+                  state={state}
+                  position={session.position}
+                  duration={song.durationSeconds}
+                  seekLocked={seekLocked}
+                  onSeek={session.seek}
+                  onTogglePlay={session.togglePlay}
+                  onStop={session.finishPerformance}
+                />
+              )}
+            </Observer>
             <DetachButton panel={panel} size="xs" />
             <MasterVolume
               value={session.gains.master}

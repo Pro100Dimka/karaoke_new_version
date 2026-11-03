@@ -31,7 +31,6 @@ export type SettingsFormValues = Pick<
   };
   profile: typeof store.profile & { canChangePhoto: boolean };
   audioStatus: ReturnType<typeof useAudioSettings>['audio'] & {
-    inputLevel: number;
     canToggle: boolean;
     ready: boolean;
   };

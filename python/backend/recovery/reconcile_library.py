@@ -32,7 +32,7 @@ class ReconcileLibrary:
     def execute(self, *, workers: int = 1) -> tuple[ReconciliationIssue, ...]:
         database_songs = self._all_songs()
         known_ids = {song.song_id for song in database_songs}
-        with (ThreadPoolExecutor(max_workers=workers) if workers > 1 else nullcontext()) as pool:
+        with ThreadPoolExecutor(max_workers=workers) if workers > 1 else nullcontext() as pool:
             results = (pool.map if pool else map)(self._song_issues, database_songs)
             issues = [issue for result in results for issue in result]
         for song_id in self._catalog.song_ids():

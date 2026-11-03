@@ -103,12 +103,14 @@ interface PracticeParametersProps {
 }
 
 /** The tempo in BPM, applied when typing ends (Enter or leaving the field), kept within the playable speeds. */
-const TempoField = ({
+export const TempoField = ({
+  label,
   baseBpm,
   tempoBpm,
   locked,
   onChange,
 }: {
+  label?: string;
   baseBpm: number | null;
   tempoBpm: number | null;
   locked: boolean;
@@ -138,8 +140,9 @@ const TempoField = ({
 
   return (
     <NumberField
-      size="xs"
-      className="tempoField"
+      label={label}
+      size={label ? undefined : 'xs'}
+      className={label ? undefined : 'tempoField'}
       aria-label={tr(ru.practiceSpeed)}
       controls={false}
       value={draft}
@@ -156,7 +159,10 @@ const TempoField = ({
       onValueChange={setDraft}
       onBlur={commit}
       onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
       }}
     />
   );

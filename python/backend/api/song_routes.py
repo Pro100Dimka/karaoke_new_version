@@ -160,6 +160,7 @@ def update_song(song_id: str, body: UpdateSongDto, request: Request, app: Contai
         artist=body.artist,
         language=body.language,
         cover_path=Path(body.cover_path) if body.cover_path else None,
+        video_path=Path(body.video_path) if body.video_path else None,
     )
     return _song_dto(app.songs.update_song.execute(song_id, command), request)
 

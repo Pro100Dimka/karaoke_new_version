@@ -1,3 +1,4 @@
+import { observeOperation } from '../shared/errors';
 import { observer } from 'mobx-react-lite';
 import { store } from '../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
@@ -18,13 +19,13 @@ export const StartupRecovery = observer(() => {
   useEffect(() => {
     if (python.kind !== 'ready' || done.current) return;
     done.current = true;
-    void pythonClient
-      .listJobs()
-      .then((jobs) => {
+    void observeOperation(
+      'errors.recovery',
+      pythonClient.listJobs().then((jobs) => {
         if (jobs.some((job) => job.state === 'interrupted'))
           notify(tr(ru.recoveryInterruptedJobs), 'warning');
-      })
-      .catch(() => undefined);
+      }),
+    ).catch(() => undefined);
     if (hasEditorDraft()) notify(tr(ru.recoveryEditorDraft), 'warning');
   }, [python.kind, notify, locale]);
 

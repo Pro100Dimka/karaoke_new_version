@@ -1,3 +1,4 @@
+import { observeOperation } from '../../../shared/errors';
 import { store } from '../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect } from 'react';
@@ -71,18 +72,19 @@ export const useRoomLibrary = ({
   const canChangeView = !room || canControlRoom(room);
 
   const publishView = (query: string, filters: LibraryFilters) => {
-    if (!room || !canControlRoom(room)) return;
-    void commands
-      ?.publishSharedState({
+    if (!room || !commands || !canControlRoom(room)) return;
+    void observeOperation(
+      'errors.roomLibrary',
+      commands.publishSharedState({
         ...sharedStateOf(room),
         libraryQuery: query,
         ...encodeSharedLibraryView(filters),
-      })
-      .catch(() => undefined);
+      }),
+    ).catch(() => undefined);
   };
 
   const selectSong = async (song: SongDto): Promise<void> => {
-    if (!room || !canControlRoom(room)) return;
+    if (!room || !commands || !canControlRoom(room)) return;
     try {
       await commands?.selectSong(song.id, song.activeRevision);
     } catch (error) {

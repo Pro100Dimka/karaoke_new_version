@@ -34,7 +34,6 @@ const AudioPanel = observer(() => {
       },
       audioStatus: {
         ...audio.audio,
-        inputLevel: monitoring.inputLevel,
         canToggle: monitoring.canToggle,
         ready: audio.ready,
       },
@@ -116,7 +115,11 @@ const AudioPanel = observer(() => {
   return (
     <Form form={form}>
       <FormCards
-        blocks={blocks(form.values, () => setDiagnostics(true))}
+        blocks={blocks(
+          form.values,
+          () => setDiagnostics(true),
+          monitoring.inputLevel,
+        )}
         level={4}
       >
         {status.ready && !status.audioAvailable && (

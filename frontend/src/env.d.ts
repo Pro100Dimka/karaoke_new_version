@@ -97,6 +97,10 @@ interface DesktopApi {
     listener: (progress: RoomProjectTransferProgress) => void,
   ): () => void;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
+  onAudioNotification(
+    command: string, intervalMs: number,
+    listener: (value: (AudioBridgeResponse & { observedAt: number }) | null) => void,
+  ): () => void;
   waveformPeaks(
     songId: string,
     revision: number,

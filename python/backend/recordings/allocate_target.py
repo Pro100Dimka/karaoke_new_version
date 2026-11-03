@@ -16,13 +16,24 @@ class RecordingTarget:
 
 
 def allocate_recording_target(
-    storage: RecordingStorage, ids: IdGenerator,
-    song_id: str | None = None, song_revision: int | None = None,
+    storage: RecordingStorage,
+    ids: IdGenerator,
+    song_id: str | None = None,
+    song_revision: int | None = None,
 ) -> RecordingTarget:
     recording_id = ids.new()
     path = storage.allocate_target(recording_id, ".wav")
-    storage.write_recovery_descriptor(Recording(
-        recording_id, path, 0.0, 0, 0, datetime.now(timezone.utc), song_id, song_revision,
-        file_status="RecoveredIncomplete",
-    ))
+    storage.write_recovery_descriptor(
+        Recording(
+            recording_id,
+            path,
+            0.0,
+            0,
+            0,
+            datetime.now(timezone.utc),
+            song_id,
+            song_revision,
+            file_status="RecoveredIncomplete",
+        )
+    )
     return RecordingTarget(recording_id, path)

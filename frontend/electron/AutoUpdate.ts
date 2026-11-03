@@ -167,34 +167,92 @@ export const fetchInstaller = async (
       } catch {
         // Removed at a later update.
       }
-  const download = await fetchImpl(installer.url, {
-    signal: AbortSignal.timeout(60 * 60_000),
-  });
-  if (!download.ok || !download.body) return null;
-  const hash = createHash('sha256');
-  let size = 0;
+  const partial = `${file}.part`;
   let shown = -1;
-  await pipeline(
-    Readable.fromWeb(download.body as import('node:stream/web').ReadableStream),
-    async function* (chunks: AsyncIterable<Buffer>) {
-      for await (const chunk of chunks) {
-        hash.update(chunk);
-        size += chunk.length;
-        const percent = Math.min(
-          100,
-          Math.floor((size * 100) / installer.size),
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    let size = fs.existsSync(partial) ? fs.statSync(partial).size : 0;
+    if (size === installer.size) break;
+    if (size > installer.size) {
+      fs.rmSync(partial);
+      size = 0;
+    }
+    if (attempt)
+      await new Promise((resolve) =>
+        setTimeout(resolve, 1000 * 2 ** (attempt - 1)),
+      );
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    try {
+      const download = await fetchImpl(installer.url, {
+        headers: {
+          'Accept-Encoding': 'identity',
+          ...(size ? { Range: `bytes=${size}-` } : {}),
+        },
+        signal: controller.signal,
+      });
+      if ([408, 429].includes(download.status) || download.status >= 500)
+        throw new Error(`Update server returned ${download.status}`);
+      if (!download.body || ![200, 206].includes(download.status)) return null;
+      if (download.status === 206) {
+        const range = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(
+          download.headers.get('content-range') ?? '',
         );
-        if (percent !== shown) onPercent((shown = percent));
-        yield chunk;
+        if (
+          !range ||
+          Number(range[1]) !== size ||
+          Number(range[3]) !== installer.size ||
+          Number(range[2]) < size ||
+          Number(range[2]) >= installer.size
+        )
+          return null;
+      } else {
+        // A server may ignore Range. Its full response must replace, not append to, the prefix.
+        size = 0;
       }
-    },
-    fs.createWriteStream(`${file}.part`),
-  );
-  if (size !== installer.size || hash.digest('hex') !== expected) {
-    fs.rmSync(`${file}.part`, { force: true });
+      await pipeline(
+        Readable.fromWeb(
+          download.body as import('node:stream/web').ReadableStream,
+        ),
+        async function* (chunks: AsyncIterable<Buffer>) {
+          for await (const chunk of chunks) {
+            if (chunk.length) timeout.refresh();
+            size += chunk.length;
+            if (size > installer.size)
+              throw new Error('Update exceeds the expected size');
+            const percent = Math.min(
+              99,
+              Math.floor((size * 100) / installer.size),
+            );
+            if (percent !== shown) onPercent((shown = percent));
+            yield chunk;
+          }
+        },
+        fs.createWriteStream(partial, { flags: size ? 'a' : 'w' }),
+        { signal: controller.signal },
+      );
+    } catch (error) {
+      if (
+        attempt === 4 ||
+        ['ENOSPC', 'EACCES', 'EPERM', 'EROFS'].includes(
+          (error as NodeJS.ErrnoException).code ?? '',
+        )
+      )
+        throw error;
+    } finally {
+      clearTimeout(timeout);
+      controller.abort();
+    }
+  }
+  if (!fs.existsSync(partial) || fs.statSync(partial).size !== installer.size)
+    return null;
+  const hash = createHash('sha256');
+  for await (const chunk of fs.createReadStream(partial)) hash.update(chunk);
+  if (hash.digest('hex') !== expected) {
+    fs.rmSync(partial, { force: true });
     return null;
   }
-  fs.renameSync(`${file}.part`, file);
+  fs.renameSync(partial, file);
+  onPercent(100);
   return file;
 };
 

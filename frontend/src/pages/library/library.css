@@ -54,9 +54,51 @@
   gap: var(--ad-space-2);
 }
 
-.songSettingsCover {
-  inline-size: min(100%, 18rem);
-  max-block-size: 15rem;
-  object-fit: contain;
+.songSettingsMediaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ad-space-4);
+}
+.songSettingsMedia {
+  display: grid;
+  gap: var(--ad-space-3);
+  min-inline-size: 0;
+  padding: var(--ad-space-4);
+  border: 1px solid rgb(255 255 255 / 0.1);
+  border-radius: var(--ad-radius-lg, 1rem);
+  background: rgb(0 0 0 / 0.16);
+}
+.songSettingsMediaHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ad-space-2);
+}
+.songSettingsMediaHeader h3 {
+  margin: 0;
+}
+.songSettingsMediaPreview {
+  display: grid;
+  place-items: center;
+  height: 12rem;
+  overflow: hidden;
   border-radius: var(--ad-radius);
+  background: rgb(0 0 0 / 0.2);
+}
+.songSettingsMediaPreview img,
+.songSettingsMediaPreview video {
+  width: 100%;
+  height: 100%;
+  max-height: 12rem;
+  object-fit: contain;
+}
+.songSettingsMediaName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .songSettingsMediaGrid {
+    grid-template-columns: 1fr;
+  }
 }

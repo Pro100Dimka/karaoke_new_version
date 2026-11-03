@@ -5,6 +5,7 @@ import pytest
 
 from backend.ai.domain import PitchPoint, WordTiming
 from backend.ai_worker import ctc
+from backend.ai_worker.timing import voiced_frames
 from backend.processing.algorithms import MusicMetadata, construct_document
 
 
@@ -18,7 +19,7 @@ def _case(seam: float = 2.0, *, pause: bool = False):
         ctc.AlignedWord("я", 1.0, 1.2, (1.0,), 0.9),
         ctc.AlignedWord("один", seam, 2.5, (seam, 2.1, 2.3, 2.4), 0.9),
     ]
-    return words, samples, ctc.voiced_frames(samples, rate, 160)
+    return words, samples, voiced_frames(samples, rate, 160)
 
 
 @pytest.mark.parametrize("seam", [2.0, 2.005])

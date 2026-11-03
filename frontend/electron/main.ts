@@ -142,7 +142,15 @@ const readAutoUpdate = (): boolean => {
         }
       ).automatic !== false
     );
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error('Cannot read update settings', error);
+      shell.send({
+        type: 'operationFailure',
+        operation: 'errors.updateSettingsRead',
+        failed: true,
+      });
+    }
     return true;
   }
 };
@@ -150,14 +158,24 @@ let savedAutoUpdate: boolean | undefined;
 shell.onStatus((next) => {
   savedAutoUpdate ??= readAutoUpdate();
   if (next.autoUpdate === savedAutoUpdate) return;
-  savedAutoUpdate = next.autoUpdate;
   try {
     fs.writeFileSync(
       updateSettingsFile(),
       JSON.stringify({ automatic: next.autoUpdate }),
     );
-  } catch {
-    // Only the next start's choice depends on it.
+    savedAutoUpdate = next.autoUpdate;
+    shell.send({
+      type: 'operationFailure',
+      operation: 'errors.updateSettingsSave',
+      failed: false,
+    });
+  } catch (error) {
+    console.error('Cannot save update settings', error);
+    shell.send({
+      type: 'operationFailure',
+      operation: 'errors.updateSettingsSave',
+      failed: true,
+    });
   }
 });
 const updater = startAutoUpdate({

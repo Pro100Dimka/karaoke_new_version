@@ -1,4 +1,5 @@
 """Download the installer's optional AI files with at most three simultaneous transfers."""
+
 from __future__ import annotations
 
 import argparse
@@ -16,14 +17,19 @@ from backend.domain_errors import DomainError
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.http_downloader import HttpDownloader
 from backend.infrastructure.torch_runtime import (
-    COMPLETE_MARKER, gpu_wheels, install_gpu, select_gpu_runtime,
+    COMPLETE_MARKER,
+    gpu_wheels,
+    install_gpu,
+    select_gpu_runtime,
 )
 
 
 def remote_size(url: str) -> int:
     # Wheel sizes come from the server. HEAD failure must not prevent a working GET.
     try:
-        with urllib.request.urlopen(urllib.request.Request(url, method="HEAD"), timeout=5) as response:
+        with urllib.request.urlopen(
+            urllib.request.Request(url, method="HEAD"), timeout=5
+        ) as response:
             return max(0, int(response.headers.get("Content-Length", "0")))
     except (OSError, ValueError, HTTPException):
         return 0
@@ -56,8 +62,12 @@ class Download:
         try:
             self.state = "download"
             received = HttpDownloader().download(
-                self.url, partial, timeout_seconds=60,
-                max_bytes=self.size or 8 * 1024**3, cancel=cancel, progress=self.progress,
+                self.url,
+                partial,
+                timeout_seconds=60,
+                max_bytes=self.size or 8 * 1024**3,
+                cancel=cancel,
+                progress=self.progress,
             )
             self.state = "verify"
             if self.size and received != self.size:
@@ -79,7 +89,8 @@ def report(downloads: list[Download], phase: str = "DOWNLOAD") -> None:
     received = sum(item.received for item in downloads) // mib
     total = (
         max(1, sum(item.size for item in downloads) // mib)
-        if all(item.size for item in downloads) else 0
+        if all(item.size for item in downloads)
+        else 0
     )
     ready = sum(item.state == "ready" for item in downloads)
     if phase == "DOWNLOAD" and any(item.state == "verify" for item in downloads):
@@ -96,26 +107,38 @@ def main() -> int:
     args = parser.parse_args()
     downloads = [
         Download(
-            model.model_id, model.download_url,
+            model.model_id,
+            model.download_url,
             args.profile / "backend-data" / "models" / model.model_id / model.version / "model.bin",
-            model.checksum, model.size,
+            model.checksum,
+            model.size,
         )
-        for model in CATALOG if args.models
+        for model in CATALOG
+        if args.models
     ]
     gpu = select_gpu_runtime(args.gpu) if args.gpu else None
     if gpu and (gpu / COMPLETE_MARKER).is_file():
         gpu = None
-    gpu_downloads = [
-        Download(wheel.file_name, wheel.url, gpu.parent / "downloads" / wheel.file_name, wheel.sha256)
-        for wheel in gpu_wheels(gpu)
-    ] if gpu else []
+    gpu_downloads = (
+        [
+            Download(
+                wheel.file_name, wheel.url, gpu.parent / "downloads" / wheel.file_name, wheel.sha256
+            )
+            for wheel in gpu_wheels(gpu)
+        ]
+        if gpu
+        else []
+    )
     # Resolve the two server-reported wheel sizes first so the overall byte total stabilizes early.
     downloads = gpu_downloads + downloads
     return prepare(downloads, gpu, gpu_downloads, args.cancel_file)
 
 
 def fetch_all(
-    downloads: list[Download], pool: ThreadPoolExecutor, cancel: threading.Event, cancel_file: Path,
+    downloads: list[Download],
+    pool: ThreadPoolExecutor,
+    cancel: threading.Event,
+    cancel_file: Path,
 ) -> bool:
     failed = False
     pending = {pool.submit(item.run, cancel): item for item in downloads}
@@ -140,7 +163,10 @@ def fetch_all(
 
 
 def prepare(
-    downloads: list[Download], gpu: Path | None, gpu_downloads: list[Download], cancel_file: Path,
+    downloads: list[Download],
+    gpu: Path | None,
+    gpu_downloads: list[Download],
+    cancel_file: Path,
 ) -> int:
     cancel = threading.Event()
     with ThreadPoolExecutor(max_workers=3, thread_name_prefix="installer-download") as pool:
@@ -151,7 +177,9 @@ def prepare(
             # Extraction remains sequential; keep the UI responsive while the worker unpacks.
             report(downloads, "GPU")
             prepared = pool.submit(
-                install_gpu, gpu, verified_wheels=[item.target for item in gpu_downloads],
+                install_gpu,
+                gpu,
+                verified_wheels=[item.target for item in gpu_downloads],
             )
             while not prepared.done():
                 time.sleep(0.5)
@@ -159,7 +187,10 @@ def prepare(
             try:
                 prepared.result()
             except (OSError, ValueError, zipfile.BadZipFile) as exc:
-                print(f"ERROR|GPU: {str(exc).encode('ascii', 'backslashreplace').decode()}", flush=True)
+                print(
+                    f"ERROR|GPU: {str(exc).encode('ascii', 'backslashreplace').decode()}",
+                    flush=True,
+                )
                 failed = True
     return int(failed)
 

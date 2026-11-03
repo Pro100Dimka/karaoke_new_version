@@ -4,6 +4,7 @@ import { audioClient as audio } from '../../../../../services/audioClient';
 import { pythonClient as backend } from '../../../../../services/pythonClient';
 
 export interface SubsystemHealth {
+  failed: boolean;
   loading: boolean;
   backend: BackendDiagnosticsDto | null;
   audio: Readonly<Record<string, string>> | null;
@@ -15,6 +16,7 @@ export interface SubsystemHealth {
 export const useSubsystemHealth = (): SubsystemHealth => {
   const [state, setState] = useState<Omit<SubsystemHealth, 'refresh'>>({
     loading: true,
+    failed: false,
     backend: null,
     audio: null,
     audioVersion: '',
@@ -32,6 +34,7 @@ export const useSubsystemHealth = (): SubsystemHealth => {
       if (active)
         setState({
           loading: false,
+          failed: !backend || !audio || !health,
           backend,
           audio,
           audioVersion: health?.version ?? '',

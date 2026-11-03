@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from backend.ai_worker import ctc, recognition, speech, word_guidance
+from backend.ai_worker import ctc_singing, ctc, recognition, speech, word_guidance
 
 
 def _word(text: str, start: float, end: float, score: float = 0.1) -> ctc.AlignedWord:
@@ -286,7 +286,7 @@ def _isolated_pipeline(
     monkeypatch.setattr(speech, "singing_frames", lambda *_: activity)
     monkeypatch.setattr(speech, "voiced_frames", lambda *_: activity)
     monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
-    monkeypatch.setattr(ctc, "voiced_frames", lambda *_: activity)
+    monkeypatch.setattr(ctc_singing, "voiced_frames", lambda *_: activity)
     monkeypatch.setattr(
         speech,
         "with_voice_onsets",
@@ -369,13 +369,13 @@ def test_accepted_local_repair_reuses_unchanged_audio_features(monkeypatch):
     def measured_align(*args, **kwargs):
         with ExitStack() as patches:
             for name in calls:
-                compute = getattr(ctc, name)
+                compute = getattr(ctc_singing, name)
 
                 def measured(*args, _name=name, _compute=compute):
                     calls[_name] += 1
                     return _compute(*args)
 
-                for module in (ctc, speech):
+                for module in (ctc_singing, speech):
                     if hasattr(module, name):
                         patches.enter_context(patch.object(module, name, measured))
             for name in ("with_voice_onsets", "with_sung_ends"):

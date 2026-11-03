@@ -214,6 +214,7 @@ const finaleGrade = (energy: number, recentScore: number): FinaleGrade => {
  */
 export class PerformanceTracker {
   private notes: readonly ShowNote[] = [];
+  private noteBlocks: { start: number; end: number; notes: readonly ShowNote[] }[] = [];
   private phrases: readonly ShowPhrase[] = [];
   private noteById = new Map<string, ShowNote>();
   private durations = new WeakMap<ShowNote, number>();
@@ -255,6 +256,11 @@ export class PerformanceTracker {
     this.cachedHitNotes = undefined;
     this.vocalActivity = vocalActivity;
     this.notes = [...notes].sort((a, b) => a.start - b.start);
+    this.noteBlocks = [];
+    for (let i = 0; i < this.notes.length; i += 128) {
+      const block = this.notes.slice(i, i + 128);
+      this.noteBlocks.push({start: block[0]!.start, end: Math.max(...block.map(note => note.end)), notes: block});
+    }
     for (const note of notes)
       this.durations.set(note, scorableNoteDuration(note));
     this.phrases = phrases.filter((phrase) => phrase.noteIds.length > 0);
@@ -270,19 +276,12 @@ export class PerformanceTracker {
 
   get hitNoteIds(): ReadonlySet<string> {
     return (this.cachedHitNotes ??= new Set(
-      this.notes
-        .filter((note) => {
-          const progress = this.progress.get(note.id);
-          return (
-            progress &&
-            progress.matched > 0 &&
-            noteHitReached(
-              progress.matched,
-              assessedNoteDuration(note, progress, this.durations.get(note)),
-            )
-          );
-        })
-        .map((note) => note.id),
+      [...this.progress].flatMap(([id, progress]) => {
+        const note = this.noteById.get(id);
+        return note && progress.matched > 0 && noteHitReached(
+          progress.matched, assessedNoteDuration(note, progress, this.durations.get(note)),
+        ) ? [id] : [];
+      }),
     ));
   }
 
@@ -350,7 +349,6 @@ export class PerformanceTracker {
     this.lastPosition = position;
     if (elapsed <= 0) return [];
     this.cachedScore = undefined;
-    this.cachedHitNotes = undefined;
     const events: PerformanceEvent[] = [];
 
     const end = position + (sampleDuration ?? 0) / 2;
@@ -359,9 +357,9 @@ export class PerformanceTracker {
       this.coveredUntil ?? -Infinity,
     );
     this.coveredUntil = end;
-    const covered = this.notes.filter(
-      (note) => note.start < end && note.end > start,
-    );
+    const covered = this.noteBlocks
+      .filter(block => block.start < end && block.end > start)
+      .flatMap(block => block.notes.filter(note => note.start < end && note.end > start));
     let requiredVoice = 0,
       uncertain = 0;
     this.live = undefined;
@@ -402,6 +400,9 @@ export class PerformanceTracker {
         progress.deviations.push([deviation, overlap]);
       }
       this.progress.set(active.id, progress);
+      if (this.cachedHitNotes && !this.cachedHitNotes.has(active.id) && progress.matched > 0 &&
+          noteHitReached(progress.matched, assessedNoteDuration(active, progress, this.durations.get(active))))
+        this.cachedHitNotes = undefined;
       const duration = Math.max(
         0.001,
         assessedNoteDuration(active, progress, this.durations.get(active)),
@@ -532,9 +533,9 @@ export class PerformanceTracker {
   }
 
   private measuredNotes(): { note: ShowNote; progress: NoteProgress }[] {
-    return this.notes.flatMap((note) => {
-      const progress = this.progress.get(note.id);
-      return progress && (this.durations.get(note) ?? 0) > 0
+    return [...this.progress].flatMap(([id, progress]) => {
+      const note = this.noteById.get(id);
+      return note && (this.durations.get(note) ?? 0) > 0
         ? [{ note, progress }]
         : [];
     });

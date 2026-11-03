@@ -3,13 +3,13 @@ import { tr, useLocale } from '@neo-ui-kit/react';
 import { ru } from '../../../../../i18n/messages.ru';
 import { monitoringErrorText } from '../../../../../shared/errors';
 import { useEffect, useRef, useState } from 'react';
+import { observable, runInAction } from 'mobx';
 import { useNotify } from '../../../../../providers/notifications';
 import { applyVoiceChain } from '../../../../../features/karaoke/console/voiceChain';
 import { audioClient as audio } from '../../../../../services/audioClient';
 import { audioSessionFor } from './audioSession';
 
 const meterIntervalMs = 100;
-const safetyCheckEvery = 5;
 
 /** The input test owns monitoring only between its explicit start and cleanup. */
 export const useInputMonitoring = (canStart: boolean) => {
@@ -21,15 +21,14 @@ export const useInputMonitoring = (canStart: boolean) => {
   useEffect(() => {
     latest.current = { preferences, notify };
   }, [preferences, notify, locale]);
-  const [inputLevel, setInputLevel] = useState(0);
+  const [inputLevel] = useState(() => observable.box(0));
   const [testingInput, setTestingInputState] = useState(false);
 
   useEffect(() => {
     if (!testingInput) return;
     let stopped = false;
     let ownsAudio = false;
-    let samples = 0;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopSamples: (() => void) | undefined;
     const reportError = (error: unknown) => {
       const { notify } = latest.current;
       notify(
@@ -37,28 +36,21 @@ export const useInputMonitoring = (canStart: boolean) => {
         'error',
       );
     };
-    const sample = async () => {
-      try {
-        const level = await audio.testInputLevel();
+    const sample = () => {
+      stopSamples = audio.observeSnapshots(snapshot => {
         if (stopped) return;
-        setInputLevel(level);
-        if (samples % safetyCheckEvery === 0) {
-          const snapshot = await audio.snapshot();
-          if (stopped) return;
-          if (snapshot.monitoringSafetyTripped) {
-            const { notify } = latest.current;
-            notify(tr(ru.monitoringSafetyStopped), 'error');
-            setTestingInputState(false);
-            return;
-          }
+        runInAction(() => inputLevel.set(snapshot.inputLevel));
+        if (snapshot.monitoringSafetyTripped) {
+          const { notify } = latest.current;
+          notify(tr(ru.monitoringSafetyStopped), 'error');
+          setTestingInputState(false);
         }
-        if (samples++ === 0) void session.refresh();
-        timer = setTimeout(() => void sample(), meterIntervalMs);
-      } catch (error) {
+      }, error => {
         if (stopped) return;
         reportError(error);
         setTestingInputState(false);
-      }
+      }, meterIntervalMs);
+      void session.refresh();
     };
     void session
       .enqueue(async () => {
@@ -80,8 +72,8 @@ export const useInputMonitoring = (canStart: boolean) => {
 
     return () => {
       stopped = true;
-      clearTimeout(timer);
-      setInputLevel(0);
+      stopSamples?.();
+      runInAction(() => inputLevel.set(0));
       // Finish the old start/stop before a rapid re-enable or a reopened tab.
       // An old request can therefore never switch off the next input test.
       void session
@@ -95,7 +87,7 @@ export const useInputMonitoring = (canStart: boolean) => {
         })
         .catch(reportError);
     };
-  }, [audio, session, testingInput]);
+  }, [audio, session, testingInput, inputLevel]);
 
   return {
     inputLevel,

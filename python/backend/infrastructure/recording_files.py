@@ -27,15 +27,20 @@ def _recording_directory(root: Path, recording_id: str) -> Path:
 
 def _empty_native_wav(path: Path) -> bool:
     # Accept only an empty native WAV, with no active writer holding it open.
-    with (_open_stopped_recording(path) if os.name == "nt" else path.open("rb")) as stream:
+    with _open_stopped_recording(path) if os.name == "nt" else path.open("rb") as stream:
         header = stream.read(45)
     if not header:
         return True
-    return (len(header) == 44 and header[:4] == b"RIFF" and header[8:16] == b"WAVEfmt "
-            and header[16:20] == struct.pack("<I", 16) and header[36:40] == b"data"
-            and struct.unpack_from("<H", header, 20)[0] in {1, 3}
-            and struct.unpack_from("<I", header, 4)[0] in {0, 36}
-            and header[40:44] == bytes(4))
+    return (
+        len(header) == 44
+        and header[:4] == b"RIFF"
+        and header[8:16] == b"WAVEfmt "
+        and header[16:20] == struct.pack("<I", 16)
+        and header[36:40] == b"data"
+        and struct.unpack_from("<H", header, 20)[0] in {1, 3}
+        and struct.unpack_from("<I", header, 4)[0] in {0, 36}
+        and header[40:44] == bytes(4)
+    )
 
 
 class LocalRecordingStorage:
@@ -65,7 +70,10 @@ class LocalRecordingStorage:
             dry = directory / "recording.wav.dry.wav"
             incomplete_dry = directory / "recording.wav.dry-incomplete.wav"
             children = tuple(directory.iterdir())
-            if any(child not in {target, backing, vocal, dry, incomplete_dry, descriptor} for child in children) or any(
+            if any(
+                child not in {target, backing, vocal, dry, incomplete_dry, descriptor}
+                for child in children
+            ) or any(
                 file.exists() and (file.resolve() != file or not _empty_native_wav(file))
                 for file in (target, backing, vocal, dry, incomplete_dry)
             ):
@@ -153,21 +161,28 @@ class LocalRecordingStorage:
         # Exclusive access is essential: Python can restart while native capture is still alive.
         with _open_stopped_recording(path) as stream:
             header = stream.read(44)
-            if (len(header) != 44 or header[:4] != b"RIFF" or header[8:16] != b"WAVEfmt "
-                    or header[36:40] != b"data" or struct.unpack_from("<I", header, 16)[0] != 16):
+            if (
+                len(header) != 44
+                or header[:4] != b"RIFF"
+                or header[8:16] != b"WAVEfmt "
+                or header[36:40] != b"data"
+                or struct.unpack_from("<I", header, 16)[0] != 16
+            ):
                 # Balancing may have already published a finalized WAV with additional chunks.
                 stream.seek(0)
-                try:
-                    info = sf.info(stream)
-                except (OSError, RuntimeError) as error:
-                    raise DomainError("InvalidRecording", "Unsupported recording header", 400) from error
-                if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
-                    raise DomainError("InvalidRecording", "No recoverable recording frames", 400)
-                return RecordingFileMetadata(info.frames / info.samplerate, info.samplerate, info.channels)
-            encoding, channels, rate, byte_rate, block, bits = struct.unpack_from("<HHIIHH", header, 20)
-            if (encoding not in {1, 3} or channels < 1 or rate < 1 or bits not in {16, 32}
-                    or block != channels * bits // 8 or byte_rate != rate * block
-                    or (encoding == 3 and bits != 32)):
+                return _inspect_recovered_audio(stream)
+            encoding, channels, rate, byte_rate, block, bits = struct.unpack_from(
+                "<HHIIHH", header, 20
+            )
+            if (
+                encoding not in {1, 3}
+                or channels < 1
+                or rate < 1
+                or bits not in {16, 32}
+                or block != channels * bits // 8
+                or byte_rate != rate * block
+                or (encoding == 3 and bits != 32)
+            ):
                 raise DomainError("InvalidRecording", "Invalid native recording format", 400)
             size = os.fstat(stream.fileno()).st_size - 44
             complete_bytes = size - size % block
@@ -188,8 +203,13 @@ def _open_stopped_recording(path: Path) -> BinaryIO:
         raise OSError("Recording recovery requires exclusive Windows file access")
     kernel = ctypes.WinDLL("kernel32", use_last_error=True)
     kernel.CreateFileW.argtypes = (
-        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p,
-        wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
     )
     kernel.CreateFileW.restype = wintypes.HANDLE
     kernel.CloseHandle.argtypes = (wintypes.HANDLE,)
@@ -218,3 +238,13 @@ def _payload(recording: Recording) -> dict[str, object]:
         "sessionMetadata": dict(recording.session_metadata or {}),
         "displayName": recording.display_name,
     }
+
+
+def _inspect_recovered_audio(stream: BinaryIO) -> RecordingFileMetadata:
+    try:
+        info = sf.info(stream)
+    except (OSError, RuntimeError) as error:
+        raise DomainError("InvalidRecording", "Unsupported recording header", 400) from error
+    if info.frames <= 0 or info.samplerate <= 0 or info.channels <= 0:
+        raise DomainError("InvalidRecording", "No recoverable recording frames", 400)
+    return RecordingFileMetadata(info.frames / info.samplerate, info.samplerate, info.channels)

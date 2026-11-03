@@ -82,9 +82,14 @@ class EventStream:
             return
         except queue.Full:
             pass
-        try:
-            subscriber.get_nowait()
-            subscriber.task_done()
-        except queue.Empty:
-            pass
+        dropped = False
+        while True:
+            try:
+                subscriber.get_nowait()
+                subscriber.task_done()
+                dropped = True
+            except queue.Empty:
+                break
+        if dropped:
+            event = BackendEvent("resync", event.created_at, {})
         subscriber.put_nowait(event)

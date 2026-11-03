@@ -60,9 +60,17 @@ class Database:
     def _publish(self, changes: dict[str, list[str]]) -> None:
         if changes["songIds"] or changes["deletedIds"]:
             self._catalog_revision = uuid4().hex
-        self._played_revision = uuid4().hex
+        if changes["songIds"] or changes["deletedIds"] or changes["playedIds"]:
+            self._played_revision = uuid4().hex
         if self._events:
-            self._events.publish("library.changed", changes)
+            for event_type, keys in (
+                ("library.changed", ("songIds", "deletedIds", "playedIds")),
+                ("models.changed", ("modelIds",)),
+                ("recordings.changed", ("recordingIds",)),
+            ):
+                payload = {key: changes[key] for key in keys}
+                if any(payload.values()):
+                    self._events.publish(event_type, payload)
 
     def validate(self) -> None:
         try:
@@ -128,6 +136,8 @@ class SqlUnitOfWork(UnitOfWork):
             "songIds": list(self.songs.changed),
             "deletedIds": list(self.songs.deleted),
             "playedIds": list(self.history.played),
+            "modelIds": list(self.models.changed),
+            "recordingIds": list(self.recordings.changed),
         }
         try:
             with self._catalog_lock if any(changes.values()) else nullcontext():
@@ -148,6 +158,8 @@ class SqlUnitOfWork(UnitOfWork):
         self.songs.changed.clear()
         self.songs.deleted.clear()
         self.history.played.clear()
+        self.models.changed.clear()
+        self.recordings.changed.clear()
 
 
 def _configure_sqlite(connection: sqlite3.Connection, _record: object) -> None:

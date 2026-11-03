@@ -23,7 +23,7 @@ interface SongGridProps {
   loadMore?(): unknown;
 }
 
-const columns = { base: 1, md: 2, lg: 4 };
+const columns = { base: 1, sm: 2, md: 3, lg: 4 };
 
 export const VirtualGrid = observer(
   ({

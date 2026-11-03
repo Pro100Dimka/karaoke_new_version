@@ -35,6 +35,8 @@ import {
   refreshClock,
   reportMicrophoneMode,
   snapshot,
+  observeAudioTelemetry,
+  observeSnapshots,
   waitForReady,
   waitForAudioOperations,
 } from './audioSession';
@@ -44,6 +46,7 @@ import {
 } from '../shared/preferences/preferences';
 import { createRoomVoice, restoreVoiceSession } from './audioRoomVoice';
 import { recordingCoordinator } from './recordingCoordinator';
+export { invalidateAudioSnapshots } from './audioSession';
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = '';
@@ -156,8 +159,17 @@ const scheduledStart = async (
 
 const parseBands = (value: string | undefined): number[] =>
   (value ?? '').split(',').map(Number).filter(Number.isFinite);
+const spectrumFromText = (text: string) => {
+  const values = parseKeyValues(text);
+  return { bands: parseBands(values.bands), backingBands: parseBands(values.backingBands) };
+};
 
 export const audioClient: AudioServiceClient = {
+  observeSnapshots,
+  observeSpectrum(onValue, onError, intervalMs = 50) {
+    return observeAudioTelemetry('GetSpectrum', intervalMs,
+      text => onValue(spectrumFromText(text)), onError);
+  },
   snapshot() {
     return enqueueAudioOperation(() => snapshot());
   },
@@ -310,11 +322,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async spectrum() {
-    const values = parseKeyValues(await command('GetSpectrum'));
-    return {
-      bands: parseBands(values.bands),
-      backingBands: parseBands(values.backingBands),
-    };
+    return spectrumFromText(await command('GetSpectrum'));
   },
 
   diagnosticsDump: diagnostics,

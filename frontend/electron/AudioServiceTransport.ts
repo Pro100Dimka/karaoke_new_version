@@ -11,6 +11,87 @@ export interface AudioResponse {
   text: string;
 }
 
+export interface AudioNotification extends AudioResponse {
+  observedAt: number;
+}
+
+export const audioNotificationCommands = [
+  'GetPlaybackSnapshot', 'GetSpectrum', 'GetInputLevel',
+] as const;
+
+/** Read-only stream; control commands retain their existing queue and deadlines. */
+export const subscribeAudioNotifications = (
+  command: string,
+  intervalMs: number,
+  listener: (notification: AudioNotification | null) => void,
+): (() => void) => {
+  if (!audioNotificationCommands.some((value) => value === command) ||
+      !Number.isInteger(intervalMs) || intervalMs < 16 || intervalMs > 1000)
+    throw new TypeError('Invalid AudioService subscription');
+  let stopped = false;
+  let connection: net.Socket | undefined;
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  let cancelWatchdog: (() => void) | undefined;
+  const connect = () => {
+    if (stopped) return;
+    const socket = net.createConnection(pipeEndpoint() + '.events');
+    connection = socket;
+    let buffer = Buffer.alloc(0);
+    let closed = false;
+    let watchdog: ReturnType<typeof setTimeout>;
+    const disconnect = () => {
+      if (closed) return;
+      closed = true;
+      clearTimeout(watchdog);
+      socket.destroy();
+      if (!stopped) {
+        listener(null);
+        retry = setTimeout(connect, 250);
+      }
+    };
+    const armWatchdog = () => {
+      clearTimeout(watchdog);
+      watchdog = setTimeout(disconnect, 3000);
+    };
+    cancelWatchdog = () => clearTimeout(watchdog);
+    armWatchdog();
+    socket.once('connect', () => socket.write(encode({ command, args: { intervalMs } })));
+    socket.on('data', (chunk: Buffer) => {
+      if (closed || stopped) return;
+      if (buffer.length + chunk.length > maxResponseBytes + 4) return disconnect();
+      buffer = Buffer.concat([buffer, chunk]);
+      while (buffer.length >= 4) {
+        const length = buffer.readUInt32LE(0);
+        if (length === 0 || length > maxResponseBytes) return disconnect();
+        if (buffer.length < length + 4) break;
+        const frame = buffer.subarray(4, length + 4).toString('utf8');
+        buffer = buffer.subarray(length + 4);
+        const separator = frame.indexOf('|');
+        const observedAt = Number(frame.slice(0, separator));
+        try {
+          if (separator < 1 || !Number.isFinite(observedAt) || observedAt <= 0)
+            return disconnect();
+          const response = decode(frame.slice(separator + 1));
+          armWatchdog();
+          listener({ ...response, observedAt });
+        } catch {
+          return disconnect();
+        }
+      }
+    });
+    socket.once('end', disconnect);
+    socket.once('close', disconnect);
+    socket.once('error', disconnect);
+  };
+  connect();
+  return () => {
+    stopped = true;
+    clearTimeout(retry);
+    cancelWatchdog?.();
+    connection?.destroy();
+  };
+};
+
 const defaultPipe = String.raw`\\.\pipe\ADVoice.AudioService.v1`;
 const pipeEndpoint = (): string =>
   process.env.AD_VOICE_AUDIO_ENDPOINT ?? defaultPipe;

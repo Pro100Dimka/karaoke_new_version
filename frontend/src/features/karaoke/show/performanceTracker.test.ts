@@ -44,6 +44,45 @@ const sing = (
 };
 
 describe('performance tracker', () => {
+  it('retains hit snapshots until a note qualifies and resets them on a seek', () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{id:'held',start:0,end:2,pitch:60}], []);
+    tracker.update(0, hz(60));
+    const empty = tracker.hitNoteIds;
+    tracker.update(.1, hz(60));
+    expect(tracker.hitNoteIds).toBe(empty);
+    sing(tracker, .2, 1.2, () => hz(60));
+    const hit = tracker.hitNoteIds;
+    expect(hit.has('held')).toBe(true);
+    expect(empty.size).toBe(0);
+    tracker.update(1.3, hz(60));
+    expect(tracker.hitNoteIds).toBe(hit);
+    tracker.update(.2, hz(60));
+    expect(tracker.hitNoteIds.size).toBe(0);
+    expect(hit.has('held')).toBe(true);
+  });
+
+  it('limits live scoring reads to nearby notes while retaining an earlier overlapping hold', () => {
+    let reads = 0, ids = 0;
+    const notes: ShowNote[] = Array.from({length: 10000}, (_, i) => ({
+      get id() { ids++; return `n${i}`; }, get start() { reads++; return i * 0.5; },
+      end: i * 0.5 + 0.48, pitch: 60,
+    }));
+    const tracker = new PerformanceTracker();
+    tracker.load([{id: 'held', start: 0, end: 10000, pitch: 60}, ...notes], []);
+    for (const position of [2500.1, 500.1]) {
+      tracker.update(position, hz(60));
+      reads = 0;
+      tracker.update(position + 0.1, hz(60));
+      expect(tracker.live?.note.id).toBe(`n${Math.floor(position * 2)}`);
+      expect(reads).toBeLessThan(512);
+    }
+    ids = 0;
+    expect(tracker.noteScore.totalNotes).toBe(4);
+    expect(tracker.hitNoteIds.size).toBe(0);
+    expect(ids).toBeLessThan(512);
+  });
+
   it('keeps weak pitch measurements out of both the final grade and green-note evidence', () => {
     const tracker = new PerformanceTracker();
     tracker.load([{ id: 'held', start: 0, end: 1, pitch: 60 }], []);

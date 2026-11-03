@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shutil
 import time
+from tempfile import NamedTemporaryFile
 from pathlib import Path
 
 from backend.domain_errors import DependencyError
@@ -38,6 +39,27 @@ class LocalSongStorage:
             shutil.copyfile(source, target)
         except OSError as exc:
             raise DependencyError("StorageUnavailable", "Could not copy custom cover") from exc
+        return target
+
+    def copy_clip(self, song_id: str, source: Path) -> Path:
+        target = self._roots.songs / song_id / "media" / "clip.mp4"
+        if source == target.resolve():
+            return target
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary: Path | None = None
+        try:
+            with NamedTemporaryFile(dir=target.parent, suffix=".tmp", delete=False) as output:
+                temporary = Path(output.name)
+                with source.open("rb") as input_file:
+                    shutil.copyfileobj(input_file, output)
+                output.flush()
+                os.fsync(output.fileno())
+            os.replace(temporary, target)
+        except OSError as exc:
+            raise DependencyError("StorageUnavailable", "Could not copy song video") from exc
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
         return target
 
     def quarantine(self, song_id: str) -> Path | None:

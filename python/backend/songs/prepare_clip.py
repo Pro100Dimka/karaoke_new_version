@@ -104,6 +104,8 @@ class PrepareSong:
                 if not clip_cancel.is_set() and not cancel.is_set():
                     self._clip.execute(song, clip_cancel)
             except (OSError, DomainError):
-                logging.getLogger(__name__).warning("Optional song clip is unavailable", exc_info=True)
+                logging.getLogger(__name__).warning(
+                    "Optional song clip is unavailable", exc_info=True
+                )
 
         self._concurrency.run_concurrently(process_song, download_clip)

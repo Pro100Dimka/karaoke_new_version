@@ -16,6 +16,10 @@ import {
   type JobType,
 } from '../utils/contracts';
 import type { SongDto, SongSearch } from '../contracts/models';
+import {
+  backendPollInterval,
+  readBackendSnapshot,
+} from '../services/backendEvents';
 
 export const refreshSongs = async (client: QueryClient) => {
   await client.cancelQueries({ queryKey: ['songs'] });
@@ -42,25 +46,29 @@ export const songsQuery = (epoch: number, filter?: SongSearch) =>
   infiniteQueryOptions({
     queryKey: ['songs', epoch, filter ?? null],
     initialPageParam: null as string | null,
-    queryFn: async ({ signal, pageParam }): Promise<SongPage> => {
-      const page = filter
-        ? await pythonClient.searchSongs(filter, pageParam)
-        : { items: await pythonClient.listSongs(), nextCursor: null };
-      signal.throwIfAborted();
-      return page;
-    },
+    queryFn: ({ signal, pageParam }): Promise<SongPage> =>
+      readBackendSnapshot(
+        async () => filter
+          ? pythonClient.searchSongs(filter, pageParam)
+          : { items: await pythonClient.listSongs(), nextCursor: null },
+        ['library.changed'],
+        signal,
+      ),
     getNextPageParam: (page) => page.nextCursor,
     staleTime: Infinity,
     refetchOnMount: 'always',
-    refetchInterval: filter ? false : 15_000,
+    refetchInterval: backendPollInterval(filter ? false : 15_000),
     refetchIntervalInBackground: true,
   });
 
 export const songSummaryQuery = (epoch: number) =>
   queryOptions({
     queryKey: ['song-summary', epoch],
-    queryFn: () => pythonClient.songSummary(),
-    refetchInterval: 15_000,
+    queryFn: ({ signal }) =>
+      readBackendSnapshot(
+        () => pythonClient.songSummary(), ['library.changed'], signal,
+      ),
+    refetchInterval: backendPollInterval(15_000),
   });
 
 /** Shows a picked file while it waits for its turn to import. */
@@ -156,7 +164,7 @@ export const isActiveJob = (job?: JobProgress | null) =>
 const modelListQuery = (catalogOnly: boolean) =>
   queryOptions({
     queryKey: catalogOnly ? ['models', 'required'] : ['models'],
-    queryFn: async ({ signal }) => {
+    queryFn: ({ signal }) => readBackendSnapshot(async () => {
       const models = await bridgedHttp(
         'pythonRequest',
         {
@@ -167,8 +175,8 @@ const modelListQuery = (catalogOnly: boolean) =>
       );
       signal.throwIfAborted();
       return parse(array(modelSchema), models);
-    },
-    refetchInterval: 5000,
+    }, ['models.changed'], signal),
+    refetchInterval: backendPollInterval(5000),
   });
 
 export const modelsQuery = modelListQuery(false);
@@ -188,7 +196,7 @@ export const processingSettingsQuery = queryOptions({
 export const jobQuery = (type: JobType, entityId: string) =>
   queryOptions({
     queryKey: ['job', type, entityId],
-    queryFn: async ({ signal }) => {
+    queryFn: ({ signal }) => readBackendSnapshot(async () => {
       const result = await bridgedHttp(
         'pythonRequest',
         {
@@ -199,8 +207,8 @@ export const jobQuery = (type: JobType, entityId: string) =>
       );
       signal.throwIfAborted();
       return parse(jobsSchema, result).items[0] ?? null;
-    },
-    refetchInterval: 1000,
+    }, ['job.changed'], signal),
+    refetchInterval: backendPollInterval(1000),
   });
 
 export const changeModel = (model: AIModel) =>

@@ -1,3 +1,4 @@
+import { observeOperation } from '../../shared/errors';
 export const calibrationOffsetsMilliseconds = [0, 500, 1000, 1500] as const;
 
 export const calibrationDelayMilliseconds = (
@@ -20,7 +21,10 @@ export const scheduleCalibrationClicks = (
 ): (() => void) => {
   const timers = calibrationOffsetsMilliseconds.map((offset) =>
     window.setTimeout(
-      () => void playClick().catch(() => undefined),
+      () =>
+        void observeOperation('errors.syncSound', playClick()).catch(
+          () => undefined,
+        ),
       Math.max(0, delayMilliseconds + offset),
     ),
   );

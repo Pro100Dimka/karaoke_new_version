@@ -1,16 +1,15 @@
+import { observeOperation } from '../../shared/errors';
 import { audioClient } from '../../services/audioClient';
 import { useCallback, useEffect, useRef, useState } from 'react';
-
-const pollMilliseconds = 16;
+import { observable, runInAction } from 'mobx';
 
 export const useEditorPreview = (
   audioReady: boolean,
   onFailure: () => void,
 ) => {
   const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
+  const [position] = useState(() => observable.box(0));
   const playingRef = useRef(playing);
-  const inFlight = useRef(false);
   playingRef.current = playing;
 
   useEffect(() => {
@@ -19,29 +18,11 @@ export const useEditorPreview = (
       return;
     }
     if (!playing) return;
-    let active = true;
-    const timer = window.setInterval(() => {
-      if (inFlight.current) return;
-      inFlight.current = true;
-      void audioClient
-        .snapshot()
-        .then((snapshot) => {
-          if (!active) return;
-          setPosition(snapshot.positionSeconds);
-          if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
-        })
-        .catch(() => {
-          if (active) setPlaying(false);
-        })
-        .finally(() => {
-          inFlight.current = false;
-        });
-    }, pollMilliseconds);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [audioReady, playing]);
+    return audioClient.observeSnapshots(snapshot => {
+      runInAction(() => position.set(snapshot.positionSeconds));
+      if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
+    }, () => { setPlaying(false); onFailure(); });
+  }, [audioReady, playing, onFailure, position]);
 
   const togglePlay = useCallback(async () => {
     if (!audioReady) return;
@@ -59,9 +40,19 @@ export const useEditorPreview = (
   }, [audioReady, onFailure]);
 
   const seek = useCallback(async (seconds: number) => {
-    setPosition(seconds);
-    await audioClient.seek(seconds).catch(() => undefined);
-  }, []);
+    const snapshot = await observeOperation(
+      'errors.seek',
+      audioClient.seek(seconds),
+    ).catch(() => null);
+    if (snapshot) runInAction(() => position.set(snapshot.positionSeconds));
+  }, [position]);
 
-  return { playing, position, togglePlay, seek };
+  return {
+    playing,
+    get position() {
+      return position.get();
+    },
+    togglePlay,
+    seek,
+  };
 };

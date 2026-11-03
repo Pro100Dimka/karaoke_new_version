@@ -1,66 +1,35 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { pythonClient } from '../../../../services/pythonClient';
-import { refreshSongs } from '../../../../api/api-service';
-import { useSongActions } from '../../songs/useSongActions';
-import { useGuardedAction } from '../../songs/useGuardedAction';
-import { desktopClient as files } from '../../../../services/desktopClient';
 import {
-  useRouter,
-  Button,
   Dialog,
-  Grid,
-  IconButton,
-  KeyValueList,
-  MessageBar,
-  NumberField,
-  Select,
-  SplitButton,
-  TextField,
-  useForm,
+  Form,
+  FormFields,
   tr,
+  useForm,
   useLocale,
+  useRouter,
 } from '@neo-ui-kit/react';
-import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
+import { refreshSongs } from '../../../../api/api-service';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { pythonClient } from '../../../../services/pythonClient';
+import { useGuardedAction } from '../../songs/useGuardedAction';
+import { useSongActions } from '../../songs/useSongActions';
 
-import { routes } from '../../../../shared/routes';
-import type { SongDto, SongLanguage } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
-import { songStatusPresentation } from '../../songs/songPresentation';
 import {
   loadSongPreferences,
-  practiceSpeeds,
   saveSongPreferences,
-  type VocalRange,
 } from '../../../../application/library/songPreferences';
-import {
-  detectedSongMetadata,
-  languageLabels,
-} from '../../songs/songMetadataPresentation';
+import type { SongDto } from '../../../../contracts/models';
+import '../../../../providers/localization';
+import { routes } from '../../../../shared/routes';
+import { editorApi } from '../../../editor/editorApi';
+import { getRows } from './rows';
 
-const ranges = [
-  'auto',
-  'octave',
-  'twoOctaves',
-] as const satisfies readonly VocalRange[];
-const rangeLabel = {
-  auto: 'rangeAuto',
-  octave: 'rangeOctave',
-  twoOctaves: 'rangeTwoOctaves',
-} as const;
 const coverLabel = {
   Custom: 'coverCustom',
   Embedded: 'coverEmbedded',
   Fallback: 'coverFallback',
 } as const;
-const textFields = [
-  { name: 'title', label: 'title' },
-  { name: 'artist', label: 'artist' },
-] as const;
-const practiceSpeedOptions = practiceSpeeds.map((speed) => ({
-  value: String(speed),
-  label: `${speed.toFixed(2)}×`,
-}));
-
 export const SongSettingsModal = ({
   song,
   onClose,
@@ -81,17 +50,16 @@ export const SongSettingsModal = ({
     });
   const { navigate } = useRouter();
   useLocale();
-  const status = songStatusPresentation[song.status];
   const coverState = tr(
-    ru[
-      song.artworkUrl && song.coverState === 'Fallback'
-        ? 'coverOnline'
-        : coverLabel[song.coverState]
-    ],
+    song.artworkUrl && song.coverState === 'Fallback'
+      ? 'coverOnline'
+      : coverLabel[song.coverState],
   );
-  const detected = detectedSongMetadata(song);
-  const busy = ['queued', 'processing'].includes(song.status);
-
+  const { data: document } = useQuery({
+    queryKey: ['song-settings-document', song.id, song.activeRevision],
+    queryFn: () => editorApi.load(song.id),
+    enabled: song.status === 'ready',
+  });
   const [failure, setFailure] = useState<string>();
   const form = useForm({
     initialValues: {
@@ -99,19 +67,25 @@ export const SongSettingsModal = ({
       artist: song.artist,
       language: song.language,
       coverPath: '',
+      videoPath: '',
       ...loadSongPreferences(song.id),
     },
     reinitialize: false,
     onSubmit: async (values) => {
       setFailure(undefined);
       try {
-        const { title, artist, language, coverPath, ...local } = values;
-        saveSongPreferences(song.id, local);
+        const { title, artist, language, coverPath, videoPath, ...local } =
+          values;
         await pythonClient.updateSong(song.id, {
           title: title.trim() || undefined,
           artist: artist.trim() || undefined,
           language,
           coverPath: coverPath || undefined,
+          videoPath: videoPath || undefined,
+        });
+        saveSongPreferences(song.id, {
+          ...local,
+          videoUrl: videoPath ? '' : local.videoUrl,
         });
         await refreshSongs(client);
         onClose();
@@ -120,11 +94,26 @@ export const SongSettingsModal = ({
       }
     },
   });
-  const set = (field: string) => (value: unknown) =>
-    form.setValue(field, value);
-  const pickCover = async () => {
-    const picked = await files.pickImageFile();
-    if (picked) form.setValue('coverPath', picked);
+  const [selected, setSelected] = useState<{ cover?: File; video?: File }>({});
+  const [previews, setPreviews] = useState<{ cover?: string; video?: string }>(
+    {},
+  );
+  useEffect(() => {
+    const cover = selected.cover && URL.createObjectURL(selected.cover);
+    const video = selected.video && URL.createObjectURL(selected.video);
+    setPreviews({ cover, video });
+    return () => {
+      if (cover) URL.revokeObjectURL(cover);
+      if (video) URL.revokeObjectURL(video);
+    };
+  }, [selected]);
+  const chooseMedia = (kind: 'cover' | 'video', file: File | undefined) => {
+    if (!file) return;
+    form.setValue(
+      kind === 'cover' ? 'coverPath' : 'videoPath',
+      files.pathForFile(file),
+    );
+    setSelected((current) => ({ ...current, [kind]: file }));
   };
 
   return (
@@ -136,170 +125,32 @@ export const SongSettingsModal = ({
       className="songSettingsDialog"
       width="large"
       icon="settings"
-      title={tr(ru.songSettings)}
+      title={tr('songSettings')}
       description={`${song.artist} — ${song.title}`}
-      closeLabel={tr(ru.closeDialog)}
+      closeLabel={tr('closeDialog')}
       cancelLabel={false}
       confirmLabel={false}
     >
-      <form
-        className="songSettingsForm"
-        noValidate
-        onSubmit={(event) => {
-          event.preventDefault();
-          void form.submit();
-        }}
-      >
-        <Grid minChildWidth="min(100%, 16rem)" gap={4} align="start">
-          {textFields.map(({ name, label }) => (
-            <TextField
-              key={name}
-              name={name}
-              label={tr(ru[label])}
-              value={form.values[name]}
-              onValueChange={set(name)}
-            />
-          ))}
-          <Select<SongLanguage>
-            label={tr(ru.songLanguage)}
-            value={form.values.language}
-            options={Object.entries(languageLabels).map(([value, label]) => ({
-              value: value as SongLanguage,
-              label: tr(ru[label]),
-            }))}
-            onValueChange={set('language')}
-          />
-          <TextField
-            label={tr(ru.coverArtwork)}
-            readOnly
-            value={form.values.coverPath}
-            placeholder={coverState}
-            endAdornment={
-              <IconButton
-                size="xs"
-                variant="ghost"
-                icon="photo"
-                label={tr(ru.replaceCover)}
-                onClick={() => void pickCover()}
-              />
-            }
-          />
-          <TextField
-            name="videoUrl"
-            type="url"
-            label={tr(ru.videoUrl)}
-            value={form.values.videoUrl}
-            onValueChange={set('videoUrl')}
-            placeholder={song.videoUrl}
-            description={tr(
-              ru[song.videoUrl ? 'discoveredVideoHelp' : 'videoOverrideHelp'],
-            )}
-          />
-          <NumberField
-            label={tr(ru.defaultKey)}
-            min={-12}
-            max={12}
-            value={form.values.defaultKey}
-            onValueChange={(value) =>
-              set('defaultKey')(
-                Math.max(-12, Math.min(12, Math.round(Number(value) || 0))),
-              )
-            }
-          />
-          <Select
-            label={tr(ru.defaultPracticeSpeed)}
-            value={String(form.values.defaultSpeed)}
-            options={practiceSpeedOptions}
-            onValueChange={(value) => set('defaultSpeed')(Number(value))}
-          />
-          <Select<VocalRange>
-            label={tr(ru.defaultVocalRange)}
-            value={form.values.vocalRange}
-            options={ranges.map((item) => ({
-              value: item,
-              label: tr(ru[rangeLabel[item]]),
-            }))}
-            onValueChange={set('vocalRange')}
-          />
-        </Grid>
-        {song.artworkUrl && (
-          <img
-            className="songSettingsCover"
-            src={song.artworkUrl}
-            alt={`${song.artist} — ${song.title}`}
-          />
-        )}
-        <KeyValueList
-          items={[
-            [tr(ru.detectedTempoLabel), String(detected.bpm)],
-            [tr(ru.detectedKeyLabel), String(detected.key)],
-            [tr(ru.projectFormatLabel), String(song.projectFormatVersion)],
-            [tr(ru.processingStatusLabel), tr(ru[status.label])],
-          ]}
-        />
-        {failure && <MessageBar tone="error">{failure}</MessageBar>}
-        <div className="songSettingsActions">
-          <Button
-            size="sm"
-            icon="note"
-            disabled={song.status !== 'ready'}
-            onClick={() => {
+      <Form form={form} className="songSettingsForm">
+        <FormFields
+          fields={getRows({
+            song,
+            document,
+            coverState,
+            selected,
+            previews,
+            chooseMedia,
+            failure,
+            onEdit: () => {
               onClose();
               navigate(routes.editor(song.id));
-            }}
-            label={tr(ru.melodyEditor)}
-          />
-          <SplitButton
-            size="sm"
-            icon="folder"
-            label={tr(ru.openFolder)}
-            onClick={() =>
-              void files.revealProject(song.id, song.activeRevision)
-            }
-            items={[
-              ...(song.detectedBpm !== undefined || song.detectedKey
-                ? [
-                    {
-                      id: 'detected',
-                      label: tr(ru.useDetectedValue),
-                      onSelect: () => {
-                        form.setValue('defaultKey', 0);
-                        form.setValue('defaultSpeed', 1);
-                      },
-                    },
-                  ]
-                : []),
-              ...(song.coverState === 'Custom'
-                ? [
-                    {
-                      id: 'cover',
-                      label: tr(ru.removeCustomCover),
-                      onSelect: () => void onRemoveCover(song),
-                    },
-                  ]
-                : []),
-              { id: 'separator', separator: true },
-              {
-                id: 'delete',
-                label: tr(ru.deleteSong),
-                icon: 'trash',
-                danger: true,
-                disabled: busy,
-                onSelect: () => void confirmDelete(song),
-              },
-            ]}
-          >
-            {tr(ru.openFolder)}
-          </SplitButton>
-          <Button
-            type="submit"
-            variant="primary"
-            icon="save"
-            loading={form.submitting}
-            label={tr(ru.save)}
-          />
-        </div>
-      </form>
+            },
+            onRemoveCover: () => void onRemoveCover(song),
+            onDelete: () => void confirmDelete(song),
+          })}
+          gap={4}
+        />
+      </Form>
     </Dialog>
   );
 };

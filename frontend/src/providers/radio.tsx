@@ -1,3 +1,4 @@
+import { observeOperation } from '../shared/errors';
 import { reaction, runInAction } from 'mobx';
 import { store } from './store';
 import { audioClient } from '../services/audioClient';
@@ -61,9 +62,9 @@ export const subscribeRadio = (
       if (joinedRoom !== room.code) {
         joinedRoom = room.code;
         if (room.role === 'host') {
-          void publishRadio(
-            store.radio.enabled,
-            store.preferences.radioStation,
+          void observeOperation(
+            'errors.radioMetadata',
+            publishRadio(store.radio.enabled, store.preferences.radioStation),
           ).catch(() => undefined);
           return;
         }
@@ -90,7 +91,10 @@ export const subscribeRadio = (
       playing = false;
       const station = radioStations.find((item) => item.id === stationId);
       if (!active || !station) {
-        void audioClient.stopRadio().catch(() => undefined);
+        void observeOperation(
+          'errors.radioStop',
+          audioClient.stopRadio(),
+        ).catch(() => undefined);
         return;
       }
       void (async () => {
@@ -129,7 +133,10 @@ export const subscribeRadio = (
       if (!enabled) {
         if (playing) {
           playing = false;
-          void audioClient.pauseRadio().catch(() => undefined);
+          void observeOperation(
+            'errors.radioPause',
+            audioClient.pauseRadio(),
+          ).catch(() => undefined);
         }
         return;
       }
@@ -151,7 +158,10 @@ export const subscribeRadio = (
     () => [store.radio.libraryActive, store.radio.volume] as const,
     ([active, volume]) => {
       if (active)
-        void audioClient.setRadioGain(volume / 100).catch(() => undefined);
+        void observeOperation(
+          'errors.radioVolume',
+          audioClient.setRadioGain(volume / 100),
+        ).catch(() => undefined);
     },
     { fireImmediately: true },
   );
@@ -165,6 +175,8 @@ export const subscribeRadio = (
     runInAction(() => {
       store.radio.preparedKey = '';
     });
-    void audioClient.stopRadio().catch(() => undefined);
+    void observeOperation('errors.radioStop', audioClient.stopRadio()).catch(
+      () => undefined,
+    );
   };
 };

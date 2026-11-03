@@ -3,12 +3,13 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 
-from backend.domain_errors import NotFoundError
+from backend.domain_errors import DomainError, NotFoundError
 from backend.history.domain import HistoryEvent
 from backend.runtime import Clock
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import CoverState, Language, MetadataSource, Song
 from backend.songs.ports import SongStorage
+from backend.songs.prepare_clip import LOCAL_CLIP
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,6 +18,7 @@ class UpdateSongRequest:
     artist: str | None = None
     language: Language | None = None
     cover_path: Path | None = None
+    video_path: Path | None = None
 
 
 class UpdateSong:
@@ -78,6 +80,11 @@ class UpdateSong:
             if value is not None:
                 provenance[field] = MetadataSource.USER
                 overrides.add(field)
+        video_url = song.video_url
+        if request.video_path is not None:
+            self._copy_video(song.song_id, request.video_path)
+            video_url = LOCAL_CLIP
+            overrides.add("video")
         cover_path, cover_state = song.cover_path, song.cover_state
         if request.cover_path is not None:
             source = request.cover_path.expanduser().resolve()
@@ -91,9 +98,20 @@ class UpdateSong:
             title=request.title if request.title is not None else song.title,
             artist=request.artist if request.artist is not None else song.artist,
             language=request.language if request.language is not None else song.language,
+            video_url=video_url,
             cover_path=cover_path,
             cover_state=cover_state,
             metadata_provenance=provenance,
             user_overrides=frozenset(overrides),
             updated_at=self._clock.now(),
         )
+
+    def _copy_video(self, song_id: str, path: Path) -> None:
+        source = path.expanduser().resolve()
+        if not source.is_file():
+            raise NotFoundError("ClipMissing", "Selected video file was not found")
+        with source.open("rb") as stream:
+            header = stream.read(12)
+        if source.suffix.lower() != ".mp4" or header[4:8] != b"ftyp":
+            raise DomainError("InvalidMedia", "Select an MP4 video")
+        self._storage.copy_clip(song_id, source)

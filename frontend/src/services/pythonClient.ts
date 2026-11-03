@@ -15,6 +15,7 @@ import {
   libraryChanged,
   nextJobChange,
   onLibraryChange,
+  readBackendSnapshot,
 } from './backendEvents';
 import { bridgedHttp } from './desktopBridge';
 import {
@@ -373,11 +374,13 @@ export const pythonClient: PythonClient = {
   },
 
   async listRecordings(songId) {
-    const page = await request<RecordingPage>(
-      'GET',
-      `/recordings?song_id=${encodeURIComponent(songId)}&limit=200`,
-    );
-    return page.items.map(mapRecording);
+    return readBackendSnapshot(async () => {
+      const page = await request<RecordingPage>(
+        'GET',
+        `/recordings?song_id=${encodeURIComponent(songId)}&limit=200`,
+      );
+      return page.items.map(mapRecording);
+    }, ['recordings.changed']);
   },
 
   async analyzeRecording(recordingId, onProgress) {

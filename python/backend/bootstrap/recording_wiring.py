@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from functools import partial
+import os
+import threading
+from backend.infrastructure.local_projects import LocalProjectStorage
+from backend.recordings.domain import Recording, recording_adjustments
 
 from backend.analysis.queries import ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
@@ -19,7 +23,7 @@ from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.start_studio_master import PublishStudioMaster, StartStudioMaster
-from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
 from backend.recordings.update_recording import UpdateRecordingName
 from backend.settings.queries import get_settings
 
@@ -32,8 +36,11 @@ def build_recording_cases(
     register: RegisterRecording,
 ) -> RecordingCases:
     archive = RecordingArchive(
-        runtime.config.roots.recordings, runtime.database, runtime.processes,
-        ListRecordingAnalyses(runtime.database).execute, processing.jobs.run_when_idle,
+        runtime.config.roots.recordings,
+        runtime.database,
+        runtime.processes,
+        ListRecordingAnalyses(runtime.database).execute,
+        processing.jobs.run_when_idle,
     )
     analysis, studio_master = _analysis_and_mastering(
         runtime, project, processing, storage, register, archive
@@ -62,7 +69,9 @@ def _analysis_and_mastering(
     archive: RecordingArchive,
 ) -> tuple[StartRecordingAnalysis, StartStudioMaster]:
     inspector = WaveRecordingInspector()
-    publisher = PublishStudioMaster(storage, inspector, register, runtime.clock, runtime.ids)
+    publisher = PublishStudioMaster(
+        storage, inspector, register, runtime.clock, runtime.ids, archive.request
+    )
     resolver = ResolveAiProvider(processing.registry, EnsureRequiredModels(runtime.database))
     resources = processing.resources
     settings = partial(get_settings, runtime.database)
@@ -88,5 +97,42 @@ def _analysis_and_mastering(
         processing.workspaces,
         FfmpegStudioMasterRenderer(runtime.processes),
         publisher,
-        archive.request,
     )
+
+
+def prepare_recording(
+    renderer: FfmpegStudioMasterRenderer,
+    projects: LocalProjectStorage,
+    recording: Recording,
+    cancel: threading.Event,
+) -> None:
+    path = recording.file_path
+    renderer.preserve_stems(path)
+    stems = recording_stems(path)
+    if stems is None or recording.song_id is None or recording.song_revision is None:
+        return
+    reference = projects.artifact_path(recording.song_id, recording.song_revision, "referenceVocal")
+    instrumental = projects.artifact_path(
+        recording.song_id, recording.song_revision, "instrumental"
+    )
+    if not reference.is_file() or not instrumental.is_file():
+        return
+    adjustments = recording_adjustments(recording)
+    temporary = path.with_suffix(".balancing.wav")
+    try:
+        renderer.render(
+            *stems,
+            reference,
+            instrumental,
+            temporary,
+            cancel,
+            performance_mix=path,
+            exact_stems=True,
+            process_voice=False,
+            adjustments=adjustments,
+        )
+        if cancel.is_set():
+            return
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)

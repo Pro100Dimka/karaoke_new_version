@@ -1,4 +1,6 @@
-import { sendAudioRequest, type AudioRequest } from './AudioServiceTransport';
+import {
+  sendAudioRequest, subscribeAudioNotifications, type AudioRequest,
+} from './AudioServiceTransport';
 import type { BackendEndpoint } from './BackendEndpoint';
 import { ipcChannels } from './ipcChannels';
 import type { createKeyboardLightingProvider } from './KeyboardLighting';
@@ -55,6 +57,33 @@ const registerBackendRequests = (
   trustedIpc: TrustedIpc,
   backendEndpoint: BackendEndpoint,
 ) => {
+  const subscriptions = new Map<string, () => void>();
+  const stopNotifications = () => {
+    for (const stop of subscriptions.values()) stop();
+    subscriptions.clear();
+  };
+  let observedSender = false;
+  trustedIpc.handle(ipcChannels.audioSubscribe, (event, raw: unknown) => {
+    const request = requireObject(raw, 'Audio subscription');
+    const command = requireString(request.command, 'command');
+    subscriptions.get(command)?.();
+    subscriptions.delete(command);
+    if (request.intervalMs === null) return;
+    const interval = Number(request.intervalMs);
+    const stop = subscribeAudioNotifications(command, interval, (value) => {
+      if (!event.sender.isDestroyed())
+        event.sender.send(ipcChannels.audioNotification, { command, value });
+    });
+    subscriptions.set(command, stop);
+    if (!observedSender) {
+      observedSender = true;
+      event.sender.on('did-start-loading', stopNotifications);
+      event.sender.once('destroyed', () => {
+        observedSender = false;
+        stopNotifications();
+      });
+    }
+  });
   trustedIpc.handle(ipcChannels.pythonRequest, async (_event, raw: unknown) => {
     const request = requireBackendRequest(raw);
     try {

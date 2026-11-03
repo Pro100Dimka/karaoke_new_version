@@ -5,7 +5,7 @@ import {
   useMotion,
 } from '@neo-ui-kit/react';
 import { useEffect, useRef, useState } from 'react';
-import { microphoneLevel } from '../../services/inputLevel';
+import { observeMicrophoneLevel } from '../../services/inputLevel';
 import {
   backdropSpectrum,
   backdropSpectrumRange,
@@ -20,64 +20,46 @@ const quietVoicePollMilliseconds = 200;
 
 /**
  * The radio and everything else AudioService plays (from the shared spectrum feed) plus the singer's
- * microphone, as one spectrum. The microphone is polled on its own clock: when the speakers are
+ * microphone, as one spectrum. The microphone has its own subscription: when the speakers are
  * silent the spectrum feed slows down, but a voice must still move the field at once.
  */
 const useBackdropSpectrum = (listening: boolean): number[] | undefined => {
   const [bands, setBands] = useState<number[]>();
   const output = useRef<readonly number[]>([]);
   const voice = useRef(0);
+  const [quietVoice, setQuietVoice] = useState(true);
 
   useEffect(() => {
     if (!listening) {
       setBands(undefined);
       return;
     }
-    let stopped = false;
-    let timer = 0;
     const publish = () =>
       setBands(backdropSpectrum(output.current, voice.current));
-    const pollVoice = async () => {
-      try {
-        const next = voiceLevel(await microphoneLevel());
-        if (!stopped && (next > 0 || voice.current > 0)) {
-          voice.current = next;
-          publish();
-        }
-      } catch {
-        // Without AudioService there is no voice; the service banner reports the outage.
-        voice.current = 0;
+    const stopVoice = observeMicrophoneLevel(level => {
+      const next = voiceLevel(level);
+      setQuietVoice(next === 0);
+      if (next > 0 || voice.current > 0) {
+        voice.current = next;
+        publish();
       }
-      if (!stopped)
-        timer = window.setTimeout(
-          () => void pollVoice(),
-          voice.current > 0
-            ? voicePollMilliseconds
-            : quietVoicePollMilliseconds,
-        );
-    };
-    void pollVoice();
+    }, () => {
+      // Without AudioService there is no voice; the service banner reports the outage.
+      voice.current = 0;
+    }, quietVoice ? quietVoicePollMilliseconds : voicePollMilliseconds);
     const unsubscribe = subscribeSpectrum((frame) => {
       output.current = frame.bands;
       publish();
     });
     return () => {
-      stopped = true;
-      window.clearTimeout(timer);
+      stopVoice();
       unsubscribe();
     };
-  }, [listening]);
+  }, [listening, quietVoice]);
   return bands;
 };
 
-/**
- * The Library's moving backdrop. It lives in its own component so the 20 Hz spectrum updates
- * re-render only the scene, never the page above it. While a window covers it, `listening` is off
- * and the stylesheet hides it, which also stops the scene's frames (see app.css).
- */
-export const LibraryBackdrop = ({ paused = false }: { paused?: boolean }) => {
-  const motion = useMotion();
-  const listening = !paused && motion;
+const SpectrumBackground = ({ listening }: { listening: boolean }) => {
   const spectrum = useBackdropSpectrum(listening);
   const initial = {
     field: 'Higgs (Mass)',
@@ -110,6 +92,26 @@ export const LibraryBackdrop = ({ paused = false }: { paused?: boolean }) => {
   const threeUrl = './vendor/three/';
 
   return (
+    <QuantumBackground
+      {...initial}
+      spectrum={spectrum}
+      spectrumRange={backdropSpectrumRange}
+      threeUrl={threeUrl}
+      style={{
+        height: '100%',
+        display: !listening ? 'none' : undefined,
+        borderRadius: 0,
+        mixBlendMode: 'screen',
+        maskImage: 'linear-gradient(180deg, #0004, #0009 30%, #000 55%)',
+      }}
+    />
+  );
+};
+
+/** Spectrum updates belong to the scene; decorative waves do not consume audio bands. */
+export const LibraryBackdrop = ({ paused = false }: { paused?: boolean }) => {
+  const motion = useMotion();
+  return (
     <Stack
       inert
       data-ad-offscreen={paused ? '' : undefined}
@@ -122,21 +124,7 @@ export const LibraryBackdrop = ({ paused = false }: { paused?: boolean }) => {
         pointerEvents: 'none',
       }}
     >
-      {motion && (
-        <QuantumBackground
-          {...initial}
-          spectrum={spectrum}
-          spectrumRange={backdropSpectrumRange}
-          threeUrl={threeUrl}
-          style={{
-            height: '100%',
-            display: !listening ? 'none' : undefined,
-            borderRadius: 0,
-            mixBlendMode: 'screen',
-            maskImage: 'linear-gradient(180deg, #0004, #0009 30%, #000 55%)',
-          }}
-        />
-      )}
+      {motion && <SpectrumBackground listening={!paused} />}
       <NeonWaves
         shape="twist"
         strands={18}

@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.sql.elements import ColumnElement, SQLColumnExpression
 
 from backend.infrastructure.sql_time import as_utc
 from backend.domain_errors import DomainError
@@ -163,98 +164,11 @@ class SqlSongRepository:
 
     def _search(self, query: SongSearch) -> SongPage:
         revision = self._revision(query.sort == "played")
-        signature = dumps(
-            [
-                query.search,
-                query.status,
-                query.sort,
-                query.descending,
-                query.language,
-                query.duration,
-                query.artwork,
-            ]
-        )
-        played = (
-            select(
-                HistoryRow.entity_id.label("song_id"),
-                func.max(HistoryRow.created_at).label("played_at"),
-            )
-            .where(HistoryRow.event_type == "SongPlayed")
-            .group_by(HistoryRow.entity_id)
-            .subquery()
-        )
-        column = {
-            "title": SongRow.title_normalized,
-            "artist": SongRow.artist_normalized,
-            "createdAt": SongRow.created_at,
-            "duration": func.coalesce(SongRow.duration, 0.0),
-            "bpm": func.coalesce(SongRow.detected_bpm, 0.0),
-            "played": func.coalesce(played.c.played_at, datetime(1970, 1, 1)),
-        }[query.sort]
-        statement: Select[tuple[SongRow, object]] = select(SongRow, column.label("sort_value"))
-        if query.sort == "played":
-            statement = statement.outerjoin(played, played.c.song_id == SongRow.song_id)
-        conditions = []
-        if query.search:
-            conditions.append(
-                or_(
-                    *(
-                        field.contains(normalize_search(query.search), autoescape=True)
-                        for field in (
-                            SongRow.title_normalized,
-                            SongRow.artist_normalized,
-                            SongRow.original_filename_normalized,
-                        )
-                    )
-                )
-            )
-        statuses = {
-            "ready": ["Ready"],
-            "importing": [],
-            "processing": ["Processing", "Cancelling"],
-            "queued": ["Queued"],
-            "not-processed": ["Imported", "Cancelled"],
-            "failed": ["Failed", "SourceMissing"],
-            "invalid": ["ProjectInvalid"],
-        }
-        if query.status != "all":
-            conditions.append(SongRow.status.in_(statuses[query.status]))
-        if query.language:
-            conditions.append(SongRow.language == query.language.value)
-        duration = {
-            "short": SongRow.duration < 180,
-            "medium": and_(SongRow.duration >= 180, SongRow.duration < 300),
-            "long": SongRow.duration >= 300,
-        }
-        if query.duration != "all":
-            conditions.append(duration[query.duration])
-        artwork = or_(
-            SongRow.cover_path.is_not(None),
-            and_(SongRow.artwork_url.is_not(None), SongRow.artwork_url != ""),
-        )
-        if query.artwork != "all":
-            conditions.append(artwork if query.artwork == "with" else ~artwork)
-        statement = statement.where(*conditions)
+        signature = _search_signature(query)
+        statement, column = _search_order(query)
+        statement = statement.where(*_search_filters(query))
         if query.cursor:
-            try:
-                saved_revision, saved_filters, value, song_id = loads_list(
-                    base64.b64decode(query.cursor, altchars=b"-_", validate=True).decode("utf8")
-                )
-                if saved_filters != signature or not isinstance(song_id, str):
-                    raise ValueError("Cursor does not match search")
-                if saved_revision != revision:
-                    raise DomainError(
-                        "CatalogChanged", "The library changed; refresh the search", 409
-                    )
-                if query.sort in ("createdAt", "played"):
-                    value = datetime.fromisoformat(value)
-                elif query.sort in ("duration", "bpm"):
-                    if not isinstance(value, (int, float)) or not math.isfinite(value):
-                        raise ValueError("Invalid numeric cursor")
-                elif not isinstance(value, str):
-                    raise ValueError("Invalid text cursor")
-            except (ValueError, TypeError, UnicodeError) as exc:
-                raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400) from exc
+            value, song_id = _cursor_values(query, query.cursor, signature, revision)
             after = column < value if query.descending else column > value
             statement = statement.where(
                 or_(after, and_(column == value, SongRow.song_id > song_id))
@@ -328,3 +242,113 @@ class SqlSongRepository:
         if status:
             query = query.where(SongRow.status == status.value)
         return int(self._session.scalar(query) or 0)
+
+
+def _search_signature(query: SongSearch) -> str:
+    signature = dumps(
+        [
+            query.search,
+            query.status,
+            query.sort,
+            query.descending,
+            query.language,
+            query.duration,
+            query.artwork,
+        ]
+    )
+    return signature
+
+
+def _search_filters(query: SongSearch) -> list[ColumnElement[bool]]:
+    conditions: list[ColumnElement[bool]] = []
+    if query.search:
+        conditions.append(_text_match(query.search))
+    statuses = {
+        "ready": ["Ready"],
+        "importing": [],
+        "processing": ["Processing", "Cancelling"],
+        "queued": ["Queued"],
+        "not-processed": ["Imported", "Cancelled"],
+        "failed": ["Failed", "SourceMissing"],
+        "invalid": ["ProjectInvalid"],
+    }
+    if query.status != "all":
+        conditions.append(SongRow.status.in_(statuses[query.status]))
+    if query.language:
+        conditions.append(SongRow.language == query.language.value)
+    duration = {
+        "short": SongRow.duration < 180,
+        "medium": and_(SongRow.duration >= 180, SongRow.duration < 300),
+        "long": SongRow.duration >= 300,
+    }
+    if query.duration != "all":
+        conditions.append(duration[query.duration])
+    artwork = or_(
+        SongRow.cover_path.is_not(None),
+        and_(SongRow.artwork_url.is_not(None), SongRow.artwork_url != ""),
+    )
+    if query.artwork != "all":
+        conditions.append(artwork if query.artwork == "with" else ~artwork)
+    return conditions
+
+
+def _cursor_values(
+    query: SongSearch, cursor: str, signature: str, revision: str
+) -> tuple[object, str]:
+    try:
+        saved_revision, saved_filters, value, song_id = loads_list(
+            base64.b64decode(cursor, altchars=b"-_", validate=True).decode("utf8")
+        )
+        if saved_filters != signature or not isinstance(song_id, str):
+            raise ValueError("Cursor does not match search")
+        if saved_revision != revision:
+            raise DomainError("CatalogChanged", "The library changed; refresh the search", 409)
+        if query.sort in ("createdAt", "played"):
+            value = datetime.fromisoformat(value)
+        elif query.sort in ("duration", "bpm"):
+            if not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError("Invalid numeric cursor")
+        elif not isinstance(value, str):
+            raise ValueError("Invalid text cursor")
+    except (ValueError, TypeError, UnicodeError) as exc:
+        raise DomainError("InvalidCursor", "Pagination cursor is invalid", 400) from exc
+    return value, song_id
+
+
+def _search_order(
+    query: SongSearch,
+) -> tuple[Select[tuple[SongRow, object]], SQLColumnExpression[object]]:
+    played = (
+        select(
+            HistoryRow.entity_id.label("song_id"),
+            func.max(HistoryRow.created_at).label("played_at"),
+        )
+        .where(HistoryRow.event_type == "SongPlayed")
+        .group_by(HistoryRow.entity_id)
+        .subquery()
+    )
+    column = {
+        "title": SongRow.title_normalized,
+        "artist": SongRow.artist_normalized,
+        "createdAt": SongRow.created_at,
+        "duration": func.coalesce(SongRow.duration, 0.0),
+        "bpm": func.coalesce(SongRow.detected_bpm, 0.0),
+        "played": func.coalesce(played.c.played_at, datetime(1970, 1, 1)),
+    }[query.sort]
+    statement: Select[tuple[SongRow, object]] = select(SongRow, column.label("sort_value"))
+    if query.sort == "played":
+        statement = statement.outerjoin(played, played.c.song_id == SongRow.song_id)
+    return statement, column
+
+
+def _text_match(search: str) -> ColumnElement[bool]:
+    return or_(
+        *(
+            field.contains(normalize_search(search), autoescape=True)
+            for field in (
+                SongRow.title_normalized,
+                SongRow.artist_normalized,
+                SongRow.original_filename_normalized,
+            )
+        )
+    )

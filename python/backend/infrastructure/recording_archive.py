@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import partial
 
 import logging
 import os
@@ -13,7 +14,7 @@ import soundfile as sf
 from backend.analysis.domain import AnalysisResult, AnalysisState
 from backend.domain_errors import ConflictError
 from backend.infrastructure.atomic_files import atomic_write_text
-from backend.infrastructure.job_executor import ServiceLoop
+from backend.infrastructure.job_executor import ServiceLoop, job_failure
 from backend.infrastructure.hashing import sha256_file
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.process_runner import ProcessRunner
@@ -67,7 +68,14 @@ class RecordingArchive:
 
     def request(self, recording_id: str) -> None:
         # Storage errors must not turn a successful Master or analysis into a failed job.
-        try:
+        with job_failure(
+            partial(
+                logger.exception,
+                "Could not schedule recording archive",
+                extra={"recordingId": recording_id},
+            ),
+            suppress=True,
+        ):
             with self._uow.create() as transaction:
                 recording = transaction.recordings.get(recording_id)
                 if recording is None:
@@ -90,10 +98,6 @@ class RecordingArchive:
                     )
                     self._pending.add(marker)
             self._wake.set()
-        except Exception:
-            logger.exception(
-                "Could not schedule recording archive", extra={"recordingId": recording_id}
-            )
 
     @staticmethod
     def _source_id(recording: Recording) -> str | None:
@@ -109,7 +113,9 @@ class RecordingArchive:
         return path
 
     def _step(self) -> None:
-        try:
+        with job_failure(
+            partial(logger.exception, "Recording archive recovery deferred"), suppress=True
+        ):
             if not self._resumed:
                 with self._lock:
                     self._pending.update(self._root.glob("*/archive-pending.json"))
@@ -119,22 +125,25 @@ class RecordingArchive:
             for marker in markers:
                 if self._cancel.is_set():
                     return
-                try:
-                    if self._archive(marker):
-                        with self._lock:
-                            self._pending.discard(marker)
-                except ConflictError:
-                    pass  # Active jobs still own the WAV files; retry after they finish.
-                except Exception:
-                    if not self._cancel.is_set():
-                        logger.exception(
-                            "Recording archive deferred; working audio retained",
-                            extra={"marker": str(marker)},
-                        )
-        except Exception:
-            logger.exception("Recording archive recovery deferred")
+                self._archive_one(marker)
         self._wake.wait(5)
         self._wake.clear()
+
+    def _archive_one(self, marker: Path) -> None:
+        with job_failure(partial(self._archive_failed, marker), suppress=True):
+            try:
+                if self._archive(marker):
+                    with self._lock:
+                        self._pending.discard(marker)
+            except ConflictError:
+                pass  # Active jobs still own the WAV files; retry after they finish.
+
+    def _archive_failed(self, marker: Path) -> None:
+        if not self._cancel.is_set():
+            logger.exception(
+                "Recording archive deferred; working audio retained",
+                extra={"marker": str(marker)},
+            )
 
     def _archive(self, marker: Path) -> bool:
         if not marker.exists():
@@ -163,40 +172,38 @@ class RecordingArchive:
         if self._cancel.is_set():
             return False
 
-        def publish() -> None:
-            latest = self._analyses(source_id)
-            if (
-                self._cancel.is_set()
-                or not latest
-                or latest[0].state is not AnalysisState.SUCCEEDED
-            ):
-                raise ConflictError("RecordingChanged", "Recording analysis is not complete")
-            with self._uow.create() as transaction:
-                for previous, path in converted:
-                    current = transaction.recordings.get(previous.recording_id)
-                    if (
-                        current is None
-                        or current.file_status != "Ready"
-                        or current.file_path != previous.file_path
-                    ):
-                        raise ConflictError("RecordingChanged", "Recording changed during archival")
-                    info = sf.info(path)
-                    transaction.recordings.update_file(
-                        current.recording_id,
-                        path,
-                        RecordingFileMetadata(info.duration, info.samplerate, info.channels),
-                    )
-                transaction.commit()
-            for _, path in converted:
-                for name in _WORKING_FILES:
-                    working = path.parent / name
-                    if working.resolve() != working:
-                        raise ValueError("Recording cleanup cannot follow file aliases")
-                    working.unlink(missing_ok=True)
-            marker.unlink(missing_ok=True)
-
-        self._when_idle(publish)
+        self._when_idle(partial(self._publish, source_id, converted, marker))
         return True
+
+    def _publish(
+        self, source_id: str, converted: list[tuple[Recording, Path]], marker: Path
+    ) -> None:
+        latest = self._analyses(source_id)
+        if self._cancel.is_set() or not latest or latest[0].state is not AnalysisState.SUCCEEDED:
+            raise ConflictError("RecordingChanged", "Recording analysis is not complete")
+        with self._uow.create() as transaction:
+            for previous, path in converted:
+                current = transaction.recordings.get(previous.recording_id)
+                if (
+                    current is None
+                    or current.file_status != "Ready"
+                    or current.file_path != previous.file_path
+                ):
+                    raise ConflictError("RecordingChanged", "Recording changed during archival")
+                info = sf.info(path)
+                transaction.recordings.update_file(
+                    current.recording_id,
+                    path,
+                    RecordingFileMetadata(info.duration, info.samplerate, info.channels),
+                )
+            transaction.commit()
+        for _, path in converted:
+            for name in _WORKING_FILES:
+                working = path.parent / name
+                if working.resolve() != working:
+                    raise ValueError("Recording cleanup cannot follow file aliases")
+                working.unlink(missing_ok=True)
+        marker.unlink(missing_ok=True)
 
     def _encode(self, source: Path) -> Path:
         target = source.with_name("recording.mp3")
@@ -211,67 +218,14 @@ class RecordingArchive:
         )
         expected_frames = info.frames * rate / info.samplerate
         cache = target.with_suffix(".mp3.peaks.json")
-        if target.is_file() and cache.is_file():
-            saved = loads_object(cache.read_text(encoding="utf-8"))
-            stat = target.stat()
-            if saved.get("size") == stat.st_size and saved.get("sha256") == sha256_file(target):
-                encoded = sf.info(target)
-                if (
-                    encoded.frames > 0
-                    and (encoded.samplerate, encoded.channels) == (rate, info.channels)
-                    and abs(encoded.frames - expected_frames) <= 1
-                ):
-                    return target
+        if self._cached_encoding(target, cache, rate, info.channels, expected_frames):
+            return target
         temporary = target.with_suffix(".archiving.mp3")
         try:
             if source != target:
-                if shutil.disk_usage(source.parent).free < info.duration * 40000 + 32 * 1024 * 1024:
-                    raise OSError("Insufficient space for a verified MP3 copy")
-                result = self._runner.run(
-                    [
-                        "ffmpeg",
-                        "-v",
-                        "error",
-                        "-nostdin",
-                        "-y",
-                        "-i",
-                        str(source),
-                        "-map",
-                        "0:a:0",
-                        "-c:a",
-                        "libmp3lame",
-                        "-ar",
-                        str(rate),
-                        "-b:a",
-                        "320k",
-                        str(temporary),
-                    ],
-                    timeout_seconds=max(60, info.duration * 2),
-                    cancel=self._cancel,
-                )
-                if result.exit_code:
-                    raise ValueError("MP3 encoding failed")
+                self._encode_mp3(source, temporary, rate, info.duration)
             encoded = temporary if source != target else target
-            peaks = np.zeros(4096)
-            frames = 0
-            with sf.SoundFile(encoded) as audio:
-                if (
-                    audio.frames <= 0
-                    or (audio.samplerate, audio.channels) != (rate, info.channels)
-                    or abs(audio.frames - expected_frames) > 1
-                ):
-                    raise ValueError("Encoded MP3 has different duration or audio layout")
-                total_frames = audio.frames
-                for block in audio.blocks(blocksize=65536, dtype="float32", always_2d=True):
-                    if self._cancel.is_set():
-                        raise InterruptedError("Recording archive stopped")
-                    if not np.isfinite(block).all():
-                        raise ValueError("Encoded MP3 contains invalid samples")
-                    slots = np.arange(frames, frames + len(block)) * len(peaks) // total_frames
-                    np.maximum.at(peaks, slots, np.abs(block).max(axis=1))
-                    frames += len(block)
-            if frames != total_frames:
-                raise ValueError("Encoded MP3 is incomplete")
+            peaks = self._verified_peaks(encoded, rate, info.channels, expected_frames)
             if source != target:
                 with temporary.open("r+b") as stream:
                     os.fsync(stream.fileno())
@@ -290,3 +244,73 @@ class RecordingArchive:
             return target
         finally:
             temporary.unlink(missing_ok=True)
+
+    @staticmethod
+    def _cached_encoding(
+        target: Path, cache: Path, rate: int, channels: int, expected_frames: float
+    ) -> bool:
+        if target.is_file() and cache.is_file():
+            saved = loads_object(cache.read_text(encoding="utf-8"))
+            stat = target.stat()
+            if saved.get("size") == stat.st_size and saved.get("sha256") == sha256_file(target):
+                encoded = sf.info(target)
+                if (
+                    encoded.frames > 0
+                    and (encoded.samplerate, encoded.channels) == (rate, channels)
+                    and abs(encoded.frames - expected_frames) <= 1
+                ):
+                    return True
+        return False
+
+    def _encode_mp3(self, source: Path, temporary: Path, rate: int, duration: float) -> None:
+        if shutil.disk_usage(source.parent).free < duration * 40000 + 32 * 1024 * 1024:
+            raise OSError("Insufficient space for a verified MP3 copy")
+        result = self._runner.run(
+            [
+                "ffmpeg",
+                "-v",
+                "error",
+                "-nostdin",
+                "-y",
+                "-i",
+                str(source),
+                "-map",
+                "0:a:0",
+                "-c:a",
+                "libmp3lame",
+                "-ar",
+                str(rate),
+                "-b:a",
+                "320k",
+                str(temporary),
+            ],
+            timeout_seconds=max(60, duration * 2),
+            cancel=self._cancel,
+        )
+        if result.exit_code:
+            raise ValueError("MP3 encoding failed")
+
+    def _verified_peaks(
+        self, encoded: Path, rate: int, channels: int, expected_frames: float
+    ) -> np.ndarray:
+        peaks = np.zeros(4096)
+        frames = 0
+        with sf.SoundFile(encoded) as audio:
+            if (
+                audio.frames <= 0
+                or (audio.samplerate, audio.channels) != (rate, channels)
+                or abs(audio.frames - expected_frames) > 1
+            ):
+                raise ValueError("Encoded MP3 has different duration or audio layout")
+            total_frames = audio.frames
+            for block in audio.blocks(blocksize=65536, dtype="float32", always_2d=True):
+                if self._cancel.is_set():
+                    raise InterruptedError("Recording archive stopped")
+                if not np.isfinite(block).all():
+                    raise ValueError("Encoded MP3 contains invalid samples")
+                slots = np.arange(frames, frames + len(block)) * len(peaks) // total_frames
+                np.maximum.at(peaks, slots, np.abs(block).max(axis=1))
+                frames += len(block)
+        if frames != total_frames:
+            raise ValueError("Encoded MP3 is incomplete")
+        return peaks

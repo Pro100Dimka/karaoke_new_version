@@ -1,12 +1,10 @@
-import { audioClient as audio } from '../../services/audioClient';
+import { audioClient as audio, invalidateAudioSnapshots } from '../../services/audioClient';
 import { useCallback, useEffect, useRef } from 'react';
 import type { PlaybackSnapshot } from '../../contracts/models';
 
-const pollMilliseconds = 16;
-
 interface PositionPollingOptions {
   enabled: boolean;
-  /** Polling only runs while the session is in a state that has a meaningful position. */
+  /** Updates are applied only while the session has a meaningful position. */
   isPollable(): boolean;
   isPlaying(): boolean;
   onPosition(seconds: number): void;
@@ -16,9 +14,7 @@ interface PositionPollingOptions {
 }
 
 export interface PositionPollingHandle {
-  /** Drops the reply of every poll issued so far, even ones already in flight. Call this around a seek:
-   * a poll started just before the seek can still resolve just after it, with the pre-seek position --
-   * applying that reply would flash the highlight, piano roll and scene video back a moment. */
+  /** Discards pending notifications around a seek, preserving the new authoritative position. */
   invalidate(): void;
 }
 
@@ -26,52 +22,26 @@ export interface PositionPollingHandle {
 export const usePositionPolling = (
   options: PositionPollingOptions,
 ): PositionPollingHandle => {
-  // Persists across effect re-runs and outlives each in-flight request, so invalidate() reaches every
-  // request issued by this hook instance, not just the current effect run's own closure.
-  const latestSequence = useRef(0);
-  const inFlight = useRef(false);
-  const lastPoll = useRef(0);
   const callbacks = useRef(options);
   callbacks.current = options;
   const { enabled } = options;
+  const playing = options.isPlaying();
 
   useEffect(() => {
     if (!enabled) return;
-    // Keep slow IPC from accumulating polls or starving replies behind ever-newer requests.
-    const timer = window.setInterval(() => {
-      if (inFlight.current || !callbacks.current.isPollable()) return;
-      const now = performance.now();
-      if (!callbacks.current.isPlaying() && now - lastPoll.current < 500)
-        return;
-      lastPoll.current = now;
-      inFlight.current = true;
-      const sequence = ++latestSequence.current;
-      void audio
-        .snapshot()
-        .then((snapshot) => {
-          if (sequence !== latestSequence.current) return;
-          const current = callbacks.current;
-          current.onSnapshot?.(snapshot);
-          current.onPosition(snapshot.positionSeconds);
-          if (snapshot.state === 'finished' && current.isPlaying())
-            current.onFinished();
-        })
-        .catch(() => {
-          if (sequence === latestSequence.current) callbacks.current.onLost();
-        })
-        .finally(() => {
-          inFlight.current = false;
-        });
-    }, pollMilliseconds);
-    return () => {
-      window.clearInterval(timer);
-      latestSequence.current += 1;
-    };
-  }, [enabled]);
+    return audio.observeSnapshots((snapshot) => {
+      const current = callbacks.current;
+      if (!current.isPollable()) return;
+      current.onSnapshot?.(snapshot);
+      current.onPosition(snapshot.positionSeconds);
+      if (snapshot.state === 'finished' && current.isPlaying()) current.onFinished();
+    }, () => {
+      if (callbacks.current.isPollable()) callbacks.current.onLost();
+    }, playing ? 16 : 500);
+  }, [enabled, playing]);
 
   const invalidate = useCallback(() => {
-    latestSequence.current += 1;
-    lastPoll.current = 0;
+    invalidateAudioSnapshots();
   }, []);
 
   return { invalidate };

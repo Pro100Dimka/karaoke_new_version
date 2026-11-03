@@ -36,6 +36,7 @@ def _to_domain(row: RecordingRow) -> Recording:
 class SqlRecordingRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+        self.changed: set[str] = set()
 
     def get(self, recording_id: str) -> Recording | None:
         row = self._session.scalar(
@@ -44,6 +45,7 @@ class SqlRecordingRepository:
         return _to_domain(row) if row else None
 
     def add(self, recording: Recording) -> None:
+        self.changed.add(recording.recording_id)
         self._session.add(
             RecordingRow(
                 recording_id=recording.recording_id,
@@ -69,6 +71,7 @@ class SqlRecordingRepository:
             raise KeyError(recording.recording_id)
         row.display_name = recording.display_name
         row.file_status = recording.file_status
+        self.changed.add(recording.recording_id)
 
     def update_file(self, recording_id: str, path: Path, metadata: RecordingFileMetadata) -> None:
         row = self._session.scalar(
@@ -80,6 +83,7 @@ class SqlRecordingRepository:
         row.duration = metadata.duration
         row.sample_rate = metadata.sample_rate
         row.channels = metadata.channels
+        self.changed.add(recording_id)
 
     def delete(self, recording_id: str) -> None:
         self._session.execute(delete(AnalysisRow).where(AnalysisRow.recording_id == recording_id))
@@ -88,6 +92,7 @@ class SqlRecordingRepository:
         )
         if row:
             self._session.delete(row)
+            self.changed.add(recording_id)
 
     def list(self, *, song_id: str | None, limit: int, offset: int) -> Sequence[Recording]:
         query = select(RecordingRow)
