@@ -82,6 +82,7 @@ _COMMON_ROMANIZATION = MappingProxyType(
         for character, romanized in {
             **dict(zip(string.ascii_lowercase, string.ascii_lowercase)),
             **dict.fromkeys(string.punctuation + " \t\r\n’–—…", ""),
+            "'": "'",
             "а": "a",
             "б": "b",
             "в": "v",

@@ -105,7 +105,7 @@ def test_common_alignment_characters_do_not_load_multilingual_resources(monkeypa
         [
             dictionary[letter]
             for letter in romanizer.romanize_string(char, lang=None).lower()
-            if letter in dictionary and letter.isascii() and letter.isalpha()
+            if letter in dictionary and letter != "-"
         ]
         for char in characters
     ]
@@ -138,7 +138,7 @@ def test_uncommon_and_number_tokens_preserve_multilingual_romanization(
         [
             dictionary[letter]
             for letter in romanizer.romanize_string(piece, lang=None).lower()
-            if letter in dictionary and letter.isascii() and letter.isalpha()
+            if letter in dictionary and letter != "-"
         ]
         for piece in pieces
     ]
@@ -467,6 +467,38 @@ def test_returning_voice_can_precede_its_coarse_recognized_entry(
 
 
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
+def test_speech_checkpoint_materializes_contiguous_weights_on_requested_device(tmp_path, target):
+    from dataclasses import asdict
+
+    import torch
+    from backend.ai_worker import speech
+
+    if target == "cuda" and not torch.cuda.is_available():
+        pytest.skip("CUDA is unavailable")
+    dims = speech.whisper.ModelDimensions(4, 2, 4, 1, 1, 8, 4, 4, 1, 2)
+    reference = speech.whisper.Whisper(dims)
+    weights = {
+        key: value.half().T.contiguous().T if value.ndim == 2 else value.half()
+        for key, value in reference.state_dict().items()
+    }
+    reference.load_state_dict(weights)
+    for layer in reference.modules() if target == "cuda" else ():
+        if isinstance(layer, (torch.nn.Linear, torch.nn.Conv1d, torch.nn.Embedding)):
+            layer.half()
+    checkpoint = tmp_path / "speech.pt"
+    torch.save({"dims": asdict(dims), "model_state_dict": weights}, checkpoint)
+
+    actual = speech._load_speech_model(str(checkpoint), target)
+
+    for key, value in actual.state_dict().items():
+        expected = reference.state_dict()[key]
+        assert value.device.type == target
+        assert value.is_contiguous()
+        assert value.dtype == expected.dtype
+        assert torch.equal(value.cpu(), expected)
+
+
+@pytest.mark.parametrize("target", ["cpu", "cuda"])
 def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
     monkeypatch, tmp_path, target
 ):
@@ -494,10 +526,11 @@ def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
     monkeypatch.setattr(speech, "model_file", lambda _: checkpoint)
     monkeypatch.setitem(speech.whisper._ALIGNMENT_HEADS, "large-v3-turbo", heads)
     constructed, loads = [], []
-    original_reset, original_load, original_to = (
+    original_reset, original_load, original_to, original_tensor_to = (
         torch.nn.Linear.reset_parameters,
         torch.load,
         torch.nn.Module.to,
+        torch.Tensor.to,
     )
 
     def reset(layer):
@@ -511,9 +544,15 @@ def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
     def transfer(module, *args, **kwargs):
         return module if args == ("cuda",) else original_to(module, *args, **kwargs)
 
+    def transfer_tensor(tensor, *args, **kwargs):
+        if kwargs.get("device") == "cuda":
+            kwargs["device"] = "cpu"
+        return original_tensor_to(tensor, *args, **kwargs)
+
     monkeypatch.setattr(torch.nn.Linear, "reset_parameters", reset)
     monkeypatch.setattr(torch, "load", load)
     monkeypatch.setattr(torch.nn.Module, "to", transfer)
+    monkeypatch.setattr(torch.Tensor, "to", transfer_tensor)
     actual = speech._speech_model(target)
     assert constructed and all(constructed)
     assert loads == [{"map_location": "cpu", "weights_only": True, "mmap": True}]

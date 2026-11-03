@@ -113,7 +113,9 @@ def _load_speech_model(path: str, target: str) -> whisper.Whisper:
             layer.half()
     expected = model.state_dict()
     weights = {
-        key: value.to(dtype=expected[key].dtype, memory_format=torch.contiguous_format).contiguous()
+        key: value.to(
+            device=target, dtype=expected[key].dtype, memory_format=torch.contiguous_format
+        ).contiguous()
         for key, value in checkpoint["model_state_dict"].items()
     }
     model.load_state_dict(weights, assign=True)
