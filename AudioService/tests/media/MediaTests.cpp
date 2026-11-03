@@ -12,6 +12,19 @@
 #include <vector>
 
 namespace Tests {
+void loadingProgressReportsRealScannedFramesWithoutMovingPlayback() {
+    const auto path = tempRoot / "loading-progress.wav";
+    makeTestWav(path, 10000);
+    MediaSource source(std::make_unique<WavDecoder>(), true);
+    source.prepareOutput(48000, 2, 9600);
+    source.load(path.string());
+    expect(source.waitUntilReady() == PlaybackState::Ready, "finite source completes loudness analysis");
+    expect(source.snapshot().loadProgressFrames == 10000 && source.timelineFrame() == 0,
+           "loading advances its own progress without moving the song cursor");
+    source.unload();
+    expect(source.snapshot().loadProgressFrames == 0, "unloading clears the retired scan progress");
+}
+
 namespace {
 class BlockingDecoder final : public IAudioDecoder {
   public:

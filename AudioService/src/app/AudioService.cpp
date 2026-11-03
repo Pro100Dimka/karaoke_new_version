@@ -445,6 +445,7 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "MonitoringEnabled: " << realtime_.monitoring() << '\n'
         << "MonitoringSafetyTripped: " << realtime_.monitoringSafetyTripped() << '\n'
         << "PlaybackState: " << playbackStateText(music.state) << '\n'
+        << "PlaybackLoadProgressFrames: " << music.loadProgressFrames << '\n'
         << "PlaybackPositionFrames: " << media_.timelineFrame(MediaSlot::Music) << '\n'
         << "PlaybackPresentationPositionFrames: " << presentationPosition << '\n'
         << "PreviewState: " << playbackStateText(preview.state) << '\n'

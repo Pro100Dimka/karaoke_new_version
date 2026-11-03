@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace Tests {
+void loadingProgressReportsRealScannedFramesWithoutMovingPlayback();
 void controlledReconfigurePreservesOnePerformanceFile();
 void rejectedPcmPacketsCannotSeedReceiveLossConcealment();
 void traceRejectsAnOldTakeTokenAfterImmediateRearm();

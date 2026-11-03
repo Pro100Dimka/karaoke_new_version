@@ -234,8 +234,11 @@ export const createRoomVoice = (
       } catch (error) {
         voice.session = null;
         audioState.roomActive = false;
-        await desktopBridge().leaveRoomVoice();
-        await reconcileWindowsMode();
+        try {
+          await desktopBridge().leaveRoomVoice();
+        } finally {
+          await reconcileWindowsMode();
+        }
         throw error;
       }
     });
@@ -252,13 +255,16 @@ export const createRoomVoice = (
       } finally {
         voice.session = null;
         audioState.roomActive = false;
-        if (voice.roomPlayoutDelayMilliseconds > 0)
-          await command('SetRoomPlayoutDelay', { milliseconds: 0 });
+        const resetDelay = voice.roomPlayoutDelayMilliseconds > 0;
         voice.roomPlayoutDelayMilliseconds = 0;
         voice.gains.clear();
         voice.effects.clear();
         voice.muted.clear();
-        await reconcileWindowsMode();
+        try {
+          if (resetDelay) await command('SetRoomPlayoutDelay', { milliseconds: 0 });
+        } finally {
+          await reconcileWindowsMode();
+        }
       }
     });
   },

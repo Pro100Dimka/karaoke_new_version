@@ -78,6 +78,22 @@ it('rolls back a failed room join and serializes rapid monitoring cleanup', asyn
     .toEqual(['wasapi-exclusive', 'wasapi-shared']);
 });
 
+it('releases the Windows mode even if failed-join cleanup is rejected', async () => {
+  let backend = 'WASAPI Shared';
+  installBridge(({ command, args }) => {
+    if (command === 'Reconfigure')
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+    return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+      ? `SessionState: Running\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000` : 'Ok' };
+  }, {
+    joinRoomVoice: vi.fn(async () => { throw new Error('Join failed'); }),
+    leaveRoomVoice: vi.fn(async () => { throw new Error('Cleanup failed'); }),
+  });
+  const { audioClient } = await import('./audioClient');
+  await expect(audioClient.joinVoiceSession('room', 'self')).rejects.toThrow('Cleanup failed');
+  expect(backend).toBe('WASAPI Shared');
+});
+
 it('restores the server mix slot after every room voice session recreation', async () => {
   const requests = installBridge(undefined, {
     joinRoomVoice: vi.fn(async () => undefined),

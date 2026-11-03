@@ -453,6 +453,7 @@ MediaSourceSnapshot MediaSource::snapshot() const noexcept {
         std::this_thread::yield();
     }
     result.failureMessage = failureMessage_;
+    result.loadProgressFrames = loadProgressFrames_.load(std::memory_order_relaxed);
     failureLock_.clear(std::memory_order_release);
     return result;
 }
@@ -555,6 +556,7 @@ void MediaSource::applyUnload() {
     processingLatencyFrames_.store(0, std::memory_order_release);
     format_ = {};
     totalSourceFrames_.store(0, std::memory_order_release);
+    loadProgressFrames_.store(0, std::memory_order_relaxed);
     sourceSampleRateHz_.store(0, std::memory_order_relaxed);
     decoderEof_ = false;
     decodeScratch_.clear();
@@ -629,6 +631,7 @@ void MediaSource::measureLoudness() {
             power += sum / static_cast<double>(samples);
             ++chunks;
         }
+        loadProgressFrames_.fetch_add(read, std::memory_order_relaxed);
     }
     decoder_->seek(0);
     if (chunks != 0)

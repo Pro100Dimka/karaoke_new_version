@@ -33,6 +33,7 @@ struct MediaSourceSnapshot {
     float loudnessRms{0.0F};
     MediaFailureCode failureCode{MediaFailureCode::None};
     std::array<char, 160> failureMessage{};
+    std::uint64_t loadProgressFrames{0};
 };
 
 class MediaSource {
@@ -131,6 +132,7 @@ class MediaSource {
     std::atomic<std::uint32_t> renderReaders_{0};
     std::atomic<std::uint64_t> wakeEpoch_{0};
     std::atomic<std::uint64_t> totalSourceFrames_{0};
+    std::atomic<std::uint64_t> loadProgressFrames_{0};
     std::atomic<std::uint64_t> underruns_{0};
     std::atomic<float> rate_{1.0F};
     std::atomic<float> transpose_{0.0F};

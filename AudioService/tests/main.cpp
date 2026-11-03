@@ -701,6 +701,7 @@ constexpr std::array tests{
     Test{"recordingShutdownFinalizesAcceptedPcm", Tests::recordingShutdownFinalizesAcceptedPcm},
     Test{"recordingDurationCountsAcceptedPcm", Tests::recordingDurationCountsAcceptedPcm},
     Test{"recordingPauseCreatesGapMetadata", Tests::recordingPauseCreatesGapMetadata},
+    Test{"loadingProgressReportsRealScannedFramesWithoutMovingPlayback", Tests::loadingProgressReportsRealScannedFramesWithoutMovingPlayback},
     Test{"controlledReconfigurePreservesOnePerformanceFile", Tests::controlledReconfigurePreservesOnePerformanceFile},
     Test{"recordingWritesWav", Tests::recordingWritesWav},
     Test{"recordingRejectsStaleGeneration", Tests::recordingRejectsStaleGeneration},

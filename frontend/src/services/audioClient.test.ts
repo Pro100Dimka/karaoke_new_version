@@ -165,6 +165,27 @@ describe('audioClient contract', () => {
       }
     },
   );
+
+  it.each([
+    { readyAfter: 30_000, progressUntil: 30_000, expected: 'ready' },
+    { readyAfter: Infinity, progressUntil: 5_000, expected: 'AudioService song loading timed out' },
+  ])('waits for actual loading progress and still bounds a stalled decoder: $expected',
+    async ({ readyAfter, progressUntil, expected }) => {
+      vi.useFakeTimers();
+      try {
+        const started = performance.now();
+        installBridge(() => {
+          const elapsed = performance.now() - started;
+          return { status: 0, text: `PlaybackState: ${elapsed >= readyAfter ? 2 : 1}\nPlaybackLoadProgressFrames: ${Math.floor(Math.min(elapsed, progressUntil) / 1000) * 48000}` };
+        });
+        let finishedAt = 0;
+        const result = waitForReady().then(() => 'ready', (error: Error) => error.message)
+          .finally(() => { finishedAt = performance.now() - started; });
+        await vi.advanceTimersByTimeAsync(31_000);
+        expect(await result).toBe(expected);
+        expect(finishedAt).toBe(readyAfter === Infinity ? progressUntil + 15_000 : readyAfter);
+      } finally { vi.useRealTimers(); }
+    });
   it('preserves capture confidence and rejects impossible confidence values', async () => {
     installBridge(() => ({
       status: 0,
