@@ -37,7 +37,7 @@ export const recordingsEn = {
   recordingOriginal: 'Original',
   recordingVersion: 'Performance version',
   studioMasterDescription:
-    'Master processes the saved dry voice and mixes it with the backing track. Without a dry track, it balances the recording while preserving existing effects. Source tracks remain unchanged.',
+    'Enhances your voice with clarity, depth, and richness, perfectly blending vocals with music for a professional sound.',
   studioMasterSourceTitle: 'Original recording',
   studioMasterReadyDescription:
     'The studio version is ready — play each recording to compare the sound.',

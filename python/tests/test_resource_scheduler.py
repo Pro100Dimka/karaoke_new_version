@@ -17,6 +17,7 @@ class FakeRuntimeProbe:
     def __init__(
         self,
         *,
+        total_ram: int | None = 16_000,
         available_ram: int | None = 8_000,
         cuda: bool = False,
         total_vram: int | None = None,
@@ -25,7 +26,7 @@ class FakeRuntimeProbe:
         self._value = RuntimeDiagnostics(
             python_version="3.12",
             cpu_count=8,
-            total_ram_bytes=16_000,
+            total_ram_bytes=total_ram,
             available_ram_bytes=available_ram,
             pytorch_version=None,
             cuda_available=cuda,
@@ -137,7 +138,8 @@ def test_resource_scheduler_enforces_ram_headroom(tmp_path: Path) -> None:
 
     with pytest.raises(DependencyError) as raised:
         scheduler.claim(_providers({"ramBytes": 600}), source_bytes=1)
-    assert raised.value.code == "ResourceBudgetExceeded"
+    assert raised.value.code == "InsufficientRam"
+    assert raised.value.details == {"requiredBytes": 1_600, "availableBytes": 1_500}
 
 
 def test_resource_scheduler_includes_processing_disk_estimate(tmp_path: Path) -> None:

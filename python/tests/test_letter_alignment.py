@@ -511,11 +511,16 @@ def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
 
     dims = speech.whisper.ModelDimensions(4, 2, 4, 1, 1, 8, 4, 4, 1, 2)
     reference = speech.whisper.Whisper(dims)
+    with torch.no_grad():
+        for parameter in reference.parameters():
+            parameter.copy_(torch.linspace(-0.2, 0.2, parameter.numel()).reshape(parameter.shape))
     weights = {
         key: value.half().T.contiguous().T if value.ndim == 2 else value.half()
         for key, value in reference.state_dict().items()
     }
     reference.load_state_dict(weights)
+    native = speech.whisper.Whisper(dims)
+    native.load_state_dict(weights)
     heads = base64.b85encode(gzip.compress(np.array([[False], [True]]).tobytes()))
     reference.set_alignment_heads(heads)
     for layer in reference.modules() if target == "cuda" else ():
@@ -574,10 +579,19 @@ def test_speech_loading_preserves_native_state_and_nonpersistent_buffers(
                 value.to_dense() if value.is_sparse else value,
                 expected.to_dense() if expected.is_sparse else expected,
             )
+    dtype = torch.float16 if target == "cuda" else torch.float32
+    mel = torch.linspace(-0.25, 0.25, 16, dtype=dtype).reshape(1, 4, 4)
+    tokens = torch.tensor([[1, 2, 3]])
+    with torch.inference_mode():
+        actual_audio, native_audio = actual.embed_audio(mel), native.embed_audio(mel)
+        torch.testing.assert_close(actual_audio, native_audio, rtol=0, atol=0)
+        torch.testing.assert_close(
+            actual.logits(tokens, actual_audio), native.logits(tokens, native_audio), rtol=0, atol=0
+        )
 
 
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
-def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embeddings(
+def test_speech_weights_are_cast_before_cuda_transfer_without_changing_checkpoint_values(
     monkeypatch, target
 ):
     from backend.ai_worker import speech
@@ -587,12 +601,13 @@ def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embedding
         {
             "linear": speech.whisper.model.Linear(4, 4),
             "conv": speech.whisper.model.Conv1d(4, 4, 1),
-            "embedding": torch.nn.Embedding(8, 4),
+            "embedding": torch.nn.Embedding(8, 4, dtype=torch.float16).float(),
             "norm": speech.whisper.model.LayerNorm(4),
         }
     )
     values = torch.arange(12, dtype=torch.float16).reshape(1, 3, 4) / 10
     expected = model["linear"](values).detach().clone()
+    embedding = model["embedding"].weight.detach().clone()
     checkpoints, transfers = [], []
 
     def load(_path, *, target):
@@ -613,7 +628,8 @@ def test_speech_weights_are_cast_before_cuda_transfer_without_rounding_embedding
     dtype = torch.float16 if target == "cuda" else torch.float32
     assert loaded["linear"].weight.dtype == dtype
     assert loaded["conv"].weight.dtype == dtype
-    assert loaded["embedding"].weight.dtype == torch.float32
+    assert loaded["embedding"].weight.dtype == dtype
+    torch.testing.assert_close(loaded["embedding"].weight.float(), embedding, rtol=0, atol=0)
     assert loaded["norm"].weight.dtype == torch.float32
     torch.testing.assert_close(loaded["linear"](values), expected, rtol=0, atol=0)
     assert checkpoints == [target], "the loader must receive the final precision policy"
@@ -805,6 +821,31 @@ def test_alignment_loads_one_speech_model_for_its_refinements_only(
         assert decoded[-1] is decoded[-2]
         assert (decoded[0] is decoded[1]) != fail_first
         assert decoded[1] is not decoded[2], "models must not leak across jobs"
+
+
+@pytest.mark.parametrize("contextual", [False, True])
+def test_speech_decoding_uses_inference_without_changing_callers_grad_mode(monkeypatch, contextual):
+    from backend.ai_worker import speech
+
+    class Model:
+        encoder = speech.torch.nn.Identity()
+
+        def transcribe(self, *_args, **_kwargs):
+            assert speech.torch.is_inference_mode_enabled()
+            return {"segments": []}
+
+    monkeypatch.setattr(speech, "_speech_model", lambda _: Model())
+    monkeypatch.setattr(speech, "device", lambda: "cpu")
+    samples = np.zeros(_RATE, np.float32)
+    with speech.torch.enable_grad():
+        result = (
+            speech._decode_context(samples, "English", None, 0.0, [], None)
+            if contextual
+            else speech._transcribe(samples, "English", None)
+        )
+        assert speech.torch.is_grad_enabled()
+        assert not speech.torch.is_inference_mode_enabled()
+    assert result == {"segments": []}
 
 
 def test_recognition_context_does_not_cut_off_a_word_after_an_internal_vocal_pause():

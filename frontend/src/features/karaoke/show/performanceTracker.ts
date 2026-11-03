@@ -159,8 +159,8 @@ const emptyProgress = (): NoteProgress => ({
 const assessedNoteDuration = (
   note: ShowNote,
   progress: NoteProgress | undefined,
+  duration = scorableNoteDuration(note),
 ): number => {
-  const duration = scorableNoteDuration(note);
   return Math.max(duration * 0.25, duration - (progress?.uncertain ?? 0));
 };
 
@@ -177,8 +177,12 @@ const stableSeconds = (progress: NoteProgress, mean: number): number =>
 export const scoreNote = (
   note: ShowNote,
   progress: NoteProgress,
+  scorableDuration = scorableNoteDuration(note),
 ): NoteScore => {
-  const duration = Math.max(0.001, assessedNoteDuration(note, progress));
+  const duration = Math.max(
+    0.001,
+    assessedNoteDuration(note, progress, scorableDuration),
+  );
   const voicedCoverage = Math.min(
     1,
     progress.voiced / (duration * fullCoverage),
@@ -212,6 +216,7 @@ export class PerformanceTracker {
   private notes: readonly ShowNote[] = [];
   private phrases: readonly ShowPhrase[] = [];
   private noteById = new Map<string, ShowNote>();
+  private durations = new WeakMap<ShowNote, number>();
   private progress = new Map<string, NoteProgress>();
   private archived: { note: ShowNote; progress: NoteProgress }[] = [];
   private cachedScore?: KaraokeNoteScore;
@@ -250,6 +255,8 @@ export class PerformanceTracker {
     this.cachedHitNotes = undefined;
     this.vocalActivity = vocalActivity;
     this.notes = [...notes].sort((a, b) => a.start - b.start);
+    for (const note of notes)
+      this.durations.set(note, scorableNoteDuration(note));
     this.phrases = phrases.filter((phrase) => phrase.noteIds.length > 0);
     this.noteById = new Map(this.notes.map((note) => [note.id, note]));
     if (!resetPerformance) return;
@@ -264,12 +271,17 @@ export class PerformanceTracker {
   get hitNoteIds(): ReadonlySet<string> {
     return (this.cachedHitNotes ??= new Set(
       this.notes
-        .filter((note) =>
-          noteHitReached(
-            this.progress.get(note.id)?.matched ?? 0,
-            assessedNoteDuration(note, this.progress.get(note.id)),
-          ),
-        )
+        .filter((note) => {
+          const progress = this.progress.get(note.id);
+          return (
+            progress &&
+            progress.matched > 0 &&
+            noteHitReached(
+              progress.matched,
+              assessedNoteDuration(note, progress, this.durations.get(note)),
+            )
+          );
+        })
         .map((note) => note.id),
     ));
   }
@@ -294,7 +306,10 @@ export class PerformanceTracker {
       meanSemitoneDeviation:
         sum((progress) => progress.absoluteDeviation) / Math.max(0.001, voiced),
       hitNotes: seen.filter(({ note, progress }) =>
-        noteHitReached(progress.matched, assessedNoteDuration(note, progress)),
+        noteHitReached(
+          progress.matched,
+          assessedNoteDuration(note, progress, this.durations.get(note)),
+        ),
       ).length,
       totalNotes: seen.length,
       rhythmAccuracyPercent:
@@ -387,7 +402,10 @@ export class PerformanceTracker {
         progress.deviations.push([deviation, overlap]);
       }
       this.progress.set(active.id, progress);
-      const duration = Math.max(0.001, assessedNoteDuration(active, progress));
+      const duration = Math.max(
+        0.001,
+        assessedNoteDuration(active, progress, this.durations.get(active)),
+      );
       this.live = {
         note: active,
         position,
@@ -428,6 +446,7 @@ export class PerformanceTracker {
       const score = scoreNote(
         note,
         this.progress.get(note.id) ?? emptyProgress(),
+        this.durations.get(note),
       );
       this.finishNote(note, score.finalScore, position);
       events.push({ kind: 'noteCompleted', note, score });
@@ -515,7 +534,7 @@ export class PerformanceTracker {
   private measuredNotes(): { note: ShowNote; progress: NoteProgress }[] {
     return this.notes.flatMap((note) => {
       const progress = this.progress.get(note.id);
-      return progress && scorableNoteDuration(note) > 0
+      return progress && (this.durations.get(note) ?? 0) > 0
         ? [{ note, progress }]
         : [];
     });

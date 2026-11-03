@@ -234,7 +234,7 @@ def test_cuda_alignment_with_catalog_times_overlaps_pitch_within_the_thread_budg
     )
     pipeline.run(
         Mock(),
-        SimpleNamespace(rhythm=()),
+        SimpleNamespace(rhythm=(), music=SimpleNamespace(bpm=None)),
         Mock(),
         Mock(),
         Mock(),
@@ -345,7 +345,11 @@ def test_every_ai_stage_receives_the_selected_device_and_cpu_budget(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mode: str, device: ComputeDevice
 ) -> None:
     runtime = FakeRuntimeProbe(
-        available_ram=16 * 1024**3, cuda=True, total_vram=8 * 1024**3, free_vram=8 * 1024**3
+        total_ram=32 * 1024**3,
+        available_ram=16 * 1024**3,
+        cuda=True,
+        total_vram=8 * 1024**3,
+        free_vram=8 * 1024**3,
     ).inspect()
     monkeypatch.setattr(SystemRuntimeProbe, "inspect", lambda self: runtime)
     provider = ExecutionTrackingProvider()
@@ -361,7 +365,12 @@ def test_every_ai_stage_receives_the_selected_device_and_cpu_budget(
         job = wait_for_job(client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
         assert set(provider.executions) == {"separate", "transcribe", "align", "pitch"}
-        for stage, threads in {"separate": 2, "transcribe": 1, "align": 1, "pitch": 1}.items():
+        for stage, threads in {
+            "separate": 2,
+            "transcribe": 2,
+            "align": 1,
+            "pitch": 1,
+        }.items():
             execution = provider.executions[stage]
             assert execution is not None, stage
             assert (execution.device, execution.cpu_threads) == (device, threads)

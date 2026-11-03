@@ -23,7 +23,7 @@ const installBusyLibrary = (): void => {
             jobId: `job-${index}`,
             type: 'SongProcessing',
             state,
-            entityId: 'song-1',
+            entityId: ['Running', 'Queued'].includes(state) ? `song-${index + 2}` : 'song-1',
             stage: state === 'Running' ? 'Separation' : state,
             stageProgress: 0.56,
             overallProgress:
@@ -191,7 +191,7 @@ test('processing cleanup survives reloads and controls fit wide and narrow queue
   );
   await page.goto('/');
   const openQueue = () =>
-    page.getByRole('button', { name: 'Processing queue', exact: true }).click();
+    page.getByRole('button', { name: /^Processing queue/ }).click();
   await openQueue();
   const queue = page.getByRole('dialog', {
     name: 'Processing queue',

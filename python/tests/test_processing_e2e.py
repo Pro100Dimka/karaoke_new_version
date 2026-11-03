@@ -149,7 +149,7 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
 ) -> None:
     source = tmp_path / "parallel.wav"
     write_wav(source)
-    audio_started, audio_finished, clip_started = Event(), Event(), Event()
+    audio_started, audio_finished, clip_started, clip_finished = (Event() for _ in range(4))
     with next_client(tmp_path) as client:
         imported = import_song(client, source)
         container = client.app.state.container
@@ -161,6 +161,13 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
             )
             transaction.commit()
         run = start._pipeline.run
+        prepare_clip = start._preparation._clip.execute
+
+        def prepare(*args, **kwargs):
+            try:
+                return prepare_clip(*args, **kwargs)
+            finally:
+                clip_finished.set()
 
         def process(*args, **kwargs):
             audio_started.set()
@@ -169,6 +176,7 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
                 return run(*args, **kwargs)
             finally:
                 audio_finished.set()
+                assert clip_finished.wait(3), "Completed clip was not saved during processing"
 
         def download(_url, destination, *, expected_duration, cancel=None):
             clip_started.set()
@@ -179,6 +187,7 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
             return True
 
         monkeypatch.setattr(start._pipeline, "run", process)
+        monkeypatch.setattr(start._preparation._clip, "execute", prepare)
         monkeypatch.setattr(start._preparation._clip._downloader, "download", download)
         started = client.post(
             f"/songs/{song.song_id}/processing", json={"mode": "Fast", "onlineLyrics": False}
@@ -193,13 +202,20 @@ def test_clip_download_overlaps_processing_and_preserves_published_revision(
         assert client.get(f"/songs/{song.song_id}/clip").content == b"silent clip"
 
 
-@pytest.mark.parametrize("after_publication", [False, True])
+@pytest.mark.parametrize(
+    "after_publication,job_state,song_status",
+    [(False, "Cancelled", "Cancelled"), (True, "Succeeded", "Ready")],
+)
 def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, after_publication: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    after_publication: bool,
+    job_state: str,
+    song_status: str,
 ) -> None:
     source = tmp_path / "cancel-clip.wav"
     write_wav(source)
-    clip_started, clip_stopped, finished, release, published = (Event() for _ in range(5))
+    clip_started, clip_stopped, finished, published = (Event() for _ in range(4))
     with next_client(tmp_path) as client:
         imported = import_song(client, source)
         container = client.app.state.container
@@ -217,15 +233,15 @@ def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
             if after_publication:
                 report = run(_song, _options, _providers, context, _execution)
                 published.set()
+                assert context.cancel.wait(5)
                 return report
             assert context.cancel.wait(5)
             raise ConflictError("JobCancelled", "Processing was cancelled")
 
         def download(_url, _destination, *, expected_duration, cancel=None):
             clip_started.set()
-            assert (cancel or release).wait(5)
-            if cancel is not None:
-                assert cancellation == [cancel]
+            assert cancel is not None and cancel.wait(5)
+            assert len(cancellation) == 1 and cancel is not cancellation[0]
             clip_stopped.set()
             return False
 
@@ -252,17 +268,18 @@ def test_cancelling_processing_stops_the_parallel_clip_before_releasing_the_job(
             assert client.post(f"/songs/processing/{job_id}/cancel").status_code == 200
             assert finished.wait(2), "Cancellation still waits for the unrelated clip download"
             assert clip_stopped.is_set(), "Job released its resources before the clip stopped"
-            assert client.get(f"/jobs/{job_id}").json()["state"] == "Cancelled"
+            assert client.get(f"/jobs/{job_id}").json()["state"] == job_state
             saved = client.get(f"/songs/{song.song_id}").json()
-            assert saved["status"] == "Cancelled"
+            assert saved["status"] == song_status
             assert saved["videoUrl"] == video_url
             if after_publication:
                 assert saved["activeRevision"] == 2
                 assert client.get(f"/songs/{song.song_id}/editor").status_code == 200
             container.songs.cancel_processing._update_song(song.song_id, JobState.CANCELLING)
-            assert client.get(f"/songs/{song.song_id}").json()["status"] == "Cancelled"
+            assert client.get(f"/songs/{song.song_id}").json()["status"] == song_status
         finally:
-            release.set()
+            for cancel in cancellation:
+                cancel.set()
 
 
 def test_late_clip_save_preserves_new_song_state_and_manual_metadata(tmp_path: Path) -> None:

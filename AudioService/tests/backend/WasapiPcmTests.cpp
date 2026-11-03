@@ -93,15 +93,18 @@ void Tests::wasapiDeadlineMetricExcludesEventWaitTime() {
 void Tests::wasapiSharedRenderWritesJustBeforeTheEnginePass() {
     constexpr MonotonicTicks Ms = 1'000'000;
     constexpr MonotonicTicks Event = 1'000 * Ms;
-    // A steady 10 ms engine and 0.5 ms of render work: write 3.5 ms before the next pass.
+    // A steady 10 ms engine and 0.5 ms of render work: write 2 ms before the next pass.
     expect(WasapiPcm::justInTimeRenderAt(Event, Event + Ms / 10, 10 * Ms, 10'000, 1, Ms / 2) ==
-               Event + 10 * Ms - 3 * Ms - Ms / 2,
+               Event + 8 * Ms,
            "a freed period is written shortly before the engine takes it, not a period early");
     expect(WasapiPcm::justInTimeRenderAt(Event, Event + 8 * Ms, 10 * Ms, 10'000, 1, Ms / 2) == 0,
            "past the target the period is written at once");
     expect(WasapiPcm::justInTimeRenderAt(Event, Event + Ms / 2, 10 * Ms, 10'000, 1, 20 * Ms) ==
-               Event + Ms,
-           "slow render work never squeezes the write closer than a millisecond to the pass");
+               0,
+           "render work longer than the remaining period must start immediately");
+    expect(WasapiPcm::justInTimeRenderAt(Event, Event, 10 * Ms, 10'000, 1, 0) ==
+               Event + 8 * Ms + Ms / 2,
+           "even negligible render work retains the scheduling safety margin");
     expect(WasapiPcm::justInTimeRenderAt(Event, Event, 10 * Ms, 10'000, 2, 0) == 0,
            "a queue deepened after starvation keeps writing at once");
     expect(WasapiPcm::justInTimeRenderAt(Event, Event, 10 * Ms, 16'000, 1, 0) == 0 &&

@@ -166,13 +166,14 @@ struct Render : ComStub<IAudioRenderClient> {
     }
 };
 struct Clock : ComStub<IAudioClock> {
+    UINT64 frames{1000}, ticks{900000};
     HRESULT STDMETHODCALLTYPE GetFrequency(UINT64* value) override {
         *value = 48000;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetPosition(UINT64* position, UINT64* time) override {
-        *position = 1000;
-        *time = 900000;
+        *position = frames;
+        *time = ticks;
         return S_OK;
     }
     HRESULT STDMETHODCALLTYPE GetCharacteristics(DWORD* value) override {
@@ -404,7 +405,7 @@ struct Callback : IAudioCallback {
     unsigned captureCount{0}, renderCount{0}, lost{0};
     bool comInitialized{false};
     bool holdFirstRender{false};
-    Event firstRender, continueRender, secondRender;
+    Event firstRender, continueRender, secondRender, deviceLost;
     unsigned capturesAtFirstRender{0}, capturesAtSecondRender{0};
     void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
         if (captureCount < captures.size())
@@ -430,8 +431,10 @@ struct Callback : IAudioCallback {
                     0.125F);
     }
     void onBackendEvent(GenerationId, BackendEventType event, std::int32_t) noexcept override {
-        if (event == BackendEventType::DeviceLost || event == BackendEventType::DeviceInvalidated)
+        if (event == BackendEventType::DeviceLost || event == BackendEventType::DeviceInvalidated) {
             ++lost;
+            deviceLost.signal();
+        }
     }
 };
 struct Fixture {
@@ -452,7 +455,30 @@ struct Fixture {
     RequestedConfiguration request(UINT32 period = 256) {
         return {"in", "out", BackendKind::WasapiShared, 48000, period, 1, 1};
     }
+    auto startControlledRender() {
+        input.client.silentEvents = output.client.silentEvents = true;
+        callback.holdFirstRender = true;
+        output.client.clock.frames = 0;
+        output.client.clock.ticks = monotonicTicksNow() / 100;
+        const auto runtime = backend.open(request(512));
+        backend.start(callback, GenerationId{1});
+        SetEvent(output.client.event);
+        Tests::expect(callback.firstRender.wait(), "first engine pass anchors the shared cadence");
+        return runtime;
+    }
 };
+
+bool waitEndpointPeriod(std::uint32_t frames, std::uint32_t sampleRate) {
+    const auto timer = CreateWaitableTimerExW(
+        nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+    LARGE_INTEGER due{};
+    due.QuadPart = -static_cast<LONGLONG>(frames) * 10'000'000 / sampleRate;
+    const auto elapsed = timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE) &&
+                         WaitForSingleObject(timer, 2000) == WAIT_OBJECT_0;
+    if (timer)
+        CloseHandle(timer);
+    return elapsed;
+}
 } // namespace
 
 void Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets() {
@@ -482,6 +508,7 @@ void Tests::wasapiReportsEveryDeviceFailure() {
         fixture.input.client.capture.frames = 64;
         fixture.backend.start(fixture.callback, GenerationId{1});
         expect(client.state.attempted.wait(), "WASAPI failure path must be exercised");
+        expect(fixture.callback.deviceLost.wait(), "device failure is delivered before shutdown");
         fixture.backend.stop();
         expect(fixture.callback.lost == 1,
                "a failed WASAPI device operation must publish exactly one recovery event");
@@ -801,16 +828,18 @@ void Tests::wasapiSharedServicesFreeRenderSpaceOnCaptureWake() {
 
 void Tests::wasapiSharedCoalescesCaptureArrivingJustAfterRenderWake() {
     Fixture fixture;
-    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
-    (void)fixture.backend.open(fixture.request(512));
+    const auto runtime = fixture.startControlledRender();
     fixture.input.client.capture.framesAfterEmptyQuery = 512;
     fixture.input.client.capture.readyAfterEmptyQuery = fixture.input.client.event;
-    fixture.backend.start(fixture.callback, GenerationId{1});
+    fixture.callback.continueRender.signal();
+    expect(waitEndpointPeriod(runtime.outputPeriodFrames, runtime.outputSampleRateHz),
+           "the next engine pass supplies a measured cadence for shared scheduling");
     SetEvent(fixture.output.client.event);
-    expect(fixture.output.client.state.attempted.wait(), "output remains bounded by its deadline");
+    expect(fixture.callback.secondRender.wait(), "output remains bounded by its deadline");
     fixture.backend.stop();
-    expect(fixture.callback.captureCount == 1 && fixture.callback.capturesAtFirstRender == 1,
-           "capture becoming ready just after the render wake must not wait a whole output period");
+    expect(fixture.callback.captureCount == 1 && fixture.callback.capturesAtSecondRender == 1,
+           "capture becoming ready just after the render wake must not wait a whole output period: " +
+               std::to_string(fixture.callback.capturesAtSecondRender) + " captures at render");
 }
 
 void Tests::wasapiDiagnosticCanDisableDuplexWaitForABMeasurement() {
@@ -907,31 +936,25 @@ void Tests::wasapiExclusiveMicrophoneReportsTheProcessingBypass() {
 
 void Tests::wasapiSharedDoesNotMistakeLastPeriodsCaptureForFreshData() {
     Fixture fixture;
-    fixture.input.client.silentEvents = fixture.output.client.silentEvents = true;
-    const auto runtime = fixture.backend.open(fixture.request(512));
+    const auto runtime = fixture.startControlledRender();
     fixture.output.client.pad = 512;
+    ResetEvent(fixture.output.client.paddingQueried.handle);
     fixture.input.client.capture.frames = 512;
-    fixture.backend.start(fixture.callback, GenerationId{1});
+    fixture.callback.continueRender.signal();
     SetEvent(fixture.input.client.event);
     expect(fixture.output.client.paddingQueried.wait(), "capture arrives while render is full");
     // Advance one real endpoint period using a signalled timer, not scheduler-dependent sleeps.
-    const auto timer = CreateWaitableTimerW(nullptr, FALSE, nullptr);
-    LARGE_INTEGER due{};
-    due.QuadPart =
-        -static_cast<LONGLONG>(runtime.inputPeriodFrames) * 10'000'000 / runtime.inputSampleRateHz;
-    expect(timer && SetWaitableTimer(timer, &due, 0, nullptr, nullptr, FALSE) &&
-               WaitForSingleObject(timer, 2000) == WAIT_OBJECT_0,
+    expect(waitEndpointPeriod(runtime.outputPeriodFrames, runtime.outputSampleRateHz),
            "fixture advances beyond the freshness window");
-    if (timer)
-        CloseHandle(timer);
     fixture.output.client.pad = 0;
     fixture.input.client.capture.framesAfterEmptyQuery = 512;
     fixture.input.client.capture.readyAfterEmptyQuery = fixture.input.client.event;
     SetEvent(fixture.output.client.event);
-    expect(fixture.output.client.state.attempted.wait(), "output still runs after phase changes");
+    expect(fixture.callback.secondRender.wait(), "output still runs after phase changes");
     fixture.backend.stop();
-    expect(fixture.callback.capturesAtFirstRender == 2,
-           "a packet left from the previous period must not suppress capture event coalescing");
+    expect(fixture.callback.capturesAtSecondRender == 2,
+           "a packet left from the previous period must not suppress capture event coalescing: " +
+               std::to_string(fixture.callback.capturesAtSecondRender) + " captures at render");
 }
 
 void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {

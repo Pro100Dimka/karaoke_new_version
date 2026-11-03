@@ -16,12 +16,15 @@
   position: fixed;
   z-index: 5;
 }
+
 .karaokeConsolePanel[data-dock='top'][data-hidden] {
   transform: translateY(-110%);
 }
+
 .karaokeConsolePanel[data-dock='left'][data-hidden] {
   transform: translateX(-110%);
 }
+
 .karaokeConsolePanel[data-dock='right'][data-hidden] {
   transform: translateX(110%);
 }
@@ -42,48 +45,60 @@
   gap: var(--ad-space-2);
 }
 
+
+
 .consoleDockButton.ad-icon-button {
   position: absolute;
   z-index: 1;
   transform: none;
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--ad-primary) 55%, #16080c),
-    #16080c
-  );
+  background: linear-gradient(145deg,
+      color-mix(in srgb, var(--ad-primary) 55%, #16080c),
+      #16080c);
   border-color: var(--ad-primary);
   color: #fff;
   box-shadow: 0 0 5px rgb(from var(--ad-primary) r g b / 0.6);
 }
+
 .consoleDockButton.ad-icon-button:is(:hover, :active) {
   transform: none;
 }
+
 .consoleDockButton[data-edge='top'] {
   top: 0;
   left: 50%;
   translate: -50% -50%;
+  z-index: 999;
 }
+
 .consoleDockButton[data-edge='bottom'] {
   bottom: 0;
   left: 50%;
   translate: -50% 50%;
+  z-index: 999;
 }
+
 .consoleDockButton[data-edge='left'] {
   top: 50%;
   left: 0;
   translate: -50% -50%;
+  z-index: 999;
 }
+
 .consoleDockButton[data-edge='right'] {
   top: 50%;
   right: 0;
   translate: 50% -50%;
+  z-index: 999;
 }
+
 .consoleDockButton[data-edge='top'] .ad-icon {
   rotate: 90deg;
 }
+
 .consoleDockButton[data-edge='bottom'] .ad-icon {
   rotate: -90deg;
 }
+
 .consoleDockButton[data-edge='right'] .ad-icon {
   rotate: 180deg;
 }
@@ -97,7 +112,8 @@
   align-items: center;
   gap: var(--ad-space-3);
 }
-.consoleTopRow > .ad-icon-button {
+
+.consoleTopRow>.ad-icon-button {
   position: absolute;
   top: 0;
   right: 0;
@@ -112,7 +128,7 @@
   min-inline-size: 0;
 }
 
-.songStrip > .ad-waveform {
+.songStrip>.ad-waveform {
   height: 2.5rem;
 }
 
@@ -161,26 +177,27 @@
   flex-shrink: 0;
 }
 
-.consoleKnob > .ad-icon-button {
+.consoleKnob>.ad-icon-button {
   position: absolute;
   left: -12px;
   bottom: 0;
 }
+
 .consolePresetsTrigger.ad-icon-button {
   position: absolute;
   right: 8px;
   bottom: 8px;
 }
+
 .consoleKnobs-voice {
   padding-inline-end: 32px;
 }
-.karaokeConsolePanel[data-orientation='horizontal']
-  .consoleKnob[data-channel='mic'] {
+
+.karaokeConsolePanel[data-orientation='horizontal'] .consoleKnob[data-channel='mic'] {
   padding-inline-start: 12px;
 }
-.karaokeConsolePanel[data-orientation='horizontal']
-  .consoleKnob[data-channel='mic']
-  > .ad-icon-button {
+
+.karaokeConsolePanel[data-orientation='horizontal'] .consoleKnob[data-channel='mic']>.ad-icon-button {
   left: 0;
 }
 
@@ -194,28 +211,35 @@
   min-inline-size: 0;
   padding: 6px;
 }
+
 .consoleKnobs .ad-rotary-knob[data-labelled] {
   margin-block-end: 1.25rem;
 }
+
 .consoleKnobs .knob__label {
   translate: -50% 2px;
 }
+
 .displayToggles {
   flex-wrap: nowrap;
   inline-size: 100%;
   grid-column: 1 / -1;
 }
+
 .displayToggles button {
   min-inline-size: max-content;
 }
+
 .karaokeConsolePanel[data-orientation='horizontal'] .displayToggles {
   gap: 4px;
 }
+
 .karaokeConsolePanel[data-orientation='horizontal'] .displayToggles button {
   padding-inline: 6px;
   --ad-size-h: 1.8rem;
 }
-.karaokeConsolePanel[data-orientation='horizontal'] .songStrip > .ad-waveform {
+
+.karaokeConsolePanel[data-orientation='horizontal'] .songStrip>.ad-waveform {
   height: 2rem;
 }
 
@@ -225,41 +249,51 @@
     grid-auto-flow: row;
     gap: 8px;
   }
+
   .songStrip {
     display: contents;
   }
+
   .songStripCover {
     grid-area: 1 / 1;
     inline-size: min(3.5rem, 100%);
   }
+
   .songStripTitle {
     grid-area: 1 / 2 / 2 / 4;
   }
+
   .masterVolume {
     grid-area: 1 / 4 / 2 / 6;
     justify-self: end;
     gap: 4px;
     zoom: 0.9;
   }
+
   .songStripElapsed {
     grid-area: 2 / 1;
   }
-  .songStrip > .ad-waveform {
+
+  .songStrip>.ad-waveform {
     grid-area: 2 / 2 / 3 / 5;
   }
+
   .songStripDuration {
     grid-area: 2 / 5;
     justify-self: end;
   }
+
   .transport {
     grid-area: 3 / 1 / 4 / -1;
     justify-content: space-evenly;
     gap: 0;
     flex-wrap: nowrap;
   }
+
   .consolePanels {
     grid-template-columns: minmax(0, 1fr);
   }
+
   .consoleKnobs.ad-stack {
     position: relative;
     display: grid;
@@ -268,46 +302,59 @@
     justify-items: center;
     gap: 4px 12px;
   }
-  .consoleKnobs > :is([data-channel='melody'], [data-channel='autoTune']) {
+
+  .consoleKnobs> :is([data-channel='melody'], [data-channel='autoTune']) {
     grid-column: 1 / -1;
     justify-self: center;
   }
+
   .consoleKnobs-voice {
     padding-inline-end: 0;
   }
+
   .consoleParameters.ad-grid {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
   }
+
   .consoleMetric.ad-card {
     min-block-size: 3.5rem;
     padding-inline: 4px;
   }
+
   .consoleMetric-key {
     grid-area: 1 / 2;
   }
-  .consoleMetric-key > .ad-stack {
+
+  .consoleMetric-key>.ad-stack {
     gap: 4px;
   }
+
   .consoleMetric-range {
     grid-column: 1 / -1;
   }
+
   .consoleMetric strong {
     font-size: 1rem;
   }
+
   .consoleMetric .tempoField .ad-input-base {
     padding-inline: 5px;
     gap: 4px;
   }
+
   .consoleParameters .tempoField {
     inline-size: 100%;
   }
+
   .displayToggles {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
   .displayToggles :is([data-toggle='autohide'], [data-toggle='tv']) {
     grid-column: 1 / -1;
   }
+
   .displayToggles button {
     inline-size: 100%;
   }

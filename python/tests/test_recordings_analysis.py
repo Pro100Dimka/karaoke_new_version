@@ -8,7 +8,7 @@ import threading
 
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
-from tests.helpers import import_song, wait_for_job
+from tests.helpers import import_song, wait_for_job, wait_for_recording
 
 
 pytestmark = pytest.mark.integration
@@ -55,7 +55,7 @@ def register_recording(
         headers={"Idempotency-Key": idempotency_key},
     )
     assert response.status_code == 201, response.text
-    return response.json()
+    return wait_for_recording(client, payload["recordingId"])
 
 
 def test_recording_registration_is_idempotent_and_paginated(tmp_path: Path) -> None:
@@ -85,7 +85,7 @@ def test_capture_without_a_backing_companion_does_not_need_processed_song_artifa
         assert Path(recording["filePath"]).is_file()
 
 
-def test_new_performance_is_balanced_before_registration_and_retry_preserves_capture(tmp_path):
+def test_new_performance_is_balanced_in_background_and_retry_preserves_stems(tmp_path):
     import numpy as np
     import soundfile as sf
 
@@ -99,7 +99,7 @@ def test_new_performance_is_balanced_before_registration_and_retry_preserves_cap
         music = 0.05 * np.sin(2 * np.pi * 220 * axis)
         sf.write(path, 0.5 * np.sin(2 * np.pi * 880 * axis) + music, 44100)
         sf.write(Path(str(path) + ".backing.wav"), music, 44100)
-        captured = path.read_bytes()
+        captured, _ = sf.read(path)
         payload = {
             "recordingId": target["recordingId"],
             "filePath": str(path),
@@ -110,10 +110,22 @@ def test_new_performance_is_balanced_before_registration_and_retry_preserves_cap
             "songId": song["songId"],
             "songRevision": song["activeRevision"],
             "gaps": [],
+            "sessionMetadata": {
+                "playbackAdjustments": [
+                    {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
+                ]
+            },
         }
         response = client.post("/recordings", json=payload)
         assert response.status_code == 201, response.text
-        assert path.with_name("recording.original.wav").read_bytes() == captured
+        assert response.json()["fileStatus"] == "Preparing"
+        wait_for_recording(client, target["recordingId"])
+        vocal_path = Path(str(path) + ".vocal.wav")
+        backing_path = Path(str(path) + ".backing.wav")
+        vocal, _ = sf.read(vocal_path)
+        backing, _ = sf.read(backing_path)
+        np.testing.assert_allclose(vocal + backing, captured, atol=1e-7)
+        stems = {file: file.read_bytes() for file in (vocal_path, backing_path)}
         samples, rate = sf.read(path)
         assert rate == 44100 and len(samples) == 88200
         levels = [
@@ -124,6 +136,7 @@ def test_new_performance_is_balanced_before_registration_and_retry_preserves_cap
         balanced = path.read_bytes()
         assert client.post("/recordings", json=payload).status_code == 201
         assert path.read_bytes() == balanced
+        assert {file: file.read_bytes() for file in stems} == stems
         assert client.delete(f"/recordings/{target['recordingId']}").status_code == 204
         assert not path.parent.exists()
 

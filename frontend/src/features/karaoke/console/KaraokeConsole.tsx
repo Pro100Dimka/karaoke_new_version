@@ -66,7 +66,7 @@ export const KaraokeConsole = ({
     session.effectValues,
     session.setEffectValues,
   );
-  useLocale();
+  const locale = useLocale();
   const placement = useStoredPanelLayout('karaokeConsole');
   const [dock, setDock] = useState<ConsolePlacement>(() => {
     const saved = readText(dockKey);
@@ -84,11 +84,11 @@ export const KaraokeConsole = ({
         placement.layout.height > placement.layout.width),
   );
   const consoleWidth = consoleWidths[vertical ? 'vertical' : 'horizontal'];
-  const changeDock = (next: ConsolePlacement) => {
+  const changeDock = useCallback((next: ConsolePlacement) => {
     setDock(next);
     writeText(dockKey, next);
     if (next !== 'free') setVertical(['left', 'right'].includes(next));
-  };
+  }, []);
   // The size its own window opens with; the window then fits itself to the console's content.
   const consolePanelSize = useMemo(
     () => ({ width: consoleWidth, height: consoleDesignHeight }),
@@ -104,6 +104,29 @@ export const KaraokeConsole = ({
       placement.save(layout);
       changeDock('free');
     },
+  );
+  const { attach, detached } = panel;
+  const dockButtons = useMemo(
+    () =>
+      Object.entries(consolePlacements)
+        .filter(([id]) => id !== 'free' && (detached || id !== dock))
+        .map(([id, label]) => (
+          <IconButton
+            key={id}
+            className="consoleDockButton"
+            data-edge={id}
+            size="xs"
+            round
+            icon="back"
+            label={tr(label)}
+            aria-pressed={dock === id && !detached}
+            onClick={() => {
+              changeDock(id as ConsolePlacement);
+              attach();
+            }}
+          />
+        )),
+    [dock, detached, attach, changeDock, locale],
   );
   // In a window of its own the console is always shown; auto-hide belongs to the karaoke screen.
   const shown = visible || panel.detached || presetsOpen;
@@ -152,24 +175,7 @@ export const KaraokeConsole = ({
         label={tr(ru.karaokeConsole)}
       >
         <Card border shell padding="sm" className="karaokeConsoleCard">
-          {Object.entries(consolePlacements)
-            .filter(([id]) => id !== 'free' && (panel.detached || id !== dock))
-            .map(([id, label]) => (
-              <IconButton
-                key={id}
-                className="consoleDockButton"
-                data-edge={id}
-                size="xs"
-                round
-                icon="back"
-                label={tr(label)}
-                aria-pressed={dock === id && !panel.detached}
-                onClick={() => {
-                  changeDock(id as ConsolePlacement);
-                  panel.attach();
-                }}
-              />
-            ))}
+          {dockButtons}
           <div className="consoleTopRow">
             <SongStrip
               song={song}
@@ -184,9 +190,9 @@ export const KaraokeConsole = ({
               position={session.position}
               duration={song.durationSeconds}
               seekLocked={seekLocked}
-              onSeek={(seconds) => void session.seek(seconds)}
-              onTogglePlay={() => void session.togglePlay()}
-              onStop={() => void session.finishPerformance()}
+              onSeek={session.seek}
+              onTogglePlay={session.togglePlay}
+              onStop={session.finishPerformance}
             />
             <DetachButton panel={panel} size="xs" />
             <MasterVolume

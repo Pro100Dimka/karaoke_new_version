@@ -6,13 +6,15 @@ import pytest
 from tests.conftest import app_client, write_wav
 
 
-@pytest.mark.parametrize("create_file", [False, True])
-def test_delete_discards_an_empty_unregistered_target(tmp_path: Path, create_file: bool) -> None:
+@pytest.mark.parametrize("content", ["missing", "empty", "recovery"])
+def test_delete_discards_an_empty_unregistered_target(tmp_path: Path, content: str) -> None:
     with app_client(tmp_path / "runtime") as client:
         target = client.post("/recordings/target").json()
         path = Path(target["filePath"])
-        if create_file:
+        if content != "missing":
             write_wav(path, seconds=0)
+        if content == "recovery":
+            (path.parent / "recording-recovery.json").write_text("{}")
         response = client.delete(f"/recordings/{target['recordingId']}")
         assert response.status_code == 204, response.text
         assert not path.parent.exists()
@@ -31,7 +33,7 @@ def test_empty_cleanup_preserves_nonempty_or_unrecognized_takes(
             with path.open("ab") as stream:
                 stream.write(b"unfinalized PCM")
         if content == "extra_file":
-            (path.parent / "recording-recovery.json").write_text("{}")
+            (path.parent / "unexpected.bin").write_bytes(b"unrecognized data")
         original = path.read_bytes()
         response = client.delete(f"/recordings/{target['recordingId']}")
         assert response.status_code == 409, response.text

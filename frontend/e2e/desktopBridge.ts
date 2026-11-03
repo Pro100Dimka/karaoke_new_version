@@ -70,6 +70,64 @@ export const installDesktopBridge = (): void => {
     if (path === '/version')
       return reply({ backendVersion: '1.0.0', apiVersion: 1 });
     if (path === '/songs') return reply({ items: songs, nextCursor: null });
+    if (path === '/songs/summary')
+      return reply({
+        total: songs.length,
+        ready: songs.filter((item) => item.status === 'Ready').length,
+      });
+    if (path === '/songs/search') {
+      const query = new URLSearchParams(request.path.split('?')[1]);
+      const search = (query.get('search') ?? '').trim().toLocaleLowerCase();
+      const statuses: Record<string, readonly string[]> = {
+        ready: ['Ready'],
+        importing: [],
+        processing: ['Processing', 'Cancelling'],
+        queued: ['Queued'],
+        'not-processed': ['Imported', 'Cancelled'],
+        failed: ['Failed', 'SourceMissing'],
+        invalid: ['ProjectInvalid'],
+      };
+      const durations: Record<string, (seconds: number) => boolean> = {
+        short: (seconds) => seconds < 180,
+        medium: (seconds) => seconds >= 180 && seconds < 300,
+        long: (seconds) => seconds >= 300,
+      };
+      const status = query.get('status') ?? 'all';
+      const language = query.get('language');
+      const duration = query.get('duration') ?? 'all';
+      const artwork = query.get('artwork') ?? 'all';
+      const items = songs.filter((item) =>
+        `${item.title} ${item.artist}`.toLocaleLowerCase().includes(search) &&
+        (status === 'all' || statuses[status]?.includes(item.status)) &&
+        (!language || item.language === language) &&
+        (duration === 'all' || durations[duration]?.(item.duration)) &&
+        (artwork === 'all' || Boolean(item.artworkUrl) === (artwork === 'with')),
+      );
+      const sorts: Record<string, (item: typeof song) => string | number> = {
+        title: (item) => item.title.toLocaleLowerCase(),
+        artist: (item) => item.artist.toLocaleLowerCase(),
+        createdAt: (item) => item.createdAt,
+        duration: (item) => item.duration,
+        played: () => 0,
+        bpm: () => 0,
+      };
+      const value = sorts[query.get('sort') ?? 'createdAt']!;
+      const direction = query.get('descending') === 'true' ? -1 : 1;
+      items.sort((a, b) => {
+        const left = value(a);
+        const right = value(b);
+        const order = typeof left === 'string' && typeof right === 'string'
+          ? left.localeCompare(right)
+          : Number(left) - Number(right);
+        return (order || a.songId.localeCompare(b.songId)) * direction;
+      });
+      const offset = Number(query.get('cursor')) || 0;
+      const limit = Number(query.get('limit')) || 50;
+      return reply({
+        items: items.slice(offset, offset + limit),
+        nextCursor: offset + limit < items.length ? String(offset + limit) : null,
+      });
+    }
     if (path === '/history' && scenario.e2eSettingsHistory) {
       const query = new URLSearchParams(request.path.split('?')[1]);
       const types = query.getAll('types');

@@ -51,9 +51,9 @@ test('library archive exports with progress, reveals the finished file, and impo
     .locator('.floatingControls')
     .getByRole('button', { name: 'Настройки', exact: true })
     .click();
-  await page.getByRole('tab', { name: 'AI / Обработка', exact: true }).click();
+  await page.getByRole('tab', { name: 'Обработка ИИ', exact: true }).click();
   const exportButton = page.getByRole('button', {
-    name: 'Экспорт всей библиотеки',
+    name: 'Экспорт библиотеки',
     exact: true,
   });
   const importButton = page.getByRole('button', {
@@ -61,10 +61,7 @@ test('library archive exports with progress, reveals the finished file, and impo
     exact: true,
   });
   await exportButton.click();
-  const progress = page.getByRole('progressbar', {
-    name: 'Экспорт всей библиотеки',
-    exact: true,
-  });
+  const progress = page.getByRole('dialog').getByRole('progressbar');
   await expect(progress).toHaveAttribute('aria-valuenow', '25');
   await expect(importButton).toBeDisabled();
   expect(await page.evaluate(() => (window as any).libraryRevealed)).toEqual(
@@ -89,9 +86,7 @@ test('library archive exports with progress, reveals the finished file, and impo
     mimeType: 'application/zip',
     buffer: Buffer.from('fixture'),
   });
-  await expect(
-    page.getByRole('progressbar', { name: 'Импорт библиотеки', exact: true }),
-  ).toHaveAttribute('aria-valuenow', '25');
+  await expect(progress).toHaveAttribute('aria-valuenow', '25');
   await page.evaluate(() => {
     (window as any).libraryDone = true;
   });
@@ -113,12 +108,12 @@ test('failed library export unlocks the actions and never reveals an unfinished 
     .locator('.floatingControls')
     .getByRole('button', { name: 'Настройки', exact: true })
     .click();
-  await page.getByRole('tab', { name: 'AI / Обработка', exact: true }).click();
+  await page.getByRole('tab', { name: 'Обработка ИИ', exact: true }).click();
   await page.evaluate(() => {
     (window as any).libraryFail = true;
   });
   const button = page.getByRole('button', {
-    name: 'Экспорт всей библиотеки',
+    name: 'Экспорт библиотеки',
     exact: true,
   });
   await button.click();

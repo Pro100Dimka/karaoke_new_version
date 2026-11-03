@@ -5,6 +5,7 @@ from pathlib import Path
 from dataclasses import replace
 
 import pytest
+from fastapi.testclient import TestClient
 
 from backend.songs.recognition import RecognizedSong
 from tests.conftest import app_client, write_wav
@@ -12,10 +13,30 @@ from backend.songs.domain import CoverState
 from backend.infrastructure.ffmpeg_media import FfmpegMediaInspector
 from backend.infrastructure.artwork_cache import ArtworkCache
 from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.youtube_clip import YoutubeClipDownloader
+from tests.fakes import FakeAiProvider, FakeRecognizer
+from tests.helpers import wait_for_job
 import httpx
 
 
 pytestmark = pytest.mark.integration
+
+
+@pytest.fixture(autouse=True)
+def unavailable_clips(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(YoutubeClipDownloader, "download", lambda *args, **kwargs: False)
+
+
+def process_song(client: TestClient, song_id: str) -> dict[str, object]:
+    started = client.post(
+        f"/songs/{song_id}/processing", json={"mode": "Fast", "onlineLyrics": False}
+    )
+    assert started.status_code == 202, started.text
+    job = wait_for_job(client, started.json()["jobId"])
+    assert job["state"] == "Succeeded", job
+    response = client.get(f"/songs/{song_id}")
+    assert response.status_code == 200, response.text
+    return response.json()
 
 
 def test_import_ignores_embedded_artwork_and_existing_embedded_covers_use_the_catalog(
@@ -79,15 +100,6 @@ def test_song_waveform_uses_the_imported_audio_before_processing(tmp_path: Path)
         assert max(peaks[:14]) == 0
         assert min(peaks[18:]) > 0.8
         assert client.get(f"/songs/{song['songId']}/waveform?bins=0").status_code == 422
-
-
-@dataclass
-class FakeRecognizer:
-    result: RecognizedSong | None
-
-    def recognize(self, source: Path) -> RecognizedSong | None:
-        assert source.is_file()
-        return self.result
 
 
 @dataclass
@@ -179,7 +191,7 @@ def test_import_rejects_incorrect_local_artist_spelling(tmp_path: Path) -> None:
 def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprinting(
     tmp_path: Path,
 ) -> None:
-    source = tmp_path / "Artist - Old title.wav"
+    source = tmp_path / "unidentified.wav"
     write_wav(source)
     recognized = RecognizedSong(
         "Correct title",
@@ -193,15 +205,13 @@ def test_processing_refreshes_recognition_for_a_song_imported_before_fingerprint
     )
     recognizer = SequenceRecognizer([None, recognized])
 
-    with app_client(tmp_path / "runtime-refresh", recognition_provider=recognizer) as client:
+    with app_client(
+        tmp_path / "runtime-refresh",
+        recognition_provider=recognizer,
+        ai_providers=(FakeAiProvider(),),
+    ) as client:
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
-        # The processing environment may reject the job before AI work; recognition enrichment must
-        # already have happened so old library entries can be repaired without re-importing files.
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     assert refreshed["title"] == recognized.title
     assert refreshed["artist"] == recognized.artist
@@ -221,14 +231,12 @@ def test_processing_refresh_preserves_equivalent_local_artist_spelling(
     recognizer = SequenceRecognizer([None, recognized])
 
     with app_client(
-        tmp_path / "runtime-refresh-local-spelling", recognition_provider=recognizer
+        tmp_path / "runtime-refresh-local-spelling",
+        recognition_provider=recognizer,
+        ai_providers=(FakeAiProvider(),),
     ) as client:
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     assert refreshed["artist"] == "Нервы"
 
@@ -253,13 +261,13 @@ def test_processing_upgrades_catalog_guess_to_audio_fingerprint(tmp_path: Path) 
     )
     recognizer = SequenceRecognizer([catalog, fingerprint])
 
-    with app_client(tmp_path / "runtime-upgrade", recognition_provider=recognizer) as client:
+    with app_client(
+        tmp_path / "runtime-upgrade",
+        recognition_provider=recognizer,
+        ai_providers=(FakeAiProvider(),),
+    ) as client:
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     assert refreshed["artist"] == "Architects"
     assert refreshed["album"] == "For Those That Wish to Exist"
@@ -289,13 +297,13 @@ def test_processing_retries_video_lookup_for_fingerprint_without_a_clip(tmp_path
     )
     recognizer = SequenceRecognizer([fingerprint_without_video, fingerprint_with_video])
 
-    with app_client(tmp_path / "runtime-video-retry", recognition_provider=recognizer) as client:
+    with app_client(
+        tmp_path / "runtime-video-retry",
+        recognition_provider=recognizer,
+        ai_providers=(FakeAiProvider(),),
+    ) as client:
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     assert refreshed["videoUrl"] == fingerprint_with_video.video_url
 
@@ -306,16 +314,16 @@ def test_recognition_refresh_preserves_manual_title_and_artist(tmp_path: Path) -
     recognized = RecognizedSong("Detected", "Detected Artist", "Album", "Pop")
     recognizer = SequenceRecognizer([None, recognized])
 
-    with app_client(tmp_path / "runtime-overrides", recognition_provider=recognizer) as client:
+    with app_client(
+        tmp_path / "runtime-overrides",
+        recognition_provider=recognizer,
+        ai_providers=(FakeAiProvider(),),
+    ) as client:
         imported = client.post(
             "/songs",
             json={"sourcePath": str(source), "title": "My title", "artist": "My artist"},
         ).json()
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     assert (refreshed["title"], refreshed["artist"]) == ("My title", "My artist")
     assert (refreshed["album"], refreshed["genre"]) == ("Album", "Pop")
@@ -347,13 +355,10 @@ def test_processing_does_not_replace_an_identified_song_with_an_unrelated_finger
     with app_client(
         tmp_path / "runtime",
         recognition_provider=SequenceRecognizer([original if provider else None, unrelated]),
+        ai_providers=(FakeAiProvider(),),
     ) as client:
         imported = client.post("/songs", json={"sourcePath": str(source)}).json()
-        client.post(
-            f"/songs/{imported['songId']}/processing",
-            json={"mode": "Auto", "onlineLyrics": True},
-        )
-        refreshed = client.get(f"/songs/{imported['songId']}").json()
+        refreshed = process_song(client, imported["songId"])
 
     for field in (
         "title",
@@ -392,11 +397,13 @@ def test_rejected_fingerprint_still_enriches_the_correct_tagged_song_from_the_ca
             )
 
     with app_client(
-        tmp_path / "runtime", recognition_provider=recognizer, catalog_lookup=Catalog()
+        tmp_path / "runtime",
+        recognition_provider=recognizer,
+        catalog_lookup=Catalog(),
+        ai_providers=(FakeAiProvider(),),
     ) as client:
         song = client.post("/songs", json={"sourcePath": str(source)}).json()
-        client.post(f"/songs/{song['songId']}/processing", json={"mode": "Auto"})
-        enriched = client.get(f"/songs/{song['songId']}").json()
+        enriched = process_song(client, song["songId"])
 
     assert (enriched["artist"], enriched["title"]) == ("O.Torvald", "Ліхтарі")
     assert enriched["album"] == "Бісайди"

@@ -13,7 +13,8 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNotify } from '../../../../../providers/notifications';
+import { useErrorHandler, useNotify } from '../../../../../providers/notifications';
+import { ru } from '../../../../../i18n/messages.ru';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
 import FormCard from '../form-cards/card';
@@ -71,8 +72,7 @@ export const LibraryArchive = () => {
   const notify = useNotify();
   const transferring = useIsMutating({ mutationKey: ['library-transfer'] }) > 0;
   const [progress, setProgress] = useState(0);
-  const onError = (error: unknown) =>
-    notify(error instanceof Error ? error.message : String(error), 'error');
+  const onError = useErrorHandler();
   const transfer = useMutation({
     mutationKey: ['library-transfer'],
     mutationFn: async (file?: File) => {
@@ -86,7 +86,7 @@ export const LibraryArchive = () => {
         const path = desktopClient.pathForFile(file);
         if (!path) throw new Error(tr('libraryTransferFailed'));
         const result = await pythonClient.importLibrary(path, update);
-        notify(tr('libraryImported', result), 'success');
+        notify(tr(ru.libraryImported, result), 'success');
       }
     },
     onError,

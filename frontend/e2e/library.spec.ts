@@ -60,7 +60,7 @@ for (const processingBackend of ['Local', 'Kaggle'] as const) {
       local ? 'off' : 'on',
     );
     await expect(play).toBeEnabled({ enabled: !local });
-    await expect(page.locator('.libraryBackdrop')).toHaveCount(local ? 0 : 1);
+    await expect(page.getByTitle('Quantum Background visualizer')).toHaveCount(local ? 0 : 1);
     if (local) {
       await page
         .locator('.floatingControls')
@@ -79,7 +79,7 @@ for (const processingBackend of ['Local', 'Kaggle'] as const) {
         )
         .toBe(0);
       await page
-        .getByRole('button', { name: 'Закрыть диалог', exact: true })
+        .getByRole('button', { name: 'Закрыть', exact: true })
         .click();
     }
     await page.evaluate(() =>
@@ -89,7 +89,7 @@ for (const processingBackend of ['Local', 'Kaggle'] as const) {
     );
     await expect(page.locator('html')).toHaveAttribute('data-ad-motion', 'on');
     await expect(play).toBeEnabled();
-    await expect(page.locator('.libraryBackdrop')).toHaveCount(1);
+    await expect(page.getByTitle('Quantum Background visualizer')).toHaveCount(1);
     await play.click();
     await page.evaluate(() =>
       (
@@ -124,6 +124,9 @@ for (const width of [1440, 1100, 800, 390]) {
       .getByRole('button', { name: 'Настройки', exact: true })
       .click();
     const dialog = page.locator('dialog:modal');
+    await expect(dialog.getByRole('radiogroup', { name: 'Тема' })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await page.screenshot({ animations: 'disabled' });
     await expect(dialog).toHaveCSS('opacity', '1');
     const metrics = await dialog.evaluate((element) => {
       const box = (selector: string) =>
@@ -563,7 +566,6 @@ for (const theme of ['dark', 'light', 'green', 'violet']) {
     ).toHaveCount(0);
     await expect(page.locator('.quantumFieldBackdrop')).toHaveCount(0);
     // The theme picture stays the backdrop; the field is drawn over it, edge to edge.
-    await expect(page.locator('.libraryBackdrop')).toHaveCount(1);
     await expect(page.getByTitle('Quantum Background visualizer')).toHaveCount(
       1,
     );

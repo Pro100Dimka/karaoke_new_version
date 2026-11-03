@@ -139,7 +139,7 @@ def _transcribe(
     vocal: Path | np.ndarray, language: str, prompt: str | None
 ) -> Mapping[str, object]:
     model = _speech_model(target := device())
-    with cached_encoder(model.encoder):
+    with torch.inference_mode(), cached_encoder(model.encoder):
         result: Mapping[str, object] = model.transcribe(
             vocal if isinstance(vocal, np.ndarray) else str(vocal),
             language=WHISPER_LANGUAGES.get(language),
@@ -193,7 +193,7 @@ def _decode_context(
     reuse: AlignmentReuse | None,
 ) -> Mapping[str, object]:
     model = models.pop() if models else _speech_model(device())
-    with cached_encoder(model.encoder, reuse=reuse):
+    with torch.inference_mode(), cached_encoder(model.encoder, reuse=reuse):
         result = model.transcribe(
             audio,
             language=WHISPER_LANGUAGES.get(language),

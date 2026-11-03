@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
  * field's response to sound remain.
  */
 const motion = async (page: Page, frames = 8) => {
-  const backdrop = page.locator('.libraryBackdrop');
+  const backdrop = page.getByTitle('Quantum Background visualizer');
   // Each frame is compared with the previous one inside the page; only the share comes back.
   const changedSincePrevious = async () => {
     const png = await backdrop.screenshot();
@@ -66,7 +66,7 @@ test("the Library backdrop reacts to the radio and to the singer's voice", async
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'A&D Voice' })).toBeVisible();
-  const frame = page.frameLocator('.libraryBackdrop iframe');
+  const frame = page.frameLocator('iframe[title="Quantum Background visualizer"]');
   await expect(frame.locator('canvas')).toBeVisible({ timeout: 45_000 });
   await page.waitForTimeout(4000);
   const silent = await motion(page);

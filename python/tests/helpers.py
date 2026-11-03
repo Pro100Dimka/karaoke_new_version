@@ -60,3 +60,23 @@ def wait_for_job(client: TestClient, job_id: str, timeout: float = 10.0) -> dict
             payload = current.json()
             if payload["state"] in TERMINAL_STATES:
                 return payload
+
+
+def wait_for_recording(client: TestClient, recording_id: str) -> dict[str, object]:
+    response = client.get(f"/recordings/{recording_id}")
+    assert response.status_code == 200, response.text
+    recording = response.json()
+    if recording["fileStatus"] == "Preparing":
+        response = client.get(
+            "/jobs", params={"type": "RecordingPreparation", "entityId": recording_id}
+        )
+        assert response.status_code == 200, response.text
+        jobs = response.json()["items"]
+        assert jobs, "Preparing recording has no preparation job"
+        job = wait_for_job(client, jobs[0]["jobId"])
+        assert job["state"] == "Succeeded", job
+        response = client.get(f"/recordings/{recording_id}")
+        assert response.status_code == 200, response.text
+        recording = response.json()
+    assert recording["fileStatus"] == "Ready", recording
+    return recording

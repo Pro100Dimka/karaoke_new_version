@@ -36,6 +36,10 @@ class CancelProcessing:
         status = SongStatus.CANCELLING if state is JobState.CANCELLING else SongStatus.CANCELLED
         with self._uow.create() as transaction:
             song = transaction.songs.get(song_id)
-            if song and song.status is not SongStatus.CANCELLED:
+            if song and song.status in {
+                SongStatus.QUEUED,
+                SongStatus.PROCESSING,
+                SongStatus.CANCELLING,
+            }:
                 transaction.songs.update(replace(song, status=status, updated_at=self._clock.now()))
                 transaction.commit()

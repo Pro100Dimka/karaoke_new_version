@@ -1363,10 +1363,17 @@ static void checkPerformanceHeadroom(bool paired) {
     service.start();
     service.session().prepare(RequestedConfiguration{});
     service.session().start();
+    service.media().prepare(48'000, 2, 96'001);
     service.realtime().setMonitoring(false);
     service.media().load(MediaSlot::Music, musicPath.string());
     expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
            "headroom reference backing is loaded");
+    const auto preloadDeadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (service.media().snapshot(MediaSlot::Music).bufferFillFrames < 48'000 &&
+           std::chrono::steady_clock::now() < preloadDeadline)
+        std::this_thread::yield();
+    expect(service.media().snapshot(MediaSlot::Music).bufferFillFrames == 48'000,
+           "unpaced headroom fixture preloads the backing instead of starving its decoder");
     service.realtime().setMixerGains(MixerGains{.microphone = 4.0F});
     service.media().play(MediaContext::Karaoke);
     const auto path = tempRoot / (paired ? "voice-headroom-paired.wav" : "voice-headroom.wav");
@@ -1380,6 +1387,8 @@ static void checkPerformanceHeadroom(bool paired) {
         fake->pump(capture, 1, render, 2, block * 128, block * 128);
     expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
            "headroom is finalized through the normal stop command");
+    expect(service.recording().result().overrunCount == 0,
+           "unpaced headroom fixture saves every aligned block without writer starvation");
     WavDecoder decoder;
     const auto format = decoder.open(path.string());
     std::vector<float> recorded(static_cast<std::size_t>(format.totalFrames) * 2U);
@@ -1387,16 +1396,18 @@ static void checkPerformanceHeadroom(bool paired) {
     float voicePeak = 0.0F;
     for (std::size_t index = 0; index < recorded.size(); index += 2)
         voicePeak = std::max(voicePeak, std::abs(recorded[index]));
-    constexpr float target = 0.12589254F;
+    constexpr float target = 0.70794578F;
     expect(std::abs(voicePeak - target) < 0.0001F,
-           "the recorded voice peaks at minus 18 dBFS without changing monitoring or mixer knobs");
+           "the recorded voice peaks at minus 3 dBFS without changing monitoring or mixer knobs");
     // The left channel carries only the centred voice; subtracting it from the right isolates music.
     const auto last = recorded.size() - 2U;
     const auto recordedBacking = recorded[last + 1U] - recorded[last];
     expect(std::abs(recordedBacking - render.back() * target / 1.6F) < 0.001F,
            "one constant gain preserves the original voice/backing balance and stereo image");
     expect(render.back() > recordedBacking * 2.0F && format.totalFrames == blocks * 128U,
-           "saving headroom leaves live playback and the complete aligned duration unchanged");
+           "saving headroom leaves live playback and the complete aligned duration unchanged: " +
+               std::to_string(render.back()) + " live, " + std::to_string(recordedBacking) +
+               " saved, " + std::to_string(format.totalFrames) + " frames");
     if (paired) {
         WavDecoder companion;
         const auto backingFormat = companion.open(path.string() + ".backing.wav");
@@ -1404,10 +1415,13 @@ static void checkPerformanceHeadroom(bool paired) {
                "performance companion includes the aligned lead and final tail");
         std::vector<float> accompaniment(recorded.size());
         companion.read(accompaniment, static_cast<std::uint32_t>(format.totalFrames));
+        bool aligned = true;
         for (std::size_t index = 0; index < recorded.size(); index += 2)
-            expect(std::abs(accompaniment[index]) < 0.0001F &&
-                       std::abs(accompaniment[index + 1] - (recorded[index + 1] - recorded[index])) < 0.0001F,
-                   "companion contains the exact gained backing without any processed singer");
+            aligned &= std::abs(accompaniment[index]) < 0.0001F &&
+                       std::abs(accompaniment[index + 1] * target / 1.6F -
+                                (recorded[index + 1] - recorded[index])) < 0.0001F;
+        expect(aligned,
+               "companion preserves the unattenuated aligned backing without any processed singer");
     }
 }
 
@@ -1416,7 +1430,7 @@ void performanceCompanionPreservesTheAlignedBacking() { checkPerformanceHeadroom
 
 void performanceHeadroomFinalizesAllOutputChannels() {
     RecordingEngine recording;
-    for (const auto level : {0.5F, 0.01F}) {
+    for (const auto level : {1.6F, 0.01F}) {
         const auto path = tempRoot / ("headroom-six-channels-" + std::to_string(level) + ".wav");
         recording.prepare("six", path.string(), 48'000, 6, RecordingTap::PerformanceMix, 8192);
         recording.start(SessionFrame{0}, 0);
@@ -1432,7 +1446,7 @@ void performanceHeadroomFinalizesAllOutputChannels() {
         std::vector<float> actual(pcm.size());
         expect(format.channels == 6 && format.totalFrames == 5000 && decoder.read(actual, 5000) == 5000,
                "every output channel and frame survives headroom finalization");
-        const auto expected = std::min(level, 0.12589254F);
+        const auto expected = std::min(level, 0.70794578F);
         expect(std::ranges::all_of(actual, [expected](float value) { return std::abs(value - expected) < 0.0001F; }),
                "loud voice is attenuated; a new quiet take neither inherits the old gain nor amplifies noise");
     }

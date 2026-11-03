@@ -137,6 +137,37 @@ const PianoRoll = observer(
       targetPitch !== undefined &&
       pitchMatchesTarget(measuredPitch, targetPitch),
     );
+    const livePitch = capturedPitch ? undefined : liveMidi;
+    const label = tr(ru.pianoRoll);
+    const melody = useMemo(
+      () => (
+        <MelodyRoll
+          className="pianoRollLane"
+          label={label}
+          notes={inLine}
+          position={position}
+          minPitch={range.min}
+          maxPitch={range.max}
+          window={span}
+          onWindowChange={setSpan}
+          livePitch={livePitch}
+          accuracy={accuracy}
+          hit={onTarget}
+          hitIds={hitNoteIds}
+        />
+      ),
+      [
+        label,
+        inLine,
+        position,
+        range,
+        span,
+        livePitch,
+        accuracy,
+        onTarget,
+        hitNoteIds,
+      ],
+    );
     const frameStyle =
       layout && !panel.detached
         ? {
@@ -163,20 +194,7 @@ const PianoRoll = observer(
         >
           {!hidden && (
             <>
-              <MelodyRoll
-                className="pianoRollLane"
-                label={tr(ru.pianoRoll)}
-                notes={inLine}
-                position={position}
-                minPitch={range.min}
-                maxPitch={range.max}
-                window={span}
-                onWindowChange={setSpan}
-                livePitch={capturedPitch ? undefined : liveMidi}
-                accuracy={accuracy}
-                hit={onTarget}
-                hitIds={hitNoteIds}
-              />
+              {melody}
               <RollFx
                 playing={playing}
                 engine={show}

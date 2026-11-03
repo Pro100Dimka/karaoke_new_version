@@ -6,6 +6,7 @@ interface MeasuredWord {
   element: HTMLElement;
   word: EditorWord;
   geometry?: LetterGeometry;
+  fill?: number;
 }
 
 const glyphGeometry = (
@@ -36,11 +37,12 @@ const paint = (
   position: number,
   progress: typeof letterProgress,
 ): void => {
-  for (const { element, word, geometry } of words)
-    element.style.setProperty(
-      '--ad-lyric-fill',
-      `${progress(word, position, geometry) * 100}%`,
-    );
+  for (const measured of words) {
+    const fill = progress(measured.word, position, measured.geometry) * 100;
+    if (measured.fill === fill) continue;
+    measured.element.style.setProperty('--ad-lyric-fill', `${fill}%`);
+    measured.fill = fill;
+  }
 };
 
 /** The UI kit fills physical width and rounds to whole percent. Measure only on layout changes. */
@@ -82,6 +84,6 @@ export const useLyricFill = (
       measured.current = [];
     };
   }, [id, words, font, progress]);
-  // React may reapply the kit's rounded inline style on any render; restore the exact saved position.
+  // A new line or measurement resets the painted values; only changing fills need a DOM write.
   useLayoutEffect(() => paint(measured.current, position, progress));
 };

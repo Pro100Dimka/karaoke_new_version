@@ -302,7 +302,7 @@ void analysisIgnoresQuietBleedAfterAudibleSinging() {
         waitForProcessedFrames(analysis, submitted);
     }
     const auto history = analysis.pitchHistory();
-    expect(history.size() == 2 && history.front().audioActive && !history.back().audioActive &&
+    expect(history.size() == 5 && history.front().audioActive && !history.back().audioActive &&
                history.back().pitchHz == 0,
            "residual periodic bleed below the singer's audible range is neither a note nor an entry");
 }

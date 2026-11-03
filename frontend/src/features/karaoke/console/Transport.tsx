@@ -1,4 +1,5 @@
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
+import { useMemo, useRef } from 'react';
 import type { MessageKey } from '../../../i18n/messages';
 import { ru } from '../../../i18n/messages.ru';
 import type { KaraokeState } from '../../../application/karaoke/karaokeMachine';
@@ -25,63 +26,65 @@ export const Transport = ({
   onTogglePlay,
   onStop,
 }: TransportProps) => {
-  useLocale();
+  const locale = useLocale();
+  const currentPosition = useRef(position);
+  currentPosition.current = position;
   const playing = state.kind === 'playing';
-  const usable =
-    state.kind === 'ready' ||
-    state.kind === 'playing' ||
-    state.kind === 'paused';
+  const usable = ['ready', 'playing', 'paused'].includes(state.kind);
   const disabled = seekLocked || !usable;
-  const actions = [
-    {
-      id: 'restart',
-      label: 'restart',
-      icon: 'back',
-      primary: false,
-      run: () => onSeek(0),
-    },
-    {
-      id: 'play',
-      label: playing ? 'pause' : 'play',
-      icon: playing ? 'pause' : 'play',
-      primary: true,
-      run: onTogglePlay,
-    },
-    { id: 'stop', label: 'stop', icon: 'stop', primary: false, run: onStop },
-    {
-      id: 'forward',
-      label: 'skipForward',
-      icon: 'prev',
-      primary: false,
-      run: () => onSeek(Math.min(duration, position + skipSeconds)),
-    },
-  ] satisfies readonly {
-    id: string;
-    label: MessageKey;
-    icon: string;
-    primary: boolean;
-    run(): void;
-  }[];
+  return useMemo(() => {
+    const actions = [
+      {
+        id: 'restart',
+        label: 'restart',
+        icon: 'back',
+        primary: false,
+        run: () => onSeek(0),
+      },
+      {
+        id: 'play',
+        label: playing ? 'pause' : 'play',
+        icon: playing ? 'pause' : 'play',
+        primary: true,
+        run: onTogglePlay,
+      },
+      { id: 'stop', label: 'stop', icon: 'stop', primary: false, run: onStop },
+      {
+        id: 'forward',
+        label: 'skipForward',
+        icon: 'prev',
+        primary: false,
+        run: () =>
+          onSeek(Math.min(duration, currentPosition.current + skipSeconds)),
+      },
+    ] satisfies readonly {
+      id: string;
+      label: MessageKey;
+      icon: string;
+      primary: boolean;
+      run(): void;
+    }[];
 
-  return (
-    <div
-      className="transport"
-      role="toolbar"
-      aria-label={tr(ru.transportControls)}
-    >
-      {actions.map((action) => (
-        <IconButton
-          key={action.id}
-          round
-          className={action.id === 'forward' ? 'transportForward' : undefined}
-          size={action.primary ? 'lg' : 'md'}
-          variant={action.primary ? 'primary' : 'secondary'}
-          icon={action.icon}
-          label={tr(ru[action.label])}
-          disabled={disabled}
-          onClick={action.run}
-        />
-      ))}
-    </div>
-  );
+    return (
+      <div
+        className="transport"
+        role="toolbar"
+        aria-label={tr(ru.transportControls)}
+      >
+        {actions.map((action) => (
+          <IconButton
+            key={action.id}
+            round
+            className={action.id === 'forward' ? 'transportForward' : undefined}
+            size={action.primary ? 'lg' : 'md'}
+            variant={action.primary ? 'primary' : 'secondary'}
+            icon={action.icon}
+            label={tr(ru[action.label])}
+            disabled={disabled}
+            onClick={action.run}
+          />
+        ))}
+      </div>
+    );
+  }, [playing, disabled, duration, onSeek, onTogglePlay, onStop, locale]);
 };

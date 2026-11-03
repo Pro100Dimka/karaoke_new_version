@@ -17,6 +17,7 @@ from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.songs.recognition import SongCatalogLookup, SongRecognitionProvider
+from tests.fakes import FakeRecognizer
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +102,7 @@ def app_client(
         BackendConfig.load(root),
         ai_providers=ai_providers,
         lyrics_providers=lyrics_providers,
-        recognition_provider=recognition_provider,
+        recognition_provider=recognition_provider or FakeRecognizer(),
         catalog_lookup=catalog_lookup,
     )
     with TestClient(app) as client:

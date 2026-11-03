@@ -137,7 +137,7 @@ def test_empty_library_can_be_exported_and_imported(tmp_path: Path):
 
 
 def test_library_publication_failure_rolls_back_files_and_rows(tmp_path: Path, monkeypatch):
-    from backend.infrastructure.library_storage import SqlLibraryStorage
+    from backend.infrastructure import library_storage
 
     with app_client(tmp_path / "source") as client:
         for frequency in (440, 550):
@@ -145,20 +145,22 @@ def test_library_publication_failure_rolls_back_files_and_rows(tmp_path: Path, m
             write_wav(audio, frequency=frequency)
             import_song(client, audio)
         archive = Path(transfer(client, "export")["path"])
-    publish = SqlLibraryStorage._publish
+    root = tmp_path / "target"
+    publish = library_storage.os.replace
     calls = 0
 
-    def interrupted(self, source, target, published):
+    def interrupted(source, target):
         nonlocal calls
-        calls += 1
-        if calls == 2:
-            raise OSError("Simulated storage failure")
-        publish(self, source, target, published)
+        if Path(target).parent == root / "songs":
+            calls += 1
+            if calls == 2:
+                raise OSError("Simulated storage failure")
+        publish(source, target)
 
-    monkeypatch.setattr(SqlLibraryStorage, "_publish", interrupted)
-    root = tmp_path / "target"
+    monkeypatch.setattr(library_storage.os, "replace", interrupted)
     with app_client(root) as client:
         started = client.post("/packages/library/import", json={"path": str(archive)})
         assert wait_for_job(client, started.json()["jobId"])["state"] == "Failed"
+        assert calls == 2
         assert client.get("/songs").json()["items"] == []
         assert not list((root / "songs").iterdir())

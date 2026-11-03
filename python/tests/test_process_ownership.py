@@ -190,7 +190,10 @@ def test_line_process_kills_a_child_that_ignores_the_stop_request() -> None:
 
     child.stop(timeout_seconds=0.2)
 
-    assert child.read_line() == ""
+    with pytest.raises(RuntimeError, match="closed its control pipe"):
+        child.read_line()
+    with pytest.raises(OSError, match="has exited"):
+        child.write_line("after stop")
 
 
 def test_line_process_routes_native_relay_errors_to_server_logger(caplog) -> None:

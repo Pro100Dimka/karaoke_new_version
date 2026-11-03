@@ -1,10 +1,11 @@
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { App } from 'electron';
 import * as path from 'node:path';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { configureRuntimeIdentity } from './RuntimeIdentity';
 
+beforeEach(() => vi.stubEnv('AD_VOICE_PROFILE_ROOT', undefined));
 afterEach(() => vi.unstubAllEnvs());
 
 it('passes the installed language into the renderer environment', () => {

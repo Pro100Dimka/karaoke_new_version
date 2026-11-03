@@ -43,6 +43,11 @@ interface Moment {
   noteId?: string;
 }
 
+interface ContourTexture {
+  canvas: HTMLCanvasElement;
+  top: number;
+}
+
 // The overlay reaches this far past the lane so light can spill a little outside it.
 const margin = 24;
 const sparkleMs = 420;
@@ -85,6 +90,9 @@ export class RollFxRenderer {
   private bursts: Moment[] = [];
   private level = '';
   private unsubscribe: () => void;
+  private contourTextures = new Map<ShowNote, Map<number, ContourTexture>>();
+  private contourView: RollView | undefined;
+  private contourSize = '';
 
   constructor(
     private canvas: HTMLCanvasElement,
@@ -120,6 +128,7 @@ export class RollFxRenderer {
     cancelAnimationFrame(this.frame);
     this.unsubscribe();
     this.engine.voicePoint = undefined;
+    this.contourTextures.clear();
   }
 
   private onCommand(command: FxCommand): void {
@@ -268,13 +277,66 @@ export class RollFxRenderer {
     view: RollView,
     geometry: Geometry,
   ): void {
+    const size = `${this.lane.width}:${this.lane.height}:${view.span}:${view.low}:${view.high}`;
+    if (this.contourView?.notes !== view.notes || this.contourSize !== size) {
+      this.contourTextures.clear();
+      this.contourView = view;
+      this.contourSize = size;
+    }
+    const scale = context.getTransform().a;
     context.strokeStyle = rgba('white', 0.75);
     context.lineWidth = 1.5;
     for (const note of view.notes) {
       if (!note.contour?.length) continue;
+      const left = geometry.x(note.start) - 2;
+      const width = (note.end - note.start) * this.lane.width / view.span + 4;
+      if (left > this.lane.width + margin || left + width < margin) continue;
+      let textures = this.contourTextures.get(note);
+      let texture = textures?.get(scale);
+      if (!texture) {
+        let top = Infinity;
+        let bottom = -Infinity;
+        for (const point of note.contour) {
+          if ((point[2] ?? 1) < 0.5) continue;
+          const y = geometry.y(note.pitch + point[1]);
+          top = Math.min(top, y - 2);
+          bottom = Math.max(bottom, y + 2);
+        }
+        if (!Number.isFinite(top)) continue;
+        const height = bottom - top;
+        // Long notes remain vector paths rather than allocating unbounded textures.
+        if (width * scale > 4096 || height * scale > 4096) {
+          this.drawContour(context, note, geometry);
+          continue;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.ceil(width * scale));
+        canvas.height = Math.max(1, Math.ceil(height * scale));
+        const brush = canvas.getContext('2d');
+        if (!brush) {
+          this.drawContour(context, note, geometry);
+          continue;
+        }
+        brush.setTransform(scale, 0, 0, scale, -left * scale, -top * scale);
+        brush.strokeStyle = rgba('white', 0.75);
+        brush.lineWidth = 1.5;
+        this.drawContour(brush, note, geometry);
+        texture = { canvas, top };
+        if (!textures) {
+          textures = new Map();
+          this.contourTextures.set(note, textures);
+        }
+        textures.set(scale, texture);
+      }
+      context.drawImage(texture.canvas, left, texture.top,
+        texture.canvas.width / scale, texture.canvas.height / scale);
+    }
+  }
+
+  private drawContour(context: CanvasRenderingContext2D, note: ShowNote, geometry: Geometry): void {
       context.beginPath();
       let started = false;
-      for (const [index, point] of note.contour.entries()) {
+      for (const [index, point] of (note.contour ?? []).entries()) {
         if ((point[2] ?? 1) < 0.5) {
           started = false;
           continue;
@@ -286,7 +348,6 @@ export class RollFxRenderer {
         started = true;
       }
       context.stroke();
-    }
   }
 
   private expire(now: number): void {

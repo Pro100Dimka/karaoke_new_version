@@ -1,7 +1,11 @@
 import {
   Button, Dialog, Icon, TextField, tr, useLocale, useRouter,
 } from '@neo-ui-kit/react';
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { observer } from 'mobx-react-lite';
+import { titleBarLeadingId } from '../../app/TitleBar';
+import { store } from '../../providers/store';
 import { openSettings } from '../library/modals/settings';
 import { routes } from '../../shared/routes';
 import {
@@ -21,10 +25,16 @@ const sectionEntries = Object.entries(sections) as [
   SectionId, (typeof sections)[SectionId],
 ][];
 
-export const HelpPage = () => {
+export const HelpPage = observer(() => {
   useLocale();
   const { navigate } = useRouter();
+  const { theme } = store.interface;
+  const mediaRoot = import.meta.env.BASE_URL + 'help/' + (theme === 'dark' ? '' : theme + '/');
   const page = useRef<HTMLElement>(null);
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setSlot(document.getElementById(titleBarLeadingId));
+  }, []);
   const [query, setQuery] = useState('');
   const [section, setSection] = useState<SectionId | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
@@ -72,7 +82,7 @@ export const HelpPage = () => {
           }}
         >
           <img
-            src={import.meta.env.BASE_URL + 'help/' + image + '.jpg'}
+            src={mediaRoot + image + '.jpg'}
             alt={tr(title)} loading="lazy"
           />
           <span
@@ -89,19 +99,22 @@ export const HelpPage = () => {
       </span>
     );
   };
+  const header = (
+    <header className="helpHeader" data-window-drag>
+      <Button
+        variant="ghost" icon="back"
+        onClick={() => navigate(routes.library)} label={tr('Библиотека')}
+      />
+      <div className="helpHeaderTitle">
+        <Icon name="document" size={18} />
+        <span>{tr('Инструкция')}</span>
+      </div>
+    </header>
+  );
 
   return (
     <div className="helpPage" data-home={home || undefined}>
-      <header className="helpHeader" data-window-drag>
-        <Button
-          variant="ghost" icon="back"
-          onClick={() => navigate(routes.library)} label={tr('Библиотека')}
-        />
-        <div className="helpHeaderTitle">
-          <Icon name="document" size={18} />
-          <span>{tr('Инструкция')}</span>
-        </div>
-      </header>
+      {slot ? createPortal(header, slot) : header}
       <div className="helpLayout">
         <nav className="helpSidebar" aria-label={tr('Разделы инструкции')}>
           <Button
@@ -208,7 +221,7 @@ export const HelpPage = () => {
                             <summary><Icon name="play" size={15} />{tr('Посмотреть короткое видео')}</summary>
                             <video
                               controls playsInline preload="none"
-                              poster={import.meta.env.BASE_URL + 'help/' + visuals[step.visual].image + '.jpg'}
+                              poster={mediaRoot + visuals[step.visual].image + '.jpg'}
                               aria-label={tr(step.title)}
                             >
                               <source src={import.meta.env.BASE_URL + 'help/' + step.clip + '.webm'} type="video/webm" />
@@ -249,7 +262,7 @@ export const HelpPage = () => {
                       onClick={() => showSection(id)}
                     >
                       <span className="helpCategoryContent">
-                        <Icon name={item.icon} size={25} />
+                        <Icon name={item.icon} size={28} surface="tile" />
                         <span>
                           <strong>{tr(item.title)}</strong>
                           <small>{tr(item.description)}</small>
@@ -290,6 +303,6 @@ export const HelpPage = () => {
       </Dialog>
     </div>
   );
-};
+});
 
 export default HelpPage;

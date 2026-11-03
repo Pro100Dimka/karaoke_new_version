@@ -18,7 +18,17 @@ from backend.ai.domain import (
 from backend.domain_errors import DependencyError
 from backend.lyrics.ports import LyricLineTiming, LyricsCandidate
 from backend.songs.domain import Language, Song
+from backend.songs.recognition import RecognizedSong
 from backend.processing.compute_policy import ExecutionContext
+
+
+@dataclass
+class FakeRecognizer:
+    result: RecognizedSong | None = None
+
+    def recognize(self, source: Path) -> RecognizedSong | None:
+        assert source.is_file()
+        return self.result
 
 
 class FakeAiProvider:

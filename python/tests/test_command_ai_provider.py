@@ -301,7 +301,10 @@ def test_local_alignment_reuses_only_unchanged_recognition_from_its_own_job(
         assert not runner.options.get("input_data")
     else:
         assert "--recognition-stdin" in runner.command
-        assert loads_object(runner.options["input_data"].decode()) == evidence[0]
+        assert loads_object(runner.options["input_data"].decode()) == {
+            **evidence[0],
+            "alternatives": [] if change == "source" else evidence[1:],
+        }
         if word_count == 2000 and change is None:
             assert len(runner.options["input_data"]) > 65536
             assert max(map(len, runner.command)) < 4096
