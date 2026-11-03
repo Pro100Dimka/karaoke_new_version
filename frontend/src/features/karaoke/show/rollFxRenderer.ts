@@ -217,7 +217,9 @@ export class RollFxRenderer {
     this.unsubscribe();
     this.engine.voicePoint = undefined;
     this.contourTextures.clear();
-    this.worker?.terminate();
+    const worker = this.worker;
+    this.worker = undefined;
+    worker?.terminate();
     this.fallbackCanvas?.remove();
     this.glowRoot?.removeAttribute('data-show-roll-glow');
     if (typeof HTMLCanvasElement !== 'undefined' && this.glowCanvas instanceof HTMLCanvasElement) this.glowCanvas.remove();
@@ -275,7 +277,7 @@ export class RollFxRenderer {
     if (this.glowRoot && this.glowCanvas instanceof HTMLCanvasElement) {
       const style = getComputedStyle(this.glowRoot);
       const blur = parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.6;
-      const width = this.glowRoot.offsetWidth, height = this.glowRoot.offsetHeight;
+      const width = parseFloat(style.width), height = parseFloat(style.height);
       this.glowLayout = { width, height, blur, radius: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius].map(parseFloat) };
       const pad = Math.ceil(blur * 2);
       Object.assign(this.glowCanvas.style, { position: 'absolute', pointerEvents: 'none', zIndex: '-1', left: `${-pad}px`, top: `${-pad}px`, width: `${width + pad * 2}px`, height: `${height + pad * 2}px` });
