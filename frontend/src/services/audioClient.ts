@@ -163,24 +163,24 @@ export const audioClient: AudioServiceClient = {
   },
   health() {
     return enqueueAudioOperation(async () => {
-    try {
-      const state = await command('GetServiceState');
-      if (state !== 'Running') return { status: 'unavailable', version: '1' };
-      let values = await diagnostics();
-      // A replacement process is Running with an Idle session. A failed device also leaves the
-      // control pipe alive. Reopen either before advertising usable audio; Suspended is deliberate.
-      if (values.SessionState === 'Idle' || values.SessionState === 'Failed') {
-        await ensureSession();
-        values = await diagnostics();
+      try {
+        const state = await command('GetServiceState');
+        if (state !== 'Running') return { status: 'unavailable', version: '1' };
+        let values = await diagnostics();
+        // A replacement process is Running with an Idle session. A failed device also leaves the
+        // control pipe alive. Reopen either before advertising usable audio; Suspended is deliberate.
+        if (values.SessionState === 'Idle' || values.SessionState === 'Failed') {
+          await ensureSession();
+          values = await diagnostics();
+        }
+        return {
+          status: 'ready',
+          version: '1',
+          instanceId: healthIdentity(values),
+        };
+      } catch {
+        return { status: 'unavailable', version: '1' };
       }
-      return {
-        status: 'ready',
-        version: '1',
-        instanceId: healthIdentity(values),
-      };
-    } catch {
-      return { status: 'unavailable', version: '1' };
-    }
     });
   },
 
