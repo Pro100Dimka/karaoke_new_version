@@ -50,8 +50,6 @@ export const RoomLinkCard = () => {
   const history = useRef<RoomTimingReport[]>([]);
   const trace = useRef<number[]>([]);
   const monitoringWarningShown = useRef(false);
-  // The last real room delay: a moment without voices must not swap it for the rough estimate.
-  const lastVoiceDelayMs = useRef(0);
 
   useEffect(() => {
     if (!voice) return;
@@ -77,9 +75,10 @@ export const RoomLinkCard = () => {
       history.current = [...history.current, report].slice(
         -(linkWindowReports + 1),
       );
-      if (report.voiceDelayMs > 0)
-        lastVoiceDelayMs.current = report.voiceDelayMs;
-      const delay = lastVoiceDelayMs.current || report.estimatedVoiceLatencyMs;
+      const delay =
+        report.roomPlayoutDelayMs ||
+        report.voiceDelayMs ||
+        report.estimatedVoiceLatencyMs;
       trace.current = [...trace.current, delay].slice(-traceReports);
       setMonitoring(voice.monitoringEnabled());
       setTiming(report);
@@ -110,10 +109,8 @@ export const RoomLinkCard = () => {
     0,
     ...Object.values(timing.remotes).map((remote) => remote.jitterMs),
   );
-  const delayMs =
-    lastVoiceDelayMs.current > 0
-      ? lastVoiceDelayMs.current
-      : timing.estimatedVoiceLatencyMs;
+  const scheduledDelayMs = timing.roomPlayoutDelayMs || timing.voiceDelayMs;
+  const delayMs = scheduledDelayMs || timing.estimatedVoiceLatencyMs;
   const rated = quality(timing, link);
   const details = (
     <span className="roomTimingDetails">
@@ -173,10 +170,24 @@ export const RoomLinkCard = () => {
       </Tooltip>
       <div className="roomLinkDelay">
         <Typography variant="caption" tone="muted">
-          {tr(ru.roomLatencyLabel)}
+          {tr(
+            ru[
+              scheduledDelayMs > 0
+                ? 'roomLatencyLabel'
+                : 'roomEstimatedLatencyLabel'
+            ],
+          )}
         </Typography>
         <Typography as="strong" variant="h3">
           {tr(ru.millisecondsValue, { value: Math.round(delayMs) })}
+        </Typography>
+        <Typography variant="caption" tone="muted">
+          {tr(ru.roomPing)}:{' '}
+          {timing.networkTransportRunning && timing.roundTripMs > 0
+            ? tr(ru.millisecondsValue, {
+                value: Math.round(timing.roundTripMs),
+              })
+            : '—'}
         </Typography>
         <Badge tone={rated.bad ? 'warning' : 'success'}>
           {tr(ru[rated.key])}

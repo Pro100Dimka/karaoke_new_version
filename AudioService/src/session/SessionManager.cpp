@@ -166,7 +166,7 @@ RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested,
         runtime_ = backend_->open(requested_);
         plan_ = buildPlan(runtime_);
         ++generationId_;
-        engine_.prepare(plan_, generationId_);
+        engine_.prepare(plan_, generationId_, preserveRecording_);
         if (preparedHook_)
             preparedHook_();
         setState(SessionState::Prepared);
@@ -199,7 +199,7 @@ void SessionManager::start() {
 
 void SessionManager::invalidateGeneration() noexcept {
     ++generationId_;
-    engine_.invalidate(generationId_);
+    engine_.invalidate(generationId_, preserveRecording_);
 }
 
 void SessionManager::stop() noexcept {
@@ -211,16 +211,24 @@ void SessionManager::stop() noexcept {
     invalidateGeneration();
     backend_->stop();
     backend_->close();
-    engine_.reset();
+    engine_.reset(preserveRecording_);
     runtime_ = {};
     plan_ = {};
     capabilities_.reset();
     setState(SessionState::Idle);
 }
 
-RuntimeConfiguration SessionManager::reconfigure(RequestedConfiguration requested) {
+RuntimeConfiguration SessionManager::reconfigure(RequestedConfiguration requested, bool preserveRecording,
+                                                 std::unique_ptr<IAudioBackend> backend) {
+    preserveRecording_ = preserveRecording;
+    struct ResetPreservation {
+        bool& value;
+        ~ResetPreservation() { value = false; }
+    } reset{preserveRecording_};
     const auto wasRunning = state_ == SessionState::Running;
     stop();
+    if (backend)
+        replaceBackend(std::move(backend));
     auto runtime = prepare(std::move(requested));
     if (wasRunning)
         start();

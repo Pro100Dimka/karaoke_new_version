@@ -144,7 +144,8 @@ class MediaSource {
     SourceGenerationId decodeGeneration_{0};    // worker-owned
     SourceGenerationId requestedGeneration_{0}; // protected by mutex_
     std::atomic<std::uint32_t> outputSampleRateHz_{0};
-    std::uint32_t outputChannels_{0};
+    std::uint32_t outputChannels_{0}; // Prepared PCM layout.
+    std::uint32_t renderChannels_{0}; // Active device layout, no wider than prepared PCM.
     bool terminate_{false};
     bool loadRequested_{false};
     bool seekRequested_{false};

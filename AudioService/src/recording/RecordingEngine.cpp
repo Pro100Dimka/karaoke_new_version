@@ -260,10 +260,13 @@ RecordingResult RecordingEngine::stop(SessionFrame sessionFrame) {
     return result();
 }
 
-void RecordingEngine::setGeneration(GenerationId generation) noexcept {
+void RecordingEngine::setGeneration(GenerationId generation, bool preservePaused) noexcept {
     if (generation_.exchange(generation) == generation)
         return;
     auto current = state_.load();
+    if (preservePaused &&
+        (current == RecordingState::Paused || current == RecordingState::Prepared))
+        return;
     while (current == RecordingState::Recording || current == RecordingState::Paused ||
            current == RecordingState::Prepared) {
         if (state_.compare_exchange_weak(current, RecordingState::Finalizing))

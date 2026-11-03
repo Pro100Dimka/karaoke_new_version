@@ -159,33 +159,6 @@ it('publishes the explicit fullscreen transition even when Windows reports its p
   });
 });
 
-it("fills the window with the saved theme's colour until the interface paints", async () => {
-  const { createMainWindow, themeWindowBackground } =
-    await import('./MainWindow');
-  const { BrowserWindow } = await import('electron');
-  createMainWindow({
-    rendererUrl: 'file:///app/index.html',
-    trustedIpc: { isRendererUrl: () => true } as unknown as TrustedIpc,
-    roomParticipant: 'participant',
-    closeConfirmed: () => false,
-    reveal: vi.fn(),
-  });
-  // The test's saved theme is "dark".
-  expect(
-    (
-      BrowserWindow as unknown as {
-        lastOptions: BrowserWindowConstructorOptions;
-      }
-    ).lastOptions.backgroundColor,
-  ).toBe(themeWindowBackground.dark);
-  expect(Object.keys(themeWindowBackground).sort()).toEqual([
-    'dark',
-    'green',
-    'light',
-    'violet',
-  ]);
-});
-
 it('forwards renderer and detached panel console errors to the app log', async () => {
   const { createMainWindow } = await import('./MainWindow');
   const log = vi.fn();

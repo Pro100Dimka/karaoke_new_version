@@ -125,12 +125,9 @@ std::optional<ControlResponse> AudioService::handleServiceControl(const ControlR
     case ControlCommand::Reconfigure: {
         auto config = requestFromControl(request);
         followSystemVolume(config);
-        const auto restart = session_.state() == SessionState::Running;
-        session_.stop();
-        session_.replaceBackend(createAudioBackend(config.backend));
-        session_.prepare(std::move(config));
-        if (restart)
-            session_.start();
+        auto backend = createAudioBackend(config.backend);
+        session_.reconfigure(std::move(config), boolValue(request.value("preserveRecording"), false),
+                             std::move(backend));
         syncDeviceGeneration();
         return ControlResponse{ControlStatus::Ok, "Reconfigured"};
     }
@@ -517,7 +514,10 @@ std::optional<ControlResponse> AudioService::handleRecordingControl(const Contro
             return ControlResponse{ControlStatus::Ok,
                                    std::to_string(static_cast<int>(recording_.state()))};
         const auto result = recording_.result();
-        if (!result.finalized)
+        const auto pausedDetails = boolValue(request.value("paused"), false) &&
+                                   (recording_.state() == RecordingState::Paused ||
+                                    recording_.state() == RecordingState::Prepared);
+        if (!result.finalized && !pausedDetails)
             return ControlResponse{ControlStatus::InvalidState, "Recording is not finalized"};
         using Field = std::pair<std::string_view, std::uint64_t>;
         const std::array fields{

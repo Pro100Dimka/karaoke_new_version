@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace Tests {
+void controlledReconfigurePreservesOnePerformanceFile();
 void rejectedPcmPacketsCannotSeedReceiveLossConcealment();
 void traceRejectsAnOldTakeTokenAfterImmediateRearm();
 void packetTraceJoinsActualUdpSenderArrivalAdmissionAndRender();

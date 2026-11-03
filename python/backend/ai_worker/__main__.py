@@ -96,6 +96,10 @@ def _run(args: argparse.Namespace) -> Mapping[str, object]:
 
 
 def main(argv: list[str]) -> int:
+    if argv == ["serve-speech"]:
+        from backend.ai_worker.speech_session import serve
+
+        return serve()
     if argv and argv[0] in ["transcribe", "transcribe-many", "align"]:
         import numba
         from whisper.timing import backtrace, dtw_cpu

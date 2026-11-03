@@ -197,7 +197,10 @@ export class RoomVoiceCoordinator {
             packetsSent: report.packetsSent,
             relayEchoes: report.relayEchoes,
           };
-          if (stalledRelaySamples >= 3 && Date.now() >= reconnectAfter) {
+          if (
+            (!report.networkTransportRunning || stalledRelaySamples >= 3) &&
+            Date.now() >= reconnectAfter
+          ) {
             reconnectAfter = Date.now() + 5000;
             stalledRelaySamples = 0;
             await this.audio.reconnectVoiceSession();

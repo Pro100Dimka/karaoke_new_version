@@ -85,6 +85,33 @@ void sharedJitterKeepsReorderedVoiceUntilItsPresentationDeadline() {
     const auto diagnostics = jitter.snapshot();
     expect(diagnostics.lostPackets == 0 && diagnostics.latePackets == 0,
            "timely reordered voice is neither reported lost nor rejected late");
+
+    for (const auto delayMs : {110U, 250U}) {
+        jitter.reset();
+        jitter.configure(4, 24);
+        const auto delayFrames = delayMs * 48U;
+        for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+            push(sequence);
+        for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
+            (void)jitter.pop(packet, 0, delayFrames);
+        // One missing packet must not turn the following timely packets into local losses.
+        const auto last = delayFrames / Frames;
+        for (std::uint32_t sequence = 5; sequence <= last; ++sequence) {
+            push(sequence);
+            expect(jitter.pop(packet, sequence * Frames, delayFrames) == JitterPopOutcome::Empty,
+                   "the missing voice retains its fixed presentation deadline");
+        }
+        expect(jitter.snapshot().overflowPackets == 0,
+               "reorder storage holds the full deadline without discarding timely voice");
+        expect(jitter.pop(packet, 4U * Frames + delayFrames, delayFrames) == JitterPopOutcome::Lost,
+               "only the truly missing packet is concealed at its deadline");
+        for (std::uint32_t sequence = 5; sequence <= last; ++sequence)
+            expect(jitter.pop(packet, 4U * Frames + delayFrames, delayFrames) ==
+                           JitterPopOutcome::Delivered && packet.sequence == sequence,
+                   "all following packets survive a single gap unchanged");
+        expect(jitter.snapshot().maximumTargetPackets == 24,
+               "storage capacity does not increase the adaptive playout target");
+    }
 }
 
 void sharedJitterLossCarriesItsMissingMusicalPosition() {
@@ -148,6 +175,7 @@ void sharedJitterLossCarriesItsMissingMusicalPosition() {
 
 void sharedJitterDeadlineWaitRemainsBounded() {
     constexpr std::uint32_t Frames = 120, Target = 55U * 48U;
+    constexpr std::uint32_t Capacity = Target / Frames + 8U;
     AdaptiveJitterBuffer jitter;
     jitter.configure(4, 8);
     const auto push = [&](std::uint32_t sequence) {
@@ -159,16 +187,16 @@ void sharedJitterDeadlineWaitRemainsBounded() {
         push(sequence);
     for (std::uint32_t sequence = 0; sequence < 4; ++sequence)
         (void)jitter.pop(packet);
-    for (std::uint32_t sequence = 5; sequence <= 16; ++sequence) {
+    for (std::uint32_t sequence = 5; sequence <= Capacity + 8U; ++sequence) {
         push(sequence);
         expect(jitter.pop(packet, 50U * 48U, Target) == JitterPopOutcome::Empty,
                "deadline wait retains an unexpired missing position despite future arrivals");
     }
     const auto full = jitter.snapshot();
-    expect(full.fillPackets == 8 && full.overflowPackets == 4,
-           "presentation-aware waiting keeps the original bounded encoded packet capacity");
+    expect(full.fillPackets == Capacity && full.overflowPackets == 4,
+           "deadline storage is bounded to the fixed delay plus the reorder window");
     push(4);
-    for (std::uint32_t sequence = 4; sequence <= 11; ++sequence)
+    for (std::uint32_t sequence = 4; sequence < 4U + Capacity; ++sequence)
         expect(jitter.pop(packet, 52'500U * 48U / 1'000U, Target) ==
                        JitterPopOutcome::Delivered &&
                    packet.sequence == sequence,

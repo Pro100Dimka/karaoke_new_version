@@ -53,6 +53,66 @@ struct RecordingTestAccess {
 };
 
 namespace Tests {
+void controlledReconfigurePreservesOnePerformanceFile() {
+    auto backend = std::make_unique<FakeAudioBackend>();
+    auto* fake = backend.get();
+    AudioService service{std::move(backend)};
+    service.start();
+    service.session().prepare(RequestedConfiguration{});
+    service.session().start();
+    std::vector<float> input(480, 0.1F), output(960);
+    fake->pump(input, 1, output, 2, 0, 0);
+    const auto path = tempRoot / "continuous-reconfigure.wav";
+    expect(service.handleLine("1|PrepareRecording|id=continuous|tap=performance|path=" +
+                              path.string()).status == ControlStatus::Ok,
+           "prepare one performance file");
+    expect(service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+           "start the original file");
+    fake->pump(input, 1, output, 2, 0, 0);
+    expect(service.handleLine("1|PauseRecording").status == ControlStatus::Ok,
+           "pause drains the performance tail");
+    const auto format = service.handleLine("1|GetRecordingState|details=1|paused=1");
+    expect(format.status == ControlStatus::Ok && format.text.find("\"sampleRate\":48000") != std::string::npos,
+           "a paused writer exposes its fixed format without finalizing");
+    expect(service.handleLine("1|GetRecordingState|details=1").status == ControlStatus::InvalidState,
+           "finalized recording metadata still requires finalization by default");
+    FakeBackendSettings incompatible;
+    incompatible.runtime.outputSampleRateHz = 44100;
+    bool rejected = false;
+    try {
+        service.session().reconfigure(RequestedConfiguration{}, true,
+                                       std::make_unique<FakeAudioBackend>(incompatible));
+    } catch (const std::runtime_error&) {
+        rejected = true;
+    }
+    expect(rejected && service.recording().state() == RecordingState::Paused &&
+               RecordingTestAccess::fileOpen(service.recording()),
+           "an incompatible negotiated rate is rejected without closing the WAV");
+    expect(service.handleLine("1|Reconfigure|backend=fake|preserveRecording=1")
+               .status == ControlStatus::Ok,
+           "controlled backend change succeeds");
+    expect(service.recording().state() == RecordingState::Paused &&
+               RecordingTestAccess::fileOpen(service.recording()),
+           "reconfiguration keeps the original WAV paused and open");
+    expect(service.handleLine("1|StartSession").status == ControlStatus::Ok,
+           "the rolled-back session starts again after an unsuccessful open");
+    expect(service.handleLine("1|ResumeRecording").status == ControlStatus::Ok,
+           "resume the same file in the new generation");
+    service.realtime().onRender(service.session().generationId(),
+                                {nullptr, output.data(), 480, 2});
+    expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+           "finalize the file once");
+    const auto result = service.recording().result();
+    expect(result.stopSessionFrame >= result.startSessionFrame + result.durationFrames,
+           "the recording session timeline remains monotonic across device generations");
+    WavDecoder decoder;
+    const auto savedFormat = decoder.open(path.string());
+    expect(result.recordingId == "continuous" && result.finalized &&
+               result.durationFrames == 960 && savedFormat.totalFrames == 960 &&
+               result.sampleRateHz == 48000 && result.channels == 2,
+           "one WAV retains both segments and its exact original format");
+}
+
 void masterCompanionSharesOverrunsAndLifecycle() {
     RecordingEngine recording;
     const auto path = tempRoot / "paired-overrun.wav";

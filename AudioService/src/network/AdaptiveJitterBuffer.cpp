@@ -17,6 +17,7 @@ void AdaptiveJitterBuffer::configure(std::uint32_t minimumTargetPackets,
                                      std::uint32_t maximumTargetPackets) {
     minTarget_ = std::max(1U, minimumTargetPackets);
     maxTarget_ = std::max(minTarget_, maximumTargetPackets);
+    capacityPackets_ = maxTarget_;
     target_ = std::clamp(target_, minTarget_, maxTarget_);
     packets_.clear();
     packets_.reserve(maxTarget_);
@@ -42,7 +43,7 @@ void AdaptiveJitterBuffer::push(NetworkAudioPacket packet) {
     }
     if (started_ && sequenceAfter(packet.sequence, expectedSequence_)) {
         const auto missing = packet.sequence - expectedSequence_;
-        if (missing > maxTarget_ * 4U) {
+        if (missing > capacityPackets_ * 4U) {
             // A multi-second outage is a discontinuity, not thousands of individual frames that
             // should be synthesized with PLC. Rebase at the live head and retain the full gap in
             // diagnostics so playback catches the current room position immediately.
@@ -63,7 +64,7 @@ void AdaptiveJitterBuffer::push(NetworkAudioPacket packet) {
         return;
     }
 
-    if (packets_.size() == maxTarget_) {
+    if (packets_.size() == capacityPackets_) {
         ++overflows_;
         // Keep packets closest to the playout head. A very-far-future packet is less useful
         // than an earlier packet that can close a gap.
@@ -90,6 +91,17 @@ void AdaptiveJitterBuffer::updateTarget(bool late) noexcept {
 JitterPopOutcome AdaptiveJitterBuffer::pop(
     NetworkAudioPacket& packet, std::optional<std::uint64_t> presentationHorizonFrame,
     std::uint32_t playoutDelayFrames, bool allowSequenceLoss) {
+    if (presentationHorizonFrame && !packets_.empty() && packets_.front().frames != 0) {
+        // A missing shared-timeline packet waits until its fixed deadline. Retain the
+        // packets arriving during that wait without increasing the adaptive delay target.
+        const auto frames = packets_.front().frames;
+        const auto required = playoutDelayFrames / frames +
+                              (playoutDelayFrames % frames != 0 ? 1U : 0U) + maxTarget_;
+        if (required > capacityPackets_) {
+            packets_.reserve(required);
+            capacityPackets_ = required;
+        }
+    }
     if (!started_) {
         if (packets_.size() < target_)
             return JitterPopOutcome::Empty;

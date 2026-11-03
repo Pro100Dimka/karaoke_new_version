@@ -51,7 +51,7 @@ const transitions: TransitionTable = {
     STOPPING: { kind: 'stopping' },
     FINISH: { kind: 'finished' },
   },
-  // After recovery playback never resumes on its own: the session comes back paused.
+  // Prepare paused first; the route then restores its pre-outage playback intent.
   recovering: { AUDIO_RECOVERED: { kind: 'paused' } },
   stopping: { FINISH: { kind: 'finished' } },
   finished: { RESTART: { kind: 'ready' } },

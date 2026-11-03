@@ -109,6 +109,28 @@ it('re-registers voice once after reconnect and applies server clock and deadlin
   expect(audio.addRemoteParticipant).toHaveBeenCalledOnce();
 });
 
+it('reconnects a voice transport that disappeared with the native process', async () => {
+  vi.useFakeTimers();
+  const { voice, audio } = setup();
+  const room = {
+    voiceLevels: vi.fn(async () => ({})),
+    setVoiceLatency: vi.fn(async () => snapshot()),
+  };
+  try {
+    voice.startPolls(room);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(audio.reconnectVoiceSession).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(audio.reconnectVoiceSession).toHaveBeenCalledOnce();
+    voice.stop();
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(audio.reconnectVoiceSession).toHaveBeenCalledOnce();
+  } finally {
+    voice.stop();
+    vi.useRealTimers();
+  }
+});
+
 it('ignores a late remote registration after the session is invalidated', async () => {
   const { voice, audio, invalidate } = setup();
   let complete!: () => void;

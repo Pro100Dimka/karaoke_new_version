@@ -50,9 +50,32 @@ export const audioState = {
   // The singer's own mute (the room's microphone button); it never changes the microphone's volume.
   microphoneEnabled: true,
   monitoring: false,
+  monitoringRequested: false,
+  roomActive: false,
   durationSeconds: 0,
   sessionId: crypto.randomUUID(),
   reconfiguration: new AudioReconfigurationState(),
+};
+
+let operationQueue: Promise<unknown> = Promise.resolve();
+export const enqueueAudioOperation = <T>(work: () => Promise<T>): Promise<T> => {
+  const result = operationQueue.then(work, work);
+  operationQueue = result.catch(() => undefined);
+  return result;
+};
+export const waitForAudioOperations = (): Promise<unknown> => operationQueue;
+
+export const effectiveConfiguration = (
+  configuration = audioState.preferred,
+): RequestedAudioConfiguration => {
+  if (configuration.backend !== 'WASAPI Shared') return configuration;
+  const exclusive = audioState.monitoringRequested || audioState.roomActive;
+  return {
+    ...configuration,
+    backend: exclusive ? 'WASAPI Exclusive' : 'WASAPI Shared',
+    ...(exclusive && { periodFrames: 0, bufferFrames: 0 }),
+    lowLatencyInput: false,
+  };
 };
 
 /** The device/format arguments every endpoint command shares; channel counts of 0 let AudioService choose. */
@@ -159,6 +182,8 @@ export const snapshot = async (
   forcedState?: PlaybackSnapshot['state'],
 ): Promise<PlaybackSnapshot> => {
   const values = await diagnostics(true);
+  if (audioState.reconfiguration.song && values.PlaybackState === '0')
+    throw new Error('AudioService lost the prepared song');
   const sampleRate = sampleRateOf(values);
   const frames = diagnosticNumber(
     values.PlaybackPresentationPositionFrames ?? values.PlaybackPositionFrames,
@@ -312,7 +337,7 @@ const startSession = async (): Promise<void> => {
   // A session prepared in another mode than the chosen one is prepared again, never started as is.
   const chosenMode =
     values.Backend === undefined ||
-    backendName(values.Backend) === audioState.preferred.backend;
+    backendName(values.Backend) === effectiveConfiguration().backend;
   if (state === 'Prepared' && chosenMode) {
     await command('StartSession');
     return;
@@ -325,7 +350,7 @@ const startSession = async (): Promise<void> => {
   // Device ids are machine-specific. A copied profile or a disconnected interface must not disable
   // radio, monitoring and every other audio feature; recover through Windows' default endpoints.
   const configuration = endpointsAvailable(devices, safe)
-    ? safe
+    ? effectiveConfiguration(safe)
     : defaultConfiguration;
   audioState.active = await openEndpoints(configuration, devices);
   await replaySessionSettings();

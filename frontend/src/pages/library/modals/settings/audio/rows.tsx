@@ -93,7 +93,11 @@ export const blocks = (
           label: tr('audioBackend'),
           span: { base: 'full', sm: 4 },
           props: {
-            options: ['ASIO', 'WASAPI Shared', 'WASAPI Exclusive'],
+            options: [
+              { value: 'ASIO', label: 'ASIO' },
+              { value: values.audio.configuration.backend === 'ASIO'
+                  ? 'WASAPI Shared' : values.audio.configuration.backend, label: 'Windows' },
+            ],
             disabled: !status.ready,
           },
         },
@@ -116,6 +120,8 @@ export const blocks = (
           label: tr(label),
           span: { base: 'full', sm: 4 } as const,
           props: {
+            disabled: name === 'bufferFrames' &&
+              values.audio.configuration.backend === 'WASAPI Exclusive',
             options:
               name === 'sampleRate'
                 ? status.options.sampleRates
@@ -218,10 +224,6 @@ export const blocks = (
           'audio.releaseAsioInBackground': {
             label: 'releaseAsioInBackground',
             backend: 'ASIO',
-          },
-          'audio.configuration.lowLatencyInput': {
-            label: 'lowLatencyMicrophone',
-            backend: 'WASAPI Shared',
           },
         }).map(([name, { label, backend }]) => ({
           name,

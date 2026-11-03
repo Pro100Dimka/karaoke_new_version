@@ -27,6 +27,57 @@ const installBridge = (
 beforeEach(() => vi.resetModules());
 afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
+it.each(['monitor-first', 'room-first'] as const)('releases Exclusive only after both reasons end: %s', async (order) => {
+  let backend = 'WASAPI Shared';
+  let monitoring = false;
+  const requests = installBridge(({ command, args }) => {
+    if (command === 'Reconfigure')
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+    if (command === 'SetMonitoring') monitoring = args?.enabled === true;
+    return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+      ? `SessionState: Running\nBackend: ${backend}\nMonitoringEnabled: ${Number(monitoring)}\nRuntimeOutputSampleRate: 48000`
+      : 'Ok' };
+  }, { joinRoomVoice: vi.fn(async () => undefined), leaveRoomVoice: vi.fn(async () => undefined) });
+  const { audioClient } = await import('./audioClient');
+  if (order === 'monitor-first') {
+    await audioClient.setMonitoring(true);
+    await audioClient.joinVoiceSession('room', 'self');
+    await audioClient.setMonitoring(false);
+    expect(backend).toBe('WASAPI Exclusive');
+    await audioClient.reconnectVoiceSession();
+    expect(backend).toBe('WASAPI Exclusive');
+    await audioClient.leaveVoiceSession();
+  } else {
+    await audioClient.joinVoiceSession('room', 'self');
+    await audioClient.setMonitoring(true);
+    await audioClient.leaveVoiceSession();
+    expect(backend).toBe('WASAPI Exclusive');
+    await audioClient.setMonitoring(false);
+  }
+  expect(backend).toBe('WASAPI Shared');
+  expect(requests.filter(r => r.command === 'Reconfigure').map(r => r.args?.backend))
+    .toEqual(['wasapi-exclusive', 'wasapi-shared']);
+});
+
+it('rolls back a failed room join and serializes rapid monitoring cleanup', async () => {
+  let backend = 'WASAPI Shared';
+  const requests = installBridge(({ command, args }) => {
+    if (command === 'Reconfigure')
+      backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+    return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+      ? `SessionState: Running\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000` : 'Ok' };
+  }, { joinRoomVoice: vi.fn(async () => { throw new Error('Join failed'); }),
+    leaveRoomVoice: vi.fn(async () => undefined) });
+  const { audioClient } = await import('./audioClient');
+  await expect(audioClient.joinVoiceSession('room', 'self')).rejects.toThrow('Join failed');
+  expect(backend).toBe('WASAPI Shared');
+  requests.length = 0;
+  await Promise.all([audioClient.setMonitoring(true), audioClient.setMonitoring(false)]);
+  expect(backend).toBe('WASAPI Shared');
+  expect(requests.filter(r => r.command === 'Reconfigure').map(r => r.args?.backend))
+    .toEqual(['wasapi-exclusive', 'wasapi-shared']);
+});
+
 it('restores the server mix slot after every room voice session recreation', async () => {
   const requests = installBridge(undefined, {
     joinRoomVoice: vi.fn(async () => undefined),
@@ -235,7 +286,7 @@ it.each([
             command === 'PrepareSession' || command === 'Reconfigure',
         )
         .map(({ args }) => args?.backend),
-    ).toEqual([expectedBackend]);
+    ).toEqual(userSelectedAsio ? [expectedBackend] : [expectedBackend, 'wasapi-exclusive']);
     expect(audioClient.preferredConfiguration().backend).toBe(name);
   },
 );
@@ -563,9 +614,10 @@ it.each([
     const diagnostics = await audioClient.diagnosticsDump();
 
     expect(audioClient.preferredConfiguration().backend).toBe(to);
+    const effective = to === 'WASAPI Shared' ? 'WASAPI Exclusive' : to;
     expect(diagnostics).toMatchObject({
-      Backend: to,
-      ActiveOutputDeviceId: `${code(to)}-device`,
+      Backend: effective,
+      ActiveOutputDeviceId: `${code(effective)}-device`,
       'RemoteDecodedPeak.__room_server_mix__': '0.2',
       'RemoteQueuedPeak.__room_server_mix__': '0.2',
       'RemoteRenderedPeak.__room_server_mix__': '0.2',

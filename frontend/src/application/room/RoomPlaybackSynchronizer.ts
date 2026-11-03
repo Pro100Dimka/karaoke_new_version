@@ -50,10 +50,14 @@ export class RoomPlaybackSynchronizer {
             : performance.now() + options.room.serverClockOffsetMilliseconds,
       };
     }
-    return `${key}|${options.ready && (!options.room || allConnectedReady(options.room))}|${options.stateKind === 'preparing'}`;
+    return `${key}|${options.ready && (!options.room || allConnectedReady(options.room))}|${['preparing', 'recovering'].includes(options.stateKind)}`;
   }
 
   activate(): () => void {
+    if (this.current?.stateKind === 'recovering') {
+      this.scheduledUntil = 0;
+      return () => undefined;
+    }
     const snapshot = this.current?.room;
     const ready =
       this.current?.ready && (!snapshot || allConnectedReady(snapshot));

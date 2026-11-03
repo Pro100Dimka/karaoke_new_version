@@ -1,5 +1,6 @@
 import type { PlaybackSnapshot, SongDto } from '../contracts/models';
 import type { PlaybackSchedule } from '../contracts/clients';
+import { parseKeyValues } from './audioProtocol';
 
 export interface MediaCheckpoint {
   song: SongDto;
@@ -51,9 +52,13 @@ export class AudioReconfigurationState {
   ): Promise<void> {
     await operations.ensureSession();
     if (checkpoint) {
-      const artifacts = await operations.resolveArtifacts(checkpoint.song);
-      await operations.command('LoadSong', artifacts);
-      await operations.waitForReady();
+      const { PlaybackState } = parseKeyValues(await operations.command('GetPlaybackSnapshot'));
+      if (!['2', '3', '4', '6'].includes(PlaybackState ?? '')) {
+        const artifacts = await operations.resolveArtifacts(checkpoint.song);
+        await operations.command('LoadSong', artifacts);
+        await operations.waitForReady();
+      }
+      if (PlaybackState === '3') await operations.command('Pause');
       await operations.command('SetPlaybackRate', { value: this.playbackRate });
       await operations.command('SetTranspose', { semitones: this.pitchShift });
     }

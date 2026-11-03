@@ -1704,6 +1704,8 @@ AudioDeviceCapabilities WasapiBackend::queryCapabilities(const RequestedConfigur
     caps.minPeriodFrames = std::max(1U, hnsToFrames(minPeriod, selectedFormat->nSamplesPerSec));
     caps.maxPeriodFrames = std::max(caps.defaultPeriodFrames, caps.minPeriodFrames);
     caps.fundamentalPeriodFrames = 1;
+    if (impl_->mode == WasapiMode::Exclusive)
+        caps.automaticPeriodFrames = caps.minPeriodFrames;
     if (impl_->mode == WasapiMode::Shared) {
         caps.minPeriodFrames = caps.maxPeriodFrames = caps.defaultPeriodFrames;
         ComPtr<IAudioClient3> output3;

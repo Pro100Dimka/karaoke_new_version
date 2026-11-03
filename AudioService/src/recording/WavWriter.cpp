@@ -67,7 +67,7 @@ void WavWriter::write(std::span<const float> samples) {
         for (std::size_t i = 0; i < count; ++i) {
             const auto sample = samples[offset + i];
             const auto clamped = std::isfinite(sample) ? std::clamp(sample, -1.0F, 1.0F) : 0.0F;
-            converted[i] = static_cast<std::int16_t>(std::lrint(clamped * 32767.0F));
+            converted[i] = static_cast<std::int16_t>(std::nearbyint(clamped * 32767.0F));
         }
         file_.write(reinterpret_cast<const char*>(converted.data()),
                     static_cast<std::streamsize>(count * sizeof(std::int16_t)));
@@ -112,9 +112,9 @@ void WavWriter::close(float gain, bool preserveFloat) {
         WavWriter normalized;
         normalized.open(temporary, sampleRateHz_, channels_);
         std::vector<float> samples(std::max(1U, 8192U / channels_) * channels_);
+        file_.seekg(44, std::ios::beg);
         for (std::uint64_t offset = 0; offset < dataBytes_;) {
             const auto bytes = std::min<std::uint64_t>(samples.size() * sizeof(float), dataBytes_ - offset);
-            file_.seekg(static_cast<std::streamoff>(44U + offset));
             file_.read(reinterpret_cast<char*>(samples.data()), static_cast<std::streamsize>(bytes));
             if (!file_)
                 throw std::runtime_error("recording capture read failed");
@@ -150,7 +150,7 @@ void WavWriter::close(float gain, bool preserveFloat) {
             if (!file_)
                 throw std::runtime_error("recording headroom read failed");
             for (std::size_t index = 0; index < bytes / sizeof(samples[0]); ++index)
-                samples[index] = static_cast<std::int16_t>(std::lrint(samples[index] * gain));
+                samples[index] = static_cast<std::int16_t>(std::nearbyint(samples[index] * gain));
             file_.seekp(position);
             file_.write(reinterpret_cast<const char*>(samples.data()), static_cast<std::streamsize>(bytes));
             if (!file_)

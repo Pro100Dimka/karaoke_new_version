@@ -17,6 +17,8 @@ import {
   audioState,
   command,
   diagnostics,
+  effectiveConfiguration,
+  enqueueAudioOperation,
   ensureSession,
   refreshClock,
 } from './audioSession';
@@ -150,6 +152,7 @@ export const createRoomVoice = (
   applyConfiguration: (
     configuration: RequestedAudioConfiguration,
   ) => Promise<RuntimeAudioConfiguration>,
+  reconcileWindowsMode: () => Promise<void>,
 ): RoomVoiceMethods => ({
   async setParticipantMuted(participantId, muted) {
     const gain = muted ? 0 : (voice.gains.get(participantId) ?? 1);
@@ -202,42 +205,62 @@ export const createRoomVoice = (
     voice.roomPlayoutDelayMilliseconds = bounded;
   },
 
-  async joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
-    await ensureSession();
-    // A session left running in another mode (an earlier start-up, device failure or rolled-back
-    // switch) would carry the room on that mode's latency; the chosen mode is restored first.
-    // If the device refuses it, the room still opens on the mode that works.
-    const running = (await diagnostics()).Backend;
-    if (
-      running !== undefined &&
-      backendName(running) !== audioState.preferred.backend
-    ) {
-      const selected = audioState.preferred;
-      await applyConfiguration(selected).catch(() => {
-        // A temporary device failure may keep the room on its working fallback, but it must not
-        // turn that fallback into the user's selection. A later join/recovery retries ASIO.
-        audioState.preferred = selected;
-      });
-    }
-    await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
-    await desktopBridge().joinRoomVoice(roomId, participantId);
-    voice.session = { roomId, participantId, serverClockOffsetMilliseconds };
-    await restoreRemoteParticipants();
+  joinVoiceSession(roomId, participantId, serverClockOffsetMilliseconds) {
+    return enqueueAudioOperation(async () => {
+      audioState.roomActive = true;
+      try {
+        await ensureSession();
+        await reconcileWindowsMode();
+        // A session left running in another mode (an earlier start-up, device failure or rolled-back
+        // switch) would carry the room on that mode's latency; the chosen mode is restored first.
+        // If the device refuses it, the room still opens on the mode that works.
+        const running = (await diagnostics()).Backend;
+        if (
+          running !== undefined &&
+          ['ASIO', 'WASAPI Exclusive'].includes(audioState.preferred.backend) &&
+          backendName(running) !== effectiveConfiguration().backend
+        ) {
+          const selected = audioState.preferred;
+          await applyConfiguration(selected).catch(() => {
+            // A temporary device failure may keep the room on its working fallback, but it must not
+            // turn that fallback into the user's selection. A later join/recovery retries ASIO.
+            audioState.preferred = selected;
+          });
+        }
+        await synchronizeRoomClock(serverClockOffsetMilliseconds, true);
+        await desktopBridge().joinRoomVoice(roomId, participantId);
+        voice.session = { roomId, participantId, serverClockOffsetMilliseconds };
+        await restoreRemoteParticipants();
+      } catch (error) {
+        voice.session = null;
+        audioState.roomActive = false;
+        await desktopBridge().leaveRoomVoice();
+        await reconcileWindowsMode();
+        throw error;
+      }
+    });
   },
 
   async reconnectVoiceSession() {
-    await restoreVoiceSession();
+    await enqueueAudioOperation(restoreVoiceSession);
   },
 
-  async leaveVoiceSession() {
-    await desktopBridge().leaveRoomVoice();
-    voice.session = null;
-    if (voice.roomPlayoutDelayMilliseconds > 0)
-      await command('SetRoomPlayoutDelay', { milliseconds: 0 });
-    voice.roomPlayoutDelayMilliseconds = 0;
-    voice.gains.clear();
-    voice.effects.clear();
-    voice.muted.clear();
+  leaveVoiceSession() {
+    return enqueueAudioOperation(async () => {
+      try {
+        await desktopBridge().leaveRoomVoice();
+      } finally {
+        voice.session = null;
+        audioState.roomActive = false;
+        if (voice.roomPlayoutDelayMilliseconds > 0)
+          await command('SetRoomPlayoutDelay', { milliseconds: 0 });
+        voice.roomPlayoutDelayMilliseconds = 0;
+        voice.gains.clear();
+        voice.effects.clear();
+        voice.muted.clear();
+        await reconcileWindowsMode();
+      }
+    });
   },
 
   async addRemoteParticipant(participantId) {

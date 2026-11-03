@@ -492,3 +492,127 @@ def test_actual_worker_cancellation_uses_the_job_cancelled_contract(tmp_path, ca
     assert not thread.is_alive(), "Cancelled worker did not release its caller"
     assert errors == ["JobCancelled"]
     assert marker.exists() is not cancel_before_start
+
+
+@pytest.mark.parametrize("finish", ["success", "cancel", "timeout", "failure"])
+def test_speech_session_reuses_process_and_reaps_interrupted_requests(finish):
+    import json
+    from backend.infrastructure.speech_session import SpeechSession
+
+    script = """
+import json, os, sys, threading
+for line in sys.stdin.buffer:
+    item = json.loads(line)
+    action = item['arguments'][0]
+    if action == 'wait':
+        threading.Event().wait(30)
+    result = json.dumps({'pid': os.getpid(), 'input': item['input'], 'env': item['environment']})
+    print(json.dumps({'code': int(action == 'fail'), 'stdout': result, 'stderr': ''}), flush=True)
+"""
+    session = SpeechSession([sys.executable, "-u", "-c", script])
+    cancel = threading.Event()
+    timer = None
+    try:
+
+        def call(action="echo", timeout=5):
+            return session.run(
+                [action],
+                environment={"OMP_NUM_THREADS": "2"},
+                input_data="їжак".encode(),
+                timeout_seconds=timeout,
+                cancel=cancel,
+            )
+
+        first = json.loads(call().stdout)
+        if finish == "success":
+            assert json.loads(call().stdout) == first
+        elif finish == "failure":
+            assert call("fail").exit_code == 1
+            assert json.loads(call().stdout)["pid"] != first["pid"]
+        else:
+            if finish == "cancel":
+                timer = threading.Timer(0.1, cancel.set)
+                timer.start()
+            with pytest.raises(DomainError) as error:
+                call("wait", timeout=0.2 if finish == "timeout" else 5)
+            assert (
+                error.value.code
+                == {"cancel": "ProcessCancelled", "timeout": "ProcessTimeout"}[finish]
+            )
+            cancel.clear()
+            assert json.loads(call().stdout)["pid"] != first["pid"]
+        assert first["input"] == "їжак"
+        assert first["env"]["OMP_NUM_THREADS"] == "2"
+    finally:
+        if timer is not None:
+            timer.cancel()
+            timer.join()
+        session.close()
+
+
+def test_speech_session_updates_loaded_blas_thread_limits(monkeypatch):
+    import io
+    import json
+    import numpy as np
+    from threadpoolctl import threadpool_info, threadpool_limits
+    from backend.ai_worker import speech_session
+
+    np.eye(2) @ np.eye(2)
+    requests = [
+        {"arguments": ["transcribe"], "environment": {"OMP_NUM_THREADS": str(limit)}, "input": ""}
+        for limit in [2, 1]
+    ]
+    incoming = io.TextIOWrapper(io.BytesIO(("\n".join(map(json.dumps, requests)) + "\n").encode()))
+    output = io.BytesIO()
+    outgoing = io.TextIOWrapper(output, encoding="utf-8", write_through=True)
+    monkeypatch.setattr(speech_session.sys, "stdin", incoming)
+    monkeypatch.setattr(speech_session.sys, "stdout", outgoing)
+    monkeypatch.setenv("OMP_NUM_THREADS", "3")
+    seen = []
+
+    def invoke(*args, **kwargs):
+        seen.append(
+            [
+                library["num_threads"]
+                for library in threadpool_info()
+                if library["user_api"] == "blas"
+            ]
+        )
+        speech_session.sys.stdout.buffer.write(b"{}")
+
+    monkeypatch.setattr(speech_session.runpy, "run_module", invoke)
+    with threadpool_limits(limits=3, user_api="blas"):
+        assert speech_session.serve() == 0
+    assert seen and all(seen)
+    assert all(
+        value == limit for values, limit in zip(seen, [2, 1], strict=True) for value in values
+    )
+    assert len(output.getvalue().splitlines()) == 2
+
+
+def test_speech_reuse_keeps_cpu_calls_native_and_closes_scope(monkeypatch):
+    from backend.infrastructure import command_ai_provider
+
+    sessions = []
+
+    class Session:
+        def __init__(self, command):
+            self.closed = False
+            self.calls = 0
+            sessions.append(self)
+
+        def run(self, *args, **kwargs):
+            self.calls += 1
+            return ProcessResult(0, b'{"text":"reused"}', b"")
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(command_ai_provider, "SpeechSession", Session)
+    provider = _provider(b'{"text":"native"}', provider_id="local-torch")
+    cancel = threading.Event()
+    cuda = ExecutionContext(ComputeDevice.CUDA, 2)
+    with provider.reuse_speech(cancel, cuda):
+        assert provider._invoke("transcribe", [], cancel, execution=cuda)["text"] == "reused"
+        assert provider._invoke("transcribe", [], cancel, execution=EXECUTION)["text"] == "native"
+    assert sessions[0].closed and sessions[0].calls == 1

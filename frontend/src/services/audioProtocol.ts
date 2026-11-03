@@ -376,6 +376,12 @@ export const roomTimingFromDiagnostics = (
       relayPackets: count(`RemoteRelayFirstPackets.${id}`),
       directPackets: count(`RemoteDirectFirstPackets.${id}`),
       lateCuts: count(`RemoteLateAudioCuts.${id}`),
+      ...(values[`RemoteDecodeUnderruns.${id}`] !== undefined && {
+        decodeUnderruns: count(`RemoteDecodeUnderruns.${id}`),
+      }),
+      ...(values[`RemoteLostPackets.${id}`] !== undefined && {
+        lostPackets: count(`RemoteLostPackets.${id}`),
+      }),
       ...(excluded !== undefined && { excluded: Number(excluded) > 0 }),
     };
   }
@@ -425,7 +431,8 @@ export const roomTimingFromDiagnostics = (
     ...(requirementSource !== undefined && { requirementSource }),
     voiceDelayMs: milliseconds(diagnosticNumber(values.RoomCompensationFrames)),
     followMs: 0,
-    deviceStarvedFrames: count('RenderClockRebaseFrames'),
+    deviceStarvedFrames:
+      count('RenderClockRebaseFrames') + count('RenderConfirmedUnderrunFrames'),
     // Start scheduling compensates only physical capture/route latency. Adaptive playout queues
     // are not added here because doing so used to feed a dynamic backing-track stretcher.
     estimatedVoiceLatencyMs: roundTripMs / 2 + deviceLatencyMs,

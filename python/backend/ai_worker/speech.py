@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import difflib
+import os
 import threading
 from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
@@ -132,6 +133,13 @@ def _speech_model(target: str) -> whisper.Whisper:
         model.to(target)
     name = SPEECH_MODEL.model_id.removeprefix("whisper-")
     model.set_alignment_heads(whisper._ALIGNMENT_HEADS[name])
+    directory = os.getenv("AD_VOICE_TENSORRT_WHISPER")
+    if target == "cuda" and directory:
+        from backend.ai_worker.tensorrt_pitch import TensorRTEncoder
+
+        model.encoder = torch.nn.Identity()
+        torch.cuda.empty_cache()
+        model.encoder = TensorRTEncoder(Path(directory))
     return model
 
 

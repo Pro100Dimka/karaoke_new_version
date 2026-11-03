@@ -11,12 +11,13 @@ from backend.ai.ports import TranscriptionSource
 from backend.domain_errors import ConflictError, DependencyError, DomainError
 from backend.infrastructure.paths import ensure_within
 from backend.infrastructure.hashing import sha256_file
-from backend.infrastructure.process_runner import ProcessInput, ProcessRunner
+from backend.infrastructure.process_runner import ProcessInput, ProcessRunner, ProcessResult
+from backend.infrastructure.speech_session import SpeechSession
 from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.serialization import JsonValue, dumps, loads_object
 from backend.songs.domain import Language
-from backend.processing.compute_policy import ExecutionContext
+from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.processing.policies import ResourceBudget
 
 _RecognitionKey = tuple[threading.Event, Path, Language, str, str]
@@ -40,6 +41,26 @@ class CommandAiProvider:
         self._recognition_lock = threading.Lock()
         self._budget = resource_budget
         self._alignment_workspaces: dict[threading.Event, Path] = {}
+        self._speech_sessions: dict[threading.Event, SpeechSession] = {}
+
+    @contextmanager
+    def reuse_speech(self, cancel: threading.Event, execution: ExecutionContext) -> Iterator[None]:
+        if (
+            self._descriptor.provider_id != "local-torch"
+            or execution.device is not ComputeDevice.CUDA
+            or not isinstance(self._runner, ProcessRunner)
+        ):
+            yield
+            return
+        session = SpeechSession(self._command)
+        with self._recognition_lock:
+            self._speech_sessions[cancel] = session
+        try:
+            yield
+        finally:
+            with self._recognition_lock:
+                self._speech_sessions.pop(cancel, None)
+            session.close()
 
     @property
     def descriptor(self) -> AiProviderDescriptor:
@@ -286,13 +307,13 @@ class CommandAiProvider:
         timeout_seconds: float | None = None,
     ) -> dict[str, JsonValue]:
         try:
-            result = self._runner.run(
-                [*self._command, action, *arguments],
-                timeout_seconds=self._timeout if timeout_seconds is None else timeout_seconds,
-                cancel=cancel,
-                input_data=input_data,
-                environment=_execution_environment(execution),
-                cpu_fraction=execution.cpu_fraction,
+            result = self._run_speech(
+                action,
+                arguments,
+                cancel,
+                execution,
+                input_data,
+                self._timeout if timeout_seconds is None else timeout_seconds,
             )
         except DomainError as error:
             if error.code != "ProcessCancelled":
@@ -315,6 +336,41 @@ class CommandAiProvider:
             raise DependencyError(
                 "AiProviderInvalidOutput", "AI provider returned malformed JSON"
             ) from exc
+
+    def _run_speech(
+        self,
+        action: str,
+        arguments: Sequence[str],
+        cancel: threading.Event,
+        execution: ExecutionContext,
+        input_data: ProcessInput | None,
+        timeout_seconds: float,
+    ) -> ProcessResult:
+        with self._recognition_lock:
+            session = self._speech_sessions.get(cancel)
+        if (
+            session is not None
+            and execution.device is ComputeDevice.CUDA
+            and action in ["transcribe", "transcribe-many", "align"]
+            and not callable(input_data)
+            and execution.cpu_fraction is None
+        ):
+            return session.run(
+                [action, *arguments],
+                environment=_execution_environment(execution),
+                input_data=input_data,
+                timeout_seconds=timeout_seconds,
+                cancel=cancel,
+            )
+        else:
+            return self._runner.run(
+                [*self._command, action, *arguments],
+                timeout_seconds=timeout_seconds,
+                cancel=cancel,
+                input_data=input_data,
+                environment=_execution_environment(execution),
+                cpu_fraction=execution.cpu_fraction,
+            )
 
 
 def _execution_environment(execution: ExecutionContext) -> Mapping[str, str]:

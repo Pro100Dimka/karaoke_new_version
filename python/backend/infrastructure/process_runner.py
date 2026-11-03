@@ -18,6 +18,7 @@ from backend.infrastructure.windows_child_job import WindowsChildJob
 
 # Provider JSON and diagnostics are control data, not streaming PCM. Bound their combined retention.
 MAX_PROCESS_OUTPUT_BYTES = 256 * 1024 * 1024
+ProcessHandle = subprocess.Popen[bytes]
 ProcessInput = bytes | Callable[[threading.Event], Iterable[bytes]]
 
 

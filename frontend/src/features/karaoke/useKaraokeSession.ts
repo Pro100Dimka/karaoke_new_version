@@ -106,6 +106,7 @@ export const useKaraokeSession = (
   const stateRef = useRef(state);
   stateRef.current = state;
   const playbackGeneration = useRef(0);
+  const recoveryIntent = useRef({ playing: false, recording: false });
   const positionRef = useRef(0);
   const recordingRef = useRef(recording);
   recordingRef.current = recording;
@@ -267,6 +268,13 @@ export const useKaraokeSession = (
     [notify, locale],
   );
   const onLost = useCallback(() => {
+    if (['playing', 'paused'].includes(stateRef.current.kind)) {
+      recoveryIntent.current.playing ||=
+        !room && mode !== 'RoomPrepared' && stateRef.current.kind === 'playing';
+      recoveryIntent.current.recording ||= ['starting', 'recording'].includes(
+        recordingRef.current,
+      );
+    }
     playbackGeneration.current++;
     recordingWork.invalidate();
     recordingCoordinator.interrupt();
@@ -274,7 +282,7 @@ export const useKaraokeSession = (
       ['starting', 'recording'].includes(current) ? 'failed' : current,
     );
     dispatch({ type: 'AUDIO_LOST' });
-  }, [recordingWork, recordingCoordinator]);
+  }, [recordingWork, recordingCoordinator, room, mode]);
   const onFinished = useCallback(
     () => void finishPerformance(),
     [finishPerformance],
@@ -292,7 +300,7 @@ export const useKaraokeSession = (
   const onRecovered = useCallback(() => {
     setRecoveredNotice(true);
     setMonitoring(false);
-    setRecording((current) => (current === 'recording' ? 'failed' : current));
+    if (recoveryIntent.current.recording) setRecording('idle');
     dispatch({ type: 'AUDIO_RECOVERED' });
   }, []);
   useAudioRecovery({
@@ -435,6 +443,16 @@ export const useKaraokeSession = (
     startRecording,
     finishLocalPerformance,
   ]);
+
+  useEffect(() => {
+    if (room || state.kind !== 'paused' || !recoveryIntent.current.playing)
+      return;
+    const generation = playbackGeneration.current;
+    void togglePlay().then(() => {
+      if (generation === playbackGeneration.current)
+        recoveryIntent.current = { playing: false, recording: false };
+    });
+  }, [room, state.kind, togglePlay]);
 
   const onRoomPlaybackEvent = useCallback(
     (event: 'PLAY' | 'PAUSE') => dispatch({ type: event }),

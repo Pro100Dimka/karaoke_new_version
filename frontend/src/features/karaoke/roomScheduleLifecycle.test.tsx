@@ -132,6 +132,20 @@ describe('room playback scheduling lifecycle', () => {
     expect(audio.play).not.toHaveBeenCalled();
   });
 
+  it('waits for audio recovery and then reapplies the unchanged server timeline', async () => {
+    const initial = options();
+    const { rerender } = renderHook(useSynchronizedRoomPlayback, {
+      initialProps: { ...initial, stateKind: 'recovering' },
+    });
+    await advance(100);
+    expect(getAudioSnapshot).not.toHaveBeenCalled();
+    expect(audio.play).not.toHaveBeenCalled();
+    rerender({ ...initial, stateKind: 'paused' });
+    await advance(500);
+    expect(audio.play).toHaveBeenCalledOnce();
+    expect(initial.onEvent).toHaveBeenCalledWith('PLAY');
+  });
+
   it('reports errors raised by the scheduled start', async () => {
     const failure = new Error('device lost');
     audio.play.mockRejectedValueOnce(failure);

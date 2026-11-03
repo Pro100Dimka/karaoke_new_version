@@ -597,69 +597,71 @@ void nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient() {
     const auto first = relay.receive(packet("alice", 0x1111, 2, newer, 300), alice,
                                      10.005, 1'000.005);
     AudioPacketHeader header{};
-    expect(serverMixPackets(first) == 1 &&
-               decodeAudioPacketHeader(forTarget(first, bob).bytes, header) &&
-               (header.timestampFrame & ~SharedAudioTimelineFlag) == newer,
-           "Bob receives the ready newer voice while the older position awaits Alice");
-    const auto newerSequence = header.sequence;
-    const auto later = relay.flush(10.011, 1'000.011);
+    expect(serverMixPackets(first) == 0,
+           "a newer idle-room position waits while the preceding voice can still arrive");
+    auto previousPosition = base;
+    const auto later = relay.flush(10.0231, 1'000.0231);
     for (const auto& datagram : later) {
         if (datagram.target != bob ||
             !decodeAudioPacketHeader(datagram.bytes, header) ||
             header.participantKey != NativeVoiceRelay::participantKey("__room_server_mix__"))
             continue;
-        expect(header.sequence > newerSequence &&
-                   (header.timestampFrame & ~SharedAudioTimelineFlag) > newer,
-               "a recipient must never receive an older musical position after a newer mix");
+        const auto position = header.timestampFrame & ~SharedAudioTimelineFlag;
+        expect(position == previousPosition + SharedRoomPacketFrames,
+               "closing an absent voice preserves every following musical position in order");
+        previousPosition = position;
     }
+    expect(previousPosition == newer, "the queued newer voice is released after the older deadline");
 }
 
 void nativeVoiceRelayKeepsOnTimeSingingPositionsInRecipientOrder() {
-    NativeVoiceRelay relay;
-    configureTwoSingerRoom(relay);
-    relay.setRoomPlayoutDelay("room", 110.0, 40.0, 1'000.0);
-    const std::array endpoints{RelayEndpoint{"10.0.0.1", 41001},
-                               RelayEndpoint{"10.0.0.2", 41002}};
-    constexpr std::array<std::string_view, 2> names{"alice", "bob"};
-    constexpr std::array<std::uint64_t, 2> tokens{0x1111, 0x2222};
-    constexpr std::uint64_t base = 48'000'000U;
-    std::array<std::vector<std::uint64_t>, 2> received;
-    const auto collect = [&](const std::vector<RelayDatagram>& output) {
-        for (const auto& datagram : output) {
-            AudioPacketHeader header{};
-            if (decodeAudioPacketHeader(datagram.bytes, header) &&
-                header.participantKey == NativeVoiceRelay::participantKey("__room_server_mix__"))
-                received[datagram.target == endpoints[0] ? 0U : 1U].push_back(
-                    header.timestampFrame & ~SharedAudioTimelineFlag);
+    for (const auto singingStarted : {-1.0, 1'000.0}) {
+        NativeVoiceRelay relay;
+        configureTwoSingerRoom(relay);
+        relay.setRoomPlayoutDelay("room", 110.0, 40.0, singingStarted);
+        const std::array endpoints{RelayEndpoint{"10.0.0.1", 41001},
+                                   RelayEndpoint{"10.0.0.2", 41002}};
+        constexpr std::array<std::string_view, 2> names{"alice", "bob"};
+        constexpr std::array<std::uint64_t, 2> tokens{0x1111, 0x2222};
+        constexpr std::uint64_t base = 48'000'000U;
+        std::array<std::vector<std::uint64_t>, 2> received;
+        const auto collect = [&](const std::vector<RelayDatagram>& output) {
+            for (const auto& datagram : output) {
+                AudioPacketHeader header{};
+                if (decodeAudioPacketHeader(datagram.bytes, header) &&
+                    header.participantKey == NativeVoiceRelay::participantKey("__room_server_mix__"))
+                    received[datagram.target == endpoints[0] ? 0U : 1U].push_back(
+                        header.timestampFrame & ~SharedAudioTimelineFlag);
+            }
+        };
+        struct Step {
+            std::size_t singer;
+            std::uint32_t position;
+            double elapsed;
+            std::array<std::size_t, 2> counts;
+            const char* reason;
+        };
+        const std::array steps{
+            Step{0, 0, .020, {0, 0}, "first input waits for the other recipient endpoint"},
+            Step{1, 0, .021, {1, 1}, "the first complete singing position establishes both recipients"},
+            Step{1, 1, .023, {2, 1}, "Alice hears Bob without waiting for her own missing input"},
+            Step{0, 2, .025, {2, 1}, "Bob's newer position cannot overtake his still-open older position"},
+            Step{0, 1, .026, {2, 2}, "Bob receives the older voice that arrived before its 72.5 ms deadline"},
+        };
+        for (const auto& step : steps) {
+            collect(relay.receive(packet(names[step.singer], tokens[step.singer], step.position,
+                                         base + step.position * SharedRoomPacketFrames, 300),
+                                  endpoints[step.singer], 10.0 + step.elapsed, 1'000.0 + step.elapsed));
+            expect(received[0].size() == step.counts[0] && received[1].size() == step.counts[1],
+                   step.reason);
         }
-    };
-    struct Step {
-        std::size_t singer;
-        std::uint32_t position;
-        double elapsed;
-        std::array<std::size_t, 2> counts;
-        const char* reason;
-    };
-    const std::array steps{
-        Step{0, 0, .020, {0, 0}, "first input waits for the other recipient endpoint"},
-        Step{1, 0, .021, {1, 1}, "the first complete singing position establishes both recipients"},
-        Step{1, 1, .023, {2, 1}, "Alice hears Bob without waiting for her own missing input"},
-        Step{0, 2, .025, {2, 1}, "Bob's newer position cannot overtake his still-open older position"},
-        Step{0, 1, .026, {2, 2}, "Bob receives the older voice that arrived before its 72.5 ms deadline"},
-    };
-    for (const auto& step : steps) {
-        collect(relay.receive(packet(names[step.singer], tokens[step.singer], step.position,
-                                     base + step.position * SharedRoomPacketFrames, 300),
-                              endpoints[step.singer], 10.0 + step.elapsed, 1'000.0 + step.elapsed));
-        expect(received[0].size() == step.counts[0] && received[1].size() == step.counts[1],
-               step.reason);
+        collect(relay.flush(10.0271, 1'000.0271));
+        expect(received[1] == std::vector<std::uint64_t>{base, base + SharedRoomPacketFrames,
+                                                       base + 2U * SharedRoomPacketFrames},
+               "the deferred newer mix follows the older mix without waiting for a missing self input");
+        expect(relay.excludedParticipants("room") == 0,
+               "reordering on-time input never starts excluded-stream recovery");
     }
-    collect(relay.flush(10.0271, 1'000.0271));
-    expect(received[1] == std::vector<std::uint64_t>{base, base + SharedRoomPacketFrames,
-                                                   base + 2U * SharedRoomPacketFrames},
-           "the deferred newer mix follows the older mix without waiting for a missing self input");
-    expect(relay.excludedParticipants("room") == 0,
-           "reordering on-time input never starts excluded-stream recovery");
 }
 
 void nativeVoiceRelayPacesNewlyUnblockedSingingPositions() {

@@ -63,6 +63,7 @@ class AdaptiveJitterBuffer {
     std::uint32_t minTarget_{2};
     std::uint32_t target_{2};
     std::uint32_t maxTarget_{12};
+    std::uint32_t capacityPackets_{12};
     std::uint64_t lost_{0};
     std::uint64_t late_{0};
     std::uint64_t duplicates_{0};

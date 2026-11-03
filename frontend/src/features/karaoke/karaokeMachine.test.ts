@@ -13,7 +13,7 @@ describe('karaoke machine', () => {
     });
   });
 
-  it('never resumes playback by itself after audio recovery', () => {
+  it('prepares a paused session before the route restores its playback intent', () => {
     const recovering = reduceKaraoke(
       { kind: 'playing' },
       { type: 'AUDIO_LOST' },

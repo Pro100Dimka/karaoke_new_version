@@ -249,8 +249,7 @@ const parseKeyboardLighting = (
   };
 };
 
-// What a user can choose: "Windows" (WASAPI Shared) or ASIO. Full WASAPI Exclusive is no longer a
-// choice; only the microphone can be exclusive, through lowLatencyInput.
+// Windows is saved as Shared; monitoring and room activity select its effective mode at runtime.
 const backends: readonly AudioBackendName[] = ['WASAPI Shared', 'ASIO'];
 
 const parseAudio = (raw: unknown): RequestedAudioConfiguration => {

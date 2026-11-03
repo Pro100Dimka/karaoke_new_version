@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from dataclasses import replace
 from concurrent.futures import Future
+from contextlib import ExitStack
 
 from backend.processing.audio_pipeline import (
     PrepareProcessingAudio,
@@ -11,7 +12,7 @@ from backend.processing.audio_pipeline import (
     SeparationOperation,
 )
 from backend.ai.domain import SeparatedAudio
-from backend.ai.ports import StreamingTranscriber
+from backend.ai.ports import SpeechReuseProvider, StreamingTranscriber
 from backend.lyrics.discovery import PreparedLyrics
 from backend.processing.document_pipeline import BuildProcessingDocument, BuiltDocument
 from backend.processing.domain import (
@@ -69,7 +70,13 @@ class PipelineOrchestrator:
     ) -> ProcessingReport:
         workspace = self._workspaces.allocate(f"process-{song.song_id}")
         reports: list[StageReport] = []
-        try:
+        with ExitStack() as resources:
+            resources.callback(self._workspaces.cleanup, workspace)
+            seen: set[int] = set()
+            for provider in (providers.asr, providers.alignment):
+                if id(provider) not in seen and isinstance(provider, SpeechReuseProvider):
+                    seen.add(id(provider))
+                    resources.enter_context(provider.reuse_speech(context.cancel, execution))
             prepared, lyrics = self._prepare(
                 song, options, providers, workspace, context, reports, execution
             )
@@ -92,8 +99,6 @@ class PipelineOrchestrator:
             prepared = replace(prepared, instrumental=instrumental, reference_vocal=reference)
             revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
-        finally:
-            self._workspaces.cleanup(workspace)
 
     def _prepare(
         self,

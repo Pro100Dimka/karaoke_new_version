@@ -283,33 +283,36 @@ void scheduledPlaybackTracksIndependentDeviceClocks() {
     writer.open(path.string(), rate, 1);
     writer.write(std::vector<float>(frames, 0.2F));
     writer.close();
-    for (const double drift : {-0.0005, 0.0005}) {
-        MediaSource source{std::make_unique<WavDecoder>()};
-        source.prepareOutput(rate, 1, frames * 2 + 1);
-        source.load(path.string());
-        (void)source.waitUntilReady();
-        const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
-        while (source.snapshot().bufferFillFrames < frames &&
-               std::chrono::steady_clock::now() < waitUntil)
-            std::this_thread::yield();
-        expect(source.snapshot().bufferFillFrames == frames, "drift test preloads all PCM");
-        constexpr MonotonicTicks start = 1'000'000'000;
-        source.play(start);
-        std::vector<float> output(128);
-        double maximumError = 0;
-        bool complete = true;
-        for (std::uint32_t delivered = 0; delivered < rate * 18; delivered += 128) {
-            const auto at = start + static_cast<MonotonicTicks>(static_cast<double>(delivered) *
-                                                                1e9 / (rate * (1.0 + drift)));
-            complete = source.render(output, 128, at) == 128 && complete;
-            const auto expected = static_cast<double>(at - start) * rate / 1e9;
-            maximumError =
-                std::max(maximumError,
-                         std::abs(static_cast<double>(source.presentationFrame(at)) - expected));
+    for (const auto preparedChannels : {1U, 2U}) {
+        for (const double drift : {-0.0005, 0.0005}) {
+            MediaSource source{std::make_unique<WavDecoder>()};
+            source.prepareOutput(rate, preparedChannels, frames * 2 + 1);
+            source.load(path.string());
+            (void)source.waitUntilReady();
+            const auto waitUntil = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+            while (source.snapshot().bufferFillFrames < frames &&
+                   std::chrono::steady_clock::now() < waitUntil)
+                std::this_thread::yield();
+            expect(source.snapshot().bufferFillFrames == frames, "drift test preloads all PCM");
+            source.prepareOutput(rate, 1, frames * 2 + 1);
+            constexpr MonotonicTicks start = 1'000'000'000;
+            source.play(start);
+            std::vector<float> output(128);
+            double maximumError = 0;
+            bool complete = true;
+            for (std::uint32_t delivered = 0; delivered < rate * 18; delivered += 128) {
+                const auto at = start + static_cast<MonotonicTicks>(static_cast<double>(delivered) *
+                                                                    1e9 / (rate * (1.0 + drift)));
+                complete = source.render(output, 128, at) == 128 && complete;
+                const auto expected = static_cast<double>(at - start) * rate / 1e9;
+                maximumError =
+                    std::max(maximumError,
+                             std::abs(static_cast<double>(source.presentationFrame(at)) - expected));
+            }
+            expect(complete, "clock correction never starves preloaded PCM");
+            expect(maximumError < rate * 0.002,
+                   "scheduled backing remains within 2 ms despite positive or negative device drift");
         }
-        expect(complete, "clock correction never starves preloaded PCM");
-        expect(maximumError < rate * 0.002,
-               "scheduled backing remains within 2 ms despite positive or negative device drift");
     }
 }
 
@@ -528,9 +531,10 @@ void stoppingFailedMediaPreservesTheFailureUntilReload() {
 }
 
 void audioReconfigurePreservesActiveKaraokeMedia() {
+    const auto path = mediaPath();
     MediaController media;
     media.prepare(48'000, 2, 4096);
-    media.load(MediaSlot::Music, mediaPath().string());
+    media.load(MediaSlot::Music, path.string());
     expect(media.waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
            "karaoke source preloads before device reconfiguration");
     media.activate(MediaContext::Karaoke);
@@ -538,6 +542,35 @@ void audioReconfigurePreservesActiveKaraokeMedia() {
     std::vector<float> render(512U * 2U);
     (void)media.render(MediaSlot::Music, render, 512);
     const auto before = media.snapshot(MediaSlot::Music);
+
+    media.prepare(48'000, 2, 4096);
+    const auto unchanged = media.snapshot(MediaSlot::Music);
+    expect(unchanged.generation == before.generation &&
+               unchanged.state == before.state &&
+               unchanged.sourcePositionFrames == before.sourcePositionFrames &&
+               unchanged.bufferFillFrames >= before.bufferFillFrames,
+           "an unchanged media format retains the prepared source, queued PCM and position");
+
+    for (const auto channels : {1U, 2U}) {
+        media.prepare(48'000, channels, 4096);
+        const auto retained = media.snapshot(MediaSlot::Music);
+        expect(retained.generation == before.generation &&
+                   retained.state == PlaybackState::Playing,
+               "a compatible output channel layout retains the prepared source");
+        WavDecoder reference;
+        reference.open(path.string());
+        reference.seek(retained.sourcePositionFrames);
+        std::vector<float> expected(512U * 2U), actual(512U * channels);
+        expect(reference.read(expected, 512) == 512 &&
+                   media.render(MediaSlot::Music, actual, 512) == 512,
+               "retained media continues without missing frames");
+        bool exact = true;
+        for (std::size_t frame = 0; frame < 512; ++frame)
+            for (std::size_t channel = 0; channel < channels; ++channel)
+                exact = exact &&
+                        actual[frame * channels + channel] == expected[frame * 2 + channel];
+        expect(exact, "output channel changes preserve exact PCM and source position");
+    }
 
     media.prepare(44'100, 2, 4096);
     const auto after = media.snapshot(MediaSlot::Music);

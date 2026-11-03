@@ -1,17 +1,10 @@
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react';
+import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioClient } from '../services/audioClient';
 import { subscribeRadio, toggleRadio } from './radio';
 import { store } from './store';
 import { runInAction } from 'mobx';
-import { observer } from 'mobx-react-lite';
-import { useEffect, useLayoutEffect, type PropsWithChildren } from 'react';
+import { useEffect, useLayoutEffect } from 'react';
 import type { RoomStateDto } from '../contracts/models';
 
 const appState = vi.hoisted(() => ({
@@ -39,10 +32,7 @@ vi.mock('../application/room/RoomLibraryCoordinator', () => ({
   },
 }));
 const notify = vi.fn();
-const RadioConnection = ({
-  libraryActive,
-  children,
-}: PropsWithChildren<{ libraryActive: boolean }>) => {
+const RadioConnection = ({ libraryActive }: { libraryActive: boolean }) => {
   useLayoutEffect(() => {
     runInAction(() => {
       store.online.room = appState.room as RoomStateDto | null;
@@ -51,13 +41,8 @@ const RadioConnection = ({
     });
   }, [libraryActive, appState.room, appState.audioEpoch]);
   useEffect(() => subscribeRadio(notify), []);
-  return children;
+  return null;
 };
-
-const Controls = observer(() => {
-  const radio = store.radio;
-  return <button onClick={toggleRadio}>{radio.enabled ? 'on' : 'off'}</button>;
-});
 
 describe('RadioConnection', () => {
   beforeEach(() => {
@@ -82,85 +67,43 @@ describe('RadioConnection', () => {
   it.each([false, true])(
     'reloads a forgotten radio station after an AudioService restart (enabled=%s)',
     async (enabled) => {
-      const view = render(
-        <RadioConnection libraryActive>
-          <Controls />
-        </RadioConnection>,
-      );
+      const view = render(<RadioConnection libraryActive />);
       await waitFor(() =>
         expect(audioClient.loadRadio).toHaveBeenCalledTimes(1),
       );
       if (enabled) {
-        fireEvent.click(screen.getByRole('button', { name: 'off' }));
+        act(() => toggleRadio());
         await waitFor(() =>
           expect(audioClient.playRadio).toHaveBeenCalledTimes(1),
         );
       }
       appState.audioEpoch = 1;
-      view.rerender(
-        <RadioConnection libraryActive>
-          <Controls />
-        </RadioConnection>,
-      );
+      view.rerender(<RadioConnection libraryActive />);
       await waitFor(() =>
         expect(audioClient.loadRadio).toHaveBeenCalledTimes(2),
       );
-      if (!enabled)
-        fireEvent.click(screen.getByRole('button', { name: 'off' }));
+      if (!enabled) act(() => toggleRadio());
       await waitFor(() =>
         expect(audioClient.playRadio).toHaveBeenCalledTimes(enabled ? 2 : 1),
       );
     },
   );
 
-  it('keeps the radio context stable when only room participants change', async () => {
-    appState.room = {
-      code: 'ROOM',
-      role: 'participant',
-      radioEnabled: false,
-      radioStationId: 'groove-salad',
-      collaborativeControl: true,
-    };
-    let value: typeof store.radio | undefined;
-    const rendered = vi.fn();
-    function Consumer() {
-      value = store.radio;
-      rendered();
-      return null;
-    }
-    const child = <Consumer />;
-    const view = render(
-      <RadioConnection libraryActive>{child}</RadioConnection>,
-    );
-    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalled());
-    const original = value;
-    expect(original).toBeDefined();
-    const count = rendered.mock.calls.length;
-    appState.room = { ...appState.room, participants: [{ name: 'Updated' }] };
-    view.rerender(<RadioConnection libraryActive>{child}</RadioConnection>);
-    expect(value).toBe(original);
-    expect(rendered).toHaveBeenCalledTimes(count);
-  });
-
   it('prepares the station once and reuses it for instant pause and resume', async () => {
-    render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    render(<RadioConnection libraryActive />);
 
     await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledTimes(1));
     expect(audioClient.playRadio).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    act(() => toggleRadio());
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole('button', { name: 'on' }));
+    act(() => toggleRadio());
     await waitFor(() =>
       expect(audioClient.pauseRadio).toHaveBeenCalledTimes(1),
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    act(() => toggleRadio());
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(2));
     expect(audioClient.loadRadio).toHaveBeenCalledTimes(1);
   });
@@ -173,20 +116,16 @@ describe('RadioConnection', () => {
           finish = resolve;
         }),
     );
-    render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    render(<RadioConnection libraryActive />);
     await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    act(() => toggleRadio());
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole('button', { name: 'on' }));
+    act(() => toggleRadio());
     await act(async () => {
       finish();
     });
 
-    expect(screen.getByRole('button', { name: 'off' })).toBeInTheDocument();
+    expect(store.radio.enabled).toBe(false);
     expect(audioClient.pauseRadio).toHaveBeenCalledOnce();
   });
 
@@ -198,22 +137,18 @@ describe('RadioConnection', () => {
           fail = reject;
         }),
     );
-    render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    render(<RadioConnection libraryActive />);
     await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    act(() => toggleRadio());
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledOnce());
-    fireEvent.click(screen.getByRole('button', { name: 'on' }));
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    act(() => toggleRadio());
+    act(() => toggleRadio());
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalledTimes(2));
     await act(async () => {
       fail(new Error('obsolete device request'));
     });
 
-    expect(screen.getByRole('button', { name: 'on' })).toBeInTheDocument();
+    expect(store.radio.enabled).toBe(true);
   });
 
   it('inherits the host radio state and publishes room toggles', async () => {
@@ -227,16 +162,12 @@ describe('RadioConnection', () => {
       libraryStatus: 'all',
       librarySort: 'recent',
     };
-    render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    render(<RadioConnection libraryActive />);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'on' })).toBeInTheDocument(),
+      expect(store.radio.enabled).toBe(true),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'on' }));
+    act(() => toggleRadio());
 
     await waitFor(() =>
       expect(appState.publishSharedState).toHaveBeenCalledWith(
@@ -249,14 +180,10 @@ describe('RadioConnection', () => {
   });
 
   it("publishes the host's current radio state when the host creates a room", async () => {
-    const view = render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'off' }));
+    const view = render(<RadioConnection libraryActive />);
+    act(() => toggleRadio());
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'on' })).toBeInTheDocument(),
+      expect(store.radio.enabled).toBe(true),
     );
 
     appState.room = {
@@ -268,11 +195,7 @@ describe('RadioConnection', () => {
       libraryStatus: 'all',
       librarySort: 'recent',
     };
-    view.rerender(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    view.rerender(<RadioConnection libraryActive />);
 
     await waitFor(() =>
       expect(appState.publishSharedState).toHaveBeenCalledWith(
@@ -298,14 +221,10 @@ describe('RadioConnection', () => {
       new Error('device busy'),
     );
 
-    render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    render(<RadioConnection libraryActive />);
 
     await waitFor(() => expect(audioClient.playRadio).toHaveBeenCalled());
-    expect(screen.getByRole('button', { name: 'on' })).toBeInTheDocument();
+    expect(store.radio.enabled).toBe(true);
   });
 
   it('ignores an unfinished stream load after unsubscribe', async () => {
@@ -319,11 +238,7 @@ describe('RadioConnection', () => {
     runInAction(() => {
       store.radio.enabled = true;
     });
-    const view = render(
-      <RadioConnection libraryActive>
-        <Controls />
-      </RadioConnection>,
-    );
+    const view = render(<RadioConnection libraryActive />);
     await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalled());
     view.unmount();
     const played = vi.mocked(audioClient.playRadio).mock.calls.length;

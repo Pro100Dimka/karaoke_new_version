@@ -1098,6 +1098,9 @@ void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {
         auto request = fixture.request();
         request.sampleRateHz = 96000;
         const auto supported = fixture.backend.queryCapabilities(request);
+        expect(supported.automaticPeriodFrames == supported.minPeriodFrames &&
+                   supported.minPeriodFrames > 0,
+               "automatic Exclusive uses the minimum period reported by this endpoint");
         expect(std::find(supported.sampleRatesHz.begin(), supported.sampleRatesHz.end(), 96000U) !=
                    supported.sampleRatesHz.end(),
                "exclusive capabilities must probe the requested device rate");

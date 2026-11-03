@@ -12,8 +12,9 @@ const farRoomMs = 100;
 export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
   if (Object.values(timing.remotes).some((remote) => remote.excluded))
     return 'roomQualityFar';
+  if ((timing.roomPlayoutDelayMs || timing.voiceDelayMs) > farRoomMs)
+    return 'roomQualityFar';
   if ((timing.roomPlayoutDelayMs ?? 0) > 0) return 'roomQualitySynchronized';
-  if (timing.voiceDelayMs > farRoomMs) return 'roomQualityFar';
   if (timing.followMs > 0) return 'roomQualityFollower';
   if (timing.voiceDelayMs > closeRoomMs) return 'roomQualityNoticeable';
   return 'roomQualityClose';

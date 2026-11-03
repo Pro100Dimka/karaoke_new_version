@@ -85,9 +85,9 @@ class RealtimeEngine final : public IAudioCallback {
     RealtimeEngine(MediaController& media, RecordingEngine& recording, AnalysisEngine& analysis,
                    NetworkAudioEngine& network, SignalMetrics& signal, LatencyRegistry& latency,
                    GraphIntrospection& graphInfo, TraceBuffer& trace);
-    void prepare(const FinalSessionPlan& plan, GenerationId generation);
-    void reset() noexcept;
-    void invalidate(GenerationId generation) noexcept;
+    void prepare(const FinalSessionPlan& plan, GenerationId generation, bool preserveRecording = false);
+    void reset(bool preserveRecording = false) noexcept;
+    void invalidate(GenerationId generation, bool preserveRecording = false) noexcept;
     void setMonitoring(bool enabled, bool cautious = false) noexcept {
         cautiousMonitoring_.store(enabled && cautious, std::memory_order_relaxed);
         if (enabled)

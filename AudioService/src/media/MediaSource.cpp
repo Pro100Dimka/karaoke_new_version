@@ -10,6 +10,9 @@
 
 namespace {
 constexpr double MaximumRoomClockCorrection = 0.002;
+const auto ClockScratchFrames = static_cast<std::size_t>(
+                                   std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection))) +
+                               2U;
 constexpr double RoomClockRecoverySeconds = 0.5;
 // Beyond this the song is audibly off the room clock (a device dropout or a clock jump): realign
 // at once. The discontinuity has already been heard; drifting back would take seconds.
@@ -76,6 +79,17 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
         bufferFrames == 0)
         throw std::invalid_argument("invalid media output configuration");
     const auto previousState = state_.load(std::memory_order_acquire);
+    {
+        std::lock_guard lock(mutex_);
+        RenderPause renderPause(*this);
+        if (outputSampleRateHz_ == outputSampleRateHz && outputChannels_ >= outputChannels &&
+            ring_.capacityFrames() == bufferFrames && previousState != PlaybackState::Failed) {
+            // Keep decoded channels; the render path selects the active device's channels.
+            renderChannels_ = outputChannels;
+            clockScratch_.resize(ClockScratchFrames * outputChannels_);
+            return;
+        }
+    }
     const auto previousPosition = snapshot().sourcePositionFrames;
     std::string previousPath;
     if (previousState != PlaybackState::Empty) {
@@ -88,6 +102,7 @@ void MediaSource::prepareOutput(std::uint32_t outputSampleRateHz, std::uint32_t 
         RenderPause renderPause(*this);
         outputSampleRateHz_ = outputSampleRateHz;
         outputChannels_ = outputChannels;
+        renderChannels_ = outputChannels;
         ring_.prepare(bufferFrames, outputChannels);
         ring_.reset(generation_.load(std::memory_order_acquire));
     }
@@ -149,10 +164,7 @@ void MediaSource::play(MonotonicTicks startAtTicks) {
 }
 void MediaSource::armClock(MonotonicTicks startAtTicks) {
     if (startAtTicks != 0)
-        clockScratch_.resize(
-            static_cast<std::size_t>(
-                std::ceil(MaxBlockFrames * (1.0 + MaximumRoomClockCorrection)) + 2) *
-            outputChannels_);
+        clockScratch_.resize(ClockScratchFrames * outputChannels_);
     clockAnchorPosition_ = sourcePosition_.load(std::memory_order_relaxed);
     clockPhase_ = 0;
     resyncing_ = false;
@@ -265,7 +277,7 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
         std::fill(output.begin(), output.end(), 0.0F);
         return 0;
     }
-    const auto channels = outputChannels_;
+    const auto channels = renderChannels_;
     const auto count = static_cast<std::size_t>(frames) * channels;
     if (output.size() < count)
         return 0;
@@ -341,8 +353,10 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
                 break;
             const auto fraction = static_cast<float>(clockPhase_ - first);
             for (std::uint32_t channel = 0; channel < channels; ++channel) {
-                const auto a = clockScratch_[static_cast<std::size_t>(first) * channels + channel];
-                const auto b = clockScratch_[static_cast<std::size_t>(second) * channels + channel];
+                const auto a =
+                    clockScratch_[static_cast<std::size_t>(first) * outputChannels_ + channel];
+                const auto b =
+                    clockScratch_[static_cast<std::size_t>(second) * outputChannels_ + channel];
                 output[static_cast<std::size_t>(read) * channels + channel] =
                     a + (b - a) * fraction;
             }
@@ -353,6 +367,18 @@ std::uint32_t MediaSource::render(std::span<float> output, std::uint32_t frames,
             ring_.discard(std::min(static_cast<std::uint32_t>(clockPhase_), available));
         clockPhase_ = consumed == available ? 0 : clockPhase_ - consumed;
         advanced = std::max(0.0, consumed + clockPhase_ - previousPhase);
+    } else if (channels != outputChannels_) {
+        while (read < frames) {
+            const auto wanted = std::min(frames - read, MaxBlockFrames);
+            const auto received = ring_.pop(clockScratch_, wanted);
+            for (std::size_t frame = 0; frame < received; ++frame)
+                std::copy_n(clockScratch_.data() + frame * outputChannels_, channels,
+                            output.data() + (read + frame) * channels);
+            read += received;
+            if (received < wanted)
+                break;
+        }
+        advanced = read;
     } else {
         read = ring_.pop(output, frames);
         advanced = read;

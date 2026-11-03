@@ -7,6 +7,7 @@ import { canControlRoom } from '../../application/room/roomModel';
 import {
   useCallback,
   useEffect,
+  useRef,
   type Dispatch,
   type MutableRefObject,
   type SetStateAction,
@@ -134,14 +135,20 @@ export const useKaraokeControls = ({
     [setGains, updatePreferences],
   );
 
+  const monitoringChange = useRef<{ id: number; pending: boolean | null }>({ id: 0, pending: null });
   const toggleMonitoring = useCallback(async () => {
     if (!microphoneReady) return;
+    const id = ++monitoringChange.current.id;
+    const enabled = !(monitoringChange.current.pending ?? monitoring);
+    monitoringChange.current.pending = enabled;
     const snapshot = await audioClient
-      .setMonitoring(!monitoring)
+      .setMonitoring(enabled)
       .catch((error: unknown) => {
         notify(monitoringErrorText(error), 'error');
         return null;
       });
+    if (id !== monitoringChange.current.id) return;
+    monitoringChange.current.pending = null;
     if (snapshot) {
       setMonitoring(snapshot.monitoring);
       updatePreferences({ karaokeMonitoring: snapshot.monitoring });

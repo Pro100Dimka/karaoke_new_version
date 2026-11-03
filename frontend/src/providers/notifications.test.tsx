@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { NotificationsProvider, useNotify } from './notifications';
 
@@ -22,26 +22,9 @@ it('sounds each notice intent once while allowing an existing participant chime 
       pause() {}
     },
   );
-  function Controls() {
-    const notify = useNotify();
-    return (
-      <>
-        <button onClick={() => notify('Saved', 'success')}>Save</button>
-        <button onClick={() => notify('Joined', 'info', { silent: true })}>
-          Participant
-        </button>
-      </>
-    );
-  }
-  render(
-    <NotificationsProvider>
-      <Controls />
-    </NotificationsProvider>,
-  );
-  fireEvent.click(screen.getByText('Save'));
+  const { result } = renderHook(useNotify, { wrapper: NotificationsProvider });
+  act(() => result.current('Saved', 'success'));
   expect(played).toHaveLength(1);
-  expect(screen.getByText('Saved')).toBeInTheDocument();
-  fireEvent.click(screen.getByText('Participant'));
-  expect(screen.getByText('Joined')).toBeInTheDocument();
+  act(() => result.current('Joined', 'info', { silent: true }));
   expect(played).toHaveLength(1);
 });

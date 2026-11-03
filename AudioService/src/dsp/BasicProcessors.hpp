@@ -47,7 +47,8 @@ class EqualizerProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{0};
+    float lowAlpha_{0.0F};
+    float highAlpha_{0.0F};
     std::uint32_t channels_{0};
     std::array<float, MaxAudioChannels> lowState_{};
     std::array<float, MaxAudioChannels> highState_{};
@@ -72,7 +73,8 @@ class CompressorProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{0};
+    float attack_{0.0F};
+    float release_{0.0F};
     std::uint32_t channels_{0};
     std::atomic<float> threshold_{1.0F};
     std::atomic<float> ratio_{1.0F};
@@ -110,11 +112,7 @@ class NoiseProcessor final : public IAudioProcessor {
     void setReduction(float reduction) noexcept {
         reduction_.store(reduction, std::memory_order_relaxed);
     }
-    void prepare(std::uint32_t sampleRateHz, std::uint32_t, std::uint32_t channels) override {
-        sampleRateHz_ = sampleRateHz;
-        channels_ = channels;
-        reset();
-    }
+    void prepare(std::uint32_t sampleRateHz, std::uint32_t, std::uint32_t channels) override;
     void process(std::span<float> interleaved, std::uint32_t frames) noexcept override;
     void reset() noexcept override {
         gain_ = 1.0F;
@@ -125,7 +123,9 @@ class NoiseProcessor final : public IAudioProcessor {
     }
 
   private:
-    std::uint32_t sampleRateHz_{0};
+    float envelopeAttack_{0.0F};
+    float release_{0.0F};
+    float gainAttack_{0.0F};
     std::uint32_t channels_{0};
     std::atomic<float> threshold_{0.0F};
     std::atomic<float> reduction_{1.0F};

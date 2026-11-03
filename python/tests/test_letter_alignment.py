@@ -3012,3 +3012,28 @@ def test_fresh_phrase_recovery_preserves_the_acoustic_entry_after_the_previous_v
     assert 8.3 < words[8]["start"] < 8.9
     assert 8.5 < words[9]["start"] < 9.3
     assert words[9]["end"] - words[9]["start"] > 0.5
+
+
+@pytest.mark.parametrize("target,enabled", [("cpu", True), ("cuda", False), ("cuda", True)])
+def test_tensorrt_speech_replaces_only_the_opted_in_cuda_encoder(monkeypatch, target, enabled):
+    import torch
+    from backend.ai_worker import speech, tensorrt_pitch
+
+    model = torch.nn.Module()
+    model.encoder = torch.nn.Identity()
+    model.decoder = torch.nn.Identity()
+    encoder, decoder = model.encoder, model.decoder
+    replacement = torch.nn.Identity()
+    releases = []
+    monkeypatch.setenv("AD_VOICE_TENSORRT_WHISPER", "trial" if enabled else "")
+    monkeypatch.setattr(model, "to", lambda *_: model)
+    monkeypatch.setattr(model, "set_alignment_heads", lambda *_: None, raising=False)
+    monkeypatch.setattr(speech, "model_file", lambda _: Path("speech.pt"))
+    monkeypatch.setattr(speech, "_load_speech_model", lambda *_a, **_k: model)
+    monkeypatch.setattr(torch.cuda, "empty_cache", lambda: releases.append(True))
+    monkeypatch.setattr(tensorrt_pitch, "TensorRTEncoder", lambda _: replacement, raising=False)
+    actual = speech._speech_model(target)
+    accelerated = enabled and target == "cuda"
+    assert actual.encoder is (replacement if accelerated else encoder)
+    assert actual.decoder is decoder
+    assert len(releases) == int(accelerated)

@@ -22,7 +22,8 @@ class SessionManager {
     RuntimeConfiguration prepare(RequestedConfiguration requested);
     void start();
     void stop() noexcept;
-    RuntimeConfiguration reconfigure(RequestedConfiguration requested);
+    RuntimeConfiguration reconfigure(RequestedConfiguration requested, bool preserveRecording = false,
+                                     std::unique_ptr<IAudioBackend> backend = nullptr);
     bool openBackendControlPanel(const RequestedConfiguration& requested);
     bool recover();
     void suspend() noexcept;
@@ -75,5 +76,6 @@ class SessionManager {
     FinalSessionPlan plan_{};
     std::optional<AudioDeviceCapabilities> capabilities_;
     bool wasRunningBeforeSuspend_{false};
+    bool preserveRecording_{false};
     std::function<void()> preparedHook_;
 };

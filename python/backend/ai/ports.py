@@ -14,6 +14,13 @@ TranscriptionSource = Callable[[threading.Event], Iterable[tuple[Path, float]]]
 
 
 @runtime_checkable
+class SpeechReuseProvider(Protocol):
+    def reuse_speech(
+        self, cancel: threading.Event, execution: ExecutionContext
+    ) -> AbstractContextManager[None]: ...
+
+
+@runtime_checkable
 class AlignmentReuseProvider(Protocol):
     def reuse_alignment(
         self, workdir: Path, cancel: threading.Event

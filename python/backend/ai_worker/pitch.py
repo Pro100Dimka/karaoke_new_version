@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from functools import lru_cache
+from functools import lru_cache, partial
+from collections.abc import Callable
+import os
 from types import MappingProxyType
 
 from librosa.util import tiny
@@ -19,6 +21,15 @@ _HOP_SAMPLES = 160  # 10 ms
 _FMIN, _FMAX = 65.0, 1100.0
 _BATCH = MappingProxyType({"cpu": 512, "cuda": 128})
 _SMOOTHING = 3
+
+
+def _pitch_inference(target: str) -> Callable[[torch.Tensor], torch.Tensor]:
+    directory = os.getenv("AD_VOICE_TENSORRT_PITCH")
+    if target == "cuda" and directory:
+        from backend.ai_worker.tensorrt_pitch import TensorRTPitch
+
+        return TensorRTPitch(Path(directory))
+    return partial(torchcrepe.infer, model="full", device=target)
 
 
 @njit(cache=True)
@@ -111,6 +122,7 @@ def _predict_active(
     periodicity = torch.zeros_like(frequency)
     if not active.any():
         return frequency, periodicity
+    infer = _pitch_inference(target)
     batch = _BATCH[target]
     # Include the model's 64-ms receptive field and the final confidence smoothing.
     margin = (_HOP_SAMPLES - 1 + torchcrepe.WINDOW_SIZE // 2) // _HOP_SAMPLES + _SMOOTHING // 2
@@ -121,7 +133,7 @@ def _predict_active(
         if not active[max(0, first - margin) : last + margin].any():
             continue
         # Retain the full model: tiny can mistake harmonics for notes an octave or two higher.
-        probabilities = torchcrepe.infer(frames, model="full", device=target)
+        probabilities = infer(frames)
         predicted, confidence = torchcrepe.postprocess(
             probabilities.T[None], _FMIN, _FMAX, decoder=_viterbi_decoder, return_periodicity=True
         )

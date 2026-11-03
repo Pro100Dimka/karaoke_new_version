@@ -44,7 +44,13 @@ void retainPeak(std::atomic<float>& target, float value) noexcept {
 }
 } // namespace
 
-void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation) {
+void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generation, bool preserveRecording) {
+    if (preserveRecording &&
+        (recording_.state() == RecordingState::Paused || recording_.state() == RecordingState::Prepared)) {
+        const auto take = recording_.result();
+        if (take.sampleRateHz != plan.internalSampleRateHz || take.channels != plan.outputChannels)
+            throw std::runtime_error("The new device format cannot continue the open recording");
+    }
     calibrationContext_ = monotonicTicksNow();
     acousticLatencyNs_.store(0, std::memory_order_relaxed);
     acousticCalibrationValid_ = false;
@@ -63,8 +69,9 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     monitorHighFrames_ = 0;
     monitorStartupGain_ = 0.0F;
     generation_.store(generation, std::memory_order_release);
-    sessionFrameValue_.store(0, std::memory_order_relaxed);
-    performanceFrame_.store(SessionFrame{0}, std::memory_order_relaxed);
+    if (!preserveRecording)
+        sessionFrameValue_.store(0, std::memory_order_relaxed);
+    performanceFrame_.store(sessionFrame(), std::memory_order_relaxed);
     buffers_.prepare(6, plan.maximumBlockFrames, plan.outputChannels);
     captureBridgePcm_.assign(static_cast<std::size_t>(plan.maximumBlockFrames) *
                                 plan.outputChannels * 2U, 0.0F);
@@ -84,7 +91,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
     analysis_.prepare(plan.outputChannels, plan.internalSampleRateHz,
                       plan.internalSampleRateHz / 2U, generation);
     signal_.reset();
-    recording_.setGeneration(generation);
+    recording_.setGeneration(generation, preserveRecording);
     spectrum_.prepare(plan.internalSampleRateHz);
     backingSpectrum_.prepare(plan.internalSampleRateHz);
     ownVoice_.prepare(plan.internalSampleRateHz);
@@ -106,7 +113,7 @@ void RealtimeEngine::prepare(const FinalSessionPlan& plan, GenerationId generati
                                                 plan.inputSampleRateHz, plan.internalSampleRateHz),
                  0, 0);
 }
-void RealtimeEngine::invalidate(GenerationId generation) noexcept {
+void RealtimeEngine::invalidate(GenerationId generation, bool preserveRecording) noexcept {
     generation_.store(generation, std::memory_order_release);
     // Fence stale callbacks first, but preserve the recording generation until its pending
     // aligned PCM is saved. Device recovery/reset must not clear a live take's tail.
@@ -114,12 +121,13 @@ void RealtimeEngine::invalidate(GenerationId generation) noexcept {
     if (recording_.selectedTap() == RecordingTap::PerformanceMix &&
         (recordingState == RecordingState::Recording || recordingState == RecordingState::Paused)) {
         try {
-            (void)finishRecording(RecordingState::Finished);
+            if (!preserveRecording || recordingState == RecordingState::Recording)
+                (void)finishRecording(preserveRecording ? RecordingState::Paused : RecordingState::Finished);
         } catch (const std::exception& error) {
             recording_.fail(error.what());
         }
     }
-    recording_.setGeneration(generation);
+    recording_.setGeneration(generation, preserveRecording);
     analysis_.setGeneration(generation);
     network_.setGeneration(generation);
 }
@@ -170,7 +178,7 @@ RecordingResult RealtimeEngine::finishRecording(RecordingState nextState) {
     return recording_.stop(cutoff);
 }
 
-void RealtimeEngine::reset() noexcept {
+void RealtimeEngine::reset(bool preserveRecording) noexcept {
     diagnosticInputEnabled_.store(false, std::memory_order_release);
     diagnosticFilePcm_.clear();
     diagnosticFileRateHz_ = 0;
@@ -216,7 +224,8 @@ void RealtimeEngine::reset() noexcept {
     bridgeLatencyFrames_ = -1.0;
     clocks_.reset();
     dsp_.reset();
-    sessionFrameValue_.store(0, std::memory_order_relaxed);
+    if (!preserveRecording)
+        sessionFrameValue_.store(0, std::memory_order_relaxed);
     playReferenceTone(440.0F, 0, 0.0F);
     toneFramesRemaining_ = 0;
 }

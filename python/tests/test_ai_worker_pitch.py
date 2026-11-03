@@ -9,6 +9,46 @@ import torch
 from backend.ai_worker.pitch import _pitch_points
 
 
+def test_pitch_accelerator_is_opt_in_and_cuda_only(monkeypatch):
+    from backend.ai_worker import pitch as worker
+
+    monkeypatch.delenv("AD_VOICE_TENSORRT_PITCH", raising=False)
+    calls = []
+    monkeypatch.setattr(worker.torchcrepe, "infer", lambda frames, **kw: calls.append(kw))
+    worker._pitch_inference("cuda")(torch.zeros(1, 1024))
+    monkeypatch.setenv("AD_VOICE_TENSORRT_PITCH", "unused-on-cpu")
+    worker._pitch_inference("cpu")(torch.zeros(1, 1024))
+    assert calls == [{"model": "full", "device": "cuda"}, {"model": "full", "device": "cpu"}]
+
+
+def test_pitch_accelerator_pads_only_network_batch_and_trims_output(monkeypatch):
+    from backend.ai_worker.tensorrt_pitch import TensorRTPitch
+
+    model = TensorRTPitch.__new__(TensorRTPitch)
+    frames = torch.randn(7, 1024)
+    seen = []
+
+    def execute(value):
+        seen.append(value)
+        return torch.arange(128 * 360).reshape(128, 360)
+
+    monkeypatch.setattr(model, "_execute", execute)
+    result = model(frames)
+    assert result.shape == (7, 360)
+    torch.testing.assert_close(seen[0][:7], frames, rtol=0, atol=0)
+    assert torch.count_nonzero(seen[0][7:]) == 0
+    torch.testing.assert_close(result, execute(seen[0])[:7])
+
+
+@pytest.mark.parametrize("shape", [(0, 1024), (129, 1024), (128, 512)])
+def test_pitch_accelerator_rejects_incompatible_batches(shape):
+    from backend.ai_worker.tensorrt_pitch import TensorRTPitch
+
+    model = TensorRTPitch.__new__(TensorRTPitch)
+    with pytest.raises(ValueError, match="frames"):
+        model(torch.zeros(shape))
+
+
 class _Vector:
     def __init__(self, values: list[float]) -> None:
         self.values = values

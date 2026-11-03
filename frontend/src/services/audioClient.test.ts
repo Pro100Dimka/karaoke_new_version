@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { audioClient, getAudioSnapshot } from './audioClient';
 import { audioOptions } from '../pages/library/modals/settings/audio/audioOptions';
 import { waitForReady } from './audioSession';
+import { roomTimingFromDiagnostics } from './audioProtocol';
 
 const installBridge = (
   reply: (
@@ -21,6 +22,116 @@ const installBridge = (
 };
 
 describe('audioClient contract', () => {
+  it('serializes health observations with a complete device transition', async () => {
+    const { audioState } = await import('./audioSession');
+    let release: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let entered: () => void = () => undefined;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const { requests } = installBridge(async ({ command }) => {
+      if (command === 'GetServiceState') { entered(); await held; }
+      return { status: 0, text: command === 'GetServiceState' ? 'Running'
+        : 'SessionState: Running\nRuntimeOutputSampleRate: 48000' };
+    });
+    audioState.reconfiguration.song = null;
+    const health = audioClient.health();
+    await started;
+    const changed = audioClient.applyConfiguration({ backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(requests.some(r => r.command === 'Reconfigure')).toBe(false);
+    } finally {
+      release();
+      await Promise.allSettled([health, changed]);
+    }
+  });
+  it('distinguishes a controlled mode switch from an unexpected native session replacement', async () => {
+    const { audioState } = await import('./audioSession');
+    let generation = 1;
+    installBridge(({ command }) => {
+      if (command === 'Reconfigure') generation++;
+      return { status: 0, text: command === 'GetServiceState' ? 'Running'
+        : `SessionState: Running\nServiceInstanceId: controlled-test\ngenerationId: ${generation}\nRuntimeOutputSampleRate: 48000` };
+    });
+    audioState.reconfiguration.song = null;
+    const before = await audioClient.health();
+    await audioClient.applyConfiguration({ backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 });
+    expect((await audioClient.health()).instanceId).toBe(before.instanceId);
+    generation++;
+    expect((await audioClient.health()).instanceId).not.toBe(before.instanceId);
+  });
+  it('uses Windows Exclusive for monitoring and returns to Shared after the last reason ends', async () => {
+    const { audioState } = await import('./audioSession');
+    let backend = 'WASAPI Shared';
+    const { requests } = installBridge(({ command, args }) => {
+      if (command === 'Reconfigure')
+        backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
+      return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+        ? `SessionState: Running\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 480`
+        : 'Ok' };
+    });
+    audioState.preferred = { backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 };
+    audioState.active = audioState.preferred;
+    audioState.reconfiguration.song = null;
+    await audioClient.setMonitoring(true);
+    expect(backend).toBe('WASAPI Exclusive');
+    expect(requests.find(r => r.command === 'Reconfigure')?.args?.period).toBe(0);
+    await audioClient.setMonitoring(false);
+    expect(backend).toBe('WASAPI Shared');
+    expect(requests.filter(r => r.command === 'Reconfigure').map(r => r.args?.backend))
+      .toEqual(['wasapi-exclusive', 'wasapi-shared']);
+  });
+  it('reports voice queue gaps and confirmed device underruns separately from clock pressure', () => {
+    expect(
+      roomTimingFromDiagnostics({
+        RuntimeOutputSampleRate: '44100',
+        RenderStarvedFrames: '873',
+        RenderConfirmedUnderrunFrames: '128',
+        RenderClockRebaseFrames: '0',
+        'RemoteJitterMs.__room_server_mix__': '1.2',
+        'RemoteDecodeUnderruns.__room_server_mix__': '30',
+        'RemoteLostPackets.__room_server_mix__': '12',
+      }),
+    ).toMatchObject({
+      deviceStarvedFrames: 128,
+      remotes: { __room_server_mix__: { decodeUnderruns: 30, lostPackets: 12 } },
+    });
+  });
+  it('detects lost prepared media even when a restarted process answers successfully', async () => {
+    const { audioState } = await import('./audioSession');
+    const previous = audioState.reconfiguration.song;
+    audioState.reconfiguration.song = {
+      id: 'song',
+      title: 'Song',
+      artist: 'Artist',
+      language: 'Auto',
+      status: 'ready',
+      durationSeconds: 120,
+      createdAt: '2026-11-03',
+      coverState: 'Fallback',
+      activeRevision: 1,
+      projectFormatVersion: 1,
+    };
+    installBridge(async (request) => {
+      if (request.command === 'UnloadSong')
+        await expect(getAudioSnapshot()).resolves.toMatchObject({
+          state: 'ready',
+        });
+      return {
+        status: 0,
+        text: 'PlaybackState: 0\nRuntimeOutputSampleRate: 44100',
+      };
+    });
+    try {
+      await expect(getAudioSnapshot()).rejects.toThrow('prepared song');
+      await expect(audioClient.stop()).resolves.toMatchObject({
+        state: 'finished',
+      });
+    } finally {
+      audioState.reconfiguration.song = previous;
+    }
+  });
+
   it.each([
     { readyAfter: 3000, failed: false, expected: 'ready' },
     {
@@ -750,6 +861,9 @@ describe('audioClient contract', () => {
       bufferFrames: 8,
     });
 
+    expect(
+      requests.filter((request) => request.command === 'GetDevices'),
+    ).toHaveLength(1);
     expect(requests).toContainEqual({
       command: 'Reconfigure',
       args: expect.objectContaining({
@@ -1042,6 +1156,8 @@ describe('audioClient contract', () => {
         sampleRate: 44100,
         periodFrames: 441,
       });
+      const { audioState } = await import('./audioSession');
+      audioState.active = audioClient.preferredConfiguration();
       if (action === 'leave')
         await audioClient.joinVoiceSession('ROOM-1', 'self');
       requests.length = 0;
@@ -1252,77 +1368,100 @@ describe('audioClient contract', () => {
     },
   );
 
-  it('restores the playing song and mix after changing room sample rate', async () => {
-    let sessionState = 'Running';
-    let playbackFrames = 96_000;
-    let runtimeRate = 48_000;
+  it.each([true, false])(
+    'restores the playing song and mix after changing room sample rate (media retained=%s)',
+    async (retained) => {
+      let sessionState = 'Running';
+      let playbackFrames = 96_000;
+      let runtimeRate = 48_000;
+      let playbackState = 0;
 
-    const { requests } = installBridge(
-      (request) => {
-        if (request.command === 'Reconfigure') {
-          sessionState = 'Prepared';
-          playbackFrames = 0;
-          runtimeRate = Number(request.args?.rate) || runtimeRate;
-        }
-        if (request.command === 'StartSession') sessionState = 'Running';
-        return {
-          status: 0,
-          text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
-            request.command,
-          )
-            ? `SessionState: ${sessionState}\nPlaybackState: 3\nPlaybackPositionFrames: ${playbackFrames}\nRuntimeOutputSampleRate: ${runtimeRate}\nRuntimeOutputPeriodFrames: 256`
-            : 'Ok',
-        };
-      },
-      {
-        joinRoomVoice: vi.fn(async () => undefined),
-        leaveRoomVoice: vi.fn(async () => undefined),
-        resolveProjectArtifacts: vi.fn(async () => ({
-          instrumental: 'instrumental.wav',
-          vocals: 'vocals.wav',
-          melody: 'melody.wav',
-        })),
-      },
-    );
-    const song = {
-      id: 'song',
-      activeRevision: 2,
-      durationSeconds: 180,
-    } as never;
-    audioClient.setPreferredConfiguration({
-      backend: 'WASAPI Shared',
-      sampleRate: 48000,
-      periodFrames: 256,
-    });
-    await audioClient.leaveVoiceSession();
-    await audioClient.joinVoiceSession('ROOM-1', 'self');
-    await audioClient.prepareSong(song);
-    await audioClient.setMixer('music', 0.7);
-    await audioClient.play();
-    requests.length = 0;
-
-    await audioClient.applyConfiguration({
-      backend: 'WASAPI Shared',
-      sampleRate: 44100,
-      periodFrames: 512,
-    });
-
-    expect(requests).toEqual(
-      expect.arrayContaining([
-        {
-          command: 'LoadSong',
-          args: expect.objectContaining({ instrumental: 'instrumental.wav' }),
+      const { requests } = installBridge(
+        (request) => {
+          if (request.command === 'Reconfigure') {
+            sessionState = 'Prepared';
+            playbackFrames = 0;
+            runtimeRate = Number(request.args?.rate) || runtimeRate;
+            playbackState = retained ? 3 : 0;
+          }
+          if (request.command === 'LoadSong') playbackState = 2;
+          if (request.command === 'Pause') playbackState = 4;
+          if (request.command === 'Seek') playbackFrames = Number(request.args?.frame);
+          if (request.command === 'Play') {
+            if (playbackState === 3)
+              return { status: 5, text: 'media is already playing' };
+            playbackState = 3;
+          }
+          if (request.command === 'StartSession') sessionState = 'Running';
+          return {
+            status: 0,
+            text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(
+              request.command,
+            )
+              ? `SessionState: ${sessionState}\nPlaybackState: ${playbackState}\nPlaybackPositionFrames: ${playbackFrames}\nRuntimeOutputSampleRate: ${runtimeRate}\nRuntimeOutputPeriodFrames: 256`
+              : 'Ok',
+          };
         },
         {
-          command: 'SetGain',
-          args: { target: 'music', value: expect.closeTo(0.7 ** 3, 6) },
+          joinRoomVoice: vi.fn(async () => undefined),
+          leaveRoomVoice: vi.fn(async () => undefined),
+          resolveProjectArtifacts: vi.fn(async () => ({
+            instrumental: 'instrumental.wav',
+            vocals: 'vocals.wav',
+            melody: 'melody.wav',
+          })),
         },
-        { command: 'Seek', args: { frame: 88_200 } },
-        { command: 'Play', args: undefined },
-      ]),
-    );
-    await audioClient.leaveVoiceSession();
-  });
+      );
+      const song = {
+        id: 'song',
+        activeRevision: 2,
+        durationSeconds: 180,
+      } as never;
+      audioClient.setPreferredConfiguration({
+        backend: 'WASAPI Shared',
+        sampleRate: 48000,
+        periodFrames: 256,
+      });
+      await audioClient.leaveVoiceSession();
+      await audioClient.joinVoiceSession('ROOM-1', 'self');
+      await audioClient.prepareSong(song);
+      await audioClient.setMixer('music', 0.7);
+      await audioClient.play();
+      await audioClient.seek(2);
+      requests.length = 0;
+
+      await audioClient.applyConfiguration({
+        backend: 'WASAPI Shared',
+        sampleRate: 44100,
+        periodFrames: 512,
+      });
+
+      expect(requests).toEqual(
+        expect.arrayContaining([
+          {
+            command: 'SetGain',
+            args: { target: 'music', value: expect.closeTo(0.7 ** 3, 6) },
+          },
+          { command: 'Seek', args: { frame: 88_200 } },
+          { command: 'Play', args: undefined },
+        ]),
+      );
+      expect(requests.filter(({ command }) => command === 'LoadSong')).toEqual(
+        retained
+          ? []
+          : [
+              {
+                command: 'LoadSong',
+                args: expect.objectContaining({
+                  instrumental: 'instrumental.wav',
+                }),
+              },
+            ],
+      );
+      await audioClient.stop();
+      await audioClient.leaveVoiceSession();
+    },
+  );
 
   it('keeps the scheduled room timeline across a slow sample-rate change', async () => {
     let now = 200;

@@ -32,7 +32,10 @@ export const roomServerMixParticipantId = '__room_server_mix__';
 export type RoomCommand = 'Start' | 'Pause' | 'Seek' | 'Stop';
 /** Where the applied acoustic correction came from; NONE while the path has none. */
 export type AcousticCalibrationOrigin =
-  'NONE' | 'PROFILE' | 'TEST_SIGNAL' | 'SONG';
+  | 'NONE'
+  | 'PROFILE'
+  | 'TEST_SIGNAL'
+  | 'SONG';
 
 export interface AcousticCalibrationState {
   fingerprint: string;
@@ -57,7 +60,12 @@ export interface RoomSharedState {
   melodyGain: number;
 }
 export type MixerChannel =
-  'mic' | 'music' | 'reference' | 'melody' | 'remote' | 'master';
+  | 'mic'
+  | 'music'
+  | 'reference'
+  | 'melody'
+  | 'remote'
+  | 'master';
 
 export interface RemoteVoiceTiming {
   jitterMs: number;
@@ -67,6 +75,10 @@ export interface RemoteVoiceTiming {
   directPackets: number;
   /** Packets partly or wholly cut for arriving after their playout time (cumulative). */
   lateCuts: number;
+  /** Output callbacks that found too little queued voice audio (cumulative). */
+  decodeUnderruns?: number;
+  /** Cumulative missing packets, including packets discarded by the reorder queue. */
+  lostPackets?: number;
   /** This route is silent because its samples cannot meet the shared room deadline. */
   excluded?: boolean;
 }
@@ -78,7 +90,10 @@ export interface RoomRouteStages {
 }
 
 export type RoomRequirementSource =
-  'UNKNOWN' | 'BOOTSTRAP' | 'SHORT_WINDOW' | 'STABLE_HISTORY';
+  | 'UNKNOWN'
+  | 'BOOTSTRAP'
+  | 'SHORT_WINDOW'
+  | 'STABLE_HISTORY';
 
 export interface RoomTimingReport {
   voiceRoute?: 'checking' | 'direct' | 'relay';
@@ -134,9 +149,15 @@ export interface ImportOptions {
 }
 
 export type ProjectCompatibility =
-  'Current' | 'Upgradeable' | 'TooNew' | 'Unsupported' | 'Invalid';
+  | 'Current'
+  | 'Upgradeable'
+  | 'TooNew'
+  | 'Unsupported'
+  | 'Invalid';
 export type ProjectImportDecision =
-  'SafeOnly' | 'AcceptOlder' | 'AcceptDivergent';
+  | 'SafeOnly'
+  | 'AcceptOlder'
+  | 'AcceptDivergent';
 
 export interface PythonClient {
   health(): Promise<{
@@ -390,7 +411,12 @@ export interface AudioServiceClient {
   setParticipantEffect(
     participantId: string,
     effect:
-      'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune',
+      | 'reverb'
+      | 'echo'
+      | 'delay'
+      | 'noiseSuppression'
+      | 'octave'
+      | 'autoTune',
     value: number,
   ): Promise<void>;
   roomLevels(): Promise<{

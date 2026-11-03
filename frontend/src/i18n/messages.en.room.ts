@@ -10,7 +10,7 @@ export const roomEn = {
   roomCheckSync: 'Check synchronization',
   roomSyncResult: 'Voice latency estimate',
   roomSyncEstimateHint:
-    'Estimated from the audio buffer, RTT and adaptive jitter buffer',
+    'Playout delay is set for the room. Ping separately measures the round trip to the server.',
   roomQualityClose: 'Like one room: everyone hears everyone {ms} ms late',
   roomQualityFollower:
     "You sing on the leader's beat: your music is shifted by {ms} ms",
@@ -19,7 +19,7 @@ export const roomEn = {
   roomQualityNoticeable:
     'You hear the others {ms} ms late: noticeable, but fine for singing',
   roomQualityFar:
-    'High latency ({ms} ms): a cable instead of Wi‑Fi, ASIO and wired headphones will help a lot',
+    'High voice delay ({ms} ms), noticeable when singing together.',
   roomPing: 'Ping',
   roomJitter: 'Jitter',
   roomRoute: 'Route',
@@ -28,7 +28,7 @@ export const roomEn = {
   roomDeviceStarving:
     "This computer's sound card cannot keep up and crackles. Choose a larger buffer in the audio settings.",
   roomUnstableLink:
-    'The connection stalls and voices break up. Connect this computer by cable instead of Wi‑Fi.',
+    'Gaps detected in voice delivery or playback. Check the connection, system load and audio buffer.',
   roomTimingDetails: 'What the latency means',
   roomSyncClicksHint: 'Four shared reference clicks will play in three seconds',
   hostLeavingTitle: 'You are the host',

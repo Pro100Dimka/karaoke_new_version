@@ -6,6 +6,7 @@ import { pythonClient } from '../../services/pythonClient';
 import { audioClient } from '../../services/audioClient';
 import { usePositionPolling } from './usePositionPolling';
 import { useAudioRecovery } from './useAudioRecovery';
+import { useSynchronizedRoomPlayback } from './useSynchronizedRoomPlayback';
 import type { RoomStateDto } from '../../contracts/models';
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
@@ -45,6 +46,7 @@ vi.mock('../../services/pythonClient', () => ({
 vi.mock('../../services/audioClient', () => ({
   audioClient: {
     play: vi.fn(async () => undefined),
+    pause: vi.fn(async () => undefined),
     stop: vi.fn(async () => undefined),
     setMonitoring: vi.fn(async (enabled: boolean) => ({ monitoring: enabled })),
     setDspEnabled: vi.fn(async () => undefined),
@@ -336,6 +338,79 @@ describe('karaoke recording ownership', () => {
     expect(recordingCoordinator.stop).not.toHaveBeenCalled();
   });
 
+  it.each(['Normal', 'Rehearsal'] as const)(
+    'continues an interrupted %s performance after recovery',
+    async (mode) => {
+      const { result } = renderHook(() => useKaraokeSession('song', mode, true));
+      if (mode === 'Normal') {
+        await waitFor(() => expect(result.current.state.kind).toBe('ready'));
+        await act(() => result.current.togglePlay());
+      }
+      await waitFor(() => expect(result.current.state.kind).toBe('playing'));
+      act(() => {
+        vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onLost();
+      });
+      expect(result.current.state.kind).toBe('recovering');
+      act(() => {
+        vi.mocked(useAudioRecovery).mock.calls.at(-1)?.[0].onRecovered();
+      });
+      await waitFor(() => expect(result.current.state.kind).toBe('playing'));
+      expect(audioClient.play).toHaveBeenCalledTimes(2);
+      expect(recordingCoordinator.start).toHaveBeenCalledTimes(
+        mode === 'Normal' ? 2 : 0,
+      );
+      expect(recordingCoordinator.interrupt).toHaveBeenCalledOnce();
+    },
+  );
+
+  it('keeps a paused performance paused and starts a new recording only on Play', async () => {
+    const { result } = await startSession();
+    await waitFor(() => expect(result.current.state.kind).toBe('playing'));
+    await act(() => result.current.togglePlay());
+    expect(result.current.state.kind).toBe('paused');
+    act(() => {
+      vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onLost();
+    });
+    act(() => {
+      vi.mocked(useAudioRecovery).mock.calls.at(-1)?.[0].onRecovered();
+    });
+    expect(result.current.state.kind).toBe('paused');
+    expect(audioClient.play).toHaveBeenCalledOnce();
+    expect(recordingCoordinator.start).toHaveBeenCalledOnce();
+    await act(() => result.current.togglePlay());
+    expect(result.current.state.kind).toBe('playing');
+    expect(recordingCoordinator.start).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not resume a recovered room song as solo playback after leaving the room', async () => {
+    roomState.room = {
+      code: 'room', hostId: 'host', role: 'participant',
+      participants: [], playbackLocked: false, playbackState: 'playing',
+      songId: 'song', revision: 1,
+    };
+    const { result, rerender } = renderHook(() =>
+      useKaraokeSession('song', 'RoomPrepared', true),
+    );
+    await waitFor(() => expect(result.current.state.kind).toBe('ready'));
+    act(() => {
+      vi.mocked(useSynchronizedRoomPlayback).mock.calls.at(-1)?.[0].onEvent('PLAY');
+    });
+    await waitFor(() => expect(result.current.recording).toBe('recording'));
+    act(() => {
+      vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onLost();
+    });
+    act(() => {
+      vi.mocked(useAudioRecovery).mock.calls.at(-1)?.[0].onRecovered();
+    });
+    await act(async () => {
+      roomState.room = null;
+      rerender();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(audioClient.play).not.toHaveBeenCalled();
+    expect(result.current.state.kind).toBe('finished');
+  });
+
   it('does not unload the next route when old Play failure cleanup finishes saving', async () => {
     let finishSaving: (() => void) | undefined;
     vi.mocked(audioClient.play).mockRejectedValueOnce(new Error('Play failed'));
@@ -388,6 +463,17 @@ describe('karaoke recording ownership', () => {
       ['melody', 0.75],
       ['master', 0.86],
     ]);
+  });
+
+  it('keeps the last monitoring intent when toggled twice before the driver responds', async () => {
+    const { result } = renderHook(() => useKaraokeSession('song', 'Normal', true));
+    await waitFor(() => expect(result.current.state.kind).toBe('ready'));
+    await act(async () => {
+      await Promise.all([result.current.toggleMonitoring(), result.current.toggleMonitoring()]);
+    });
+    expect(vi.mocked(audioClient.setMonitoring).mock.calls.map(([enabled]) => enabled))
+      .toEqual([true, false]);
+    expect(result.current.monitoring).toBe(false);
   });
 
   it('restores the saved monitoring choice after leaving and opening another song', async () => {

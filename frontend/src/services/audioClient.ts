@@ -11,6 +11,7 @@ import {
 } from '../contracts/models';
 import {
   audioCapabilitiesFromValues,
+  backendName,
   diagnosticNumber,
   parseKeyValues,
   runtimeConfigurationFromDiagnostics,
@@ -26,6 +27,8 @@ import {
   diagnostics,
   endpointArgs,
   endpointsAvailable,
+  effectiveConfiguration,
+  enqueueAudioOperation,
   ensureSession,
   onLowLatencyMicrophoneFallback,
   rawDevices,
@@ -33,26 +36,29 @@ import {
   reportMicrophoneMode,
   snapshot,
   waitForReady,
+  waitForAudioOperations,
 } from './audioSession';
 import {
   isAsio4AllRoute,
   safeAudioConfiguration,
 } from '../shared/preferences/preferences';
 import { createRoomVoice, restoreVoiceSession } from './audioRoomVoice';
+import { recordingCoordinator } from './recordingCoordinator';
 
 // The session in which a manual measurement was accepted; the server rejects stale contexts.
 let calibrationContext = '';
 // What AudioService was already told per device path, so unchanged values are not resent.
 const rememberedLatencies = new Map<string, number>();
-// A settings dialog can close/reopen while a switch is still restoring the audio graph.
-let configurationQueue: Promise<unknown> = Promise.resolve();
-
-const configurationEndpointsAvailable = async (
-  configuration: RequestedAudioConfiguration,
-): Promise<boolean> => {
-  if (!configuration.inputDeviceId && !configuration.outputDeviceId)
-    return true;
-  return endpointsAvailable(await rawDevices(), configuration);
+let healthySession: { process: string; native: string; reported: string } | undefined;
+const healthIdentity = (values: Record<string, string>, controlled = false) => {
+  const process = values.ServiceInstanceId;
+  if (!process) return undefined;
+  const native = [process, values.generationId].filter(Boolean).join(':');
+  const reported = controlled && healthySession?.process === process
+    ? healthySession.reported
+    : healthySession?.native === native ? healthySession.reported : native;
+  healthySession = { process, native, reported };
+  return reported;
 };
 
 const restoreMediaSession = (checkpoint: MediaCheckpoint | null) =>
@@ -60,7 +66,7 @@ const restoreMediaSession = (checkpoint: MediaCheckpoint | null) =>
     checkpoint,
     audioState.dspParameters,
     audioState.dspEnabled,
-    audioState.monitoring,
+    audioState.monitoringRequested,
     {
       ensureSession,
       resolveArtifacts: (song) =>
@@ -77,14 +83,49 @@ const restoreMediaSession = (checkpoint: MediaCheckpoint | null) =>
 const activateConfiguration = async (
   configuration: RequestedAudioConfiguration,
   checkpoint: MediaCheckpoint | null,
+  format?: { sampleRate: number; channels: number },
 ): Promise<void> => {
-  await command('Reconfigure', endpointArgs(configuration));
+  await command('Reconfigure', {
+    ...endpointArgs(format ? { ...configuration, sampleRate: format.sampleRate } : configuration,
+      0, format?.channels ?? 0),
+    ...(format && { preserveRecording: true }),
+  });
   audioState.active = configuration;
-  await ensureSession();
+  if ((await diagnostics()).SessionState === 'Prepared') await command('StartSession');
   if (configuration.lowLatencyInput)
     await reportMicrophoneMode().catch(() => undefined);
   await restoreVoiceSession();
   await restoreMediaSession(checkpoint);
+  healthIdentity(await diagnostics(), true);
+};
+
+const applyConfiguration = async (configuration: RequestedAudioConfiguration) => {
+  const devices = await rawDevices();
+  configuration = safeAudioConfiguration(configuration, devices);
+  if (!endpointsAvailable(devices, configuration))
+    throw new Error(`${configuration.backend} device is unavailable`);
+  const previous = audioState.active;
+  const previousPreferred = audioState.preferred;
+  const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
+  audioState.preferred = configuration;
+  await recordingCoordinator.reconfigure(async (format) => {
+    try {
+      await activateConfiguration(effectiveConfiguration(configuration), checkpoint, format);
+    } catch (error) {
+      audioState.preferred = previousPreferred;
+      await activateConfiguration(previous, checkpoint, format);
+      throw error;
+    }
+  }, async () => (await snapshot()).positionSeconds);
+  return runtimeConfigurationFromDiagnostics(await diagnostics());
+};
+
+const reconcileWindowsMode = async (): Promise<void> => {
+  if (audioState.preferred.backend !== 'WASAPI Shared') return;
+  const running = (await diagnostics()).Backend;
+  if (effectiveConfiguration().backend !==
+    (running === undefined ? audioState.active.backend : backendName(running)))
+    await applyConfiguration(audioState.preferred);
 };
 
 /** Where AudioService starts a scheduled song: its clock ticks and the first frame. */
@@ -117,8 +158,11 @@ const parseBands = (value: string | undefined): number[] =>
   (value ?? '').split(',').map(Number).filter(Number.isFinite);
 
 export const audioClient: AudioServiceClient = {
-  snapshot,
-  async health() {
+  snapshot() {
+    return enqueueAudioOperation(() => snapshot());
+  },
+  health() {
+    return enqueueAudioOperation(async () => {
     try {
       const state = await command('GetServiceState');
       if (state !== 'Running') return { status: 'unavailable', version: '1' };
@@ -132,15 +176,12 @@ export const audioClient: AudioServiceClient = {
       return {
         status: 'ready',
         version: '1',
-        instanceId:
-          values.ServiceInstanceId &&
-          [values.ServiceInstanceId, values.generationId]
-            .filter(Boolean)
-            .join(':'),
+        instanceId: healthIdentity(values),
       };
     } catch {
       return { status: 'unavailable', version: '1' };
     }
+    });
   },
 
   async listDevices() {
@@ -251,31 +292,9 @@ export const audioClient: AudioServiceClient = {
     };
   },
 
-  async applyConfiguration(configuration) {
-    configuration = { ...configuration };
-    const apply = async () => {
-      configuration = safeAudioConfiguration(configuration, await rawDevices());
-      // Reconfigure is destructive inside AudioService: it closes the active backend before opening
-      // the replacement. Reject a device that Windows no longer enumerates before touching the
-      // working session, so a temporary USB/driver disappearance cannot silence an active room.
-      if (!(await configurationEndpointsAvailable(configuration)))
-        throw new Error(`${configuration.backend} device is unavailable`);
-      const previous = audioState.active;
-      const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
-      audioState.preferred = configuration;
-      try {
-        await activateConfiguration(configuration, checkpoint);
-        return await this.runtimeConfiguration();
-      } catch (error) {
-        audioState.preferred = previous;
-        // Restore the previous complete audio graph before surfacing a rejected endpoint.
-        await activateConfiguration(previous, checkpoint);
-        throw error;
-      }
-    };
-    const result = configurationQueue.then(apply, apply);
-    configurationQueue = result.catch(() => undefined);
-    return result;
+  applyConfiguration(configuration) {
+    const requested = { ...configuration };
+    return enqueueAudioOperation(() => applyConfiguration(requested));
   },
 
   async openBackendControlPanel(configuration) {
@@ -283,7 +302,7 @@ export const audioClient: AudioServiceClient = {
   },
 
   async configurationCapabilities(configuration) {
-    await configurationQueue;
+    await waitForAudioOperations();
     const values = parseKeyValues(
       await command('GetAudioCapabilities', endpointArgs(configuration)),
     );
@@ -311,88 +330,109 @@ export const audioClient: AudioServiceClient = {
     await command('PlayOutputTest');
   },
 
-  async prepareSong(song) {
-    await ensureSession();
-    const artifacts = await desktopBridge().resolveProjectArtifacts(
-      song.id,
-      song.activeRevision,
-    );
-    await command('LoadSong', {
-      instrumental: artifacts.instrumental,
-      vocals: artifacts.vocals,
-      melody: artifacts.melody,
-    });
-    audioState.durationSeconds = song.durationSeconds;
-    audioState.reconfiguration.song = song;
-    audioState.reconfiguration.schedule = undefined;
-    audioState.sessionId = crypto.randomUUID();
-    await waitForReady();
-    return snapshot('ready');
-  },
-
-  async play(schedule) {
-    await command(
-      'Play',
-      schedule ? await scheduledStart(schedule) : undefined,
-    );
-    audioState.reconfiguration.schedule = schedule;
-    return snapshot('playing');
-  },
-
-  async pause() {
-    await command('Pause');
-    audioState.reconfiguration.schedule = undefined;
-    return snapshot('paused');
-  },
-
-  async seek(positionSeconds) {
-    const runtime = await this.runtimeConfiguration();
-    await command('Seek', {
-      frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
-    });
-    audioState.reconfiguration.schedule = undefined;
-    return snapshot();
-  },
-
-  async stop() {
-    await command('Stop');
-    // A stopped song stays loaded otherwise, and its open files keep Windows from deleting or moving it.
-    await command('UnloadSong');
-    audioState.reconfiguration.song = null;
-    audioState.reconfiguration.schedule = undefined;
-    return snapshot('finished');
-  },
-
-  async setMonitoring(enabled) {
-    let cautious = false;
-    if (
-      enabled &&
-      audioState.active.backend === 'ASIO' &&
-      isAsio4AllRoute(audioState.active, await rawDevices())
-    ) {
-      const values = await diagnostics();
-      cautious = Object.entries(values).some(([key, name]) => {
-        if (
-          !key.startsWith('AsioInputChannelName.') ||
-          !/\bmic(rophone)?\b/i.test(name)
-        )
-          return false;
-        const channel = key.slice('AsioInputChannelName.'.length);
-        return Number(values[`AsioInputChannelRms.${channel}`]) > 0.00001;
+  prepareSong(song) {
+    return enqueueAudioOperation(async () => {
+      await ensureSession();
+      const artifacts = await desktopBridge().resolveProjectArtifacts(
+        song.id,
+        song.activeRevision,
+      );
+      await command('LoadSong', {
+        instrumental: artifacts.instrumental,
+        vocals: artifacts.vocals,
+        melody: artifacts.melody,
       });
-      if (!cautious) throw new Error(unverifiedAsioMonitoring);
-    }
-    if (enabled) {
-      for (const [name, value] of audioState.dspParameters)
-        await command('SetDspParameter', { name, value });
-      await command('SetDspEnabled', { enabled: audioState.dspEnabled });
-    }
-    await command(
-      'SetMonitoring',
-      cautious ? { enabled, safety: 'asio4all' } : { enabled },
-    );
-    audioState.monitoring = enabled;
-    return snapshot();
+      audioState.durationSeconds = song.durationSeconds;
+      audioState.reconfiguration.song = song;
+      audioState.reconfiguration.schedule = undefined;
+      audioState.sessionId = crypto.randomUUID();
+      await waitForReady();
+      return snapshot('ready');
+    });
+  },
+
+  play(schedule) {
+    return enqueueAudioOperation(async () => {
+      await command(
+        'Play',
+        schedule ? await scheduledStart(schedule) : undefined,
+      );
+      audioState.reconfiguration.schedule = schedule;
+      return snapshot('playing');
+    });
+  },
+
+  pause() {
+    return enqueueAudioOperation(async () => {
+      await command('Pause');
+      audioState.reconfiguration.schedule = undefined;
+      return snapshot('paused');
+    });
+  },
+
+  seek(positionSeconds) {
+    return enqueueAudioOperation(async () => {
+      const runtime = await this.runtimeConfiguration();
+      await command('Seek', {
+        frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
+      });
+      audioState.reconfiguration.schedule = undefined;
+      return snapshot();
+    });
+  },
+
+  stop() {
+    return enqueueAudioOperation(async () => {
+      await command('Stop');
+      // A stopped song stays loaded otherwise, and its open files keep Windows from deleting or moving it.
+      audioState.reconfiguration.song = null;
+      audioState.reconfiguration.schedule = undefined;
+      await command('UnloadSong');
+      return snapshot('finished');
+    });
+  },
+
+  setMonitoring(enabled) {
+    return enqueueAudioOperation(async () => {
+      let cautious = false;
+      if (
+        enabled &&
+        audioState.active.backend === 'ASIO' &&
+        isAsio4AllRoute(audioState.active, await rawDevices())
+      ) {
+        const values = await diagnostics();
+        cautious = Object.entries(values).some(([key, name]) => {
+          if (
+            !key.startsWith('AsioInputChannelName.') ||
+            !/\bmic(rophone)?\b/i.test(name)
+          )
+            return false;
+          const channel = key.slice('AsioInputChannelName.'.length);
+          return Number(values[`AsioInputChannelRms.${channel}`]) > 0.00001;
+        });
+        if (!cautious) throw new Error(unverifiedAsioMonitoring);
+      }
+      const previous = audioState.monitoringRequested;
+      audioState.monitoringRequested = enabled;
+      try {
+        await reconcileWindowsMode();
+        if (enabled) {
+          for (const [name, value] of audioState.dspParameters)
+            await command('SetDspParameter', { name, value });
+          await command('SetDspEnabled', { enabled: audioState.dspEnabled });
+        }
+        await command(
+          'SetMonitoring',
+          cautious ? { enabled, safety: 'asio4all' } : { enabled },
+        );
+        audioState.monitoring = enabled;
+        return snapshot();
+      } catch (error) {
+        audioState.monitoringRequested = previous;
+        await reconcileWindowsMode();
+        throw error;
+      }
+    });
   },
 
   async setMixer(channel, position) {
@@ -409,9 +449,7 @@ export const audioClient: AudioServiceClient = {
     audioState.microphoneEnabled = enabled;
   },
 
-  ...createRoomVoice((configuration) =>
-    audioClient.applyConfiguration(configuration),
-  ),
+  ...createRoomVoice(applyConfiguration, reconcileWindowsMode),
 
   async setPlaybackRate(rate) {
     audioState.reconfiguration.playbackRate = rate;

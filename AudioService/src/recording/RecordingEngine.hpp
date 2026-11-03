@@ -59,7 +59,7 @@ class RecordingEngine {
     void prepare(std::string recordingId, std::string filePath, std::uint32_t sampleRateHz,
                  std::uint32_t channels, RecordingTap tap, std::uint32_t queueFrames,
                  bool backing = false);
-    void setGeneration(GenerationId generation) noexcept;
+    void setGeneration(GenerationId generation, bool preservePaused = false) noexcept;
     // Render-thread measurement of the processed, gained singer, before backing is mixed in.
     void observeVoicePeak(float peak) noexcept;
     /** leadInFrames: frames of the incoming stream to drop first. The aligned performance trails

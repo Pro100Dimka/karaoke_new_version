@@ -38,7 +38,8 @@ void HighPassProcessor::process(std::span<float> samples, std::uint32_t frames) 
 
 void EqualizerProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t,
                                  std::uint32_t channels) {
-    sampleRateHz_ = sampleRateHz;
+    lowAlpha_ = onePoleCoefficient(250.0F, static_cast<float>(sampleRateHz));
+    highAlpha_ = onePoleCoefficient(4000.0F, static_cast<float>(sampleRateHz));
     channels_ = std::min(channels, MaxAudioChannels);
     reset();
 }
@@ -47,8 +48,8 @@ void EqualizerProcessor::reset() noexcept {
     highState_.fill(0.0F);
 }
 void EqualizerProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
-    const auto lowAlpha = onePoleCoefficient(250.0F, static_cast<float>(sampleRateHz_));
-    const auto highAlpha = onePoleCoefficient(4000.0F, static_cast<float>(sampleRateHz_));
+    const auto lowAlpha = lowAlpha_;
+    const auto highAlpha = highAlpha_;
     const auto lowGain = std::clamp(lowGain_.load(std::memory_order_relaxed), 0.0F, 4.0F);
     const auto midGain = std::clamp(midGain_.load(std::memory_order_relaxed), 0.0F, 4.0F);
     const auto highGain = std::clamp(highGain_.load(std::memory_order_relaxed), 0.0F, 4.0F);
@@ -68,7 +69,8 @@ void EqualizerProcessor::process(std::span<float> samples, std::uint32_t frames)
 
 void CompressorProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t,
                                   std::uint32_t channels) {
-    sampleRateHz_ = sampleRateHz;
+    attack_ = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz)));
+    release_ = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz)));
     channels_ = channels;
     reset();
 }
@@ -80,8 +82,8 @@ void CompressorProcessor::process(std::span<float> samples, std::uint32_t frames
     const auto ratio = std::clamp(ratio_.load(std::memory_order_relaxed), 1.0F, 20.0F);
     if (threshold >= 0.999F && ratio <= 1.001F)
         return;
-    const auto attack = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz_)));
-    const auto release = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz_)));
+    const auto attack = attack_;
+    const auto release = release_;
     const auto count = static_cast<std::size_t>(frames) * channels_;
     for (std::size_t index = 0; index < count; ++index) {
         const auto level = std::abs(samples[index]);
@@ -120,14 +122,22 @@ void GateProcessor::process(std::span<float> samples, std::uint32_t frames) noex
     }
 }
 
+void NoiseProcessor::prepare(std::uint32_t sampleRateHz, std::uint32_t,
+                             std::uint32_t channels) {
+    envelopeAttack_ = std::exp(-1.0F / (0.001F * static_cast<float>(sampleRateHz)));
+    release_ = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz)));
+    gainAttack_ = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz)));
+    channels_ = channels;
+    reset();
+}
 void NoiseProcessor::process(std::span<float> samples, std::uint32_t frames) noexcept {
     const auto threshold = std::clamp(threshold_.load(std::memory_order_relaxed), 0.0F, 0.25F);
     const auto reduction = std::clamp(reduction_.load(std::memory_order_relaxed), 0.0F, 1.0F);
     if (threshold <= 0.0F || reduction >= 0.999F)
         return;
-    const auto envelopeAttack = std::exp(-1.0F / (0.001F * static_cast<float>(sampleRateHz_)));
-    const auto release = std::exp(-1.0F / (0.080F * static_cast<float>(sampleRateHz_)));
-    const auto gainAttack = std::exp(-1.0F / (0.005F * static_cast<float>(sampleRateHz_)));
+    const auto envelopeAttack = envelopeAttack_;
+    const auto release = release_;
+    const auto gainAttack = gainAttack_;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         float level = 0.0F;
         for (std::uint32_t channel = 0; channel < channels_; ++channel)
@@ -163,24 +173,28 @@ void ReverbProcessor::process(std::span<float> samples, std::uint32_t frames) no
     if (mix <= 0.0F)
         return;
     const auto decay = std::clamp(decay_.load(std::memory_order_relaxed), 0.0F, 0.85F);
+    if (channels_ == 0)
+        return;
+    std::array<std::uint32_t, 3> lineFrames{};
+    for (std::size_t line = 0; line < lines_.size(); ++line)
+        lineFrames[line] = static_cast<std::uint32_t>(lines_[line].size() / channels_);
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
         for (std::uint32_t ch = 0; ch < channels_; ++ch) {
             const auto index = static_cast<std::size_t>(frame) * channels_ + ch;
             const auto dry = samples[index];
             float wet = 0.0F;
             for (std::size_t line = 0; line < lines_.size(); ++line) {
-                const auto framesInLine =
-                    static_cast<std::uint32_t>(lines_[line].size() / channels_);
                 const auto delayIndex = static_cast<std::size_t>(positions_[line]) * channels_ + ch;
                 const auto delayed = lines_[line][delayIndex];
                 wet += delayed;
                 lines_[line][delayIndex] = dry + delayed * decay;
-                if (ch + 1U == channels_)
-                    positions_[line] = (positions_[line] + 1U) % framesInLine;
             }
             wet /= static_cast<float>(lines_.size());
             samples[index] = dry * (1.0F - mix) + wet * mix;
         }
+        for (std::size_t line = 0; line < lines_.size(); ++line)
+            if (++positions_[line] == lineFrames[line])
+                positions_[line] = 0;
     }
 }
 
@@ -206,8 +220,9 @@ void DelayProcessor::process(std::span<float> samples, std::uint32_t frames) noe
                                               static_cast<float>(sampleRateHz_) / 1000.0F),
                    1U, capacityFrames_ - 1U);
     const auto feedback = std::clamp(feedback_.load(std::memory_order_relaxed), 0.0F, 0.95F);
+    auto readFrame = writeFrame_ >= delayFrames ? writeFrame_ - delayFrames
+                                              : writeFrame_ + capacityFrames_ - delayFrames;
     for (std::uint32_t frame = 0; frame < frames; ++frame) {
-        const auto readFrame = (writeFrame_ + capacityFrames_ - delayFrames) % capacityFrames_;
         for (std::uint32_t ch = 0; ch < channels_; ++ch) {
             const auto index = static_cast<std::size_t>(frame) * channels_ + ch;
             const auto writeIndex = static_cast<std::size_t>(writeFrame_) * channels_ + ch;
@@ -217,7 +232,10 @@ void DelayProcessor::process(std::span<float> samples, std::uint32_t frames) noe
             delayLine_[writeIndex] = dry + wet * feedback;
             samples[index] = dry * (1.0F - mix) + wet * mix;
         }
-        writeFrame_ = (writeFrame_ + 1U) % capacityFrames_;
+        if (++writeFrame_ == capacityFrames_)
+            writeFrame_ = 0;
+        if (++readFrame == capacityFrames_)
+            readFrame = 0;
     }
 }
 
@@ -268,7 +286,7 @@ float PitchShiftProcessor::readDelay(std::uint32_t channel, double delayFrames) 
         return static_cast<std::uint32_t>(value);
     };
     const auto aFrame = wrap(static_cast<std::int64_t>(floorPosition));
-    const auto bFrame = wrap(static_cast<std::int64_t>(floorPosition) + 1);
+    const auto bFrame = aFrame + 1U == capacityFrames_ ? 0U : aFrame + 1U;
     const auto a = delayLine_[static_cast<std::size_t>(aFrame) * channels_ + channel];
     const auto b = delayLine_[static_cast<std::size_t>(bFrame) * channels_ + channel];
     return static_cast<float>(a + (b - a) * fraction);
@@ -302,9 +320,11 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
     for (const auto sample : pitchAnalysis_)
         mean += sample;
     mean /= PitchAnalysisFrames;
+    std::array<double, PitchAnalysisFrames> centredSamples;
     double energy = 0.0;
-    for (const auto sample : pitchAnalysis_) {
-        const auto centred = sample - mean;
+    for (std::uint32_t frame = 0; frame < PitchAnalysisFrames; ++frame) {
+        const auto centred = static_cast<double>(pitchAnalysis_[frame]) - mean;
+        centredSamples[frame] = centred;
         energy += centred * centred;
     }
     if (energy / PitchAnalysisFrames < 1.0e-5)
@@ -317,8 +337,8 @@ float PitchShiftProcessor::detectedCorrection() noexcept {
         double currentEnergy = 0.0;
         double delayedEnergy = 0.0;
         for (std::uint32_t frame = lag; frame < PitchAnalysisFrames; ++frame) {
-            const auto current = static_cast<double>(pitchAnalysis_[frame]) - mean;
-            const auto delayed = static_cast<double>(pitchAnalysis_[frame - lag]) - mean;
+            const auto current = centredSamples[frame];
+            const auto delayed = centredSamples[frame - lag];
             correlation += current * delayed;
             currentEnergy += current * current;
             delayedEnergy += delayed * delayed;

@@ -131,7 +131,9 @@ class FfmpegStudioMasterRenderer:
         target.parent.mkdir(parents=True, exist_ok=True)
         if shutil.disk_usage(target.parent).free < info.frames * info.channels * 20 + 64 * 1024**2:
             raise DependencyError("InsufficientDiskSpace", "Not enough space for recording stems and master")
-        with TemporaryDirectory(prefix=".master-", dir=target.parent) as directory:
+        with TemporaryDirectory(prefix=".master-", dir=target.parent) as directory, ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="master-loudness",
+        ) as loudness_pool:
             work = Path(directory)
             backing = performance_instrumental
             output_channels = info.channels
@@ -242,6 +244,11 @@ class FfmpegStudioMasterRenderer:
                     processing={"effectsApplied": False, "outputChannels": info.channels,
                                 "bypassReason": "unknown-timeline" if not timing_known else "no-reference-match"},
                 )
+            recording_analysis = loudness_pool.submit(
+                self._mix, performance_mix, performance_mix,
+                "[0:a]" + loudnorm_filter(lra=11) + "[out]",
+                ["-f", "null", "-"], cancel, quiet=False,
+            ) if match_recording_loudness else None
             if process_voice:
                 # Support sustained dips within a phrase, not pauses, consonant attacks or
                 # intentional softness also present in the reference. Preserve the broad curve.
@@ -316,7 +323,7 @@ class FfmpegStudioMasterRenderer:
                 progress("AnalyzingBalance", 1.0, 0.78)
             graph = "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
             # A unity-gain original needs no preliminary loudness scan if its samples cannot
-            # clip. Always meter the encoded file; intersample overshoots still trigger attenuation.
+            # clip. Always meter the encoded samples; intersample overshoots still trigger attenuation.
             unity_candidate = not process_voice and not match_recording_loudness and peak_bound < 0.95
             measured = None
             ceiling = -1.0 if process_voice else -3.0
@@ -329,11 +336,8 @@ class FfmpegStudioMasterRenderer:
                     raise DependencyError("StudioMasterFailed", "Studio master loudness analysis failed")
                 target_lufs = -14.0 if process_voice else measured["input_i"]
                 if match_recording_loudness:
-                    recording_analysis = self._mix(
-                        performance_mix, performance_mix, "[0:a]" + loudnorm_filter(lra=11) + "[out]",
-                        ["-f", "null", "-"], cancel, quiet=False,
-                    )
-                    recording_levels = parse_loudness(recording_analysis.stderr)
+                    assert recording_analysis is not None
+                    recording_levels = parse_loudness(recording_analysis.result().stderr)
                     if recording_levels is None or not math.isfinite(recording_levels["input_i"]):
                         raise DependencyError("StudioMasterFailed", "Recording loudness could not be measured")
                     target_lufs = min(measured["input_i"], recording_levels["input_i"])
@@ -344,12 +348,12 @@ class FfmpegStudioMasterRenderer:
                 progress("AnalyzingBalance", 1.0, 0.85)
             final_levels = None
             for attempt in range(2):
-                self._mix(backing, balanced, graph + f"volume={gain:.9f}dB[out]",
-                          ["-ar", str(info.samplerate), "-ac", str(output_channels),
-                           "-c:a", "pcm_s24le", str(target)], cancel)
                 verification = self._mix(
-                    target, target, "[0:a]" + loudnorm_filter(lra=11) + "[out]",
-                    ["-f", "null", "-"], cancel, quiet=False,
+                    backing, balanced, graph + f"volume={gain:.9f}dB[out]",
+                    ["-ar", str(info.samplerate), "-ac", str(output_channels),
+                     "-c:a", "pcm_s24le", str(target), "-dec", "0:0",
+                     "-filter_complex", "[dec:0]" + loudnorm_filter(lra=11) + "[verified]",
+                     "-map", "[verified]", "-f", "null", "-"], cancel, quiet=False,
                 )
                 final_levels = parse_loudness(verification.stderr)
                 if final_levels is None or not all(math.isfinite(v) for v in final_levels.values()):
@@ -542,7 +546,8 @@ class FfmpegStudioMasterRenderer:
             size = round(source.samplerate * _PROFILE_SECONDS)
             window = np.hanning(size)[:, None]
             frequencies = np.fft.rfftfreq(size, 1 / source.samplerate)
-            band_bins = [(frequencies >= center / 1.04) & (frequencies <= center * 1.04)
+            band_bins = [slice(int(np.searchsorted(frequencies, center / 1.04)),
+                               int(np.searchsorted(frequencies, center * 1.04, side="right")))
                          for center in centers]
             presence_bins = (frequencies >= 500) & (frequencies < 4000)
             treble_bins = (frequencies >= 4000) & (frequencies < 10000)

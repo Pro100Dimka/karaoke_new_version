@@ -473,7 +473,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
             continue;
         const auto singing = room.singingStartedAtSeconds >= 0.0 &&
                              mediaSeconds(position.timestamp) >= room.singingStartedAtSeconds;
-        if (singing && std::any_of(room.pending.begin(), room.pending.lower_bound(position),
+        if (std::any_of(room.pending.begin(), room.pending.lower_bound(position),
                                    [&](const auto& older) {
                                        return !older.second.sentRecipients.contains(recipientKey);
                                    }))
