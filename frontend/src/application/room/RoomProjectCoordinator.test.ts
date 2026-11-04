@@ -3,6 +3,36 @@ import type { RoomStateDto, SongDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 import { RoomProjectCoordinator } from './RoomProjectCoordinator';
 
+it('refreshes the library on changes without reading it every second', async () => {
+  vi.useFakeTimers();
+  const { services, scope } = setup();
+  let changed: () => void = () => undefined;
+  const unsubscribe = vi.fn();
+  const coordinator = new RoomProjectCoordinator(scope, {
+    ...services,
+    python: {
+      ...services.python,
+      onLibraryChange: (listener: () => void) => {
+        changed = listener;
+        return unsubscribe;
+      },
+    },
+  });
+  try {
+    coordinator.setPythonReady(true);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(services.python.listSongs).toHaveBeenCalledTimes(1);
+    changed();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(services.python.listSongs).toHaveBeenCalledTimes(2);
+    coordinator.stop();
+    expect(unsubscribe).toHaveBeenCalledOnce();
+  } finally {
+    coordinator.stop();
+    vi.useRealTimers();
+  }
+});
+
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((done) => {

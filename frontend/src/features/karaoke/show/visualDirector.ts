@@ -5,7 +5,7 @@ import {
   type PerformanceEvent,
 } from './performanceTracker';
 
-export type FxKind =
+type FxKind =
   | 'noteGlow'
   | 'noteSparks'
   | 'noteRing'
@@ -35,7 +35,7 @@ export interface FxCommand {
 
 export type VisualIntensity = 'minimal' | 'balanced' | 'full';
 
-export interface DirectorContext {
+interface DirectorContext {
   energy: number;
   streakSeconds: number;
   music: MusicState;

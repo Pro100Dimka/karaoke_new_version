@@ -26,7 +26,7 @@ export interface ShowPhrase {
   noteIds: readonly string[];
 }
 
-export interface NoteScore {
+interface NoteScore {
   /** Mean closeness of the voiced samples to the target, 0–1. */
   pitchAccuracy: number;
   /** Share of the note actually voiced, 0–1. */
@@ -62,7 +62,7 @@ export interface LiveNote {
   deviation?: number;
 }
 
-export const energyLevels = [
+const energyLevels = [
   'calm',
   'awakening',
   'flow',
@@ -174,7 +174,7 @@ const stableSeconds = (progress: NoteProgress, mean: number): number =>
     0,
   );
 
-export const scoreNote = (
+const scoreNote = (
   note: ShowNote,
   progress: NoteProgress,
   scorableDuration = scorableNoteDuration(note),

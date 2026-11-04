@@ -2,7 +2,7 @@ import type { ParticipantDto, RoomStateDto } from '../contracts/models';
 import { readText, writeText } from '../shared/storage/localStore';
 import { sharedStateOf } from '../application/room/roomModel';
 
-export interface BackendRoomParticipant {
+interface BackendRoomParticipant {
   participantId: string;
   displayName: string;
   role: string;
@@ -51,7 +51,7 @@ export interface BackendRoom {
   transferProgress?: number;
 }
 
-export interface RoomRequestTiming {
+interface RoomRequestTiming {
   startedAtMilliseconds: number;
   receivedAtMilliseconds: number;
 }
@@ -73,7 +73,7 @@ export const participantId = ((): string => {
   return created;
 })();
 
-export const readinessOf = (value: string): ParticipantDto['readiness'] => {
+const readinessOf = (value: string): ParticipantDto['readiness'] => {
   const known = {
     missingsong: 'missing',
     downloading: 'downloading',

@@ -2,7 +2,7 @@ import type { MessageKey } from '../../../i18n/messages';
 
 export type VoiceEffectId = 'echo' | 'reverb' | 'delay' | 'autoTune';
 
-export interface VoiceEffect {
+interface VoiceEffect {
   id: VoiceEffectId;
   label: MessageKey;
   /** AudioService DSP parameter the knob drives. */

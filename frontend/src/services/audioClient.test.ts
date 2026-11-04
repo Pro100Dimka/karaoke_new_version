@@ -22,6 +22,39 @@ const installBridge = (
 };
 
 describe('audioClient contract', () => {
+  it('finishes obsolete native loading before preparing the replacement song', async () => {
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    let current = true;
+    const { requests } = installBridge(async ({ command, args }) => {
+      if (command === 'LoadSong' && args?.instrumental === 'old') await held;
+      return { status: 0, text: 'SessionState: Running\nPlaybackState: 2' };
+    }, { resolveProjectArtifacts: vi.fn(async id => ({ instrumental: id, vocals: '', melody: '' })) });
+    const song = { id: 'old', activeRevision: 1 } as import('../contracts/models').SongDto;
+    const old = audioClient.prepareSong(song, () => current).catch(error => error);
+    await vi.waitFor(() => expect(requests.some(request => request.command === 'LoadSong')).toBe(true));
+    current = false;
+    const next = audioClient.prepareSong({ ...song, id: 'new' });
+    release();
+    await Promise.all([old, next]);
+    expect(requests.filter(request => ['LoadSong', 'UnloadSong'].includes(request.command)).map(request => [request.command, request.args?.instrumental])).toEqual([
+      ['LoadSong', 'old'], ['UnloadSong', undefined], ['LoadSong', 'new'],
+    ]);
+  });
+  it('does not load an obsolete song after resolving its artifacts', async () => {
+    let finish!: (value: { instrumental: string; vocals: string; melody: string }) => void;
+    let current = true;
+    const resolveProjectArtifacts = vi.fn(() => new Promise<{ instrumental: string; vocals: string; melody: string }>(resolve => { finish = resolve; }));
+    const { commands } = installBridge(() => ({ status: 0, text: 'SessionState: Running\nPlaybackState: 2' }), { resolveProjectArtifacts });
+    const song = { id: 'obsolete', activeRevision: 1 } as import('../contracts/models').SongDto;
+    const preparing = audioClient.prepareSong(song, () => current);
+    const settled = preparing.catch(error => error);
+    await vi.waitFor(() => expect(resolveProjectArtifacts).toHaveBeenCalledOnce());
+    current = false;
+    finish({ instrumental: 'old.wav', vocals: '', melody: '' });
+    await settled;
+    expect(commands).not.toContain('LoadSong');
+  });
   it('serializes health observations with a complete device transition', async () => {
     const { audioState } = await import('./audioSession');
     let release: () => void = () => undefined;

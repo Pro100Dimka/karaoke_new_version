@@ -9,7 +9,7 @@ import './show.css';
 import type { PitchFrame } from '../../../contracts/models';
 
 /** Each lyric line is one phrase of the show: the notes sung on its words. */
-export const phrasesOf = (
+const phrasesOf = (
   lines: readonly LyricLine[],
   notes: readonly ShowNote[],
 ): ShowPhrase[] =>

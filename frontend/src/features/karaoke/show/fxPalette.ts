@@ -2,7 +2,7 @@
  * The show's colours: pink/magenta is the singer's energy, cyan/teal the music and the space, violet the moment
  * both meet. White and gold only for the brightest cores and fireworks.
  */
-export const fxColors = {
+const fxColors = {
   magenta: [255, 46, 138],
   pink: [255, 110, 190],
   red: [255, 52, 84],

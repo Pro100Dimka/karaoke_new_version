@@ -20,7 +20,7 @@ import type {
   SongLanguage,
 } from './models';
 
-export type RoomReadiness =
+type RoomReadiness =
   | 'MissingSong'
   | 'Downloading'
   | 'Importing'
@@ -132,7 +132,7 @@ export interface RoomTimingReport {
   deviceStarvedFrames: number;
 }
 
-export interface SongPatch {
+interface SongPatch {
   title?: string;
   artist?: string;
   language?: SongDto['language'];
@@ -168,6 +168,7 @@ export interface PythonClient {
     instanceId?: string;
   }>;
   listSongs(): Promise<readonly SongDto[]>;
+  onLibraryChange?(listener: () => void): () => void;
   searchSongs(
     filter: SongSearch,
     cursor: string | null,
@@ -403,10 +404,10 @@ export interface AudioServiceClient {
   testInputLevel(): Promise<number>;
   snapshot(): Promise<PlaybackSnapshot>;
   playTestSound(): Promise<void>;
-  prepareSong(song: SongDto): Promise<PlaybackSnapshot>;
+  prepareSong(song: SongDto, isCurrent?: () => boolean): Promise<PlaybackSnapshot>;
   play(schedule?: PlaybackSchedule): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;
-  seek(positionSeconds: number): Promise<PlaybackSnapshot>;
+  seek(positionSeconds: number, isCurrent?: () => boolean): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   /** Sets a mixer channel from its knob position (0..1); the loudness law is applied here. */
@@ -450,8 +451,8 @@ export interface AudioServiceClient {
   leaveVoiceSession(): Promise<void>;
   addRemoteParticipant(participantId: string): Promise<void>;
   removeRemoteParticipant(participantId: string): Promise<void>;
-  setPlaybackRate(rate: number): Promise<void>;
-  setPitchShift(semitones: number): Promise<void>;
+  setPlaybackRate(rate: number, isCurrent?: () => boolean): Promise<void>;
+  setPitchShift(semitones: number, isCurrent?: () => boolean): Promise<void>;
   setDspParameter(name: string, value: number): Promise<void>;
   setDspEnabled(enabled: boolean): Promise<void>;
   playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
@@ -467,7 +468,7 @@ export interface AudioServiceClient {
 }
 
 /** State of the take that AudioService currently holds for preview; `recordingId` is null when none was loaded. */
-export interface RecordingPreviewStatus {
+interface RecordingPreviewStatus {
   recordingId: string | null;
   state: 'ready' | 'playing' | 'paused' | 'finished';
   positionSeconds: number;

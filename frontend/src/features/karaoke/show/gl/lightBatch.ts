@@ -1,6 +1,6 @@
 /** The shapes of light a sprite can take on the canvas. */
 export const spriteKind = { glow: 0, ring: 1, flare: 2, bokeh: 3 } as const;
-export type SpriteKind = (typeof spriteKind)[keyof typeof spriteKind];
+type SpriteKind = (typeof spriteKind)[keyof typeof spriteKind];
 
 export type Rgb = readonly [number, number, number];
 

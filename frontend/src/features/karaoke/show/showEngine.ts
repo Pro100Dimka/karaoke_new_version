@@ -21,7 +21,7 @@ export interface ShowSettings {
 }
 
 /** What the renderers read every frame; none of it goes through React state. */
-export interface ShowState {
+interface ShowState {
   energy: number;
   level: EnergyLevel;
   streakSeconds: number;

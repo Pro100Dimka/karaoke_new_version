@@ -8,7 +8,7 @@ import type {
 
 export const minimumRecordingBytes = 200 * 1024 * 1024;
 
-export type RecordingStart =
+type RecordingStart =
   | { kind: 'started' }
   | { kind: 'insufficientDisk'; free: number; generation: number }
   | { kind: 'cancelled' }

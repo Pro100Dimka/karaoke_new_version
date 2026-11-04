@@ -141,7 +141,7 @@ export const taskArguments = {
   addSong: '--add-song',
   openRoom: '--open-room',
 } as const;
-export const audioExtensions = [
+const audioExtensions = [
   '.mp3',
   '.wav',
   '.flac',

@@ -48,7 +48,7 @@ const createStore = <Value>(initial: Value) => {
   };
 };
 
-export interface NowPlaying {
+interface NowPlaying {
   title: string;
   artist?: string;
   playing: boolean;
@@ -83,9 +83,6 @@ export const usePublishNowPlaying = (value: NowPlaying | null): void => {
 
 /** Whether the computer runs on battery; heavy decoration lightens itself then. */
 export const onBattery = createStore(false);
-
-export const useOnBattery = (): boolean =>
-  useSyncExternalStore(onBattery.subscribe, onBattery.get, onBattery.get);
 
 /** The version of a downloaded, verified update waiting for a restart; null when there is none. */
 export const updateReady = createStore<string | null>(null);

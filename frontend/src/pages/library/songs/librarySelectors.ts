@@ -10,7 +10,7 @@ export type { LibrarySort };
 export type LibraryLanguageFilter = SongLanguage | 'all';
 export type LibraryDurationFilter = 'all' | 'short' | 'medium' | 'long';
 export type LibraryArtworkFilter = 'all' | 'with' | 'without';
-export type LibraryFilter = SongSearch;
+type LibraryFilter = SongSearch;
 
 export type LastPlayed = Readonly<Record<string, number>>;
 

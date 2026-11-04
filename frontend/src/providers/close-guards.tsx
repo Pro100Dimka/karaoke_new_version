@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import { desktopClient } from '../services/desktopClient';
 
 /** Returns true when closing may continue; may ask the user and finalize work first. */
-export type CloseGuard = () => Promise<boolean>;
+type CloseGuard = () => Promise<boolean>;
 const guards = new Set<CloseGuard>();
 
 export const subscribeCloseRequests = () => {

@@ -1,4 +1,4 @@
-export const supportedAudioExtensions = [
+const supportedAudioExtensions = [
   'mp3',
   'wav',
   'flac',

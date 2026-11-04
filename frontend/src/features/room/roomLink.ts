@@ -1,6 +1,6 @@
 import type { RoomTimingReport } from '../../contracts/clients';
 
-export type VoiceRoute = 'direct' | 'relay';
+type VoiceRoute = 'direct' | 'relay';
 
 export interface RoomLinkState {
   /** How most voice packets reached this listener; undefined before any arrived. */

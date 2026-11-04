@@ -10,7 +10,7 @@ export interface Asio4AllRelease {
 }
 
 /** Pinned official release: a changed download is rejected until its checksum is reviewed. */
-export const asio4AllRelease: Asio4AllRelease = {
+const asio4AllRelease: Asio4AllRelease = {
   version: '2.22',
   url: 'https://asio4all.org/downloads/ASIO4ALL_2_22.exe',
   fileName: 'ASIO4ALL_2_22.exe',

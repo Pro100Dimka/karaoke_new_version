@@ -5,10 +5,12 @@ import { RoomDiagnosticsCoordinator } from './RoomDiagnosticsCoordinator';
 import type { RoomSessionScope } from './RoomSessionController';
 
 const mocks = vi.hoisted(() => ({
-  diagnosticsDump: vi.fn(async (): Promise<Record<string, string>> => ({
-    Backend: 'ASIO',
-    RoomCompensationFrames: '960',
-  })),
+  diagnosticsDump: vi.fn(
+    async (): Promise<Record<string, string>> => ({
+      Backend: 'ASIO',
+      RoomCompensationFrames: '960',
+    }),
+  ),
   listDevices: vi.fn(async () => [
     { id: 'mic-1', name: 'Microphone Array', kind: 'input', channels: 2 },
   ]),
@@ -50,6 +52,39 @@ const useRoomDiagnosticsUpload = (code: string | undefined) =>
 afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
+});
+
+it('refreshes changed device names and logs an upload outage only once until recovery', async () => {
+  vi.useFakeTimers();
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+  const { unmount } = renderHook(() => useRoomDiagnosticsUpload('ROOM42'));
+  try {
+    await vi.advanceTimersByTimeAsync(5000);
+    mocks.listDevices.mockResolvedValue([
+      {
+        id: 'mic-1',
+        name: 'Replacement microphone',
+        kind: 'input',
+        channels: 2,
+      },
+    ]);
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(mocks.publishDiagnostics).toHaveBeenLastCalledWith(
+      'ROOM42',
+      expect.objectContaining({ 'App.InputDevice': 'Replacement microphone' }),
+    );
+    mocks.publishDiagnostics
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockRejectedValueOnce(new Error('offline'));
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(warn).toHaveBeenCalledTimes(1);
+  } finally {
+    unmount();
+    warn.mockRestore();
+    mocks.listDevices.mockResolvedValue([
+      { id: 'mic-1', name: 'Microphone Array', kind: 'input', channels: 2 },
+    ]);
+  }
 });
 
 it('uploads the audio diagnostics every few seconds while in a room and stops on leaving', async () => {

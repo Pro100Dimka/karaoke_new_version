@@ -19,12 +19,12 @@ import type { PanelLayout, ScreenPoint } from './useFloatingPanel';
 /** Must match electron/PanelWindows.ts: only windows with this name may open. */
 const panelWindowPrefix = 'ad-voice-panel:';
 
-export interface PanelSize {
+interface PanelSize {
   width: number;
   height: number;
 }
 
-export interface PanelBounds extends PanelSize {
+interface PanelBounds extends PanelSize {
   left?: number;
   top?: number;
 }

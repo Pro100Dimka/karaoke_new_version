@@ -1,5 +1,5 @@
 /** The parts of a window this module needs; BrowserWindow satisfies it. */
-export interface WatchedWindow {
+interface WatchedWindow {
   isDestroyed(): boolean;
   isVisible(): boolean;
   isMinimized(): boolean;

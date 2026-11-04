@@ -68,7 +68,10 @@ export const BootstrapGate = observer(
       let frame = 0;
       const paint = () => {
         if (!waiting) paintedFrames += 1;
-        if (paintedFrames === 2) void desktopClient.appReady();
+        if (paintedFrames === 2) {
+          performance.mark('startup:ui-ready');
+          void desktopClient.appReady();
+        }
         else frame = window.requestAnimationFrame(paint);
       };
       // Keep scheduling frames while hidden so the first ready frame does not wait for an idle renderer.

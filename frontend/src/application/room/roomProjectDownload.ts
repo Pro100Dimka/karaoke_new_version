@@ -1,7 +1,7 @@
 import type { RoomStateDto } from '../../contracts/models';
 import { toAppError } from '../../shared/errors';
 
-export interface RoomProjectDownloadRequest {
+interface RoomProjectDownloadRequest {
   roomId: string;
   participantId: string;
   songId: string;

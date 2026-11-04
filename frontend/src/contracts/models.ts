@@ -11,7 +11,7 @@ export type SongStatus =
   | 'importing'
   | 'invalid';
 export type SongLanguage = 'Auto' | 'Ukrainian' | 'Russian' | 'English';
-export type CoverState = 'Embedded' | 'Custom' | 'Fallback';
+type CoverState = 'Embedded' | 'Custom' | 'Fallback';
 
 export interface KaraokeNoteScore {
   /** Present only for the timestamped live scorer; legacy UI counters are not final analysis. */

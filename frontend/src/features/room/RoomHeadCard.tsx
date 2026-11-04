@@ -20,7 +20,7 @@ import { useTransferEta } from './useTransferEta';
 const shownCode = (code: string): string =>
   code.split('-').slice(0, 4).join('-');
 
-export interface RoomHeadActions {
+interface RoomHeadActions {
   copied: boolean;
   detached: boolean;
   onCopy(): void;

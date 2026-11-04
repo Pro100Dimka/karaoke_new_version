@@ -79,11 +79,11 @@ export const prepareKaraokeSession = async (
       ).catch(() => noMicrophone);
       if (!isCurrent()) return;
       options.onCapabilities(capabilities);
-      await audio.prepareSong(resolved.load.song);
+      await audio.prepareSong(resolved.load.song, isCurrent);
       if (!isCurrent()) return;
-      await audio.setPlaybackRate(1);
+      await audio.setPlaybackRate(1, isCurrent);
       if (!isCurrent()) return;
-      await audio.setPitchShift(0);
+      await audio.setPitchShift(0, isCurrent);
       for (const channel of mixerChannels) {
         if (!isCurrent()) return;
         await audio.setMixer(channel, gains[channel]);

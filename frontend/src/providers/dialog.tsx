@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Dialog, Stack } from '@neo-ui-kit/react';
 import { createCommandQueue } from '../app/desktop/shellBus';
 
-export interface DialogAction {
+interface DialogAction {
   id: string;
   label: string;
   appearance?: 'primary' | 'secondary' | 'outline';
@@ -15,7 +15,7 @@ export interface DialogRequest {
   actions: readonly DialogAction[];
 }
 
-export interface PendingDialog {
+interface PendingDialog {
   request: DialogRequest;
   resolve(id: string | null): void;
 }

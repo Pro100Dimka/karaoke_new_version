@@ -13,6 +13,9 @@ export class RoomDiagnosticsCoordinator {
   private timer?: ReturnType<typeof setInterval>;
   private pending?: Promise<void>;
   private deviceNames?: ReadonlyMap<string, string>;
+  private deviceNamesUntil = 0;
+  private deviceKey = '';
+  private uploadFailed = false;
   private previous?: Readonly<Record<string, string>>;
   private persistedBackend: AudioBackendName = 'WASAPI Shared';
 
@@ -37,14 +40,29 @@ export class RoomDiagnosticsCoordinator {
     if (!this.timer || !this.scope.isCurrent()) return Promise.resolve();
     const pending = (async () => {
       try {
-        this.deviceNames ??= new Map(
-          (await this.audio.listDevices()).map((device) => [
-            device.id,
-            device.name,
-          ]),
-        );
         const requested = this.audio.preferredConfiguration();
         const diagnostics = await this.audio.diagnosticsDump();
+        if (!this.timer || !this.scope.isCurrent()) return;
+        const deviceKey = JSON.stringify([
+          requested.backend,
+          requested.inputDeviceId,
+          requested.outputDeviceId,
+          diagnostics.generationId,
+        ]);
+        if (
+          !this.deviceNames ||
+          deviceKey !== this.deviceKey ||
+          Date.now() >= this.deviceNamesUntil
+        ) {
+          this.deviceNames = new Map(
+            (await this.audio.listDevices()).map((device) => [
+              device.id,
+              device.name,
+            ]),
+          );
+          this.deviceNamesUntil = Date.now() + 30_000;
+          this.deviceKey = deviceKey;
+        }
         if (!this.timer || !this.scope.isCurrent()) return;
         const acousticMicroseconds = Number(diagnostics.AcousticLatencyUs);
         const hiddenLatency =
@@ -84,8 +102,15 @@ export class RoomDiagnosticsCoordinator {
           });
         } else await this.room.publishDiagnostics(this.scope.code, values);
         if (this.timer && this.scope.isCurrent()) this.previous = values;
-      } catch {
-        // Diagnostics are best effort; the next interval retries.
+        this.uploadFailed = false;
+      } catch (error) {
+        if (this.timer && this.scope.isCurrent() && !this.uploadFailed) {
+          this.uploadFailed = true;
+          console.warn(
+            'Room diagnostics upload failed; retrying in the background',
+            error,
+          );
+        }
       }
     })().finally(() => {
       if (this.pending === pending) this.pending = undefined;

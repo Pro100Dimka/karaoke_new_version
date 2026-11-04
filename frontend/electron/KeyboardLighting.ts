@@ -14,7 +14,7 @@ export interface KeyboardLightingRequest {
   color: string;
 }
 
-export interface OpenRgbKeyboard {
+interface OpenRgbKeyboard {
   index: number;
   name: string;
 }
@@ -101,7 +101,7 @@ export class OpenRgbKeyboardLighting {
 const executableNames =
   process.platform === 'win32' ? ['OpenRGB.exe'] : ['openrgb', 'OpenRGB'];
 
-export const findOpenRgbExecutable = (): string | undefined => {
+const findOpenRgbExecutable = (): string | undefined => {
   const candidates = [
     process.env.AD_VOICE_OPENRGB,
     ...String(process.env.PATH ?? '')

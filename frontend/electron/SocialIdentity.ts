@@ -40,7 +40,7 @@ export const deviceSecret = (): Promise<string> => {
   return secret;
 };
 
-export const deviceHeader = 'X-AD-Voice-Device';
+const deviceHeader = 'X-AD-Voice-Device';
 
 /** Requests about friends and the profile say which computer asks; room requests need not. */
 export const withDevice = async <

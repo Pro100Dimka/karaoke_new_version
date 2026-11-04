@@ -13,7 +13,7 @@ import { shellText } from './ShellText';
  * Turns the microphone on and off while in a room, even when another window has focus. Not Ctrl+Shift+M
  * (Discord's own mute) and not Ctrl+Alt+M (already taken by other software on a test machine).
  */
-export const muteShortcut = 'CommandOrControl+Alt+Shift+M';
+const muteShortcut = 'CommandOrControl+Alt+Shift+M';
 
 /** How the running app is started again: the packaged exe, or electron.exe with the app folder. */
 const relaunchArguments = (

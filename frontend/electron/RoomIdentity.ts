@@ -10,7 +10,7 @@ export const roomKeyHeader = 'X-AD-Voice-Room-Key';
 
 let key: Promise<string> | undefined;
 
-export const roomKey = (): Promise<string> => {
+const roomKey = (): Promise<string> => {
   key ??= deviceSecret().then((secret) =>
     createHmac('sha256', secret).update('ad-voice-room-key').digest('hex'),
   );

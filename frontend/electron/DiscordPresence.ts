@@ -8,9 +8,9 @@ import { shellText } from './ShellText';
  * Application ID; the application is named "A&D Voice", which Discord shows as the game).
  * Empty keeps Discord integration off; AD_VOICE_DISCORD_APPLICATION_ID overrides.
  */
-export const discordApplicationId = '1559849069424156764';
+const discordApplicationId = '1559849069424156764';
 /** Optional: the key of an image uploaded under the application's Rich Presence → Art Assets. */
-export const discordLargeImage = 'logo';
+const discordLargeImage = 'logo';
 
 const enum Op {
   Handshake = 0,
@@ -50,7 +50,7 @@ export const decodeFrames = (
   return { frames, rest: buffer.subarray(offset) };
 };
 
-export interface DiscordActivity {
+interface DiscordActivity {
   details: string;
   state?: string;
   timestamps?: { start: number };

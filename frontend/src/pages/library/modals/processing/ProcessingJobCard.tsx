@@ -25,7 +25,7 @@ import {
 } from './processingModel';
 import { errorMessageKey } from '../../../../shared/errors';
 
-export interface JobActions {
+interface JobActions {
   onOpenFolder(song: SongDto): void;
   onPlay(song: SongDto): void;
   playbackDisabled?: boolean;

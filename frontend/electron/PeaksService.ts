@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 
-export type ComputePeaks = (
+type ComputePeaks = (
   filePath: string,
   bins: number,
 ) => Promise<number[]>;
@@ -14,7 +14,7 @@ const cachedFiles = 256;
  * process, which carries the windows' input and every IPC call. One worker, started on first use
  * and restarted if it dies; requests queue in it one after another.
  */
-export const workerPeaks = (
+const workerPeaks = (
   script = path.join(__dirname, 'WavPeaksWorker.js'),
 ): ComputePeaks => {
   let worker: Worker | null = null;

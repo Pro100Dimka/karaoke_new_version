@@ -26,6 +26,10 @@ export const subscribeServices = () => {
         pythonClient
           .health()
           .then(pythonStatusFrom)
+          .then((status) => {
+            if (!pythonSeenReady) performance.mark(`startup:python:${status.kind}`);
+            return status;
+          })
           .catch((): ServiceStatus => ({ kind: 'unavailable' })),
         audioClient
           .health()
@@ -40,6 +44,7 @@ export const subscribeServices = () => {
           )
           .catch((): ServiceStatus => ({ kind: 'unavailable' })),
       ]);
+      if (!audioSeenReady) performance.mark(`startup:audio:${audio.kind}`);
       if (!active) return;
       const elapsed = Date.now() - launchedAt;
       const nextPython = withStartupGrace(python, pythonSeenReady, elapsed);

@@ -16,7 +16,7 @@ type SessionPersistence = {
 };
 
 /** Server snapshots remain authoritative; these states describe only this window's participation. */
-export type RoomSessionState =
+type RoomSessionState =
   | { type: 'disconnected' }
   | { type: 'joining'; code?: string }
   | { type: 'joined'; room: RoomStateDto }

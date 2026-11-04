@@ -6,7 +6,7 @@ export interface AudioRequest {
   args?: Readonly<Record<string, string | number | boolean | undefined>>;
 }
 
-export interface AudioResponse {
+interface AudioResponse {
   status: number;
   text: string;
 }
@@ -15,7 +15,7 @@ export interface AudioNotification extends AudioResponse {
   observedAt: number;
 }
 
-export const audioNotificationCommands = [
+const audioNotificationCommands = [
   'GetPlaybackSnapshot', 'GetSpectrum', 'GetInputLevel',
 ] as const;
 

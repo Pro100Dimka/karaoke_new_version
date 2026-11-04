@@ -1,4 +1,4 @@
-export interface DisplayCapabilities {
+interface DisplayCapabilities {
   hasLyrics: boolean;
   hasNotes: boolean;
 }

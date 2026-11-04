@@ -15,7 +15,7 @@ import {
 } from './voiceEffects';
 
 /** The singer's own voice settings: one stored value each, shown by every knob that controls it. */
-export type VoiceChainSettings = Pick<
+type VoiceChainSettings = Pick<
   Preferences,
   'voiceGain' | 'karaokeEffects' | 'noiseSuppression'
 >;

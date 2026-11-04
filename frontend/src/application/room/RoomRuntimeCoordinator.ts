@@ -67,7 +67,7 @@ type RuntimePorts = {
   participantId: string;
 };
 
-export type RoomRuntimeView = {
+type RoomRuntimeView = {
   pathname(): string;
   navigate(songId: string): void;
   curtain(visible: boolean): void;

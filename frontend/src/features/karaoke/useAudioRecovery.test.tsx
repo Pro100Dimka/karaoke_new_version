@@ -20,6 +20,39 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
+it('does not let an old probe block a new recovery lifetime', async () => {
+  const finish: Array<(value: { status: 'ready'; version: string }) => void> =
+    [];
+  vi.mocked(audioClient.health).mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish.push(resolve);
+      }),
+  );
+  const options = {
+    song: { current: { id: 'song' } as SongDto },
+    position: { current: 10 },
+    speed: { current: 1 },
+    key: { current: 0 },
+    onRecovered: vi.fn(),
+  };
+  const { rerender, unmount } = renderHook(
+    ({ recovering }) => useAudioRecovery({ ...options, recovering }),
+    { initialProps: { recovering: true } },
+  );
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  rerender({ recovering: false });
+  rerender({ recovering: true });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(audioClient.health).toHaveBeenCalledTimes(2);
+  unmount();
+  await act(async () => {
+    finish.forEach((resolve) => resolve({ status: 'ready', version: '1' }));
+  });
+  expect(audioClient.prepareSong).not.toHaveBeenCalled();
+  expect(options.onRecovered).not.toHaveBeenCalled();
+});
+
 it('keeps one recovery in flight and abandons it before touching a departed session', async () => {
   let health!: (value: { status: 'ready'; version: string }) => void;
   vi.mocked(audioClient.health).mockReturnValue(

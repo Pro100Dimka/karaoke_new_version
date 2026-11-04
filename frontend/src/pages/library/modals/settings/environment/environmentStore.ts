@@ -21,7 +21,7 @@ type KaggleRun = {
   promise: Promise<string>;
 };
 type Check = ReadonlyMap<Field, number>;
-export type EnvironmentSnapshot = {
+type EnvironmentSnapshot = {
   entries: DisplayEntry[] | null;
   loadError: unknown;
   kaggleAction: KaggleAction | null;
@@ -35,7 +35,7 @@ const confirmedEntry = (entry: EnvironmentSettingDto): EnvironmentSettingDto =>
   isSecret(entry) ? { ...entry, value: '' } : entry;
 
 /** One backend-scoped session. Each field owns its confirmed value and pending write. */
-export class EnvironmentStore {
+class EnvironmentStore {
   private fields = new Map<string, Field>();
   private listeners = new Set<() => void>();
   private loading: Promise<void> | null = null;

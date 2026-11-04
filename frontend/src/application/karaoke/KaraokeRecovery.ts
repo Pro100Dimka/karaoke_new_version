@@ -24,12 +24,12 @@ export const recoverKaraokeAudio = async ({
 }: Recovery): Promise<boolean> => {
   if (!song || (await audio.health()).status !== 'ready' || !isCurrent())
     return false;
-  await audio.prepareSong(song);
+  await audio.prepareSong(song, isCurrent);
   if (!isCurrent()) return false;
-  await audio.setPlaybackRate(speed);
+  await audio.setPlaybackRate(speed, isCurrent);
   if (!isCurrent()) return false;
-  await audio.setPitchShift(key);
+  await audio.setPitchShift(key, isCurrent);
   if (!isCurrent()) return false;
-  await audio.seek(position);
+  await audio.seek(position, isCurrent);
   return isCurrent();
 };

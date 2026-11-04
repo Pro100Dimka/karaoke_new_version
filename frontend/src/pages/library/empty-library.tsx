@@ -11,7 +11,7 @@ import {
   processingSettingsQuery,
 } from '../../api/api-service';
 
-export type EmptyKind = 'firstRun' | 'noResults';
+type EmptyKind = 'firstRun' | 'noResults';
 export const LibraryEmptyState = ({
   kind,
   onOpenAudioSettings,

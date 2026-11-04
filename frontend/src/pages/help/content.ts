@@ -9,7 +9,7 @@ export const sections = {
 } as const;
 
 export type SectionId = keyof typeof sections;
-export interface GuideStep {
+interface GuideStep {
   title: string;
   body: string;
   visual: GuideVisual;
@@ -17,7 +17,7 @@ export interface GuideStep {
   details?: [string, string];
   clip?: string;
 }
-export interface GuideArticle {
+interface GuideArticle {
   id: string;
   section: SectionId;
   title: string;

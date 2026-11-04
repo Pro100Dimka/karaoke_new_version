@@ -15,7 +15,7 @@ export interface SongPreferences {
   vocalRange: VocalRange;
 }
 
-export const defaultSongPreferences: SongPreferences = {
+const defaultSongPreferences: SongPreferences = {
   videoUrl: '',
   defaultKey: 0,
   defaultSpeed: 1,

@@ -22,7 +22,10 @@ import {
 
 type ProjectPorts = {
   room: Pick<RoomClient, 'setRoomReadiness' | 'publishLibrary'>;
-  python: Pick<PythonClient, 'importProject' | 'listSongs' | 'exportProject'>;
+  python: Pick<
+    PythonClient,
+    'importProject' | 'listSongs' | 'exportProject' | 'onLibraryChange'
+  >;
   desktop: Pick<
     DesktopClient,
     | 'downloadRoomProject'
@@ -59,6 +62,10 @@ type Library =
       lastKey: string;
       uploaded: Set<string>;
       uploadId?: string;
+      songs?: readonly SongDto[];
+      readAt: number;
+      revision: number;
+      unsubscribe?: () => void;
     };
 
 /** Owns one room's project download/import transaction and its compensating cleanup. */
@@ -199,6 +206,7 @@ export class RoomProjectCoordinator {
       this.library = { type: 'paused' };
       if (previous.type === 'publishing') {
         clearInterval(previous.timer);
+        previous.unsubscribe?.();
         if (previous.uploadId)
           void this.ports.desktop
             .cancelRoomProjectTransfer(previous.uploadId)
@@ -211,9 +219,16 @@ export class RoomProjectCoordinator {
       type: 'publishing',
       lastKey: '',
       uploaded: new Set(),
+      readAt: 0,
+      revision: 0,
       timer: setInterval(() => void this.publishLibrary(), 1000),
     };
     this.library = running;
+    running.unsubscribe = this.ports.python.onLibraryChange?.(() => {
+      running.revision++;
+      running.songs = undefined;
+      void this.publishLibrary();
+    });
     void this.publishLibrary();
   }
 
@@ -222,11 +237,27 @@ export class RoomProjectCoordinator {
     const library = this.library;
     if (library.type !== 'publishing' || !this.scope.isCurrent())
       return Promise.resolve();
+    const revision = library.revision;
     const publishing = (async () => {
       try {
-        const songs = (await this.ports.python.listSongs()).filter(
-          (song) => song.status === 'ready',
-        );
+        const refreshMilliseconds = this.ports.python.onLibraryChange
+          ? 30_000
+          : 1000;
+        if (
+          !library.songs ||
+          Date.now() - library.readAt >= refreshMilliseconds
+        ) {
+          const songs = await this.ports.python.listSongs();
+          if (
+            this.library !== library ||
+            !this.scope.isCurrent() ||
+            revision !== library.revision
+          )
+            return;
+          library.songs = songs.filter((song) => song.status === 'ready');
+          library.readAt = Date.now();
+        }
+        const songs = library.songs;
         if (this.library !== library || !this.scope.isCurrent()) return;
         const key = songs
           .map((song) => `${song.id}:${song.activeRevision}`)
@@ -293,6 +324,12 @@ export class RoomProjectCoordinator {
     this.publishing = publishing;
     void publishing.finally(() => {
       if (this.publishing === publishing) this.publishing = undefined;
+      if (
+        this.library === library &&
+        this.scope.isCurrent() &&
+        library.revision !== revision
+      )
+        void this.publishLibrary();
     });
     return publishing;
   }

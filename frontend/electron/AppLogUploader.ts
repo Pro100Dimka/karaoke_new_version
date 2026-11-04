@@ -1,9 +1,10 @@
 import { StringDecoder } from 'node:string_decoder';
 import { format } from 'node:util';
+import { readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { roomParticipantId } from './RoomIdentity';
 import { roomServerRequest } from './RoomServerTransport';
 
-export interface AppLogEntry {
+interface AppLogEntry {
   timestamp: string;
   source: string;
   level: string;
@@ -55,21 +56,81 @@ export class AppLogUploader {
   private inFlightCount = 0;
   private inFlight: Promise<void> | undefined;
   private dropped = 0;
+  private stopping?: Promise<void>;
 
   constructor(
     private readonly send: (entries: AppLogEntry[]) => Promise<unknown>,
+    private readonly queuePath?: string,
   ) {}
 
   start(): void {
+    if (this.timer || this.stopping) return;
+    if (this.queuePath) {
+      try {
+        const saved: unknown = JSON.parse(readFileSync(this.queuePath, 'utf8'));
+        if (Array.isArray(saved)) {
+          for (const entry of saved.slice(-maximumQueued)) {
+            if (
+              entry &&
+              ['timestamp', 'source', 'level', 'message'].every(
+                (key) => typeof entry[key] === 'string',
+              )
+            ) {
+              this.add(entry.source, entry.level, entry.message);
+              this.queue[this.queue.length - 1]!.timestamp = entry.timestamp;
+            }
+          }
+        }
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT')
+          console.warn('Could not restore pending application logs', error);
+      }
+    }
     this.timer ??= setInterval(() => void this.flush(), uploadMilliseconds);
     this.timer.unref();
   }
 
-  async stop(): Promise<void> {
+  stop(): Promise<void> {
+    if (this.stopping) return this.stopping;
     if (this.timer) clearInterval(this.timer);
     this.timer = undefined;
-    await this.flush();
-    if (this.queue.length) await this.flush();
+    this.stopping = (async () => {
+      const deadline = Date.now() + 1200;
+      do {
+        const count = this.queue.length;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([
+            this.flush(),
+            new Promise<void>((resolve) => {
+              timer = setTimeout(resolve, Math.max(0, deadline - Date.now()));
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+        }
+        if (this.queue.length >= count) break;
+      } while (this.queue.length && Date.now() < deadline);
+      this.persist();
+    })();
+    return this.stopping;
+  }
+
+  private persist(): void {
+    if (!this.queuePath) return;
+    try {
+      if (!this.queue.length) rmSync(this.queuePath, { force: true });
+      else {
+        writeFileSync(
+          this.queuePath + '.tmp',
+          JSON.stringify(this.queue),
+          'utf8',
+        );
+        renameSync(this.queuePath + '.tmp', this.queuePath);
+      }
+    } catch (error) {
+      console.warn('Could not save pending application logs', error);
+    }
   }
 
   captureConsole(
@@ -192,6 +253,7 @@ export class AppLogUploader {
         await this.send(batch);
         this.queue.splice(0, count);
         this.dropped -= dropped;
+        if (this.stopping) this.persist();
       } catch {
         // Upload failures stay local. The next interval retries the same entries.
       } finally {

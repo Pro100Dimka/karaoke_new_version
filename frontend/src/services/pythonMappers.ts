@@ -109,7 +109,7 @@ const songStatuses = new Map<string, SongStatus>([
   ['sourcemissing', 'failed'],
 ]);
 
-export const songStatus = (value: string): SongStatus =>
+const songStatus = (value: string): SongStatus =>
   mapped(songStatuses, value, 'invalid');
 
 const songLanguages = ['Ukrainian', 'Russian', 'English'] as const;

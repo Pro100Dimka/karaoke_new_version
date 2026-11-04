@@ -1,7 +1,7 @@
 import { fxColorNames, light, type FxColor } from './fxPalette';
 import { spriteKind, type LightBatch } from './gl/lightBatch';
 
-export interface ParticleSpawn {
+interface ParticleSpawn {
   x: number;
   y: number;
   vx: number;

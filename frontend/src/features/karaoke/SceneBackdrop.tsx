@@ -6,7 +6,6 @@ import { desktopClient } from '../../services/desktopClient';
 import { useEffect, useRef, useState } from 'react';
 import type { ThemeName } from '../../contracts/models';
 import { sceneBackgrounds } from './sceneBackgrounds';
-import { useBackdropCover } from '../../app/backdrop/backdropCoverage';
 
 interface SceneBackdropProps {
   theme: ThemeName;
@@ -42,7 +41,6 @@ export const SceneBackdrop = ({
   playing,
   rate,
 }: SceneBackdropProps) => {
-  useBackdropCover(sceneBackgrounds[theme]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failedUrl, setFailedUrl] = useState('');
   const [sceneUrl, setSceneUrl] = useState('');

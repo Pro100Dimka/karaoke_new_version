@@ -1,6 +1,5 @@
 import type {
   RecordingDto,
-  SongDto,
   SongLanguage,
 } from '../../../contracts/models';
 import type { MessageKey } from '../../../i18n/messages';
@@ -11,14 +10,6 @@ export const languageLabels = {
   Russian: 'languageRussian',
   English: 'languageEnglish',
 } as const satisfies Record<SongLanguage, MessageKey>;
-
-export const detectedSongMetadata = (
-  song: Pick<SongDto, 'detectedBpm' | 'detectedKey'>,
-): { bpm: string; key: string } => ({
-  bpm:
-    song.detectedBpm === undefined ? '—' : `${song.detectedBpm.toFixed(1)} BPM`,
-  key: song.detectedKey || '—',
-});
 
 const fileStatusKeys = {
   Preparing: 'recordingPreparing',

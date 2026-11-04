@@ -6,7 +6,7 @@ import { shellText, type ShellTextKey } from './ShellText';
 
 const activeStates = new Set(['Queued', 'Running', 'Cancelling']);
 
-export type JobOutcome = 'succeeded' | 'failed';
+type JobOutcome = 'succeeded' | 'failed';
 
 /**
  * Processing jobs as the backend reports them (`job.changed`): how far the active ones are, and
@@ -58,7 +58,7 @@ export class JobProgress {
   }
 }
 
-export interface ThumbButton {
+interface ThumbButton {
   icon: keyof typeof iconShapes;
   tooltip: ShellTextKey;
   command: ShellCommand;

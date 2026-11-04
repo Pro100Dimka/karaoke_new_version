@@ -5,7 +5,7 @@ const pollMilliseconds = 20_000;
 /** The ICY title block is at most 255 × 16 bytes after `icy-metaint` bytes of audio. */
 const maxMetadataBytes = 255 * 16;
 
-export interface RadioTrack {
+interface RadioTrack {
   title: string;
   artist?: string;
 }

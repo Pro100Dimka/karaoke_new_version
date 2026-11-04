@@ -13,7 +13,7 @@ interface PositionPollingOptions {
   onLost(): void;
 }
 
-export interface PositionPollingHandle {
+interface PositionPollingHandle {
   /** Discards pending notifications around a seek, preserving the new authoritative position. */
   invalidate(): void;
 }

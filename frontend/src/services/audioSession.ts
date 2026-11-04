@@ -103,7 +103,7 @@ export const observeAudioTelemetry = (
 };
 
 /** Windows' default endpoints in Shared mode: what a missing or failed device falls back to. */
-export const defaultConfiguration = defaultAudioConfiguration;
+const defaultConfiguration = defaultAudioConfiguration;
 
 /**
  * What this app asked AudioService for, and what a restarted AudioService must be given again:
@@ -385,7 +385,7 @@ const replaySessionSettings = async (): Promise<void> => {
 };
 
 /** Why minimum microphone latency did not take effect, and whether the microphone still works. */
-export interface MicrophoneFallback {
+interface MicrophoneFallback {
   reason: string;
   /** False when another application holds the microphone exclusively: audio runs without it. */
   microphoneAvailable: boolean;

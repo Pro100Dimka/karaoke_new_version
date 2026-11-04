@@ -3,14 +3,14 @@ import { withRoomKey } from './RoomIdentity';
 import { createHash } from 'node:crypto';
 import { hostname } from 'node:os';
 
-export interface RoomServerRequest {
+interface RoomServerRequest {
   method: string;
   path: string;
   body?: unknown;
   headers?: Record<string, string>;
 }
 
-export interface RoomServerResponse {
+interface RoomServerResponse {
   status: number;
   ok: boolean;
   body: unknown;

@@ -4,7 +4,6 @@ import math
 import threading
 import numpy as np
 from numpy.typing import NDArray
-from scipy.signal import correlate, resample_poly
 import soundfile as sf
 
 from backend.recordings.studio_audio import _check_cancel
@@ -49,6 +48,8 @@ def _reference_offset(
 def _read_reference(
     source: sf.SoundFile, start: float, seconds: float, rate: int
 ) -> NDArray[np.float64]:
+    from scipy.signal import resample_poly
+
     source.seek(round(start * source.samplerate))
     samples = source.read(round(seconds * source.samplerate), always_2d=True).mean(axis=1)
     divisor = math.gcd(source.samplerate, rate)
@@ -59,6 +60,8 @@ def _read_reference(
 
 
 def _reference_match(actual: np.ndarray, expected: np.ndarray) -> tuple[int, float] | None:
+    from scipy.signal import correlate
+
     actual -= actual.mean()
     power = float(actual @ actual)
     if power < 1e-8 or len(expected) < len(actual):

@@ -47,7 +47,7 @@ export const allConnectedReady = (room: RoomStateDto): boolean =>
         participant.readiness === 'ready' &&
         participant.voiceTimingReady === true,
     );
-export interface ParticipantChange {
+interface ParticipantChange {
   joined: readonly ParticipantDto[];
   left: readonly ParticipantDto[];
 }
@@ -181,7 +181,7 @@ export const sharedLibraryView = (room: RoomStateDto) => {
   };
 };
 
-export type RoomPlaybackPlan =
+type RoomPlaybackPlan =
   | { kind: 'stop' }
   | { kind: 'pause'; positionSeconds: number }
   | { kind: 'schedule'; delayMilliseconds: number; positionSeconds: number }

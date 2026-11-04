@@ -28,7 +28,7 @@ import {
 } from '../../application/editor/editorModel';
 import { useEditorPreview } from './useEditorPreview';
 
-export type EditorLoad =
+type EditorLoad =
   | { kind: 'loading' }
   | { kind: 'failed' }
   | {

@@ -2,7 +2,7 @@ import type { RoomStateDto, SongDto } from '../../contracts/models';
 import { routes } from '../../shared/routes';
 import { roomProjectNeedsDownload } from './roomModel';
 
-export type RoomKaraokeNavigation =
+type RoomKaraokeNavigation =
   | { kind: 'stay' }
   | { kind: 'open' | 'download'; songId: string; revision: number };
 

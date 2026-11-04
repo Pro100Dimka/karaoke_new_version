@@ -63,6 +63,9 @@ const SpectrumBackground = ({ listening }: { listening: boolean }) => {
   const spectrum = useBackdropSpectrum(listening);
   const initial = {
     field: 'Higgs (Mass)',
+    sensitivity: 2.2,
+    pulseIntensity: 2.4,
+    onsetSensitivity: 3,
     fieldSize: 1.05,
     particleDepth: 1,
     particleScale: 2,

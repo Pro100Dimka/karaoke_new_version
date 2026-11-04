@@ -135,6 +135,7 @@ const waitForPackageReport = async (
 };
 
 export const pythonClient: PythonClient = {
+  onLibraryChange,
   freeStorageBytes: (area = 'data') =>
     request<number>('GET', `/storage/free?area=${area}`),
   async health() {

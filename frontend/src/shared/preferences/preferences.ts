@@ -54,7 +54,7 @@ export const safeAudioConfiguration = (
     : configuration;
 export type LibrarySortDirection = 'asc' | 'desc';
 
-export interface KaraokeEffectPreferences {
+interface KaraokeEffectPreferences {
   echo: number;
   reverb: number;
   delay: number;
@@ -62,7 +62,7 @@ export interface KaraokeEffectPreferences {
 }
 
 /** Pixels relative to the karaoke stage; null means the piano roll still uses its default centred layout. */
-export interface PianoRollLayout {
+interface PianoRollLayout {
   left: number;
   top: number;
   width: number;
@@ -125,7 +125,7 @@ export interface Preferences {
   acousticLatencyMs: Readonly<Record<string, number>>;
 }
 
-export const maxAcousticLatencyMs = 500;
+const maxAcousticLatencyMs = 500;
 
 export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
   backend: 'WASAPI Shared',
@@ -188,7 +188,7 @@ const oneOf = <T extends string>(
 ): T => allowed.find((item) => item === value) ?? fallback;
 
 /** The master control may boost the whole mix up to 150 %; channel gains stay within 0-100 %. */
-export const masterGainMax = 1.5;
+const masterGainMax = 1.5;
 
 const gain = (value: unknown, fallback: number, max = 1): number =>
   typeof value === 'number' && value >= 0 && value <= max ? value : fallback;

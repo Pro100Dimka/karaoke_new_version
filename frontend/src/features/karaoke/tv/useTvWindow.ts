@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { mirrorAppearance } from '../../../shared/ui/useDetachedPanel';
 
 /** Must match electron/PanelWindows.ts: names starting so open full screen on the other display. */
-export const tvWindowName = 'ad-voice-panel:stage-screen';
+const tvWindowName = 'ad-voice-panel:stage-screen';
 let opening = 0;
 
-export interface TvScreen {
+interface TvScreen {
   window: Window;
   /** Where Karaoke is rendered (a portal) while it is on the TV. */
   container: HTMLElement;

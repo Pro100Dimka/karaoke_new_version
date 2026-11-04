@@ -19,7 +19,7 @@ const defaultRequest: RequestedAudioConfiguration = {
   sampleRate: 0,
   periodFrames: 0,
 };
-export type AudioSnapshot = {
+type AudioSnapshot = {
   requested: RequestedAudioConfiguration;
   accepted: RequestedAudioConfiguration;
   runtime: RuntimeAudioConfiguration;
@@ -33,7 +33,7 @@ export type AudioSnapshot = {
   applying: boolean;
   ready: boolean;
 };
-export type AudioCommitEffects = {
+type AudioCommitEffects = {
   onAccepted(request: RequestedAudioConfiguration): void;
   onError(error: unknown): void;
 };
@@ -50,7 +50,7 @@ const sameRequest = (
   );
 
 /** One snapshot and one hardware queue survive the views that subscribe to them. */
-export const createAudioSession = (
+const createAudioSession = (
   audio: SettingsAudioPort,
   initial = defaultRequest,
 ) => {

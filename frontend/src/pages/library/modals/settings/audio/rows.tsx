@@ -8,14 +8,14 @@ import {
   tr,
   Typography,
 } from '@neo-ui-kit/react';
+import type { IObservableValue } from 'mobx';
+import { observer } from 'mobx-react-lite';
 import { ru } from '../../../../../i18n/messages.ru';
 import type {
   FormBlock,
   SettingsFormValues,
 } from '../../../../../utils/contracts';
 import FormButton from '../form-button';
-import { observer } from 'mobx-react-lite';
-import type { IObservableValue } from 'mobx';
 
 const InputLevelMeter = observer(
   ({ level, active }: { level: IObservableValue<number>; active: boolean }) => (
@@ -107,8 +107,13 @@ export const blocks = (
           props: {
             options: [
               { value: 'ASIO', label: 'ASIO' },
-              { value: values.audio.configuration.backend === 'ASIO'
-                  ? 'WASAPI Shared' : values.audio.configuration.backend, label: 'Windows' },
+              {
+                value:
+                  values.audio.configuration.backend === 'ASIO'
+                    ? 'WASAPI Shared'
+                    : values.audio.configuration.backend,
+                label: 'Windows',
+              },
             ],
             disabled: !status.ready,
           },
@@ -132,7 +137,8 @@ export const blocks = (
           label: tr(label),
           span: { base: 'full', sm: 4 } as const,
           props: {
-            disabled: name === 'bufferFrames' &&
+            disabled:
+              name === 'bufferFrames' &&
               values.audio.configuration.backend === 'WASAPI Exclusive',
             options:
               name === 'sampleRate'
@@ -225,7 +231,6 @@ export const blocks = (
               <FormButton
                 size="md"
                 icon="play"
-                label={tr(ru.playTestSound)}
                 onClick={() => void status.onPlayTestSound()}
                 disabled={!status.audioAvailable}
               />

@@ -97,12 +97,6 @@
   gap: var(--ad-space-1);
   min-inline-size: 0;
 }
-.roomPersonTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--ad-space-2);
-  min-inline-size: 0;
-}
 /* The meter takes the row's spare width; the "you" badge keeps its word on one line. */
 .roomPersonYou {
   flex: none;

@@ -24,7 +24,7 @@ const average = (values: readonly number[]): number =>
   values.length === 0
     ? 0
     : values.reduce((sum, value) => sum + value, 0) / values.length;
-export interface PercussionReaction {
+interface PercussionReaction {
   kick: number;
   snare: number;
   pulse: number;

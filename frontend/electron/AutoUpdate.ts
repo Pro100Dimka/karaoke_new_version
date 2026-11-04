@@ -7,8 +7,8 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 /** Where releases are published: GitHub Releases of this repository, with the installer attached. */
-export const updateRepository = 'Pro100Dimka/karaoke_new_version';
-export const installerAssetName = 'AD-Voice-Setup.exe';
+const updateRepository = 'Pro100Dimka/karaoke_new_version';
+const installerAssetName = 'AD-Voice-Setup.exe';
 const checkEveryMilliseconds = 6 * 60 * 60 * 1000;
 
 /** `1.2.10` > `1.2.9`; a leading `v` and anything after `-`/`+` are ignored. */
@@ -28,7 +28,7 @@ export const isNewerVersion = (candidate: string, current: string): boolean => {
   return false;
 };
 
-export interface ReleaseInstaller {
+interface ReleaseInstaller {
   version: string;
   url: string;
   size: number;
@@ -89,7 +89,7 @@ export const installerFromRelease = (
 };
 
 /** What the start-up screen shows while an update is put in place before the app opens. */
-export type LaunchUpdateState =
+type LaunchUpdateState =
   | { phase: 'checking' }
   | { phase: 'downloading'; version: string; percent: number }
   | { phase: 'installing'; version: string };

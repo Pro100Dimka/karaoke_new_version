@@ -70,7 +70,7 @@ it('reloads a newly published revision before preparing its audio and lyrics tog
   expect(onPrepared).not.toHaveBeenCalled();
   release(nextDocument);
   await preparing;
-  expect(audio.prepareSong).toHaveBeenCalledExactlyOnceWith(nextSong);
+  expect(audio.prepareSong).toHaveBeenCalledExactlyOnceWith(nextSong, expect.any(Function));
   expect(onResolved).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({
       load: { kind: 'ready', song: nextSong },

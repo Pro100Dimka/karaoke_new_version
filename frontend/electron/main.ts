@@ -89,7 +89,7 @@ let quitting = false;
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
 const backendEventsStop = new AbortController();
-const appLogs = new AppLogUploader(sendAppLogs);
+const appLogs = new AppLogUploader(sendAppLogs, path.join(app.getPath('userData'), 'pending-app-logs.json'));
 appLogs.captureConsole(console);
 const services = new ManagedServices(backendEndpoint, (source, level, data) =>
   appLogs.write(source, level, data),

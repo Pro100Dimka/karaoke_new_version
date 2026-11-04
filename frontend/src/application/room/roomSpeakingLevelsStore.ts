@@ -1,4 +1,4 @@
-export interface SpeakingLevels {
+interface SpeakingLevels {
   /** This computer's microphone. */
   local: number;
   /** Every other participant's voice, by participant id. */

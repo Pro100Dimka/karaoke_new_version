@@ -3,7 +3,7 @@ export const historyKinds = {
   processing: ['ProcessingStarted', 'ProcessingSucceeded', 'ProcessingFailed'],
 } as const;
 export type HistoryTab = keyof typeof historyKinds;
-export type HistoryKind = (typeof historyKinds)[HistoryTab][number];
+type HistoryKind = (typeof historyKinds)[HistoryTab][number];
 
 const knownKinds = new Set<string>(Object.values(historyKinds).flat());
 

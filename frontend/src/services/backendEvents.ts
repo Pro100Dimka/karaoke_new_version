@@ -4,7 +4,7 @@ import { isRecord } from '../shared/storage/localStore';
  * Job changes pushed by the local backend (Server-Sent Events relayed by Electron Main). Without the
  * desktop bridge (a plain browser, unit tests) nothing is pushed and callers fall back to polling.
  */
-export const backendEventsAvailable = (): boolean =>
+const backendEventsAvailable = (): boolean =>
   typeof window.desktop?.onBackendEvent === 'function';
 
 // Events update immediately; this slow reconciliation also covers a missed renderer IPC message.

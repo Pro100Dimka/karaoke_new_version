@@ -15,7 +15,7 @@ const themeGlow = {
 } as const;
 
 export type ThemeName = keyof typeof themeGlow;
-export const themeNames = Object.keys(themeGlow) as ThemeName[];
+const themeNames = Object.keys(themeGlow) as ThemeName[];
 
 const splashSizePixels = 420;
 const themeFile = (): string =>

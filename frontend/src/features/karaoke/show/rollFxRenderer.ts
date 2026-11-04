@@ -46,7 +46,7 @@ interface Moment {
 type PaintContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type PaintCanvas = HTMLCanvasElement | OffscreenCanvas;
 export type RollEngine = Pick<ShowEngine, 'state' | 'voiceHistory' | 'voicePoint' | 'onCommand'>;
-export interface RollLayout {
+interface RollLayout {
   lane: { left: number; top: number; width: number; height: number };
   page: { left: number; top: number };
   ratio: number;

@@ -54,11 +54,6 @@
   gap: var(--ad-space-2);
 }
 
-.songSettingsMediaGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ad-space-4);
-}
 .songSettingsMedia {
   display: grid;
   gap: var(--ad-space-3);
@@ -96,9 +91,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-@media (max-width: 640px) {
-  .songSettingsMediaGrid {
-    grid-template-columns: 1fr;
-  }
 }

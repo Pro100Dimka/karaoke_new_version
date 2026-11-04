@@ -88,7 +88,7 @@ const watchRenderer = (
  * The average colour of each theme's picture: what the window shows before the interface has painted
  * and in areas uncovered while resizing or entering full screen, so the light theme does not flash dark.
  */
-export const themeWindowBackground = {
+const themeWindowBackground = {
   dark: '#4d0b0f',
   light: '#f0d6ca',
   green: '#1a4b26',

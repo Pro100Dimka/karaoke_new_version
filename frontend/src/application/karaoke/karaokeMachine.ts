@@ -14,7 +14,7 @@ export type KaraokeState =
   | { kind: 'finished' }
   | { kind: 'failed'; error: AppError };
 
-export type KaraokeEvent =
+type KaraokeEvent =
   | { type: 'PREPARED' }
   | { type: 'PLAY' }
   | { type: 'PAUSE' }

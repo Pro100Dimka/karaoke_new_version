@@ -1,4 +1,4 @@
-export interface LatestSnapshotQueue<T> {
+interface LatestSnapshotQueue<T> {
   push(value: T): Promise<void>;
   idle(): Promise<void>;
 }

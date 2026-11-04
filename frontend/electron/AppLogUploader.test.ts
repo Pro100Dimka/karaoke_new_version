@@ -1,5 +1,48 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { AppLogUploader, sendAppLogs } from './AppLogUploader';
+import {
+  mkdtempSync,
+  readFileSync,
+  existsSync,
+  rmSync,
+  rmdirSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+it('drains more than two batches on shutdown', async () => {
+  const send = vi.fn().mockResolvedValue(undefined);
+  const logs = new AppLogUploader(send);
+  for (let index = 0; index < 350; index++)
+    logs.add('electron', 'info', `entry ${index}`);
+  await logs.stop();
+  expect(send.mock.calls.flatMap(([entries]) => entries)).toHaveLength(350);
+});
+
+it('bounds a stalled shutdown and restores the redacted queue on the next start', async () => {
+  vi.useFakeTimers();
+  const directory = mkdtempSync(join(tmpdir(), 'pending-logs-'));
+  const file = join(directory, 'queue.json');
+  const logs = new AppLogUploader(() => new Promise(() => undefined), file);
+  try {
+    logs.add('electron', 'error', 'authorization=secret');
+    const stopped = logs.stop();
+    await vi.advanceTimersByTimeAsync(1200);
+    await stopped;
+    expect(readFileSync(file, 'utf8')).not.toContain('secret');
+    const send = vi.fn().mockResolvedValue(undefined);
+    const resumed = new AppLogUploader(send, file);
+    resumed.start();
+    await resumed.stop();
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0]?.[0]).toHaveLength(1);
+    expect(existsSync(file)).toBe(false);
+  } finally {
+    rmSync(file, { force: true });
+    rmSync(file + '.tmp', { force: true });
+    rmdirSync(directory);
+  }
+});
 
 const transport = vi.hoisted(() => ({
   request: vi.fn(),

@@ -3,7 +3,7 @@ import type { MessageKey } from '../../../../i18n/messages';
 
 export type AnalysisMetricKey = 'pitch' | 'rhythm' | 'stability';
 
-export interface AnalysisMetric {
+interface AnalysisMetric {
   key: AnalysisMetricKey;
   label: MessageKey;
   description: MessageKey;

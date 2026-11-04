@@ -382,7 +382,7 @@ const rangeSemitones = {
   twoOctaves: 24,
 } as const satisfies Record<VocalRange, number>;
 
-export interface PitchRange {
+interface PitchRange {
   min: number;
   max: number;
 }

@@ -338,23 +338,30 @@ export const audioClient: AudioServiceClient = {
     await command('PlayOutputTest');
   },
 
-  prepareSong(song) {
+  prepareSong(song, isCurrent = () => true) {
     return enqueueAudioOperation(async () => {
+      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
       await ensureSession();
+      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
       const artifacts = await desktopBridge().resolveProjectArtifacts(
         song.id,
         song.activeRevision,
       );
+      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
       await command('LoadSong', {
         instrumental: artifacts.instrumental,
         vocals: artifacts.vocals,
         melody: artifacts.melody,
       });
+      await waitForReady();
+      if (!isCurrent()) {
+        await command('UnloadSong');
+        throw new DOMException('Song preparation cancelled', 'AbortError');
+      }
       audioState.durationSeconds = song.durationSeconds;
       audioState.reconfiguration.song = song;
       audioState.reconfiguration.schedule = undefined;
       audioState.sessionId = crypto.randomUUID();
-      await waitForReady();
       return snapshot('ready');
     });
   },
@@ -378,9 +385,11 @@ export const audioClient: AudioServiceClient = {
     });
   },
 
-  seek(positionSeconds) {
+  seek(positionSeconds, isCurrent = () => true) {
     return enqueueAudioOperation(async () => {
+      if (!isCurrent()) throw new DOMException('Seek cancelled', 'AbortError');
       const runtime = await this.runtimeConfiguration();
+      if (!isCurrent()) throw new DOMException('Seek cancelled', 'AbortError');
       await command('Seek', {
         frame: Math.max(0, Math.round(positionSeconds * runtime.sampleRate)),
       });
@@ -459,14 +468,20 @@ export const audioClient: AudioServiceClient = {
 
   ...createRoomVoice(applyConfiguration, reconcileWindowsMode),
 
-  async setPlaybackRate(rate) {
-    audioState.reconfiguration.playbackRate = rate;
-    await command('SetPlaybackRate', { value: rate });
+  setPlaybackRate(rate, isCurrent = () => true) {
+    return enqueueAudioOperation(async () => {
+      if (!isCurrent()) return;
+      await command('SetPlaybackRate', { value: rate });
+      if (isCurrent()) audioState.reconfiguration.playbackRate = rate;
+    });
   },
 
-  async setPitchShift(semitones) {
-    audioState.reconfiguration.pitchShift = semitones;
-    await command('SetTranspose', { semitones });
+  setPitchShift(semitones, isCurrent = () => true) {
+    return enqueueAudioOperation(async () => {
+      if (!isCurrent()) return;
+      await command('SetTranspose', { semitones });
+      if (isCurrent()) audioState.reconfiguration.pitchShift = semitones;
+    });
   },
 
   async setDspParameter(name, value) {

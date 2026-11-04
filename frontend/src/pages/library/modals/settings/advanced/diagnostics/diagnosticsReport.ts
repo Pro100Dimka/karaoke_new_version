@@ -3,7 +3,7 @@ import type {
   ProcessingJobDto,
 } from '../../../../../../contracts/models';
 
-export interface DiagnosticsSnapshot {
+interface DiagnosticsSnapshot {
   frontendVersion: string;
   generatedAt: string;
   backend: BackendDiagnosticsDto | null;
@@ -16,7 +16,7 @@ export interface DiagnosticsSnapshot {
 const reportedFailures = 5;
 
 /** Select recent failures; backend error details are retained for diagnosis. */
-export const failedJobsOf = (jobs: readonly ProcessingJobDto[]) =>
+const failedJobsOf = (jobs: readonly ProcessingJobDto[]) =>
   jobs
     .filter((job) => job.state === 'failed' || job.state === 'interrupted')
     .sort((a, b) =>

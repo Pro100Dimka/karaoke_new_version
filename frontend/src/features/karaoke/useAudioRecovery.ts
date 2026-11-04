@@ -1,5 +1,5 @@
 import { audioClient } from '../../services/audioClient';
-import { useEffect, useRef, type MutableRefObject } from 'react';
+import { useEffect, type MutableRefObject } from 'react';
 import type { SongDto } from '../../contracts/models';
 import { recoverKaraokeAudio } from '../../application/karaoke/KaraokeRecovery';
 
@@ -23,30 +23,39 @@ export const useAudioRecovery = ({
   key,
   onRecovered,
 }: AudioRecoveryOptions): void => {
-  const inFlight = useRef(false);
   useEffect(() => {
     if (!recovering) return;
     let active = true;
+    let inFlight = false;
     const timer = window.setInterval(() => {
-      if (inFlight.current) return;
-      inFlight.current = true;
+      if (inFlight) return;
+      inFlight = true;
+      const recoveringSong = song.current;
+      const recoveringSpeed = speed.current;
+      const recoveringKey = key.current;
+      const isCurrent = () =>
+        active &&
+        song.current === recoveringSong &&
+        speed.current === recoveringSpeed &&
+        key.current === recoveringKey;
       void (async () => {
         try {
           if (
-            await recoverKaraokeAudio({
+            (await recoverKaraokeAudio({
               audio: audioClient,
-              song: song.current,
+              song: recoveringSong,
               position: position.current,
-              speed: speed.current,
-              key: key.current,
-              isCurrent: () => active,
-            })
+              speed: recoveringSpeed,
+              key: recoveringKey,
+              isCurrent,
+            })) &&
+            isCurrent()
           )
             onRecovered();
         } catch {
           // Keep retrying until AudioService accepts the session again.
         } finally {
-          inFlight.current = false;
+          inFlight = false;
         }
       })();
     }, recoveryPollMilliseconds);

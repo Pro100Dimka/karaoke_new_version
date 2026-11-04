@@ -38,8 +38,6 @@ export const processingTitle = (
 
 export const isActive = (job: ProcessingJobDto) =>
   ['processing', 'cancelling'].includes(job.state);
-export const isRetryable = (job: ProcessingJobDto) =>
-  ['failed', 'interrupted', 'cancelled'].includes(job.state);
 
 /** How long a finished job ran, as m:ss. */
 export const processingDuration = (
