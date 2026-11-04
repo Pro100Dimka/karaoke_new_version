@@ -126,6 +126,7 @@
 .helpResult small { display: block; font-size: 11px; color: var(--ad-muted); font-weight: 400; margin-top: 5px; }
 .helpSteps { display: grid; gap: 20px; padding: 0; margin: 0; list-style: none; }
 .helpStep { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr); gap: 28px; align-items: start; padding: 28px; border: 1px solid var(--help-border); border-radius: var(--ad-radius-lg); background: var(--help-panel); box-shadow: var(--ad-shadow-card); }
+.helpStep:not(:has(.helpScreenshot)) { grid-template-columns: minmax(0, 1fr); }
 .helpStepTitle { display: flex; align-items: center; gap: 12px; }
 .helpStepTitle > span { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: var(--ad-radius-sm); background: var(--ad-surface-tile); box-shadow: var(--ad-shadow-tile); font-size: 12px; color: var(--help-accent); flex-shrink: 0; }
 .helpStepTitle h2 { font-size: 22px; line-height: 1.4; margin: 0; letter-spacing: -.015em; }

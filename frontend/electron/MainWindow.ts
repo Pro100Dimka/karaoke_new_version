@@ -175,8 +175,8 @@ export const createMainWindow = (options: MainWindowOptions): BrowserWindow => {
       window.webContents.send(ipcChannels.appVisibility, onScreen);
   });
   window.webContents.on('did-finish-load', () => visibility.republish());
-  window.webContents.on('did-create-window', (panel) => {
-    securePanelWindow(panel);
+  window.webContents.on('did-create-window', (panel, details) => {
+    securePanelWindow(panel, details?.frameName);
     visibility.addPanel(panel);
     captureConsole(panel.webContents);
   });

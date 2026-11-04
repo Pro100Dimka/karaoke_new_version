@@ -62,7 +62,7 @@ _SERVER_SEND_METRICS = (
 
 class RoomDiagnosticsDto(ApiModel):
     participant_id: str = Field(min_length=1, max_length=128)
-    values: dict[str, str] = Field(max_length=400)
+    values: dict[str, str] = Field(max_length=1024)
 
 
 class ProgramLogEntryDto(ApiModel):

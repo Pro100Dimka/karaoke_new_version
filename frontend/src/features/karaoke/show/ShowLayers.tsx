@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { subscribeSpectrum } from '../../../app/backdrop/spectrumEvents';
+import { useHostWindow } from '../../../shared/ui/hostWindow';
 import type { LyricLine } from '../karaokeLyrics';
 import type { ShowNote, ShowPhrase } from './performanceTracker';
 import { RollFxRenderer, type RollView } from './rollFxRenderer';
@@ -155,6 +156,7 @@ export const StageFx = ({
   engine: ShowEngine;
   playing?: boolean;
 }) => {
+  const view = useHostWindow();
   const container = useRef<HTMLDivElement>(null);
   const activeRenderer = useRef<StageFxRenderer | null>(null);
   useEffect(() => {
@@ -171,10 +173,10 @@ export const StageFx = ({
       activeRenderer.current = null;
       canvas.remove();
     };
-  }, [engine]);
+  }, [engine, view]);
   useEffect(
     () => activeRenderer.current?.setPlaying(playing),
-    [engine, playing],
+    [engine, playing, view],
   );
   return <div ref={container} className="showFx" aria-hidden />;
 };
@@ -189,6 +191,7 @@ export const RollFx = ({
   view: RollView;
   playing?: boolean;
 }) => {
+  const host = useHostWindow();
   const container = useRef<HTMLDivElement>(null);
   const activeRenderer = useRef<RollFxRenderer | null>(null);
   const current = useRef<RollView | undefined>(view);
@@ -209,10 +212,10 @@ export const RollFx = ({
       canvas.remove();
       activeRenderer.current = null;
     };
-  }, [engine]);
+  }, [engine, host]);
   useEffect(
     () => activeRenderer.current?.setPlaying(playing),
-    [engine, playing],
+    [engine, host, playing],
   );
   useEffect(() => {
     if (!playing) activeRenderer.current?.setPlaying(false);

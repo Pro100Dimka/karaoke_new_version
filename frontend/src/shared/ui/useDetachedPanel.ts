@@ -11,6 +11,7 @@ import {
   carryWindow,
   fitWindowToPanel,
   moveWindowBySurface,
+  pointInApp,
 } from './detachedWindow';
 import { keyBelongsToControl } from './keyOwnership';
 import { desktopClient } from '../../services/desktopClient';
@@ -55,11 +56,13 @@ const features = ({ width, height, left, top }: PanelBounds): string =>
 /**
  * The panel window shows the app's own styles and theme: every stylesheet (including ones loaded
  * later with a page), the base address their fonts resolve against, and the root attributes that
- * carry the theme. Returns the cleanup that stops mirroring.
+ * carry the theme. A screen can also mirror the app's theme scope, including its selected fonts.
+ * Returns the cleanup that stops mirroring.
  */
 export const mirrorAppearance = (
   source: Document,
   target: Document,
+  scope?: HTMLElement,
 ): (() => void) => {
   const base = target.createElement('base');
   base.href = source.baseURI;
@@ -72,10 +75,18 @@ export const mirrorAppearance = (
       target.head.append(node.cloneNode(true));
   };
   for (const node of source.head.childNodes) copy(node);
+  const theme = scope && source.querySelector('.main-theme');
+  const scopeClass = scope?.className;
   const copyRoot = () => {
     for (const { name, value } of [...source.documentElement.attributes])
       target.documentElement.setAttribute(name, value);
     target.body.className = source.body.className;
+    if (theme && scope)
+      for (const { name, value } of theme.attributes)
+        scope.setAttribute(
+          name,
+          name === 'class' ? `${scopeClass} ${value}` : value,
+        );
   };
   copyRoot();
   const styles = new MutationObserver((records) => {
@@ -86,6 +97,7 @@ export const mirrorAppearance = (
   const root = new MutationObserver(copyRoot);
   root.observe(source.documentElement, { attributes: true });
   root.observe(source.body, { attributes: true, attributeFilter: ['class'] });
+  if (theme) root.observe(theme, { attributes: true });
   return () => {
     styles.disconnect();
     root.disconnect();
@@ -104,20 +116,30 @@ export const useDetachedPanel = (
   title: string,
   size: PanelSize,
   onReturn?: (layout: PanelLayout) => void,
+  enabled = true,
 ) => {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const opened = useRef<Window | null>(null);
   const heldPointer = useRef<PointerEvent | null>(null);
   const returned = useRef(onReturn);
   returned.current = onReturn;
+  const continuous = ['karaokeConsole', 'room'].includes(id);
 
-  const attach = useCallback(() => {
-    const panel = opened.current;
-    opened.current = null;
-    if (id === 'karaokeConsole') flushSync(() => setContainer(null));
-    else setContainer(null);
-    panel?.close();
-  }, [id]);
+  const returnToApp = useCallback(
+    (layout?: PanelLayout) => {
+      const panel = opened.current;
+      opened.current = null;
+      const restore = () => {
+        if (layout) returned.current?.(layout);
+        setContainer(null);
+      };
+      if (continuous) flushSync(restore);
+      else restore();
+      panel?.close();
+    },
+    [continuous],
+  );
+  const attach = useCallback(() => returnToApp(), [returnToApp]);
 
   /**
    * Opens the panel's window where it was last left, or at `at` (screen pixels) when torn off; a
@@ -141,7 +163,7 @@ export const useDetachedPanel = (
       const mount = panel.document.createElement('div');
       mount.className = 'detachedPanel';
       const appearance = document.querySelector<HTMLElement>('.main-theme');
-      if (id === 'karaokeConsole' && appearance) {
+      if (continuous && appearance) {
         const theme = getComputedStyle(appearance);
         panel.document.documentElement.style.fontSize = getComputedStyle(
           document.documentElement,
@@ -164,23 +186,21 @@ export const useDetachedPanel = (
         `${Math.round(bounds.height)}px`,
       );
       panel.document.body.append(mount);
-      const setBounds =
-        id === 'karaokeConsole' ? desktopClient.setConsoleBounds : undefined;
+      const setBounds = continuous ? desktopClient.setPanelBounds : undefined;
       const movePanel = setBounds
         ? (x: number, y: number) => {
-            void setBounds({ x, y });
+            void setBounds(id, { x, y });
           }
         : undefined;
       const resizePanel = setBounds
         ? (width: number, height: number) => {
-            void setBounds({ width, height });
+            void setBounds(id, { width, height });
           }
         : undefined;
       const stopFitting = fitWindowToPanel(panel, mount, resizePanel);
       const dropInApp = (layout: PanelLayout, pointer?: PointerEvent) => {
         heldPointer.current = pointer ?? null;
-        returned.current?.(layout);
-        attach();
+        returnToApp(layout);
       };
       if (movePanel && bounds.left !== undefined && bounds.top !== undefined)
         movePanel(bounds.left, bounds.top);
@@ -189,14 +209,14 @@ export const useDetachedPanel = (
         mount,
         dropInApp,
         movePanel,
-        id === 'karaokeConsole',
+        continuous,
       );
       if (pointer && at?.left !== undefined && at.top !== undefined)
         carryWindow(
           panel,
           { left: at.left, top: at.top, width: at.width, height: at.height },
           pointer,
-          id === 'karaokeConsole' ? dropInApp : undefined,
+          continuous ? dropInApp : undefined,
           movePanel,
         );
       // Shortcuts belong to the app: keys pressed in the panel's window reach the app's window too.
@@ -229,7 +249,7 @@ export const useDetachedPanel = (
         }
       });
       opened.current = panel;
-      if (id === 'karaokeConsole') {
+      if (continuous) {
         const styles = [
           ...panel.document.querySelectorAll<HTMLLinkElement>(
             'link[rel="stylesheet"]',
@@ -269,10 +289,35 @@ export const useDetachedPanel = (
           });
       } else setContainer(mount);
     },
-    [attach, id, size, title],
+    [continuous, id, returnToApp, size, title],
   );
 
   useEffect(() => () => opened.current?.close(), []);
+  useEffect(() => {
+    if (enabled) return;
+    heldPointer.current = null;
+    opened.current?.close();
+  }, [enabled]);
+
+  const resumeDrag = (frame: HTMLElement | null) => {
+    const pointer = heldPointer.current;
+    if (!frame || !pointer) return;
+    heldPointer.current = null;
+    const point = pointInApp(pointer.screenX, pointer.screenY);
+    if (!point) return;
+    frame.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        pointerId: pointer.pointerId,
+        clientX: point.x,
+        clientY: point.y,
+        screenX: pointer.screenX,
+        screenY: pointer.screenY,
+      }),
+    );
+  };
 
   return {
     container,
@@ -280,5 +325,6 @@ export const useDetachedPanel = (
     detach,
     attach,
     heldPointer,
+    resumeDrag,
   };
 };

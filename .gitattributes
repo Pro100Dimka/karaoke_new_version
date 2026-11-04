@@ -1,0 +1,2 @@
+/python/backend/**/*.py text eol=lf
+/kaggle/*.py text eol=lf

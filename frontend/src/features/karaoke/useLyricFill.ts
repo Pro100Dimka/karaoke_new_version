@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react';
+import { useHostWindow } from '../../shared/ui/hostWindow';
 import type { EditorWord } from '../../application/editor/editorModel';
 import { letterProgress, type LetterGeometry } from './karaokeLyrics';
 
@@ -53,37 +54,51 @@ export const useLyricFill = (
   font: string,
   progress = letterProgress,
 ): void => {
+  const host = useHostWindow();
   const measured = useRef<MeasuredWord[]>([]);
   const clock = useRef(position);
   clock.current = position;
   useLayoutEffect(() => {
-    const root = document.getElementById(id);
-    const line = root?.querySelector<HTMLElement>('.ad-lyrics-current');
-    if (!line) return;
-    const measure = () => {
-      const elements = line.querySelectorAll<HTMLElement>('.ad-lyric-word');
-      measured.current = words.flatMap((word, index) => {
-        const element = elements[index];
-        return element
-          ? [{ element, word, geometry: glyphGeometry(element, word.text) }]
-          : [];
-      });
-      paint(measured.current, clock.current, progress);
+    const observeLine = () => {
+      const line = host.document
+        .getElementById(id)
+        ?.querySelector<HTMLElement>('.ad-lyrics-current');
+      if (!line) return;
+      const measure = () => {
+        const elements = line.querySelectorAll<HTMLElement>('.ad-lyric-word');
+        measured.current = words.flatMap((word, index) => {
+          const element = elements[index];
+          return element
+            ? [{ element, word, geometry: glyphGeometry(element, word.text) }]
+            : [];
+        });
+        paint(measured.current, clock.current, progress);
+      };
+      measure();
+      const observer =
+        typeof ResizeObserver === 'undefined'
+          ? undefined
+          : new ResizeObserver(measure);
+      observer?.observe(line);
+      const fonts = line.ownerDocument.fonts;
+      fonts?.addEventListener('loadingdone', measure);
+      return () => {
+        observer?.disconnect();
+        fonts?.removeEventListener('loadingdone', measure);
+        measured.current = [];
+      };
     };
-    measure();
-    const observer =
-      typeof ResizeObserver === 'undefined'
-        ? undefined
-        : new ResizeObserver(measure);
-    observer?.observe(line);
-    const fonts = line.ownerDocument.fonts;
-    fonts?.addEventListener('loadingdone', measure);
+    let stop = observeLine();
+    if (stop) return stop;
+    // The screen's parent layout effect may still be moving it to this document.
+    const frame = host.requestAnimationFrame(() => {
+      stop = observeLine();
+    });
     return () => {
-      observer?.disconnect();
-      fonts?.removeEventListener('loadingdone', measure);
-      measured.current = [];
+      host.cancelAnimationFrame(frame);
+      stop?.();
     };
-  }, [id, words, font, progress]);
+  }, [id, host, words, font, progress]);
   // A new line or measurement resets the painted values; only changing fills need a DOM write.
   useLayoutEffect(() => paint(measured.current, position, progress));
 };

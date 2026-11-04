@@ -135,9 +135,19 @@ export const KaraokeScreen = observer(
     const opensWithIntro = opensWithFullIntroduction(mode);
     const [startReleased, setStartReleased] = useState(!opensWithIntro);
     const [introFinished, setIntroFinished] = useState(!opensWithIntro);
+    // Changing a portal's container remounts its children. Move the same surface instead.
+    const [surface] = useState(() => {
+      const element = window.document.createElement('div');
+      element.style.display = 'contents';
+      return element;
+    });
+    useLayoutEffect(() => {
+      target?.append(surface);
+      return () => surface.remove();
+    }, [surface, target]);
     const session = useKaraokeSession(songId, mode, startReleased);
     const { load, state } = session;
-    useEffect(refreshMotion, [state.kind]);
+    useEffect(refreshMotion, [host, state.kind]);
 
     const backToLibrary = async () => {
       if (!room && ['ready', 'playing', 'paused'].includes(state.kind)) {
@@ -242,14 +252,12 @@ export const KaraokeScreen = observer(
 
     // Drawn where the host puts it: the route's place in the app, or the TV window.
     const place = (node: ReactNode) =>
-      target
-        ? createPortal(
-            <HostWindowContext.Provider value={host}>
-              {node}
-            </HostWindowContext.Provider>,
-            target,
-          )
-        : null;
+      createPortal(
+        <HostWindowContext.Provider value={host}>
+          {node}
+        </HostWindowContext.Provider>,
+        surface,
+      );
 
     if (load.kind === 'loading') {
       return place(

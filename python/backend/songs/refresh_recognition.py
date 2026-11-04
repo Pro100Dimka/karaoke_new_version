@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from backend.domain_errors import NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.runtime import Clock
 from backend.songs.domain import MetadataSource, Song
@@ -33,32 +34,36 @@ class RefreshSongRecognition:
         recognized = self._recognize(song)
         if recognized is None:
             return song
-        provenance = dict(song.metadata_provenance)
-        title, artist = song.title, song.artist
-        if "title" not in song.user_overrides:
-            title = prefer_equivalent_local_spelling(song.title, recognized.title)
-            provenance["title"] = MetadataSource.DETECTED
-        if "artist" not in song.user_overrides:
-            artist = prefer_equivalent_local_spelling(song.artist, recognized.artist)
-            provenance["artist"] = MetadataSource.DETECTED
-        updated = replace(
-            song,
-            title=title,
-            artist=artist,
-            album=recognized.album or song.album,
-            genre=recognized.genre or song.genre,
-            artwork_url=recognized.artwork_url or song.artwork_url,
-            video_url=(
-                song.video_url
-                if "video" in song.user_overrides
-                else recognized.video_url or song.video_url
-            ),
-            recognition_provider=recognized.provider or song.recognition_provider,
-            recognition_external_id=recognized.external_id or song.recognition_external_id,
-            metadata_provenance=provenance,
-            updated_at=self._clock.now(),
-        )
         with self._uow.create() as transaction:
+            current = transaction.songs.get(song.song_id)
+            if current is None:
+                raise NotFoundError("SongNotFound", "Song was not found", songId=song.song_id)
+            song = current
+            provenance = dict(song.metadata_provenance)
+            title, artist = song.title, song.artist
+            if "title" not in song.user_overrides:
+                title = prefer_equivalent_local_spelling(song.title, recognized.title)
+                provenance["title"] = MetadataSource.DETECTED
+            if "artist" not in song.user_overrides:
+                artist = prefer_equivalent_local_spelling(song.artist, recognized.artist)
+                provenance["artist"] = MetadataSource.DETECTED
+            updated = replace(
+                song,
+                title=title,
+                artist=artist,
+                album=recognized.album or song.album,
+                genre=recognized.genre or song.genre,
+                artwork_url=recognized.artwork_url or song.artwork_url,
+                video_url=(
+                    song.video_url
+                    if "video" in song.user_overrides
+                    else recognized.video_url or song.video_url
+                ),
+                recognition_provider=recognized.provider or song.recognition_provider,
+                recognition_external_id=recognized.external_id or song.recognition_external_id,
+                metadata_provenance=provenance,
+                updated_at=self._clock.now(),
+            )
             transaction.songs.update(updated)
             transaction.commit()
         return updated

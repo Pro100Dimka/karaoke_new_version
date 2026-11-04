@@ -1,5 +1,5 @@
 import { store } from '../../providers/store';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter, Button, tr, useLocale } from '@neo-ui-kit/react';
 import {
   useRoomMembership,
@@ -76,6 +76,8 @@ export const RoomDock = () => {
 
   const isHost = room?.role === 'host';
   const people = useRoomPeople(room);
+  const outsideEditor = !pathname.startsWith('/editor/');
+  const visible = Boolean(room) && outsideEditor;
   // The dock is dragged anywhere in the app by its surface, and past the window's edge into a window.
   const placement = useStoredPanelLayout('room');
   const panel = useDetachedPanel(
@@ -83,12 +85,13 @@ export const RoomDock = () => {
     tr(ru.onlineRoom),
     roomPanelSize,
     placement.save,
+    visible,
   );
   const frameRef = useRef<HTMLElement>(null);
   const measuredSize = useMeasuredPanelSize(
     frameRef,
     roomPanelSize,
-    Boolean(room) && !collapsed && !panel.detached,
+    visible && !collapsed && !panel.detached,
   );
   const floating = useFloatingPanel(frameRef, {
     layout: placement.layout && { ...placement.layout, ...measuredSize },
@@ -96,8 +99,18 @@ export const RoomDock = () => {
     defaultSize: measuredSize,
     onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
+  useLayoutEffect(() => {
+    if (panel.detached) return;
+    const frame = frameRef.current;
+    const size = frame?.getBoundingClientRect();
+    if (
+      size?.width === measuredSize.width &&
+      size.height === measuredSize.height
+    )
+      panel.resumeDrag(frame);
+  });
   // The dock stays out of the way while the Melody Editor owns the screen.
-  if (!room || pathname.startsWith('/editor/')) return null;
+  if (!room || !outsideEditor) return null;
 
   const failure = (error: unknown) =>
     notify(
@@ -202,7 +215,7 @@ export const RoomDock = () => {
   };
 
   return (
-    <DetachedPanel panel={panel}>
+    <DetachedPanel panel={panel} keepMounted>
       <aside
         className="roomDock"
         aria-label={tr(ru.onlineRoom)}
@@ -220,6 +233,7 @@ export const RoomDock = () => {
         onPointerDown={panel.detached ? undefined : floating.beginMove}
         onPointerMove={panel.detached ? undefined : floating.handleMove}
         onPointerUp={panel.detached ? undefined : floating.handleUp}
+        onPointerCancel={panel.detached ? undefined : floating.handleCancel}
       >
         <RoomHeadCard
           room={room}
@@ -232,7 +246,9 @@ export const RoomDock = () => {
             copied,
             detached: panel.detached,
             onCopy: () => void handleCopy(),
-            onCollapse: () => setCollapsed(true),
+            onTogglePanel: panel.detached
+              ? panel.attach
+              : () => setCollapsed(true),
             onCancelTransfer: cancelTransfer,
             onRetryTransfer: () => void retryTransfer(),
             onReplaceProject: replaceProject,

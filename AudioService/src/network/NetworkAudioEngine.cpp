@@ -1049,6 +1049,12 @@ void NetworkAudioEngine::sendMain() noexcept {
                   VoiceTimelineSmoother::FollowSeconds));
     std::vector<float> deviceSamples(
         static_cast<std::size_t>(maximumPacketFrames + maximumCorrection) * channels_);
+    std::vector<float> transportSamples;
+    std::vector<std::byte> payload;
+    std::vector<std::byte> packet;
+    transportSamples.reserve(static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_);
+    payload.reserve(transportSamples.capacity() * PcmVoiceCodec::BytesPerSample);
+    packet.reserve(AudioPacketHeaderBytes + payload.capacity());
     std::uint64_t packetIndex = 0;
     std::uint64_t consumedFrames = 0;
     std::uint32_t blockOffset = 0;
@@ -1181,14 +1187,15 @@ void NetworkAudioEngine::sendMain() noexcept {
             nextSharedFrame.reset();
             sharedCorrection = 0.0;
         }
-        auto transportSamples = retimeInterleavedLinear(
+        transportSamples = retimeInterleavedLinear(
             std::span<const float>{deviceSamples.data(),
                                    static_cast<std::size_t>(frames) * channels_},
             channels_,
             endsBeforeGap ? std::min(VoiceTransportPacketFrames,
                                      static_cast<std::uint32_t>(scaleFramePosition(
                                          frames, captureSampleRateHz_, VoiceTransportSampleRateHz)))
-                          : VoiceTransportPacketFrames);
+                          : VoiceTransportPacketFrames,
+            std::move(transportSamples));
         if (endsBeforeGap)
             transportSamples.resize(
                 static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_, 0.0F);
@@ -1215,9 +1222,9 @@ void NetworkAudioEngine::sendMain() noexcept {
             senderEvent.pcm = VoicePacketTrace::measurePcm(transportSamples, channels_);
             senderEvent.encodeStartMicros = steadyMicros();
         }
-        const auto payload = codec == VoiceCodec::Opus
+        payload = codec == VoiceCodec::Opus
                                  ? encoder_->encode(transportSamples, VoiceTransportPacketFrames)
-                                 : PcmVoiceCodec::encode(transportSamples);
+                                 : PcmVoiceCodec::encode(transportSamples, std::move(payload));
         if (fullTrace) {
             senderEvent.encodeEndMicros = steadyMicros();
             senderEvent.payloadHash = VoicePacketTrace::hashBytes(payload);
@@ -1248,7 +1255,7 @@ void NetworkAudioEngine::sendMain() noexcept {
                                  codec,
                                  static_cast<std::uint16_t>(reportedLoss)};
         const auto encodedHeader = encodeAudioPacketHeader(header);
-        std::vector<std::byte> packet(AudioPacketHeaderBytes + payload.size());
+        packet.resize(AudioPacketHeaderBytes + payload.size());
         std::memcpy(packet.data(), encodedHeader.data(), encodedHeader.size());
         std::memcpy(packet.data() + static_cast<std::ptrdiff_t>(AudioPacketHeaderBytes),
                     payload.data(), payload.size());
@@ -1457,6 +1464,7 @@ void NetworkAudioEngine::receiveMain() noexcept {
             continue;
         }
         noteReceive(VoicePacketTrace::ReceiveReason::Received);
+        slot->returnStages.noteReceive(socketReceiveMicros);
         (viaRelay ? slot->relayFirstPackets : slot->directFirstPackets)
             .fetch_add(1, std::memory_order_relaxed);
         slot->lastPacketMicros.store(steadyMicros(), std::memory_order_relaxed);

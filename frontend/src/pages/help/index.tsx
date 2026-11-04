@@ -195,7 +195,7 @@ export const HelpPage = observer(() => {
                 <span className="helpEyebrow">{tr(sections[article.section].title)}</span>
                 <h1 id="helpArticleTitle">{tr(article.title)}</h1>
                 <ol className="helpSteps">
-                  {article.steps.map((step, index) => (
+                  {article.steps.map(({ visual, ...step }, index) => (
                     <li className="helpStep" key={step.title}>
                       <div className="helpStepCopy">
                         <div className="helpStepTitle">
@@ -221,25 +221,27 @@ export const HelpPage = observer(() => {
                             <summary><Icon name="play" size={15} />{tr('Посмотреть короткое видео')}</summary>
                             <video
                               controls playsInline preload="none"
-                              poster={mediaRoot + visuals[step.visual].image + '.jpg'}
+                              src={mediaRoot + step.clip + '.webm'}
+                              poster={visual && mediaRoot + visuals[visual].image + '.jpg'}
                               aria-label={tr(step.title)}
                             >
-                              <source src={import.meta.env.BASE_URL + 'help/' + step.clip + '.webm'} type="video/webm" />
                               {tr('Основные действия описаны над видео.')}
                             </video>
                           </details>
                         )}
                       </div>
-                      <button
-                        type="button" className="helpScreenshot"
-                        onClick={() => setZoom({ visual: step.visual, title: step.title, number: index + 1 })}
-                        aria-label={tr('Увеличить изображение: {name}', { name: tr(step.title) })}
-                      >
-                        {screenshot(step.visual, step.title, index + 1, true)}
-                        <span className="helpZoomHint">
-                          <Icon name="search" size={14} />{tr('Нажмите, чтобы увеличить')}
-                        </span>
-                      </button>
+                      {visual && (
+                        <button
+                          type="button" className="helpScreenshot"
+                          onClick={() => setZoom({ visual, title: step.title, number: index + 1 })}
+                          aria-label={tr('Увеличить изображение: {name}', { name: tr(step.title) })}
+                        >
+                          {screenshot(visual, step.title, index + 1, true)}
+                          <span className="helpZoomHint">
+                            <Icon name="search" size={14} />{tr('Нажмите, чтобы увеличить')}
+                          </span>
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ol>

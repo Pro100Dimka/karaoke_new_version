@@ -113,6 +113,7 @@ export class RollFxRenderer {
   private glowContext: PaintContext | null = null;
   private fallbackCanvas: HTMLCanvasElement | undefined;
   private frame = 0;
+  private readonly host: Window | typeof globalThis;
   private lane = { left: 0, top: 0, width: 0, height: 0 };
   private page = { left: 0, top: 0 };
   private laneAt = -Infinity;
@@ -137,6 +138,7 @@ export class RollFxRenderer {
     private glowCanvas?: PaintCanvas,
     createWorker?: () => Worker,
   ) {
+    this.host = frameElement?.ownerDocument.defaultView ?? globalThis;
     this.context = null;
     if (createWorker && frameElement && canvas instanceof HTMLCanvasElement && typeof Worker !== 'undefined' && canvas.transferControlToOffscreen) {
       try {
@@ -195,25 +197,25 @@ export class RollFxRenderer {
   }
 
   start(): void {
-    cancelAnimationFrame(this.frame);
+    this.host.cancelAnimationFrame(this.frame);
     // The next frame is booked first, so one failed frame can never stop the show.
-    const tick = (now: number) => {
-      this.frame = requestAnimationFrame(tick);
-      this.draw(now);
+    const tick = () => {
+      this.frame = this.host.requestAnimationFrame(tick);
+      this.draw(performance.now());
     };
-    this.frame = requestAnimationFrame(tick);
+    this.frame = this.host.requestAnimationFrame(tick);
   }
 
   setPlaying(playing: boolean): void {
     if (playing) this.start();
     else {
-      cancelAnimationFrame(this.frame);
+      this.host.cancelAnimationFrame(this.frame);
       this.draw(performance.now());
     }
   }
 
   stop(): void {
-    cancelAnimationFrame(this.frame);
+    this.host.cancelAnimationFrame(this.frame);
     this.unsubscribe();
     this.engine.voicePoint = undefined;
     this.contourTextures.clear();
@@ -276,13 +278,13 @@ export class RollFxRenderer {
     style.clipPath = `inset(${margin}px)`;
     if (this.glowRoot && this.glowCanvas instanceof HTMLCanvasElement) {
       const style = getComputedStyle(this.glowRoot);
-      const blur = parseFloat(getComputedStyle(document.documentElement).fontSize) * 2.6;
+      const blur = parseFloat(getComputedStyle(this.frameElement.ownerDocument.documentElement).fontSize) * 2.6;
       const width = parseFloat(style.width), height = parseFloat(style.height);
       this.glowLayout = { width, height, blur, radius: [style.borderTopLeftRadius, style.borderTopRightRadius, style.borderBottomRightRadius, style.borderBottomLeftRadius].map(parseFloat) };
       const pad = Math.ceil(blur * 2);
       Object.assign(this.glowCanvas.style, { position: 'absolute', pointerEvents: 'none', zIndex: '-1', left: `${-pad}px`, top: `${-pad}px`, width: `${width + pad * 2}px`, height: `${height + pad * 2}px` });
     }
-    this.resize({ lane: this.lane, page: this.page, glow: this.glowLayout, ratio: Math.min(2, window.devicePixelRatio || 1) });
+    this.resize({ lane: this.lane, page: this.page, glow: this.glowLayout, ratio: Math.min(2, this.host.devicePixelRatio || 1) });
   }
 
   resize({ lane, page, ratio, glow }: RollLayout): void {

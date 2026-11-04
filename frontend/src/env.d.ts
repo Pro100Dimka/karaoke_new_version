@@ -55,12 +55,10 @@ interface DesktopApi {
     screenX?: number,
     screenY?: number,
   ): Promise<void>;
-  setConsoleBounds?(bounds: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  }): Promise<void>;
+  setPanelBounds?(
+    id: string,
+    bounds: { x?: number; y?: number; width?: number; height?: number },
+  ): Promise<void>;
   toggleMaximize(): Promise<boolean>;
   close(): Promise<void>;
   isMaximized(): Promise<boolean>;

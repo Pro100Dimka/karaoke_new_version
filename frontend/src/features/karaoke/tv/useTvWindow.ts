@@ -43,11 +43,11 @@ export const useTvWindow = (onClosed: () => void) => {
     );
     if (!tv) return null;
     tv.document.title = title;
-    const stopMirroring = mirrorAppearance(document, tv.document);
     // An attribute, not a class: the app's root attributes mirrored onto this window replace its class.
     tv.document.documentElement.setAttribute('data-tv-screen', '');
     const container = tv.document.createElement('div');
     container.className = 'tvScreen';
+    const stopMirroring = mirrorAppearance(document, tv.document, container);
     tv.document.body.append(container);
     const next = { window: tv, container };
     tv.addEventListener('pagehide', () => {

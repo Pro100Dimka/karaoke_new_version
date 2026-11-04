@@ -73,12 +73,10 @@ const desktopApi = {
       screenX,
       screenY,
     ),
-  setConsoleBounds: (bounds: {
-    x?: number;
-    y?: number;
-    width?: number;
-    height?: number;
-  }): Promise<void> => ipcRenderer.invoke(ipcChannels.setConsoleBounds, bounds),
+  setPanelBounds: (
+    id: string,
+    bounds: { x?: number; y?: number; width?: number; height?: number },
+  ): Promise<void> => ipcRenderer.invoke(ipcChannels.setPanelBounds, id, bounds),
 
   toggleMaximize: (): Promise<boolean> =>
     ipcRenderer.invoke(ipcChannels.toggleMaximize),

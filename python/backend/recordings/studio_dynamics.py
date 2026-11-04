@@ -4,6 +4,8 @@ import math
 import threading
 import numpy as np
 from numpy.typing import NDArray
+from scipy.ndimage import median_filter, minimum_filter1d, uniform_filter1d
+from scipy.signal import find_peaks
 import soundfile as sf
 
 from backend.recordings.studio_audio import _MAX_BOOST_DB, _PROFILE_SECONDS, _check_cancel
@@ -17,8 +19,6 @@ def _balance_curve(
     *,
     phrase_smoothing: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    from scipy.ndimage import median_filter, uniform_filter1d
-
     # Require both singers and both accompaniments. Do not normalize rests or a noise floor
     # to a professional singer. This is an energy guard, not a claim of speech recognition.
     floor = max(-55.0, float(np.percentile(voice, 20)) + 10.0)
@@ -122,8 +122,6 @@ def apply_phrase_detail(
 
 
 def _smooth_boosts(gains: np.ndarray, reliable: np.ndarray) -> np.ndarray:
-    from scipy.ndimage import minimum_filter1d, uniform_filter1d
-
     # Ramp boosts down before rests. Bound gain velocity to 3 dB/s in both directions.
     ceiling = uniform_filter1d(minimum_filter1d(reliable.astype(float), size=11), size=9)
     gains = np.minimum(gains, ceiling * _MAX_BOOST_DB)
@@ -176,9 +174,6 @@ def _resonance_filters(
     ratios: list[float],
     filters: list[str],
 ) -> tuple[list[float], float]:
-    from scipy.ndimage import median_filter
-    from scipy.signal import find_peaks
-
     resonances: list[float] = []
     intensity = 0.0
     # Sparse/uncertain evidence must not turn into a blanket EQ or de-esser preset.

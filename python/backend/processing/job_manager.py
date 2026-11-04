@@ -96,6 +96,12 @@ class ProcessingJobManager:
             except DomainError as exc:
                 self._fail(job.job_id, exc)
                 raise
+            except Exception:
+                logger.exception("Background job submission failed", extra={"jobId": job.job_id})
+                self._fail(
+                    job.job_id, DomainError("InternalJobError", "Background job failed", 500)
+                )
+                raise
             finally:
                 if not submitted:
                     self._active_job_types.pop(job.job_id, None)

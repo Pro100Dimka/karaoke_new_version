@@ -14,6 +14,7 @@ import * as path from 'node:path';
 import { launchAsio4AllInstaller } from './Asio4AllInstaller';
 import { projectRoot, saveStorageRoot, themeIconPath } from './AppPaths';
 import { ipcChannels } from './ipcChannels';
+import { findPanelWindow } from './PanelWindows';
 import {
   requireNumber,
   requireObject,
@@ -68,7 +69,8 @@ const registerWindowControls = ({
   confirmClose,
 }: DesktopIpcContext) => {
   trustedIpc.handle(ipcChannels.minimize, () => window()?.minimize());
-  trustedIpc.handle(ipcChannels.setConsoleBounds, (_event, input) => {
+  trustedIpc.handle(ipcChannels.setPanelBounds, (_event, panelId, input) => {
+    const panel = findPanelWindow(window(), requireString(panelId, 'panelId'));
     const requested = requireObject(input, 'bounds');
     const bounds: Partial<Rectangle> = {};
     for (const key of ['x', 'y', 'width', 'height'] as const) {
@@ -79,11 +81,10 @@ const registerWindowControls = ({
         Math.abs(value) > 100000 ||
         (['width', 'height'].includes(key) && value < 1)
       )
-        throw new RangeError(`Invalid console window ${key}`);
+        throw new RangeError(`Invalid panel window ${key}`);
       bounds[key] = Math.round(value);
     }
-    // Only the console has a native parent; other panels keep their existing window behavior.
-    window()?.getChildWindows()[0]?.setBounds(bounds);
+    panel?.setBounds(bounds);
   });
   let drag: { x: number; y: number } | undefined;
   trustedIpc.handle(

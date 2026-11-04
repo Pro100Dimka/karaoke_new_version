@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useHostWindow } from '../../shared/ui/hostWindow';
 
 /** Only a seek snaps the drawing; ordinary IPC jitter is corrected gradually. */
 const resyncThresholdSeconds = 0.5;
@@ -12,6 +13,7 @@ export const useSmoothPosition = (
   playing: boolean,
   rate: number,
 ): number => {
+  const host = useHostWindow();
   const [smooth, setSmooth] = useState(polledSeconds);
   const anchor = useRef({
     seconds: polledSeconds,
@@ -49,7 +51,8 @@ export const useSmoothPosition = (
     if (!playing) return;
     let frame = 0;
     let previousAt = performance.now();
-    const tick = (now: number) => {
+    const tick = () => {
+      const now = performance.now();
       const elapsed = Math.max(0, (now - previousAt) / 1000);
       previousAt = now;
       const limit = elapsed * rate * 0.5;
@@ -62,11 +65,11 @@ export const useSmoothPosition = (
       setSmooth(
         anchor.current.seconds + ((now - anchor.current.at) / 1000) * rate,
       );
-      frame = requestAnimationFrame(tick);
+      frame = host.requestAnimationFrame(tick);
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [playing, rate]);
+    frame = host.requestAnimationFrame(tick);
+    return () => host.cancelAnimationFrame(frame);
+  }, [host, playing, rate]);
 
   return smooth;
 };

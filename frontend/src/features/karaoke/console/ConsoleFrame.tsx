@@ -9,7 +9,6 @@ import {
 } from 'react';
 import { refreshMotion } from '@neo-ui-kit/react';
 import { useHostWindow } from '../../../shared/ui/hostWindow';
-import { pointInApp } from '../../../shared/ui/detachedWindow';
 import type { useDetachedPanel } from '../../../shared/ui/useDetachedPanel';
 import type { ConsolePlacement } from './KaraokeConsole';
 import {
@@ -150,30 +149,8 @@ export const ConsoleFrame = ({
       floating.handleCancel();
       return;
     }
-    const pointer = panel.heldPointer.current;
-    const frame = frameRef.current;
-    if (
-      panel.detached ||
-      !pointer ||
-      !frame ||
-      surfaceRef.current?.offsetHeight !== height
-    )
-      return;
-    panel.heldPointer.current = null;
-    const point = pointInApp(pointer.screenX, pointer.screenY);
-    if (!point) return;
-    frame.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        pointerId: pointer.pointerId,
-        clientX: point.x,
-        clientY: point.y,
-        screenX: pointer.screenX,
-        screenY: pointer.screenY,
-      }),
-    );
+    if (surfaceRef.current?.offsetHeight === height)
+      panel.resumeDrag(frameRef.current);
   });
   const center = (viewport.width - size.width) / 2;
   const bottom = viewport.height - size.height - 8;

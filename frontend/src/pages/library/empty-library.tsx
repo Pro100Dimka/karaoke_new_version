@@ -4,12 +4,14 @@ import {
   Stack,
   StatusIndicator,
   tr,
+  useRouter,
 } from '@neo-ui-kit/react';
 import { useIsMutating, useQuery } from '@tanstack/react-query';
 import {
   requiredModelsQuery,
   processingSettingsQuery,
 } from '../../api/api-service';
+import { routes } from '../../shared/routes';
 
 type EmptyKind = 'firstRun' | 'noResults';
 export const LibraryEmptyState = ({
@@ -21,6 +23,7 @@ export const LibraryEmptyState = ({
   onOpenAudioSettings(): void;
   onOpenModels(): void;
 }) => {
+  const { navigate } = useRouter();
   const savingBackend =
     useIsMutating({ mutationKey: ['processing-settings'] }) > 0;
   const processing = useQuery({
@@ -36,6 +39,7 @@ export const LibraryEmptyState = ({
     return <StatusIndicator status="info" label={tr('library.noMatches')} />;
   const buttons = [
     [true, onOpenAudioSettings, 'chip', 'library.configureAudio', 'primary'],
+    [true, () => navigate(routes.help), 'info', 'library.viewGuide', undefined],
     [
       local && models.data?.some((model) => model.state !== 'Ready'),
       onOpenModels,

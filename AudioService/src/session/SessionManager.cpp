@@ -134,6 +134,7 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
                               runtime.inputSampleRateHz != runtime.outputSampleRateHz);
     // Independent capture can arrive one callback after render. Keep that packet in addition
     // to the drift/interpolation reserve; a common-clock ASIO callback needs no extra packet.
+    // The pitch grain's causal lookbehind does not depend on the device backend.
     return {runtime.inputSampleRateHz,
             runtime.outputSampleRateHz,
             maxBlock,
@@ -145,7 +146,7 @@ FinalSessionPlan SessionManager::buildPlan(const RuntimeConfiguration& runtime) 
             ClockBridge::recommendedTargetFrames(static_cast<std::uint32_t>(bridgeCapacity),
                                                  runtime.inputSampleRateHz) +
                 (independent ? runtime.inputPeriodFrames : 0U),
-            requested_.backend == BackendKind::WasapiShared && !requested_.exclusiveInput};
+            true};
 }
 
 RuntimeConfiguration SessionManager::prepare(RequestedConfiguration requested) {

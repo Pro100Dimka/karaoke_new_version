@@ -4,6 +4,7 @@ import {
 } from '../../shared/errors';
 import { desktopClient } from '../../services/desktopClient';
 import { useEffect, useRef, useState } from 'react';
+import { useHostWindow } from '../../shared/ui/hostWindow';
 import type { ThemeName } from '../../contracts/models';
 import { sceneBackgrounds } from './sceneBackgrounds';
 
@@ -41,6 +42,7 @@ export const SceneBackdrop = ({
   playing,
   rate,
 }: SceneBackdropProps) => {
+  const { document } = useHostWindow();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [failedUrl, setFailedUrl] = useState('');
   const [sceneUrl, setSceneUrl] = useState('');
@@ -118,7 +120,7 @@ export const SceneBackdrop = ({
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [positionSeconds, playing, rate, source, isOwnVideo]);
+  }, [document, positionSeconds, playing, rate, source, isOwnVideo]);
 
   return (
     <div

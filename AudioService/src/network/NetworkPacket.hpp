@@ -146,9 +146,21 @@ class ReturnPathStageTrace {
     }
 
     void note(ReturnPathStageTimes times) noexcept {
+        noteReceive(times.socketReceiveMicros);
         noteDecision(times);
         if (times.queueAdmissionMicros != 0)
             noteQueueAdmission(times);
+    }
+
+    void noteReceive(std::uint64_t socketReceiveMicros) noexcept {
+        if (socketReceiveMicros == 0)
+            return;
+        if (previousReceiveMicros_ != 0 && socketReceiveMicros >= previousReceiveMicros_) {
+            snapshot_.latestReceiveGapMicros = socketReceiveMicros - previousReceiveMicros_;
+            snapshot_.maximumReceiveGapMicros =
+                std::max(snapshot_.maximumReceiveGapMicros, snapshot_.latestReceiveGapMicros);
+        }
+        previousReceiveMicros_ = socketReceiveMicros;
     }
 
     void noteDecision(ReturnPathStageTimes times) noexcept {
@@ -156,12 +168,6 @@ class ReturnPathStageTrace {
             times.decisionMicros < times.processingMicros)
             return;
         ++snapshot_.packets;
-        if (previousReceiveMicros_ != 0 && times.socketReceiveMicros >= previousReceiveMicros_) {
-            snapshot_.latestReceiveGapMicros = times.socketReceiveMicros - previousReceiveMicros_;
-            snapshot_.maximumReceiveGapMicros =
-                std::max(snapshot_.maximumReceiveGapMicros, snapshot_.latestReceiveGapMicros);
-        }
-        previousReceiveMicros_ = times.socketReceiveMicros;
         snapshot_.latestSocketToProcessMicros =
             times.processingMicros - times.socketReceiveMicros;
         snapshot_.maximumSocketToProcessMicros = std::max(
@@ -878,13 +884,14 @@ class NetworkTimingEstimator {
 
 [[nodiscard]] inline std::vector<float> retimeInterleavedLinear(std::span<const float> input,
                                                                 std::uint32_t channels,
-                                                                std::uint32_t outputFrames) {
+                                                                std::uint32_t outputFrames,
+                                                                std::vector<float> output = {}) {
     if (channels == 0 || input.empty() || outputFrames == 0)
         return {};
     const auto inputFrames = static_cast<std::uint32_t>(input.size() / channels);
     if (inputFrames == 0)
         return {};
-    std::vector<float> output(static_cast<std::size_t>(outputFrames) * channels);
+    output.resize(static_cast<std::size_t>(outputFrames) * channels);
     for (std::uint32_t frame = 0; frame < outputFrames; ++frame) {
         const auto position = outputFrames == 1 || inputFrames == 1
                                   ? 0.0F

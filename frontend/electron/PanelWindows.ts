@@ -13,6 +13,16 @@ import {
  * so the panel keeps the app's state and audio; nothing else may open a window.
  */
 export const panelWindowPrefix = 'ad-voice-panel:';
+const ownedPanelNames = ['karaokeConsole', 'room'].map(
+  (id) => `${panelWindowPrefix}${id}`,
+);
+const panelNames = new WeakMap<BrowserWindow, string>();
+
+export const findPanelWindow = (parent: BrowserWindow | null, id: string) =>
+  parent
+    ?.getChildWindows()
+    .find((panel) => panelNames.get(panel) === `${panelWindowPrefix}${id}`);
+
 /** Karaoke on a TV (src/features/karaoke/tv/useTvWindow.ts). */
 export const stageScreenWindowName = `${panelWindowPrefix}stage-screen`;
 
@@ -69,7 +79,7 @@ export const panelWindowOpenHandler =
       };
     }
     const options: BrowserWindowConstructorOptions = {
-      ...(frameName === `${panelWindowPrefix}karaokeConsole` && parent
+      ...(ownedPanelNames.includes(frameName) && parent
         ? { parent }
         : {}),
       // Only the panel itself is seen: no Windows title bar, nothing around the panel. The panel is
@@ -92,7 +102,8 @@ export const panelWindowOpenHandler =
   };
 
 /** A panel window shows only what the app renders into it: it navigates nowhere and opens nothing. */
-export const securePanelWindow = (panel: BrowserWindow): void => {
+export const securePanelWindow = (panel: BrowserWindow, name?: string): void => {
+  if (name && ownedPanelNames.includes(name)) panelNames.set(panel, name);
   panel.webContents.on('will-navigate', (event) => event.preventDefault());
   panel.webContents.on('will-redirect', (event) => event.preventDefault());
   panel.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

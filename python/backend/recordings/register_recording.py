@@ -120,8 +120,8 @@ class RegisterRecording:
             if recording.recording_id in self._pending:
                 return
             self._pending.add(recording.recording_id)
-            self._set_status(recording.recording_id, "Preparing")
             with job_failure(partial(self._queue_failed, recording), suppress=True):
+                self._set_status(recording.recording_id, "Preparing")
                 self._jobs.start(
                     JobType.RECORDING_PREPARATION,
                     lambda context: self._prepare(recording, context),
@@ -136,7 +136,16 @@ class RegisterRecording:
 
     def _release(self, recording_id: str) -> None:
         with self._lock:
-            self._pending.discard(recording_id)
+            try:
+                with self._uow.create() as transaction:
+                    recording = transaction.recordings.get(recording_id)
+                    if recording is not None and recording.file_status == "Preparing":
+                        transaction.recordings.update(
+                            replace(recording, file_status="PreparationFailed")
+                        )
+                        transaction.commit()
+            finally:
+                self._pending.discard(recording_id)
 
     def _set_status(self, recording_id: str, status: str) -> None:
         with self._uow.create() as transaction:

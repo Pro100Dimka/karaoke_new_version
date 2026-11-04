@@ -17,8 +17,9 @@ namespace PcmVoiceCodec {
 constexpr std::size_t BytesPerSample = 2;
 constexpr float FullScale = 32767.0F;
 
-[[nodiscard]] inline std::vector<std::byte> encode(std::span<const float> samples) {
-    std::vector<std::byte> bytes(samples.size() * BytesPerSample);
+[[nodiscard]] inline std::vector<std::byte> encode(std::span<const float> samples,
+                                                 std::vector<std::byte> bytes = {}) {
+    bytes.resize(samples.size() * BytesPerSample);
     for (std::size_t index = 0; index < samples.size(); ++index) {
         const auto value = static_cast<std::int16_t>(
             std::lround(std::clamp(samples[index], -1.0F, 1.0F) * FullScale));

@@ -24,7 +24,7 @@ interface RoomHeadActions {
   copied: boolean;
   detached: boolean;
   onCopy(): void;
-  onCollapse(): void;
+  onTogglePanel(): void;
   onCancelTransfer(): void;
   onRetryTransfer(): void;
   onReplaceProject(): void;
@@ -209,19 +209,16 @@ export const RoomHeadCard = ({
       >
         {[
           {
-            show: !actions.detached,
-            icon: 'minus',
-            label: tr(ru.collapseRoom),
-            onClick: actions.onCollapse,
+            icon: actions.detached ? 'window' : 'minus',
+            label: tr(ru[actions.detached ? 'panelAttach' : 'collapseRoom']),
+            onClick: actions.onTogglePanel,
           },
           {
-            show: true,
             icon: 'close',
             label: tr(ru.leaveRoom),
             onClick: actions.onLeave,
           },
         ]
-          .filter(({ show }) => show)
           .map(({ icon, label, onClick }) => (
             <IconButton
               key={icon}

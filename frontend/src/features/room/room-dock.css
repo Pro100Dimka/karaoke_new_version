@@ -19,6 +19,12 @@
 .roomDock:has(.roomArt) {
   inline-size: min(30rem, calc(100vw - 2 * var(--ad-space-5)));
 }
+[data-panel-window] .detachedPanel .roomDock {
+  position: relative;
+  inset: auto;
+  inline-size: 100%;
+  max-block-size: none;
+}
 .roomPeople {
   display: grid;
   gap: var(--ad-space-2);

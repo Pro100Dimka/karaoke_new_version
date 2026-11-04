@@ -87,6 +87,7 @@ export class StageFxRenderer {
   private styles = new Map<string, { element: HTMLElement; value: string }>();
   private sweepToggle = false;
   private unsubscribe: () => void;
+  private readonly view: Window;
 
   private events = new AbortController();
 
@@ -95,6 +96,7 @@ export class StageFxRenderer {
     private engine: ShowEngine,
     private host: HTMLElement,
   ) {
+    this.view = host.ownerDocument.defaultView ?? window;
     if (typeof Worker !== 'undefined' && canvas.transferControlToOffscreen) {
       const worker = new Worker(
         new URL('./gl/lightWorker.ts', import.meta.url),
@@ -116,7 +118,7 @@ export class StageFxRenderer {
     }
     this.unsubscribe = engine.onCommand((command) => this.onCommand(command));
     const { signal } = this.events;
-    window.addEventListener(
+    this.view.addEventListener(
       'resize',
       () => {
         this.sizeAt = -Infinity;
@@ -126,23 +128,23 @@ export class StageFxRenderer {
   }
 
   start(): void {
-    cancelAnimationFrame(this.frame);
+    this.view.cancelAnimationFrame(this.frame);
     this.last = 0;
     // The next frame is booked first, so one failed frame can never stop the show.
-    const tick = (now: number) => {
-      this.frame = requestAnimationFrame(tick);
-      this.draw(now);
+    const tick = () => {
+      this.frame = this.view.requestAnimationFrame(tick);
+      this.draw(performance.now());
     };
-    this.frame = requestAnimationFrame(tick);
+    this.frame = this.view.requestAnimationFrame(tick);
   }
 
   setPlaying(playing: boolean): void {
     if (playing) this.start();
-    else cancelAnimationFrame(this.frame);
+    else this.view.cancelAnimationFrame(this.frame);
   }
 
   stop(): void {
-    cancelAnimationFrame(this.frame);
+    this.view.cancelAnimationFrame(this.frame);
     this.unsubscribe();
     this.events.abort();
     this.light?.dispose();
@@ -383,7 +385,7 @@ export class StageFxRenderer {
     this.sizeAt = now;
     this.sizedQuality = this.quality;
     const ratio =
-      Math.min(1.5, window.devicePixelRatio || 1) *
+      Math.min(1.5, this.view.devicePixelRatio || 1) *
       (qualityRatios[this.quality] ?? 0.65);
     this.width = this.canvas.clientWidth;
     this.height = this.canvas.clientHeight;

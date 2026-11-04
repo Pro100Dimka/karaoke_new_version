@@ -319,13 +319,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
                                    }));
     if (timelineReady && room.playoutDelaySeconds > 0.0 &&
         !std::isfinite(pending.partialDeadlineMonotonic)) {
-        const auto cadenceDeadline = room.nextEmptyCloseMonotonic == 0.0
-                                         ? std::numeric_limits<double>::infinity()
-                                         : room.nextEmptyCloseMonotonic;
-        pending.partialDeadlineMonotonic =
-            singing ? pending.deadlineMonotonic
-                    : std::min({pending.deadlineMonotonic,
-                                monotonicSeconds + collectionWindow(room), cadenceDeadline});
+        pending.partialDeadlineMonotonic = pending.deadlineMonotonic;
     }
     if (!timelineReady || !hasReadyRecipient(room, pending))
         return withProbe(std::move(output));
@@ -381,13 +375,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
                 });
                 room.nextSendMonotonic = monotonicSeconds;
                 for (auto& [pendingPosition, pending] : room.pending) {
-                    const auto singingPosition =
-                        room.singingStartedAtSeconds >= 0.0 &&
-                        mediaSeconds(pendingPosition.timestamp) >= room.singingStartedAtSeconds;
-                    pending.partialDeadlineMonotonic =
-                        singingPosition ? pending.deadlineMonotonic
-                                        : std::min(pending.deadlineMonotonic,
-                                                   monotonicSeconds + collectionWindow(room));
+                    pending.partialDeadlineMonotonic = pending.deadlineMonotonic;
                     if (std::isfinite(pending.readyMonotonic)) {
                         pending.readyMonotonic = room.nextSendMonotonic;
                         room.nextSendMonotonic += RelayPacingIntervalSeconds;
@@ -432,7 +420,7 @@ std::vector<RelayDatagram> NativeVoiceRelay::flush(double monotonicSeconds,
             continue;
         const Position missing{room.nextTimelinePosition | SharedAudioTimelineFlag,
                                static_cast<std::uint16_t>(SharedRoomPacketFrames)};
-        if (singing && wallSeconds < mediaSeconds(missing.timestamp) + allowed)
+        if (wallSeconds < mediaSeconds(missing.timestamp) + allowed)
             continue;
         if (room.pending.contains(missing))
             continue;
