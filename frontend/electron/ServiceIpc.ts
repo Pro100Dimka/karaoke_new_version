@@ -77,7 +77,10 @@ const registerBackendRequests = (
     subscriptions.set(command, stop);
     if (!observedSender) {
       observedSender = true;
-      event.sender.on('did-start-loading', stopNotifications);
+      event.sender.on('did-start-navigation', (navigation) => {
+        if (navigation.isMainFrame && !navigation.isSameDocument)
+          stopNotifications();
+      });
       event.sender.once('destroyed', () => {
         observedSender = false;
         stopNotifications();

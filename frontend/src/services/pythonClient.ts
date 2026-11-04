@@ -75,30 +75,36 @@ const waitForJob = async (
 ): Promise<BackendJob> => {
   const path = `/jobs/${encodeURIComponent(jobId)}`;
   const deadline = Date.now() + (wait.timeoutMilliseconds ?? 300_000);
-  const aborted = new Promise<void>((resolve) =>
-    wait.signal?.addEventListener('abort', () => resolve(), { once: true }),
-  );
-  while (Date.now() < deadline) {
-    if (wait.signal?.aborted) {
-      await request('POST', `${path}/cancel`);
-      throw new DOMException(`${wait.label} cancelled`, 'AbortError');
+  let onAbort = () => {};
+  const aborted = new Promise<void>((resolve) => {
+    onAbort = resolve;
+    wait.signal?.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    while (Date.now() < deadline) {
+      if (wait.signal?.aborted) {
+        await request('POST', `${path}/cancel`);
+        throw new DOMException(`${wait.label} cancelled`, 'AbortError');
+      }
+      // Listening starts before the read, so a change landing during the read wakes the next one.
+      const changed = nextJobChange(jobId, wait.pollMilliseconds ?? 250);
+      const current = await request<BackendJob>('GET', path);
+      wait.onPoll?.(current);
+      if (current.state === 'Succeeded') {
+        libraryChanged();
+        return current;
+      }
+      if (['Failed', 'Cancelled', 'Interrupted'].includes(current.state))
+        throw (
+          wait.failure?.(current) ??
+          new Error(`${wait.label} ${current.state.toLowerCase()}`)
+        );
+      await Promise.race([changed, aborted]);
     }
-    // Listening starts before the read, so a change landing during the read wakes the next one.
-    const changed = nextJobChange(jobId, wait.pollMilliseconds ?? 250);
-    const current = await request<BackendJob>('GET', path);
-    wait.onPoll?.(current);
-    if (current.state === 'Succeeded') {
-      libraryChanged();
-      return current;
-    }
-    if (['Failed', 'Cancelled', 'Interrupted'].includes(current.state))
-      throw (
-        wait.failure?.(current) ??
-        new Error(`${wait.label} ${current.state.toLowerCase()}`)
-      );
-    await Promise.race([changed, aborted]);
+    throw new Error(`${wait.label} timed out`);
+  } finally {
+    wait.signal?.removeEventListener('abort', onAbort);
   }
-  throw new Error(`${wait.label} timed out`);
 };
 
 const waitForPackageReport = async (

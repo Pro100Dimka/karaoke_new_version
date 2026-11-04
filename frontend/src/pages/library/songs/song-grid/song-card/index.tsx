@@ -1,10 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query';
-import { pythonClient } from '../../../../../services/pythonClient';
-import { desktopClient } from '../../../../../services/desktopClient';
-import { refreshSongs } from '../../../../../api/api-service';
-import { useSongActions } from '../../useSongActions';
-import { ask } from '../../../../../providers/dialog';
-import { useGuardedAction } from '../../useGuardedAction';
 import {
   Badge,
   Card,
@@ -18,17 +11,27 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { memo, useState } from 'react';
+import { refreshSongs } from '../../../../../api/api-service';
 import type { SongDto } from '../../../../../contracts/models';
 import type { MessageKey } from '../../../../../i18n/messages';
 import { ru } from '../../../../../i18n/messages.ru';
+import { ask } from '../../../../../providers/dialog';
+import { desktopClient } from '../../../../../services/desktopClient';
+import { pythonClient } from '../../../../../services/pythonClient';
 import {
   songStatusPresentation,
   type SongActionId,
 } from '../../songPresentation';
+import { useGuardedAction } from '../../useGuardedAction';
+import { useSongActions } from '../../useSongActions';
 import { ProcessingSignal } from './processing-signal';
 
-const actionMeta = {
+const actionMeta: Record<
+  SongActionId,
+  { label: MessageKey; icon: string; style?: React.CSSProperties }
+> = {
   play: { label: 'play', icon: 'play' },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },
   processingDetails: { label: 'openProcessingDetails', icon: 'processing' },
@@ -36,8 +39,12 @@ const actionMeta = {
   settings: { label: 'songSettings', icon: 'settings' },
   folder: { label: 'openFolder', icon: 'folder' },
   viewError: { label: 'viewError', icon: 'warning' },
-  delete: { label: 'deleteSong', icon: 'trash' },
-} as const satisfies Record<SongActionId, { label: MessageKey; icon: string }>;
+  delete: {
+    label: 'deleteSong',
+    icon: 'trash',
+    style: { color: 'red!important' },
+  },
+};
 
 /** The primary button's icon: in a room a guest picks songs, otherwise it is the song's main action. */
 const primaryIcon = (
@@ -207,12 +214,24 @@ export const SongCard = memo(
               style={{ marginTop: 'auto', minWidth: 0 }}
               onClick={(event) => event.stopPropagation()}
             >
+              {!roomSelection && song.status === 'ready' && (
+                <IconButton
+                  round
+                  size="sm"
+                  variant="primary"
+                  icon="music"
+                  style={{ flexShrink: 0 }}
+                  label={tr(ru['recordingRehearsal'])}
+                  disabled={playbackDisabled}
+                  onClick={() => onPlay(song, true)}
+                />
+              )}
               {allowed.map((id) => (
                 <IconButton
                   key={id}
                   round
                   size="sm"
-                  style={{ flexShrink: 0 }}
+                  style={{ flexShrink: 0, ...actionMeta[id]?.style }}
                   icon={
                     id === primary
                       ? primaryIcon(primary, roomSelection)
@@ -224,18 +243,6 @@ export const SongCard = memo(
                   onClick={actions[id]}
                 />
               ))}
-              {!roomSelection && song.status === 'ready' && (
-                <IconButton
-                  round
-                  size="sm"
-                  variant="ghost"
-                  icon="music"
-                  style={{ flexShrink: 0 }}
-                  label={tr(ru['recordingRehearsal'])}
-                  disabled={playbackDisabled}
-                  onClick={() => onPlay(song, true)}
-                />
-              )}
               {song.status === 'processing' && (
                 <ProcessingSignal progress={song.progress ?? 0} song={song} />
               )}

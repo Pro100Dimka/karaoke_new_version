@@ -509,7 +509,14 @@ describe('pythonClient contract', () => {
                 createdAt: '2026-01-01T00:00:00Z',
               },
     }));
-    await pythonClient.importSong('C:/song.mp3');
+    const controller = new AbortController();
+    const added = vi.spyOn(controller.signal, 'addEventListener');
+    const removed = vi.spyOn(controller.signal, 'removeEventListener');
+    await pythonClient.importSong('C:/song.mp3', undefined, {
+      signal: controller.signal,
+      onProgress: vi.fn(),
+    });
+    expect(removed).toHaveBeenCalledWith('abort', added.mock.calls[0]![1]);
     expect(calls[0]).toMatchObject({
       method: 'POST',
       path: '/songs/imports',
