@@ -123,7 +123,6 @@
   "audioInputDevice": "Устройство ввода",
   "audioOutputDevice": "Устройство вывода",
   "systemDefault": "Системное по умолчанию",
-  "playTestSound": "Прослушать",
   "releaseAsioInBackground": "Освобождать ASIO в фоне",
   "lowLatencyMicrophone": "Низкая задержка микрофона",
   "processing": "Обработка",

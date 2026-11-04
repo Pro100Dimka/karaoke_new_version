@@ -252,7 +252,6 @@ export const ru: MessageTable = {
   introCountdown: 'До вступления осталось {seconds} сек',
   play: 'Запустить караоке',
   playRecording: 'Воспроизвести запись',
-  playTestSound: 'Прослушать',
   practiceSpeed: 'Темп',
   process: 'Обработать',
   projectInvalid: 'Проект некорректен',

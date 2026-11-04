@@ -123,7 +123,6 @@
   "audioInputDevice": "Input device",
   "audioOutputDevice": "Output device",
   "systemDefault": "System default",
-  "playTestSound": "Listen",
   "releaseAsioInBackground": "Release ASIO in background",
   "lowLatencyMicrophone": "Low-latency microphone",
   "processing": "Processing",

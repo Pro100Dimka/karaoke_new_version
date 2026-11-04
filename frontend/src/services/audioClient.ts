@@ -353,10 +353,12 @@ export const audioClient: AudioServiceClient = {
         vocals: artifacts.vocals,
         melody: artifacts.melody,
       });
-      await waitForReady();
-      if (!isCurrent()) {
-        await command('UnloadSong');
-        throw new DOMException('Song preparation cancelled', 'AbortError');
+      try {
+        await waitForReady(isCurrent);
+        if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
+      } catch (error) {
+        if (!isCurrent()) await command('UnloadSong');
+        throw error;
       }
       audioState.durationSeconds = song.durationSeconds;
       audioState.reconfiguration.song = song;

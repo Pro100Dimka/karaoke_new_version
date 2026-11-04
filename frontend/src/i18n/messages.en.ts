@@ -1,12 +1,12 @@
+import { audioEn } from './messages.en.audio';
 import { editorEn } from './messages.en.editor';
+import { libraryEn } from './messages.en.library';
+import { mixerEn } from './messages.en.mixer';
 import { recordingsEn } from './messages.en.recordings';
-import { socialEn } from './messages.en.social';
+import { roomEn } from './messages.en.room';
 import { roomDockEn } from './messages.en.roomDock';
 import { servicesEn } from './messages.en.services';
-import { mixerEn } from './messages.en.mixer';
-import { roomEn } from './messages.en.room';
-import { libraryEn } from './messages.en.library';
-import { audioEn } from './messages.en.audio';
+import { socialEn } from './messages.en.social';
 export const en = {
   helpTitle: 'Guide',
   helpScreenshot:
@@ -251,7 +251,6 @@ export const en = {
   introCountdown: 'Vocals in {seconds}s',
   play: 'Play karaoke',
   playRecording: 'Play recording',
-  playTestSound: 'Listen',
   practiceSpeed: 'Speed',
   process: 'Process',
   projectInvalid: 'Project invalid',

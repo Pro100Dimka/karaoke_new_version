@@ -1,13 +1,13 @@
-import { recordingsUk } from './messages.uk.recordings';
-import { socialUk } from './messages.uk.social';
-import { roomDockUk } from './messages.uk.roomDock';
-import { servicesUk } from './messages.uk.services';
-import type { MessageTable } from './messageTable';
 import { audioUk } from './messages.uk.audio';
 import { editorUk } from './messages.uk.editor';
 import { libraryUk } from './messages.uk.library';
 import { processingUk } from './messages.uk.processing';
+import { recordingsUk } from './messages.uk.recordings';
 import { roomUk } from './messages.uk.room';
+import { roomDockUk } from './messages.uk.roomDock';
+import { servicesUk } from './messages.uk.services';
+import { socialUk } from './messages.uk.social';
+import type { MessageTable } from './messageTable';
 
 /** A complete table: every key is translated here, so no Russian text can leak into the Ukrainian UI. */
 export const uk: MessageTable = {
@@ -580,7 +580,6 @@ export const uk: MessageTable = {
   openFolder: 'Відкрити папку',
   performanceAnalysis: 'Аналіз виступу',
   playRecording: 'Відтворити запис',
-  playTestSound: 'Прослухати',
   practiceSpeed: 'Темп',
   projectInvalid: 'Проєкт некоректний',
   projectTransfer: 'Передавання проєкту · {progress}%',

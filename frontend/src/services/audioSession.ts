@@ -327,12 +327,14 @@ export const observeSnapshots = (
 const loadedPlaybackStates = new Set([2, 3, 4]);
 const failedPlaybackState = 7;
 
-export const waitForReady = async (): Promise<void> => {
+export const waitForReady = async (isCurrent = () => true): Promise<void> => {
   // Bound a stalled decoder, while allowing a long track's measured loudness scan to advance.
   let deadline = performance.now() + 15_000;
   let progress = 0;
   do {
+    if (!isCurrent()) throw new DOMException('Song loading cancelled', 'AbortError');
     const values = await diagnostics();
+    if (!isCurrent()) throw new DOMException('Song loading cancelled', 'AbortError');
     const state = Number(values.PlaybackState ?? 0);
     if (loadedPlaybackStates.has(state)) return;
     if (state === failedPlaybackState)
