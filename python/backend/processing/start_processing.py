@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from contextlib import ExitStack
 from dataclasses import dataclass, replace
 
 import hashlib
@@ -151,35 +152,30 @@ class StartProcessing:
         admission = _Admission()
         self._persistence.set_status(song_id, SongStatus.QUEUED)
 
-        def run(context: JobContext) -> dict[str, object]:
-            self._leave_queue(admission)
-            return self._run(
-                song_id, mode, online_lyrics, providers, context, admission.execution()
-            )
-
         # Register the turn in the same order in which workers receive their jobs.
-        with self._admission_changed:
+        with self._admission_changed, ExitStack() as pending:
             self._waiting.append(admission)
-            try:
-                return self._jobs.start(
-                    JobType.SONG_PROCESSING,
-                    run,
-                    entity_id=song_id,
-                    mode=mode,
-                    correlation_id=correlation_id,
-                    initial_report={
-                        "processingBackend": processing_backend.value,
-                        "songTitle": song.title,
-                        "songArtist": song.artist,
-                    },
-                    on_finally=lambda: self._finish(song_id, admission),
-                    admit=lambda cancel: self._admit(
-                        admission, providers, source_bytes, compute_mode, cancel
-                    ),
-                )
-            except Exception:
-                self._leave_queue(admission)
-                raise
+            pending.callback(self._leave_queue, admission)
+            job = self._jobs.start(
+                JobType.SONG_PROCESSING,
+                lambda context: self._run(
+                    song_id, mode, online_lyrics, providers, context, admission.execution()
+                ),
+                entity_id=song_id,
+                mode=mode,
+                correlation_id=correlation_id,
+                initial_report={
+                    "processingBackend": processing_backend.value,
+                    "songTitle": song.title,
+                    "songArtist": song.artist,
+                },
+                on_finally=lambda: self._finish(song_id, admission),
+                admit=lambda cancel: self._admit(
+                    admission, providers, source_bytes, compute_mode, cancel
+                ),
+            )
+            pending.pop_all()
+            return job
 
     def _leave_queue(self, admission: _Admission) -> None:
         with self._admission_changed:
@@ -209,6 +205,7 @@ class StartProcessing:
                     compute_mode,
                     cpu_threads=self._settings().cpu_threads,
                 )
+                self._leave_queue(admission)
                 return
             except DomainError as exc:
                 if exc.code != "ResourceBudgetExceeded":

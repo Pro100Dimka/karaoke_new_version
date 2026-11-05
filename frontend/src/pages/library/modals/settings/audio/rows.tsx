@@ -231,6 +231,7 @@ export const blocks = (
               <FormButton
                 size="md"
                 icon="play"
+                label={tr('audioTestSound')}
                 onClick={() => void status.onPlayTestSound()}
                 disabled={!status.audioAvailable}
               />
