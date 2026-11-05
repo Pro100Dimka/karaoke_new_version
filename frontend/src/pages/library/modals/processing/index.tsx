@@ -116,7 +116,11 @@ export const ProcessingModal = observer(
       });
     const onOpenFolder = (song: SongDto) =>
       void desktopClient.revealProject(song.id, song.activeRevision);
-    const queue = useProcessingQueue(focusSongId);
+    const songsById = useMemo(
+      () => new Map(songs.map((song) => [song.id, song])),
+      [songs],
+    );
+    const queue = useProcessingQueue(songsById);
     const disk = useDisk(open);
     const [notice, setNotice] = useState<Notice>();
     const [motionPaused, setMotionPaused] = useState(false);
@@ -131,10 +135,12 @@ export const ProcessingModal = observer(
       enabled: open,
       scrollMargin: listRef.current?.offsetTop ?? 0,
     });
-    const songsById = useMemo(
-      () => new Map(songs.map((song) => [song.id, song])),
-      [songs],
-    );
+    const focusedIndex = focusSongId
+      ? queue.ordered.findIndex((job) => job.songId === focusSongId)
+      : -1;
+    useEffect(() => {
+      if (open && focusedIndex >= 0) rows.scrollToIndex(focusedIndex);
+    }, [open, focusedIndex, rows]);
     const diskText = disk
       ? tr(ru.processingDiskUsage, {
           free: formatBytes(disk.free),

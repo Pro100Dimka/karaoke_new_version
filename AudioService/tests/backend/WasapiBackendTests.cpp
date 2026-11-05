@@ -405,7 +405,7 @@ struct Callback : IAudioCallback {
     unsigned captureCount{0}, renderCount{0}, lost{0};
     bool comInitialized{false};
     bool holdFirstRender{false};
-    Event firstRender, continueRender, secondRender, deviceLost;
+    Event firstRender, continueRender, secondRender, deviceLost, backendEvent;
     unsigned capturesAtFirstRender{0}, capturesAtSecondRender{0};
     void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
         if (captureCount < captures.size())
@@ -431,6 +431,7 @@ struct Callback : IAudioCallback {
                     0.125F);
     }
     void onBackendEvent(GenerationId, BackendEventType event, std::int32_t) noexcept override {
+        backendEvent.signal();
         if (event == BackendEventType::DeviceLost || event == BackendEventType::DeviceInvalidated) {
             ++lost;
             deviceLost.signal();
@@ -1059,6 +1060,36 @@ void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {
     expect(fixture.callback.lost == 1, "silent endpoint loss must enter recovery");
 }
 
+void Tests::wasapiExclusiveRecoversOnlySustainedClockStall() {
+    Fixture fixture{WasapiMode::Exclusive};
+    fixture.inputAvailable = false;
+    fixture.output.client.silentEvents = true;
+    fixture.output.client.render.frames = 128;
+    fixture.output.client.clock.frames = 0;
+    fixture.output.client.clock.ticks = monotonicTicksNow() / 100;
+    auto request = fixture.request(128);
+    request.inputDeviceId.clear();
+    (void)fixture.backend.open(request);
+    fixture.backend.start(fixture.callback, GenerationId{1});
+    SetEvent(fixture.output.client.event);
+    expect(fixture.output.client.state.attempted.wait(), "render establishes its clock baseline");
+    struct Step { UINT64 played; bool running; };
+    constexpr std::array steps{Step{12'800, true}, Step{1'280, true}, Step{12'800, true},
+                               Step{1'280, true}, Step{1'280, true}, Step{1'280, false}};
+    for (const auto& step : steps) {
+        ResetEvent(fixture.output.client.state.attempted.handle);
+        fixture.output.client.clock.frames += step.played;
+        fixture.output.client.clock.ticks += 2'666'667;
+        SetEvent(fixture.output.client.event);
+        expect(fixture.output.client.state.attempted.wait(), "successful driver calls service the buffer");
+        expect(fixture.backend.snapshot().running == step.running,
+               "only sustained exclusive clock slowdown requests recovery");
+    }
+    fixture.backend.stop();
+    expect(WaitForSingleObject(fixture.callback.backendEvent.handle, 0) == WAIT_OBJECT_0,
+           "a stalled device reports an event for control-thread recovery");
+}
+
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {
     Fixture fixture;
     fixture.input.client.state.fault = fixture.output.client.state.fault = Fault::StreamLatency;
@@ -1335,6 +1366,7 @@ void Tests::wasapiChunkTimestampsFollowTheirSamplePositions() {}
 void Tests::wasapiFailedStartRollsBackTheRunningSession() {}
 void Tests::wasapiCallbackThreadInitializesCom() {}
 void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {}
+void Tests::wasapiExclusiveRecoversOnlySustainedClockStall() {}
 void Tests::wasapiCapabilitiesUseSupportedRatesAndSharedPeriods() {}
 void Tests::wasapiSharedReportsIndependentEndpointPeriods() {}
 void Tests::wasapiDiagnosticCanReverseStreamOpenOrder() {}

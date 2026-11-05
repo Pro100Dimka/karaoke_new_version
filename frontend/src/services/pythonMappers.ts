@@ -45,6 +45,7 @@ export interface BackendJob {
   overallProgress: number;
   error: Record<string, unknown> | null;
   report?: Record<string, unknown> | null;
+  createdAt?: string;
   startedAt?: string | null;
   finishedAt?: string | null;
 }
@@ -190,6 +191,7 @@ export const mapJob = (
     state: mapped(jobStates, job.state, 'queued'),
     stage: full?.stage ?? 'Queued',
     progress: full ? jobProgress(full) : 0,
+    createdAt: full?.createdAt,
     startedAt: full?.startedAt ?? undefined,
     finishedAt: full?.finishedAt ?? undefined,
     processingBackend: full ? processingBackend(full) : undefined,

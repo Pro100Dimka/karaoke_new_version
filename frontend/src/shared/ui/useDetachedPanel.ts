@@ -175,6 +175,25 @@ export const useDetachedPanel = (
           '--ad-font-family-sans',
         ])
           mount.style.setProperty(name, theme.getPropertyValue(name));
+        if (id === 'room') {
+          // Keep fluid theme lengths at the source window's size during the transfer.
+          const measure = document.createElement('div');
+          measure.style.cssText =
+            'position:absolute;visibility:hidden;pointer-events:none;height:0';
+          appearance.append(measure);
+          for (const name of theme) {
+            const value = theme.getPropertyValue(name);
+            if (
+              !name.startsWith('--ad-') ||
+              !/\d(?:vw|vh|vmin|vmax)\b/.test(value) ||
+              !CSS.supports('width', value)
+            )
+              continue;
+            measure.style.width = value;
+            mount.style.setProperty(name, getComputedStyle(measure).width);
+          }
+          measure.remove();
+        }
       }
       // The panel keeps the width (and, for panels sized by their frame, the height) it had in the app.
       mount.style.setProperty(

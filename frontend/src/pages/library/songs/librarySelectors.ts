@@ -3,7 +3,10 @@ import type {
   SongLanguage,
   SongSearch,
 } from '../../../contracts/models';
-import type { LibrarySort } from '../../../shared/preferences/preferences';
+import type {
+  LibrarySort,
+  LibrarySortDirection,
+} from '../../../shared/preferences/preferences';
 import { normalizeSearch } from '../../../shared/utils/format';
 
 export type { LibrarySort };
@@ -24,13 +27,28 @@ const stableTail = (a: SongDto, b: SongDto): number =>
   a.id.localeCompare(b.id);
 
 type CompareSongs = (a: SongDto, b: SongDto, played: LastPlayed) => number;
-const primary: Record<LibrarySort, CompareSongs> = {
-  recent: (a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt) || 0,
+const primary: Record<Exclude<LibrarySort, 'recent'>, CompareSongs> = {
   title: (a, b) => compareText(a.title, b.title),
   artist: (a, b) => compareText(a.artist, b.artist),
   played: (a, b, played) => (played[a.id] ?? 0) - (played[b.id] ?? 0),
   duration: (a, b) => a.durationSeconds - b.durationSeconds,
   bpm: (a, b) => (a.detectedBpm ?? -1) - (b.detectedBpm ?? -1),
+};
+
+/** Pending imports are the next additions. Their order comes from the file selection. */
+export const compareAddedSongs = (
+  a: SongDto,
+  b: SongDto,
+  direction: LibrarySortDirection,
+): number => {
+  const aPending = a.status === 'importing';
+  const bPending = b.status === 'importing';
+  if (aPending && bPending) return 0;
+  const order = direction === 'asc' ? 1 : -1;
+  const byDate =
+    Number(aPending) - Number(bPending) ||
+    Date.parse(a.createdAt) - Date.parse(b.createdAt);
+  return order * byDate || a.id.localeCompare(b.id);
 };
 
 const durationMatches: Record<
@@ -49,7 +67,7 @@ export const selectLibrarySongs = (
   played: LastPlayed = {},
 ): readonly SongDto[] => {
   const query = normalizeSearch(filter.query.trim());
-  const compare = primary[filter.sort];
+  const { sort, direction } = filter;
   return songs
     .filter((song) => {
       if (filter.status !== 'all' && song.status !== filter.status)
@@ -66,7 +84,9 @@ export const selectLibrarySongs = (
     })
     .sort(
       (a, b) =>
-        (filter.direction === 'asc' ? 1 : -1) * compare(a, b, played) ||
-        stableTail(a, b),
+        sort === 'recent'
+          ? compareAddedSongs(a, b, direction)
+          : (direction === 'asc' ? 1 : -1) * primary[sort](a, b, played) ||
+            stableTail(a, b),
     );
 };

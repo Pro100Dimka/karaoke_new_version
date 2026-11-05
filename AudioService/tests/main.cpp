@@ -335,6 +335,8 @@ constexpr std::array tests{
     Test{"wasapiCallbackThreadInitializesCom", Tests::wasapiCallbackThreadInitializesCom},
     Test{"wasapiDetectsDeviceLossWithoutEndpointEvents",
          Tests::wasapiDetectsDeviceLossWithoutEndpointEvents},
+    Test{"wasapiExclusiveRecoversOnlySustainedClockStall",
+         Tests::wasapiExclusiveRecoversOnlySustainedClockStall},
     Test{"wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets",
          Tests::wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets},
     Test{"wasapiReportsEveryDeviceFailure", Tests::wasapiReportsEveryDeviceFailure},

@@ -195,12 +195,11 @@ export const LibraryPage = observer(() => {
           zIndex: 1,
         }}
       >
-        <LibraryHeader />
+        <LibraryHeader onOpenProcessing={openProcessing} />
         <LibraryActions
           view={view}
           onQueryChange={setQuery}
           onFiltersChange={(filters) => setViewFilters(() => filters)}
-          onOpenProcessing={openProcessing}
           roomRole={room?.role}
           collaborativeControl={room?.collaborativeControl}
           onCollaborativeControlChange={roomLibrary.setCollaborativeControl}

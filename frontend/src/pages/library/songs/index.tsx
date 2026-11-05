@@ -3,7 +3,7 @@ import { openSettings } from '../modals/settings';
 import { createPortal } from 'react-dom';
 import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
 import { loadLastPlayed } from './lastPlayed';
-import { selectLibrarySongs } from './librarySelectors';
+import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
 import type { LibraryFilters } from '../hero/actions';
 import { observer } from 'mobx-react-lite';
 import {
@@ -179,8 +179,11 @@ const LibrarySongs = observer(
       libraryChanged();
     }, [jobStates]);
     const localSongs = useMemo(() => {
-      const songs = catalog.data?.pages.flatMap((page) => page.items);
-      if (!songs) return [];
+      const songs = catalog.data?.pages.flatMap((page) => page.items) ?? [];
+      const pending =
+        filters.sort === 'recent' && filters.direction === 'asc'
+          ? [...imports].reverse()
+          : imports;
       const active = new Map(
         jobs
           .filter((job) =>
@@ -188,7 +191,7 @@ const LibrarySongs = observer(
           )
           .map((job) => [job.songId, job]),
       );
-      return [...imports, ...songs].map((song) => {
+      return [...pending, ...songs].map((song) => {
         const job = active.get(song.id);
         return job
           ? {
@@ -203,7 +206,7 @@ const LibrarySongs = observer(
             }
           : song;
       });
-    }, [catalog.data, imports, jobs]);
+    }, [catalog.data, imports, jobs, filters.sort, filters.direction]);
     const selfId = room?.participants.find((person) => person.self)?.id ?? '';
     const songs = useMemo(
       () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
@@ -214,7 +217,11 @@ const LibrarySongs = observer(
       () =>
         completeCatalog
           ? selectLibrarySongs(songs, serverFilter, played)
-          : songs,
+          : serverFilter.sort === 'recent'
+            ? [...songs].sort((a, b) =>
+                compareAddedSongs(a, b, serverFilter.direction),
+              )
+            : songs,
       [songs, completeCatalog, serverFilter, played],
     );
 

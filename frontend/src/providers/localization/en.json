@@ -353,7 +353,7 @@
   "Выберите способ обработки": "Choose a processing method",
   "В настройках обработки выберите этот компьютер или Kaggle. Для локальной обработки дождитесь готовности всех моделей.": "In processing settings, choose this computer or Kaggle. For local processing, wait until all models are ready.",
   "Следите за подготовкой песни": "Follow the processing progress",
-  "Новая песня отправляется на обработку автоматически. Ход работы и подробности ошибки доступны в очереди обработки.": "A new song is queued for processing automatically. Progress and error details are available in the processing queue.",
+  "Новая песня отправляется на обработку автоматически. Нажмите карточку «Готово к караоке» рядом с «Друзьями», чтобы открыть очередь, посмотреть ход работы и подробности ошибки.": "A new song is queued for processing automatically. Click “Ready for karaoke” next to “Friends” to open the queue and see progress or error details.",
   "Дождитесь статуса «Готово»": "Wait for Ready",
   "Готовую песню можно открыть в караоке. Для ремикса или живой записи проверьте распознанные слова перед исполнением.": "A ready song can be opened in karaoke. For a remix or live recording, review the recognized lyrics before singing.",
   "Откройте редактор песни": "Open the song editor",

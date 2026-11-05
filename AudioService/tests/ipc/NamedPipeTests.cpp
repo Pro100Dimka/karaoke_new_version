@@ -70,6 +70,12 @@ void controlNotificationsPreserveCommandsAndReconnect() {
         expect(client != INVALID_HANDLE_VALUE, "notification subscriber connects");
         if (client == INVALID_HANDLE_VALUE)
             return;
+        DWORD readMode = PIPE_READMODE_MESSAGE;
+        if (!SetNamedPipeHandleState(client, &readMode, nullptr, nullptr)) {
+            expect(false, "the subscriber reads one notification message at a time");
+            CloseHandle(client);
+            return;
+        }
         constexpr std::string_view request = "1|GetPlaybackSnapshot|intervalMs=16\n";
         DWORD transferred = 0;
         expect(WriteFile(client, request.data(), static_cast<DWORD>(request.size()), &transferred,

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ru } from '../../i18n/messages.ru';
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import type { useDetachedPanel } from './useDetachedPanel';
+import { isRecord } from '../storage/localStore';
 import './detached-panel.css';
 
 type DetachedPanelState = ReturnType<typeof useDetachedPanel>;
@@ -37,7 +38,14 @@ export const DetachedPanel = ({
     if (panel.container) panel.container.append(content);
     for (const canvas of content.querySelectorAll('canvas')) {
       if (!canvas.width || !canvas.height) continue;
-      const context = canvas.getContext('2d');
+      let context: CanvasRenderingContext2D | null;
+      try {
+        context = canvas.getContext('2d');
+      } catch (error) {
+        // Transferred canvases keep their renderer when the panel moves between documents.
+        if (isRecord(error) && error.name === 'InvalidStateError') continue;
+        throw error;
+      }
       if (!context) continue;
       context.save();
       context.resetTransform();

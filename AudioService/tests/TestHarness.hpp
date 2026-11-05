@@ -183,6 +183,7 @@ void wasapiMicrophoneHeldExclusivelyElsewhereKeepsOutputRunning();
 void lowLatencyMicrophoneIsRequestedPerReconfigure();
 void wasapiCallbackThreadInitializesCom();
 void wasapiDetectsDeviceLossWithoutEndpointEvents();
+void wasapiExclusiveRecoversOnlySustainedClockStall();
 void wasapiExclusiveSubdividesPcmWithoutSplittingEndpointPackets();
 void wasapiReportsEveryDeviceFailure();
 void wasapiSharedFallsBackWhenEnginePeriodQueryIsUnavailable();

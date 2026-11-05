@@ -64,7 +64,10 @@ export const subscribeRadio = (
         if (room.role === 'host') {
           void observeOperation(
             'errors.radioMetadata',
-            publishRadio(store.radio.enabled, store.preferences.radioStation),
+            publishRadio(
+              store.radio.enabled,
+              store.preferences.radioStation || store.radio.stationId,
+            ),
           ).catch(() => undefined);
           return;
         }

@@ -8,8 +8,9 @@ import type { SongDto } from '../../../contracts/models';
 import { Grid, StatTile, tr } from '@neo-ui-kit/react';
 import { FriendsStat } from './friends-stat';
 import { ru } from '../../../i18n/messages.ru';
+import { isInQueue } from '../modals/processing/processingModel';
 
-const LibraryStats = observer(() => {
+const LibraryStats = observer(({ onOpenProcessing }: { onOpenProcessing(): void }) => {
   const epoch = store.application.services.pythonEpoch;
   const { data } = useInfiniteQuery({ ...songsQuery(epoch), enabled: false });
   const { data: summary } = useQuery(songSummaryQuery(epoch));
@@ -20,13 +21,8 @@ const LibraryStats = observer(() => {
     enabled: false,
   });
   const { jobs } = useJobs();
-  const active = new Set(
-    jobs
-      .filter((job) =>
-        ['queued', 'processing', 'cancelling'].includes(job.state),
-      )
-      .map((job) => job.songId),
-  );
+  const activeJobs = jobs.filter(isInQueue);
+  const active = new Set(activeJobs.map((job) => job.songId));
   const local = (
     room
       ? [...imports, ...(data?.pages.flatMap((page) => page.items) ?? [])]
@@ -46,12 +42,23 @@ const LibraryStats = observer(() => {
       gap={4}
       style={{ flex: 1, alignSelf: 'start' }}
     >
-      {[
-        { icon: 'music', value: songCount, label: ru.totalSongs },
-        { icon: 'mic', value: readyCount, label: ru.readyForKaraoke },
-      ].map(({ label, ...tile }) => (
-        <StatTile key={tile.icon} {...tile} label={tr(label)} tilt={false} />
-      ))}
+      <StatTile
+        icon="music"
+        value={songCount}
+        label={tr(ru.totalSongs)}
+        tilt={false}
+      />
+      <StatTile
+        icon="mic"
+        value={readyCount}
+        label={tr(ru.readyForKaraoke)}
+        aria-label={`${tr(ru.readyForKaraoke)} · ${tr(ru.processingQueue)}`}
+        aria-haspopup="dialog"
+        tilt={false}
+        badge={activeJobs.length || undefined}
+        badgeLabel={tr(ru.processingQueue)}
+        onClick={() => onOpenProcessing()}
+      />
       <FriendsStat />
     </Grid>
   );

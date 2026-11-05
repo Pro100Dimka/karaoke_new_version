@@ -69,15 +69,11 @@ def _encode_room(room: Room) -> str:
             "hostId": room.host_id,
             "disconnectPolicy": room.disconnect_policy.value,
             "hostGraceSeconds": room.host_grace_seconds,
-            "hostDisconnectedAt": room.host_disconnected_at.isoformat()
-            if room.host_disconnected_at
-            else None,
+            "hostDisconnectedAt": room.host_disconnected_at,
             "songId": room.song_id,
             "revision": room.revision,
             "playbackState": room.playback_state.value,
-            "playbackStartedAt": room.playback_started_at.isoformat()
-            if room.playback_started_at
-            else None,
+            "playbackStartedAt": room.playback_started_at,
             "playbackPositionSeconds": room.playback_position_seconds,
             "radioEnabled": room.radio_enabled,
             "radioStationId": room.radio_station_id,
@@ -91,13 +87,12 @@ def _encode_room(room: Room) -> str:
             "melodyGain": room.melody_gain,
             "collaborativeControl": room.collaborative_control,
             "syncCheckId": room.sync_check_id,
-            "syncCheckStartedAt": room.sync_check_started_at.isoformat()
-            if room.sync_check_started_at
-            else None,
+            "syncCheckStartedAt": room.sync_check_started_at,
             "roomPlayoutDelayMs": room.room_playout_delay_ms,
             "roomReturnReserveMs": room.room_return_reserve_ms,
             "roomTimingSource": room.room_timing_source.value,
             "singingTiming": room.singing_timing,
+            "autoStartPending": room.auto_start_pending,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
@@ -190,6 +185,7 @@ def _decode_room(payload: str) -> Room:
             raw.get("roomTimingSource", TimingSource.RETURN_CALIBRATING.value)
         ),
         singing_timing=_decode_timing(raw.get("singingTiming")),
+        auto_start_pending=bool(raw.get("autoStartPending", False)),
     )
 
 

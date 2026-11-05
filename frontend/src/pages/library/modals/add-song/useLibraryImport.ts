@@ -32,7 +32,7 @@ export const useLibraryImport = () => {
   ) => {
     const song = await importSong(client, path, metadata, options, placeholderId);
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
-    void guarded(async () => {
+    await guarded(async () => {
       if (song.status !== 'not-processed') return;
       await pythonClient.processSong(song.id);
       await refreshSongs(client);

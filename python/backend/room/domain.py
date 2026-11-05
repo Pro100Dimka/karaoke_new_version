@@ -115,6 +115,7 @@ class Room:
     room_return_reserve_ms: float = ROOM_TIMING.return_requirement.fallback_ms
     room_timing_source: TimingSource = TimingSource.AWAITING_ROUTES
     singing_timing: RoomTiming | None = None
+    auto_start_pending: bool = False
 
     def with_timing(self, timing: RoomTiming) -> Room:
         return replace(

@@ -1,6 +1,7 @@
 import { useJobs } from '../../../../providers/application';
 import { useEffect, useMemo, useState } from 'react';
-import type { ProcessingJobDto } from '../../../../contracts/models';
+import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
+import { isInQueue } from './processingModel';
 import {
   readJson,
   storageKey,
@@ -14,7 +15,7 @@ const hiddenJobsKey = storageKey('processingQueue.hidden');
  * Hidden cards over the shared job snapshot. Opening this window does not start
  * another backend subscription or polling loop.
  */
-export const useProcessingQueue = (focusSongId?: string) => {
+export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
   const { jobs, failed } = useJobs();
   const [hidden, setHidden] = useState<ReadonlySet<string>>(() => {
     const stored = readJson(hiddenJobsKey);
@@ -30,14 +31,16 @@ export const useProcessingQueue = (focusSongId?: string) => {
     () => jobs.filter((job) => !hidden.has(job.id)),
     [jobs, hidden],
   );
-  const ordered = useMemo(
-    () =>
-      [...visible].sort(
-        (a, b) =>
-          Number(b.songId === focusSongId) - Number(a.songId === focusSongId),
-      ),
-    [visible, focusSongId],
-  );
+  const ordered = useMemo(() => {
+    const addedAt = (job: ProcessingJobDto) =>
+      Date.parse(songs.get(job.songId)?.createdAt ?? job.createdAt ?? '') ||
+      Infinity;
+    return [...visible].sort((a, b) =>
+      Number(isInQueue(b)) - Number(isInQueue(a)) ||
+      addedAt(a) - addedAt(b) ||
+      a.id.localeCompare(b.id),
+    );
+  }, [visible, songs]);
 
   const count = (states: readonly JobState[]) =>
     visible.filter((job) => states.includes(job.state)).length;

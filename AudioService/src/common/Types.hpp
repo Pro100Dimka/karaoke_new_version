@@ -96,7 +96,9 @@ enum class BackendEventType {
     CaptureOverrun,
     RenderUnderrun,
     DriverReset,
-    SampleRateChanged
+    SampleRateChanged,
+    RenderStalled,
+    Count
 };
 
 struct FailureInfo {

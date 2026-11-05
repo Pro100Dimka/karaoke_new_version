@@ -525,6 +525,7 @@ struct WasapiBackend::Impl {
     std::uint32_t lastCapturePacketsThisWake{0}, lastCaptureFramesThisWake{0};
     std::uint64_t lastCapturePacketQpc{0};
     std::uint64_t starveWindowQpc{0}, starveWindowPosition{0};
+    std::uint32_t stalledRenderWindows{0};
     bool exclusiveCapture{false}; // capture opened exclusively (render period), not shared
     // Shared output with an exclusive microphone requested ("minimum microphone latency"), and
     // why it stayed shared. Written while opening, read by snapshot() on the control thread.
@@ -775,6 +776,7 @@ struct WasapiBackend::Impl {
         inputSharedPeriod = {};
         captureDiscontinuities.store(0, std::memory_order_relaxed);
         starveWindowQpc = 0;
+        stalledRenderWindows = 0;
         renderTimingPressureFrames.store(0, std::memory_order_relaxed);
         renderQueueEscalations.store(0, std::memory_order_relaxed);
         lastDuplexWaitUs = 0;
@@ -1416,8 +1418,7 @@ struct WasapiBackend::Impl {
                                                   std::memory_order_relaxed);
                 submittedRenderFrames = rebased;
             }
-            if (mode == WasapiMode::Shared)
-                measureStarvation(position, qpc, pad, queueFrames);
+            measureStarvation(position, qpc, pad, queueFrames);
             presentation = static_cast<MonotonicTicks>(qpc) * 100 +
                            static_cast<MonotonicTicks>(submittedRenderFrames - position) *
                                1'000'000'000LL / outputFormat->nSamplesPerSec;
@@ -1537,9 +1538,11 @@ struct WasapiBackend::Impl {
                            std::uint32_t pad, std::uint32_t queueTarget) noexcept {
         const auto rate = outputFormat->nSamplesPerSec;
         const auto period = std::max(1U, runtime.outputPeriodFrames);
-        if (starveWindowQpc == 0 || positionFrames < starveWindowPosition) {
+        if (starveWindowQpc == 0 || positionFrames < starveWindowPosition ||
+            qpc100ns < starveWindowQpc) {
             starveWindowQpc = qpc100ns;
             starveWindowPosition = positionFrames;
+            stalledRenderWindows = 0;
             return;
         }
         const auto qpcElapsed = qpc100ns - starveWindowQpc;
@@ -1562,6 +1565,15 @@ struct WasapiBackend::Impl {
         }
         starveWindowQpc = qpc100ns;
         starveWindowPosition = positionFrames;
+        if (mode == WasapiMode::Exclusive) {
+            // Successful API calls do not prove that an exclusive driver services its clock.
+            // Three windows below half speed exclude a single delayed event or short CPU stall.
+            constexpr std::uint32_t ConfirmingWindows = 3;
+            stalledRenderWindows = played < elapsed / 2 ? stalledRenderWindows + 1U : 0U;
+            if (stalledRenderWindows >= ConfirmingWindows &&
+                running.exchange(false, std::memory_order_acq_rel))
+                callback->onBackendEvent(generation, BackendEventType::RenderStalled, 0);
+        }
     }
     void threadMain() noexcept {
         const auto apartment = CoInitializeEx(nullptr, COINIT_MULTITHREADED);

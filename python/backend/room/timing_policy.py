@@ -8,14 +8,14 @@ back and collects singers until D - R.
 
 The deadline is chosen from measurements every participant publishes before a song starts:
 
-- the route requirement: the delay its listener needs for the server's mix to arrive (99th
-  percentile of arrival lateness over the last 30 s plus a render guard, measured by AudioService);
+- the route requirement: the observed arrival and return upper envelopes over the last 30 s,
+  plus a render guard, measured by AudioService without the relay's collection wait;
 - the return requirement: how long the server's mix takes from leaving the relay to this listener's
-  socket receive (the same 99th percentile, of arrival lateness minus the time the mix spent before
+  socket receive (the recent upper envelope of arrival lateness minus the time the mix spent before
   the relay sent it). It excludes later decoding, scheduling and output submission; future output
   presentation shortens the remaining delivery budget, so this metric is not a physical guarantee;
 - the arrival requirement: how late the voices this listener hears reach the relay after their
-  position (99th percentile of the mix's own report of its latest voice).
+  position (the recent upper envelope of the mix's own report of its latest voice).
 
 Neither of the last two contains anything the relay waited, so a larger deadline cannot make them
 larger: the deadline does not feed back into its own requirement.
@@ -49,9 +49,9 @@ class RoomTimingPolicy:
     # One packet more than the jitter floor every client keeps; a measured route below it still
     # plays at this deadline.
     minimum_room_delay_ms: float = 10.0
-    # The product ceiling for live singing together. A route that needs more is not admitted to
-    # the live mix; it never stretches the room.
-    maximum_room_delay_ms: float = 110.0
+    # The supported client buffer bounds the measured deadline selected before singing.
+    # Routes above it remain excluded; no route stretches an ongoing performance.
+    maximum_room_delay_ms: float = 250.0
     # Conversation without a song can use the larger client-supported delay. Singing remains
     # bounded by maximum_room_delay_ms and keeps its selected deadline fixed during the song.
     maximum_idle_delay_ms: float = 250.0

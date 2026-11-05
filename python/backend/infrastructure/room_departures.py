@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from contextlib import suppress
 from typing import Awaitable, Callable
 
 import anyio
@@ -64,3 +65,13 @@ class RoomDepartures:
     async def settled(self) -> None:
         """Waits until every departure waiting now has been decided."""
         await asyncio.gather(*self._tasks)
+
+    async def stop(self) -> None:
+        """A server restart is not a participant departure."""
+        tasks = tuple(self._tasks)
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            with suppress(asyncio.CancelledError):
+                await task
+        self._departures.clear()

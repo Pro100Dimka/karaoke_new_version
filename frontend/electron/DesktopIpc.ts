@@ -98,7 +98,25 @@ const registerWindowControls = ({
       screenY: unknown,
     ) => {
       const current = window();
-      if (phase === 'end' || !current) {
+      if (!current) {
+        drag = undefined;
+        return;
+      }
+      const cursor =
+        typeof x === 'number' &&
+        Number.isFinite(x) &&
+        Math.abs(x) < 100000 &&
+        typeof screenY === 'number' &&
+        Number.isFinite(screenY) &&
+        Math.abs(screenY) < 100000
+          ? { x, y: screenY }
+          : screen.getCursorScreenPoint();
+      if (phase === 'end') {
+        if (drag) {
+          const { bounds, workArea } = screen.getDisplayNearestPoint(cursor);
+          if (cursor.y >= bounds.y && cursor.y <= workArea.y + 8)
+            current.maximize();
+        }
         drag = undefined;
         return;
       }
@@ -120,15 +138,6 @@ const registerWindowControls = ({
         if (current.isMaximized()) current.unmaximize();
       } else if (phase !== 'move') return;
       if (!drag) return;
-      const cursor =
-        typeof x === 'number' &&
-        Number.isFinite(x) &&
-        Math.abs(x) < 100000 &&
-        typeof screenY === 'number' &&
-        Number.isFinite(screenY) &&
-        Math.abs(screenY) < 100000
-          ? { x, y: screenY }
-          : screen.getCursorScreenPoint();
       current.setPosition(
         Math.round(cursor.x - drag.x),
         Math.round(cursor.y - drag.y),

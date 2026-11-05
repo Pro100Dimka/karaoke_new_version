@@ -37,9 +37,9 @@ class Route:
     "direct,calibrated,count,expected",
     [
         (True, True, 2, 27.5),
-        (False, True, 2, 110),
-        (True, False, 2, 110),
-        (True, True, 3, 110),
+        (False, True, 2, 250),
+        (True, False, 2, 250),
+        (True, True, 3, 250),
     ],
 )
 def test_direct_duet_uses_measured_whole_route_without_waiting_for_relay_stages(
@@ -102,7 +102,7 @@ def test_song_packet_aligns_and_admits_the_observed_106_ms_route() -> None:
 
     singing = timing(route)
 
-    assert ROOM_TIMING.maximum_room_delay_ms == 110.0
+    assert ROOM_TIMING.maximum_room_delay_ms == 250.0
     assert eligibility(route) is EligibilityReason.ELIGIBLE
     assert singing.playout_delay_ms == 107.5
     assert close_of(singing) >= route.arrival_requirement_ms
@@ -119,7 +119,7 @@ def test_run015_routes_do_not_add_forty_ms_after_the_measured_budget() -> None:
     assert close_of(selected) >= 39.5
 
 
-def test_conversation_covers_observed_spike_while_singing_keeps_a_fixed_110_ms_ceiling() -> None:
+def test_conversation_and_measured_song_cover_the_observed_spike() -> None:
     spike = Route(173.0, return_requirement_ms=121.5, arrival_requirement_ms=51.5)
 
     conversation = timing(spike, song_selected=False)
@@ -127,14 +127,17 @@ def test_conversation_covers_observed_spike_while_singing_keeps_a_fixed_110_ms_c
 
     assert conversation.playout_delay_ms == 250.0
     assert close_of(conversation) >= spike.arrival_requirement_ms
-    assert ROOM_TIMING.maximum_room_delay_ms == 110.0
-    assert singing.playout_delay_ms <= 110.0
+    assert eligibility(spike) is EligibilityReason.ELIGIBLE
+    assert singing.source is TimingSource.MEASURED
+    assert singing.playout_delay_ms == 175.0
+    assert singing.return_reserve_ms >= spike.return_requirement_ms
+    assert close_of(singing) >= spike.arrival_requirement_ms
 
 
-def test_live_limit_rejects_routes_above_110_ms() -> None:
-    route = Route(115.0, return_requirement_ms=20.0, arrival_requirement_ms=25.0)
+def test_live_limit_rejects_routes_above_supported_buffer() -> None:
+    route = Route(255.0, return_requirement_ms=20.0, arrival_requirement_ms=25.0)
 
-    assert ROOM_TIMING.maximum_room_delay_ms == 110.0
+    assert ROOM_TIMING.maximum_room_delay_ms == 250.0
     assert eligibility(route) is EligibilityReason.ROUTE_EXCEEDS_LIVE_LATENCY_LIMIT
 
 
@@ -198,7 +201,7 @@ def test_the_relay_never_closes_before_the_measured_arrival_of_the_voices() -> N
 
 def test_e_a_route_beyond_the_live_limit_neither_stretches_the_room_nor_its_reserve() -> None:
     good = Route(30.0, return_requirement_ms=4.0, arrival_requirement_ms=20.0)
-    bad = Route(240.0, return_requirement_ms=90.0, arrival_requirement_ms=50.0)
+    bad = Route(260.0, return_requirement_ms=90.0, arrival_requirement_ms=50.0)
 
     selected = timing(good, bad)
 
@@ -284,7 +287,7 @@ def test_an_uncalibrated_route_keeps_the_previous_deadline_and_says_so(routes) -
 
     assert selected.source is TimingSource.RETURN_CALIBRATING
     assert selected.return_reserve_ms == ROOM_TIMING.return_requirement.fallback_ms
-    assert selected.playout_delay_ms == 110.0  # the song's fixed deadline while routes calibrate
+    assert selected.playout_delay_ms == 250.0  # bounded fallback while routes calibrate
 
 
 def test_the_deadline_stays_within_the_live_ceiling_and_the_reserve_leaves_collection_time() -> (

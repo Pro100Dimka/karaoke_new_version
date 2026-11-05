@@ -92,3 +92,30 @@ def test_only_the_latest_departure_counts_and_a_returning_app_keeps_its_place() 
     asyncio.run(scenario())
     # One departure took the seat: the earlier one no longer counted, the returning app kept it.
     assert left == [("room", "seat")]
+
+
+def test_server_shutdown_cancels_departures_without_removing_room_members() -> None:
+    left: list[tuple[str, str]] = []
+
+    async def scenario() -> None:
+        waiting = asyncio.Event()
+        cancelled = asyncio.Event()
+
+        async def wait(_: float) -> None:
+            waiting.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+
+        departures = RoomDepartures(
+            lambda room, seat: left.append((room, seat)), lambda _: False, 60, wait
+        )
+        departures.gone("anna", "seat", "room")
+        await waiting.wait()
+        await departures.stop()
+        assert cancelled.is_set()
+        await departures.settled()
+
+    asyncio.run(scenario())
+    assert not left

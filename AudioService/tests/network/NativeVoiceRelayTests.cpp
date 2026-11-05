@@ -198,14 +198,14 @@ void nativeVoiceRelayResumesCurrentVoiceAfterOneLatePosition() {
     (void)relay.receive(packet("bob", 0x2222, 1, base, 1'000), bob, 10.001, 1'000.021);
     (void)relay.receive(packet("alice", 0x1111, 2, base + SharedRoomPacketFrames, 100),
                         alice, 10.0025, 1'000.0225);
-    (void)relay.flush(10.0235, 1'000.0435);
+    (void)relay.flush(10.0535, 1'000.0735);
     expect(relay.excludedParticipants("room") == 1, "missing position is excluded");
     auto output = relay.receive(
         packet("bob", 0x2222, 3, base + 20 * SharedRoomPacketFrames, 1'000),
-        bob, 10.050, 1'000.070);
+        bob, 10.054, 1'000.074);
     const auto other = relay.receive(
         packet("alice", 0x1111, 3, base + 20 * SharedRoomPacketFrames, 100),
-        alice, 10.051, 1'000.071);
+        alice, 10.055, 1'000.075);
     output.insert(output.end(), other.begin(), other.end());
     expect(relay.excludedParticipants("room") == 0,
            "a current on-time position resumes voice without a half-second silence penalty");
@@ -363,42 +363,41 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
                                    [](auto value) { return value == 300; }),
            "the present singer reaches the other recipient before partial collection closes");
 
-    expect(relay.flush(10.0099, 1'000.0099).empty(),
-           "a partial position keeps a short bounded opportunity for the missing singer");
-    const auto partial = relay.flush(10.0101, 1'000.0101);
+    expect(relay.flush(10.0699, 1'000.0699).empty(),
+           "a partial position accepts the missing singer until the fixed server deadline");
+    const auto partial = relay.flush(10.0701, 1'000.0701);
     expect(serverMixPackets(partial) == 1 &&
                std::ranges::all_of(samples(forTarget(partial, alice).bytes),
                                    [](auto value) { return value == 0; }),
-           "the bounded collection window emits present audio with correct mix-minus instead "
-           "of waiting for the room deadline");
+           "the fixed deadline emits silence only for the missing remote contribution");
     const auto lateBob = packet("bob", 0x2222, 2, 48'000'000, 2'000);
-    expect(relay.receive(lateBob, bob, 10.011, 1'000.011).empty(),
+    expect(relay.receive(lateBob, bob, 10.071, 1'000.071).empty(),
            "a packet that missed its position is never rendered later");
 
     const auto nextPosition = 48'000'000U + SharedRoomPacketFrames;
+    const auto recoveredToAlice = relay.receive(
+        packet("bob", 0x2222, 3, nextPosition, 2'000), bob, 10.0712, 1'000.0712);
     const auto recoveredToBob = relay.receive(
-        packet("alice", 0x1111, 3, nextPosition, 400), alice, 10.012, 1'000.012);
-    const auto recovered = relay.receive(packet("bob", 0x2222, 3, nextPosition, 2'000), bob,
-                                         10.013, 1'000.013);
-    expect(serverMixPackets(recoveredToBob) == 1 && serverMixPackets(recovered) == 1 &&
-               std::ranges::all_of(samples(forTarget(recovered, alice).bytes),
+        packet("alice", 0x1111, 3, nextPosition, 400), alice, 10.0723, 1'000.0723);
+    expect(serverMixPackets(recoveredToAlice) == 1 && serverMixPackets(recoveredToBob) == 1 &&
+               std::ranges::all_of(samples(forTarget(recoveredToAlice, alice).bytes),
                                    [](auto value) { return value == 2'000; }),
            "timely voice resumes at the next position without replaying the missed position");
 
     relay.setGeneration("room", 2);
-    const auto cadenceBase = 48'000'000U + 8U * SharedRoomPacketFrames;
-    (void)relay.receive(packet("alice", 0x1111, 4, cadenceBase, 100), alice, 10.020, 1'000.020);
-    (void)relay.receive(packet("bob", 0x2222, 4, cadenceBase, 1'000), bob, 10.021, 1'000.021);
+    const auto cadenceBase = 48'000'000U + 32U * SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", 0x1111, 4, cadenceBase, 100), alice, 10.080, 1'000.080);
+    (void)relay.receive(packet("bob", 0x2222, 4, cadenceBase, 1'000), bob, 10.081, 1'000.081);
     const auto cadenceBoundPosition = cadenceBase + SharedRoomPacketFrames;
     const auto cadenceToBob = relay.receive(packet("alice", 0x1111, 5, cadenceBoundPosition, 500),
-                                            alice, 10.0405, 1'000.0405);
-    expect(relay.flush(10.0409, 1'000.0409).empty(),
-           "a late first input may use the remaining room cadence window");
-    const auto cadenceBound = relay.flush(10.0411, 1'000.0411);
+                                            alice, 10.1005, 1'000.1005);
+    expect(relay.flush(10.1524, 1'000.1524).empty(),
+           "a late first input retains the remaining fixed deadline budget");
+    const auto cadenceBound = relay.flush(10.1526, 1'000.1526);
     expect(serverMixPackets(cadenceToBob) == 1 && serverMixPackets(cadenceBound) == 1 &&
                std::ranges::all_of(samples(forTarget(cadenceToBob, bob).bytes),
                                    [](auto value) { return value == 500; }),
-           "the per-position collection window cannot extend the hard room cadence bound");
+           "arrival time cannot extend the fixed server deadline");
 }
 
 void nativeVoiceRelayKeepsSingingInputsUntilTheAuthoritativeDeadline() {
@@ -524,11 +523,13 @@ void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
 
     (void)relay.receive(packet("alice", 0x1111, 2, base, 400), alice,
                         10.003, 1'000.003);
-    expect(relay.flush(10.0109, 1'000.0109).empty(),
-           "the N-singer collection window remains bounded but covers measured ingress jitter");
-    const auto partial = relay.flush(10.0111, 1'000.0111);
+    expect(relay.flush(10.0699, 1'000.0699).empty(),
+           "all singers retain their fixed server deadline budget");
+    const auto partial = relay.flush(10.0701, 1'000.0701);
     expect(serverMixPackets(partial) == 3,
-           "one missing singer cannot delay the other recipients past the bounded window");
+           "one missing singer cannot delay the other recipients past the fixed deadline");
+    if (serverMixPackets(partial) != 3)
+        return;
     expect(std::ranges::all_of(samples(forTarget(partial, bob).bytes),
                                [](auto value) { return value == 100; }) &&
                std::ranges::all_of(samples(forTarget(partial, alice).bytes),
@@ -600,7 +601,7 @@ void nativeVoiceRelayNeverSendsOlderPositionAfterNewerMixToRecipient() {
     expect(serverMixPackets(first) == 0,
            "a newer idle-room position waits while the preceding voice can still arrive");
     auto previousPosition = base;
-    const auto later = relay.flush(10.0231, 1'000.0231);
+    const auto later = relay.flush(10.0726, 1'000.0726);
     for (const auto& datagram : later) {
         if (datagram.target != bob ||
             !decodeAudioPacketHeader(datagram.bytes, header) ||
@@ -800,7 +801,7 @@ void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
 
     const auto output = relay.receive(
         packet("alice", 0x1111, 2, base + SharedRoomPacketFrames, 400),
-        alice, 10.011, 1'000.011);
+        alice, 10.0701, 1'000.0701);
 
     expect(serverMixPackets(output) >= 1,
            "continuous ingress closes older due positions without waiting for a socket timeout");
@@ -842,12 +843,14 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
     expect(serverMixPackets(relay.flush(10.0021, 1'000.0021)) == 2,
            "ready mixes are spread inside the callback period without consuming room latency");
 
-    expect(relay.flush(10.0220, 1'000.0220).empty(),
-           "an entirely absent position gets a bounded no-ingress collection opportunity");
-    const auto silence = relay.flush(10.0222, 1'000.0222);
+    expect(relay.flush(10.0749, 1'000.0749).empty(),
+           "an entirely absent position remains open until its fixed server deadline");
+    const auto silence = relay.flush(10.0751, 1'000.0751);
 
     expect(serverMixPackets(silence) == 2,
            "the server timeline emits a due position even when every upstream packet is absent");
+    if (serverMixPackets(silence) != 2)
+        return;
     AudioPacketHeader header{};
     expect(decodeAudioPacketHeader(forTarget(silence, alice).bytes, header) &&
                (header.timestampFrame & ~SharedAudioTimelineFlag) ==
@@ -856,7 +859,7 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
                                    [](auto value) { return value == 0; }),
            "the missing position is represented by on-time silence instead of a downstream gap");
 
-    const auto followingSilence = relay.flush(10.0248, 1'000.0248);
+    const auto followingSilence = relay.flush(10.0776, 1'000.0776);
     expect(serverMixPackets(followingSilence) == 2 &&
                decodeAudioPacketHeader(forTarget(followingSilence, alice).bytes, header) &&
                (header.timestampFrame & ~SharedAudioTimelineFlag) ==
@@ -865,19 +868,19 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
 
     const auto afterSilence = base + SharedRoomPacketFrames * 4U;
     (void)relay.receive(packet("alice", 0x1111, 3, afterSilence, 300), alice,
-                        10.0251, 1'000.0251);
+                        10.0777, 1'000.0777);
     expect(relay.receive(packet("bob", 0x2222, 3, afterSilence, 3'000), bob,
-                         10.0252, 1'000.0252)
+                         10.0778, 1'000.0778)
                    .empty() &&
-               serverMixPackets(relay.flush(10.0259, 1'000.0259)) == 2,
+               serverMixPackets(relay.flush(10.0787, 1'000.0787)) == 2,
            "a silence deadline also advances the pacer before live audio resumes");
 
     for (std::uint32_t index = 5; index < 64; ++index) {
         const auto queuedPosition = base + index * SharedRoomPacketFrames;
         (void)relay.receive(packet("alice", 0x1111, index, queuedPosition, 300), alice,
-                            10.028, 1'000.028);
+                            10.079, 1'000.079);
         (void)relay.receive(packet("bob", 0x2222, index, queuedPosition, 3'000), bob,
-                            10.028, 1'000.028);
+                            10.079, 1'000.079);
     }
     const auto afterStall = relay.flush(10.200, 1'000.200);
     const auto currentDue = alignSharedTimelinePacketFrame(

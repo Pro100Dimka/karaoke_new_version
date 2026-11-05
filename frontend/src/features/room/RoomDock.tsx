@@ -1,5 +1,11 @@
 import { store } from '../../providers/store';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PointerEvent,
+} from 'react';
 import { useRouter, Button, tr, useLocale } from '@neo-ui-kit/react';
 import {
   useRoomMembership,
@@ -22,6 +28,7 @@ import {
   useFloatingPanel,
   useMeasuredPanelSize,
   useStoredPanelLayout,
+  controlSelector,
 } from '../../shared/ui/useFloatingPanel';
 import { useRoomPeople } from '../social/useRoomPeople';
 
@@ -88,6 +95,12 @@ export const RoomDock = () => {
     visible,
   );
   const frameRef = useRef<HTMLElement>(null);
+  const grab = useRef<{
+    x: number;
+    y: number;
+    pointerId: number;
+    detaching?: boolean;
+  } | null>(null);
   const measuredSize = useMeasuredPanelSize(
     frameRef,
     roomPanelSize,
@@ -97,12 +110,63 @@ export const RoomDock = () => {
     layout: placement.layout && { ...placement.layout, ...measuredSize },
     onLayoutChange: placement.save,
     defaultSize: measuredSize,
-    onDragOutside: (bounds, pointer) => panel.detach(bounds, pointer),
   });
+  const beginMove = (event: PointerEvent<HTMLElement>) => {
+    if (
+      event.button !== 0 ||
+      (event.target as Element).closest(controlSelector)
+    )
+      return;
+    const box = event.currentTarget.getBoundingClientRect();
+    grab.current = {
+      x: event.clientX - box.left,
+      y: event.clientY - box.top,
+      pointerId: event.pointerId,
+    };
+    floating.beginMove(event);
+  };
+  const move = (event: PointerEvent<HTMLElement>) => {
+    const held = grab.current;
+    if (held?.pointerId === event.pointerId) {
+      if (held.detaching) return;
+      const left = event.clientX - held.x;
+      const top = event.clientY - held.y;
+      if (
+        left < 0 ||
+        top < 0 ||
+        left + measuredSize.width > window.innerWidth ||
+        top + measuredSize.height > window.innerHeight
+      ) {
+        held.detaching = true;
+        panel.detach(
+          {
+            ...measuredSize,
+            left: event.screenX - held.x,
+            top: event.screenY - held.y,
+          },
+          event,
+        );
+        return;
+      }
+    }
+    floating.handleMove(event);
+  };
   useLayoutEffect(() => {
-    if (panel.detached) return;
+    if (panel.detached) {
+      grab.current = null;
+      floating.handleCancel();
+      return;
+    }
     const frame = frameRef.current;
     const size = frame?.getBoundingClientRect();
+    const placed = placement.layout;
+    if (
+      panel.heldPointer.current &&
+      size &&
+      placed &&
+      (Math.abs(size.x - placed.left) > 1 || Math.abs(size.y - placed.top) > 1)
+    )
+      return;
     if (
       size?.width === measuredSize.width &&
       size.height === measuredSize.height
@@ -230,10 +294,24 @@ export const RoomDock = () => {
               }
             : undefined
         }
-        onPointerDown={panel.detached ? undefined : floating.beginMove}
-        onPointerMove={panel.detached ? undefined : floating.handleMove}
-        onPointerUp={panel.detached ? undefined : floating.handleUp}
-        onPointerCancel={panel.detached ? undefined : floating.handleCancel}
+        onPointerDown={panel.detached ? undefined : beginMove}
+        onPointerMove={panel.detached ? undefined : move}
+        onPointerUp={
+          panel.detached
+            ? undefined
+            : () => {
+                grab.current = null;
+                floating.handleUp();
+              }
+        }
+        onPointerCancel={
+          panel.detached
+            ? undefined
+            : () => {
+                grab.current = null;
+                floating.handleCancel();
+              }
+        }
       >
         <RoomHeadCard
           room={room}

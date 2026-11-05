@@ -111,6 +111,7 @@ printf '%s\n' '[Service]' \
     'Environment=AD_VOICE_NATIVE_RELAY_EXECUTABLE=/opt/karaoke-room-server/bin/NativeVoiceRelay' \
     'AmbientCapabilities=CAP_SYS_NICE' \
     'CapabilityBoundingSet=CAP_SYS_NICE' \
+    'KillMode=mixed' \
     | sudo tee "$native_config" >/dev/null
 sudo systemctl daemon-reload
 sudo chown -R ubuntu:ubuntu "$root/backend" "$root/pyproject.toml" "$root/bin/NativeVoiceRelay"

@@ -59,21 +59,32 @@ def test_logs_older_than_the_retention_period_are_removed(tmp_path: Path) -> Non
 
 def test_only_room_members_can_upload_diagnostics(tmp_path: Path) -> None:
     app = create_room_server_app(relay_port=0, diagnostics_root=tmp_path)
+    values = {"Backend": "ASIO", **{f"Metric{index}": "0" for index in range(427)}}
     with TestClient(app) as client:
         code = client.post(
             "/rooms", json={"participantId": "host-1", "displayName": "Host"}
         ).json()["roomId"]
         accepted = client.post(
             f"/rooms/{code}/diagnostics",
-            json={"participantId": "host-1", "values": {"Backend": "ASIO"}},
+            json={"participantId": "host-1", "values": values},
         )
         rejected = client.post(
             f"/rooms/{code}/diagnostics",
             json={"participantId": "stranger", "values": {"Backend": "ASIO"}},
         )
+        oversized = client.post(
+            f"/rooms/{code}/diagnostics",
+            json={
+                "participantId": "host-1",
+                "values": {f"Metric{index}": "0" for index in range(1025)},
+            },
+        )
     assert accepted.status_code == 204
     assert rejected.status_code in (403, 404)
-    assert [line["participantId"] for line in _lines(tmp_path, code)] == ["host-1"]
+    assert oversized.status_code == 422
+    lines = _lines(tmp_path, code)
+    assert [line["participantId"] for line in lines] == ["host-1"]
+    assert values.items() <= lines[0]["values"].items()
 
 
 def test_room_diagnostics_include_the_server_return_send_cadence(tmp_path: Path) -> None:
@@ -336,6 +347,7 @@ def test_room_server_runtime_logs_uvicorn_errors_in_program_file(
 
     def fake_run(_app, **options):
         assert options["log_config"] is None
+        assert options["timeout_graceful_shutdown"] == 5
         logging.getLogger("uvicorn.error").error("server startup failed")
 
     monkeypatch.setattr(room_server_main.uvicorn, "run", fake_run)

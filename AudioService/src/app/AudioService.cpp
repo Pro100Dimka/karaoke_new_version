@@ -40,7 +40,9 @@ std::string_view backendEventName(BackendEventType event) noexcept {
                                std::string_view{"CaptureOverrun"},
                                std::string_view{"RenderUnderrun"},
                                std::string_view{"DriverReset"},
-                               std::string_view{"SampleRateChanged"}};
+                               std::string_view{"SampleRateChanged"},
+                               std::string_view{"RenderStalled"}};
+    static_assert(names.size() == static_cast<std::size_t>(BackendEventType::Count));
     const auto index = static_cast<std::size_t>(event);
     return index < names.size() ? names[index] : std::string_view{"UnknownBackendEvent"};
 }
@@ -325,7 +327,8 @@ void AudioService::processPendingBackendEvent() {
         return;
     constexpr std::array fatalEvents{
         BackendEventType::DeviceLost, BackendEventType::DeviceInvalidated,
-        BackendEventType::DriverReset, BackendEventType::SampleRateChanged};
+        BackendEventType::DriverReset, BackendEventType::SampleRateChanged,
+        BackendEventType::RenderStalled};
     if (std::ranges::find(fatalEvents, event.type) == fatalEvents.end())
         return;
     captureFailure({FailureCategory::Device, FailureSeverity::SessionFatal, event.code,

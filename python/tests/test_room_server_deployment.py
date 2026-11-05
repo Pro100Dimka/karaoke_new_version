@@ -62,6 +62,7 @@ def test_room_server_deployment_builds_and_activates_the_native_voice_data_plane
         "AD_VOICE_NATIVE_RELAY_EXECUTABLE=/opt/karaoke-room-server/bin/NativeVoiceRelay" in remote
     )
     assert "AmbientCapabilities=CAP_SYS_NICE" in remote
+    assert "KillMode=mixed" in remote
     assert "/proc/$relay_pid/task/*" in remote
     assert 'chrt -p "$thread_id"' in remote
     assert 'test -x "$root/bin/NativeVoiceRelay"' in remote

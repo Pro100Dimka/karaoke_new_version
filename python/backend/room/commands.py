@@ -74,6 +74,7 @@ class SelectRoomSong:
             room,
             song_id=song_id,
             revision=revision,
+            auto_start_pending=True,
             participants=participants,
             playback_state=PlaybackState.STOPPED,
             playback_started_at=None,
@@ -100,6 +101,7 @@ class ClearRoomSong:
         updated = replace(
             room,
             song_id=None,
+            auto_start_pending=False,
             revision=None,
             participants=participants,
             playback_state=PlaybackState.STOPPED,
@@ -191,7 +193,8 @@ class StartRoomSyncCheck:
 def start_ready_room(room: Room, clock: Clock) -> Room:
     """Start a selected song once project readiness and voice calibration both permit singing."""
     if (
-        room.song_id is not None
+        room.auto_start_pending
+        and room.song_id is not None
         and room.playback_state is PlaybackState.STOPPED
         and all_ready(room)
     ):
@@ -208,6 +211,7 @@ def _apply_media_control(
         started_room = replace(
             room,
             playback_state=PlaybackState.PLAYING,
+            auto_start_pending=False,
             playback_started_at=clock.now() + ROOM_START_LEAD,
             playback_position_seconds=position,
         )
@@ -229,6 +233,7 @@ def _apply_media_control(
             playback_started_at=None,
             playback_position_seconds=0.0,
             singing_timing=None,
+            auto_start_pending=False,
         )
         return stopped.with_timing(room_timing(stopped))
     position = max(0.0, position_seconds or 0.0)

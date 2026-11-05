@@ -83,8 +83,22 @@ export const TitleBar = () => {
       offsetY: number;
       moving: boolean;
     } | null = null;
-    const finish = () => {
-      if (grab?.moving) void desktopClient.dragWindow('end');
+    const finish = (event?: PointerEvent) => {
+      if (
+        event &&
+        ['pointercancel', 'lostpointercapture'].includes(event.type) &&
+        event.pointerType === 'mouse' &&
+        event.buttons !== 0
+      )
+        return;
+      if (grab?.moving)
+        void desktopClient.dragWindow(
+          'end',
+          undefined,
+          undefined,
+          event?.screenX,
+          event?.screenY,
+        );
       grab = null;
       setMoving(false);
     };

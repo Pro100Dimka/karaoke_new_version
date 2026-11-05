@@ -39,6 +39,9 @@ export const processingTitle = (
 export const isActive = (job: ProcessingJobDto) =>
   ['processing', 'cancelling'].includes(job.state);
 
+export const isInQueue = (job: ProcessingJobDto) =>
+  job.state === 'queued' || isActive(job);
+
 /** How long a finished job ran, as m:ss. */
 export const processingDuration = (
   job: ProcessingJobDto,

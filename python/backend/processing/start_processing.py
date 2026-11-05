@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass, replace
 
 import hashlib
@@ -42,7 +43,7 @@ _ALLOWED_START_STATES = frozenset(
 _QUEUE_POLL_SECONDS = 1.0
 
 
-@dataclass(slots=True)
+@dataclass(slots=True, eq=False)
 class _Admission:
     """The resource lease a queued job receives once it is admitted."""
 
@@ -77,6 +78,8 @@ class StartProcessing:
         self._operations = operations
         self._persistence = persistence
         self._preparation = preparation
+        self._waiting: deque[_Admission] = deque()
+        self._admission_changed = threading.Condition()
 
     def execute(
         self,
@@ -147,24 +150,42 @@ class StartProcessing:
         source_bytes = self._source_size(song)
         admission = _Admission()
         self._persistence.set_status(song_id, SongStatus.QUEUED)
-        return self._jobs.start(
-            JobType.SONG_PROCESSING,
-            lambda context: self._run(
+
+        def run(context: JobContext) -> dict[str, object]:
+            self._leave_queue(admission)
+            return self._run(
                 song_id, mode, online_lyrics, providers, context, admission.execution()
-            ),
-            entity_id=song_id,
-            mode=mode,
-            correlation_id=correlation_id,
-            initial_report={
-                "processingBackend": processing_backend.value,
-                "songTitle": song.title,
-                "songArtist": song.artist,
-            },
-            on_finally=lambda: self._finish(song_id, admission),
-            admit=lambda cancel: self._admit(
-                admission, providers, source_bytes, compute_mode, cancel
-            ),
-        )
+            )
+
+        # Register the turn in the same order in which workers receive their jobs.
+        with self._admission_changed:
+            self._waiting.append(admission)
+            try:
+                return self._jobs.start(
+                    JobType.SONG_PROCESSING,
+                    run,
+                    entity_id=song_id,
+                    mode=mode,
+                    correlation_id=correlation_id,
+                    initial_report={
+                        "processingBackend": processing_backend.value,
+                        "songTitle": song.title,
+                        "songArtist": song.artist,
+                    },
+                    on_finally=lambda: self._finish(song_id, admission),
+                    admit=lambda cancel: self._admit(
+                        admission, providers, source_bytes, compute_mode, cancel
+                    ),
+                )
+            except Exception:
+                self._leave_queue(admission)
+                raise
+
+    def _leave_queue(self, admission: _Admission) -> None:
+        with self._admission_changed:
+            if admission in self._waiting:
+                self._waiting.remove(admission)
+                self._admission_changed.notify_all()
 
     def _admit(
         self,
@@ -177,6 +198,10 @@ class StartProcessing:
         """Queues the job until the resource budget has room; a cancel while waiting simply ends the wait."""
         admission.cancel = cancel
         while not cancel.is_set():
+            with self._admission_changed:
+                if self._waiting[0] is not admission:
+                    self._admission_changed.wait(_QUEUE_POLL_SECONDS)
+                    continue
             try:
                 admission.lease = self._resources.claim(
                     providers,
@@ -196,6 +221,7 @@ class StartProcessing:
         return self._storage.size(song.source_path)
 
     def _finish(self, song_id: str, admission: "_Admission") -> None:
+        self._leave_queue(admission)
         try:
             cancelled = admission.cancel is not None and admission.cancel.is_set()
             self._settle_unfinished(song_id, cancelled=cancelled)

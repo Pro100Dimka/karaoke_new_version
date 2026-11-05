@@ -21,6 +21,12 @@
 #include <vector>
 
 struct NetworkTestAccess {
+    static void noteRelayRoute(NetworkAudioEngine& engine, std::uint32_t arrival,
+                               std::uint32_t returned) {
+        auto* slot = engine.slotForId("__room_server_mix__");
+        slot->arrivalRoute.note(arrival);
+        slot->returnRoute.note(returned);
+    }
     static void excludeVoice(NetworkAudioEngine& engine, std::string_view participant) {
         auto* slot = engine.slotForId(participant);
         slot->timelineExcluded = true;
@@ -2172,6 +2178,15 @@ void returnPathTraceSeparatesReceiveProcessingAndQueueAdmission() {
                snapshot.maximumProcessToQueueMicros == 600,
            "return diagnostics separate socket cadence, client scheduling, decision and queue "
            "admission instead of reporting one opaque return delay");
+    trace.reset();
+    for (const auto receivedAt : {1'000U, 2'000U, 3'000U})
+        trace.noteReceive(receivedAt);
+    trace.noteDecision({1'000, 1'100, 4'000, 0});
+    trace.noteDecision({3'000, 3'100, 4'000, 0});
+    const auto sparseDecisions = trace.snapshot();
+    expect(sparseDecisions.maximumReceiveGapMicros == 1'000 &&
+               sparseDecisions.packets == 2,
+           "a packet skipped by the jitter buffer must not turn continuous socket reception into a network stall");
 }
 
 void roomPacketTraceExplainsFirstLateCut() {
@@ -3559,6 +3574,17 @@ void directContinuityBudgetRetainsBurstsAndExpiresThem() {
            "continuity measurement has a bounded range");
     lateness.reset();
     expect(lateness.continuityFrames() == 0, "a new device/session must calibrate anew");
+
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    expect(network.addRemoteParticipant("__room_server_mix__"), "relay route registers");
+    for (std::uint32_t i = 0; i < 1'200; ++i)
+        NetworkTestAccess::noteRelayRoute(network, i == 0 ? 2'880 : 480,
+                                        i == 0 ? 5'760 : 960);
+    const auto measured = network.diagnostics().participants.front();
+    expect(measured.arrivalRequirementFrames == 2'904 &&
+               measured.returnRequirementFrames == 5'784,
+           "published relay requirements retain a rare burst on both route legs");
 }
 
 void roomNetworkWorkersUseMultimediaScheduling() {

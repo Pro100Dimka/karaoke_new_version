@@ -1040,15 +1040,19 @@ void realtimeCallbackHasNoHardRtViolations() {
 }
 
 void deviceLossRecoversWithNewGeneration() {
-    RunningService fixture;
-    const auto beforeLoss = fixture.service.session().generationId();
-    fixture.fake->inject(BackendEventType::DeviceLost, -1);
-    const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics");
-    expect(diagnostics.status == ControlStatus::Ok,
-           "diagnostics remains available after device loss");
-    expect(fixture.service.session().state() == SessionState::Running &&
-               fixture.service.session().generationId() > beforeLoss,
-           "device loss uses recovery and new generation");
+    for (const auto event : {BackendEventType::DeviceLost, BackendEventType::RenderStalled}) {
+        RunningService fixture;
+        const auto beforeLoss = fixture.service.session().generationId();
+        const auto period = fixture.service.session().requested().periodFrames;
+        fixture.fake->inject(event, -1);
+        const auto diagnostics = fixture.service.handleLine("1|GetDiagnostics");
+        expect(diagnostics.status == ControlStatus::Ok,
+               "diagnostics remains available after a backend failure");
+        expect(fixture.service.session().state() == SessionState::Running &&
+                   fixture.service.session().generationId() > beforeLoss &&
+                   fixture.service.session().requested().periodFrames == period,
+               "backend recovery starts a new generation without increasing the selected period");
+    }
 }
 
 void deviceLossCapturesFailureSnapshot() {

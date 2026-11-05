@@ -207,6 +207,29 @@ describe('RadioConnection', () => {
     );
   });
 
+  it.each(['', 'secret-agent'])(
+    'publishes a valid station when creating a room with preference %j',
+    async (station) => {
+      runInAction(() => store.updatePreferences({ radioStation: station }));
+      const view = render(<RadioConnection libraryActive />);
+      appState.room = {
+        code: 'NEW-ROOM',
+        role: 'host',
+        radioEnabled: false,
+        radioStationId: 'groove-salad',
+      };
+      view.rerender(<RadioConnection libraryActive />);
+      await waitFor(() =>
+        expect(appState.publishSharedState).toHaveBeenCalledWith(
+          expect.objectContaining({
+            radioEnabled: false,
+            radioStationId: station || 'groove-salad',
+          }),
+        ),
+      );
+    },
+  );
+
   it('keeps the authoritative room radio switch enabled when local playback fails', async () => {
     appState.room = {
       code: 'ROOM',

@@ -78,6 +78,7 @@ export interface ProcessingJobDto {
     | 'interrupted';
   stage: string;
   progress: number;
+  createdAt?: string;
   startedAt?: string;
   finishedAt?: string;
   processingBackend?: 'Local' | 'Kaggle';

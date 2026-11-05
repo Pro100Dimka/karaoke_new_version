@@ -36,6 +36,7 @@ def main() -> None:
         log_level=os.getenv("AD_VOICE_ROOM_SERVER_LOG_LEVEL", "info").lower(),
         log_config=None,
         access_log=False,
+        timeout_graceful_shutdown=5,
     )
 
 

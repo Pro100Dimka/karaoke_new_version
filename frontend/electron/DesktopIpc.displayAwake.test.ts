@@ -12,7 +12,13 @@ vi.mock('electron', () => ({
   clipboard: {},
   dialog: {},
   shell: {},
-  screen: { getCursorScreenPoint: () => ({ x: 900, y: 300 }) },
+  screen: {
+    getCursorScreenPoint: () => ({ x: 900, y: 300 }),
+    getDisplayNearestPoint: () => ({
+      bounds: { x: 0, y: 0, width: 1920, height: 1080 },
+      workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+    }),
+  },
   powerSaveBlocker: {
     start: blocker.start.mockImplementation((type: string) => {
       expect(type).toBe('prevent-display-sleep');
@@ -40,6 +46,7 @@ it('restores and moves a fullscreen header drag using the real cursor and reject
     isFullScreen: () => true,
     isMaximized: () => true,
     unmaximize: vi.fn(),
+    maximize: vi.fn(),
     setPosition: vi.fn(),
   };
   registerDesktopIpc({
@@ -65,6 +72,11 @@ it('restores and moves a fullscreen header drag using the real cursor and reject
   drag('end');
   drag('move');
   expect(current.setPosition).toHaveBeenCalledTimes(2);
+  expect(current.maximize).not.toHaveBeenCalled();
+  drag('start', 0.25, 12, 900, 300);
+  drag('move', undefined, undefined, 900, 0);
+  drag('end', undefined, undefined, 900, 0);
+  expect(current.maximize).toHaveBeenCalledOnce();
 });
 vi.mock('./Asio4AllInstaller', () => ({ launchAsio4AllInstaller: vi.fn() }));
 vi.mock('./AppPaths', () => ({

@@ -1,7 +1,6 @@
 import { useLibraryImport } from '../modals/add-song/useLibraryImport';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../providers/store';
-import { useJobs } from '../../../providers/application';
 import { Button, Stack, Switch, Tooltip, tr } from '@neo-ui-kit/react';
 import { ru } from '../../../i18n/messages.ru';
 import LibrarySearchField, {
@@ -13,7 +12,6 @@ interface LibraryActionsProps {
   view: { query: string; filters: LibraryViewFilters };
   onQueryChange(query: string): void;
   onFiltersChange(filters: LibraryViewFilters): void;
-  onOpenProcessing(): void;
   roomRole?: 'host' | 'participant';
   collaborativeControl?: boolean;
   onCollaborativeControlChange(enabled: boolean): void;
@@ -25,12 +23,6 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
   const { roomRole, collaborativeControl = false } = props;
   const locked = roomRole === 'participant' && !collaborativeControl;
   const { addSong } = useLibraryImport();
-  const { jobs } = useJobs();
-  const activeJobs = jobs.filter(
-    (job) =>
-      job.type === 'SongProcessing' &&
-      ['queued', 'processing', 'cancelling'].includes(job.state),
-  ).length;
   const { query, filters: viewFilters } = props.view;
   const filters = {
     ...viewFilters,
@@ -52,12 +44,6 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
     props.onViewChange(query, { ...next, sort, direction });
   };
   const actions = [
-    {
-      icon: 'wave',
-      label:
-        tr(ru.processingQueue) + (activeJobs > 0 ? ` (${activeJobs})` : ''),
-      onClick: () => props.onOpenProcessing(),
-    },
     ...(!roomRole
       ? [{ icon: 'users', label: tr(ru.onlineRoom), onClick: props.onOpenRoom }]
       : []),

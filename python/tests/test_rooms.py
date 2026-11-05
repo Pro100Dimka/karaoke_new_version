@@ -46,8 +46,8 @@ def test_idle_room_covers_measured_routes_even_when_all_exceed_the_singing_limit
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     joined = cases.join.execute(room.room_id, "guest", "Guest")
 
-    cases.set_timing.execute(joined.room_id, "host", 170)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 170)
+    cases.set_timing.execute(joined.room_id, "host", 270)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 270)
 
     assert not measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
@@ -61,7 +61,7 @@ def test_idle_room_covers_a_shared_mode_listener_above_the_singing_limit() -> No
     joined = cases.join.execute(room.room_id, "guest", "Guest")
 
     cases.set_timing.execute(joined.room_id, "host", 40)
-    measured = cases.set_timing.execute(joined.room_id, "guest", 180)
+    measured = cases.set_timing.execute(joined.room_id, "guest", 280)
 
     assert measured.participants["host"].voice_eligible
     assert not measured.participants["guest"].voice_eligible
@@ -79,6 +79,33 @@ def test_room_keeps_an_interactive_seventy_five_millisecond_route_in_the_live_mi
 
     assert measured.participants["guest"].voice_eligible
     assert measured.room_playout_delay_ms == 250
+
+
+@pytest.mark.parametrize("update", ["timing", "readiness", "late_join"])
+def test_explicit_stop_survives_route_and_readiness_updates(tmp_path, update) -> None:
+    rooms = SqliteRoomRepository(tmp_path / "rooms.db")
+    cases = build_room_cases(UuidGenerator(), FakeClock(), rooms)
+    room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
+    cases.set_timing.execute(room.room_id, "host", 50)
+    cases.select_song.execute(room.room_id, "host", "song", 1)
+    started = cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
+    assert started.playback_state is PlaybackState.PLAYING
+    cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.STOP)
+
+    if update == "late_join":
+        cases.join.execute(room.room_id, "guest", "Guest")
+        cases.set_timing.execute(room.room_id, "guest", 55)
+        updated = cases.set_readiness.execute(room.room_id, "guest", ReadinessState.READY)
+    elif update == "readiness":
+        updated = cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
+    else:
+        updated = cases.set_timing.execute(room.room_id, "host", 55)
+
+    assert updated.playback_state is PlaybackState.STOPPED
+    assert updated.playback_started_at is None
+    assert updated.room_playout_delay_ms == 250
+    restarted = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
+    assert restarted.playback_state is PlaybackState.PLAYING
 
 
 def test_paused_room_remeasures_conversation_latency() -> None:
@@ -107,7 +134,7 @@ def test_paused_room_uses_conversation_deadline_and_restores_song_deadline(tmp_p
     rooms.save(replace(measured, song_id="song", revision=1))
 
     playing = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.START)
-    assert playing.room_playout_delay_ms == 110
+    assert playing.room_playout_delay_ms == 250
 
     paused = cases.authorize_control.execute(room.room_id, "host", MediaControlCommand.PAUSE)
     assert paused.room_playout_delay_ms == 250
@@ -154,7 +181,8 @@ def test_pause_before_first_sound_does_not_freeze_a_ten_ms_startup_measurement()
     clock = FakeClock()
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
-    rooms.save(replace(room, song_id="song", revision=1))
+    cases.select_song.execute(room.room_id, "host", "song", 1)
+    cases.set_readiness.execute(room.room_id, "host", ReadinessState.READY)
     started = cases.set_timing.execute(
         room.room_id, "host", 8, return_requirement_ms=1, arrival_requirement_ms=3
     )
@@ -272,7 +300,7 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     cases = build_room_cases(UuidGenerator(), clock, rooms)
     room = cases.create.execute("host", "Host", HostDisconnectPolicy.TRANSFER)
     rooms.save(replace(room, song_id="song", revision=1))
-    measured = cases.set_timing.execute(room.room_id, "host", 175)
+    measured = cases.set_timing.execute(room.room_id, "host", 275)
     playing = replace(
         measured,
         playback_state=PlaybackState.PLAYING,
@@ -283,12 +311,12 @@ def test_playing_room_updates_existing_route_eligibility_without_moving_deadline
     assert not playing.participants["host"].voice_eligible
 
     improved = cases.set_timing.execute(room.room_id, "host", 45)
-    worsened = cases.set_timing.execute(room.room_id, "host", 180)
+    worsened = cases.set_timing.execute(room.room_id, "host", 280)
 
     assert improved.participants["host"].voice_eligible
     assert improved.participants["host"].voice_latency_ms == 45
     assert not worsened.participants["host"].voice_eligible
-    assert worsened.participants["host"].voice_latency_ms == 180
+    assert worsened.participants["host"].voice_latency_ms == 280
     for updated in (improved, worsened):
         assert updated.room_playout_delay_ms == playing.room_playout_delay_ms
         assert updated.room_return_reserve_ms == playing.room_return_reserve_ms

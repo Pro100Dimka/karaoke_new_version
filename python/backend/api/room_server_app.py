@@ -155,6 +155,7 @@ def _lifespan_for(
         finally:
             relay.set_level_listener(None)
             sweep.cancel()
+            await container.departures.stop()
             if native_relay is not None:
                 native_relay.stop()
             else:
