@@ -33,8 +33,8 @@ constexpr NativeSocket InvalidSocket = INVALID_SOCKET;
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sched.h>
@@ -44,6 +44,7 @@ constexpr NativeSocket InvalidSocket = -1;
 
 namespace {
 constexpr std::size_t MaximumDatagramBytes = 65'535;
+constexpr int ReceiveWaitMilliseconds = 1;
 
 double monotonicSeconds() noexcept {
     return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch())
@@ -81,12 +82,9 @@ class RelaySocket {
         if (::bind(socket_, reinterpret_cast<const sockaddr*>(&address), sizeof(address)) != 0)
             throw std::runtime_error("UDP bind failed");
 #ifdef _WIN32
-        const DWORD timeout = 1;
+        const DWORD timeout = ReceiveWaitMilliseconds;
         setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
                    sizeof(timeout));
-#else
-        const timeval timeout{0, 1'000};
-        setsockopt(socket_, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 #endif
     }
 
@@ -106,8 +104,12 @@ class RelaySocket {
                                     static_cast<int>(bytes.size()), 0,
                                     reinterpret_cast<sockaddr*>(&source), &sourceBytes);
 #else
+        // Socket receive timeouts round to kernel ticks and delay queued mixes.
+        pollfd descriptor{socket_, POLLIN, 0};
+        if (poll(&descriptor, 1, ReceiveWaitMilliseconds) <= 0)
+            return 0;
         socklen_t sourceBytes = sizeof(source);
-        const auto count = recvfrom(socket_, bytes.data(), bytes.size(), 0,
+        const auto count = recvfrom(socket_, bytes.data(), bytes.size(), MSG_DONTWAIT,
                                     reinterpret_cast<sockaddr*>(&source), &sourceBytes);
 #endif
         if (count <= 0)

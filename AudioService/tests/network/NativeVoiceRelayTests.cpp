@@ -328,6 +328,71 @@ void nativeVoiceRelayKeepsRoomEligibilityAcrossVoiceRejoin() {
            "room's authoritative eligible set");
 }
 
+void nativeVoiceRelayKeepsSentPositionsAcrossTimingChanges() {
+    constexpr std::uint64_t base = 48'000'000;
+    const std::array endpoints{RelayEndpoint{"10.0.0.1", 41001},
+                               RelayEndpoint{"10.0.0.2", 41002}};
+    constexpr std::array<std::string_view, 2> names{"alice", "bob"};
+    constexpr std::array<std::uint64_t, 2> tokens{0x1111, 0x2222};
+    for (const auto& [delay, singingStart] :
+         {std::pair{162.5, 1'000.0}, std::pair{250.0, 1'000.0},
+          std::pair{162.5, -1.0}}) {
+        NativeVoiceRelay relay;
+        configureTwoSingerRoom(relay);
+        relay.setRoomPlayoutDelay("room", 250.0, 60.0);
+        const auto send = [&](std::uint32_t sequence, std::uint64_t position, double elapsed) {
+            std::vector<RelayDatagram> output;
+            for (std::size_t index = 0; index < names.size(); ++index) {
+                const auto time = elapsed + static_cast<double>(index) * .001;
+                auto received = relay.receive(packet(names[index], tokens[index], sequence,
+                                                     position, 300),
+                                              endpoints[index], 10.0 + time, 1'000.0 + time);
+                output.insert(output.end(), received.begin(), received.end());
+            }
+            return output;
+        };
+        expect(serverMixPackets(send(1, base, .020)) == 2,
+               "both recipients first hear the conversation position");
+        relay.setRoomPlayoutDelay("room", delay, 60.0, singingStart);
+        expect(serverMixPackets(send(2, base, .030)) == 0,
+               "a timing change cannot replay an already sent position in the same epoch");
+        const auto next = send(3, base + SharedRoomPacketFrames, .040);
+        expect(serverMixPackets(next) == 2 &&
+                   std::ranges::all_of(next, [](const auto& datagram) {
+                       return std::ranges::all_of(samples(datagram.bytes),
+                                                  [](auto value) { return value == 300; });
+                   }),
+               "the next position keeps both remote voices unchanged");
+        relay.setGeneration("room", 2);
+        const auto restarted = send(4, base, .050);
+        expect(serverMixPackets(restarted) == 2,
+               "a real generation change permits a fresh earlier position");
+    }
+
+    NativeVoiceRelay relay;
+    configureTwoSingerRoom(relay);
+    relay.setRoomPlayoutDelay("room", 185.0, 60.0, 1'000.0);
+    (void)relay.receive(packet("alice", tokens[0], 1, base, 300), endpoints[0],
+                        10.020, 1'000.020);
+    (void)relay.receive(packet("bob", tokens[1], 1, base, 700), endpoints[1],
+                        10.022, 1'000.022);
+    const auto next = base + SharedRoomPacketFrames;
+    (void)relay.receive(packet("alice", tokens[0], 2, next, 300), endpoints[0],
+                        10.024, 1'000.024);
+    relay.setRoomPlayoutDelay("room", 250.0, 60.0);
+    const auto remaining = relay.receive(packet("bob", tokens[1], 2, next, 700),
+                                          endpoints[1], 10.026, 1'000.026);
+    expect(serverMixPackets(remaining) == 1,
+           "stopping singing between contributions preserves the pending remote voice");
+    (void)relay.receive(packet("alice", tokens[0], 3, next + SharedRoomPacketFrames, 300),
+                        endpoints[0], 10.028, 1'000.028);
+    const auto following = relay.receive(
+        packet("bob", tokens[1], 3, next + SharedRoomPacketFrames, 700), endpoints[1],
+        10.030, 1'000.030);
+    expect(serverMixPackets(following) == 1,
+           "a timing transition cannot block following complete positions until the deadline");
+}
+
 void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
@@ -997,7 +1062,7 @@ void nativeVoiceRelayReportsItsRecipientSendCadence() {
            "native diagnostics expose cadence and the active server timeline");
 }
 
-void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges() {
+void nativeVoiceRelayPreservesPositionStateWhenTheDeadlineChanges() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
@@ -1007,15 +1072,18 @@ void nativeVoiceRelayResetsPositionStateWhenTheDeadlineChanges() {
     (void)relay.receive(packet("alice", 0x1111, 1, position, 100), alice, 10.0, 1'000.0);
 
     relay.setRoomPlayoutDelay("room", 70.0);
-    (void)relay.receive(packet("bob", 0x2222, 1, position, 1'000), bob, 10.001, 1'000.001);
-    const auto output = relay.receive(
+    const auto output = relay.receive(packet("bob", 0x2222, 1, position, 1'000), bob,
+                                      10.001, 1'000.001);
+    const auto duplicate = relay.receive(
         packet("alice", 0x1111, 2, position, 200), alice, 10.002, 1'000.002);
 
-    expect(std::ranges::all_of(samples(forTarget(output, bob).bytes),
-                               [](auto value) { return value == 200; }),
-           "a new deadline cannot reuse pending PCM collected under the old schedule");
-    expect(relay.recipientMetrics("room", "alice").packets == 1,
-           "deadline reconfiguration starts fresh native cadence diagnostics");
+    expect(serverMixPackets(output) == 2 &&
+               std::ranges::all_of(samples(forTarget(output, bob).bytes),
+                                   [](auto value) { return value == 100; }),
+           "a changed deadline preserves PCM at the same musical position");
+    expect(serverMixPackets(duplicate) == 0 &&
+               relay.recipientMetrics("room", "alice").packets == 1,
+           "deadline reconfiguration cannot reopen a sent position");
 }
 
 void nativeVoiceRelayKeepsTheCurrentMixWhenOnlyReturnReserveChanges() {

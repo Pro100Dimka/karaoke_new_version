@@ -155,13 +155,26 @@ void NativeVoiceRelay::setRoomPlayoutDelay(std::string_view room, double millise
     if (state.playoutDelaySeconds == seconds && state.returnReserveSeconds == reserve &&
         state.singingStartedAtSeconds == singingStartedAtSeconds)
         return;
-    const auto deadlineChanged = state.playoutDelaySeconds != seconds ||
-                                 state.singingStartedAtSeconds != singingStartedAtSeconds;
+    const auto previousAllowance = collectionAllowance(state);
+    const auto schedulingChanged = (state.playoutDelaySeconds > 0.0) != (seconds > 0.0);
+    const auto singingStarted = singingStartedAtSeconds >= 0.0 &&
+                                state.singingStartedAtSeconds != singingStartedAtSeconds;
     state.playoutDelaySeconds = seconds;
     state.returnReserveSeconds = reserve;
     state.singingStartedAtSeconds = singingStartedAtSeconds;
-    if (deadlineChanged)
+    if (schedulingChanged || singingStarted) {
+        auto sent = std::move(state.recipientMetrics);
         resetTimeline(state, false);
+        state.recipientMetrics = std::move(sent);
+        return;
+    }
+    // A new deadline on the same scheduled timeline retains contributions and sent positions.
+    const auto deadlineShift = collectionAllowance(state) - previousAllowance;
+    for (auto& [position, pending] : state.pending) {
+        (void)position;
+        pending.deadlineMonotonic += deadlineShift;
+        pending.partialDeadlineMonotonic += deadlineShift;
+    }
 }
 
 double NativeVoiceRelay::collectionAllowance(const Room& room) noexcept {
