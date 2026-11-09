@@ -2,7 +2,6 @@ import {
   AnimatedBorder,
   Dialog,
   Stack,
-  StatusIndicator,
   Tabs,
   tr,
   useLocale,
@@ -10,7 +9,14 @@ import {
 import { createCommandQueue } from '../../../../app/desktop/shellBus';
 import '../../../../providers/localization';
 import type { SettingsTab } from '../../../../contracts/models';
-import { lazy, Suspense, useLayoutEffect, useState } from 'react';
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 const tabs = {
   appearance: {
@@ -56,10 +62,14 @@ const SettingsModal = ({
 }) => {
   useLocale();
   const [tab, setTab] = useState<SettingsTab | null>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const [bodyMinHeight, setBodyMinHeight] = useState(0);
   useLayoutEffect(() => {
     const unsubscribe = requests.subscribe((tab) => {
-      setTab(tab);
-      onOpenChange(true);
+      startTransition(() => {
+        setTab(tab);
+        onOpenChange(true);
+      });
     });
     return () => {
       unsubscribe();
@@ -68,51 +78,69 @@ const SettingsModal = ({
   }, [onOpenChange]);
   const close = () => {
     setTab(null);
+    setBodyMinHeight(0);
     onOpenChange(false);
   };
   const Content = tab ? tabs[tab].Component : null;
   return (
-    <Dialog
-      open={tab !== null}
-      onOpenChange={(open) => {
-        if (!open) close();
-      }}
-      width="full"
-      icon="settings"
-      title={tr('settings')}
-      closeLabel={tr('closeDialog')}
-      cancelLabel={false}
-      confirmLabel={false}
-      art={
-        <>
-          <SettingsAtmosphere />
-          <AnimatedBorder shell style={{ position: 'absolute', inset: 0 }} />
-        </>
-      }
-    >
-      {tab && Content && (
-        <Stack gap={4} style={{ paddingInline: 'var(--ad-space-4)' }}>
-          <Tabs
-            value={tab}
-            onValueChange={setTab}
-            items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
-              value,
-              label: tr(tabs[value].label),
-              icon: tabs[value].icon,
-            }))}
-          />
-          <div className="settingsBody">
-            <Suspense
-              fallback={
-                <StatusIndicator status="processing" label={tr('loading')} />
-              }
+    <Suspense fallback={null}>
+      <Dialog
+        open={tab !== null}
+        onOpenChange={(open) => {
+          if (!open) close();
+        }}
+        width="full"
+        icon="settings"
+        title={tr('settings')}
+        closeLabel={tr('closeDialog')}
+        cancelLabel={false}
+        confirmLabel={false}
+        art={
+          <>
+            <SettingsAtmosphere />
+            <AnimatedBorder shell style={{ position: 'absolute', inset: 0 }} />
+          </>
+        }
+      >
+        {tab && Content && (
+          <Stack gap={4} style={{ paddingInline: 'var(--ad-space-4)' }}>
+            <Tabs
+              value={tab}
+              onValueChange={(value) => {
+                const content = body.current;
+                const viewport = content?.closest('.ad-dialog-body');
+                setBodyMinHeight(
+                  content && viewport
+                    ? Math.min(
+                        content.offsetHeight,
+                        Math.max(
+                          0,
+                          viewport.getBoundingClientRect().bottom -
+                            content.getBoundingClientRect().top -
+                            parseFloat(getComputedStyle(viewport).paddingBottom),
+                        ),
+                      )
+                    : 0,
+                );
+                startTransition(() => setTab(value));
+              }}
+              items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
+                value,
+                label: tr(tabs[value].label),
+                icon: tabs[value].icon,
+              }))}
+            />
+            <div
+              ref={body}
+              className="settingsBody"
+              style={{ minHeight: bodyMinHeight || undefined }}
             >
               <Content />
-            </Suspense>
-          </div>
-        </Stack>
-      )}
-    </Dialog>
+            </div>
+          </Stack>
+        )}
+      </Dialog>
+    </Suspense>
   );
 };
 export default SettingsModal;
