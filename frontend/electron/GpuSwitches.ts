@@ -1,10 +1,9 @@
 import * as os from 'node:os';
 
 /**
- * Logical cores from which the interface is rasterized on the CPU. Measured on this app: with 20
- * the first modal of a session opens in ~60 ms instead of ~600 ms and the GPU process does less;
- * pinned to 2 cores, CPU rasterization made scrolling and smaller modals clearly worse than the GPU.
- * Nothing between was measured, so the line is drawn cautiously.
+ * CPU rasterization avoids repeated Skia shader compilation on the measured 20-thread desktop.
+ * With GPU-rendered borders, the 8-thread Ryzen 3 7320U laptop holds about 60 FPS in settings;
+ * GPU rasterization leaves the ENV panel around 56 FPS. At 2 cores, CPU rasterization was slower.
  */
 export const cpuRasterizationMinimumCores = 8;
 
