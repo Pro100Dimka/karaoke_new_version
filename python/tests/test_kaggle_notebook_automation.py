@@ -192,9 +192,10 @@ def test_deploy_rejects_a_kaggle_cli_error_even_when_the_cli_returns_zero(
     )
     monkeypatch.setattr(automation, "_notebook", lambda *_args: {})
 
-    with pytest.raises(DependencyError, match="Maximum batch GPU session count"):
+    with pytest.raises(DependencyError, match="GPU sessions are in use") as error:
         automation.deploy(
             "private-app-token",
             "http://rooms.example.com:8081",
             "ad-voice-gpu-install-a1b2",
         )
+    assert error.value.code == "KaggleGpuSessionLimit"

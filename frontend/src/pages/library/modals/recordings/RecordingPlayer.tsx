@@ -7,6 +7,7 @@ import {
   Button,
   tr,
   IconButton,
+  Loader,
   RotaryKnob,
   Typography,
   Waveform,
@@ -27,6 +28,13 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
   if (['Preparing', 'PreparationFailed'].includes(recording.fileStatus ?? ''))
     return (
       <div role="status">
+        {recording.fileStatus === 'Preparing' && (
+          <Loader
+            animation="wave"
+            size="sm"
+            label={tr(ru.recordingPreparing)}
+          />
+        )}
         <Typography>
           {tr(
             recording.fileStatus === 'Preparing'

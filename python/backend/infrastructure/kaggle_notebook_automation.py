@@ -215,6 +215,11 @@ class KaggleNotebookAutomation:
         )
         stdout = self._output(result)
         stderr = self._output(result, stderr=True)
+        if re.search(r"Maximum batch GPU session count of \d+ reached", stdout + "\n" + stderr):
+            raise DependencyError(
+                "KaggleGpuSessionLimit",
+                "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.",
+            )
         if result.exit_code or re.search(r"(?im)^Kernel push error:", stdout + "\n" + stderr):
             message = stderr or stdout or "Kaggle command failed"
             raise DependencyError("KaggleAutomationFailed", message)

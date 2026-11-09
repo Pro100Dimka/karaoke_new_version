@@ -1,6 +1,7 @@
 from __future__ import annotations
 from backend.recordings.studio_dynamics import apply_phrase_detail
 from backend.recordings.studio_delivery import MasterDelivery
+from backend.recordings.studio_space import apply_reference_space
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -62,6 +63,7 @@ class MasterRender:
     balanced: Path = field(init=False)
     peak_bound: float = field(init=False)
     voice_analysis: dict[str, object] = field(init=False)
+    voice_gain_db: float = field(default=0, init=False)
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -92,7 +94,7 @@ class MasterRender:
             self._phrase_details()
             self._write_balanced()
             self._unmask()
-            self._add_space()
+            self._finish_voice()
             self._deliver()
             return self._balance_report()
 
@@ -220,8 +222,6 @@ class MasterRender:
         if self.process_voice:
             self.processing["phraseDetail"] = apply_phrase_detail(
                 self.voice_db,
-                self.reference_db,
-                self.original_db,
                 self.backing_db,
                 self.gains,
                 self.reliable,
@@ -270,36 +270,31 @@ class MasterRender:
             )
             self.backing = unmasked
 
-    def _add_space(self) -> None:
-        if self.process_voice and self.reliable.any() and self.voice_analysis["spaceEligible"]:
+    def _finish_voice(self) -> None:
+        if self.process_voice and self.reliable.any():
             spatial = self.work / "spatial-voice.wav"
-            threshold = float(
-                np.clip(
-                    10 ** (np.median((self.voice_db + self.gains)[self.reliable]) / 20), 0.001, 1
-                )
-            )
-            # Share a quiet reflection bed; bound the music send relative to the voice.
-            music_send = self._music_send()
-            # Direct paths stay undelayed; only the reflection tail is trimmed.
-            self.renderer._mix(
+            self.processing["referenceEffects"] = apply_reference_space(
+                self.renderer,
+                self.reference_vocal,
+                self.user_vocal,
                 self.balanced,
-                self.backing,
-                "[0:a]asplit=3[dry][vsend][control];"
-                f"[1:a]volume={music_send:.9f}[msend];"
-                "[vsend][msend]amix=inputs=2:duration=first:normalize=0[send];"
-                "[send]highpass=f=180,lowpass=f=6000,adelay=8:all=1,"
-                "aecho=1:0.5:31|47|71|101:0.3|0.25|0.2|0.15,"
-                "aecho=1:0.5:43|79|137:0.25|0.2|0.15,volume=0.12[wet];"
-                f"[wet][control]sidechaincompress=threshold={threshold:.9f}:"
-                "ratio=4:attack=8:release=240:makeup=1:link=maximum[room];"
-                "[dry][room]amix=inputs=2:duration=first:normalize=0,"
-                f"apad,atrim=end_sample={self.info.frames}[out]",
-                ["-c:a", "pcm_f32le", str(spatial)],
+                spatial,
                 self.cancel,
             )
-            self.balanced = spatial
-            self.processing["space"] = "shared-ducked-short-reflections"
-            self.processing["spaceMusicSend"] = music_send
+            if spatial.is_file():
+                self.balanced = spatial
+                self.processing["space"] = "reference-matched"
+            # Follow the reference's placement, bounded near equal levels so a
+            # quiet reference singer cannot bury the recorded voice again.
+            target = float(
+                np.clip(np.median((self.reference_db - self.original_db)[self.reliable]), -3, 3)
+            )
+            levels = _profile(self.balanced, self.cancel)
+            self.voice_gain_db = float(
+                np.clip(np.median((self.backing_db + target - levels)[self.reliable]), -6, 6)
+            )
+            self.processing["voiceBalanceTargetDb"] = target
+            self.processing["voiceOutputGainDb"] = self.voice_gain_db
 
     def _balance_report(self) -> StudioMasterBalance:
         output_info = sf.info(self.target)
@@ -341,6 +336,7 @@ class MasterRender:
             self.reliable,
             self.processing,
             self.progress,
+            voice_gain_db=self.voice_gain_db,
         ).run()
 
     def _stereo_stems(self) -> None:
@@ -462,21 +458,3 @@ class MasterRender:
                     else "native-timeline-retained"
                 ),
             )
-
-    def _music_send(self) -> float:
-        music_send = float(
-            np.clip(
-                0.1
-                * 10
-                ** (
-                    (
-                        np.median((self.voice_db + self.gains)[self.reliable])
-                        - np.median(self.backing_db[self.reliable])
-                    )
-                    / 20
-                ),
-                0,
-                0.25,
-            )
-        )
-        return music_send

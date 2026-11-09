@@ -5,9 +5,14 @@ import { ru } from '../../../../../i18n/messages.ru';
 import { pythonClient } from '../../../../../services/pythonClient';
 import { environmentStoreFor } from './environmentStore';
 import { valuesOf, isSecret, saveDelayMilliseconds } from './environmentModel';
+import { toAppError } from '../../../../../shared/errors';
 
-const errorText = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
+const errorText = (error: unknown, fallback: string) => {
+  const failure = toAppError(error);
+  return failure.code === 'Unknown' && !(error instanceof Error)
+    ? fallback
+    : tr(failure.message);
+};
 
 /** Drafts belong to this view; submitted writes and verification survive its closure. */
 export const useEnvironmentSettings = () => {

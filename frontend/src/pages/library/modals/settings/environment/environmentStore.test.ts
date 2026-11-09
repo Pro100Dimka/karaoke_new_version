@@ -119,6 +119,20 @@ it('waits for login before starting deployment and measuring its duration', asyn
   expect(store.getSnapshot().kaggleAction).toBeNull();
 });
 
+it('preserves the backend deployment error instead of replacing it with a generic field error', async () => {
+  const api = backend();
+  const error = {
+    code: 'KaggleGpuSessionLimit',
+    message: 'Both GPU sessions are in use',
+    source: 'python',
+  };
+  api.deployKaggle.mockRejectedValueOnce(error);
+  const store = environmentStoreFor(api);
+  await store.load();
+  await expect(store.runKaggleAction('deploy')).rejects.toEqual(error);
+  expect(store.getSnapshot().entries?.[0]?.errorMessage).toBe(error.message);
+});
+
 it.each(['loginKaggle', 'deployKaggle', 'verifyKaggleSettings'] as const)(
   'clears a failed %s operation and allows a new attempt',
   async (method) => {

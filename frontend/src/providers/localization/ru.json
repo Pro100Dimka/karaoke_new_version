@@ -559,5 +559,6 @@
   "errors.songRefresh": "Не удалось обновить сведения о песне.",
   "errors.diagnostics": "Часть диагностических данных недоступна. Обновите сведения или проверьте состояние служб.",
   "errors.detachedPanel": "Не удалось открыть отдельное окно.",
-  "errors.roomTimingPublish": "Не удалось обновить параметры задержки комнаты на сервере."
+  "errors.roomTimingPublish": "Не удалось обновить параметры задержки комнаты на сервере.",
+  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle сообщает, что GPU-сессии уже заняты. Завершите ненужный запуск блокнота в Kaggle и повторите попытку."
 }

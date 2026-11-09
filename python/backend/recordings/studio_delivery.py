@@ -31,6 +31,7 @@ class MasterDelivery:
     reliable: NDArray[np.bool_]
     processing: dict[str, object]
     progress: Callable[[str, float, float], None] | None
+    voice_gain_db: float = 0
     measured: dict[str, float] | None = field(init=False)
     ceiling: float = field(init=False)
     target_lufs: float = field(init=False)
@@ -40,13 +41,18 @@ class MasterDelivery:
     graph: str = field(init=False)
 
     def run(self) -> None:
+        voice = "[1:a]"
+        self.graph = ""
+        if self.voice_gain_db:
+            self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];"
+            voice = "[voice]"
+        self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
         self._measure_delivery()
         self._write_delivery()
 
     def _measure_delivery(self) -> None:
         if self.progress:
             self.progress("AnalyzingBalance", 1.0, 0.78)
-        self.graph = "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
         # A unity-gain original needs no preliminary loudness scan if its samples cannot
         # clip. Always meter the encoded samples; intersample overshoots still trigger attenuation.
         self.unity_candidate = (

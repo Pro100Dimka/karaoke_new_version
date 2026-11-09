@@ -559,5 +559,6 @@
   "errors.songRefresh": "Could not refresh song information.",
   "errors.diagnostics": "Some diagnostics are unavailable. Refresh or check service status.",
   "errors.detachedPanel": "Could not open the detached window.",
-  "errors.roomTimingPublish": "Could not update room latency parameters on the server."
+  "errors.roomTimingPublish": "Could not update room latency parameters on the server.",
+  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again."
 }

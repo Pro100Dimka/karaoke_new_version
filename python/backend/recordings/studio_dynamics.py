@@ -31,7 +31,9 @@ def _balance_curve(
         & (backing > -60)
         & (original > -60)
     )
-    desired = np.minimum((reference - original) - (voice - backing), _MAX_BOOST_DB)
+    # Match the accompaniment during supported vocal phrases. The reference marks
+    # singing regions, but its artistic mix must not set the recorded voice level.
+    desired = np.minimum(backing - voice, _MAX_BOOST_DB)
     if not reliable.any():
         return np.zeros_like(voice), reliable
     # Bound boosts, not attenuation: a loud singer may need more than 9 dB of reduction.
@@ -87,20 +89,18 @@ def _voice_filters(
 
 def apply_phrase_detail(
     voice_db: np.ndarray,
-    reference_db: np.ndarray,
-    original_db: np.ndarray,
     backing_db: np.ndarray,
     gains: np.ndarray,
     reliable: np.ndarray,
 ) -> dict[str, object]:
-    # Support sustained dips within a phrase, not pauses, consonant attacks or
-    # intentional softness also present in the reference. Preserve the broad curve.
+    # Support sustained dips within a phrase, not pauses or consonant attacks.
+    # Preserve the broad balance curve.
     floor = max(-50.0, float(np.percentile(voice_db, 10)) + 15)
     supported = reliable & (voice_db > floor)
     supported = minimum_filter1d(supported.astype(float), size=5, mode="constant")
     local_level = median_filter(voice_db, size=5, mode="nearest")
     phrase_level = median_filter(voice_db, size=31, mode="nearest")
-    deficit = (reference_db - original_db) - (voice_db + gains - backing_db)
+    deficit = backing_db - (voice_db + gains)
     detail = (
         np.minimum(
             np.clip((phrase_level - local_level - 6) * 0.25, 0, 1.5),

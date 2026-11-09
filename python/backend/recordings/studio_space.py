@@ -1,0 +1,202 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from pathlib import Path
+import math
+import threading
+
+import numpy as np
+import soundfile as sf
+from scipy.ndimage import median_filter
+from scipy.signal import butter, find_peaks, resample_poly, sosfilt
+
+from backend.recordings.studio_audio import MasterRenderer, _check_cancel
+from backend.domain_errors import DependencyError
+
+
+@dataclass(frozen=True, slots=True)
+class SpaceProfile:
+    delay_seconds: float = 0
+    delay_gain: float = 0
+    delay_support: float = 0
+    decay_seconds: float = 0
+    reverb_gain: float = 0
+    decay_count: int = 0
+
+
+def apply_reference_space(
+    renderer: MasterRenderer,
+    reference: Path,
+    recorded: Path,
+    voice: Path,
+    target: Path,
+    cancel: threading.Event,
+) -> dict[str, object]:
+    expected = analyze_space(reference, cancel)
+    existing = analyze_space(recorded, cancel)
+    selected = match_space(expected, existing)
+    applied = bool(selected.delay_gain or selected.reverb_gain)
+    if applied:
+        info = sf.info(voice)
+        impulse = target.with_suffix(".ir.wav")
+        write_impulse(selected, impulse, info.samplerate, info.channels)
+        renderer._mix(
+            voice,
+            impulse,
+            "[0:a][1:a]afir=dry=1:wet=1:irnorm=-1:irgain=1,"
+            f"apad,atrim=end_sample={info.frames}[out]",
+            ["-c:a", "pcm_f32le", str(target)],
+            cancel,
+        )
+    return {
+        "method": "reference-cepstrum-and-pause-decay",
+        "status": "matched" if applied else "no-supported-addition",
+        "reference": asdict(expected),
+        "recorded": asdict(existing),
+        "applied": asdict(selected),
+    }
+
+
+def analyze_space(path: Path, cancel: threading.Event) -> SpaceProfile:
+    levels, cepstra = _read_evidence(path, cancel)
+    delay, gain, support = _delay(cepstra)
+    decay, wet, count = _decay(levels)
+    return SpaceProfile(delay, gain, support, decay, wet, count)
+
+
+def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile:
+    # Existing recorded tails cannot be shortened by adding another effect.
+    reverb = (
+        math.sqrt(max(0, reference.reverb_gain**2 - existing.reverb_gain**2))
+        if existing.decay_seconds <= reference.decay_seconds
+        else 0.0
+    )
+    return SpaceProfile(
+        delay_seconds=reference.delay_seconds,
+        delay_gain=max(0, reference.delay_gain - existing.delay_gain),
+        delay_support=reference.delay_support,
+        decay_seconds=reference.decay_seconds,
+        reverb_gain=reverb,
+        decay_count=reference.decay_count,
+    )
+
+
+def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -> None:
+    length = round((max(profile.decay_seconds, profile.delay_seconds, 0.02) + 0.02) * rate)
+    impulse = np.zeros((length, channels), dtype=np.float64)
+    impulse[0] = 1
+    if profile.delay_gain:
+        impulse[round(profile.delay_seconds * rate)] += profile.delay_gain
+    if profile.reverb_gain:
+        start = round(0.02 * rate)
+        time = np.arange(length - start) / rate
+        noise = np.random.default_rng(0).normal(size=(len(time), channels))
+        band = butter(2, [180, min(6000, rate * 0.45)], btype="bandpass", fs=rate, output="sos")
+        tail = sosfilt(band, noise, axis=0) * np.exp(
+            -6.9078 * time[:, None] / profile.decay_seconds
+        )
+        tail /= np.maximum(np.linalg.norm(tail, axis=0), 1e-12)
+        impulse[start:] += profile.reverb_gain * tail
+    sf.write(path, impulse, rate, subtype="FLOAT")
+
+
+def _read_evidence(path: Path, cancel: threading.Event) -> tuple[np.ndarray, np.ndarray]:
+    levels: list[float] = []
+    cepstra: list[np.ndarray] = []
+    energies: list[float] = []
+    with sf.SoundFile(path) as source:
+        block = source.samplerate * 2
+        stride = max(1, math.ceil(source.frames / block / 96))
+        step = max(1, round(source.samplerate * 0.02))
+        for index, samples in enumerate(source.blocks(blocksize=block, always_2d=True)):
+            _check_cancel(cancel)
+            if not np.isfinite(samples).all():
+                raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
+            samples = samples[:, :2]
+            usable = len(samples) // step * step
+            if usable:
+                power = np.mean(
+                    samples[:usable].reshape(-1, step, samples.shape[1]) ** 2, axis=(1, 2)
+                )
+                levels.extend(10 * np.log10(np.maximum(power, 1e-12)))
+            if index % stride == 0 and len(samples) == block:
+                energies.append(float(np.mean(samples * samples)))
+                cepstra.append(_cepstrum(samples, source.samplerate))
+    if not energies:
+        return np.asarray(levels), np.empty((0, 8193))
+    active = np.asarray(energies) > max(1e-8, float(np.percentile(energies, 75)) / 100)
+    return np.asarray(levels), np.asarray(cepstra)[active]
+
+
+def _cepstrum(samples: np.ndarray, rate: int) -> np.ndarray:
+    divisor = math.gcd(rate, 8000)
+    audio = resample_poly(samples, 8000 // divisor, rate // divisor, axis=0)
+    # A tapered window changes the direct/echo ratio at different delays.
+    # Use untapered blocks and require the peak to persist across independent blocks.
+    spectrum = np.abs(np.fft.rfft(audio, n=16384, axis=0))
+    logarithm = np.log(np.maximum(spectrum, np.max(spectrum) * 1e-8 + 1e-12))
+    return np.mean(np.fft.irfft(logarithm, n=16384, axis=0), axis=1)[:8193]
+
+
+def _delay(cepstra: np.ndarray) -> tuple[float, float, float]:
+    if len(cepstra) < 6:
+        return 0, 0, 0
+    # Persistent long-quefrency peaks indicate a delayed copy, not vocal pitch.
+    curve = np.median(cepstra, axis=0)
+    lower, upper = 640, 4800
+    noise = float(np.median(np.abs(curve[lower:upper])))
+    peaks, _ = find_peaks(curve[lower:upper], height=max(0.015, noise * 10), distance=80)
+    if not len(peaks):
+        return 0, 0, 0
+    index = int(peaks[np.argmax(curve[lower:upper][peaks])] + lower)
+    agreeing = cepstra[:, index] > max(0.01, noise * 6)
+    support = float(np.mean(agreeing))
+    if support < 0.6:
+        return 0, 0, support
+    seconds = index / 8000
+    # A block boundary can cut off a repeat. Estimate strength from the upper
+    # quartile of agreeing blocks, rather than treating cut tails as a quieter effect.
+    gain = float(np.clip(2 * np.percentile(cepstra[agreeing, index], 75), 0, 0.5))
+    return seconds, gain, support
+
+
+def _decay(levels: np.ndarray) -> tuple[float, float, int]:
+    if len(levels) < 150 or np.percentile(levels, 80) - np.percentile(levels, 10) < 15:
+        return 0, 0, 0
+    smooth = median_filter(levels, size=3)
+    floor = max(-85.0, float(np.percentile(smooth, 10)) + 6)
+    candidates = np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2
+    evidence = []
+    previous = -50
+    for index in candidates:
+        if index < 12 or index - previous < 50:
+            continue
+        fit = _fit_decay(smooth, int(index), floor)
+        if fit is not None:
+            evidence.append(fit)
+            previous = int(index)
+    if len(evidence) < 3:
+        return 0, 0, len(evidence)
+    decays, gains = np.asarray(evidence).T
+    consistent = np.abs(np.log(decays / np.median(decays))) < 0.4
+    if np.count_nonzero(consistent) < 3:
+        return 0, 0, len(evidence)
+    return float(np.median(decays[consistent])), float(np.median(gains[consistent])), len(evidence)
+
+
+def _fit_decay(levels: np.ndarray, index: int, floor: float) -> tuple[float, float] | None:
+    tail = levels[index : index + 60]
+    stops = np.flatnonzero((tail < floor) | (tail > tail[0] + 3))
+    if len(stops):
+        tail = tail[: stops[0]]
+    if len(tail) < 7 or tail[0] - tail[-1] < 10:
+        return None
+    time = np.arange(len(tail)) * 0.02
+    slope, intercept = np.polyfit(time, tail, 1)
+    fitted = intercept + slope * time
+    error = float(np.sum((tail - fitted) ** 2) / max(1e-12, np.sum((tail - np.mean(tail)) ** 2)))
+    if error > 0.15 or not -300 <= slope <= -25:
+        return None
+    active = float(np.median(levels[index - 12 : index - 2]))
+    strength = float(np.clip(10 ** ((intercept - active) / 20), 0, 0.5))
+    return float(-60 / slope), strength

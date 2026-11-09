@@ -150,17 +150,17 @@
 .helpNext > span { color: var(--ad-muted); font-size: 12px; }
 .helpNext > button { max-width: 100%; height: auto; min-height: 36px; font-size: 13px; line-height: 1.6; }
 .helpNext button > span { display: flex; align-items: center; gap: 10px; }
-@media (max-width: 1150px) {
+@media (width < 1920px) {
   .helpLayout { grid-template-columns: 216px minmax(0, 1fr); }
   .helpMain { padding: 28px; }
   .helpStep { gap: 24px; }
   .helpCategoryContent { gap: 10px; }
 }
-@media (max-width: 980px) {
+@media (width < 1024px) {
   .helpStep { grid-template-columns: 1fr; }
   .helpScreenshot { max-width: 560px; margin-left: 44px; width: calc(100% - 44px); }
 }
-@media (max-width: 800px) {
+@media (width < 768px) {
   .helpHeader { gap: 12px; }
   .helpLayout { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .helpSidebar { display: flex; gap: 4px; overflow-x: auto; padding: 8px 16px; border-right: 0; border-bottom: 1px solid var(--help-border); }

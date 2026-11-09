@@ -14,7 +14,6 @@ import {
   startTransition,
   Suspense,
   useLayoutEffect,
-  useRef,
   useState,
 } from 'react';
 
@@ -62,8 +61,6 @@ const SettingsModal = ({
 }) => {
   useLocale();
   const [tab, setTab] = useState<SettingsTab | null>(null);
-  const body = useRef<HTMLDivElement>(null);
-  const [bodyMinHeight, setBodyMinHeight] = useState(0);
   useLayoutEffect(() => {
     const unsubscribe = requests.subscribe((tab) => {
       startTransition(() => {
@@ -78,7 +75,6 @@ const SettingsModal = ({
   }, [onOpenChange]);
   const close = () => {
     setTab(null);
-    setBodyMinHeight(0);
     onOpenChange(false);
   };
   const Content = tab ? tabs[tab].Component : null;
@@ -105,36 +101,16 @@ const SettingsModal = ({
         {tab && Content && (
           <Stack gap={4} style={{ paddingInline: 'var(--ad-space-4)' }}>
             <Tabs
+              className="settingsTabs"
               value={tab}
-              onValueChange={(value) => {
-                const content = body.current;
-                const viewport = content?.closest('.ad-dialog-body');
-                setBodyMinHeight(
-                  content && viewport
-                    ? Math.min(
-                        content.offsetHeight,
-                        Math.max(
-                          0,
-                          viewport.getBoundingClientRect().bottom -
-                            content.getBoundingClientRect().top -
-                            parseFloat(getComputedStyle(viewport).paddingBottom),
-                        ),
-                      )
-                    : 0,
-                );
-                startTransition(() => setTab(value));
-              }}
+              onValueChange={(value) => startTransition(() => setTab(value))}
               items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
                 value,
                 label: tr(tabs[value].label),
                 icon: tabs[value].icon,
               }))}
             />
-            <div
-              ref={body}
-              className="settingsBody"
-              style={{ minHeight: bodyMinHeight || undefined }}
-            >
+            <div className="settingsBody">
               <Content />
             </div>
           </Stack>

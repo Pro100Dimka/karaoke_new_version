@@ -1,5 +1,6 @@
 import type { SettingsBackendPort } from '../../../../../application/settings/SettingsPorts';
 import type { EnvironmentSettingDto } from '../../../../../contracts/models';
+import { toAppError } from '../../../../../shared/errors';
 import {
   isSecret,
   type DisplayEntry,
@@ -29,8 +30,7 @@ type EnvironmentSnapshot = {
 };
 
 const verifiesAlone = (key: string) => key !== 'KAGGLE_API_TOKEN';
-const errorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : null;
+const errorMessage = (error: unknown) => toAppError(error).message;
 const confirmedEntry = (entry: EnvironmentSettingDto): EnvironmentSettingDto =>
   isSecret(entry) ? { ...entry, value: '' } : entry;
 

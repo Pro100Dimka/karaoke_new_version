@@ -559,5 +559,6 @@
   "errors.songRefresh": "Не вдалося оновити відомості про пісню.",
   "errors.diagnostics": "Частина діагностичних даних недоступна. Оновіть відомості або перевірте стан служб.",
   "errors.detachedPanel": "Не вдалося відкрити окреме вікно.",
-  "errors.roomTimingPublish": "Не вдалося оновити параметри затримки кімнати на сервері."
+  "errors.roomTimingPublish": "Не вдалося оновити параметри затримки кімнати на сервері.",
+  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle повідомляє, що GPU-сесії вже зайняті. Завершіть непотрібний запуск блокнота в Kaggle та спробуйте знову."
 }

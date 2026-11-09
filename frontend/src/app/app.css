@@ -23,6 +23,9 @@ dialog.ad-dialog > header {
   -webkit-app-region: drag;
   user-select: none;
 }
+body:has(dialog.ad-dialog[open]) [data-window-drag] {
+  -webkit-app-region: no-drag;
+}
 .titleBarFullscreen,
 .titleBarFullscreen .titleBarLeading,
 body:has(.titleBarFullscreen) [data-window-drag],
@@ -38,7 +41,17 @@ body:has(.titleBarFullscreen) dialog.ad-dialog > header {
   -webkit-app-region: drag;
 }
 :is(.titleBar, [data-window-drag], dialog.ad-dialog > header)
-  :is(button, a, input, textarea, select, label, [role='button'], [role='slider'], [contenteditable='true']),
+  :is(
+    button,
+    a,
+    input,
+    textarea,
+    select,
+    label,
+    [role='button'],
+    [role='slider'],
+    [contenteditable='true']
+  ),
 .titleBarControls {
   -webkit-app-region: no-drag;
 }

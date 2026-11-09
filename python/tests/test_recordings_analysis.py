@@ -14,6 +14,18 @@ from tests.helpers import import_song, wait_for_job, wait_for_recording
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.parametrize("reference_level", [-42.0, -18.0])
+def test_recording_balance_targets_backing_level(reference_level: float) -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(100, -18.0)
+    backing = np.full(100, -30.0)
+    gains, reliable = _balance_curve(voice, backing, np.full(100, reference_level), backing)
+    assert reliable.all()
+    np.testing.assert_allclose(voice + gains, backing, atol=0.1)
+
+
 def ready_song(client, source: Path) -> dict[str, object]:
     song = import_song(client, source)
     started = client.post(

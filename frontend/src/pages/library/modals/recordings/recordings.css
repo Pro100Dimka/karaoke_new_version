@@ -89,6 +89,7 @@
 }
 .recordingActions {
   display: flex;
+  align-items: center;
   gap: var(--ad-space-2);
 }
 .recordingsEmpty {
@@ -107,7 +108,7 @@
   gap: var(--ad-space-2);
   margin-inline-start: auto;
 }
-@media (max-width: 40rem) {
+@media (width < 768px) {
   .recordingCard.ad-card {
     grid-template-columns: minmax(0, 1fr);
   }
