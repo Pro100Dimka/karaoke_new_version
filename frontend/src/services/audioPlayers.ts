@@ -164,11 +164,13 @@ export const createAudioPlayers = (
       if (generation !== previewGeneration || !ownsPreview(owner)) return;
       await ops.command('SeekRecordingPreview', { frame });
     },
-    async stopRecordingPreview(owner) {
+    async stopRecordingPreview(owner, recordingId) {
+      if (recordingId !== undefined && previewRecordingId !== recordingId) return;
       if (!ownsPreview(owner)) return;
       previewGeneration += 1;
       previewOwner = undefined;
       await ops.command('StopRecordingPreview');
+      previewRecordingId = null;
     },
     async setPreviewVolume(gain) {
       await ops.command('SetGain', { target: 'preview', value: gain });

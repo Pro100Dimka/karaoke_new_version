@@ -6,6 +6,7 @@ import { pythonClient } from '../../../../../services/pythonClient';
 import { environmentStoreFor } from './environmentStore';
 import { valuesOf, isSecret, saveDelayMilliseconds } from './environmentModel';
 import { toAppError } from '../../../../../shared/errors';
+import { ask } from '../../../../../providers/dialog';
 
 const errorText = (error: unknown, fallback: string) => {
   const failure = toAppError(error);
@@ -117,6 +118,32 @@ export const useEnvironmentSettings = () => {
       await flush();
       notify(await store.runKaggleAction(action), 'success');
     } catch (error) {
+      if (toAppError(error).code === 'KaggleNotebookStalled') {
+        const choice = await ask({
+          title: tr(ru.kaggleRestoreTitle),
+          body: tr(ru.kaggleRestoreBody),
+          tone: 'warning',
+          actions: [
+            {
+              id: 'restore',
+              label: tr(ru.kaggleRestoreTitle),
+              appearance: 'primary',
+            },
+            {
+              id: 'cancel',
+              label: tr(ru.cancel),
+              appearance: 'secondary',
+            },
+          ],
+        });
+        if (choice !== 'restore') return;
+        try {
+          notify(await store.runKaggleAction('deploy', true), 'success');
+        } catch (failure) {
+          reportError(failure);
+        }
+        return;
+      }
       reportError(error);
     }
   };

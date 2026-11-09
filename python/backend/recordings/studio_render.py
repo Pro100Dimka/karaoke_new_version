@@ -1,7 +1,7 @@
 from __future__ import annotations
-from backend.recordings.studio_dynamics import apply_phrase_detail
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_space import apply_reference_space
+from backend.recordings.studio_dynamics import _backing_curve
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -90,11 +90,12 @@ class MasterRender:
             bypass = self._match_reference()
             if bypass is not None:
                 return bypass
+            if self.process_voice:
+                self._match_backing()
             self._schedule_loudness(loudness_pool)
-            self._phrase_details()
+            self._finish_voice()
             self._write_balanced()
             self._unmask()
-            self._finish_voice()
             self._deliver()
             return self._balance_report()
 
@@ -203,6 +204,29 @@ class MasterRender:
             )
         return None
 
+    def _match_backing(self) -> None:
+        gains = _backing_curve(self.backing_db, self.original_db)
+        if not np.any(gains):
+            return
+        target = self.work / "balanced-backing.wav"
+        with (
+            sf.SoundFile(self.backing) as source,
+            sf.SoundFile(
+                target, "w", samplerate=source.samplerate, channels=source.channels, subtype="FLOAT"
+            ) as output,
+        ):
+            offset = 0
+            for samples in source.blocks(blocksize=65536, dtype="float32", always_2d=True):
+                _check_cancel(self.cancel)
+                positions = (offset + np.arange(len(samples))) / source.samplerate
+                gain = np.power(10.0, np.interp(positions, self.times, gains) / 20)
+                output.write(samples * gain[:, None])
+                offset += len(samples)
+        self.backing = target
+        self.backing_db = self.backing_db + gains
+        self.processing["backingGainDb"] = float(np.median(gains))
+        self.processing["backingBalance"] = "original-instrumental-envelope"
+
     def _schedule_loudness(self, loudness_pool: ThreadPoolExecutor) -> None:
         self.recording_analysis = (
             loudness_pool.submit(
@@ -217,15 +241,6 @@ class MasterRender:
             if self.match_recording_loudness
             else None
         )
-
-    def _phrase_details(self) -> None:
-        if self.process_voice:
-            self.processing["phraseDetail"] = apply_phrase_detail(
-                self.voice_db,
-                self.backing_db,
-                self.gains,
-                self.reliable,
-            )
 
     def _write_balanced(self) -> None:
         self.balanced = self.work / "balanced-voice.wav"
@@ -277,24 +292,27 @@ class MasterRender:
                 self.renderer,
                 self.reference_vocal,
                 self.user_vocal,
-                self.balanced,
+                self.vocal,
                 spatial,
                 self.cancel,
             )
             if spatial.is_file():
-                self.balanced = spatial
+                self.vocal = spatial
                 self.processing["space"] = "reference-matched"
-            # Follow the reference's placement, bounded near equal levels so a
-            # quiet reference singer cannot bury the recorded voice again.
-            target = float(
-                np.clip(np.median((self.reference_db - self.original_db)[self.reliable]), -3, 3)
+                self.voice_db = _profile(self.vocal, self.cancel)
+                self.gains, self.reliable = self.renderer._balance_curve(
+                    self.voice_db,
+                    self.backing_db,
+                    self.reference_db,
+                    self.original_db,
+                    phrase_smoothing=True,
+                )
+            target = self.voice_db + self.gains
+            self.processing["voiceBalanceTargetDb"] = float(
+                np.median((target - self.backing_db)[self.reliable])
             )
-            levels = _profile(self.balanced, self.cancel)
-            self.voice_gain_db = float(
-                np.clip(np.median((self.backing_db + target - levels)[self.reliable]), -6, 6)
-            )
-            self.processing["voiceBalanceTargetDb"] = target
             self.processing["voiceOutputGainDb"] = self.voice_gain_db
+            self.processing["voiceLeveling"] = "post-effects-reference-envelope"
 
     def _balance_report(self) -> StudioMasterBalance:
         output_info = sf.info(self.target)
@@ -403,7 +421,7 @@ class MasterRender:
             np.clip(1 + (np.percentile(active, 90) - np.percentile(active, 20)) / 12, 1, 2.5)
         )
         filters, self.voice_analysis = self.renderer._voice_filters(
-            self.user_vocal, raw_profile, self.cancel
+            self.user_vocal, raw_profile, self.cancel, self.reference_vocal
         )
         self.processing.update(
             compressorRatio=ratio,

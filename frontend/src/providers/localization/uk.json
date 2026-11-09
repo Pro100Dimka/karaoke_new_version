@@ -560,5 +560,10 @@
   "errors.diagnostics": "Частина діагностичних даних недоступна. Оновіть відомості або перевірте стан служб.",
   "errors.detachedPanel": "Не вдалося відкрити окреме вікно.",
   "errors.roomTimingPublish": "Не вдалося оновити параметри затримки кімнати на сервері.",
-  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle повідомляє, що GPU-сесії вже зайняті. Завершіть непотрібний запуск блокнота в Kaggle та спробуйте знову."
+  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle повідомляє, що GPU-сесії вже зайняті. Завершіть непотрібний запуск блокнота в Kaggle та спробуйте знову.",
+  "The application notebook is stuck in the Kaggle queue": "Службовий блокнот застосунку застряг у черзі Kaggle.",
+  "Notebook state changed; it was not removed": "Стан блокнота змінився. Його не видалено. Повторіть перевірку пізніше.",
+  "A different notebook version is still active": "У Kaggle ще активна інша версія службового блокнота. Дочекайтеся її завершення.",
+  "Notebook backup is incomplete": "Не вдалося зберегти повну копію блокнота. Блокнот не видалено.",
+  "Kaggle notebook is already starting or running": "Блокнот Kaggle вже запускається або працює."
 }

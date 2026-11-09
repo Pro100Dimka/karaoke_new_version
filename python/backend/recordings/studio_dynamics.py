@@ -8,7 +8,7 @@ from scipy.ndimage import median_filter, minimum_filter1d, uniform_filter1d
 from scipy.signal import find_peaks
 import soundfile as sf
 
-from backend.recordings.studio_audio import _MAX_BOOST_DB, _PROFILE_SECONDS, _check_cancel
+from backend.recordings.studio_audio import _MAX_BOOST_DB, _PROFILE_SECONDS, _check_cancel, _profile
 
 
 def _balance_curve(
@@ -19,21 +19,21 @@ def _balance_curve(
     *,
     phrase_smoothing: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    # Require both singers and both accompaniments. Do not normalize rests or a noise floor
-    # to a professional singer. This is an energy guard, not a claim of speech recognition.
+    # Do not normalize rests or a noise floor to a professional singer.
     floor = max(-55.0, float(np.percentile(voice, 20)) + 10.0)
     upper = float(np.percentile(voice, 80))
     if floor >= upper:
         floor = max(-55.0, upper - 10.0)
-    reliable = (
-        (voice > floor)
-        & (reference > max(-55.0, float(np.max(reference)) - 30))
-        & (backing > -60)
-        & (original > -60)
-    )
-    # Match the accompaniment during supported vocal phrases. The reference marks
-    # singing regions, but its artistic mix must not set the recorded voice level.
-    desired = np.minimum(backing - voice, _MAX_BOOST_DB)
+    reliable = (voice > floor) & (reference > max(-55.0, float(np.max(reference)) - 30))
+    if phrase_smoothing:
+        # Calibrate the recording once; accompaniment dynamics must not duck the singer.
+        music = (backing > -60) & (original > -60)
+        offset = float(np.median((backing - original)[music])) if music.any() else 0.0
+        target = reference + offset
+    else:
+        reliable &= (backing > -60) & (original > -60)
+        target = backing
+    desired = np.minimum(target - voice, _MAX_BOOST_DB)
     if not reliable.any():
         return np.zeros_like(voice), reliable
     # Bound boosts, not attenuation: a loud singer may need more than 9 dB of reduction.
@@ -44,7 +44,7 @@ def _balance_curve(
     gains = uniform_filter1d(median_filter(gains, size=21, mode="nearest"), size=11, mode="nearest")
     # Never boost a pause just because adjacent words were quiet. Attenuation may persist.
     if phrase_smoothing:
-        gains = _smooth_boosts(gains, reliable)
+        gains = _smooth_boosts(gains, reliable, causal=True)
     else:
         gains = np.minimum(gains, np.where(reliable, _MAX_BOOST_DB, 0.0))
     return gains, reliable
@@ -54,6 +54,7 @@ def _voice_filters(
     path: Path,
     levels: NDArray[np.float64],
     cancel: threading.Event,
+    reference: Path | None = None,
 ) -> tuple[list[str], dict[str, object]]:
     filters = ["highpass=f=60"]
     noise_floor = float(np.percentile(levels, 10))
@@ -69,6 +70,7 @@ def _voice_filters(
         )
     centers, spectral_frames, ratios = _spectral_evidence(path, levels, noise_floor, cancel)
     resonances, intensity = _resonance_filters(centers, spectral_frames, ratios, filters)
+    tone = _tone_filters(reference, centers, spectral_frames, ratios, filters, cancel)
     if intensity > 0:
         filters.append(f"deesser=i={intensity:.6f}:m=0.25:f=0.5")
     tails = _voice_tails(levels)
@@ -83,48 +85,122 @@ def _voice_filters(
         "activeAnalysisSeconds": len(spectral_frames) * _PROFILE_SECONDS,
         "resonanceFrequenciesHz": resonances,
         "deesserIntensity": intensity,
+        **tone,
         "method": "conservative-signal-dependent",
     }
 
 
-def apply_phrase_detail(
-    voice_db: np.ndarray,
-    backing_db: np.ndarray,
-    gains: np.ndarray,
-    reliable: np.ndarray,
+def _tone_filters(
+    reference: Path | None,
+    centers: np.ndarray,
+    spectral_frames: list[np.ndarray],
+    ratios: list[float],
+    filters: list[str],
+    cancel: threading.Event,
 ) -> dict[str, object]:
-    # Support sustained dips within a phrase, not pauses or consonant attacks.
-    # Preserve the broad balance curve.
-    floor = max(-50.0, float(np.percentile(voice_db, 10)) + 15)
-    supported = reliable & (voice_db > floor)
-    supported = minimum_filter1d(supported.astype(float), size=5, mode="constant")
-    local_level = median_filter(voice_db, size=5, mode="nearest")
-    phrase_level = median_filter(voice_db, size=31, mode="nearest")
-    deficit = backing_db - (voice_db + gains)
-    detail = (
-        np.minimum(
-            np.clip((phrase_level - local_level - 6) * 0.25, 0, 1.5),
-            np.clip((deficit - 3) * 0.25, 0, 1.5),
-        )
-        * supported
+    reference_tone = _reference_tone(reference, cancel) if reference else None
+    reference_ratio = reference_tone[0] if reference_tone else None
+    cuts = (
+        _reference_cuts(centers, spectral_frames, reference_tone, filters)
+        if reference_tone and len(spectral_frames) >= 30
+        else {}
     )
-    if np.count_nonzero(supported) < 30:
-        detail.fill(0)
-    detail = uniform_filter1d(detail, size=5, mode="constant") * supported
-    detail = np.minimum(detail, np.maximum(0, _MAX_BOOST_DB - gains))
-    gains += detail
+    clarity = (
+        _clarity_filters(ratios, filters, reference_ratio, 0 if cuts else None)
+        if centers[-1] >= 8000
+        else 0.0
+    )
     return {
-        "maxBoostDb": float(np.max(detail)),
-        "limitDb": 1.5,
-        "affectedSeconds": float(np.count_nonzero(detail > 0.1) * _PROFILE_SECONDS),
-        "method": "supported-intraphrase-dips",
+        "clarityAmount": clarity,
+        "referenceTrebleRatioDb": reference_ratio,
+        **cuts,
     }
 
 
-def _smooth_boosts(gains: np.ndarray, reliable: np.ndarray) -> np.ndarray:
-    # Ramp boosts down before rests. Bound gain velocity to 3 dB/s in both directions.
+def _backing_curve(
+    backing: NDArray[np.float64], original: NDArray[np.float64]
+) -> NDArray[np.float64]:
+    reliable = (backing > -60) & (original > -60)
+    if not reliable.any():
+        return np.zeros_like(backing)
+    offset = float(np.median((backing - original)[reliable]))
+    desired = np.minimum(original + offset - backing, _MAX_BOOST_DB)
+    positions = np.arange(len(backing))
+    gains = np.interp(positions, positions[reliable], desired[reliable])
+    gains = uniform_filter1d(median_filter(gains, size=21, mode="nearest"), size=11, mode="nearest")
+    return _smooth_boosts(gains, reliable)
+
+
+def _tone_envelope(centers: np.ndarray, frames: list[np.ndarray]) -> np.ndarray:
+    spectrum = np.asarray(frames)
+    middle = np.median(spectrum[:, (centers >= 800) & (centers < 1600)], axis=1)
+    return np.asarray(
+        median_filter(np.median(spectrum - middle[:, None], axis=0), size=11, mode="nearest")
+    )
+
+
+def _reference_cuts(
+    centers: np.ndarray,
+    frames: list[np.ndarray],
+    reference: tuple[float, np.ndarray, np.ndarray],
+    filters: list[str],
+) -> dict[str, object]:
+    # Compare broad envelopes, not individual harmonics or the singers' absolute levels.
+    excess = _tone_envelope(centers, frames) - np.interp(centers, reference[1], reference[2])
+    report: dict[str, object] = {}
+    for name, lower, upper, limit in (("body", 250, 700, 3), ("presence", 1800, 4200, 2)):
+        indices = np.flatnonzero((centers >= lower) & (centers <= upper))
+        index = int(indices[np.argmax(excess[indices])])
+        reduction = float(min(excess[index] * 0.5, limit)) if excess[index] > 2 else 0.0
+        frequency = float(centers[index])
+        if reduction:
+            filters.append(f"equalizer=f={frequency:.3f}:t=q:w=0.7:g={-reduction:.6f}")
+        report[f"{name}ReductionDb"] = reduction
+        report[f"{name}FrequencyHz"] = frequency if reduction else None
+    return report
+
+
+def _reference_tone(
+    path: Path, cancel: threading.Event
+) -> tuple[float, np.ndarray, np.ndarray] | None:
+    levels = _profile(path, cancel)
+    centers, frames, ratios = _spectral_evidence(
+        path, levels, float(np.percentile(levels, 10)), cancel
+    )
+    if len(ratios) < 30 or centers[-1] < 8000:
+        return None
+    return float(np.median(ratios)), centers, _tone_envelope(centers, frames)
+
+
+def _clarity_filters(
+    ratios: list[float],
+    filters: list[str],
+    reference_ratio: float | None = None,
+    body_cut: float | None = None,
+) -> float:
+    # Require sustained vocal evidence; do not brighten silence or an already bright take.
+    median = float(np.median(ratios)) if len(ratios) >= 30 else 0.0
+    target, scale, limit = (-14, 5, 1) if reference_ratio is None else (reference_ratio, 2, 1.5)
+    amount = float(np.clip((target - median) / scale, 0, limit)) if -40 < median < 0 else 0.0
+    reduction = min(amount, 1) * 1.5 if body_cut is None else body_cut
+    if reduction:
+        frequency = 350 if body_cut is None else 260
+        filters.append(f"equalizer=f={frequency}:t=q:w=0.7:g={-reduction:.6f}")
+    if amount:
+        filters.append(f"treble=f=5500:t=q:w=0.7:g={2 * amount:.6f}")
+    return amount
+
+
+def _smooth_boosts(gains: np.ndarray, reliable: np.ndarray, *, causal: bool = False) -> np.ndarray:
+    # Keep noise protection separate from the direction of vocal level tracking.
     ceiling = uniform_filter1d(minimum_filter1d(reliable.astype(float), size=11), size=9)
     gains = np.minimum(gains, ceiling * _MAX_BOOST_DB)
+    if causal:
+        # Never let a later quiet syllable attenuate earlier words. Reacquire after rests.
+        for index in range(1, len(gains)):
+            if reliable[index] and reliable[index - 1]:
+                gains[index] = np.clip(gains[index], gains[index - 1] - 1.2, gains[index - 1] + 1.2)
+        return gains
     for indices in (range(1, len(gains)), range(len(gains) - 2, -1, -1)):
         step = indices.step
         for index in indices:

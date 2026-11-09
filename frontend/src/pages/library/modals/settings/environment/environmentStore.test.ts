@@ -49,6 +49,14 @@ const deferred = () => {
 
 afterEach(() => vi.restoreAllMocks());
 
+it('requests notebook recovery only when explicitly selected', async () => {
+  const api = backend();
+  const store = environmentStoreFor(api);
+  await store.load();
+  await store.runKaggleAction('deploy', true);
+  expect(api.deployKaggle).toHaveBeenCalledExactlyOnceWith(true);
+});
+
 it('keeps one deployment and its start time when the settings view closes and reopens', async () => {
   const now = vi.spyOn(Date, 'now').mockReturnValue(1000);
   const api = backend();

@@ -26,6 +26,46 @@ def test_recording_balance_targets_backing_level(reference_level: float) -> None
     np.testing.assert_allclose(voice + gains, backing, atol=0.1)
 
 
+@pytest.mark.parametrize("quiet_backing", [-48.0, -120.0])
+def test_master_follows_reference_vocal_when_accompaniment_drops(quiet_backing: float) -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(300, -24.0)
+    original = np.repeat([-24.0, quiet_backing, -24.0], 100)
+    backing = original - 3
+    reference = np.repeat([-24.0, -20.0, -28.0], 100)
+    gains, reliable = _balance_curve(voice, backing, reference, original, phrase_smoothing=True)
+    assert reliable.all()
+    for section in (slice(30, 70), slice(130, 170), slice(230, 270)):
+        np.testing.assert_allclose((voice + gains)[section], (reference - 3)[section], atol=0.1)
+
+
+def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(100, -18.0)
+    backing = np.full(100, -30.0)
+    reference = np.concatenate((np.full(80, -24.0), np.full(20, -48.0)))
+    gains, _ = _balance_curve(voice, backing, reference, backing, phrase_smoothing=True)
+    np.testing.assert_allclose((voice + gains)[50:65], -24.0, atol=0.5)
+
+
+def test_master_does_not_boost_recorded_noise_during_reference_vocals() -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.repeat([-28.0, -70.0, -28.0], 100)
+    backing = np.full(300, -24.0)
+    gains, reliable = _balance_curve(
+        voice, backing, np.full(300, -20.0), backing, phrase_smoothing=True
+    )
+    assert not reliable[100:200].any()
+    assert np.max(gains[100:200]) <= 0
+    assert np.max(gains) <= 9
+
+
 def ready_song(client, source: Path) -> dict[str, object]:
     song = import_song(client, source)
     started = client.post(

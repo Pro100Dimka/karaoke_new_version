@@ -86,10 +86,17 @@ export const VirtualGrid = observer(
       if (!grid || !scroll) return;
       const measure = action(() => {
         const probe = grid.firstElementChild?.firstElementChild;
-        if (!probe) return;
+        const card = probe?.firstElementChild;
+        if (!probe || !card) return;
+        const gap = parseFloat(getComputedStyle(probe).columnGap) || 0;
         Object.assign(layout, {
-          columns:
-            getComputedStyle(probe).gridTemplateColumns.split(' ').length,
+          columns: Math.max(
+            1,
+            Math.round(
+              (probe.getBoundingClientRect().width + gap) /
+                (card.getBoundingClientRect().width + gap),
+            ),
+          ),
           margin:
             grid.getBoundingClientRect().top -
             scroll.getBoundingClientRect().top +

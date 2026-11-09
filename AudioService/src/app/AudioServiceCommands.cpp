@@ -625,6 +625,7 @@ std::optional<ControlResponse> AudioService::handlePreviewControl(const ControlR
         return ControlResponse{ControlStatus::Ok, "RecordingPreviewPaused"};
     case ControlCommand::StopRecordingPreview:
         media_.stop(MediaContext::RecordingPreview);
+        media_.unload(MediaSlot::RecordingPreview);
         return ControlResponse{ControlStatus::Ok, "RecordingPreviewStopped"};
     case ControlCommand::SeekRecordingPreview:
         media_.seek(MediaContext::RecordingPreview, uint64Value(request.value("frame"), 0));

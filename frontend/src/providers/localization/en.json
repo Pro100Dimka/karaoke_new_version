@@ -560,5 +560,10 @@
   "errors.diagnostics": "Some diagnostics are unavailable. Refresh or check service status.",
   "errors.detachedPanel": "Could not open the detached window.",
   "errors.roomTimingPublish": "Could not update room latency parameters on the server.",
-  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again."
+  "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.": "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.",
+  "The application notebook is stuck in the Kaggle queue": "The application notebook is stuck in the Kaggle queue",
+  "Notebook state changed; it was not removed": "Notebook state changed; it was not removed",
+  "A different notebook version is still active": "A different notebook version is still active",
+  "Notebook backup is incomplete": "Notebook backup is incomplete",
+  "Kaggle notebook is already starting or running": "Kaggle notebook is already starting or running"
 }

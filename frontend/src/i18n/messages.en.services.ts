@@ -41,6 +41,8 @@ export const servicesEn = {
   environmentFieldRoomSshUser: 'SSH user',
   kaggleLogin: 'Sign in to Kaggle',
   kaggleDeploy: 'Deploy and start',
+  kaggleRestoreTitle: 'Restore Kaggle',
+  kaggleRestoreBody: 'This installation’s notebook is stuck in the Kaggle queue. Back up its code, delete the notebook and its Kaggle history, then create it again? Other notebooks, songs and recordings are unaffected.',
   kaggleDeployProgressLabel: 'Kaggle deployment',
   kaggleDeployProgressTitle: 'Kaggle is starting the GPU notebook',
   kaggleDeployProgressTiming:

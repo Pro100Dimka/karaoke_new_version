@@ -108,7 +108,11 @@ class MasterRenderer(Protocol):
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]: ...
 
     def _voice_filters(
-        self, path: Path, levels: NDArray[np.float64], cancel: threading.Event
+        self,
+        path: Path,
+        levels: NDArray[np.float64],
+        cancel: threading.Event,
+        reference: Path | None = None,
     ) -> tuple[list[str], dict[str, object]]: ...
 
     def _repeated_output_channels(self, path: Path, cancel: threading.Event) -> bool: ...

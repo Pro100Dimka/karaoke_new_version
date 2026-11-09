@@ -138,9 +138,6 @@ uk.StorageMoveFailed=Не вдалося завершити перенесенн
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
 Name: "models"; Description: "{cm:Models}"; Flags: unchecked
 
-[Files]
-Source: "{#AppSource}\*"; DestDir: "{app}"; Excludes: "\data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
-
 [Icons]
 ; AppUserModelID matches app.setAppUserModelId in electron/main.ts: Windows notifications need it.
 Name: "{group}\A&D Voice"; Filename: "{app}\AD Voice.exe"; WorkingDir: "{app}"; IconFilename: "{app}\resources\theme-icons\app.ico"; AppUserModelID: "ADVoice.App"
@@ -201,6 +198,38 @@ var
   GpuPresent: Boolean;
   RemainingData: string;
   CheckedRoots: string;
+  PayloadChecks: TStringList;
+
+function FileNeedsUpdate(const RelativeName, ExpectedHash: string): Boolean;
+var
+  Target: string;
+begin
+  Target := ExpandConstant('{app}\') + RelativeName;
+  if PayloadChecks = nil then
+  begin
+    PayloadChecks := TStringList.Create;
+    PayloadChecks.Sorted := True;
+  end;
+  if PayloadChecks.IndexOf('0:' + Target) >= 0 then
+  begin
+    Result := False;
+    Exit;
+  end;
+  if PayloadChecks.IndexOf('1:' + Target) >= 0 then
+  begin
+    Result := True;
+    Exit;
+  end;
+  Result := True;
+  if FileExists(Target) then
+    try
+      Result := CompareText(GetSHA256OfFile(Target), ExpectedHash) <> 0;
+    except
+      Log('Cannot verify existing file; replacing: ' + RelativeName);
+    end;
+  if Result then PayloadChecks.Add('1:' + Target)
+  else PayloadChecks.Add('0:' + Target);
+end;
 
 { An NVIDIA GPU with its driver: nvidia-smi lists it. }
 function HasNvidiaGpu: Boolean;

@@ -202,7 +202,7 @@ def test_kaggle_account_token_is_migrated_and_kept_separate_from_notebook_token(
         deployed["login_account_token"] = self._account_token
         return "Authenticated"
 
-    def deploy(self, token: str, discovery_url: str, notebook_slug: str):
+    def deploy(self, token: str, discovery_url: str, notebook_slug: str, **kwargs):
         from backend.infrastructure.kaggle_notebook_automation import KaggleDeployment
 
         deployed.update(
@@ -270,7 +270,7 @@ def test_parallel_kaggle_deploy_requests_share_one_server_operation(
     calls: list[str] = []
     calls_lock = Lock()
 
-    def deploy(self, token: str, discovery_url: str, notebook_slug: str):
+    def deploy(self, token: str, discovery_url: str, notebook_slug: str, **kwargs):
         from backend.infrastructure.kaggle_notebook_automation import KaggleDeployment
 
         with calls_lock:

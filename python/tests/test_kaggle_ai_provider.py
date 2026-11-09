@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import threading
 from pathlib import Path
 
@@ -810,3 +811,24 @@ def test_configuration_check_does_not_start_an_idle_kaggle_notebook() -> None:
         pass
 
     assert starts == []
+
+
+def test_notebook_web_page_is_not_used_as_processing_endpoint(monkeypatch):
+    from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
+    from backend.settings.domain import BackendSettings
+    from backend.domain_errors import DependencyError
+    import pytest
+
+    settings = BackendSettings(
+        settings_schema_version=1,
+        kaggle_token="worker-token",
+        kaggle_url="https://www.kaggle.com/code/singer/notebook",
+    )
+    provider = KaggleAiProvider(lambda: settings)
+    monkeypatch.setattr(provider, "_discover_url", lambda *_: None)
+    monkeypatch.setattr(
+        provider, "_connect", lambda *_: pytest.fail("Notebook page is not a Gradio server")
+    )
+    with pytest.raises(DependencyError) as error:
+        provider.validate_configuration()
+    assert error.value.code == "KaggleNotRunning"

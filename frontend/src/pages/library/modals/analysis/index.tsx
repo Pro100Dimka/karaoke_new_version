@@ -290,11 +290,20 @@ export const PerformanceAnalysisModal = ({
                         className={master ? 'analysisMaster' : 'analysisStudio'}
                         actions={
                           master && (
-                            <img
-                              className="analysisMasterArt"
-                              src={`${performanceArtUrl}#pf-view-4`}
-                              alt=""
-                            />
+                            <>
+                              <img
+                                className="analysisMasterArt"
+                                src={`${performanceArtUrl}#pf-view-4`}
+                                alt=""
+                              />
+                              <IconButton
+                                size="sm"
+                                variant="danger"
+                                icon="trash"
+                                label={tr(ru.recordingDelete)}
+                                onClick={() => onDelete(master)}
+                              />
+                            </>
                           )
                         }
                       >

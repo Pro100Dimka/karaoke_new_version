@@ -40,6 +40,8 @@ export const servicesRu = {
   environmentFieldRoomSshUser: 'SSH-пользователь',
   kaggleLogin: 'Войти в Kaggle',
   kaggleDeploy: 'Развернуть и запустить',
+  kaggleRestoreTitle: 'Восстановить Kaggle',
+  kaggleRestoreBody: 'Служебный блокнот этой установки застрял в очереди Kaggle. Сохранить копию его кода, удалить блокнот вместе с историей на Kaggle и создать заново? Другие блокноты, песни и записи не затрагиваются.',
   kaggleDeployProgressLabel: 'Развёртывание Kaggle',
   kaggleDeployProgressTitle: 'Kaggle запускает GPU-ноутбук',
   kaggleDeployProgressTiming:

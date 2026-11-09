@@ -448,7 +448,7 @@ const LibrarySongs = observer(
             onOpenModels={() => openSettings('ai')}
           />
         )}
-        {catalog.isFetching && !!catalog.data && (
+        {catalog.isFetchingNextPage && !!catalog.data && (
           <StatusIndicator status="processing" label={tr('library.loading')} />
         )}
         {(catalog.isFetchNextPageError || summary.isError) && (

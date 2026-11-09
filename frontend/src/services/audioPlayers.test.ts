@@ -112,3 +112,12 @@ describe('recording preview ownership', () => {
     },
   );
 });
+
+it('reloads a recording after its preview was stopped and released', async () => {
+  const { players, command } = setup();
+  await players.playRecording('take');
+  await players.stopRecordingPreview();
+  expect((await players.recordingPreviewStatus()).recordingId).toBeNull();
+  await players.playRecording('take');
+  expect(command.mock.calls.filter(([name]) => name === 'LoadRecordingPreview')).toHaveLength(2);
+});

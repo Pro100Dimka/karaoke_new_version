@@ -234,7 +234,7 @@ export interface PythonClient {
   verifyEnvironmentSetting(key: string): Promise<EnvironmentSettingDto>;
   verifyKaggleSettings(): Promise<ConfigurationValidationDto>;
   loginKaggle(): Promise<KaggleActionDto>;
-  deployKaggle(): Promise<KaggleActionDto>;
+  deployKaggle(restore?: boolean): Promise<KaggleActionDto>;
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;
@@ -458,7 +458,7 @@ export interface AudioServiceClient {
   playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
   pauseRecordingPreview(owner?: symbol): Promise<void>;
   seekRecordingPreview(positionSeconds: number, owner?: symbol): Promise<void>;
-  stopRecordingPreview(owner?: symbol): Promise<void>;
+  stopRecordingPreview(owner?: symbol, recordingId?: string): Promise<void>;
   setPreviewVolume(gain: number): Promise<void>;
   recordingPreviewStatus(owner?: symbol): Promise<RecordingPreviewStatus>;
   observeRecordingPreview(

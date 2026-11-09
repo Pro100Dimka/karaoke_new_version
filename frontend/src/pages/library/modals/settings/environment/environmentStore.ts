@@ -343,7 +343,7 @@ class EnvironmentStore {
     }
   };
 
-  runKaggleAction = (action: KaggleAction): Promise<string> => {
+  runKaggleAction = (action: KaggleAction, restore = false): Promise<string> => {
     if (this.action) return this.action.promise;
     const run: KaggleRun = {
       phase: action,
@@ -359,7 +359,9 @@ class EnvironmentStore {
           }
           check = this.beginKaggleCheck();
           if (action === 'login') await this.backend.loginKaggle();
-          const deployment = this.backend.deployKaggle();
+          const deployment = restore
+            ? this.backend.deployKaggle(true)
+            : this.backend.deployKaggle();
           run.phase = 'deploy';
           run.startedAt = Date.now();
           this.publish();

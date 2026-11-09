@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { refreshSongs } from '../../../../api/api-service';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { audioClient as preview } from '../../../../services/audioClient';
 import { useEffect, useRef, useState } from 'react';
 import { store } from '../../../../providers/store';
 import { ask } from '../../../../providers/dialog';
@@ -297,6 +298,7 @@ export const useSongRecordings = (
         ],
       });
       if (choice !== 'delete') return;
+      await preview.stopRecordingPreview(undefined, recording.id);
       await catalog.deleteRecording(recording.id);
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),

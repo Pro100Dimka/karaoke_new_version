@@ -5,6 +5,7 @@ import os
 import shutil
 import threading
 import time
+from urllib.parse import urlsplit
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import CancelledError
 from contextlib import AbstractContextManager
@@ -267,7 +268,9 @@ class KaggleAiProvider(AiProvider):
 
     def _available_client(self, settings: BackendSettings, token: str) -> Client:
         url = self._discover_url(token) or (settings.kaggle_url or "").strip().rstrip("/")
-        if not url:
+        if not url or (
+            is_secure_kaggle_url(url) and urlsplit(url).hostname in {"kaggle.com", "www.kaggle.com"}
+        ):
             raise DependencyError(
                 "KaggleNotRunning",
                 "Start the Kaggle notebook; its current address will be detected automatically",

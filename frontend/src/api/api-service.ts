@@ -23,17 +23,6 @@ import {
 
 export const refreshSongs = async (client: QueryClient) => {
   await client.cancelQueries({ queryKey: ['songs'] });
-  client.setQueriesData<
-    InfiniteData<{ items: readonly SongDto[]; nextCursor: string | null }>
-  >(
-    { queryKey: ['songs'] },
-    (data) =>
-      data && {
-        ...data,
-        pages: data.pages.slice(0, 1),
-        pageParams: data.pageParams.slice(0, 1),
-      },
-  );
   await Promise.all([
     client.invalidateQueries({ queryKey: ['songs'] }),
     client.invalidateQueries({ queryKey: ['song-summary'] }),

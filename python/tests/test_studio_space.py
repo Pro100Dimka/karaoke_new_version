@@ -137,12 +137,37 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
     np.testing.assert_allclose(rendered, reference, atol=0.005)
 
 
-@pytest.mark.parametrize("reference_db, expected_db", [(-12, -3), (-2, -2), (12, 3)])
-def test_master_balance_follows_reference_with_bounded_offset(
-    tmp_path: Path, reference_db, expected_db
+@pytest.mark.parametrize(
+    "reference_db, expected_db, varying_effect",
+    [(-12, -12, False), (-2, -2, False), (6, 6, False), (-2, -2, True)],
+)
+def test_master_balance_follows_reference_vocal(
+    tmp_path: Path, monkeypatch, reference_db, expected_db, varying_effect
 ):
     from backend.infrastructure.process_runner import ProcessRunner
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+    import shutil
+
+    def preserve_backing(backing, voice, target, active, cancel):
+        shutil.copyfile(backing, target)
+        return {}
+
+    # Isolate vocal balance so subtracting the backing recovers only the voice.
+    monkeypatch.setattr(
+        FfmpegStudioMasterRenderer, "_unmask_backing", staticmethod(preserve_backing)
+    )
+    if varying_effect:
+
+        def spatial_energy(renderer, reference, recorded, voice, target, cancel):
+            samples, rate = sf.read(voice)
+            samples[: len(samples) // 2] *= 2
+            samples[len(samples) // 2 :] *= 4
+            sf.write(target, samples, rate, subtype="FLOAT")
+            return {}
+
+        monkeypatch.setattr(
+            "backend.recordings.studio_render.apply_reference_space", spatial_energy
+        )
 
     rng = np.random.default_rng(12)
     voice = rng.normal(0, 0.05, 8000 * 6)
@@ -173,3 +198,132 @@ def test_master_balance_follows_reference_with_bounded_offset(
     vocal = rendered / delivery_gain - backing
     measured = 10 * np.log10(np.mean(vocal**2) / np.mean(backing**2))
     assert measured == pytest.approx(expected_db, abs=1)
+    if varying_effect:
+        for section in (slice(8000, 16000), slice(32000, 40000)):
+            level = 10 * np.log10(np.mean(vocal[section] ** 2) / np.mean(backing[section] ** 2))
+            assert level == pytest.approx(expected_db, abs=1)
+
+
+@pytest.mark.parametrize("dark,seconds", [(True, 4), (False, 4), (True, 1)])
+def test_master_clarity_only_corrects_supported_dark_voice(tmp_path, dark, seconds):
+    from scipy.signal import butter, sosfilt
+    from backend.recordings.studio_audio import _profile
+    from backend.recordings.studio_dynamics import _voice_filters
+
+    rate = 22050
+    samples = np.random.default_rng(91).normal(0, 0.05, rate * seconds)
+    if dark:
+        samples = sosfilt(butter(2, 1800, fs=rate, output="sos"), samples)
+    samples[: rate // 2] = 0
+    path = tmp_path / "voice.wav"
+    sf.write(path, samples, rate, subtype="FLOAT")
+    original = path.read_bytes()
+    filters, report = _voice_filters(path, _profile(path, threading.Event()), threading.Event())
+    if dark and seconds >= 3:
+        assert 0.5 < report["clarityAmount"] <= 1
+    else:
+        assert report["clarityAmount"] == 0
+    assert any(item.startswith("treble=") for item in filters) == (dark and seconds >= 3)
+    assert path.read_bytes() == original
+
+
+def test_master_restores_backing_dynamics_without_rewriting_source(tmp_path):
+    from backend.recordings.studio_render import MasterRender
+    from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+    from backend.infrastructure.process_runner import ProcessRunner
+
+    rate = 8000
+    original = np.repeat([-24.0, -30.0, -24.0], 100)
+    recorded = original + np.repeat([-3.0, -9.0, -3.0], 100)
+    samples = np.sin(2 * np.pi * 440 * np.arange(rate * 30) / rate)
+    samples *= np.repeat(10 ** (recorded / 20) * np.sqrt(2), rate // 10)
+    source = tmp_path / "backing.wav"
+    sf.write(source, samples, rate, subtype="FLOAT")
+    initial = source.read_bytes()
+    render = MasterRender(
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        source,
+        source,
+        source,
+        source,
+        tmp_path / "master.wav",
+        threading.Event(),
+        source,
+        True,
+        True,
+        False,
+        (),
+        None,
+    )
+    render.work = tmp_path
+    render.backing = source
+    render.backing_db = recorded
+    render.original_db = original
+    render.times = (np.arange(300) + 0.5) * 0.1
+    render.processing = {}
+    render._match_backing()
+    adjusted, _ = sf.read(render.backing)
+    for index in (5, 15, 25):
+        level = 10 * np.log10(np.mean(adjusted[index * rate : (index + 1) * rate] ** 2))
+        assert level == pytest.approx(original[index * 10] - 3, abs=0.15)
+    assert source.read_bytes() == initial
+
+
+@pytest.mark.parametrize("reference_ratio,amount", [(-16.0, 1.5), (-24.0, 0.0)])
+def test_master_clarity_follows_reference_without_brightening_past_it(reference_ratio, amount):
+    from backend.recordings.studio_dynamics import _clarity_filters
+
+    filters = []
+    assert _clarity_filters([-20.0] * 40, filters, reference_ratio) == amount
+    if amount:
+        assert filters[0].endswith("g=-1.500000")
+        assert filters[-1].endswith("g=3.000000")
+    else:
+        assert not filters
+
+
+def test_master_clarity_limits_broad_treble_boost():
+    from backend.recordings.studio_dynamics import _clarity_filters
+
+    filters = []
+    _clarity_filters([-25.0] * 40, filters, -10.0)
+    treble = next(item for item in filters if item.startswith("treble="))
+    assert float(treble.split("g=")[-1]) <= 3.0
+
+
+def test_master_body_correction_does_not_require_treble_boost():
+    from backend.recordings.studio_dynamics import _clarity_filters
+
+    filters = []
+    assert _clarity_filters([-20.0] * 40, filters, -24.0, 2.5) == 0
+    assert len(filters) == 1
+    assert filters[0].endswith("g=-2.500000")
+
+
+def test_master_body_correction_follows_measured_coloration(tmp_path):
+    from scipy.signal import butter, sosfilt
+    from backend.recordings.studio_audio import _profile
+    from backend.recordings.studio_dynamics import _voice_filters
+
+    rate = 22050
+    noise = np.random.default_rng(87).normal(0, 0.04, rate * 6)
+    reference = sosfilt(butter(2, 3500, fs=rate, output="sos"), noise)
+    colored = reference + 4 * sosfilt(
+        butter(2, [350, 700], btype="bandpass", fs=rate, output="sos"), reference
+    )
+    reference[:rate] = colored[:rate] = 0
+    original, voice = tmp_path / "reference.wav", tmp_path / "voice.wav"
+    sf.write(original, reference, rate, subtype="FLOAT")
+    sf.write(voice, colored, rate, subtype="FLOAT")
+    cancel = threading.Event()
+    filters, _ = _voice_filters(voice, _profile(voice, cancel), cancel, original)
+    cuts = [item for item in filters if item.startswith("equalizer=") and ":g=-" in item]
+    assert any(350 <= float(item.split(":")[0].split("=")[-1]) <= 700 for item in cuts)
+
+
+def test_master_air_correction_does_not_boost_upper_midrange():
+    from backend.recordings.studio_dynamics import _clarity_filters
+
+    filters = []
+    _clarity_filters([-25.0] * 40, filters, -10.0)
+    assert not any(item.startswith("equalizer=f=2800:") for item in filters)

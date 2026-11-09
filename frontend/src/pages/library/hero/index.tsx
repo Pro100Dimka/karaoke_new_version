@@ -1,6 +1,6 @@
 import { Grid } from '@neo-ui-kit/react';
-import LibraryTitle from './title';
 import LibraryStats from './stats';
+import LibraryTitle from './title';
 
 export const LibraryHeader = ({
   onOpenProcessing,
@@ -8,11 +8,7 @@ export const LibraryHeader = ({
   onOpenProcessing(): void;
 }) => (
   <header data-window-drag>
-    <Grid
-      columns={{ base: 1, lg: 12 }}
-      gap={10}
-      style={{ position: 'relative' }}
-    >
+    <Grid columns={12} gap={10} style={{ position: 'relative' }}>
       {[
         { content: <LibraryTitle />, display: undefined },
         {
@@ -22,7 +18,7 @@ export const LibraryHeader = ({
       ].map(({ content, display }, index) => (
         <Grid
           key={index}
-          span={{ base: 'full', lg: 6 }}
+          span={{ base: 'full', md: 6, lg: 6, xl: 6 }}
           style={{ display, zIndex: 2 }}
         >
           {content}
