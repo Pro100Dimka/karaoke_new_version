@@ -68,7 +68,7 @@ const LibraryPage = observer(() => {
           setViewFilters={setViewFilters}
           roomLibrary={roomLibrary}
           openProcessing={openProcessing}
-          setRoomOpen={setRoomOpen}
+          onOpenRoom={() => setRoomOpen(true)}
         />
         <LibrarySongs
           view={view}

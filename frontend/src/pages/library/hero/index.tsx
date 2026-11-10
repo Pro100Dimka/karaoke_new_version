@@ -11,12 +11,12 @@ type Props = {
   setViewFilters(update: (current: LibraryViewFilters) => LibraryViewFilters): void;
   roomLibrary: ReturnType<typeof useRoomLibrary>;
   openProcessing(): void;
-  setRoomOpen(open: boolean): void;
+  onOpenRoom(): void;
 };
 
 const Hero = ({
   view, setQuery, setViewFilters, roomLibrary,
-  openProcessing, setRoomOpen,
+  openProcessing, onOpenRoom,
 }: Props) => (
   <Grid columns={12} gap={10} style={{ position: 'relative' }}>
     <Grid span={{ base: 'full' }} style={{ zIndex: 2 }}>
@@ -30,7 +30,7 @@ const Hero = ({
         roomRole={roomLibrary.room?.role}
         collaborativeControl={roomLibrary.room?.collaborativeControl}
         onCollaborativeControlChange={roomLibrary.setCollaborativeControl}
-        onOpenRoom={() => setRoomOpen(true)}
+        onOpenRoom={onOpenRoom}
         onViewChange={roomLibrary.publishView}
       />
     </Grid>

@@ -1,14 +1,7 @@
 import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
 import { observer } from 'mobx-react-lite';
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -17,36 +10,23 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
-import {
-  refreshSongs,
-  songsQuery,
-  songSummaryQuery,
-} from '../../../components/api-service';
+import { refreshSongs } from '../../../components/api-service';
 import type { SongDto } from '../../../contracts/models';
-import { useJobs } from '../../../providers/application';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
 import { store } from '../../../providers/store';
-import {
-  libraryChanged,
-  onLibraryChange,
-} from '../../../services/backendEvents';
 import { pythonClient } from '../../../services/pythonClient';
 import { LibraryEmptyState } from '../empty-library';
-import type { LibraryFilters } from '../hero/filters&actions/actions';
 import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
 import { RecordingsModal } from '../modals/recordings';
 import { openSettings } from '../modals/settings';
 import { SongSettingsModal } from '../modals/song-settings';
-import { loadLastPlayed } from './lastPlayed';
-import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
 import { VirtualGrid } from './song-grid';
 import { SongCard } from './song-grid/song-card';
+import { SelectionToolbar } from './SelectionToolbar';
 import type { useRoomLibrary } from './useRoomLibrary';
+import { useLibraryCatalog } from './useLibraryCatalog';
 import { curtainMilliseconds } from './useSongActions';
-
-const emptyImports: readonly SongDto[] = [];
 
 const activeJobStatuses = new Set<SongDto['status']>(['queued', 'processing']);
 
@@ -105,8 +85,6 @@ const LibrarySongs = observer(
     onOpenProcessing,
     songSelection,
   }: LibrarySongsProps) => {
-    const { room } = store.online;
-    const { preferences } = store;
     const { query, filters: viewFilters } = view;
     const [recordingsSong, setRecordingsSong] = useState<SongDto | null>(null);
     const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(
@@ -127,102 +105,8 @@ const LibrarySongs = observer(
       });
     }, []);
     const selecting = selected.size > 0;
-    const deferredQuery = useDeferredValue(query);
-    const filters: LibraryFilters = useMemo(
-      () => ({
-        ...viewFilters,
-        sort: preferences.librarySort,
-        direction: preferences.librarySortDirection,
-      }),
-      [viewFilters, preferences.librarySort, preferences.librarySortDirection],
-    );
-    const completeCatalog = !!room || selecting || filters.sort === 'played';
-    const serverFilter = useMemo(
-      () => ({ ...filters, query: deferredQuery }),
-      [filters, deferredQuery],
-    );
-    const client = useQueryClient();
-    const { pythonEpoch } = store.application.services;
-    const { jobs } = useJobs();
-    const queryOptions = songsQuery(
-      pythonEpoch,
-      completeCatalog ? undefined : serverFilter,
-    );
-    const catalog = useInfiniteQuery({
-      ...queryOptions,
-      placeholderData: keepPreviousData,
-    });
-    const summary = useQuery({
-      ...songSummaryQuery(pythonEpoch),
-      enabled: false,
-    });
-    const { data: imports = emptyImports } = useQuery<readonly SongDto[]>({
-      queryKey: ['song-imports'],
-      enabled: false,
-    });
-    useEffect(() => {
-      client.removeQueries({ queryKey: ['songs'], type: 'inactive' });
-    }, [client, pythonEpoch, completeCatalog, serverFilter]);
-    useEffect(
-      () =>
-        onLibraryChange(() => {
-          void refreshSongs(client);
-        }),
-      [client],
-    );
-    const jobStates = jobs.map((job) => `${job.id}:${job.state}`).join('|');
-    const previousJobs = useRef(jobStates);
-    useEffect(() => {
-      if (previousJobs.current === jobStates) return;
-      previousJobs.current = jobStates;
-      libraryChanged();
-    }, [jobStates]);
-    const localSongs = useMemo(() => {
-      const songs = catalog.data?.pages.flatMap((page) => page.items) ?? [];
-      const pending =
-        filters.sort === 'recent' && filters.direction === 'asc'
-          ? [...imports].reverse()
-          : imports;
-      const active = new Map(
-        jobs
-          .filter((job) =>
-            ['queued', 'processing', 'cancelling'].includes(job.state),
-          )
-          .map((job) => [job.songId, job]),
-      );
-      return [...pending, ...songs].map((song) => {
-        const job = active.get(song.id);
-        return job
-          ? {
-              ...song,
-              jobId: job.id,
-              stage: job.stage,
-              progress: job.progress,
-              status:
-                job.state === 'queued'
-                  ? ('queued' as const)
-                  : ('processing' as const),
-            }
-          : song;
-      });
-    }, [catalog.data, imports, jobs, filters.sort, filters.direction]);
-    const selfId = room?.participants.find((person) => person.self)?.id ?? '';
-    const songs = useMemo(
-      () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
-      [localSongs, room?.sharedSongs, selfId],
-    );
-    const played = useMemo(() => loadLastPlayed(), []);
-    const visibleSongs = useMemo(
-      () =>
-        completeCatalog
-          ? selectLibrarySongs(songs, serverFilter, played)
-          : serverFilter.sort === 'recent'
-            ? [...songs].sort((a, b) =>
-                compareAddedSongs(a, b, serverFilter.direction),
-              )
-            : songs,
-      [songs, completeCatalog, serverFilter, played],
-    );
+    const { catalog, summary, client, localSongs, songs, visibleSongs, completeCatalog } =
+      useLibraryCatalog(query, viewFilters, selecting);
 
     const entrance = store.playback.returned;
     const [returning, setReturning] = useState(
@@ -275,11 +159,12 @@ const LibrarySongs = observer(
       });
       if (choice !== 'delete') return;
       setDeleting(true);
+      let changed = false;
       try {
         for (const song of targets) {
           try {
             await pythonClient.deleteSong(song.id);
-            await refreshSongs(client);
+            changed = true;
             setSelected((current) => {
               const next = new Set(current);
               next.delete(song.id);
@@ -293,7 +178,11 @@ const LibrarySongs = observer(
           }
         }
       } finally {
-        setDeleting(false);
+        try {
+          if (changed) await refreshSongs(client);
+        } finally {
+          setDeleting(false);
+        }
       }
     };
 
@@ -355,46 +244,14 @@ const LibrarySongs = observer(
         ) : visibleSongs.length > 0 ? (
           <>
             {selecting && (
-              <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
-                <Button
-                  icon="check"
-                  disabled={deleting || catalog.isPlaceholderData}
-                  onClick={() => {
-                    setSelected(new Set());
-                  }}
-                >
-                  {tr('cancel')}
-                </Button>
-                <Button
-                  disabled={deleting || catalog.isPlaceholderData}
-                  onClick={() =>
-                    setSelected(
-                      new Set(
-                        visibleSongs
-                          .filter(
-                            (song) =>
-                              !song.roomOwnerId &&
-                              !activeJobStatuses.has(song.status),
-                          )
-                          .map((song) => song.id),
-                      ),
-                    )
-                  }
-                >
-                  {tr('Выбрать все показанные')}
-                </Button>
-                <Button
-                  icon="trash"
-                  disabled={
-                    deleting || catalog.isPlaceholderData || !selected.size
-                  }
-                  onClick={() => void deleteSelected()}
-                >
-                  {tr('Удалить выбранные ({count})', {
-                    count: selected.size,
-                  })}
-                </Button>
-              </Stack>
+              <SelectionToolbar
+                selected={selected}
+                songs={visibleSongs}
+                disabled={catalog.isPlaceholderData}
+                deleting={deleting}
+                onSelect={setSelected}
+                onDelete={() => void deleteSelected()}
+              />
             )}
             <VirtualGrid
               items={visibleSongs}

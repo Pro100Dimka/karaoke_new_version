@@ -42,17 +42,6 @@ const LibraryActions = observer((props: LibraryActionsProps) => {
     });
     props.onViewChange(query, { ...next, sort, direction });
   };
-  const actions = [
-    ...(!roomRole
-      ? [{ icon: 'users', label: tr('onlineRoom'), onClick: props.onOpenRoom }]
-      : []),
-    {
-      icon: 'plus',
-      label: tr('addSong'),
-      onClick: () => void addSong(),
-      variant: 'primary' as const,
-    },
-  ];
   return (
     <Stack
       role="toolbar"
@@ -75,9 +64,22 @@ const LibraryActions = observer((props: LibraryActionsProps) => {
         onQueryChange={changeQuery}
         onFiltersApply={applyFilters}
       />
-      {actions.map((action) => (
-        <Button key={action.icon} size="lg" variant="secondary" {...action} />
-      ))}
+      {!roomRole && (
+        <Button
+          size="lg"
+          variant="secondary"
+          icon="users"
+          label={tr('onlineRoom')}
+          onClick={props.onOpenRoom}
+        />
+      )}
+      <Button
+        size="lg"
+        variant="primary"
+        icon="plus"
+        label={tr('addSong')}
+        onClick={() => void addSong()}
+      />
       {roomRole === 'host' && (
         <Tooltip content={tr('collaborativeControlHint')}>
           <Switch

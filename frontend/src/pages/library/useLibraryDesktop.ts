@@ -26,7 +26,7 @@ export const useLibraryDesktop = (onInvitation: (code: string) => void) => {
           void current.importFiles(command.paths);
           break;
         default:
-          if (command.code) current.onInvitation(command.code);
+          if (command.code !== undefined) current.onInvitation(command.code);
       }
     });
   }, [backendReady]);
