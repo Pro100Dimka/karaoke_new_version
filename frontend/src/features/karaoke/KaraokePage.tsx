@@ -1,8 +1,3 @@
-import { openSettings } from '../../pages/library/modals/settings';
-import { Observer, observer } from 'mobx-react-lite';
-import { store } from '../../providers/store';
-import { canControlRoom } from '../../application/room/roomModel';
-import './karaoke.css';
 import {
   Button,
   EmptyState,
@@ -12,6 +7,7 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { Observer, observer } from 'mobx-react-lite';
 import {
   createContext,
   useContext,
@@ -23,26 +19,29 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
+import { usePublishNowPlaying } from '../../app/desktop/shellBus';
+import { canControlRoom } from '../../application/room/roomModel';
+import type { AudioCapabilities } from '../../contracts/models';
+import { openSettings } from '../../pages/library/modals/settings';
 import { useRoomPlayback } from '../../providers/application';
 import { useNotify } from '../../providers/notifications';
-import type { MessageKey } from '../../providers/localization/messages';
-import { errorMessageKey, toAppError } from '../../shared/errors';
-import { effectiveStageLayers } from './displayModes';
-import { KaraokeHeader } from './KaraokeHeader';
+import { store } from '../../providers/store';
+import { errorstring, toAppError } from '../../shared/errors';
+import { HostWindowContext } from '../../shared/ui/hostWindow';
 import { KaraokeConsole } from './console/KaraokeConsole';
-import { useKaraokeShortcuts } from './useKaraokeShortcuts';
-import { useAutoHideConsole } from './console/useAutoHideConsole';
 import { rangeOf } from './console/noteRange';
+import { useAutoHideConsole } from './console/useAutoHideConsole';
+import { effectiveStageLayers } from './displayModes';
+import './karaoke.css';
+import { KaraokeHeader } from './KaraokeHeader';
 import { KaraokeIntro } from './KaraokeIntro';
+import { opensWithFullIntroduction } from './karaokeOpenMode';
 import { KaraokeStage } from './KaraokeStage';
 import { SceneBackdrop } from './SceneBackdrop';
-import { useKaraokeSession, type KaraokeOpenMode } from './useKaraokeSession';
-import { opensWithFullIntroduction } from './karaokeOpenMode';
-import { usePublishNowPlaying } from '../../app/desktop/shellBus';
-import { HostWindowContext } from '../../shared/ui/hostWindow';
-import { createPortal } from 'react-dom';
 import { useKaraokeTv } from './tv/karaokeTv';
-import type { AudioCapabilities } from '../../contracts/models';
+import { useKaraokeSession, type KaraokeOpenMode } from './useKaraokeSession';
+import { useKaraokeShortcuts } from './useKaraokeShortcuts';
 
 export const microphoneAvailableForKaraoke = (
   capability: AudioCapabilities['microphone'],
@@ -164,7 +163,7 @@ export const KaraokeScreen = observer(
           await roomPlayback.clearSong();
         } catch (error) {
           notify(
-            tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
+            tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
             'error',
           );
           return;
@@ -301,7 +300,7 @@ export const KaraokeScreen = observer(
         Unsupported: 'errorProjectUpgrade',
         TooNew: 'errorProjectTooNew',
         Invalid: 'errorProjectInvalid',
-      } as const satisfies Record<typeof load.compatibility, MessageKey>;
+      } as const satisfies Record<typeof load.compatibility, string>;
       return place(
         <StateScreen
           icon="file"

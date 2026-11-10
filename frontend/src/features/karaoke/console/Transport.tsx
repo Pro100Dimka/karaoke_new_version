@@ -1,6 +1,5 @@
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { useMemo, useRef } from 'react';
-import type { MessageKey } from '../../../providers/localization/messages';
 import type { KaraokeState } from '../../../application/karaoke/karaokeMachine';
 
 const skipSeconds = 10;
@@ -58,7 +57,7 @@ export const Transport = ({
       },
     ] satisfies readonly {
       id: string;
-      label: MessageKey;
+      label: string;
       icon: string;
       primary: boolean;
       run(): void;

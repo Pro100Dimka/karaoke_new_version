@@ -10,7 +10,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { StorageUsageDto } from '../../../../../../contracts/models';
-import type { MessageKey } from '../../../../../../providers/localization/messages';
 import { formatBytes } from '../../../../../../shared/utils/format';
 import { useStorageCleanup } from './useStorageCleanup';
 
@@ -20,7 +19,7 @@ const parts = [
   ['cache', 'storageCache'],
   ['recordings', 'storageRecordings'],
   ['temp', 'storageTemp'],
-] as const satisfies readonly (readonly [keyof StorageUsageDto, MessageKey])[];
+] as const satisfies readonly (readonly [keyof StorageUsageDto, string])[];
 
 const cleanups = [
   { kind: 'cache', label: 'clearCache', icon: 'trash' },

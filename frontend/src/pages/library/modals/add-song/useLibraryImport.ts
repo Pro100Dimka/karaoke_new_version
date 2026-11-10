@@ -12,7 +12,7 @@ import type {
 import { useNotify } from '../../../../providers/notifications';
 import { desktopClient as libraryFiles } from '../../../../services/desktopClient';
 import { pythonClient } from '../../../../services/pythonClient';
-import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { errorstring, toAppError } from '../../../../shared/errors';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { isSupportedAudio } from './importModel';
 
@@ -94,10 +94,7 @@ export const useLibraryImport = () => {
       try {
         await handleImport(path, {});
       } catch (error) {
-        notify(
-          tr(errorMessageKey(toAppError(error)) ?? 'importFailed'),
-          'error',
-        );
+        notify(tr(errorstring(toAppError(error)) ?? 'importFailed'), 'error');
       }
     });
 

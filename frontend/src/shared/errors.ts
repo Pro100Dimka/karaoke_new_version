@@ -1,8 +1,7 @@
 import { tr } from '@neo-ui-kit/react';
-import { unverifiedAsioMonitoring } from '../contracts/models';
-import type { AppError } from '../contracts/models';
-import type { MessageKey } from '../providers/localization/messages';
 import { createCommandQueue } from '../app/desktop/shellBus';
+import type { AppError } from '../contracts/models';
+import { unverifiedAsioMonitoring } from '../contracts/models';
 
 export const operationFailures = createCommandQueue<{
   operation: string;
@@ -101,14 +100,17 @@ const knownCodes = {
   TransferCodeNotFound: 'errorTransferCodeNotFound',
   UnsupportedAvatar: 'errorAvatarRejected',
   AvatarTooLarge: 'errorAvatarRejected',
-} as const satisfies Record<string, MessageKey>;
+} as const satisfies Record<string, string>;
 
-export const errorMessageKey = (error: AppError): MessageKey | null =>
-  (knownCodes as Record<string, MessageKey>)[error.code] ?? null;
+export const errorstring = (error: AppError): string | null =>
+  (knownCodes as Record<string, string>)[error.code] ?? null;
 
-export const monitoringErrorText = (error: unknown): string =>
-  error instanceof Error && error.message === unverifiedAsioMonitoring
-    ? tr('monitoringAsio4AllBlocked')
-    : error instanceof Error
-      ? error.message
-      : String(error);
+export const monitoringErrorText = (error: unknown): string => {
+  if (error instanceof Error) {
+    if (error.message === unverifiedAsioMonitoring) {
+      return tr('monitoringAsio4AllBlocked');
+    }
+    return error.message;
+  }
+  return String(error);
+};

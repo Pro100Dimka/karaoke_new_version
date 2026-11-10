@@ -1,5 +1,4 @@
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../providers/localization/messages';
 
 type JobState = ProcessingJobDto['state'];
 
@@ -11,7 +10,7 @@ export const stateLabel = {
   failed: 'failed',
   cancelled: 'jobCancelled',
   interrupted: 'jobInterrupted',
-} as const satisfies Record<JobState, MessageKey>;
+} as const satisfies Record<JobState, string>;
 
 /** The LED of each state: done, working, waiting or broken. */
 export const stateTone = {
@@ -62,7 +61,7 @@ export const phases = [
   'processingPhaseLyrics',
   'processingPhaseMelody',
   'processingPhasePublish',
-] as const satisfies readonly MessageKey[];
+] as const satisfies readonly string[];
 const stagePhase: Readonly<Record<string, number>> = {
   Recognition: 0,
   DecodeNormalize: 0,

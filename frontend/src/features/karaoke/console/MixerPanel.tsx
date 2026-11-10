@@ -1,4 +1,3 @@
-import { memo } from 'react';
 import {
   IconButton,
   RotaryKnob,
@@ -6,21 +5,21 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { memo } from 'react';
 import type { MixerChannelGains } from '../../../contracts/models';
-import type { MessageKey } from '../../../providers/localization/messages';
+import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
 import { ConsoleSection } from './ConsoleSection';
 import { EffectPresets } from './EffectPresets';
-import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
 import {
   voiceEffects,
+  type EffectPreset,
   type VoiceEffectId,
   type VoiceEffectValues,
-  type EffectPreset,
 } from './voiceEffects';
 
 interface Knob {
   id: string;
-  label: MessageKey;
+  label: string;
   min: number;
   max: number;
   step: number;
@@ -49,7 +48,7 @@ const knobDiameter = 70;
 
 const channels: readonly {
   id: keyof MixerChannelGains;
-  label: MessageKey;
+  label: string;
   needsMicrophone: boolean;
   initial: number;
 }[] = [

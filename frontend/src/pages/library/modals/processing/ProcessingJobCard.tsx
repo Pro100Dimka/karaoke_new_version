@@ -4,15 +4,16 @@ import {
   Menu,
   MessageBar,
   Stack,
-  Steps,
   StatusIndicator,
-  Typography,
-  type MenuItemData,
+  Steps,
   tr,
+  Typography,
   useLocale,
+  type MenuItemData,
 } from '@neo-ui-kit/react';
 import { useRef, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
+import { errorstring } from '../../../../shared/errors';
 import {
   isActive,
   phaseOf,
@@ -22,7 +23,6 @@ import {
   stateLabel,
   stateTone,
 } from './processingModel';
-import { errorMessageKey } from '../../../../shared/errors';
 
 interface JobActions {
   onOpenFolder(song: SongDto): void;
@@ -147,8 +147,7 @@ export const ProcessingJobCard = ({
         {(job.state === 'failed' || job.state === 'interrupted') && (
           <MessageBar tone="error">
             {tr(
-              (job.error && errorMessageKey(job.error)) ||
-                'processingFailedHelp',
+              (job.error && errorstring(job.error)) || 'processingFailedHelp',
             )}
           </MessageBar>
         )}

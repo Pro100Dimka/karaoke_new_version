@@ -1,13 +1,12 @@
 import { tr } from '@neo-ui-kit/react';
 import type { Language } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
-import type { MessageKey } from '../../providers/localization/messages';
 
 const presenceKeys = {
   Online: 'presenceOnline',
   InRoom: 'presenceInRoom',
   Offline: 'presenceOffline',
-} as const satisfies Record<SocialPerson['presence'], MessageKey>;
+} as const satisfies Record<SocialPerson['presence'], string>;
 
 const relativeSteps = [
   ['day', 86_400],

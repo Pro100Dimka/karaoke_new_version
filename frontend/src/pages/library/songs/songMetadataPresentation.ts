@@ -1,12 +1,11 @@
 import type { RecordingDto, SongLanguage } from '../../../contracts/models';
-import type { MessageKey } from '../../../providers/localization/messages';
 
 export const languageLabels = {
   Auto: 'languageAuto',
   Ukrainian: 'languageUkrainian',
   Russian: 'languageRussian',
   English: 'languageEnglish',
-} as const satisfies Record<SongLanguage, MessageKey>;
+} as const satisfies Record<SongLanguage, string>;
 
 const fileStatusKeys = {
   Preparing: 'recordingPreparing',
@@ -29,7 +28,7 @@ const analysisStatusKeys = {
 export const recordingStatusLabels = (
   fileStatus: NonNullable<RecordingDto['fileStatus']>,
   analysisStatus: NonNullable<RecordingDto['analysisStatus']>,
-): readonly [MessageKey, MessageKey] => [
+): readonly [string, string] => [
   fileStatusKeys[fileStatus],
   analysisStatusKeys[analysisStatus],
 ];

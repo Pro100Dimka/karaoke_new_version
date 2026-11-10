@@ -1,21 +1,24 @@
-import { observeOperation } from '../../../shared/errors';
-import { store } from '../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect } from 'react';
-import { useRoomLibraryCommands } from '../../../providers/application';
-import { useNotify } from '../../../providers/notifications';
-import type { SongDto } from '../../../contracts/models';
-import { sharedStateOf } from '../../../application/room/roomModel';
-import { errorMessageKey, toAppError } from '../../../shared/errors';
 import {
   canControlRoom,
   encodeSharedLibraryView,
   sharedLibraryView,
+  sharedStateOf,
 } from '../../../application/room/roomModel';
-import type { LibraryFilters } from '../hero/actions';
-import type { LibraryViewFilters } from '../hero/search-field';
+import type { SongDto } from '../../../contracts/models';
+import { useRoomLibraryCommands } from '../../../providers/application';
+import { useNotify } from '../../../providers/notifications';
+import { store } from '../../../providers/store';
+import {
+  errorstring,
+  observeOperation,
+  toAppError,
+} from '../../../shared/errors';
+import type { LibraryFilters } from '../hero/filters&actions/actions';
+import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
 
-interface RoomLibraryOptions {
+export interface RoomLibraryOptions {
   setQuery: (query: string) => void;
   setViewFilters: (
     update: (current: LibraryViewFilters) => LibraryViewFilters,
@@ -44,7 +47,7 @@ export const useRoomLibrary = ({
   const commands = useRoomLibraryCommands();
   const reportRoomError = (error: unknown) =>
     notify(
-      tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
+      tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
       'error',
     );
 

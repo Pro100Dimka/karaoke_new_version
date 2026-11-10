@@ -14,7 +14,7 @@ import {
   type DisplayEntry,
   type DisplayState,
 } from './environmentModel';
-import { fieldUi, messageKeyFor } from './environmentPresentation';
+import { fieldUi, stringFor } from './environmentPresentation';
 
 const stateIcon: Record<DisplayState, string> = {
   valid: 'ok',
@@ -42,12 +42,12 @@ export const EnvironmentField = ({
   const fileInput = useRef<HTMLInputElement>(null);
   const meta = fieldUi[entry.key];
   const state = effectiveState(entry);
-  const messageKey = messageKeyFor(entry);
+  const string = stringFor(entry);
   const message =
     entry.errorMessage !== undefined
       ? tr(entry.errorMessage ?? 'settingsApplyFailed')
-      : messageKey
-        ? tr(messageKey)
+      : string
+        ? tr(string)
         : entry.message;
   const pick = (file: File | undefined) => {
     const path = file && desktop.pathForFile(file);

@@ -1,4 +1,4 @@
-import { store } from '../../providers/store';
+import { Button, tr, useLocale, useRouter } from '@neo-ui-kit/react';
 import {
   useEffect,
   useLayoutEffect,
@@ -6,30 +6,30 @@ import {
   useState,
   type PointerEvent,
 } from 'react';
-import { useRouter, Button, tr, useLocale } from '@neo-ui-kit/react';
+import type { ParticipantDto } from '../../contracts/models';
 import {
-  useRoomMembership,
-  roomSession,
   getRoomRuntime,
+  roomSession,
+  useRoomMembership,
 } from '../../providers/application';
 import { ask } from '../../providers/dialog';
 import { useNotify } from '../../providers/notifications';
-import type { ParticipantDto } from '../../contracts/models';
-import { errorMessageKey, toAppError } from '../../shared/errors';
+import { store } from '../../providers/store';
+import { errorstring, toAppError } from '../../shared/errors';
 
+import { DetachedPanel } from '../../shared/ui/DetachedPanel';
+import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
+import {
+  controlSelector,
+  useFloatingPanel,
+  useMeasuredPanelSize,
+  useStoredPanelLayout,
+} from '../../shared/ui/useFloatingPanel';
+import { useRoomPeople } from '../social/useRoomPeople';
 import './room-dock.css';
 import { RoomHeadCard } from './RoomHeadCard';
 import { RoomLinkCard } from './RoomLinkCard';
 import { RoomPersonCard } from './RoomPersonCard';
-import { DetachedPanel } from '../../shared/ui/DetachedPanel';
-import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
-import {
-  useFloatingPanel,
-  useMeasuredPanelSize,
-  useStoredPanelLayout,
-  controlSelector,
-} from '../../shared/ui/useFloatingPanel';
-import { useRoomPeople } from '../social/useRoomPeople';
 
 // The room panel's window starts at the size of the in-app dock.
 const roomPanelSize = { width: 555, height: 660 };
@@ -177,7 +177,7 @@ export const RoomDock = () => {
 
   const failure = (error: unknown) =>
     notify(
-      tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
+      tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
       'error',
     );
 

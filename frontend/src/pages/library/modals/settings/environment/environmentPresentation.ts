@@ -1,4 +1,3 @@
-import type { MessageKey } from '../../../../../providers/localization/messages';
 import {
   effectiveState,
   hasValue,
@@ -33,7 +32,7 @@ export const groupUi = {
   },
 } as const satisfies Record<
   EnvironmentGroup,
-  { icon: string; title: MessageKey; hint: MessageKey }
+  { icon: string; title: string; hint: string }
 >;
 
 /** Friendly label and share of the 12-column row for each known key. */
@@ -41,7 +40,7 @@ export const fieldUi: Readonly<
   Record<
     string,
     {
-      label: MessageKey;
+      label: string;
       span: 3 | 4 | 5 | 6 | 12;
       optional?: boolean;
       showWhenEmpty?: boolean;
@@ -80,13 +79,13 @@ export const fieldUi: Readonly<
   },
 };
 
-const stateMessage: Partial<Record<DisplayState, MessageKey>> = {
+const stateMessage: Partial<Record<DisplayState, string>> = {
   valid: 'environmentReady',
   checking: 'checking',
   unverified: 'environmentSaved',
 };
 /** Why a value is invalid, in the interface language (the backend's own text is English). */
-const invalidMessage = (entry: DisplayEntry): MessageKey => {
+const invalidMessage = (entry: DisplayEntry): string => {
   if (
     entry.key === 'AD_VOICE_AUDD_TOKEN' ||
     entry.key === 'AD_VOICE_YOUTUBE_API_KEY'
@@ -102,7 +101,7 @@ const invalidMessage = (entry: DisplayEntry): MessageKey => {
 };
 
 /** What a field says about its value. */
-export const messageKeyFor = (entry: DisplayEntry): MessageKey | null => {
+export const stringFor = (entry: DisplayEntry): string | null => {
   const state = effectiveState(entry);
   if (state === 'empty')
     return fieldUi[entry.key]?.optional

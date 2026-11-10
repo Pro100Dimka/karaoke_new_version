@@ -9,7 +9,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { memo, useEffect, useState, type ReactNode } from 'react';
-import type { MessageKey } from '../../../providers/localization/messages';
 import { ConsoleSection } from './ConsoleSection';
 import { DisplayToggles } from './DisplayToggles';
 import { rangeLabel, type NoteRange } from './noteRange';
@@ -20,14 +19,14 @@ export const maxPlaybackRate = 1.5;
 
 interface StepAction {
   icon: string;
-  label: MessageKey;
+  label: string;
   disabled: boolean;
   run(): void;
 }
 
 interface Metric {
   id: string;
-  label: MessageKey;
+  label: string;
   value: ReactNode;
   previous?: StepAction;
   next?: StepAction;

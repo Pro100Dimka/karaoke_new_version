@@ -1,6 +1,3 @@
-import { useLibraryImport } from './useLibraryImport';
-import { desktopClient as files } from '../../../../services/desktopClient';
-import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -8,16 +5,18 @@ import {
   MessageBar,
   ProgressBar,
   Stack,
+  tr,
   Typography,
   useForm,
-  tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useEffect, useRef, useState } from 'react';
 import type { ImportProgress } from '../../../../contracts/clients';
-import type { MessageKey } from '../../../../providers/localization/messages';
-import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { errorstring, toAppError } from '../../../../shared/errors';
 import { formatBytes } from '../../../../shared/utils/format';
 import { isSupportedAudio } from './importModel';
+import { useLibraryImport } from './useLibraryImport';
 
 type FileState =
   | { kind: 'none' }
@@ -28,7 +27,7 @@ const fileErrors = {
   ready: null,
   unsupported: 'errorUnsupportedMedia',
   unreadable: 'errorInvalidMedia',
-} as const satisfies Record<FileState['kind'], MessageKey | null>;
+} as const satisfies Record<FileState['kind'], string | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
 export const AddSongModal = ({
@@ -72,7 +71,7 @@ export const AddSongModal = ({
           setFailure(tr('importCancelled'));
           return;
         }
-        const key = errorMessageKey(toAppError(failure));
+        const key = errorstring(toAppError(failure));
         setFailure(key ? tr(key) : tr('importFailed'));
       } finally {
         importController.current = null;

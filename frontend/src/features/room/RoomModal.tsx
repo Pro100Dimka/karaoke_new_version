@@ -1,6 +1,3 @@
-import { observer } from 'mobx-react-lite';
-import { store } from '../../providers/store';
-import { useEffect, useState } from 'react';
 import {
   Avatar,
   Beacon,
@@ -16,8 +13,11 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
+import { useEffect, useState } from 'react';
 import { roomSession } from '../../providers/application';
-import { errorMessageKey, toAppError } from '../../shared/errors';
+import { store } from '../../providers/store';
+import { errorstring, toAppError } from '../../shared/errors';
 import './room-entry.css';
 
 type Busy = 'create' | 'join' | null;
@@ -63,7 +63,7 @@ export const RoomModal = observer(
         onClose();
       } catch (error) {
         setFailure(
-          tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
+          tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
         );
       } finally {
         setBusy(null);

@@ -1,27 +1,22 @@
-import './editor.css';
-import { Observer } from 'mobx-react-lite';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  useRouter,
   Button,
   EmptyState,
   IconButton,
   PianoRoll,
-  ProgressBar,
   Popover,
+  ProgressBar,
   ToggleButton,
   Toolbar,
-  Typography,
-  type PianoRollGesture,
   tr,
+  Typography,
   useLocale,
+  useRouter,
+  type PianoRollGesture,
 } from '@neo-ui-kit/react';
+import { Observer } from 'mobx-react-lite';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import './editor.css';
 
-import { routes } from '../../shared/routes';
-import type { ProjectCompatibility } from '../../contracts/clients';
-import type { MessageKey } from '../../providers/localization/messages';
-import { EditorHeader } from './EditorHeader';
-import { EditorTransport } from './EditorTransport';
 import {
   documentEnd,
   maxPitch,
@@ -32,6 +27,10 @@ import {
   snapTime,
   type EditorDocument,
 } from '../../application/editor/editorModel';
+import type { ProjectCompatibility } from '../../contracts/clients';
+import { routes } from '../../shared/routes';
+import { EditorHeader } from './EditorHeader';
+import { EditorTransport } from './EditorTransport';
 import { useEditorSession } from './useEditorSession';
 
 const isEditingText = (target: EventTarget | null): boolean =>
@@ -51,7 +50,7 @@ const invalidLoadMessage = {
   Invalid: 'errorProjectUpgrade',
 } satisfies Record<
   Exclude<ProjectCompatibility, 'Current'> | 'NotReady',
-  MessageKey
+  string
 >;
 
 /** The roll shows the melody's own range with a little air around it, never past what a note may reach. */

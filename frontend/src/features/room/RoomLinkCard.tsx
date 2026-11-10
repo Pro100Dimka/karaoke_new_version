@@ -1,10 +1,4 @@
 import {
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../../shared/errors';
-import { monitoringErrorText } from '../../shared/errors';
-import { useEffect, useRef, useState } from 'react';
-import {
   Badge,
   Card,
   Icon,
@@ -12,14 +6,19 @@ import {
   Sparkline,
   Switch,
   Tooltip,
-  Typography,
   tr,
+  Typography,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useEffect, useRef, useState } from 'react';
 import type { RoomTimingReport } from '../../contracts/clients';
-import type { MessageKey } from '../../providers/localization/messages';
 import { useRoomVoice } from '../../providers/application';
 import { useNotify } from '../../providers/notifications';
+import {
+  clearOperationFailure,
+  monitoringErrorText,
+  reportOperationFailure,
+} from '../../shared/errors';
 import { roomLink, type RoomLinkState } from './roomLink';
 import { roomQualityMessage, RoomSyncQuality } from './RoomSyncQuality';
 
@@ -28,7 +27,7 @@ const linkWindowReports = 5;
 // The trace shows the last two minutes of the room delay.
 const traceReports = 60;
 
-type Quality = { key: MessageKey; bars: number; bad: boolean };
+type Quality = { key: string; bars: number; bad: boolean };
 
 const quality = (timing: RoomTimingReport, link: RoomLinkState): Quality => {
   if (link.deviceStarving) return { key: 'linkOverloaded', bars: 1, bad: true };

@@ -24,7 +24,7 @@ import type {
   RecordingDto,
   SongDto,
 } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../providers/localization/messages';
+import { RecordingPlayer } from '../recordings/RecordingPlayer';
 import './analysis.css';
 import {
   analysisMetrics,
@@ -34,7 +34,6 @@ import {
   type AnalysisMetricKey,
 } from './analysisPresentation';
 import performanceArtUrl from './performance-art.svg';
-import { RecordingPlayer } from '../recordings/RecordingPlayer';
 
 interface PerformanceAnalysisModalProps {
   analysis: AnalysisDto | null;
@@ -45,7 +44,7 @@ interface PerformanceAnalysisModalProps {
   onClose(): void;
   song?: SongDto | null;
   pending?: RecordingAnalysisProgress;
-  failure?: MessageKey;
+  failure?: string;
   recordingId?: string;
   onCancelAnalysis?(jobId: string): void;
 }

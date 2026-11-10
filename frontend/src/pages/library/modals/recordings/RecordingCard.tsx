@@ -1,7 +1,3 @@
-import { desktopClient as files } from '../../../../services/desktopClient';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
-import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   IconButton,
@@ -13,15 +9,18 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useQuery } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
-import type { MessageKey } from '../../../../providers/localization/messages';
-import { analysisStageLabel } from '../analysis/analysisPresentation';
 import type { RecordingDto } from '../../../../contracts/models';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { toAppError } from '../../../../shared/errors';
+import { useNearView } from '../../../../shared/hooks/useNearView';
+import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
+import { analysisStageLabel } from '../analysis/analysisPresentation';
 import performanceArtUrl from '../analysis/performance-art.svg';
 import { RecordingPlayer } from './RecordingPlayer';
-import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
-import { useNearView } from '../../../../shared/hooks/useNearView';
-import { toAppError } from '../../../../shared/errors';
 
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
@@ -101,7 +100,7 @@ export const RecordingCard = ({
   onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
   onDelete(recording: RecordingDto): void;
   progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
-  failures?: Readonly<Record<string, MessageKey>>;
+  failures?: Readonly<Record<string, string>>;
   onCancelAnalysis?(jobId: string): void;
 }) => {
   useLocale();

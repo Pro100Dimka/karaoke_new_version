@@ -12,7 +12,6 @@ import type {
   SongDto,
 } from '../../../../contracts/models';
 import { ask } from '../../../../providers/dialog';
-import type { MessageKey } from '../../../../providers/localization/messages';
 import { useNotify } from '../../../../providers/notifications';
 import { store } from '../../../../providers/store';
 import { audioClient as preview } from '../../../../services/audioClient';
@@ -24,7 +23,7 @@ import {
 import { pythonClient as catalog } from '../../../../services/pythonClient';
 import {
   clearOperationFailure,
-  errorMessageKey,
+  errorstring,
   observeOperation,
   reportOperationFailure,
   toAppError,
@@ -51,7 +50,7 @@ export const useSongRecordings = (
     Readonly<Record<string, RecordingAnalysisProgress>>
   >({});
   const [analysisFailures, setAnalysisFailures] = useState<
-    Readonly<Record<string, MessageKey>>
+    Readonly<Record<string, string>>
   >({});
   const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(
     null,
@@ -135,7 +134,7 @@ export const useSongRecordings = (
         return null;
       setAnalysisFailures((items) => ({
         ...items,
-        [recordingId]: errorMessageKey(toAppError(failure)) ?? 'actionFailed',
+        [recordingId]: errorstring(toAppError(failure)) ?? 'actionFailed',
       }));
       throw failure;
     } finally {
@@ -250,7 +249,7 @@ export const useSongRecordings = (
       } catch (failure) {
         if (current())
           notify(
-            tr(errorMessageKey(toAppError(failure)) ?? 'actionFailed'),
+            tr(errorstring(toAppError(failure)) ?? 'actionFailed'),
             'error',
           );
       }

@@ -1,18 +1,17 @@
-import { observer } from 'mobx-react-lite';
-import { store } from '../../providers/store';
 import { tr, useLocale, useRouter } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
 import { useEffect, useRef, useState } from 'react';
+import { store } from '../../providers/store';
 
-import { roomSession, getRoomRuntime } from '../../providers/application';
+import { getRoomRuntime, roomSession } from '../../providers/application';
 import {
-  useNotify,
   playNotificationSound,
+  useNotify,
 } from '../../providers/notifications';
 
+import type { RoomChimeKind } from '../../application/room/roomChime';
 import chimeUrlJoin from '../../assets/sounds/room-join.mp3';
 import chimeUrlLeave from '../../assets/sounds/room-leave.mp3';
-import type { RoomChimeKind } from '../../application/room/roomChime';
-import type { MessageKey } from '../../providers/localization/messages';
 import { routes } from '../../shared/routes';
 
 const chimeUrls = { join: chimeUrlJoin, leave: chimeUrlLeave } satisfies Record<
@@ -48,7 +47,7 @@ export const RoomSync = observer(() => {
       },
       curtain: setLaunching,
       notify: (key, tone, params) =>
-        latest.current.notify(tr(key as MessageKey, params), tone, {
+        latest.current.notify(tr(key as string, params), tone, {
           silent: key === 'participantJoined' || key === 'participantLeft',
         }),
       chime: (kind) => {

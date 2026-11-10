@@ -1,13 +1,12 @@
 import type { AnalysisDto } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../providers/localization/messages';
 
 export type AnalysisMetricKey = 'pitch' | 'rhythm' | 'stability';
 
 interface AnalysisMetric {
   key: AnalysisMetricKey;
-  label: MessageKey;
-  description: MessageKey;
-  advice: MessageKey;
+  label: string;
+  description: string;
+  advice: string;
 }
 
 export const analysisMetrics: readonly AnalysisMetric[] = [
@@ -31,15 +30,14 @@ export const analysisMetrics: readonly AnalysisMetric[] = [
   },
 ];
 
-const grades: readonly (readonly [minimumScore: number, label: MessageKey])[] =
-  [
-    [85, 'gradeExcellent'],
-    [70, 'gradeGood'],
-    [50, 'gradePotential'],
-    [-Infinity, 'gradePractice'],
-  ];
+const grades: readonly (readonly [minimumScore: number, label: string])[] = [
+  [85, 'gradeExcellent'],
+  [70, 'gradeGood'],
+  [50, 'gradePotential'],
+  [-Infinity, 'gradePractice'],
+];
 
-export const gradeLabel = (score: number): MessageKey =>
+export const gradeLabel = (score: number): string =>
   grades.find(([minimum]) => score >= minimum)?.[1] ?? 'gradePractice';
 
 /** The weakest of the three metrics is what the singer should practise next. */

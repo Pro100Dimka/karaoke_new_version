@@ -1,7 +1,7 @@
-import { useLibraryImport } from '../modals/add-song/useLibraryImport';
-import { observer } from 'mobx-react-lite';
-import { store } from '../../../providers/store';
 import { Button, Stack, Switch, Tooltip, tr } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
+import { store } from '../../../../providers/store';
+import { useLibraryImport } from '../../modals/add-song/useLibraryImport';
 import LibrarySearchField, {
   type LibraryFilters,
   type LibraryViewFilters,
@@ -18,7 +18,7 @@ interface LibraryActionsProps {
   onViewChange(query: string, filters: LibraryFilters): void;
 }
 
-export const LibraryActions = observer((props: LibraryActionsProps) => {
+const LibraryActions = observer((props: LibraryActionsProps) => {
   const { roomRole, collaborativeControl = false } = props;
   const locked = roomRole === 'participant' && !collaborativeControl;
   const { addSong } = useLibraryImport();
@@ -91,3 +91,4 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
     </Stack>
   );
 });
+export default LibraryActions;

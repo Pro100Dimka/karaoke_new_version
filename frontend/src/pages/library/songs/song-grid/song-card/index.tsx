@@ -16,7 +16,6 @@ import { memo, useState } from 'react';
 import { refreshSongs } from '../../../../../components/api-service';
 import type { SongDto } from '../../../../../contracts/models';
 import { ask } from '../../../../../providers/dialog';
-import type { MessageKey } from '../../../../../providers/localization/messages';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
 import {
@@ -29,7 +28,7 @@ import { ProcessingSignal } from './processing-signal';
 
 const actionMeta: Record<
   SongActionId,
-  { label: MessageKey; icon: string; style?: React.CSSProperties }
+  { label: string; icon: string; style?: React.CSSProperties }
 > = {
   play: { label: 'play', icon: 'play' },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },

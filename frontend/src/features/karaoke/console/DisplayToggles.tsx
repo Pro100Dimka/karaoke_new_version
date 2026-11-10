@@ -1,5 +1,4 @@
 import { ToggleButton, tr, useLocale } from '@neo-ui-kit/react';
-import type { MessageKey } from '../../../providers/localization/messages';
 import { useKaraokeTv } from '../tv/karaokeTv';
 
 interface DisplayTogglesProps {
@@ -31,7 +30,7 @@ export const DisplayToggles = ({
   const tv = useKaraokeTv();
   const toggles: readonly {
     id: string;
-    label: MessageKey;
+    label: string;
     icon: string;
     active: boolean;
     disabled: boolean;

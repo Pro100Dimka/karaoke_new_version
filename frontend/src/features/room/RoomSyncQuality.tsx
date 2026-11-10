@@ -1,6 +1,5 @@
-import type { RoomTimingReport } from '../../contracts/clients';
-import type { MessageKey } from '../../providers/localization/messages';
 import { Typography, tr, useLocale } from '@neo-ui-kit/react';
+import type { RoomTimingReport } from '../../contracts/clients';
 
 // Up to this voice delay everyone hears everyone as if in one room.
 const closeRoomMs = 30;
@@ -8,7 +7,7 @@ const closeRoomMs = 30;
 const farRoomMs = 100;
 
 /** Which room quality message applies to this singer's measured timing. */
-export const roomQualityMessage = (timing: RoomTimingReport): MessageKey => {
+export const roomQualityMessage = (timing: RoomTimingReport): string => {
   if (Object.values(timing.remotes).some((remote) => remote.excluded))
     return 'roomQualityFar';
   if ((timing.roomPlayoutDelayMs || timing.voiceDelayMs) > farRoomMs)

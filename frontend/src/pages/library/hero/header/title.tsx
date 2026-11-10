@@ -1,7 +1,7 @@
 import { GlowText, ImageShine, Stack, tr, Typography } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { store } from '../../../providers/store';
-import { appThemes } from '../../../providers/theme/variants';
+import { store } from '../../../../providers/store';
+import { appThemes } from '../../../../providers/theme/variants';
 
 const LibraryTitle = observer(() => (
   <Stack direction="row" align="center" gap={6}>

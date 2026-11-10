@@ -1,5 +1,4 @@
 import type { SongStatus } from '../../../contracts/models';
-import type { MessageKey } from '../../../providers/localization/messages';
 
 export type SongActionId =
   | 'play'
@@ -12,7 +11,7 @@ export type SongActionId =
   | 'delete';
 
 interface SongStatusPresentation {
-  label: MessageKey;
+  label: string;
   tone: 'offline' | 'processing' | 'success' | 'error';
   primaryAction: SongActionId | null;
   /** Exactly the actions the state/action matrix allows; everything else is hidden or disabled. */

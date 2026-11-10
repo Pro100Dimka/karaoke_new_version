@@ -34,8 +34,8 @@ import {
 } from '../../../services/backendEvents';
 import { pythonClient } from '../../../services/pythonClient';
 import { LibraryEmptyState } from '../empty-library';
-import type { LibraryFilters } from '../hero/actions';
-import type { LibraryViewFilters } from '../hero/search-field';
+import type { LibraryFilters } from '../hero/filters&actions/actions';
+import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
 import { RecordingsModal } from '../modals/recordings';
 import { openSettings } from '../modals/settings';
 import { SongSettingsModal } from '../modals/song-settings';
