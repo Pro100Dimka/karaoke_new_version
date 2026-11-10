@@ -358,59 +358,73 @@ def _reference_presence(
     reference: NDArray[np.float64],
     original_backing: NDArray[np.float64],
 ) -> tuple[NDArray[np.float64], dict[str, float | str]]:
-    """Match the measured vocal-to-accompaniment distribution, not a preset gap.
+    """Match reference vocal prominence without pulling the voice down in quiet music.
 
-    Only active phrases determine the global correction. The slow local adjustment
-    follows accompaniment development without boosting silence or syllable peaks.
+    Compare reference and performance at similar accompaniment *percentiles*,
+    rather than assuming a quiet accompaniment means a quiet singer. The
+    global level is corrected separately from slow, zero-median phrase riding.
     """
-    if not (len(gains) == len(voice) == len(backing)) or not len(reference) or not len(original_backing):
-        return gains, {"method": "unavailable-reference", "presenceBoostMaxDb": 0.0}
-    finite = np.isfinite(reference) & np.isfinite(original_backing)
-    local_finite = np.isfinite(voice) & np.isfinite(backing) & np.isfinite(gains)
-    if not np.any(finite) or not np.any(local_finite):
-        return gains, {"method": "invalid-reference", "presenceBoostMaxDb": 0.0}
-    ref, orig = reference[finite], original_backing[finite]
-    ref_floor = float(np.percentile(ref, 20))
-    ref_active = ref > ref_floor + 0.35 * (float(np.percentile(ref, 85)) - ref_floor)
-    voice_floor = float(np.percentile(voice[local_finite], 20))
-    active = local_finite & (voice > voice_floor + 0.35 * (float(np.percentile(voice[local_finite], 85)) - voice_floor))
-    if np.count_nonzero(ref_active) < 3 or np.count_nonzero(active) < 3:
-        return gains, {"method": "insufficient-vocal-activity", "presenceBoostMaxDb": 0.0}
+    if len(gains) != len(voice) or len(voice) != len(backing) or not len(reference) or not len(original_backing):
+        return gains, {"method": "unavailable-reference"}
+    n = min(len(reference), len(original_backing))
+    ref, orig = reference[:n], original_backing[:n]
+    valid_ref = np.isfinite(ref) & np.isfinite(orig)
+    valid = np.isfinite(voice) & np.isfinite(backing) & np.isfinite(gains)
+    if np.count_nonzero(valid_ref) < 8 or np.count_nonzero(valid) < 8:
+        return gains, {"method": "insufficient-valid-frames"}
+    ref_floor, voice_floor = np.percentile(ref[valid_ref], 20), np.percentile(voice[valid], 20)
+    ref_active = valid_ref & ((ref >= ref_floor) & (ref > -70.0))
+    active = valid & ((voice >= voice_floor) & (voice > -70.0))
+    if np.count_nonzero(ref_active) < 4 or np.count_nonzero(active) < 4:
+        return gains, {"method": "insufficient-active-frames"}
 
-    original_prominence = ref[ref_active] - orig[ref_active]
-    target = float(np.median(original_prominence))
-    current = voice + gains - backing
-    # A global correction may be negative: previously the routine could only
-    # increase the voice, even when the voice was already far above the reference.
-    measured = float(np.median(current[active]))
-    global_delta = float(np.clip(target - measured, -18.0, _MAX_BOOST_DB))
+    ref_prominence = ref[ref_active] - orig[ref_active]
+    current_prominence = voice + gains - backing
+    target_global = float(np.median(ref_prominence))
+    measured_global = float(np.median(current_prominence[active]))
+    global_delta = target_global - measured_global
 
-    # The time-varying part is zero-median over sung phrases. This preserves
-    # the measured overall balance and avoids a second global boost.
-    safe_current = np.where(local_finite, current, measured)
-    slow = uniform_filter1d(median_filter(safe_current, size=31, mode="nearest"), size=31, mode="nearest")
-    local_delta = measured - slow
-    local_delta -= float(np.median(local_delta[active]))
-    # Variation of original prominence is the reference-derived automation
-    # range; the fixed global ceiling is strictly a safety constraint.
-    variation = float(np.percentile(np.abs(original_prominence - target), 75))
-    local_delta = np.clip(local_delta, -variation, variation)
-    local_delta = uniform_filter1d(local_delta, size=41, mode="nearest")
-    # Keep the correction steady through rests; no gain jumps at phrase edges.
-    active_weight = uniform_filter1d(active.astype(np.float64), size=31, mode="nearest")
-    local_delta *= np.clip(active_weight, 0.0, 1.0)
-    result = np.clip(gains + global_delta + local_delta, -18.0, _MAX_BOOST_DB)
-    difference = result - gains
+    # Match the original vocal-to-backing relationship across quiet and loud
+    # sections. Bin the *original* backing by its own rank; its associated
+    # vocal prominence is the target. Do not impose a linear gain/backing rule.
+    ranks = np.linspace(0.0, 1.0, 9)
+    original_edges = np.quantile(orig[ref_active], ranks)
+    targets = np.empty(8, dtype=np.float64)
+    for i in range(8):
+        selection = ref_active & (orig >= original_edges[i]) & (
+            (orig <= original_edges[i + 1]) if i == 7 else (orig < original_edges[i + 1])
+        )
+        targets[i] = np.median((ref - orig)[selection]) if np.any(selection) else target_global
+    # Map the current accompaniment to its own distribution, so differently
+    # mastered backing stems do not distort the matching.
+    performance_edges = np.quantile(backing[active], ranks)
+    indices = np.searchsorted(performance_edges[1:-1], backing, side="right")
+    expected = targets[np.clip(indices, 0, 7)]
+    desired = expected - current_prominence
+    desired = np.where(valid, desired, 0.0)
+
+    edges = np.diff(np.r_[False, active, False].astype(np.int8))
+    starts, ends = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
+    lengths = ends - starts
+    frames = int(np.median(lengths)) if len(lengths) else 1
+    window = max(3, min(len(gains) | 1, (frames // 2) | 1))
+    slow = uniform_filter1d(median_filter(desired, size=window, mode="nearest"), size=window, mode="nearest")
+    slow -= float(np.median(slow[active]))
+    # Reference dynamics determine the allowed local adjustment, not a fixed
+    # dB target. Keep phrase-to-phrase changes smooth and the global balance
+    # independent of the local music level.
+    variation = float(np.percentile(np.abs(ref_prominence - target_global), 75))
+    slow = np.clip(slow, -variation, variation)
+    weight = uniform_filter1d(active.astype(np.float64), size=window, mode="nearest")
+    result = np.clip(gains + global_delta + slow * np.clip(weight, 0.0, 1.0), -18.0, _MAX_BOOST_DB)
     return result, {
-        "method": "reference-measured-global-and-local",
-        "referenceProminenceDb": target,
-        "performanceProminenceDb": measured,
-        "globalCorrectionDb": global_delta,
+        "method": "reference-backing-quantile-conditioned",
+        "referenceProminenceDb": target_global,
+        "performanceProminenceDb": measured_global,
+        "globalCorrectionDb": float(global_delta),
         "referenceVariationDb": variation,
-        "presenceBoostMaxDb": float(np.max(difference)),
-        "presenceBoostMeanDb": float(np.mean(difference[active])),
+        "presenceBoostMaxDb": float(np.max(result - gains)),
     }
-
 
 
 def _reference_compressor_timing(reference: NDArray[np.float64]) -> dict[str, float | str]:

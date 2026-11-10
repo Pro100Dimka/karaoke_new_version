@@ -98,10 +98,12 @@ def reference_voice_band_balance(vocal: Path, backing: Path, *, block_frames: in
     with sf.SoundFile(vocal) as v, sf.SoundFile(backing) as b:
         if v.samplerate != b.samplerate or v.frames != b.frames:
             return None
+        if not v.frames or v.channels < 1 or b.channels < 1:
+            return None
         sr = v.samplerate
         freqs = np.fft.rfftfreq(block_frames, 1 / sr)
         band = (freqs >= 300) & (freqs <= min(3500, sr / 2))
-        window = np.hanning(block_frames)
+        window = np.hanning(block_frames)[:, None]
         powers = []
         while True:
             vs = v.read(block_frames, dtype="float32", always_2d=True)
@@ -112,12 +114,16 @@ def reference_voice_band_balance(vocal: Path, backing: Path, *, block_frames: in
                 return None
             # Channel power, not mono cancellation, determines vocal activity.
             activity = float(np.mean(vs.astype(np.float64) ** 2))
-            x = np.mean(vs, axis=1)
-            y = np.mean(bs, axis=1)
+            # Use channel-wise energy, just like audit_mix(). Averaging stereo
+            # channels first can cancel wide or phase-inverted vocal content,
+            # producing a false reference target and wrong post-mix correction.
+            x = vs.astype(np.float64)
+            y = bs.astype(np.float64)
             if len(x) < block_frames:
-                x = np.pad(x, (0, block_frames - len(x)))
-                y = np.pad(y, (0, block_frames - len(y)))
-            xf, yf = np.fft.rfft(x * window), np.fft.rfft(y * window)
+                x = np.pad(x, ((0, block_frames - len(x)), (0, 0)))
+                y = np.pad(y, ((0, block_frames - len(y)), (0, 0)))
+            xf = np.fft.rfft(x * window, axis=0)
+            yf = np.fft.rfft(y * window, axis=0)
             powers.append((activity, float(np.sum(np.abs(xf[band]) ** 2)),
                            float(np.sum(np.abs(yf[band]) ** 2))))
     if len(powers) < 3:
@@ -128,3 +134,41 @@ def reference_voice_band_balance(vocal: Path, backing: Path, *, block_frames: in
         return None
     ratio = 10 * np.log10(np.maximum(p[active, 1], 1e-12) / np.maximum(p[active, 2], 1e-12))
     return float(np.median(ratio))
+
+
+def reference_voice_band_distribution(vocal: Path, backing: Path, *, block_frames: int = 16384) -> dict[str, float] | None:
+    """Reference distribution of vocal prominence, including quiet and loud phrases.
+
+    Uses stereo channel powers and only active-vocal windows. No target dB
+    is hard-coded: the song itself supplies the distribution.
+    """
+    with sf.SoundFile(vocal) as v, sf.SoundFile(backing) as b:
+        if v.samplerate != b.samplerate or v.frames != b.frames or not v.frames:
+            return None
+        freqs = np.fft.rfftfreq(block_frames, 1 / v.samplerate)
+        band = (freqs >= 300) & (freqs <= min(3500, v.samplerate / 2))
+        window = np.hanning(block_frames)[:, None]
+        rows = []
+        while True:
+            x = v.read(block_frames, dtype="float32", always_2d=True)
+            y = b.read(block_frames, dtype="float32", always_2d=True)
+            if not len(x):
+                break
+            if len(x) != len(y):
+                return None
+            activity = float(np.mean(x.astype(np.float64) ** 2))
+            if len(x) < block_frames:
+                x = np.pad(x, ((0, block_frames - len(x)), (0, 0)))
+                y = np.pad(y, ((0, block_frames - len(y)), (0, 0)))
+            vp = float(np.sum(np.abs(np.fft.rfft(x * window, axis=0)[band]) ** 2))
+            bp = float(np.sum(np.abs(np.fft.rfft(y * window, axis=0)[band]) ** 2))
+            rows.append((activity, 10 * np.log10(max(vp, 1e-12) / max(bp, 1e-12))))
+    if len(rows) < 3:
+        return None
+    values = np.asarray(rows)
+    active = values[:, 0] > max(float(np.percentile(values[:, 0], 80)) * 0.15, 1e-10)
+    if np.count_nonzero(active) < 3:
+        return None
+    distribution = values[active, 1]
+    return {name: float(np.percentile(distribution, q)) for name, q in
+            (("p10", 10), ("median", 50), ("p90", 90))}

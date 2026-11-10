@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import numpy as np
 import pytest
 
 from backend.ai.domain import PitchPoint
@@ -9,6 +10,72 @@ from backend.domain_errors import DomainError
 from backend.lyrics.domain import LyricsDocument, Note, Word
 from backend.ai.domain import WordTiming
 from backend.processing.algorithms import construct_document, MusicMetadata
+from backend.infrastructure.wave_music_analyzer import _estimate_bpm, _envelope
+from backend.analysis.scoring import _pitch_at, _sections
+
+
+@pytest.mark.parametrize("rate,channels", [(44100, 2), (11025, 1), (6553500, 1), (6553600, 1)])
+def test_wave_envelope_preserves_full_scale_and_partial_blocks(tmp_path, rate, channels):
+    import wave
+
+    block = max(1, rate * channels // 100)
+    blocks = 40 if rate < 100000 else 1
+    samples = np.full((block * blocks + 7) * channels, -32768, dtype="<i2")
+    path = tmp_path / "full-scale.wav"
+    with wave.open(str(path), "wb") as stream:
+        stream.setparams((channels, 2, rate, 0, "NONE", "not compressed"))
+        stream.writeframes(samples.tobytes())
+    expected = [
+        sum(abs(int(value)) for value in samples[start : start + block]) / block
+        for start in range(0, len(samples), block)
+    ]
+    assert _envelope(path) == (expected, 100)
+
+
+@pytest.mark.parametrize("mode", ["silence", "pulse", "random", "near_tie", "short"])
+def test_tempo_preserves_scalar_lag_ranking(mode):
+    values = np.random.default_rng(418).uniform(0, 32768, 6000)
+    if mode == "silence":
+        values[:] = 0
+    elif mode in {"pulse", "near_tie"}:
+        values[:] = 0
+        values[::40] = 1
+        if mode == "near_tie":
+            values[::60] += 1 + 1e-13
+    elif mode == "short":
+        values = values[:299]
+    envelope = values.tolist()
+    onset = [max(0.0, b - a) for a, b in zip(envelope, envelope[1:])]
+    scores = {
+        lag: sum(onset[i] * onset[i - lag] for i in range(lag, len(onset)))
+        for lag in range(30, 101)
+    }
+    expected = None if len(envelope) < 300 else round(6000 / max(scores, key=scores.get), 2)
+    assert _estimate_bpm(envelope, 100) == expected
+
+
+def test_section_scoring_keeps_seek_order_boundaries_and_missing_voice():
+    from backend.analysis.domain import SectionResult
+
+    samples = [(20.0, 2.0), (10.0, 0.0), (0.0, 1.0), (9.999, 3.0), (30.0, 9.0), (-1, 2.0)]
+    expected = [20.0, 10.0, 0.0, 9.999, 5.0, 30.0, -1]
+    assert _sections(samples, 30, expected) == (
+        SectionResult(0, 10, 100 / 3, 2.0),
+        SectionResult(10, 20, 100, 0.0),
+        SectionResult(20, 30, 0, 2.0),
+    )
+
+
+@pytest.mark.parametrize("time", [-1, 0, 0.025, 0.05, 0.075, 0.1, 0.2])
+def test_nearest_pitch_preserves_left_ties_and_capture_window(time):
+    points = [PitchPoint(0, 440, 1), PitchPoint(0.05, 880, 1), PitchPoint(0.1, 0, 0)]
+    nearest = min(points, key=lambda p: abs(p.time - time))
+    active = abs(nearest.time - time) <= 0.05 * 0.51 and nearest.confidence >= 0.3
+    assert _pitch_at(points, [p.time for p in points], time, 0.05) == (
+        nearest.frequency if active else None,
+        active,
+    )
+    assert _pitch_at([], [], time, 0.05) == (None, False)
 
 
 def _frequency(midi: int) -> float:

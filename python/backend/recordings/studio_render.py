@@ -8,6 +8,7 @@ from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import math
+from copy import deepcopy
 import shutil
 import threading
 from tempfile import TemporaryDirectory
@@ -101,7 +102,7 @@ class MasterRender:
             self._unmask()
             self._deliver()
             from backend.recordings.studio_mix_audit import (
-                audit_mix, reference_voice_band_balance,
+                audit_mix, reference_voice_band_distribution,
             )
             self.processing["postMixAudit"] = audit_mix(
                 self.balanced, self.backing, self.target,
@@ -110,29 +111,62 @@ class MasterRender:
             # Closed-loop correction: compare the delivered stem balance with the
             # original song, not a hardcoded target. One bounded retry prevents
             # runaway feedback and leaves the accompaniment unchanged.
-            target_band = reference_voice_band_balance(
+            target_profile = reference_voice_band_distribution(
                 self.reference_vocal, self.original_instrumental,
             )
+            target_band = target_profile["median"] if target_profile else None
             audit = self.processing["postMixAudit"]
             if target_band is not None and audit.get("status") == "measured":
                 current_band = float(audit["voiceBandVocalToBackingMedianDb"])
                 error_db = target_band - current_band
-                # Safety bound, not a target. Ignore small metering differences.
                 correction_db = float(np.clip(error_db, -3.0, 3.0))
+                applied_db = 0.0
+                status = "already-balanced"
                 if abs(error_db) > 1.0 and abs(correction_db) > 0.0:
-                    self.voice_gain_db += correction_db
-                    self._deliver()
-                    self.processing["postMixAudit"] = audit_mix(
-                        self.balanced, self.backing, self.target,
-                        vocal_gain_db=self.voice_gain_db,
-                    )
+                    # Preserve the existing render until the proposed correction
+                    # is measured. A retry must never silently worsen the match.
+                    previous = self.work / "pre-calibration-master.wav"
+                    shutil.copyfile(self.target, previous)
+                    old_gain = self.voice_gain_db
+                    old_processing = deepcopy(self.processing)
+                    try:
+                        self.voice_gain_db += correction_db
+                        self._deliver()
+                        candidate = audit_mix(
+                            self.balanced, self.backing, self.target,
+                            vocal_gain_db=self.voice_gain_db,
+                        )
+                        candidate_band = candidate.get("voiceBandVocalToBackingMedianDb")
+                        if (candidate.get("status") == "measured"
+                            and isinstance(candidate_band, (int, float))
+                            and np.isfinite(candidate_band)
+                            and _distribution_improved(target_profile, audit, candidate)):
+                            self.processing["postMixAudit"] = candidate
+                            applied_db = correction_db
+                            status = "improved"
+                        else:
+                            shutil.copyfile(previous, self.target)
+                            self.voice_gain_db = old_gain
+                            self.processing.clear()
+                            self.processing.update(old_processing)
+                            status = "rejected-no-improvement"
+                    except Exception:
+                        shutil.copyfile(previous, self.target)
+                        self.voice_gain_db = old_gain
+                        self.processing.clear()
+                        self.processing.update(old_processing)
+                        raise
+                    finally:
+                        previous.unlink(missing_ok=True)
                 self.processing["postMixCalibration"] = {
+                    "status": status,
                     "referenceVoiceBandDb": round(target_band, 2),
                     "beforeVoiceBandDb": round(current_band, 2),
-                    "correctionDb": round(correction_db if abs(error_db) > 1.0 else 0.0, 2),
+                    "requestedCorrectionDb": round(correction_db, 2),
+                    "correctionDb": round(applied_db, 2),
                     "afterVoiceBandDb": self.processing["postMixAudit"].get(
                         "voiceBandVocalToBackingMedianDb"),
-                    "method": "reference-measured-one-pass",
+                    "method": "reference-measured-accept-only-if-improved",
                 }
             else:
                 self.processing["postMixCalibration"] = {
@@ -601,3 +635,24 @@ class MasterRender:
                     else "native-timeline-retained"
                 ),
             )
+
+
+def _distribution_improved(reference: dict[str, float], before: dict[str, object], after: dict[str, object]) -> bool:
+    """Accept a new mix only if vocal prominence improves across quiet/loud phrases.
+
+    Do not improve the median at the expense of the weakest vocal windows.
+    """
+    keys = {"p10": "voiceBandVocalToBackingP10Db",
+            "median": "voiceBandVocalToBackingMedianDb"}
+    try:
+        errors = []
+        for label, field in keys.items():
+            target = float(reference[label])
+            old, new = float(before[field]), float(after[field])
+            if not all(np.isfinite(v) for v in (target, old, new)):
+                return False
+            errors.append((abs(target - old), abs(target - new)))
+        # Do not sacrifice the least audible phrases for a better median.
+        return errors[0][1] <= errors[0][0] and sum(x[1] for x in errors) < sum(x[0] for x in errors)
+    except (KeyError, TypeError, ValueError):
+        return False
