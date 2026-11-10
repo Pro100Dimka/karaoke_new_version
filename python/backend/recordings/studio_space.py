@@ -8,7 +8,7 @@ import threading
 import numpy as np
 import soundfile as sf
 from scipy.ndimage import median_filter
-from scipy.signal import butter, find_peaks, resample_poly, sosfilt, oaconvolve
+from scipy.signal import butter, find_peaks, resample_poly, sosfilt, oaconvolve, lfilter
 
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel
 from backend.domain_errors import DependencyError
@@ -52,35 +52,24 @@ def apply_reference_space(
                 effect_type="subtle-room",
             )
             method = "reference-width-informed-room"
-    # When isolated reference tails cannot be measured, infer a restrained
-    # ambience from stereo width. A short, quiet early reflection is not
-    # claimed as a detected slapback; it merely preserves spatial impression.
-    if not (selected.delay_gain or selected.reverb_gain):
-        reference_width = expected.stereo_width
-        recorded_width = existing.stereo_width
-        if reference_width > recorded_width + 0.035:
-            difference = min(0.7, reference_width - recorded_width)
-            selected = SpaceProfile(
-                delay_seconds=0.075,
-                delay_gain=float(np.clip(0.035 + 0.09 * difference, 0.035, 0.10)),
-                decay_seconds=float(np.clip(0.30 + 0.55 * reference_width, 0.30, 0.72)),
-                reverb_gain=float(np.clip(0.12 + 0.14 * difference, 0.12, 0.22)),
-                stereo_width=reference_width,
-                effect_type="width-guided-early-reflections",
-            )
-            method = "width-guided-ambience-not-detected-delay"
+    # Stereo width is not evidence of a discrete echo. Never synthesize a
+    # fixed-delay repeat when the reference contains no supported repetition.
+    # Width-only material can still receive the reference-informed diffuse room
+    # selected above; the report distinguishes this from a measured reverb.
     applied = bool(selected.delay_gain or selected.reverb_gain)
-    if applied:
-        info = sf.info(voice)
-        impulse = target.with_suffix(".ir.wav")
-        write_impulse(selected, impulse, info.samplerate, info.channels)
-        wet_stats = _render_separate_buses(renderer, voice, target, cancel, selected, reference=reference, recorded=recorded)
+    # The caller always expects target to exist, including when the reference
+    # contains no trustworthy evidence of spatial processing.
+    wet_stats = _render_separate_buses(
+        renderer, voice, target, cancel, selected,
+        reference=reference if applied else None,
+        recorded=recorded if applied else None,
+    )
 
     return {
         "method": method,
         "effectDetection": {"delay": expected.effect_type if expected.delay_gain else "not-confident", "delayConfidence": expected.delay_support, "reverbEvidenceCount": expected.decay_count, "referenceStereoWidth": expected.stereo_width, "recordedStereoWidth": existing.stereo_width},
         "status": "matched" if applied else "no-supported-addition",
-        "estimatedNotDetected": method == "width-guided-ambience-not-detected-delay",
+        "estimatedNotDetected": method == "reference-width-informed-room",
         "reference": asdict(expected),
         "recorded": asdict(existing),
         "applied": asdict(selected),
@@ -116,17 +105,38 @@ def _render_separate_buses(
                                reverb_gain=profile.reverb_gain,
                                stereo_width=profile.stereo_width),
     }
-    if profile.effect_type not in ("slapback", "delay", "width-guided-early-reflections"):
-        bus_specs["early"] = SpaceProfile()
+    # No artificial early-reflection bus: only render evidence-backed effects.
     bus_specs = {name: spec for name, spec in bus_specs.items()
                  if spec.delay_gain or spec.reverb_gain}
     if not bus_specs:
-        return {"buses": {}, "status": "no-effects"}
+        # Always produce a valid output, including for dry references.
+        with sf.SoundFile(voice) as src, sf.SoundFile(
+            target, "w", samplerate=info.samplerate,
+            channels=info.channels, subtype="FLOAT"
+        ) as dst:
+            for block in src.blocks(blocksize=32768, dtype="float32", always_2d=True):
+                _check_cancel(cancel)
+                dst.write(block)
+        return {"buses": {}, "status": "no-effects", "dryPreserved": True}
     target_db, evidence = _reference_wet_target(reference, recorded, cancel)
     # A stereo-width proxy is not a measurement of separate FX levels.
     # Use it only to adjust the total budget; retain independent per-bus caps.
     total_db = float(np.clip(target_db if target_db is not None else -13.0, -18.0, -9.0))
-    allocations = {"early": -8.0, "echo": -4.0, "reverb": -5.0}
+    # Allocate the available wet energy from the measured reference profile,
+    # rather than assigning identical echo/reverb priorities to every song.
+    # IR strength is a relative cue only; each rendered bus is calibrated below.
+    reference_strength = {
+        "early": max(0.0, float(profile.delay_gain)) if profile.effect_type == "width-guided-early-reflections" else 0.0,
+        "echo": max(0.0, float(profile.delay_gain)),
+        "reverb": max(0.0, float(profile.reverb_gain)),
+    }
+    active_strength = {name: reference_strength[name] for name in bus_specs}
+    strength_sum = sum(value * value for value in active_strength.values())
+    # If no trustworthy relative level exists, do not invent a hierarchy.
+    allocations = {
+        name: (value * value / strength_sum if strength_sum > 0 else 1.0 / len(bus_specs))
+        for name, value in active_strength.items()
+    }
     wet_paths: dict[str, Path] = {}
     impulse_paths: list[Path] = []
     try:
@@ -194,54 +204,83 @@ def _render_separate_buses(
                     src.close()
         gains = {}
         for name in names:
-            goal = 10 ** ((total_db + allocations[name]) / 20)
+            goal = 10 ** (total_db / 20) * math.sqrt(allocations[name])
             gains[name] = float(min(
                 3.0,
                 goal * math.sqrt(dry_energy / max(wet_energy[name], 1e-20)),
                 0.35 * max(dry_peak, 1e-6) / max(wet_peak[name], 1e-9),
             )) if dry_energy > 1e-12 and wet_energy[name] > 1e-15 else 0.0
-        # A measured side-energy target is only a proxy for spatial ambience.
-        # Calibrate after summing the three wet buses, not from IR gains alone.
-        # This prevents correlated buses from unexpectedly cancelling or stacking.
-        def measure_mix_side(scale: float) -> tuple[float, float]:
-            mid_energy = side_energy = 0.0
-            with sf.SoundFile(voice) as dry_source:
-                readers = {name: sf.SoundFile(path) for name, path in wet_paths.items()}
-                try:
-                    while True:
-                        _check_cancel(cancel)
-                        a = dry_source.read(32768, dtype="float32", always_2d=True)
-                        if not len(a):
-                            break
-                        wet_block = np.zeros_like(a)
-                        for name, reader in readers.items():
-                            wet_block += reader.read(len(a), dtype="float32", always_2d=True) * gains[name]
-                        # Use the same conservative activity attenuation as the render.
-                        mixed = a + wet_block * scale * 0.7
-                        if mixed.shape[1] >= 2:
-                            mid = (mixed[:, 0].astype(np.float64) + mixed[:, 1]) * 0.5
-                            side = (mixed[:, 0].astype(np.float64) - mixed[:, 1]) * 0.5
-                            mid_energy += float(np.dot(mid, mid))
-                            side_energy += float(np.dot(side, side))
-                finally:
-                    for reader in readers.values():
-                        reader.close()
-            return (math.sqrt(side_energy / max(mid_energy, 1e-20)), mid_energy)
-
+        # Measure the exact Dry/Wet activity envelope used by the final render.
+        # The previous implementation calibrated with a constant 0.7 multiplier,
+        # although the real ducking varies sample-by-sample. It could therefore
+        # select a gain that did not produce the predicted stereo width.
         target_side, side_evidence = (None, "not-calibrated")
         if reference is not None and info.channels >= 2:
             ratio, count = _stereo_side_ratio(reference, cancel)
             if count >= 4:
                 target_side, side_evidence = ratio, "reference-side-proxy"
+
         scale = 1.0
-        if target_side is not None:
-            # Only a bounded correction: stereo side energy is not a true
-            # reference wet stem, and may include doubles or source artifacts.
-            candidates = (0.6, 0.8, 1.0, 1.25, 1.5)
-            estimates = [(candidate, measure_mix_side(candidate)[0]) for candidate in candidates]
-            scale = min(estimates, key=lambda item: abs(item[1] - target_side))[0]
+        measured_side = None
+        if info.channels >= 2:
+            # Quadratic energy coefficients allow evaluating any wet gain without
+            # rereading the song for every candidate. Only one streaming pass.
+            mid_terms = np.zeros(3, dtype=np.float64)
+            side_terms = np.zeros(3, dtype=np.float64)
+            with sf.SoundFile(voice) as dry_source:
+                readers = {name: sf.SoundFile(path) for name, path in wet_paths.items()}
+                try:
+                    envelope = 0.0
+                    smoothing = math.exp(-1 / (0.12 * info.samplerate))
+                    while True:
+                        _check_cancel(cancel)
+                        a = dry_source.read(16384, dtype="float32", always_2d=True)
+                        if not len(a):
+                            break
+                        mono = np.sqrt(np.mean(a.astype(np.float64) ** 2, axis=1))
+                        filtered, _ = lfilter(
+                            [1.0 - smoothing], [1.0, -smoothing], mono,
+                            zi=[smoothing * envelope],
+                        )
+                        envelope = float(filtered[-1])
+                        duck = 1.0 - 0.30 * np.minimum(1.0, filtered / 0.025)
+                        wet = np.zeros_like(a, dtype=np.float64)
+                        for name, reader in readers.items():
+                            wet += reader.read(len(a), dtype="float32", always_2d=True) * gains[name]
+                        wet *= duck[:, None]
+                        dmid = (a[:, 0].astype(np.float64) + a[:, 1]) * 0.5
+                        dside = (a[:, 0].astype(np.float64) - a[:, 1]) * 0.5
+                        wmid = (wet[:, 0] + wet[:, 1]) * 0.5
+                        wside = (wet[:, 0] - wet[:, 1]) * 0.5
+                        for terms, dry_component, wet_component in (
+                            (mid_terms, dmid, wmid), (side_terms, dside, wside)
+                        ):
+                            terms[0] += float(np.dot(dry_component, dry_component))
+                            terms[1] += float(2 * np.dot(dry_component, wet_component))
+                            terms[2] += float(np.dot(wet_component, wet_component))
+                finally:
+                    for reader in readers.values():
+                        reader.close()
+
+            def predicted_side(wet_scale: float) -> float:
+                powers = np.array([1.0, wet_scale, wet_scale * wet_scale])
+                mid = max(float(np.dot(mid_terms, powers)), 1e-20)
+                side = max(float(np.dot(side_terms, powers)), 0.0)
+                return math.sqrt(side / mid)
+
+            if target_side is not None and side_terms[2] > 1e-12:
+                # Stereo side energy is only a proxy for ambience. Restrict the
+                # adjustment rather than forcing an exact match to vocal doubles.
+                from scipy.optimize import minimize_scalar
+                result = minimize_scalar(
+                    lambda candidate: (predicted_side(candidate) - target_side) ** 2,
+                    bounds=(0.6, 1.5), method="bounded",
+                    options={"xatol": 1e-3},
+                )
+                if result.success:
+                    scale = float(result.x)
+            measured_side = predicted_side(scale)
         gains = {name: gain * scale for name, gain in gains.items()}
-        measured_side, _ = measure_mix_side(1.0)
 
         with sf.SoundFile(voice) as dry, sf.SoundFile(
             target, "w", samplerate=info.samplerate,
@@ -261,10 +300,12 @@ def _render_separate_buses(
                     # A slow activity envelope makes effects quieter *during*
                     # words and lets tails bloom naturally after each phrase.
                     mono = np.sqrt(np.mean(a.astype(np.float64) ** 2, axis=1))
-                    duck = np.empty(len(a), dtype=np.float32)
-                    for i, level in enumerate(mono):
-                        envelope = smoothing * envelope + (1 - smoothing) * float(level)
-                        duck[i] = 1.0 - 0.30 * min(1.0, envelope / 0.025)
+                    filtered, _ = lfilter(
+                        [1.0 - smoothing], [1.0, -smoothing], mono,
+                        zi=[smoothing * envelope],
+                    )
+                    envelope = float(filtered[-1])
+                    duck = (1.0 - 0.30 * np.minimum(1.0, filtered / 0.025)).astype(np.float32)
                     for name, src in sources.items():
                         b = src.read(len(a), dtype="float32", always_2d=True)
                         wet += b * (gains[name] * duck[:, None])
@@ -288,8 +329,9 @@ def _render_separate_buses(
         return {"status": "rendered", "referenceMethod": evidence,
                 "calibration": report,
                 "totalBudgetDb": total_db,
+                "referenceBusEnergyShares": allocations,
                 "buses": {name: {"gainDb": round(20 * math.log10(max(gains[name], 1e-12)), 2),
-                                  "targetActiveRmsDb": round(total_db + allocations[name], 2)}
+                                  "targetActiveRmsDb": round(total_db + 10 * math.log10(max(allocations[name], 1e-12)), 2)}
                           for name in names}, "dryPreserved": True}
     finally:
         for path in [*wet_paths.values(), *impulse_paths]:
@@ -492,7 +534,9 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
         start = round(0.02 * rate)
         time = np.arange(length - start) / rate
         noise = np.random.default_rng(0).normal(size=(len(time), channels))
-        band = butter(2, [180, min(6000, rate * 0.45)], btype="bandpass", fs=rate, output="sos")
+        high = min(6000.0, rate * 0.45)
+        low = min(180.0, high * 0.5)
+        band = butter(2, [low, high], btype="bandpass", fs=rate, output="sos")
         tail = sosfilt(band, noise, axis=0) * np.exp(
             -6.9078 * time[:, None] / profile.decay_seconds
         )

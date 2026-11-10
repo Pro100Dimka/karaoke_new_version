@@ -4,7 +4,6 @@ import threading
 import numpy as np
 from numpy.typing import NDArray
 import soundfile as sf
-from scipy.fft import rfft, irfft
 
 from backend.recordings.studio_audio import _PROFILE_SECONDS, _check_cancel
 
@@ -49,7 +48,7 @@ class _SpectralUnmasking:
         # Weighted overlap-add retains the sample timeline and bounds memory independently of
         # song length. One smooth spectral gain is shared by all channels to retain stereo cues.
         self.size, self.hop = 2048, 512
-        self.window = np.hanning(self.size).astype(np.float32)
+        self.window = np.hanning(self.size)
         self.centers = np.asarray([250.0, 500.0, 1000.0, 2000.0, 4000.0])
         self.cut = np.zeros(len(self.centers))
         self.totals = np.zeros(len(self.centers))
@@ -91,18 +90,18 @@ class _SpectralUnmasking:
     def _spectra(self, batch_start: int, count: int) -> list[np.ndarray]:
         spectra = []
         for source in (self.music, self.singer):
-            samples = np.zeros((self.size + (count - 1) * self.hop, source.channels), dtype=np.float32)
+            samples = np.zeros((self.size + (count - 1) * self.hop, source.channels))
             begin, end = max(0, batch_start), min(source.frames, batch_start + len(samples))
             if end > begin:
                 source.seek(begin)
                 samples[begin - batch_start : end - batch_start] = source.read(
-                    end - begin, dtype="float32", always_2d=True
+                    end - begin, always_2d=True
                 )
             frames = np.lib.stride_tricks.sliding_window_view(samples, self.size, axis=0)[
                 :: self.hop
             ]
             frames = np.moveaxis(frames, -1, 1)
-            spectra.append(rfft(frames * self.window[None, :, None], axis=1))
+            spectra.append(np.fft.rfft(frames * self.window[None, :, None], axis=1))
         return spectra
 
     def _desired(self, starts: np.ndarray, spectra: list[np.ndarray]) -> np.ndarray:
@@ -142,7 +141,7 @@ class _SpectralUnmasking:
 
     def _write(self, starts: np.ndarray, spectrum: np.ndarray) -> None:
         count = len(starts)
-        reconstructed = irfft(spectrum, n=self.size, axis=1) * self.window[None, :, None]
+        reconstructed = np.fft.irfft(spectrum, n=self.size, axis=1) * self.window[None, :, None]
         pending = np.empty((count * self.hop, self.music.channels))
         pending_frames = 0
         for index, start in enumerate(starts):

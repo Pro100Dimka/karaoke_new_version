@@ -10,7 +10,7 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useQuery } from '@tanstack/react-query';
-import { memo, useRef, useState } from 'react';
+import { memo, useCallback, useRef, useState } from 'react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
 import type { RecordingDto } from '../../../../contracts/models';
 import { desktopClient as files } from '../../../../services/desktopClient';
@@ -91,8 +91,10 @@ const RecordingCardView = ({
   progress = {},
   failures = {},
   onCancelAnalysis,
+  measureElement,
 }: {
   recording: RecordingDto;
+  measureElement?: (element: Element | null) => void;
   versions?: readonly RecordingDto[];
   name: string;
   index: number;
@@ -117,6 +119,13 @@ const RecordingCardView = ({
   // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
+  const setCardRef = useCallback(
+    (element: HTMLLIElement | null) => {
+      card.current = element;
+      measureElement?.(element);
+    },
+    [measureElement],
+  );
   const nearView = useNearView(card);
   const analysis = useQuery({
     queryKey: ['recording-analysis', selected.id, selected.analysisStatus],
@@ -134,7 +143,7 @@ const RecordingCardView = ({
   );
 
   return (
-    <li ref={card}>
+    <li ref={setCardRef} data-index={index}>
       <Card border padding="sm" className="recordingCard">
         <img
           className="recordingArt"
@@ -275,6 +284,7 @@ export const RecordingCard = memo(
     previous.versions === next.versions &&
     previous.name === next.name &&
     previous.index === next.index &&
+    previous.measureElement === next.measureElement &&
     previous.onRename === next.onRename &&
     previous.onAnalyze === next.onAnalyze &&
     previous.onDelete === next.onDelete &&
