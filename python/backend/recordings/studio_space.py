@@ -73,10 +73,10 @@ def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile
     )
     return SpaceProfile(
         delay_seconds=reference.delay_seconds,
-        delay_gain=max(0, reference.delay_gain - existing.delay_gain),
+        delay_gain=float(np.clip(reference.delay_gain - existing.delay_gain, 0, 0.35)),
         delay_support=reference.delay_support,
         decay_seconds=reference.decay_seconds,
-        reverb_gain=reverb,
+        reverb_gain=float(np.clip(reverb, 0, 0.35)),
         decay_count=reference.decay_count,
     )
 
@@ -86,8 +86,10 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
     impulse = np.zeros((length, channels), dtype=np.float64)
     impulse[0] = 1
     if profile.delay_gain:
-        impulse[round(profile.delay_seconds * rate)] += profile.delay_gain
-    if profile.reverb_gain:
+        delay_index = round(profile.delay_seconds * rate)
+        if 0 < delay_index < length:
+            impulse[delay_index] += profile.delay_gain
+    if profile.reverb_gain and profile.decay_seconds > 0:
         start = round(0.02 * rate)
         time = np.arange(length - start) / rate
         noise = np.random.default_rng(0).normal(size=(len(time), channels))
@@ -200,3 +202,44 @@ def _fit_decay(levels: np.ndarray, index: int, floor: float) -> tuple[float, flo
     active = float(np.median(levels[index - 12 : index - 2]))
     strength = float(np.clip(10 ** ((intercept - active) / 20), 0, 0.5))
     return float(-60 / slope), strength
+
+
+def apply_fallback_space(
+    renderer: MasterRenderer, voice: Path, backing: Path, target: Path, cancel: threading.Event
+) -> dict[str, object]:
+    """Add subtle room coherence only when the reference offers no usable space cues.
+
+    This is a deterministic, low-wet, peak-safe fallback, not an inferred
+    reconstruction of the original singer's room.
+    """
+    with sf.SoundFile(backing) as music:
+        rate = music.samplerate
+        # Use only the original stereo pair; duplicate surround channels are
+        # not independent evidence of spatial width.
+        width = []
+        for index, block in enumerate(music.blocks(blocksize=rate, always_2d=True)):
+            _check_cancel(cancel)
+            if index >= 20:
+                break
+            if block.shape[1] < 2:
+                continue
+            left, right = block[:, 0], block[:, 1]
+            power = float(np.mean(left * left + right * right))
+            if power > 1e-9:
+                width.append(float(np.mean((left - right) ** 2) / power))
+    stereo_width = float(np.median(width)) if width else 0.0
+    # Mono/dry backing: short ambience. Wide backing: slightly longer tail.
+    decay = float(np.clip(0.22 + stereo_width * 0.25, 0.22, 0.48))
+    strength = 0.08 if stereo_width < 0.08 else 0.12
+    info = sf.info(voice)
+    profile = SpaceProfile(decay_seconds=decay, reverb_gain=strength, decay_count=0)
+    impulse = target.with_suffix(".ir.wav")
+    write_impulse(profile, impulse, info.samplerate, info.channels)
+    renderer._mix(
+        voice, impulse,
+        "[0:a][1:a]afir=dry=1:wet=1:irnorm=-1:irgain=1,"
+        f"apad,atrim=end_sample={info.frames}[out]",
+        ["-c:a", "pcm_f32le", str(target)], cancel,
+    )
+    return {"method": "bounded-room-fallback", "decaySeconds": decay,
+            "wetImpulseGain": strength, "backingStereoWidth": stereo_width}

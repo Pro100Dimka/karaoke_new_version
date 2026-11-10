@@ -33,7 +33,6 @@ import {
   weakestMetric,
   type AnalysisMetricKey,
 } from './analysisPresentation';
-import performanceArtUrl from './performance-art.svg';
 
 interface PerformanceAnalysisModalProps {
   analysis: AnalysisDto | null;
@@ -277,27 +276,18 @@ export const PerformanceAnalysisModal = ({
                         icon="sparkle"
                         title={tr('studioMasterTitle')}
                         description={tr(
-                          master
-                            ? 'studioMasterReadyDescription'
-                            : 'studioMasterDescription',
+                          master ? '' : 'studioMasterDescription',
                         )}
                         className={master ? 'analysisMaster' : 'analysisStudio'}
                         actions={
                           master && (
-                            <>
-                              <img
-                                className="analysisMasterArt"
-                                src={`${performanceArtUrl}#pf-view-4`}
-                                alt=""
-                              />
-                              <IconButton
-                                size="sm"
-                                variant="danger"
-                                icon="trash"
-                                label={tr('recordingDelete')}
-                                onClick={() => onDelete(master)}
-                              />
-                            </>
+                            <IconButton
+                              size="sm"
+                              variant="danger"
+                              icon="trash"
+                              label={tr('recordingDelete')}
+                              onClick={() => onDelete(master)}
+                            />
                           )
                         }
                       >
