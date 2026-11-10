@@ -2,7 +2,7 @@ from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import _backing_curve, _protect_vocal_presence
+from backend.recordings.studio_dynamics import _backing_curve, _reference_presence, _reference_compression
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -376,8 +376,12 @@ class MasterRender:
         else:
             self._fallback_balance()
             self.processing["voiceLeveling"] = "bounded-song-level-fallback"
-        self.gains, presence = _protect_vocal_presence(
-            self.gains, self.voice_db, self.backing_db
+        self.gains, presence = _reference_presence(
+            self.gains,
+            self.voice_db,
+            self.backing_db,
+            self.reference_full_db,
+            self.original_full_db,
         )
         self.processing["vocalPresence"] = presence
         self.processing["voiceLeveling"] += "-presence-protected"
@@ -496,10 +500,11 @@ class MasterRender:
         active = raw_profile[raw_profile > max(-60.0, float(np.max(raw_profile)) - 35)]
         if active.size == 0:
             raise DependencyError("StudioMasterSilentTrack", "No audible recorded voice")
-        threshold = float(np.clip(10 ** (np.percentile(active, 65) / 20), 0.001, 1))
-        ratio = float(
-            np.clip(1 + (np.percentile(active, 90) - np.percentile(active, 20)) / 12, 1, 2.5)
-        )
+        reference_levels = _profile(self.reference_vocal, self.cancel)
+        dynamics = _reference_compression(raw_profile, reference_levels)
+        ratio = float(dynamics["ratio"])
+        threshold = float(np.clip(10 ** (float(dynamics["thresholdDb"]) / 20), 0.001, 1))
+        self.processing["referenceCompression"] = dynamics
         filters, self.voice_analysis = self.renderer._voice_filters(
             self.user_vocal, raw_profile, self.cancel, self.reference_vocal
         )
@@ -509,10 +514,12 @@ class MasterRender:
             voiceAnalysis=self.voice_analysis,
             compressorMix=0.65,
         )
-        filters.append(
-            f"acompressor=threshold={threshold:.9f}:ratio={ratio:.6f}:attack=25:release=180:"
-            "makeup=1:mix=0.65:link=maximum:detection=rms"
-        )
+        if ratio > 1.01:
+            filters.append(
+                f"acompressor=threshold={threshold:.9f}:ratio={ratio:.6f}:"
+                f"attack={float(dynamics['attackMs']):.3f}:release={float(dynamics['releaseMs']):.3f}:"
+                "makeup=1:mix=0.65:link=maximum:detection=rms"
+            )
         filters.extend(
             (
                 f"aresample={self.info.samplerate}",

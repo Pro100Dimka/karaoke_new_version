@@ -74,12 +74,12 @@ def _protect_vocal_presence(
     # Preserve at least half of the musical rise in vocal prominence, while
     # leaving the original reference matching intact on quieter passages.
     minimum_gain = np.minimum(5.0, 0.55 * rise)
-    corrected = np.maximum(gains, minimum_gain)
+    corrected = np.maximum(gains, minimum_gain - 4.0)
     # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
     extra = np.clip(corrected - gains, 0.0, 5.0)
     extra = uniform_filter1d(extra, size=21, mode="nearest")
     extra[~(uniform_filter1d(active.astype(float), size=11) > 0.25)] = 0.0
-    result = np.minimum(gains + extra, _MAX_BOOST_DB)
+    result = np.clip(gains + extra, -18.0, _MAX_BOOST_DB)
     return result, {
         "presenceBoostMaxDb": float(np.max(extra)),
         "presenceBoostMeanDb": float(np.mean(extra[active])),
@@ -143,7 +143,7 @@ def _tone_filters(
         else {}
     )
     clarity = (
-        _clarity_filters(ratios, filters, reference_ratio, 0 if cuts else None)
+        _clarity_filters(ratios, filters, reference_ratio, 0 if reference_tone is not None else None)
         if centers[-1] >= 8000
         else 0.0
     )
@@ -182,19 +182,42 @@ def _reference_cuts(
     reference: tuple[float, np.ndarray, np.ndarray],
     filters: list[str],
 ) -> dict[str, object]:
-    # Compare broad envelopes, not individual harmonics or the singers' absolute levels.
-    excess = _tone_envelope(centers, frames) - np.interp(centers, reference[1], reference[2])
-    report: dict[str, object] = {}
-    for name, lower, upper, limit in (("body", 250, 700, 3), ("presence", 1800, 4200, 2)):
-        indices = np.flatnonzero((centers >= lower) & (centers <= upper))
-        index = int(indices[np.argmax(excess[indices])])
-        reduction = float(min(excess[index] * 0.5, limit)) if excess[index] > 2 else 0.0
+    """Match broad tonal *excesses* to the measured reference, not preset EQ bands.
+
+    Restrict corrective EQ to statistically supported broad peaks. Never boost
+    unknown frequency regions or chase a singer's individual harmonics.
+    """
+    usable = (centers >= 180) & (centers <= min(6500, centers[-1]))
+    if not np.any(usable) or not np.any((centers >= 800) & (centers < 1600)):
+        return {"referenceEqBands": [], "referenceEqStatus": "insufficient-spectrum"}
+    measured = _tone_envelope(centers, frames)
+    expected = np.interp(centers, reference[1], reference[2])
+    excess = measured - expected
+    # The median removes arbitrary broadband gain differences between files.
+    excess -= float(np.median(excess[usable]))
+    # Analyze broad bands rather than individual spectral bins / harmonics.
+    log_frequency = np.log2(np.maximum(centers, 1))
+    smooth = np.empty_like(excess)
+    for index, frequency in enumerate(log_frequency):
+        neighbors = usable & (np.abs(log_frequency - frequency) <= 1 / 3)
+        smooth[index] = float(np.median(excess[neighbors])) if np.any(neighbors) else 0.0
+    candidates = np.flatnonzero(usable & (smooth > 2.5))
+    selected: list[int] = []
+    for index in sorted(candidates, key=lambda i: smooth[i], reverse=True):
+        if all(abs(log_frequency[index] - log_frequency[other]) >= 0.8 for other in selected):
+            selected.append(int(index))
+        if len(selected) == 3:
+            break
+    report: list[dict[str, float]] = []
+    for index in sorted(selected):
+        # Safety cap only; both the frequency and requested attenuation are
+        # inferred from this song's reference spectrum.
+        reduction = float(np.clip(smooth[index] * 0.5, 0, 3.0))
         frequency = float(centers[index])
-        if reduction:
-            filters.append(f"equalizer=f={frequency:.3f}:t=q:w=0.7:g={-reduction:.6f}")
-        report[f"{name}ReductionDb"] = reduction
-        report[f"{name}FrequencyHz"] = frequency if reduction else None
-    return report
+        filters.append(f"equalizer=f={frequency:.3f}:t=q:w=0.7:g={-reduction:.6f}")
+        report.append({"frequencyHz": frequency, "reductionDb": reduction,
+                       "measuredExcessDb": float(smooth[index])})
+    return {"referenceEqBands": report, "referenceEqStatus": "measured"}
 
 
 def _reference_tone(
@@ -326,3 +349,157 @@ def _voice_tails(levels: NDArray[np.float64]) -> list[float]:
         if i >= 5 and i + 5 < len(levels) and float(np.max(levels[i : i + 5])) < upper - 15
     ]
     return tails
+
+
+def _reference_presence(
+    gains: NDArray[np.float64],
+    voice: NDArray[np.float64],
+    backing: NDArray[np.float64],
+    reference: NDArray[np.float64],
+    original_backing: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], dict[str, float | str]]:
+    """Match the measured vocal-to-accompaniment distribution, not a preset gap.
+
+    Only active phrases determine the global correction. The slow local adjustment
+    follows accompaniment development without boosting silence or syllable peaks.
+    """
+    if not (len(gains) == len(voice) == len(backing)) or not len(reference) or not len(original_backing):
+        return gains, {"method": "unavailable-reference", "presenceBoostMaxDb": 0.0}
+    finite = np.isfinite(reference) & np.isfinite(original_backing)
+    local_finite = np.isfinite(voice) & np.isfinite(backing) & np.isfinite(gains)
+    if not np.any(finite) or not np.any(local_finite):
+        return gains, {"method": "invalid-reference", "presenceBoostMaxDb": 0.0}
+    ref, orig = reference[finite], original_backing[finite]
+    ref_floor = float(np.percentile(ref, 20))
+    ref_active = ref > ref_floor + 0.35 * (float(np.percentile(ref, 85)) - ref_floor)
+    voice_floor = float(np.percentile(voice[local_finite], 20))
+    active = local_finite & (voice > voice_floor + 0.35 * (float(np.percentile(voice[local_finite], 85)) - voice_floor))
+    if np.count_nonzero(ref_active) < 3 or np.count_nonzero(active) < 3:
+        return gains, {"method": "insufficient-vocal-activity", "presenceBoostMaxDb": 0.0}
+
+    original_prominence = ref[ref_active] - orig[ref_active]
+    target = float(np.median(original_prominence))
+    current = voice + gains - backing
+    # A global correction may be negative: previously the routine could only
+    # increase the voice, even when the voice was already far above the reference.
+    measured = float(np.median(current[active]))
+    global_delta = float(np.clip(target - measured, -18.0, _MAX_BOOST_DB))
+
+    # The time-varying part is zero-median over sung phrases. This preserves
+    # the measured overall balance and avoids a second global boost.
+    safe_current = np.where(local_finite, current, measured)
+    slow = uniform_filter1d(median_filter(safe_current, size=31, mode="nearest"), size=31, mode="nearest")
+    local_delta = measured - slow
+    local_delta -= float(np.median(local_delta[active]))
+    # Variation of original prominence is the reference-derived automation
+    # range; the fixed global ceiling is strictly a safety constraint.
+    variation = float(np.percentile(np.abs(original_prominence - target), 75))
+    local_delta = np.clip(local_delta, -variation, variation)
+    local_delta = uniform_filter1d(local_delta, size=41, mode="nearest")
+    # Keep the correction steady through rests; no gain jumps at phrase edges.
+    active_weight = uniform_filter1d(active.astype(np.float64), size=31, mode="nearest")
+    local_delta *= np.clip(active_weight, 0.0, 1.0)
+    result = np.clip(gains + global_delta + local_delta, -18.0, _MAX_BOOST_DB)
+    difference = result - gains
+    return result, {
+        "method": "reference-measured-global-and-local",
+        "referenceProminenceDb": target,
+        "performanceProminenceDb": measured,
+        "globalCorrectionDb": global_delta,
+        "referenceVariationDb": variation,
+        "presenceBoostMaxDb": float(np.max(difference)),
+        "presenceBoostMeanDb": float(np.mean(difference[active])),
+    }
+
+
+
+def _reference_compressor_timing(reference: NDArray[np.float64]) -> dict[str, float | str]:
+    """Estimate response times from sustained reference-vocal level transitions.
+
+    This is an envelope-based proxy, not identification of a studio compressor.
+    Guardrails prevent pathological timings when a phrase has no usable edges.
+    """
+    values = np.asarray(reference, dtype=np.float64)
+    values = values[np.isfinite(values)]
+    if values.size < 30:
+        return {"timingMethod": "insufficient-reference", "attackMs": 25.0, "releaseMs": 180.0}
+    # Suppress individual syllable peaks; retain the phrase-level envelope.
+    smooth = median_filter(values, size=3, mode="nearest")
+    low, high = np.percentile(smooth, [20, 85])
+    if high - low < 5:
+        return {"timingMethod": "insufficient-contrast", "attackMs": 25.0, "releaseMs": 180.0}
+    # Duration between 20% and 80% of each clearly rising/falling transition.
+    lo = low + 0.2 * (high - low)
+    hi = low + 0.8 * (high - low)
+    rises, falls = [], []
+    state = "low" if smooth[0] <= lo else "high" if smooth[0] >= hi else "middle"
+    start = None
+    for i, value in enumerate(smooth):
+        if state == "low":
+            if value > lo:
+                state, start = "rising", i
+        elif state == "rising":
+            if value >= hi:
+                rises.append((i - start + 1) * _PROFILE_SECONDS * 1000)
+                state, start = "high", None
+            elif value <= lo:
+                state, start = "low", None
+        elif state == "high":
+            if value < hi:
+                state, start = "falling", i
+        elif state == "falling":
+            if value <= lo:
+                falls.append((i - start + 1) * _PROFILE_SECONDS * 1000)
+                state, start = "low", None
+            elif value >= hi:
+                state, start = "high", None
+        else:
+            if value <= lo:
+                state = "low"
+            elif value >= hi:
+                state = "high"
+    if not rises or not falls:
+        return {"timingMethod": "insufficient-transitions", "attackMs": 25.0, "releaseMs": 180.0}
+    # Dynamics are slower than a 100ms RMS frame; estimate only broad behavior.
+    # The FFmpeg compressor has its own permissible parameter ranges.
+    attack = float(np.clip(np.median(rises) * 0.15, 5, 100))
+    release = float(np.clip(np.median(falls) * 0.75, 50, 1000))
+    return {"timingMethod": "reference-phrase-envelope", "attackMs": attack,
+            "releaseMs": release, "risingEdges": len(rises), "fallingEdges": len(falls)}
+
+
+def _reference_compression(
+    recorded: NDArray[np.float64], reference: NDArray[np.float64]
+) -> dict[str, float | str]:
+    """Estimate vocal compression from the two recordings' *active* level spans.
+
+    The original vocal is used only when its level distribution contains enough
+    reliable active frames. This is an estimate, not recovery of a plugin preset.
+    """
+    def activity(levels: NDArray[np.float64]) -> NDArray[np.float64]:
+        values = np.asarray(levels, dtype=np.float64)
+        values = values[np.isfinite(values)]
+        if values.size < 20:
+            return np.empty(0, dtype=np.float64)
+        low, high = np.percentile(values, [20, 85])
+        return values[values > low + 0.35 * (high - low)]
+
+    timing = _reference_compressor_timing(reference)
+    voice, original = activity(recorded), activity(reference)
+    if min(voice.size, original.size) < 10:
+        return {"method": "insufficient-reference", "ratio": 1.0, "thresholdDb": float(np.median(recorded[np.isfinite(recorded)])) if np.any(np.isfinite(recorded)) else -60.0, **timing}
+    v20, v90 = np.percentile(voice, [20, 90])
+    r20, r90 = np.percentile(original, [20, 90])
+    input_span = float(v90 - v20)
+    target_span = float(r90 - r20)
+    # Compression cannot increase dynamic range. Do not invent compression when
+    # the reference is more dynamic than the recording.
+    ratio = float(np.clip(input_span / max(target_span, 1e-6), 1.0, 3.0))
+    return {
+        "method": "reference-active-dynamics",
+        "ratio": ratio,
+        "thresholdDb": float(v20),
+        "recordedRangeDb": input_span,
+        "referenceRangeDb": target_span,
+        **timing,
+    }

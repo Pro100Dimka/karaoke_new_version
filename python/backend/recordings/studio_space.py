@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import math
-import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
+import math
+import threading
 
 import numpy as np
 import soundfile as sf
 from scipy.ndimage import median_filter
-from scipy.signal import butter, find_peaks, oaconvolve, resample_poly, sosfilt
+from scipy.signal import butter, find_peaks, resample_poly, sosfilt, oaconvolve
 
-from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel
+from backend.domain_errors import DependencyError
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,7 +24,6 @@ class SpaceProfile:
     decay_count: int = 0
     stereo_width: float = 0.0
     effect_type: str = "none"
-    echo_taps: tuple[tuple[float, float], ...] = ()
 
 
 def apply_reference_space(
@@ -73,6 +72,8 @@ def apply_reference_space(
     applied = bool(selected.delay_gain or selected.reverb_gain)
     if applied:
         info = sf.info(voice)
+        impulse = target.with_suffix(".ir.wav")
+        write_impulse(selected, impulse, info.samplerate, info.channels)
         wet_stats = _render_separate_buses(renderer, voice, target, cancel, selected, reference=reference, recorded=recorded)
 
     return {
@@ -107,17 +108,15 @@ def _render_separate_buses(
     """
     info = sf.info(voice)
     bus_specs = {
-        "early": SpaceProfile(delay_seconds=0.065, delay_gain=0.075,
-                              stereo_width=profile.stereo_width),
+        "early": SpaceProfile(),
         "echo": SpaceProfile(delay_seconds=profile.delay_seconds,
                              delay_gain=profile.delay_gain,
-                             stereo_width=profile.stereo_width,
-                             echo_taps=profile.echo_taps),
+                             stereo_width=profile.stereo_width),
         "reverb": SpaceProfile(decay_seconds=profile.decay_seconds,
                                reverb_gain=profile.reverb_gain,
                                stereo_width=profile.stereo_width),
     }
-    if profile.effect_type != "width-guided-early-reflections":
+    if profile.effect_type not in ("slapback", "delay", "width-guided-early-reflections"):
         bus_specs["early"] = SpaceProfile()
     bus_specs = {name: spec for name, spec in bus_specs.items()
                  if spec.delay_gain or spec.reverb_gain}
@@ -154,11 +153,14 @@ def _render_separate_buses(
                         oaconvolve(block[:, channel], ir[:, channel], mode="full")
                         for channel in range(info.channels)
                     ], axis=1).astype("float32")
+                    # Carry the full convolution tail across blocks, including
+                    # when the impulse is longer than the current input block.
+                    if len(overlap) > len(convolved):
+                        convolved = np.pad(convolved, ((0, len(overlap) - len(convolved)), (0, 0)))
                     if len(overlap):
-                        count = min(len(overlap), len(convolved))
-                        convolved[:count] += overlap[:count]
+                        convolved[:len(overlap)] += overlap
                     out.write(convolved[:len(block)])
-                    overlap = convolved[len(block):]
+                    overlap = convolved[len(block):].copy()
             wet_paths[name] = rendered
         names = list(wet_paths)
         with sf.SoundFile(voice) as dry:
@@ -444,67 +446,48 @@ def _reference_width(path: Path, cancel: threading.Event) -> float:
 def analyze_space(path: Path, cancel: threading.Event) -> SpaceProfile:
     levels, cepstra = _read_evidence(path, cancel)
     delay, gain, support = _delay(cepstra)
-    taps = _echo_taps(cepstra)
-    if taps and (gain == 0 or taps[0][1] > gain):
-        delay, gain = taps[0]
-        support = _tap_support(cepstra, round(delay * 8000))
     decay, wet, count = _decay(levels)
     width = _reference_width(path, cancel)
     kind = ("slapback" if delay < 0.12 else "delay") if gain else "none"
-    return SpaceProfile(delay, gain, support, decay, wet, count, width, kind, taps)
+    return SpaceProfile(delay, gain, support, decay, wet, count, width, kind)
 
 
 def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile:
-    # Only subtract effects at the *same* delay; unrelated recorded echoes
-    # must not suppress the reference echo.
-    requested = reference.echo_taps or (
-        ((reference.delay_seconds, reference.delay_gain),) if reference.delay_gain else ()
-    )
-    present = existing.echo_taps or (
-        ((existing.delay_seconds, existing.delay_gain),) if existing.delay_gain else ()
-    )
-    matched = tuple(
-        (seconds, float(np.clip(gain - max(
-            (other_gain for other_seconds, other_gain in present
-             if abs(other_seconds - seconds) <= 0.008), default=0.0), 0, 0.35)))
-        for seconds, gain in requested
-    )
-    matched = tuple((seconds, gain) for seconds, gain in matched if gain > 0.001)
+    # Existing recorded tails cannot be shortened by adding another effect.
     reverb = (
         math.sqrt(max(0, reference.reverb_gain**2 - existing.reverb_gain**2))
-        if existing.decay_seconds <= reference.decay_seconds else 0.0
+        if existing.decay_seconds <= reference.decay_seconds
+        else 0.0
     )
     return SpaceProfile(
-        delay_seconds=matched[0][0] if matched else reference.delay_seconds,
-        delay_gain=matched[0][1] if matched else 0.0,
+        delay_seconds=reference.delay_seconds,
+        delay_gain=float(np.clip(reference.delay_gain - existing.delay_gain, 0, 0.35)),
         delay_support=reference.delay_support,
         decay_seconds=reference.decay_seconds,
         reverb_gain=float(np.clip(reverb, 0, 0.35)),
         decay_count=reference.decay_count,
         stereo_width=reference.stereo_width,
         effect_type=reference.effect_type,
-        echo_taps=matched,
     )
 
 
 def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -> None:
-    taps = profile.echo_taps or (((profile.delay_seconds, profile.delay_gain),) if profile.delay_gain else ())
-    length = round((max(profile.decay_seconds, *(seconds for seconds, _ in taps), 0.02) + 0.04) * rate)
+    length = round((max(profile.decay_seconds, profile.delay_seconds, 0.02) + 0.02) * rate)
     impulse = np.zeros((length, channels), dtype=np.float64)
     # The dry voice is mixed separately by afir=dry=1. An impulse at t=0
     # would add a second, unprocessed copy and obscure the wet/dry balance.
-    for seconds, gain in taps:
-        delay_index = round(seconds * rate)
+    if profile.delay_gain:
+        delay_index = round(profile.delay_seconds * rate)
         if 0 < delay_index < length:
             # Preserve the centered dry signal; place repeat energy in the sides.
             if channels >= 2 and profile.stereo_width > 0.08:
-                impulse[delay_index, 0] += gain
+                impulse[delay_index, 0] += profile.delay_gain
                 opposite = min(length - 1, delay_index + round(0.017 * rate))
-                impulse[opposite, 1] += gain * 0.85
+                impulse[opposite, 1] += profile.delay_gain * 0.85
                 if channels > 2:
-                    impulse[delay_index, 2:] += gain * 0.5
+                    impulse[delay_index, 2:] += profile.delay_gain * 0.5
             else:
-                impulse[delay_index] += gain
+                impulse[delay_index] += profile.delay_gain
     if profile.reverb_gain and profile.decay_seconds > 0:
         start = round(0.02 * rate)
         time = np.arange(length - start) / rate
@@ -580,55 +563,6 @@ def _delay(cepstra: np.ndarray) -> tuple[float, float, float]:
     # quartile of agreeing blocks, rather than treating cut tails as a quieter effect.
     gain = float(np.clip(2 * np.percentile(cepstra[agreeing, index], 75), 0, 0.30))
     return seconds, gain, support
-
-
-def _tap_support(cepstra: np.ndarray, index: int) -> float:
-    if not len(cepstra) or index >= cepstra.shape[1]:
-        return 0.0
-    local = cepstra[:, max(0, index - 8):index + 9]
-    baseline = np.median(np.abs(cepstra[:, 320:min(9600, cepstra.shape[1])]), axis=1)
-    return float(np.mean(np.max(local, axis=1) > np.maximum(0.012, baseline * 9)))
-
-
-def _echo_taps(cepstra: np.ndarray) -> tuple[tuple[float, float], ...]:
-    """Find repeat delays in independent active regions rather than requiring
-    their presence throughout the song. Reject isolated spectral coincidences.
-
-    A 16,384-point 8 kHz cepstrum supports delays up to ~1.1 s safely.
-    """
-    if len(cepstra) < 6:
-        return ()
-    lower, upper = 320, min(8800, cepstra.shape[1] - 1)
-    if upper <= lower:
-        return ()
-    baseline = np.median(np.abs(cepstra[:, lower:upper]), axis=1)
-    threshold = np.maximum(0.015, baseline * 10)
-    votes: dict[int, list[float]] = {}
-    for row, limit in zip(cepstra, threshold):
-        peaks, _ = find_peaks(row[lower:upper], height=limit, distance=64)
-        if not len(peaks):
-            continue
-        # Compare the strongest candidates within each independent region.
-        candidates = peaks[np.argsort(row[lower:upper][peaks])[-12:]] + lower
-        for position in candidates:
-            key = round(int(position) / 16) * 16
-            votes.setdefault(key, []).append(float(row[position]))
-    minimum = max(3, math.ceil(len(cepstra) * 0.18))
-    candidates = []
-    for index, values in votes.items():
-        if len(values) < minimum:
-            continue
-        strength = float(np.clip(2 * np.percentile(values, 75), 0, 0.35))
-        if strength > 0.025:
-            candidates.append((index / 8000, strength, len(values)))
-    candidates.sort(key=lambda item: item[1] * math.sqrt(item[2]), reverse=True)
-    selected: list[tuple[float, float]] = []
-    for seconds, gain, _ in candidates:
-        if all(abs(seconds - prior) > 0.018 for prior, _ in selected):
-            selected.append((seconds, gain))
-        if len(selected) == 4:
-            break
-    return tuple(selected)
 
 
 def _decay(levels: np.ndarray) -> tuple[float, float, int]:

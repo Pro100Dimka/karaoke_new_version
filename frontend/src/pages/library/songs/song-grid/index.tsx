@@ -9,7 +9,7 @@ import {
 import { action, observableRef } from 'mobx';
 import { observer, useLocalObservable } from 'mobx-react-lite';
 import type { ReactNode, RefObject } from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SongDto } from '../../../../contracts/models';
 
 interface SongGridProps {
@@ -46,17 +46,22 @@ export const VirtualGrid = observer(
       { rows: observableRef },
     );
     const count = Math.ceil(songs.length / layout.columns);
-    const options = {
-      count,
-      estimateSize: () => Math.max(140, layout.width / layout.columns / 3),
-      scrollMargin: layout.margin,
-      overscan: 3,
-      gap: 16,
-      useScrollendEvent: true,
-      observeElementOffset,
-      observeElementRect,
-      scrollToFn: elementScroll,
-    };
+    // Keep Virtualizer configuration stable while only the surrounding modal changes.
+    // A new options object would force a synchronous virtualizer update on every render.
+    const options = useMemo(
+      () => ({
+        count,
+        estimateSize: () => Math.max(140, layout.width / layout.columns / 3),
+        scrollMargin: layout.margin,
+        overscan: 3,
+        gap: 16,
+        useScrollendEvent: true,
+        observeElementOffset,
+        observeElementRect,
+        scrollToFn: elementScroll,
+      }),
+      [count, layout.width, layout.columns, layout.margin],
+    );
     const [virtualizer] = useState(
       () =>
         new Virtualizer<HTMLElement, HTMLDivElement>({
@@ -79,7 +84,7 @@ export const VirtualGrid = observer(
       });
       virtualizer._willUpdate();
       virtualizer.options.onChange?.(virtualizer, false);
-    });
+    }, [virtualizer, options, scrollRef]);
     useLayoutEffect(() => {
       const grid = gridRef.current;
       const scroll = scrollRef.current;
