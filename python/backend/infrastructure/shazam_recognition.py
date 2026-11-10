@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from importlib import import_module
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 
 from aiohttp import ClientError
-from shazamio import Shazam
 
 from backend.songs.recognition import RecognizedSong, SongRecognitionProvider
 from backend.songs.filename_metadata import conflicts_with_filename
@@ -15,7 +15,7 @@ FindVideo = Callable[[str, str], str | None]
 
 
 async def _recognize(source: Path) -> object:
-    return await Shazam().recognize(str(source))
+    return await import_module("shazamio").Shazam().recognize(str(source))
 
 
 async def _await_result(result: Awaitable[object], timeout_seconds: float) -> object:

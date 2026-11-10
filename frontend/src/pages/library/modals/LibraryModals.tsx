@@ -48,15 +48,15 @@ export const LibraryModals = ({
         <RoomModal open invitationCode={invitationCode} onClose={closeRoom} />
       </Suspense>
     )}
-    {processing !== null && (
-      <Suspense fallback={null}>
+    <Suspense fallback={null}>
+      {processing !== null && (
         <ProcessingModal
           open
           focusSongId={processing.focusSongId}
           onClose={closeProcessing}
           onPlay={onPlay}
         />
-      </Suspense>
-    )}
+      )}
+    </Suspense>
   </>
 );

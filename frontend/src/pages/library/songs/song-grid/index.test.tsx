@@ -27,13 +27,30 @@ it('restores cards after the minimized window reports zero-sized elements', () =
   vi.stubGlobal(
     'ResizeObserver',
     class implements ResizeObserver {
+      targets = new Set<Element>();
       constructor(callback: ResizeObserverCallback) {
-        this.notify = () => callback([], this);
+        this.notify = () =>
+          callback(
+            [...this.targets].map((target) => ({
+              target,
+              contentRect: new DOMRect(0, 0, size, size),
+              borderBoxSize: [{ inlineSize: size, blockSize: size }],
+              contentBoxSize: [{ inlineSize: size, blockSize: size }],
+              devicePixelContentBoxSize: [
+                { inlineSize: size, blockSize: size },
+              ],
+            })),
+            this,
+          );
         observers.add(this.notify);
       }
       notify: () => void;
-      observe() {}
-      unobserve() {}
+      observe(target: Element) {
+        this.targets.add(target);
+      }
+      unobserve(target: Element) {
+        this.targets.delete(target);
+      }
       disconnect() {
         observers.delete(this.notify);
       }
@@ -52,6 +69,13 @@ it('restores cards after the minimized window reports zero-sized elements', () =
   );
 
   const scroll = { current: document.body };
+  const rowHeightReads = vi.fn();
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(
+    function (this: HTMLElement) {
+      if (this.hasAttribute('data-index')) rowHeightReads();
+      return size;
+    },
+  );
   render(
     <VirtualGrid
       items={[song]}
@@ -63,6 +87,13 @@ it('restores cards after the minimized window reports zero-sized elements', () =
   );
 
   expect(screen.getByText(song.title)).toBeInTheDocument();
+  expect(rowHeightReads).not.toHaveBeenCalled();
+  act(() => {
+    [...observers].forEach((notify) => notify());
+  });
+  expect(screen.getByRole('list', { name: 'Songs' })).toHaveStyle({
+    height: '600px',
+  });
   for (let cycle = 0; cycle < 3; cycle++) {
     for (const nextSize of [0, 600]) {
       act(() => {

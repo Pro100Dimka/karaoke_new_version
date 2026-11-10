@@ -59,6 +59,8 @@ export const SongSettingsModal = ({
     queryKey: ['song-settings-document', song.id, song.activeRevision],
     queryFn: () => editorApi.load(song.id),
     enabled: song.status === 'ready',
+    staleTime: 30_000,
+    gcTime: 30_000,
   });
   const [failure, setFailure] = useState<string>();
   const form = useForm({

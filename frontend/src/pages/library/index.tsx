@@ -1,6 +1,6 @@
 import { Stack, tr, useLocale, useRouter } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { useCallback, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useKaraokeTv } from '../../features/karaoke/tv/karaokeTv';
 import Hero from './hero';
@@ -20,13 +20,22 @@ const LibraryPage = observer(() => {
   const { view, setQuery, setViewFilters } = useLibraryView();
   const roomLibrary = useRoomLibrary({ setQuery, setViewFilters });
   const { playSong, launching } = useSongPlayback({ roomLibrary, navigate, tv });
+  const [revealing, setRevealing] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+  const reveal = useCallback(() => setRevealing(true), []);
+  useEffect(() => {
+    // A stalled request must not hide the loading or recovery controls indefinitely.
+    const timer = window.setTimeout(reveal, 5000);
+    return () => window.clearTimeout(timer);
+  }, [reveal]);
 
   const [processing, setProcessing] = useState<{ focusSongId?: string } | null>(null);
   const [roomOpen, setRoomOpen] = useState(false);
   const [invitationCode, setInvitationCode] = useState<string>();
 
   const openProcessing = useCallback(
-    (focusSongId?: string) => setProcessing({ focusSongId }),
+    (focusSongId?: string) =>
+      startTransition(() => setProcessing({ focusSongId })),
     [],
   );
   const closeRoom = useCallback(() => {
@@ -71,6 +80,7 @@ const LibraryPage = observer(() => {
           onOpenRoom={() => setRoomOpen(true)}
         />
         <LibrarySongs
+          onReady={reveal}
           view={view}
           pageRef={pageRef}
           onPlay={playSong}
@@ -90,6 +100,14 @@ const LibraryPage = observer(() => {
         onPlay={playSong}
       />
       {launching && <div className="sceneCurtain" aria-hidden />}
+      {!revealed && (
+        <div
+          className="libraryCurtain"
+          data-ready={revealing ? '' : undefined}
+          aria-hidden
+          onAnimationEnd={() => setRevealed(true)}
+        />
+      )}
     </Stack>
   );
 });

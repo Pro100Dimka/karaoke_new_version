@@ -1,9 +1,58 @@
 from __future__ import annotations
 
 import asyncio
+import subprocess
+import sys
 from pathlib import Path
+from types import ModuleType
+
+import pytest
 
 from backend.infrastructure.shazam_recognition import ShazamRecognitionProvider
+
+
+def test_provider_initialization_does_not_load_shazam() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys; "
+                "from backend.infrastructure.shazam_recognition import ShazamRecognitionProvider; "
+                "ShazamRecognitionProvider(); "
+                "assert 'shazamio' not in sys.modules"
+            ),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_default_provider_loads_shazam_on_first_recognition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    class Shazam:
+        async def recognize(self, path: str) -> object:
+            calls.append(path)
+            return {"track": {"title": "Animals", "subtitle": "Architects"}}
+
+    module = ModuleType("shazamio")
+    monkeypatch.setattr(module, "Shazam", Shazam, raising=False)
+    monkeypatch.setitem(sys.modules, "shazamio", module)
+    source = tmp_path / "Architects - Animals.mp3"
+    source.write_bytes(b"0" * 128_000)
+    provider = ShazamRecognitionProvider()
+    assert calls == []
+    for _ in range(2):
+        result = provider.recognize(source)
+        assert result is not None
+        assert (result.artist, result.title) == ("Architects", "Animals")
+    assert calls == [str(source), str(source)]
 
 
 def test_shazam_fingerprint_maps_complete_song_metadata(tmp_path: Path) -> None:

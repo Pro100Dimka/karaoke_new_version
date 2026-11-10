@@ -1,6 +1,7 @@
 import { Grid } from '@neo-ui-kit/react';
 import {
   elementScroll,
+  measureElement,
   observeElementOffset,
   observeElementRect,
   Virtualizer,
@@ -67,6 +68,15 @@ export const VirtualGrid = observer(
         new Virtualizer<HTMLElement, HTMLDivElement>({
           ...options,
           getScrollElement: () => null,
+          // Use observer measurements after layout, rather than forcing layout during each mount.
+          measureElement: (element, entry, instance) => {
+            const index = instance.indexFromElement(element);
+            return entry
+              ? measureElement(element, entry, instance)
+              : (instance.itemSizeCache.get(
+                  instance.options.getItemKey(index),
+                ) ?? instance.options.estimateSize(index));
+          },
           onChange: action((instance) => {
             layout.rows = instance.getVirtualItems();
             layout.height = instance.getTotalSize();
@@ -76,7 +86,8 @@ export const VirtualGrid = observer(
     const { rows, height } = layout;
     const hasRows = rows.length > 0;
     useLayoutEffect(() => virtualizer._didMount(), [virtualizer]);
-    useLayoutEffect(() => {
+    // The parent's scroll ref is attached after this child's layout effects.
+    useEffect(() => {
       virtualizer.setOptions({
         ...virtualizer.options,
         ...options,

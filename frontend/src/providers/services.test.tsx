@@ -31,6 +31,21 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it.each(['python', 'audio'] as const)(
+  'publishes %s readiness without waiting for the other service',
+  async (service) => {
+    const pending = service === 'python' ? audio : python;
+    pending.mockImplementation(() => new Promise(() => {}));
+    stop = subscribeServices();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(store.application.services[service].kind).toBe('ready');
+    expect(
+      store.application.services[service === 'python' ? 'audio' : 'python']
+        .kind,
+    ).toBe('starting');
+  },
+);
+
 it('does not notify store consumers for unchanged health replies', async () => {
   stop = subscribeServices();
   await vi.advanceTimersByTimeAsync(0);

@@ -6,7 +6,7 @@ import pytest
 import soundfile as sf
 from scipy.signal import fftconvolve
 
-from backend.recordings.studio_space import SpaceProfile, analyze_space, match_space, write_impulse
+from backend.recordings.studio_space import SpaceProfile, analyze_space, match_space
 
 
 def phrase_signal(rate: int = 8000) -> np.ndarray:
@@ -94,13 +94,14 @@ def test_rendered_delay_keeps_direct_voice_and_exact_timing(tmp_path: Path):
     samples = np.zeros((16000, 2))
     samples[1000] = [0.2, -0.1]
     sf.write(source, samples, 8000, subtype="FLOAT")
-    write_impulse(SpaceProfile(delay_seconds=0.18, delay_gain=0.2), impulse, 8000, 2)
-    FfmpegStudioMasterRenderer(ProcessRunner())._mix(
+    from backend.recordings.studio_space import _render_separate_buses
+
+    _render_separate_buses(
+        FfmpegStudioMasterRenderer(ProcessRunner()),
         source,
-        impulse,
-        "[0:a][1:a]afir=dry=1:wet=1:irnorm=-1:irgain=1,apad,atrim=end_sample=16000[out]",
-        ["-c:a", "pcm_f32le", str(output)],
+        output,
         threading.Event(),
+        SpaceProfile(delay_seconds=0.18, delay_gain=0.2),
     )
     rendered, rate = sf.read(output, always_2d=True)
     expected = samples.copy()
@@ -148,7 +149,7 @@ def test_master_balance_follows_reference_vocal(
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
     import shutil
 
-    def preserve_backing(backing, voice, target, active, cancel):
+    def preserve_backing(backing, voice, target, active, cancel, **reference):
         shutil.copyfile(backing, target)
         return {}
 

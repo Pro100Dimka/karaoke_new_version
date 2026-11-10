@@ -17,7 +17,9 @@ def _repeated_output_channels(path: Path, cancel: threading.Event) -> bool:
     return True
 
 
-def _reference_band_targets(reference_vocal: Path, reference_backing: Path, centers: np.ndarray, cancel: threading.Event) -> np.ndarray | None:
+def _reference_band_targets(
+    reference_vocal: Path, reference_backing: Path, centers: np.ndarray, cancel: threading.Event
+) -> np.ndarray | None:
     """Median original vocal-to-backing power per octave, measured on vocal-active blocks."""
     ratios = []
     with sf.SoundFile(reference_vocal) as voice, sf.SoundFile(reference_backing) as music:
@@ -31,16 +33,27 @@ def _reference_band_targets(reference_vocal: Path, reference_backing: Path, cent
             mb = music.read(len(vb), always_2d=True)
             if len(vb) < size:
                 continue
-            v, m = (np.mean(x, axis=1) * np.hanning(size) for x in (vb, mb))
-            vp, mp = (np.abs(np.fft.rfft(x)) ** 2 for x in (v, m))
+            # Sum spectral energy across channels: averaging stereo waveforms
+            # cancels antiphase vocal content and corrupts reference targets.
+            window = np.hanning(size)[:, None]
+            vp, mp = (
+                np.mean(np.abs(np.fft.rfft(x * window, axis=0)) ** 2, axis=1) for x in (vb, mb)
+            )
             if np.sum(vp) < 1e-8:
                 continue
-            ratios.append([10 * np.log10((np.sum(vp[band]) + 1e-12) / (np.sum(mp[band]) + 1e-12)) for band in bands])
+            ratios.append(
+                [
+                    10 * np.log10((np.sum(vp[band]) + 1e-12) / (np.sum(mp[band]) + 1e-12))
+                    for band in bands
+                ]
+            )
     if len(ratios) < 3:
         return None
     values = np.asarray(ratios)
-    active = np.sum(np.maximum(values, -60), axis=1) >= np.percentile(np.sum(np.maximum(values, -60), axis=1), 40)
-    return np.median(values[active], axis=0)
+    active = np.sum(np.maximum(values, -60), axis=1) >= np.percentile(
+        np.sum(np.maximum(values, -60), axis=1), 40
+    )
+    return np.asarray(np.median(values[active], axis=0))
 
 
 def _unmask_backing(
@@ -52,8 +65,16 @@ def _unmask_backing(
     reference_vocal: Path | None = None,
     reference_backing: Path | None = None,
 ) -> dict[str, object]:
-    targets = (_reference_band_targets(reference_vocal, reference_backing, np.array([250., 500., 1000., 2000., 4000.]), cancel)
-               if reference_vocal is not None and reference_backing is not None else None)
+    targets = (
+        _reference_band_targets(
+            reference_vocal,
+            reference_backing,
+            np.array([250.0, 500.0, 1000.0, 2000.0, 4000.0]),
+            cancel,
+        )
+        if reference_vocal is not None and reference_backing is not None
+        else None
+    )
     with (
         sf.SoundFile(backing) as music,
         sf.SoundFile(voice) as singer,
@@ -115,7 +136,9 @@ class _SpectralUnmasking:
             "maxReductionDb": self.maximum.tolist(),
             "affectedFraction": self.affected / max(self.windows, 1),
             "limitDb": 1.5,
-            "referenceBandTargetsDb": self.reference_targets.tolist() if self.reference_targets is not None else None,
+            "referenceBandTargetsDb": self.reference_targets.tolist()
+            if self.reference_targets is not None
+            else None,
             "attackMs": 80,
             "releaseMs": 250,
         }
@@ -151,12 +174,14 @@ class _SpectralUnmasking:
             instrumental = np.sum(music_power[:, selected], axis=1)
             overlap = 10 * np.log10(np.maximum(instrumental, 1e-20) / np.maximum(vocal, 1e-20))
             if self.reference_targets is None:
-                reduction = np.clip((overlap - 3) * 0.2, 0, 1.5)
+                reduction = np.zeros_like(overlap)
             else:
                 current_prominence = -overlap
                 reduction = np.clip(self.reference_targets[band] - current_prominence, 0, 1.5)
             desired[:, band] = np.where(
-                eligible & (vocal / total_voice >= 0.01), reduction, 0,
+                eligible & (vocal / total_voice >= 0.01),
+                reduction,
+                0,
             )
         return desired
 

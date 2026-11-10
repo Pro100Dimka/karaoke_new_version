@@ -19,10 +19,12 @@ def test_profile_keeps_original_double_precision_rms(tmp_path, subtype):
     sf.write(path, samples, rate, subtype=subtype)
     with sf.SoundFile(path) as source:
         actual = source.read(dtype="float64", always_2d=True)
-    expected = np.array([
-        10 * math.log10(max(1e-12, float(np.mean(block * block))))
-        for block in np.split(actual, 10)
-    ])
+    expected = np.array(
+        [
+            10 * math.log10(max(1e-12, float(np.mean(block * block))))
+            for block in np.split(actual, 10)
+        ]
+    )
     np.testing.assert_allclose(_profile(path, threading.Event()), expected, atol=1e-5, rtol=0)
 
 

@@ -15,6 +15,26 @@
 .songCard {
   position: relative;
 }
+.libraryCurtain {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ad-z-system) - 1);
+  background: #000;
+}
+.libraryCurtain[data-ready] {
+  animation: library-reveal 700ms ease-in-out both;
+  pointer-events: none;
+}
+@keyframes library-reveal {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+:root[data-reduced-motion='true'] .libraryCurtain[data-ready] {
+  animation-duration: 1ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  .libraryCurtain[data-ready] { animation-duration: 1ms; }
+}
 .songCard[data-selected] {
   outline: 2px solid var(--ad-primary);
   outline-offset: 2px;

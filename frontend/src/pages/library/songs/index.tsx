@@ -70,6 +70,7 @@ const useRememberedScroll = (
 };
 
 interface LibrarySongsProps {
+  onReady(): void;
   view: { query: string; filters: LibraryViewFilters };
   onOpenProcessing(songId: string): void;
   pageRef: RefObject<HTMLElement | null>;
@@ -79,6 +80,7 @@ interface LibrarySongsProps {
 
 const LibrarySongs = observer(
   ({
+    onReady,
     view,
     pageRef,
     onPlay,
@@ -229,6 +231,14 @@ const LibrarySongs = observer(
     };
 
     const isLoadingCatalog = !catalog.data && !catalog.isError;
+    useEffect(() => {
+      if (isLoadingCatalog) return;
+      // Let the virtual grid attach and lay out its rows beneath the curtain.
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(onReady);
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [isLoadingCatalog, onReady]);
     const isCatalogLoadFailed = !catalog.data && catalog.isError;
     const emptyStateKind =
       (completeCatalog ? songs.length === 0 : summary.data?.total === 0)

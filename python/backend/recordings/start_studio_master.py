@@ -8,7 +8,8 @@ from backend.ai.domain import AiCapability
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
-from backend.models.domain import ComputeMode
+from backend.infrastructure.atomic_files import atomic_write_text
+from backend.serialization import dumps
 from backend.persistence import UnitOfWorkFactory
 from backend.processing.domain import Job, JobType
 from backend.processing.job_manager import JobContext, ProcessingJobManager
@@ -66,9 +67,7 @@ class StartStudioMaster:
             lambda context: self._run(recording, context),
             entity_id=recording.recording_id,
             initial_report={
-                "processingBackend": ProcessingBackend.LOCAL.value
-                if stems
-                else self._settings().processing_backend.value,
+                "processingBackend": ProcessingBackend.LOCAL.value,
             },
         )
 
@@ -116,14 +115,16 @@ class StartStudioMaster:
         settings = self._settings()
         # Studio Master never starts Kaggle implicitly. Only an explicit
         # user-initiated Kaggle action may activate the remote runtime.
-        remote = False
         provider = self._resolver.execute(
-            AiCapability.SEPARATION, settings.selected_separation_provider,
+            AiCapability.SEPARATION,
+            None
+            if settings.selected_separation_provider == _KAGGLE_PROVIDER
+            else settings.selected_separation_provider,
         )
         lease = self._resources.claim_provider(
             provider,
             recording.file_path.stat().st_size,
-            ComputeMode.CPU if remote else settings.compute_mode,
+            settings.compute_mode,
             cpu_threads=settings.cpu_threads,
         )
         try:
@@ -190,6 +191,10 @@ class PublishStudioMaster:
         recording_id = self._ids.new()
         target = self._storage.publish_file(recording_id, temporary)
         metadata = self._inspector.inspect(target)
+        atomic_write_text(
+            target.with_suffix(".studio.json"),
+            dumps({"sourceRecordingId": source.recording_id, "balance": balance}, pretty=True),
+        )
         master = self._register.execute(
             RegisterRecordingRequest(
                 recording_id=recording_id,

@@ -70,7 +70,7 @@ export const useLibraryCatalog = (
   });
   useEffect(() => {
     client.removeQueries({ queryKey: ['songs'], type: 'inactive' });
-  }, [client, pythonEpoch, completeCatalog, serverFilter]);
+  }, [client, pythonEpoch, completeCatalog]);
   useEffect(
     () =>
       onLibraryChange(() => {

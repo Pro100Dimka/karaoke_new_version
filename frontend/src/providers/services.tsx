@@ -15,23 +15,34 @@ export const subscribeServices = () => {
   const launchedAt = Date.now();
   let active = true;
   let probing = false;
-  let pythonSeenReady = false;
-  let audioSeenReady = false;
+  const seenReady = { python: false, audio: false };
   let timer: ReturnType<typeof setTimeout>;
+  const publish = (service: keyof typeof seenReady, status: ServiceStatus) => {
+    if (!active) return;
+    if (!seenReady[service])
+      performance.mark(`startup:${service}:${status.kind}`);
+    const next = withStartupGrace(
+      status,
+      seenReady[service],
+      Date.now() - launchedAt,
+    );
+    seenReady[service] ||= isReady(next);
+    runInAction(() => {
+      const services = store.application.services;
+      if (reconnected(services[service], next)) services[`${service}Epoch`]++;
+      if (!sameServiceStatus(services[service], next)) services[service] = next;
+    });
+  };
   const probe = async () => {
     if (!active || probing) return;
     probing = true;
     try {
-      const [python, audio] = await Promise.all([
+      await Promise.all([
         pythonClient
           .health()
           .then(pythonStatusFrom)
-          .then((status) => {
-            if (!pythonSeenReady)
-              performance.mark(`startup:python:${status.kind}`);
-            return status;
-          })
-          .catch((): ServiceStatus => ({ kind: 'unavailable' })),
+          .catch((): ServiceStatus => ({ kind: 'unavailable' }))
+          .then((status) => publish('python', status)),
         audioClient
           .health()
           .then((result): ServiceStatus =>
@@ -43,24 +54,9 @@ export const subscribeServices = () => {
                 }
               : { kind: 'unavailable' },
           )
-          .catch((): ServiceStatus => ({ kind: 'unavailable' })),
+          .catch((): ServiceStatus => ({ kind: 'unavailable' }))
+          .then((status) => publish('audio', status)),
       ]);
-      if (!audioSeenReady) performance.mark(`startup:audio:${audio.kind}`);
-      if (!active) return;
-      const elapsed = Date.now() - launchedAt;
-      const nextPython = withStartupGrace(python, pythonSeenReady, elapsed);
-      const nextAudio = withStartupGrace(audio, audioSeenReady, elapsed);
-      pythonSeenReady ||= isReady(nextPython);
-      audioSeenReady ||= isReady(nextAudio);
-      runInAction(() => {
-        const services = store.application.services;
-        if (reconnected(services.python, nextPython)) services.pythonEpoch++;
-        if (reconnected(services.audio, nextAudio)) services.audioEpoch++;
-        if (!sameServiceStatus(services.python, nextPython))
-          services.python = nextPython;
-        if (!sameServiceStatus(services.audio, nextAudio))
-          services.audio = nextAudio;
-      });
     } finally {
       probing = false;
     }

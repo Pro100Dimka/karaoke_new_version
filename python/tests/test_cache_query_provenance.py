@@ -12,6 +12,8 @@ from sqlalchemy import event
 
 from backend.ai.domain import RequiredModel
 from backend.projects.manifest_codec import decode_manifest
+from backend.infrastructure.runtime_probe import SystemRuntimeProbe
+from backend.infrastructure.process_runner import ProcessRunner
 from backend.songs.queries import ListSongsQuery
 from tests.conftest import app_client, write_wav
 from tests.fakes import FakeAiProvider
@@ -106,6 +108,8 @@ def test_song_list_query_count_is_constant(client, tmp_path: Path) -> None:
 def test_processing_manifest_records_reproducible_provider_and_model_identity(
     tmp_path: Path,
 ) -> None:
+    # Hardware discovery is setup; the job timeout verifies manifest publication.
+    SystemRuntimeProbe(ProcessRunner()).inspect()
     model_bytes = b"model-contract" * 32
     checksum = hashlib.sha256(model_bytes).hexdigest()
     requirement = RequiredModel("shared-model", "7", checksum)

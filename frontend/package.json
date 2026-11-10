@@ -26,7 +26,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@neo-ui-kit/react": "1.4.1",
+    "@neo-ui-kit/react": "1.4.2",
     "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-virtual": "^3.14.13",
     "mobx": "^7.1.1",

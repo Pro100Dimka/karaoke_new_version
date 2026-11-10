@@ -15,7 +15,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.mark.parametrize("reference_level", [-42.0, -18.0])
-def test_recording_balance_targets_backing_level(reference_level: float) -> None:
+def test_recording_balance_targets_bounded_reference_prominence(reference_level: float) -> None:
     import numpy as np
     from backend.recordings.studio_dynamics import _balance_curve
 
@@ -23,7 +23,7 @@ def test_recording_balance_targets_backing_level(reference_level: float) -> None
     backing = np.full(100, -30.0)
     gains, reliable = _balance_curve(voice, backing, np.full(100, reference_level), backing)
     assert reliable.all()
-    np.testing.assert_allclose(voice + gains, backing, atol=0.1)
+    np.testing.assert_allclose(gains, np.clip(reference_level - voice, -18, 9), atol=0.1)
 
 
 @pytest.mark.parametrize("quiet_backing", [-48.0, -120.0])
@@ -137,7 +137,7 @@ def test_capture_without_a_backing_companion_does_not_need_processed_song_artifa
         assert Path(recording["filePath"]).is_file()
 
 
-def test_new_performance_is_balanced_in_background_and_retry_preserves_stems(tmp_path):
+def test_new_performance_is_preserved_in_background_and_retry_preserves_stems(tmp_path):
     import numpy as np
     import soundfile as sf
 
@@ -180,11 +180,7 @@ def test_new_performance_is_balanced_in_background_and_retry_preserves_stems(tmp
         stems = {file: file.read_bytes() for file in (vocal_path, backing_path)}
         samples, rate = sf.read(path)
         assert rate == 44100 and len(samples) == 88200
-        levels = [
-            abs(np.mean(samples * np.exp(-2j * np.pi * frequency * axis)))
-            for frequency in (880, 220)
-        ]
-        assert abs(20 * np.log10(levels[0] / levels[1])) < 3
+        np.testing.assert_array_equal(samples, captured)
         balanced = path.read_bytes()
         assert client.post("/recordings", json=payload).status_code == 201
         assert path.read_bytes() == balanced
@@ -608,6 +604,11 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
         # The interface names a master in its own language from its source take.
         assert master.json()["displayName"] is None
         assert Path(master.json()["filePath"]).is_file()
+        import json
+
+        diagnostic = Path(master.json()["filePath"]).with_suffix(".studio.json")
+        assert json.loads(diagnostic.read_text())["sourceRecordingId"] == recording["recordingId"]
+        assert Path(recording["filePath"]).is_file()
         assert len(originals) == 2
         assert job["report"]["balance"]["vocalGainDb"] is not None
 

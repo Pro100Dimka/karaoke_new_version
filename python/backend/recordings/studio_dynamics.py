@@ -4,11 +4,45 @@ import math
 import threading
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import median_filter, minimum_filter1d, uniform_filter1d
+from scipy.ndimage import (
+    gaussian_filter1d,
+    median_filter,
+    minimum_filter1d,
+    uniform_filter1d,
+)
 from scipy.signal import find_peaks
 import soundfile as sf
 
 from backend.recordings.studio_audio import _MAX_BOOST_DB, _PROFILE_SECONDS, _check_cancel, _profile
+
+from backend.recordings.studio_compression import (
+    _reference_compression as _reference_compression,
+    _reference_compressor_timing as _reference_compressor_timing,
+)
+
+
+def _slow_gain_envelope(
+    values: NDArray[np.float64], *, seconds: float = 3.0
+) -> NDArray[np.float64]:
+    """Smooth phrase-level gain without following syllables or drum transients.
+
+    Reflect edges instead of padding with silence. This is an offline renderer:
+    looking ahead is safe and avoids the audible lag of causal gain riding.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    if values.size < 2:
+        return values.copy()
+    frames = max(1, round(seconds / _PROFILE_SECONDS))
+    # Bound the entire Gaussian window to seconds, not six times that duration.
+    # Distant future phrases must not attenuate the current sustained phrase.
+    median_size = min(
+        values.size if values.size % 2 else values.size - 1, max(3, frames // 2 * 2 + 1)
+    )
+    cleaned = median_filter(values, size=median_size, mode="nearest")
+    return np.asarray(
+        gaussian_filter1d(cleaned, sigma=max(1.0, frames / 6.0), truncate=3.0, mode="nearest"),
+        dtype=np.float64,
+    )
 
 
 def _balance_curve(
@@ -19,33 +53,30 @@ def _balance_curve(
     *,
     phrase_smoothing: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    # Do not normalize rests or a noise floor to a professional singer.
-    floor = max(-55.0, float(np.percentile(voice, 20)) + 10.0)
+    # Compare only voiced frames; never amplify silence to reference level.
     upper = float(np.percentile(voice, 80))
-    if floor >= upper:
-        floor = max(-55.0, upper - 10.0)
+    floor = max(-80.0, min(float(np.percentile(voice, 20)) + 10.0, upper - 10.0))
     reliable = (voice > floor) & (reference > max(-55.0, float(np.max(reference)) - 30))
-    if phrase_smoothing:
-        # Match the original singer directly, without scaling to the accompaniment.
-        target = reference
-    else:
+    if not phrase_smoothing:
         reliable &= (backing > -60) & (original > -60)
-        target = backing
-    desired = np.minimum(target - voice, _MAX_BOOST_DB)
     if not reliable.any():
         return np.zeros_like(voice), reliable
-    # Bound boosts, not attenuation: a loud singer may need more than 9 dB of reduction.
-    # Carry the measured balance through gaps instead of restoring full vocal gain there.
+    target = backing + reference - original
+    desired = np.minimum(target - voice, _MAX_BOOST_DB)
     positions = np.arange(len(voice))
-    gains = np.interp(positions, positions[reliable], desired[reliable])
-    # A two-second median rejects syllable transients; a one-second ramp avoids gain steps.
-    gains = uniform_filter1d(median_filter(gains, size=21, mode="nearest"), size=11, mode="nearest")
-    # Never boost a pause just because adjacent words were quiet. Attenuation may persist.
+    # Interpolate *only* between reliable vocal frames; then use one slow
+    # phrase-level envelope rather than applying a second syllable tracker.
+    raw = np.interp(positions, positions[reliable], desired[reliable])
+    gains = _slow_gain_envelope(raw)
     if phrase_smoothing:
-        gains = _smooth_boosts(gains, reliable, causal=True)
-    else:
-        gains = np.minimum(gains, np.where(reliable, _MAX_BOOST_DB, 0.0))
-    return gains, reliable
+        # The global offset is held through rests; local boosts are faded using
+        # a slow activity envelope, never reset at individual syllable gaps.
+        baseline = float(np.median(gains[reliable]))
+        activity = _slow_gain_envelope(reliable.astype(np.float64), seconds=2.0)
+        gains = baseline + (gains - baseline) * np.clip(activity, 0.0, 1.0)
+    noise = voice <= max(-70.0, upper - 45.0)
+    gains[noise] = np.minimum(gains[noise], 0.0)
+    return np.clip(gains, -18.0, _MAX_BOOST_DB), reliable
 
 
 def _protect_vocal_presence(
@@ -74,12 +105,12 @@ def _protect_vocal_presence(
     # Preserve at least half of the musical rise in vocal prominence, while
     # leaving the original reference matching intact on quieter passages.
     minimum_gain = np.minimum(5.0, 0.55 * rise)
-    corrected = np.maximum(gains, minimum_gain - 4.0)
+    corrected = np.maximum(gains, minimum_gain)
     # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
     extra = np.clip(corrected - gains, 0.0, 5.0)
-    extra = uniform_filter1d(extra, size=21, mode="nearest")
-    extra[~(uniform_filter1d(active.astype(float), size=11) > 0.25)] = 0.0
-    result = np.clip(gains + extra, -18.0, _MAX_BOOST_DB)
+    extra = _slow_gain_envelope(extra)
+    extra *= np.clip(_slow_gain_envelope(active.astype(float), seconds=2.0), 0.0, 1.0)
+    result = np.minimum(np.clip(gains + extra, -18.0, _MAX_BOOST_DB), gains + 5.0)
     return result, {
         "presenceBoostMaxDb": float(np.max(extra)),
         "presenceBoostMeanDb": float(np.mean(extra[active])),
@@ -143,7 +174,9 @@ def _tone_filters(
         else {}
     )
     clarity = (
-        _clarity_filters(ratios, filters, reference_ratio, 0 if reference_tone is not None else None)
+        _clarity_filters(
+            ratios, filters, reference_ratio, 0 if reference_tone is not None else None
+        )
         if centers[-1] >= 8000
         else 0.0
     )
@@ -176,6 +209,30 @@ def _tone_envelope(centers: np.ndarray, frames: list[np.ndarray]) -> np.ndarray:
     )
 
 
+def _smooth_tone_excess(
+    excess: np.ndarray, log_frequency: np.ndarray, usable: np.ndarray
+) -> np.ndarray:
+    smooth = np.empty_like(excess)
+    for index, frequency in enumerate(log_frequency):
+        neighbors = usable & (np.abs(log_frequency - frequency) <= 1 / 3)
+        smooth[index] = float(np.median(excess[neighbors])) if np.any(neighbors) else 0.0
+    return smooth
+
+
+def _tone_candidates(
+    usable: np.ndarray, smooth: np.ndarray, log_frequency: np.ndarray
+) -> list[int]:
+    candidates = np.flatnonzero(usable & (smooth > 2.5))
+    selected: list[int] = []
+    for candidate in sorted(candidates, key=lambda i: smooth[i], reverse=True):
+        index = int(candidate)
+        if all(abs(log_frequency[index] - log_frequency[other]) >= 0.8 for other in selected):
+            selected.append(int(index))
+        if len(selected) == 3:
+            break
+    return selected
+
+
 def _reference_cuts(
     centers: np.ndarray,
     frames: list[np.ndarray],
@@ -197,17 +254,8 @@ def _reference_cuts(
     excess -= float(np.median(excess[usable]))
     # Analyze broad bands rather than individual spectral bins / harmonics.
     log_frequency = np.log2(np.maximum(centers, 1))
-    smooth = np.empty_like(excess)
-    for index, frequency in enumerate(log_frequency):
-        neighbors = usable & (np.abs(log_frequency - frequency) <= 1 / 3)
-        smooth[index] = float(np.median(excess[neighbors])) if np.any(neighbors) else 0.0
-    candidates = np.flatnonzero(usable & (smooth > 2.5))
-    selected: list[int] = []
-    for index in sorted(candidates, key=lambda i: smooth[i], reverse=True):
-        if all(abs(log_frequency[index] - log_frequency[other]) >= 0.8 for other in selected):
-            selected.append(int(index))
-        if len(selected) == 3:
-            break
+    smooth = _smooth_tone_excess(excess, log_frequency, usable)
+    selected = _tone_candidates(usable, smooth, log_frequency)
     report: list[dict[str, float]] = []
     for index in sorted(selected):
         # Safety cap only; both the frequency and requested attenuation are
@@ -215,8 +263,13 @@ def _reference_cuts(
         reduction = float(np.clip(smooth[index] * 0.5, 0, 3.0))
         frequency = float(centers[index])
         filters.append(f"equalizer=f={frequency:.3f}:t=q:w=0.7:g={-reduction:.6f}")
-        report.append({"frequencyHz": frequency, "reductionDb": reduction,
-                       "measuredExcessDb": float(smooth[index])})
+        report.append(
+            {
+                "frequencyHz": frequency,
+                "reductionDb": reduction,
+                "measuredExcessDb": float(smooth[index]),
+            }
+        )
     return {"referenceEqBands": report, "referenceEqStatus": "measured"}
 
 
@@ -349,171 +402,3 @@ def _voice_tails(levels: NDArray[np.float64]) -> list[float]:
         if i >= 5 and i + 5 < len(levels) and float(np.max(levels[i : i + 5])) < upper - 15
     ]
     return tails
-
-
-def _reference_presence(
-    gains: NDArray[np.float64],
-    voice: NDArray[np.float64],
-    backing: NDArray[np.float64],
-    reference: NDArray[np.float64],
-    original_backing: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], dict[str, float | str]]:
-    """Match reference vocal prominence without pulling the voice down in quiet music.
-
-    Compare reference and performance at similar accompaniment *percentiles*,
-    rather than assuming a quiet accompaniment means a quiet singer. The
-    global level is corrected separately from slow, zero-median phrase riding.
-    """
-    if len(gains) != len(voice) or len(voice) != len(backing) or not len(reference) or not len(original_backing):
-        return gains, {"method": "unavailable-reference"}
-    n = min(len(reference), len(original_backing))
-    ref, orig = reference[:n], original_backing[:n]
-    valid_ref = np.isfinite(ref) & np.isfinite(orig)
-    valid = np.isfinite(voice) & np.isfinite(backing) & np.isfinite(gains)
-    if np.count_nonzero(valid_ref) < 8 or np.count_nonzero(valid) < 8:
-        return gains, {"method": "insufficient-valid-frames"}
-    ref_floor, voice_floor = np.percentile(ref[valid_ref], 20), np.percentile(voice[valid], 20)
-    ref_active = valid_ref & ((ref >= ref_floor) & (ref > -70.0))
-    active = valid & ((voice >= voice_floor) & (voice > -70.0))
-    if np.count_nonzero(ref_active) < 4 or np.count_nonzero(active) < 4:
-        return gains, {"method": "insufficient-active-frames"}
-
-    ref_prominence = ref[ref_active] - orig[ref_active]
-    current_prominence = voice + gains - backing
-    target_global = float(np.median(ref_prominence))
-    measured_global = float(np.median(current_prominence[active]))
-    global_delta = target_global - measured_global
-
-    # Match the original vocal-to-backing relationship across quiet and loud
-    # sections. Bin the *original* backing by its own rank; its associated
-    # vocal prominence is the target. Do not impose a linear gain/backing rule.
-    ranks = np.linspace(0.0, 1.0, 9)
-    original_edges = np.quantile(orig[ref_active], ranks)
-    targets = np.empty(8, dtype=np.float64)
-    for i in range(8):
-        selection = ref_active & (orig >= original_edges[i]) & (
-            (orig <= original_edges[i + 1]) if i == 7 else (orig < original_edges[i + 1])
-        )
-        targets[i] = np.median((ref - orig)[selection]) if np.any(selection) else target_global
-    # Map the current accompaniment to its own distribution, so differently
-    # mastered backing stems do not distort the matching.
-    performance_edges = np.quantile(backing[active], ranks)
-    indices = np.searchsorted(performance_edges[1:-1], backing, side="right")
-    expected = targets[np.clip(indices, 0, 7)]
-    desired = expected - current_prominence
-    desired = np.where(valid, desired, 0.0)
-
-    edges = np.diff(np.r_[False, active, False].astype(np.int8))
-    starts, ends = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
-    lengths = ends - starts
-    frames = int(np.median(lengths)) if len(lengths) else 1
-    window = max(3, min(len(gains) | 1, (frames // 2) | 1))
-    slow = uniform_filter1d(median_filter(desired, size=window, mode="nearest"), size=window, mode="nearest")
-    slow -= float(np.median(slow[active]))
-    # Reference dynamics determine the allowed local adjustment, not a fixed
-    # dB target. Keep phrase-to-phrase changes smooth and the global balance
-    # independent of the local music level.
-    variation = float(np.percentile(np.abs(ref_prominence - target_global), 75))
-    slow = np.clip(slow, -variation, variation)
-    weight = uniform_filter1d(active.astype(np.float64), size=window, mode="nearest")
-    result = np.clip(gains + global_delta + slow * np.clip(weight, 0.0, 1.0), -18.0, _MAX_BOOST_DB)
-    return result, {
-        "method": "reference-backing-quantile-conditioned",
-        "referenceProminenceDb": target_global,
-        "performanceProminenceDb": measured_global,
-        "globalCorrectionDb": float(global_delta),
-        "referenceVariationDb": variation,
-        "presenceBoostMaxDb": float(np.max(result - gains)),
-    }
-
-
-def _reference_compressor_timing(reference: NDArray[np.float64]) -> dict[str, float | str]:
-    """Estimate response times from sustained reference-vocal level transitions.
-
-    This is an envelope-based proxy, not identification of a studio compressor.
-    Guardrails prevent pathological timings when a phrase has no usable edges.
-    """
-    values = np.asarray(reference, dtype=np.float64)
-    values = values[np.isfinite(values)]
-    if values.size < 30:
-        return {"timingMethod": "insufficient-reference", "attackMs": 25.0, "releaseMs": 180.0}
-    # Suppress individual syllable peaks; retain the phrase-level envelope.
-    smooth = median_filter(values, size=3, mode="nearest")
-    low, high = np.percentile(smooth, [20, 85])
-    if high - low < 5:
-        return {"timingMethod": "insufficient-contrast", "attackMs": 25.0, "releaseMs": 180.0}
-    # Duration between 20% and 80% of each clearly rising/falling transition.
-    lo = low + 0.2 * (high - low)
-    hi = low + 0.8 * (high - low)
-    rises, falls = [], []
-    state = "low" if smooth[0] <= lo else "high" if smooth[0] >= hi else "middle"
-    start = None
-    for i, value in enumerate(smooth):
-        if state == "low":
-            if value > lo:
-                state, start = "rising", i
-        elif state == "rising":
-            if value >= hi:
-                rises.append((i - start + 1) * _PROFILE_SECONDS * 1000)
-                state, start = "high", None
-            elif value <= lo:
-                state, start = "low", None
-        elif state == "high":
-            if value < hi:
-                state, start = "falling", i
-        elif state == "falling":
-            if value <= lo:
-                falls.append((i - start + 1) * _PROFILE_SECONDS * 1000)
-                state, start = "low", None
-            elif value >= hi:
-                state, start = "high", None
-        else:
-            if value <= lo:
-                state = "low"
-            elif value >= hi:
-                state = "high"
-    if not rises or not falls:
-        return {"timingMethod": "insufficient-transitions", "attackMs": 25.0, "releaseMs": 180.0}
-    # Dynamics are slower than a 100ms RMS frame; estimate only broad behavior.
-    # The FFmpeg compressor has its own permissible parameter ranges.
-    attack = float(np.clip(np.median(rises) * 0.15, 5, 100))
-    release = float(np.clip(np.median(falls) * 0.75, 50, 1000))
-    return {"timingMethod": "reference-phrase-envelope", "attackMs": attack,
-            "releaseMs": release, "risingEdges": len(rises), "fallingEdges": len(falls)}
-
-
-def _reference_compression(
-    recorded: NDArray[np.float64], reference: NDArray[np.float64]
-) -> dict[str, float | str]:
-    """Estimate vocal compression from the two recordings' *active* level spans.
-
-    The original vocal is used only when its level distribution contains enough
-    reliable active frames. This is an estimate, not recovery of a plugin preset.
-    """
-    def activity(levels: NDArray[np.float64]) -> NDArray[np.float64]:
-        values = np.asarray(levels, dtype=np.float64)
-        values = values[np.isfinite(values)]
-        if values.size < 20:
-            return np.empty(0, dtype=np.float64)
-        low, high = np.percentile(values, [20, 85])
-        return values[values > low + 0.35 * (high - low)]
-
-    timing = _reference_compressor_timing(reference)
-    voice, original = activity(recorded), activity(reference)
-    if min(voice.size, original.size) < 10:
-        return {"method": "insufficient-reference", "ratio": 1.0, "thresholdDb": float(np.median(recorded[np.isfinite(recorded)])) if np.any(np.isfinite(recorded)) else -60.0, **timing}
-    v20, v90 = np.percentile(voice, [20, 90])
-    r20, r90 = np.percentile(original, [20, 90])
-    input_span = float(v90 - v20)
-    target_span = float(r90 - r20)
-    # Compression cannot increase dynamic range. Do not invent compression when
-    # the reference is more dynamic than the recording.
-    ratio = float(np.clip(input_span / max(target_span, 1e-6), 1.0, 3.0))
-    return {
-        "method": "reference-active-dynamics",
-        "ratio": ratio,
-        "thresholdDb": float(v20),
-        "recordedRangeDb": input_span,
-        "referenceRangeDb": target_span,
-        **timing,
-    }

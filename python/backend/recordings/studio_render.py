@@ -2,22 +2,20 @@ from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import _backing_curve, _reference_presence, _reference_compression
+from backend.recordings.studio_dynamics import _backing_curve
+from backend.recordings.studio_voice import VoicePreparation
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-import math
-from copy import deepcopy
 import shutil
 import threading
 from tempfile import TemporaryDirectory
 import numpy as np
 import soundfile as sf
-from backend.analysis.scoring import parse_playback_adjustments, reference_audio_start
+from backend.analysis.scoring import reference_audio_start
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult
-from backend.infrastructure.ffmpeg_audio import loudnorm_filter
 from backend.recordings.studio_audio import (
     StudioMasterBalance,
     _PROFILE_SECONDS,
@@ -28,6 +26,13 @@ from backend.recordings.studio_audio import (
 from dataclasses import dataclass, field
 from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
+from backend.recordings.studio_reference import (
+    scope_reference,
+    mapped_reference_times,
+)
+from backend.recordings.studio_calibration import (
+    calibrate_mix,
+)
 
 
 @dataclass(slots=True)
@@ -68,6 +73,7 @@ class MasterRender:
     peak_bound: float = field(init=False)
     voice_analysis: dict[str, object] = field(init=False)
     voice_gain_db: float = field(default=0, init=False)
+    reference_origin: float = field(default=0, init=False)
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -81,102 +87,59 @@ class MasterRender:
             )
         with (
             TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory,
-            ThreadPoolExecutor(
-                max_workers=1,
-                thread_name_prefix="master-loudness",
-            ) as loudness_pool,
         ):
             self.work = Path(directory)
             self._prepare_stems()
+            self._scope_reference()
             bypass = self._analyze()
             if bypass is not None:
                 return bypass
             bypass = self._match_reference()
             if bypass is not None:
                 return bypass
-            self._schedule_loudness(loudness_pool)
-            # Preserve the accompaniment exactly as recorded; only the vocal is leveled.
-            # Master delivery is peak-limited, not globally loudness-normalized.
+            self.recording_analysis = None
             self._finish_voice()
             self._write_balanced()
             self._unmask()
             self._deliver()
-            from backend.recordings.studio_mix_audit import (
-                audit_mix, reference_voice_band_distribution,
-            )
-            self.processing["postMixAudit"] = audit_mix(
-                self.balanced, self.backing, self.target,
-                vocal_gain_db=self.voice_gain_db,
-            )
-            # Closed-loop correction: compare the delivered stem balance with the
-            # original song, not a hardcoded target. One bounded retry prevents
-            # runaway feedback and leaves the accompaniment unchanged.
-            target_profile = reference_voice_band_distribution(
-                self.reference_vocal, self.original_instrumental,
-            )
-            target_band = target_profile["median"] if target_profile else None
-            audit = self.processing["postMixAudit"]
-            if target_band is not None and audit.get("status") == "measured":
-                current_band = float(audit["voiceBandVocalToBackingMedianDb"])
-                error_db = target_band - current_band
-                correction_db = float(np.clip(error_db, -3.0, 3.0))
-                applied_db = 0.0
-                status = "already-balanced"
-                if abs(error_db) > 1.0 and abs(correction_db) > 0.0:
-                    # Preserve the existing render until the proposed correction
-                    # is measured. A retry must never silently worsen the match.
-                    previous = self.work / "pre-calibration-master.wav"
-                    shutil.copyfile(self.target, previous)
-                    old_gain = self.voice_gain_db
-                    old_processing = deepcopy(self.processing)
-                    try:
-                        self.voice_gain_db += correction_db
-                        self._deliver()
-                        candidate = audit_mix(
-                            self.balanced, self.backing, self.target,
-                            vocal_gain_db=self.voice_gain_db,
-                        )
-                        candidate_band = candidate.get("voiceBandVocalToBackingMedianDb")
-                        if (candidate.get("status") == "measured"
-                            and isinstance(candidate_band, (int, float))
-                            and np.isfinite(candidate_band)
-                            and _distribution_improved(target_profile, audit, candidate)):
-                            self.processing["postMixAudit"] = candidate
-                            applied_db = correction_db
-                            status = "improved"
-                        else:
-                            shutil.copyfile(previous, self.target)
-                            self.voice_gain_db = old_gain
-                            self.processing.clear()
-                            self.processing.update(old_processing)
-                            status = "rejected-no-improvement"
-                    except Exception:
-                        shutil.copyfile(previous, self.target)
-                        self.voice_gain_db = old_gain
-                        self.processing.clear()
-                        self.processing.update(old_processing)
-                        raise
-                    finally:
-                        previous.unlink(missing_ok=True)
-                self.processing["postMixCalibration"] = {
-                    "status": status,
-                    "referenceVoiceBandDb": round(target_band, 2),
-                    "beforeVoiceBandDb": round(current_band, 2),
-                    "requestedCorrectionDb": round(correction_db, 2),
-                    "correctionDb": round(applied_db, 2),
-                    "afterVoiceBandDb": self.processing["postMixAudit"].get(
-                        "voiceBandVocalToBackingMedianDb"),
-                    "method": "reference-measured-accept-only-if-improved",
-                }
-            else:
-                self.processing["postMixCalibration"] = {
-                    "status": "skipped-insufficient-reference-data",
-                }
+            self._calibrate()
             self.processing["qualityControl"] = inspect_master(
-                self.target, expected_frames=self.info.frames,
-                expected_rate=self.info.samplerate, expected_channels=self.output_channels,
+                self.target,
+                expected_frames=self.info.frames,
+                expected_rate=self.info.samplerate,
+                expected_channels=self.output_channels,
             )
             return self._balance_report()
+
+    def _calibrate(self) -> None:
+        mapped = np.asarray(self.source_times, dtype=np.float64)
+        section = None
+        if (
+            self.timing_known
+            and len(mapped) >= 2
+            and np.all(np.isfinite(mapped))
+            and np.all((np.diff(mapped) > 0) & (np.diff(mapped) < 2 * _PROFILE_SECONDS))
+        ):
+            start = max(0.0, float(mapped[0] - _PROFILE_SECONDS / 2))
+            end = min(
+                sf.info(self.reference_vocal).duration, float(mapped[-1] + _PROFILE_SECONDS / 2)
+            )
+            if end > start:
+                section = (start, end)
+        self.voice_gain_db = calibrate_mix(
+            self.balanced,
+            self.backing,
+            self.target,
+            self.reference_vocal,
+            self.original_instrumental,
+            section,
+            self._redeliver,
+            self.processing,
+        )
+
+    def _redeliver(self, gain: float) -> None:
+        self.voice_gain_db = gain
+        self._deliver()
 
     def _prepare_stems(self) -> None:
         self.backing = self.performance_instrumental
@@ -189,16 +152,13 @@ class MasterRender:
                     "Recording and stems must have matching sample rate and duration",
                 )
         if (
-            self.process_voice
-            and self.exact_stems
+            self.exact_stems
             and self.info.channels > 2
             and self.renderer._repeated_output_channels(self.user_vocal, self.cancel)
             and self.renderer._repeated_output_channels(self.backing, self.cancel)
         ):
             self._stereo_stems()
         if not self.exact_stems:
-            # A separator may put reverb into the accompaniment. Retain the residual of
-            # the actual performance rather than replacing it with a reconstructed minus.
             self.backing = self.work / "residual.wav"
             self.renderer._mix(
                 self.performance_mix,
@@ -215,29 +175,23 @@ class MasterRender:
         }
 
     def _analyze(self) -> StudioMasterBalance | None:
-        # Independent file readers overlap voice processing; each owns its file handle.
-        # Joining the bounded pool also keeps temporary files alive until all readers stop.
         with ThreadPoolExecutor(max_workers=2, thread_name_prefix="master-analysis") as pool:
             profile_tasks = [
                 pool.submit(_profile, path, self.cancel)
                 for path in (self.backing, self.reference_vocal, self.original_instrumental)
             ]
-            alignment = (
-                pool.submit(
-                    self.renderer._reference_offset,
-                    self.backing,
-                    self.original_instrumental,
-                    reference_audio_start(self.adjustments),
-                    self.cancel,
-                )
-                if self.process_voice
-                else None
+            origin = reference_audio_start(self.adjustments)
+            alignment = pool.submit(
+                self.renderer._reference_offset,
+                self.backing,
+                self.original_instrumental,
+                origin - self.reference_origin if origin is not None else None,
+                self.cancel,
             )
             self.vocal = self.user_vocal
-            if self.process_voice:
-                bypass = self._prepare_voice(profile_tasks)
-                if bypass is not None:
-                    return bypass
+            bypass = self._prepare_voice(profile_tasks)
+            if bypass is not None:
+                return bypass
             if self.progress:
                 self.progress("AnalyzingBalance", 0.3, 0.65)
             self.voice_db = _profile(self.vocal, self.cancel)
@@ -248,6 +202,23 @@ class MasterRender:
             self.original_full_db = self.original_db.copy()
             self.offset_result = alignment.result() if alignment is not None else None
         return None
+
+    def _scope_reference(self) -> None:
+        self.reference_vocal, self.original_instrumental, self.reference_origin, report = (
+            scope_reference(
+                self.reference_vocal,
+                self.original_instrumental,
+                self.adjustments,
+                self.info.duration,
+                self.work,
+                self.cancel,
+            )
+        )
+        self.processing.update(report)
+        if report.get("referenceTimelineRebuilt"):
+            self.adjustments = [
+                {"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}
+            ]
 
     def _match_reference(self) -> StudioMasterBalance | None:
         self._map_reference_time()
@@ -265,16 +236,9 @@ class MasterRender:
             self.backing_db,
             self.reference_db,
             self.original_db,
-            phrase_smoothing=self.process_voice,
+            phrase_smoothing=True,
         )
-        # Invalid timing metadata must not silently match the beginning of the song.
-        if not self.timing_known:
-            self.gains.fill(0)
-            self.reliable.fill(False)
         if not self.timing_known or not self.reliable.any():
-            # Estimate the song-specific vocal-to-accompaniment relationship from
-            # active frames in the original stems. Never copy the performance mix
-            # and silently skip mastering when word alignment is unavailable.
             self.gains.fill(0.0)
             self.reliable.fill(False)
             self.processing["balanceFallback"] = "reference-stem-distribution"
@@ -303,27 +267,11 @@ class MasterRender:
         self.processing["backingGainDb"] = float(np.median(gains))
         self.processing["backingBalance"] = "original-instrumental-envelope"
 
-    def _schedule_loudness(self, loudness_pool: ThreadPoolExecutor) -> None:
-        self.recording_analysis = (
-            loudness_pool.submit(
-                self.renderer._mix,
-                self.performance_mix,
-                self.performance_mix,
-                "[0:a]" + loudnorm_filter(lra=11) + "[out]",
-                ["-f", "null", "-"],
-                self.cancel,
-                quiet=False,
-            )
-            if self.match_recording_loudness and not self.process_voice
-            else None
-        )
-
     def _write_balanced(self) -> None:
         self.balanced = self.work / "balanced-voice.wav"
         self.peak_bound = 0.0
         with (
             sf.SoundFile(self.vocal) as source,
-            sf.SoundFile(self.backing) as music,
             sf.SoundFile(
                 self.balanced,
                 "w",
@@ -339,21 +287,11 @@ class MasterRender:
                 gain = np.power(10.0, np.interp(positions, self.times, self.gains) / 20)
                 adjusted = samples * gain[:, None]
                 output.write(adjusted)
-                if not self.process_voice:
-                    accompaniment = music.read(len(samples), always_2d=True)
-                    if accompaniment.shape != adjusted.shape:
-                        self.peak_bound = math.inf
-                    else:
-                        self.peak_bound = max(
-                            self.peak_bound, float(np.max(np.abs(adjusted) + np.abs(accompaniment)))
-                        )
                 offset += len(samples)
 
     def _unmask(self) -> None:
-        # Masking depends on the actual vocal and backing, not on whether the
-        # source stem was dry or already processed.  Preserve the reference-
-        # informed spectral targets implemented by the existing renderer.
-        active = self.reliable if self.reliable.any() else self._voice_activity()
+        active = self._voice_activity()
+        self.processing["maskingActivitySource"] = "performance-vocal-envelope"
         unmasked = self.work / "unmasked-backing.wav"
         self.processing["spectralBalance"] = self.renderer._unmask_backing(
             self.backing,
@@ -361,6 +299,8 @@ class MasterRender:
             unmasked,
             active,
             self.cancel,
+            reference_vocal=self.reference_vocal if self.timing_known else None,
+            reference_backing=self.original_instrumental if self.timing_known else None,
         )
         self.backing = unmasked
 
@@ -369,50 +309,19 @@ class MasterRender:
         floor = float(np.percentile(levels, 20))
         threshold = max(-48.0, floor + 9.0, float(np.percentile(levels, 85)) - 22.0)
         active = levels > threshold
+        if not np.any(active) and np.any(levels > -90.0):
+            threshold = float(np.percentile(levels, 50))
+            active = levels >= threshold
         self.processing["maskingActivityThresholdDbfs"] = threshold
         return active
 
     def _fallback_balance(self) -> None:
-        """Use the original song's measured vocal prominence, not a preset dB gap.
-
-        Compare active vocal frames against the accompaniment distribution on
-        both recordings. Quantiles permit a partial take to match a full song
-        without assuming the user sang the same chronological section.
-        """
-        voice = self.voice_db
-        backing = self.backing_db
-        reference = self.reference_full_db
-        original = self.original_full_db
-        if not all(len(x) for x in (voice, backing, reference, original)):
-            self.processing["balanceFallback"] = "missing-profiles-unity"
-            return
-        voice_active = self._voice_activity()
-        reference_floor = float(np.percentile(reference, 25))
-        reference_active = reference > max(reference_floor + 6.0, float(np.percentile(reference, 75)) - 12.0)
-        valid = voice_active & np.isfinite(voice) & np.isfinite(backing)
-        ref_valid = reference_active & np.isfinite(reference) & np.isfinite(original)
-        if np.count_nonzero(valid) < 3 or np.count_nonzero(ref_valid) < 3:
-            self.processing["balanceFallback"] = "insufficient-reference-activity-unity"
-            return
-        measured = float(np.median((voice - backing)[valid]))
-        expected = float(np.median((reference - original)[ref_valid]))
-        # Gain bounds are safety constraints, not a fabricated target balance.
-        correction = float(np.clip(expected - measured, -18.0, 9.0))
-        self.gains.fill(correction)
-        self.processing.update({
-            "balanceFallback": "reference-stem-distribution",
-            "referenceVocalProminenceDb": expected,
-            "performanceVocalProminenceDb": measured,
-            "fallbackVocalGainDb": correction,
-        })
+        self.gains.fill(0.0)
+        self.processing["balanceFallback"] = "unconfirmed-reference-unity"
 
     def _finish_voice(self) -> None:
-        # Spatial matching is needed for both dry and previously processed stems.
-        # The latter bypasses the destructive EQ/compression preparation above.
-        # Spatial matching needs no word-level alignment. It remains available
-        # when reference loudness matching is too uncertain to be safe.
         spatial = self.work / "spatial-voice.wav"
-        self.processing["referenceEffects"] = apply_reference_space(
+        reference_effects = apply_reference_space(
             self.renderer,
             self.reference_vocal,
             self.user_vocal,
@@ -420,6 +329,7 @@ class MasterRender:
             spatial,
             self.cancel,
         )
+        self.processing["referenceEffects"] = reference_effects
         if not spatial.is_file():
             self.processing["fallbackEffects"] = apply_fallback_space(
                 self.renderer, self.vocal, self.backing, spatial, self.cancel
@@ -427,8 +337,9 @@ class MasterRender:
         if spatial.is_file():
             self.vocal = spatial
             self.processing["space"] = (
-                "reference-matched" if self.processing["referenceEffects"]["status"] == "matched"
-                else "backing-informed-room"
+                "reference-matched"
+                if reference_effects.get("status") == "matched"
+                else "unchanged-no-supported-effects"
             )
             self.voice_db = _profile(self.vocal, self.cancel)
             if self.reliable.any():
@@ -439,6 +350,9 @@ class MasterRender:
                     self.original_db,
                     phrase_smoothing=True,
                 )
+        self._report_voice(reference_effects)
+
+    def _report_voice(self, reference_effects: dict[str, object]) -> None:
         if self.reliable.any():
             target = self.voice_db + self.gains
             self.processing["voiceBalanceTargetDb"] = float(
@@ -448,24 +362,20 @@ class MasterRender:
         else:
             self._fallback_balance()
             self.processing["voiceLeveling"] = "bounded-song-level-fallback"
-        self.gains, presence = _reference_presence(
-            self.gains,
-            self.voice_db,
-            self.backing_db,
-            self.reference_full_db,
-            self.original_full_db,
-        )
-        self.processing["vocalPresence"] = presence
-        self.processing["voiceLeveling"] += "-presence-protected"
+        self.processing["vocalPresence"] = {"method": "single-aligned-phrase-envelope"}
         self.processing["voiceOutputGainDb"] = self.voice_gain_db
-        self.processing["spaceAudible"] = spatial.is_file()
-        self.processing["effectsApplied"] = spatial.is_file()
+        spatial_applied = reference_effects.get("status") == "matched"
+        fallback_effects = self.processing.get("fallbackEffects", {})
+        if isinstance(fallback_effects, dict):
+            spatial_applied = spatial_applied or bool(fallback_effects.get("applied", False))
+        self.processing["spaceAudible"] = None  # Requires a listening/perceptual test.
+        self.processing["effectsApplied"] = bool(spatial_applied)
         self.processing["adaptive"] = {
             "referenceTimingTrusted": bool(self.timing_known),
             "referenceMatchedFraction": float(np.mean(self.reliable)),
             "equalization": "reference-informed-vocal-filters",
             "compression": "recording-dynamics-adaptive",
-            "space": self.processing.get("referenceEffects", {}).get("status", "not-applied"),
+            "space": reference_effects.get("status", "not-applied"),
             "backingGain": "unity",
             "masking": "bounded-dynamic-eq-with-voice-activity",
         }
@@ -514,8 +424,6 @@ class MasterRender:
         ).run()
 
     def _stereo_stems(self) -> None:
-        # Native device routing repeats the last source channel on additional outputs.
-        # These are not surround channels; retain the original L/R pair for the master.
         self.renderer._mix(
             self.user_vocal,
             self.backing,
@@ -542,15 +450,13 @@ class MasterRender:
         self, profile_tasks: list[Future[NDArray[np.float64]]]
     ) -> StudioMasterBalance | None:
         raw_profile = _profile(self.user_vocal, self.cancel)
-        confident = raw_profile > max(-45.0, float(np.percentile(raw_profile, 90)) - 25)
+        confident = raw_profile > max(-80.0, float(np.percentile(raw_profile, 90)) - 25)
         if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
             shutil.copyfile(self.performance_mix, self.target)
-            voice_level, backing_level, reference_level, original_level = (
-                float(np.median(levels))
-                for levels in (
-                    raw_profile,
-                    *(future.result() for future in profile_tasks),
-                )
+            profiles = [raw_profile, *(future.result() for future in profile_tasks)]
+            voice_level, backing_level, reference_level, original_level = map(
+                lambda levels: float(np.median(levels)),
+                profiles,
             )
             return StudioMasterBalance(
                 0,
@@ -565,94 +471,27 @@ class MasterRender:
                     "outputChannels": self.info.channels,
                 },
             )
-        self._process_voice(raw_profile)
-        return None
-
-    def _process_voice(self, raw_profile: NDArray[np.float64]) -> None:
-        active = raw_profile[raw_profile > max(-60.0, float(np.max(raw_profile)) - 35)]
-        if active.size == 0:
-            raise DependencyError("StudioMasterSilentTrack", "No audible recorded voice")
-        reference_levels = _profile(self.reference_vocal, self.cancel)
-        dynamics = _reference_compression(raw_profile, reference_levels)
-        ratio = float(dynamics["ratio"])
-        threshold = float(np.clip(10 ** (float(dynamics["thresholdDb"]) / 20), 0.001, 1))
-        self.processing["referenceCompression"] = dynamics
-        filters, self.voice_analysis = self.renderer._voice_filters(
-            self.user_vocal, raw_profile, self.cancel, self.reference_vocal
-        )
-        self.processing.update(
-            compressorRatio=ratio,
-            compressorThresholdDb=20 * math.log10(threshold),
-            voiceAnalysis=self.voice_analysis,
-            compressorMix=0.65,
-        )
-        if ratio > 1.01:
-            filters.append(
-                f"acompressor=threshold={threshold:.9f}:ratio={ratio:.6f}:"
-                f"attack={float(dynamics['attackMs']):.3f}:release={float(dynamics['releaseMs']):.3f}:"
-                "makeup=1:mix=0.65:link=maximum:detection=rms"
-            )
-        filters.extend(
-            (
-                f"aresample={self.info.samplerate}",
-                "apad",
-                f"atrim=end_sample={self.info.frames}",
-            )
-        )
         self.vocal = self.work / "processed-voice.wav"
-        self.renderer._mix(
-            self.user_vocal,
-            self.backing,
-            "[0:a]" + ",".join(filters) + "[out]",
-            ["-ac", str(self.output_channels), "-c:a", "pcm_f32le", str(self.vocal)],
-            self.cancel,
+        self.processing.update(
+            VoicePreparation(
+                self.renderer,
+                self.user_vocal,
+                self.backing,
+                self.reference_vocal,
+                self.vocal,
+                self.info,
+                self.output_channels,
+                self.cancel,
+            ).run(raw_profile, profile_tasks[1].result())
         )
+        return None
 
     def _map_reference_time(self) -> None:
         self.times = (np.arange(len(self.voice_db)) + 0.5) * _PROFILE_SECONDS
-        self.source_times = self.times.copy()
-        parsed = parse_playback_adjustments(self.adjustments)
-        for adjustment in parsed:
-            selected = self.times >= adjustment.elapsed_seconds
-            self.source_times[selected] = (
-                adjustment.source_seconds
-                + (self.times[selected] - adjustment.elapsed_seconds) * adjustment.playback_rate
-            )
-        self.timing_known = (
-            bool(parsed) and parsed[0].elapsed_seconds == 0 and len(parsed) == len(self.adjustments)
+        self.source_times, self.timing_known, report = mapped_reference_times(
+            self.times,
+            self.adjustments,
+            self.offset_result,
+            self.reference_origin,
         )
-        if self.process_voice:
-            assert self.offset_result is not None
-            correction, confidence = self.offset_result
-            self.source_times += correction
-            self.timing_known = self.timing_known or (not self.adjustments and confidence >= 0.9)
-            self.processing.update(
-                referenceOffsetMs=correction * 1000,
-                referenceCorrelation=confidence,
-                synchronization=(
-                    "backing-reference-confirmed"
-                    if confidence >= 0.9
-                    else "native-timeline-retained"
-                ),
-            )
-
-
-def _distribution_improved(reference: dict[str, float], before: dict[str, object], after: dict[str, object]) -> bool:
-    """Accept a new mix only if vocal prominence improves across quiet/loud phrases.
-
-    Do not improve the median at the expense of the weakest vocal windows.
-    """
-    keys = {"p10": "voiceBandVocalToBackingP10Db",
-            "median": "voiceBandVocalToBackingMedianDb"}
-    try:
-        errors = []
-        for label, field in keys.items():
-            target = float(reference[label])
-            old, new = float(before[field]), float(after[field])
-            if not all(np.isfinite(v) for v in (target, old, new)):
-                return False
-            errors.append((abs(target - old), abs(target - new)))
-        # Do not sacrifice the least audible phrases for a better median.
-        return errors[0][1] <= errors[0][0] and sum(x[1] for x in errors) < sum(x[0] for x in errors)
-    except (KeyError, TypeError, ValueError):
-        return False
+        self.processing.update(report)
