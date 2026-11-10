@@ -79,6 +79,57 @@ def apply_reference_space(
 
 
 
+def _voice_activity_level(path: Path, cancel: threading.Event) -> float:
+    """Estimate the vocal envelope scale from this recording, not a fixed dBFS.
+
+    A coarse streaming histogram avoids loading the song into RAM.  The
+    85th percentile of non-silent 20-ms RMS windows is robust to pauses.
+    """
+    histogram = np.zeros(128, dtype=np.int64)
+    with sf.SoundFile(path) as source:
+        window = max(1, int(source.samplerate * 0.02))
+        pending = np.empty((0, source.channels), dtype=np.float32)
+        while True:
+            _check_cancel(cancel)
+            chunk = source.read(32768, dtype="float32", always_2d=True)
+            if not len(chunk):
+                break
+            samples = np.concatenate((pending, chunk))
+            count = len(samples) // window
+            if count:
+                frames = samples[:count * window].reshape(count, window, source.channels)
+                rms = np.sqrt(np.mean(frames.astype(np.float64) ** 2, axis=(1, 2)))
+                valid = rms[rms > 1e-7]
+                if len(valid):
+                    indices = np.clip(((20 * np.log10(valid) + 120) * (127 / 120)).astype(int), 0, 127)
+                    histogram += np.bincount(indices, minlength=128)
+            pending = samples[count * window:]
+    total = int(histogram.sum())
+    if not total:
+        return 0.0
+    index = int(np.searchsorted(np.cumsum(histogram), 0.85 * total))
+    return float(10 ** (((index * 120 / 127) - 120) / 20))
+
+
+def _activity_mask(
+    block: np.ndarray, rate: int, level: float, state: float
+) -> tuple[np.ndarray, float]:
+    """Block-independent vocal activity mask used for calibration and QC.
+
+    An instantaneous sample threshold incorrectly treats zero crossings in a
+    sung vowel as silence. The smoothed envelope matches the render ducking.
+    """
+    if not len(block):
+        return np.zeros(0, dtype=bool), state
+    smoothing = math.exp(-1.0 / (0.12 * rate))
+    amplitude = np.sqrt(np.mean(block.astype(np.float64) ** 2, axis=1))
+    envelope, _ = lfilter(
+        [1.0 - smoothing], [1.0, -smoothing], amplitude,
+        zi=[smoothing * state],
+    )
+    return envelope > 0.15 * level, float(envelope[-1])
+
+
 def _render_separate_buses(
     renderer: MasterRenderer,
     voice: Path,
@@ -96,6 +147,7 @@ def _render_separate_buses(
     gain. Side effects are ducked gently while the singer is active.
     """
     info = sf.info(voice)
+    activity_level = _voice_activity_level(voice, cancel)
     bus_specs = {
         "early": SpaceProfile(),
         "echo": SpaceProfile(delay_seconds=profile.delay_seconds,
@@ -183,12 +235,29 @@ def _render_separate_buses(
                 wet_energy = {name: 0.0 for name in names}
                 wet_peak = {name: 0.0 for name in names}
                 dry_peak = 0.0
+                activity_state = 0.0
+                envelope = 0.0
+                smoothing = math.exp(-1 / (0.12 * info.samplerate))
                 while True:
                     _check_cancel(cancel)
                     a = dry.read(32768, dtype="float32", always_2d=True)
                     if not len(a):
                         break
-                    active = np.mean(a.astype(np.float64) ** 2, axis=1) > 1e-6
+                    active, activity_state = _activity_mask(
+                        a, info.samplerate, activity_level, activity_state
+                    )
+                    # Calibrate the signal actually mixed into the output.
+                    # The old measurement used the unducked bus, then reduced
+                    # it during rendering, systematically under-shooting Wet.
+                    mono = np.sqrt(np.mean(a.astype(np.float64) ** 2, axis=1))
+                    filtered, _ = lfilter(
+                        [1.0 - smoothing], [1.0, -smoothing], mono,
+                        zi=[smoothing * envelope],
+                    )
+                    envelope = float(filtered[-1])
+                    duck = 1.0 - 0.30 * np.minimum(
+                        1.0, filtered / max(activity_level, 1e-7)
+                    )
                     if np.any(active):
                         dry_energy += float(np.sum(a[active].astype(np.float64) ** 2))
                         dry_peak = max(dry_peak, float(np.max(np.abs(a[active]))))
@@ -196,17 +265,22 @@ def _render_separate_buses(
                         b = src.read(len(a), dtype="float32", always_2d=True)
                         if not np.isfinite(b).all():
                             raise DependencyError("StudioMasterInvalidWet", "Invalid spatial bus samples")
+                        effective = b.astype(np.float64) * duck[:, None]
                         if np.any(active):
-                            wet_energy[name] += float(np.sum(b[active].astype(np.float64) ** 2))
-                        wet_peak[name] = max(wet_peak[name], float(np.max(np.abs(b))))
+                            wet_energy[name] += float(np.sum(effective[active] ** 2))
+                        wet_peak[name] = max(wet_peak[name], float(np.max(np.abs(effective))))
             finally:
                 for src in sources.values():
                     src.close()
         gains = {}
         for name in names:
             goal = 10 ** (total_db / 20) * math.sqrt(allocations[name])
+            # Calibrate from measured wet energy, not an arbitrary gain cap.
+            # A normalized convolution IR can produce a quiet bus that needs
+            # more than 3x amplification to meet the reference-derived goal.
+            # Retain the peak-based safety bound so this cannot create huge
+            # individual reflections relative to the actual dry vocal.
             gains[name] = float(min(
-                3.0,
                 goal * math.sqrt(dry_energy / max(wet_energy[name], 1e-20)),
                 0.35 * max(dry_peak, 1e-6) / max(wet_peak[name], 1e-9),
             )) if dry_energy > 1e-12 and wet_energy[name] > 1e-15 else 0.0
@@ -231,6 +305,7 @@ def _render_separate_buses(
                 readers = {name: sf.SoundFile(path) for name, path in wet_paths.items()}
                 try:
                     envelope = 0.0
+                    activity_state = 0.0
                     smoothing = math.exp(-1 / (0.12 * info.samplerate))
                     while True:
                         _check_cancel(cancel)
@@ -243,11 +318,21 @@ def _render_separate_buses(
                             zi=[smoothing * envelope],
                         )
                         envelope = float(filtered[-1])
-                        duck = 1.0 - 0.30 * np.minimum(1.0, filtered / 0.025)
+                        duck = 1.0 - 0.30 * np.minimum(1.0, filtered / max(activity_level, 1e-7))
                         wet = np.zeros_like(a, dtype=np.float64)
                         for name, reader in readers.items():
                             wet += reader.read(len(a), dtype="float32", always_2d=True) * gains[name]
                         wet *= duck[:, None]
+                        # Match the reference estimator: measure stereo energy
+                        # only where the singer is active. Otherwise long quiet
+                        # passages and noise dominate the optimization objective.
+                        active, activity_state = _activity_mask(
+                            a, info.samplerate, activity_level, activity_state
+                        )
+                        if not np.any(active):
+                            continue
+                        a = a[active]
+                        wet = wet[active]
                         dmid = (a[:, 0].astype(np.float64) + a[:, 1]) * 0.5
                         dside = (a[:, 0].astype(np.float64) - a[:, 1]) * 0.5
                         wmid = (wet[:, 0] + wet[:, 1]) * 0.5
@@ -278,7 +363,16 @@ def _render_separate_buses(
                     options={"xatol": 1e-3},
                 )
                 if result.success:
-                    scale = float(result.x)
+                    # Do not change an otherwise calibrated wet level unless
+                    # the reference match genuinely improves. Some songs have
+                    # stereo doubles or separation artefacts that no reverb
+                    # gain can reproduce; forcing a boundary value only makes
+                    # the effects quieter or louder without matching them.
+                    candidate = float(result.x)
+                    baseline_error = abs(predicted_side(1.0) - target_side)
+                    candidate_error = abs(predicted_side(candidate) - target_side)
+                    if candidate_error < baseline_error * 0.95:
+                        scale = candidate
             measured_side = predicted_side(scale)
         gains = {name: gain * scale for name, gain in gains.items()}
 
@@ -305,7 +399,7 @@ def _render_separate_buses(
                         zi=[smoothing * envelope],
                     )
                     envelope = float(filtered[-1])
-                    duck = (1.0 - 0.30 * np.minimum(1.0, filtered / 0.025)).astype(np.float32)
+                    duck = (1.0 - 0.30 * np.minimum(1.0, filtered / max(activity_level, 1e-7))).astype(np.float32)
                     for name, src in sources.items():
                         b = src.read(len(a), dtype="float32", always_2d=True)
                         wet += b * (gains[name] * duck[:, None])
@@ -313,8 +407,63 @@ def _render_separate_buses(
             finally:
                 for src in sources.values():
                     src.close()
+        # Verify the actual file, not merely the planned bus gains. This catches
+        # a disconnected/muted wet path without loading the full recording.
+        output_energy = 0.0
+        difference_energy = 0.0
+        output_peak = 0.0
+        active_wet = active_dry = tail_wet = 0.0
+        active_frames = tail_frames = 0
+        with sf.SoundFile(voice) as original, sf.SoundFile(target) as rendered:
+            if (original.frames, original.samplerate, original.channels) != (
+                rendered.frames, rendered.samplerate, rendered.channels
+            ):
+                raise DependencyError("StudioMasterSpatialOutputMismatch", "Spatial output format mismatch")
+            activity_state = 0.0
+            while True:
+                _check_cancel(cancel)
+                dry_block = original.read(32768, dtype="float32", always_2d=True)
+                if not len(dry_block):
+                    break
+                final_block = rendered.read(len(dry_block), dtype="float32", always_2d=True)
+                if len(final_block) != len(dry_block) or not np.isfinite(final_block).all():
+                    raise DependencyError("StudioMasterInvalidSpatialOutput", "Invalid spatial output")
+                dry64 = dry_block.astype(np.float64)
+                difference = final_block.astype(np.float64) - dry64
+                output_energy += float(np.sum(dry64 ** 2))
+                difference_energy += float(np.sum(difference ** 2))
+                output_peak = max(output_peak, float(np.max(np.abs(final_block))))
+                active, activity_state = _activity_mask(
+                    dry_block, info.samplerate, activity_level, activity_state
+                )
+                if np.any(active):
+                    active_wet += float(np.sum(difference[active] ** 2))
+                    active_dry += float(np.sum(dry64[active] ** 2))
+                    active_frames += int(np.count_nonzero(active))
+                if np.any(~active):
+                    tail_wet += float(np.sum(difference[~active] ** 2))
+                    tail_frames += int(np.count_nonzero(~active))
+        applied_wet_db = (10 * math.log10(difference_energy / output_energy)
+                          if output_energy > 1e-20 and difference_energy > 0 else None)
+        if any(gain > 0 for gain in gains.values()) and applied_wet_db is None:
+            raise DependencyError("StudioMasterSilentSpatialEffects", "Spatial effects produced no output signal")
+        # Compute active and unvoiced diagnostics in the same streaming pass
+        # as output validation, avoiding a second complete WAV read.
+        active_ratio = (10 * math.log10(active_wet / active_dry)
+                        if active_dry > 1e-20 and active_wet > 0 else None)
+        tail_rms_dbfs = (10 * math.log10(tail_wet / (tail_frames * info.channels))
+                         if tail_frames and tail_wet > 0 else None)
         report = {
-            "version": 1,
+            "version": 4,
+            "measuredVocalActivityLevelDbfs": (round(20 * math.log10(activity_level), 2) if activity_level > 0 else None),
+            "measuredOutputWetToDryDb": round(applied_wet_db, 2) if applied_wet_db is not None else None,
+            "measuredOutputPeak": output_peak,
+            "activeWetToDryDb": round(active_ratio, 2) if active_ratio is not None else None,
+            "unvoicedWetRmsDbfs": round(tail_rms_dbfs, 2) if tail_rms_dbfs is not None else None,
+            "voicedFramesMeasured": active_frames,
+            "unvoicedFramesMeasured": tail_frames,
+            "audibilityVerified": False,  # signal energy alone cannot establish perceptual audibility
+
             "referenceSideRatio": target_side,
             "measuredPreDeliverySideRatio": measured_side,
             "calibrationEvidence": side_evidence,
@@ -322,7 +471,13 @@ def _render_separate_buses(
             "wetBuses": {name: {
                 "gainDb": round(20 * math.log10(max(gains[name], 1e-12)), 2),
                 "activeWetToDryDb": round(10 * math.log10(max(wet_energy[name] * gains[name] ** 2, 1e-20) / max(dry_energy, 1e-20)), 2),
-                "wetPeakBeforeGain": wet_peak[name],
+                "wetPeakAfterDuckingBeforeGain": wet_peak[name],
+                "gainLimitedByPeak": bool(
+                    dry_energy > 1e-12 and wet_energy[name] > 1e-15
+                    and 0.35 * max(dry_peak, 1e-6) / max(wet_peak[name], 1e-9)
+                    < 10 ** (total_db / 20) * math.sqrt(allocations[name])
+                    * math.sqrt(dry_energy / max(wet_energy[name], 1e-20))
+                ),
             } for name in names},
             "note": "Stereo ratio is a proxy, not isolated reverb or delay energy; measured before final delivery",
         }
@@ -417,25 +572,40 @@ def _render_bounded_space(
         wet_path.unlink(missing_ok=True)
 
 def _stereo_side_ratio(path: Path, cancel: threading.Event) -> tuple[float, int]:
-    """Median active-block side/mid RMS ratio; no whole-song memory load."""
-    ratios: list[float] = []
+    """Stereo side/mid ratio measured on active vocal passages.
+
+    Silence and quiet separation artifacts must not determine the target space.
+    The active threshold comes from the recording's own RMS distribution, not
+    a global dBFS constant. Return zero evidence for effectively silent files.
+    """
+    windows: list[tuple[float, float]] = []
     with sf.SoundFile(path) as source:
         if source.channels < 2:
             return 0.0, 0
-        for index, block in enumerate(source.blocks(
-            blocksize=source.samplerate, dtype="float32", always_2d=True
-        )):
+        for block in source.blocks(
+            blocksize=max(1, source.samplerate // 2), dtype="float32", always_2d=True
+        ):
             _check_cancel(cancel)
-            if index >= 180:
-                break
-            left, right = block[:, 0].astype(np.float64), block[:, 1].astype(np.float64)
+            left = block[:, 0].astype(np.float64)
+            right = block[:, 1].astype(np.float64)
             mid = (left + right) * 0.5
             side = (left - right) * 0.5
             mid_power = float(np.mean(mid * mid))
-            if mid_power < 1e-7:
-                continue
-            ratios.append(math.sqrt(float(np.mean(side * side)) / mid_power))
-    return (float(np.median(ratios)), len(ratios)) if ratios else (0.0, 0)
+            side_power = float(np.mean(side * side))
+            windows.append((mid_power, side_power))
+    if not windows:
+        return 0.0, 0
+    powers = np.asarray(windows, dtype=np.float64)
+    active_powers = powers[:, 0]
+    if not np.any(active_powers > 1e-12):
+        return 0.0, 0
+    # Gate relative to the actual vocal energy, avoiding silence/bleed bias.
+    threshold = float(np.percentile(active_powers[active_powers > 1e-12], 70)) * 0.1
+    active = powers[(active_powers >= threshold) & (active_powers > 1e-12)]
+    if not len(active):
+        return 0.0, 0
+    ratios = np.sqrt(active[:, 1] / active[:, 0])
+    return float(np.median(ratios)), len(ratios)
 
 
 def _reference_wet_target(
@@ -471,12 +641,10 @@ def _reference_width(path: Path, cancel: threading.Event) -> float:
     with sf.SoundFile(path) as source:
         if source.channels < 2:
             return 0.0
-        for index, samples in enumerate(source.blocks(
+        for samples in source.blocks(
             blocksize=source.samplerate, dtype="float32", always_2d=True
-        )):
+        ):
             _check_cancel(cancel)
-            if index >= 90:
-                break
             left, right = samples[:, 0], samples[:, 1]
             power = float(np.mean(left * left + right * right))
             if power > 1e-7:
@@ -501,9 +669,19 @@ def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile
         if existing.decay_seconds <= reference.decay_seconds
         else 0.0
     )
+    # Subtract existing echo only when it is the *same* measured repeat.
+    # Previously an unrelated short reflection could cancel the reference
+    # delay entirely, leaving the mastered vocal without the desired echo.
+    same_delay = (
+        reference.delay_gain > 0
+        and existing.delay_gain > 0
+        and abs(reference.delay_seconds - existing.delay_seconds)
+        <= max(0.012, 0.08 * reference.delay_seconds)
+    )
+    existing_echo_gain = existing.delay_gain if same_delay else 0.0
     return SpaceProfile(
         delay_seconds=reference.delay_seconds,
-        delay_gain=float(np.clip(reference.delay_gain - existing.delay_gain, 0, 0.35)),
+        delay_gain=float(np.clip(reference.delay_gain - existing_echo_gain, 0, 0.35)),
         delay_support=reference.delay_support,
         decay_seconds=reference.decay_seconds,
         reverb_gain=float(np.clip(reverb, 0, 0.35)),
@@ -549,14 +727,20 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
 
 
 def _read_evidence(path: Path, cancel: threading.Event) -> tuple[np.ndarray, np.ndarray]:
+    """Measure loudness continuously and echo evidence in overlapping windows.
+
+    Overlap avoids losing a repeat whenever its onset crosses a window edge.
+    Windows are spread across the full reference, not just its beginning.
+    """
     levels: list[float] = []
     cepstra: list[np.ndarray] = []
     energies: list[float] = []
     with sf.SoundFile(path) as source:
-        block = source.samplerate * 2
-        stride = max(1, math.ceil(source.frames / block / 96))
-        step = max(1, round(source.samplerate * 0.02))
-        for index, samples in enumerate(source.blocks(blocksize=block, always_2d=True)):
+        rate = source.samplerate
+        block = rate * 2
+        step = max(1, round(rate * 0.02))
+        # Preserve the original continuous loudness measurement.
+        for samples in source.blocks(blocksize=block, always_2d=True):
             _check_cancel(cancel)
             if not np.isfinite(samples).all():
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
@@ -564,12 +748,26 @@ def _read_evidence(path: Path, cancel: threading.Event) -> tuple[np.ndarray, np.
             usable = len(samples) // step * step
             if usable:
                 power = np.mean(
-                    samples[:usable].reshape(-1, step, samples.shape[1]) ** 2, axis=(1, 2)
+                    samples[:usable].reshape(-1, step, samples.shape[1]) ** 2,
+                    axis=(1, 2),
                 )
                 levels.extend(10 * np.log10(np.maximum(power, 1e-12)))
-            if index % stride == 0 and len(samples) == block:
-                energies.append(float(np.mean(samples * samples)))
-                cepstra.append(_cepstrum(samples, source.samplerate))
+        if source.frames < block:
+            return np.asarray(levels), np.empty((0, 8193))
+        # One-second hops give independent placements of the same vocal phrase
+        # inside the two-second analysis window. Limit cost on long songs.
+        positions = np.arange(0, source.frames - block + 1, rate, dtype=np.int64)
+        if len(positions) > 128:
+            positions = positions[np.linspace(0, len(positions) - 1, 128).astype(int)]
+        for position in positions:
+            _check_cancel(cancel)
+            source.seek(int(position))
+            samples = source.read(block, dtype="float32", always_2d=True)[:, :2]
+            if len(samples) != block:
+                continue
+            energy = float(np.mean(samples.astype(np.float64) ** 2))
+            energies.append(energy)
+            cepstra.append(_cepstrum(samples, rate))
     if not energies:
         return np.asarray(levels), np.empty((0, 8193))
     active = np.asarray(energies) > max(1e-8, float(np.percentile(energies, 75)) / 100)

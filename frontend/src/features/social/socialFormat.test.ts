@@ -1,3 +1,9 @@
+import { addMessages, setLocale } from '@neo-ui-kit/react';
+import { ru } from '../../providers/localization/messages.ru';
+
+addMessages('ru', ru);
+setLocale('ru');
+
 import { describe, expect, it } from 'vitest';
 import type { SocialPerson } from '../../contracts/social';
 import { durationText, presenceText, since } from './socialFormat';

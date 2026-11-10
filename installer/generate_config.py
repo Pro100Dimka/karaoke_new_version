@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
 import sys
 from pathlib import Path
-
-ROOT = Path(__file__).resolve().parents[1]
 
 LANGUAGE_FILES = {
     "en": "Default.isl",
@@ -17,11 +14,8 @@ LANGUAGE_FILES = {
 
 
 def main() -> None:
-    languages = json.loads(
-        (ROOT / "frontend/src/i18n/languages.json").read_text(encoding="utf-8")
-    )
     lines = ["[Languages]"]
-    for locale in languages:
+    for locale in LANGUAGE_FILES:
         lines.append(
             f'Name: "{locale}"; MessagesFile: "compiler:{LANGUAGE_FILES[locale]}"'
         )

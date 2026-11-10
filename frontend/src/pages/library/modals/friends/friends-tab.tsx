@@ -41,7 +41,7 @@ export const FriendsList = observer(({ inbox }: { inbox: OnlineInbox }) => {
       body: tr(`social.removeFriendConfirm`, { name: friend.displayName }),
       tone: 'warning',
       actions: [
-        { id: 'cancel', label: tr(`social.cancel`) },
+        { id: 'cancel', label: tr(`cancel`) },
         {
           id: 'remove',
           label: tr(`social.removeFriend`),

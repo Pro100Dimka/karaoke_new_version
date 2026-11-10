@@ -93,15 +93,12 @@ export const VirtualGrid = observer(
         const probe = grid.firstElementChild?.firstElementChild;
         const card = probe?.firstElementChild;
         if (!probe || !card) return;
+        const width = probe.getBoundingClientRect().width;
+        const cardWidth = card.getBoundingClientRect().width;
+        if (width <= 0 || cardWidth <= 0) return;
         const gap = parseFloat(getComputedStyle(probe).columnGap) || 0;
         Object.assign(layout, {
-          columns: Math.max(
-            1,
-            Math.round(
-              (probe.getBoundingClientRect().width + gap) /
-                (card.getBoundingClientRect().width + gap),
-            ),
-          ),
+          columns: Math.max(1, Math.round((width + gap) / (cardWidth + gap))),
           margin:
             grid.getBoundingClientRect().top -
             scroll.getBoundingClientRect().top +

@@ -65,7 +65,7 @@ export const RoomHistory = observer(() => {
         <IconButton
           size="sm"
           icon="check"
-          label={tr('requestPending')}
+          label={tr('social.requestPending')}
           disabled
         />
       );
@@ -85,7 +85,7 @@ export const RoomHistory = observer(() => {
   if (!stays)
     return <ProgressBar indeterminate label={tr('friendsTabHistory')} />;
   if (stays.length === 0)
-    return <Typography tone="muted">{tr('roomHistoryEmpty')}</Typography>;
+    return <Typography tone="muted">{tr('social.roomHistoryEmpty')}</Typography>;
   return (
     <ol className="roomStays">
       {stays.map((stay) => (
@@ -98,12 +98,12 @@ export const RoomHistory = observer(() => {
           </Typography>
           <Typography variant="body-sm" tone="muted">
             {stay.leftAt
-              ? tr('historySpent', { duration: durationText(stay.seconds) })
-              : tr('historyStillHere')}
+              ? tr('social.historySpent', { duration: durationText(stay.seconds) })
+              : tr('social.historyStillHere')}
           </Typography>
           {stay.people.length === 0 ? (
             <Typography variant="body-sm" tone="muted">
-              {tr('historyAlone')}
+              {tr('social.historyAlone')}
             </Typography>
           ) : (
             <ul className="personList">
@@ -113,7 +113,7 @@ export const RoomHistory = observer(() => {
                   accountId={item.person?.accountId}
                   avatarVersion={item.person?.avatarVersion}
                   name={item.person?.displayName || item.displayName}
-                  detail={item.person ? undefined : tr('historyUnknownPerson')}
+                  detail={item.person ? undefined : tr('social.historyUnknownPerson')}
                   actions={personActions(item)}
                 />
               ))}
