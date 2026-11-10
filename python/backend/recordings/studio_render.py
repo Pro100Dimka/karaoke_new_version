@@ -100,8 +100,44 @@ class MasterRender:
             self._write_balanced()
             self._unmask()
             self._deliver()
-            from backend.recordings.studio_mix_audit import audit_mix
-            self.processing["postMixAudit"] = audit_mix(self.balanced, self.backing, self.target)
+            from backend.recordings.studio_mix_audit import (
+                audit_mix, reference_voice_band_balance,
+            )
+            self.processing["postMixAudit"] = audit_mix(
+                self.balanced, self.backing, self.target,
+                vocal_gain_db=self.voice_gain_db,
+            )
+            # Closed-loop correction: compare the delivered stem balance with the
+            # original song, not a hardcoded target. One bounded retry prevents
+            # runaway feedback and leaves the accompaniment unchanged.
+            target_band = reference_voice_band_balance(
+                self.reference_vocal, self.original_instrumental,
+            )
+            audit = self.processing["postMixAudit"]
+            if target_band is not None and audit.get("status") == "measured":
+                current_band = float(audit["voiceBandVocalToBackingMedianDb"])
+                error_db = target_band - current_band
+                # Safety bound, not a target. Ignore small metering differences.
+                correction_db = float(np.clip(error_db, -3.0, 3.0))
+                if abs(error_db) > 1.0 and abs(correction_db) > 0.0:
+                    self.voice_gain_db += correction_db
+                    self._deliver()
+                    self.processing["postMixAudit"] = audit_mix(
+                        self.balanced, self.backing, self.target,
+                        vocal_gain_db=self.voice_gain_db,
+                    )
+                self.processing["postMixCalibration"] = {
+                    "referenceVoiceBandDb": round(target_band, 2),
+                    "beforeVoiceBandDb": round(current_band, 2),
+                    "correctionDb": round(correction_db if abs(error_db) > 1.0 else 0.0, 2),
+                    "afterVoiceBandDb": self.processing["postMixAudit"].get(
+                        "voiceBandVocalToBackingMedianDb"),
+                    "method": "reference-measured-one-pass",
+                }
+            else:
+                self.processing["postMixCalibration"] = {
+                    "status": "skipped-insufficient-reference-data",
+                }
             self.processing["qualityControl"] = inspect_master(
                 self.target, expected_frames=self.info.frames,
                 expected_rate=self.info.samplerate, expected_channels=self.output_channels,
@@ -280,19 +316,19 @@ class MasterRender:
                 offset += len(samples)
 
     def _unmask(self) -> None:
-        if self.process_voice:
-            # Masking is an acoustic property, not a reference-timeline property.
-            # Only use locally measured voice activity when alignment is uncertain.
-            active = self.reliable if self.reliable.any() else self._voice_activity()
-            unmasked = self.work / "unmasked-backing.wav"
-            self.processing["spectralBalance"] = self.renderer._unmask_backing(
-                self.backing,
-                self.balanced,
-                unmasked,
-                active,
-                self.cancel,
-            )
-            self.backing = unmasked
+        # Masking depends on the actual vocal and backing, not on whether the
+        # source stem was dry or already processed.  Preserve the reference-
+        # informed spectral targets implemented by the existing renderer.
+        active = self.reliable if self.reliable.any() else self._voice_activity()
+        unmasked = self.work / "unmasked-backing.wav"
+        self.processing["spectralBalance"] = self.renderer._unmask_backing(
+            self.backing,
+            self.balanced,
+            unmasked,
+            active,
+            self.cancel,
+        )
+        self.backing = unmasked
 
     def _voice_activity(self) -> NDArray[np.bool_]:
         levels = self.voice_db

@@ -14,6 +14,12 @@ class ProcessingBackend(StrEnum):
     KAGGLE = "Kaggle"
 
 
+def room_server_url(host: str = "130.61.169.61", port: str | None = None) -> str:
+    local = host in {"127.0.0.1", "localhost", "[::1]"}
+    protocol = "http" if local else "https"
+    return f"{protocol}://{host}:{port or ('8081' if local else '443')}"
+
+
 def is_secure_kaggle_url(url: str) -> bool:
     try:
         parsed = urlsplit(url)

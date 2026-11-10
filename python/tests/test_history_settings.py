@@ -243,7 +243,7 @@ def test_kaggle_account_token_is_migrated_and_kept_separate_from_notebook_token(
     assert deployed["notebook_slug"].startswith("ad-voice-gpu-")
     assert len(deployed["notebook_slug"]) > len("ad-voice-gpu-")
     assert deployed["notebook_ready"] == "yes"
-    assert deployed["discovery_url"] == "http://130.61.169.61:8081"
+    assert deployed["discovery_url"] == "https://130.61.169.61:443"
     settings = client.get("/settings").json()
     assert settings["kaggleConfigured"] is True
     assert settings["kaggleUrl"] == "https://www.kaggle.com/code/singer/ad-voice-gpu"

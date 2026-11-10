@@ -34,15 +34,29 @@ class RecoverTransactions:
         return recovered
 
     def _recover(self, entry: RecoveryEntry) -> bool:
-        if entry.operation in {RecoveryOperation.PROJECT_PUBLISH, RecoveryOperation.PACKAGE_IMPORT}:
-            return self._project_publication(entry)
-        if entry.operation is RecoveryOperation.IMPORT_SONG:
-            return self._song_import(entry)
-        if entry.operation is RecoveryOperation.SONG_DELETE:
-            return self._song_delete(entry)
-        if entry.operation is RecoveryOperation.RECORDING_REGISTER:
-            return self._recording_import(entry)
-        return False
+        handlers = {
+            RecoveryOperation.PROJECT_PUBLISH: self._project_publication,
+            RecoveryOperation.PACKAGE_IMPORT: self._project_publication,
+            RecoveryOperation.IMPORT_SONG: self._song_import,
+            RecoveryOperation.SONG_DELETE: self._song_delete,
+            RecoveryOperation.RECORDING_REGISTER: self._recording_import,
+            RecoveryOperation.RECORDING_DELETE: self._recording_delete,
+        }
+        handler = handlers.get(entry.operation)
+        return handler(entry) if handler else False
+
+    def _recording_delete(self, entry: RecoveryEntry) -> bool:
+        recording_id = _text(entry, "recordingId")
+        path = Path(_text(entry, "filePath"))
+        quarantine = self._recordings.quarantine_path(recording_id, path)
+        with self._uow.create() as transaction:
+            recording = transaction.recordings.get(recording_id)
+        if quarantine.parent.exists():
+            if recording is None:
+                self._recordings.finalize_quarantine(quarantine)
+            else:
+                self._recordings.restore_quarantine(quarantine, path)
+        return True
 
     def _project_publication(self, entry: RecoveryEntry) -> bool:
         song_id = _text(entry, "songId")

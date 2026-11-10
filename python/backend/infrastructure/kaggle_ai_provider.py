@@ -35,7 +35,7 @@ from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
-from backend.settings.domain import BackendSettings, is_secure_kaggle_url
+from backend.settings.domain import BackendSettings, is_secure_kaggle_url, room_server_url
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
@@ -50,8 +50,8 @@ def _room_server_base_url() -> str:
     host = os.getenv("AD_VOICE_ROOM_SERVER_HOST")
     port = os.getenv("AD_VOICE_ROOM_SERVER_PORT")
     if host or port:
-        return f"http://{host or '130.61.169.61'}:{port or '8081'}"
-    return os.getenv("AD_VOICE_ROOM_SERVER") or "http://130.61.169.61:8081"
+        return room_server_url(host or "130.61.169.61", port)
+    return os.getenv("AD_VOICE_ROOM_SERVER") or room_server_url()
 
 
 class KaggleAiProvider(AiProvider):
@@ -309,6 +309,8 @@ class KaggleAiProvider(AiProvider):
             self._startup_lock.release()
 
     def _discover_url(self, token: str) -> str | None:
+        if not is_secure_kaggle_url(self._discovery_base_url):
+            return None
         try:
             with httpx.Client(
                 transport=self._discovery_transport,

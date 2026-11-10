@@ -50,7 +50,7 @@ def build_recording_cases(
         GetRecording(runtime.database),
         ListRecordings(runtime.database),
         UpdateRecordingName(runtime.database),
-        DeleteRecording(runtime.database, storage),
+        DeleteRecording(runtime.database, storage, project.journal),
         analysis,
         ListRecordingAnalyses(runtime.database),
         studio_master,

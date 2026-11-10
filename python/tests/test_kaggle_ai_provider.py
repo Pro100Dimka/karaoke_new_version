@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 import threading
 from pathlib import Path
 
@@ -801,3 +800,16 @@ def test_notebook_web_page_is_not_used_as_processing_endpoint(monkeypatch):
     with pytest.raises(DependencyError) as error:
         provider.validate_configuration()
     assert error.value.code == "KaggleNotRunning"
+
+
+def test_discovery_does_not_send_endpoint_key_over_public_http() -> None:
+    requests = []
+    provider = KaggleAiProvider(
+        lambda: BackendSettings(2),
+        discovery_base_url="http://rooms.example:8081",
+        discovery_transport=httpx.MockTransport(
+            lambda request: requests.append(request) or httpx.Response(404)
+        ),
+    )
+    assert provider._discover_url("test-token") is None
+    assert requests == []

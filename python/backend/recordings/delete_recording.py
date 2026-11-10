@@ -4,12 +4,17 @@ from backend.domain_errors import NotFoundError, ConflictError
 from backend.persistence import UnitOfWorkFactory
 from backend.recordings.domain import Recording, validate_recording_id
 from backend.recordings.ports import RecordingStorage
+from backend.recovery.domain import RecoveryOperation
+from backend.recovery.ports import RecoveryJournal
 
 
 class DeleteRecording:
-    def __init__(self, uow: UnitOfWorkFactory, storage: RecordingStorage) -> None:
+    def __init__(
+        self, uow: UnitOfWorkFactory, storage: RecordingStorage, journal: RecoveryJournal
+    ) -> None:
         self._uow = uow
         self._storage = storage
+        self._journal = journal
 
     def execute(self, recording_id: str) -> None:
         recording = self._load(recording_id)
@@ -21,6 +26,10 @@ class DeleteRecording:
             raise ConflictError(
                 "RecordingPreparing", "Wait for recording preparation before deletion"
             )
+        entry = self._journal.begin(
+            RecoveryOperation.RECORDING_DELETE,
+            {"recordingId": recording_id, "filePath": str(recording.file_path)},
+        )
         quarantine = self._storage.quarantine(recording_id, recording.file_path)
         committed = False
         try:
@@ -31,7 +40,9 @@ class DeleteRecording:
         finally:
             if not committed:
                 self._storage.restore_quarantine(quarantine, recording.file_path)
+                self._journal.complete(entry.transaction_id)
         self._storage.finalize_quarantine(quarantine)
+        self._journal.complete(entry.transaction_id)
 
     def _load(self, recording_id: str) -> Recording | None:
         validate_recording_id(recording_id)

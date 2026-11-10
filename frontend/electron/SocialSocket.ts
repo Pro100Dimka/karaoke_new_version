@@ -1,4 +1,5 @@
 import { deviceSecret } from './SocialIdentity';
+import { requireSecureRoomUrl } from './RoomIdentity';
 
 export interface SocialPresence {
   displayName: string;
@@ -33,6 +34,12 @@ export const createSocialSocket = (
 
   const connect = async (): Promise<void> => {
     retry = undefined;
+    try {
+      requireSecureRoomUrl(url);
+    } catch {
+      deliver({ type: 'offline' });
+      return;
+    }
     const secret = await deviceSecret();
     if (stopped) return;
     const opened = new WebSocket(url);

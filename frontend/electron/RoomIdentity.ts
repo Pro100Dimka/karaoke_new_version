@@ -27,9 +27,18 @@ export const roomParticipantIdFor = (roomKeyValue: string): string =>
 export const roomParticipantId = async (): Promise<string> =>
   roomParticipantIdFor(await roomKey());
 
+export const requireSecureRoomUrl = (value: string): void => {
+  const url = new URL(value);
+  const secure = ['https:', 'wss:'].includes(url.protocol);
+  const local = ['127.0.0.1', '[::1]', 'localhost'].includes(url.hostname);
+  if (!secure && !(local && ['http:', 'ws:'].includes(url.protocol)))
+    throw new Error('Room server credentials require HTTPS');
+};
+
 export const withRoomKey = async (
-  headers: Record<string, string> = {},
-): Promise<Record<string, string>> => ({
-  ...headers,
-  [roomKeyHeader]: await roomKey(),
-});
+  headers: Record<string, string>,
+  url: string,
+): Promise<Record<string, string>> => {
+  requireSecureRoomUrl(url);
+  return { ...headers, [roomKeyHeader]: await roomKey() };
+};

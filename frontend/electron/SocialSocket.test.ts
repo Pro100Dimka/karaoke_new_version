@@ -32,6 +32,16 @@ class FakeSocket extends EventTarget {
 }
 
 describe('friends socket', () => {
+  it('stays offline without breaking startup for an insecure server', async () => {
+    const { createSocialSocket } = await import('./SocialSocket');
+    const deliver = vi.fn();
+    const socket = createSocialSocket('ws://server/social/socket', deliver);
+    socket.start();
+    await Promise.resolve();
+    expect(FakeSocket.made).toHaveLength(0);
+    expect(deliver).toHaveBeenCalledWith({ type: 'offline' });
+    socket.stop();
+  });
   beforeEach(() => {
     FakeSocket.made = [];
     vi.stubGlobal('WebSocket', FakeSocket);
@@ -45,7 +55,7 @@ describe('friends socket', () => {
   it('says who it is on connecting, sends its presence only when it changes, and passes pushes on', async () => {
     const { createSocialSocket } = await import('./SocialSocket');
     const delivered: unknown[] = [];
-    const socket = createSocialSocket('ws://server/social/socket', (message) =>
+    const socket = createSocialSocket('wss://server/social/socket', (message) =>
       delivered.push(message),
     );
     socket.setPresence({
@@ -86,7 +96,7 @@ describe('friends socket', () => {
   it('reports going offline and connects again with growing pauses, not by asking repeatedly', async () => {
     const { createSocialSocket } = await import('./SocialSocket');
     const delivered: unknown[] = [];
-    const socket = createSocialSocket('ws://server/social/socket', (message) =>
+    const socket = createSocialSocket('wss://server/social/socket', (message) =>
       delivered.push(message),
     );
     socket.start();
@@ -107,7 +117,7 @@ describe('friends socket', () => {
 
   it('waits until the server has applied presence before completing the update', async () => {
     const { createSocialSocket } = await import('./SocialSocket');
-    const socket = createSocialSocket('ws://server/social/socket', vi.fn());
+    const socket = createSocialSocket('wss://server/social/socket', vi.fn());
     socket.start();
     await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
     const [connection] = FakeSocket.made;

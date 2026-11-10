@@ -76,11 +76,15 @@ export const uploadRoomProject = async (
   try {
     const response = await fetch(projectUrl(base, roomId, songId, revision), {
       method: 'PUT',
-      headers: await withRoomKey({
-        'X-Participant-Id': participantId,
-        'Content-Type': 'application/zip',
-        'Content-Length': String(totalBytes),
-      }),
+      headers: await withRoomKey(
+        {
+          'X-Participant-Id': participantId,
+          'Content-Type': 'application/zip',
+          'Content-Length': String(totalBytes),
+        },
+        base,
+      ),
+      redirect: 'error',
       body: Readable.toWeb(meter) as BodyInit,
       signal,
       duplex: 'half',
@@ -109,7 +113,8 @@ export const downloadRoomProject = async (
   progress?: Progress,
 ): Promise<string> => {
   const response = await fetch(projectUrl(base, roomId, songId, revision), {
-    headers: await withRoomKey({ 'X-Participant-Id': participantId }),
+    headers: await withRoomKey({ 'X-Participant-Id': participantId }, base),
+    redirect: 'error',
     signal,
   });
   if (!response.ok || !response.body) {

@@ -13,7 +13,7 @@ from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
 from backend.models.domain import ComputeMode
-from backend.settings.domain import BackendSettings, ProcessingBackend
+from backend.settings.domain import BackendSettings, ProcessingBackend, room_server_url
 from backend.settings.environment import EnvironmentEntry, default_environment_store
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
 from backend.infrastructure.kaggle_notebook_automation import (
@@ -207,7 +207,7 @@ def _deploy_kaggle_notebook(app: ApplicationContainer, restore: bool = False) ->
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
     deployment = KaggleNotebookAutomation(account_token=account_token).deploy(
         token,
-        f"http://{host}:{port}",
+        room_server_url(host, port),
         _kaggle_notebook_slug(app),
         recovery_directory=app.roots.app / "kaggle-backups" if restore else None,
     )

@@ -124,6 +124,8 @@ class MasterRenderer(Protocol):
         target: Path,
         active: NDArray[np.bool_],
         cancel: threading.Event,
+        reference_vocal: Path | None = None,
+        reference_backing: Path | None = None,
     ) -> dict[str, object]: ...
 
     def _reference_offset(

@@ -17,13 +17,43 @@ def _repeated_output_channels(path: Path, cancel: threading.Event) -> bool:
     return True
 
 
+def _reference_band_targets(reference_vocal: Path, reference_backing: Path, centers: np.ndarray, cancel: threading.Event) -> np.ndarray | None:
+    """Median original vocal-to-backing power per octave, measured on vocal-active blocks."""
+    ratios = []
+    with sf.SoundFile(reference_vocal) as voice, sf.SoundFile(reference_backing) as music:
+        if voice.samplerate != music.samplerate or voice.frames != music.frames:
+            return None
+        size = 4096
+        frequencies = np.fft.rfftfreq(size, 1 / voice.samplerate)
+        bands = [(frequencies >= c / np.sqrt(2)) & (frequencies < c * np.sqrt(2)) for c in centers]
+        for vb in voice.blocks(blocksize=size, always_2d=True):
+            _check_cancel(cancel)
+            mb = music.read(len(vb), always_2d=True)
+            if len(vb) < size:
+                continue
+            v, m = (np.mean(x, axis=1) * np.hanning(size) for x in (vb, mb))
+            vp, mp = (np.abs(np.fft.rfft(x)) ** 2 for x in (v, m))
+            if np.sum(vp) < 1e-8:
+                continue
+            ratios.append([10 * np.log10((np.sum(vp[band]) + 1e-12) / (np.sum(mp[band]) + 1e-12)) for band in bands])
+    if len(ratios) < 3:
+        return None
+    values = np.asarray(ratios)
+    active = np.sum(np.maximum(values, -60), axis=1) >= np.percentile(np.sum(np.maximum(values, -60), axis=1), 40)
+    return np.median(values[active], axis=0)
+
+
 def _unmask_backing(
     backing: Path,
     voice: Path,
     target: Path,
     active: NDArray[np.bool_],
     cancel: threading.Event,
+    reference_vocal: Path | None = None,
+    reference_backing: Path | None = None,
 ) -> dict[str, object]:
+    targets = (_reference_band_targets(reference_vocal, reference_backing, np.array([250., 500., 1000., 2000., 4000.]), cancel)
+               if reference_vocal is not None and reference_backing is not None else None)
     with (
         sf.SoundFile(backing) as music,
         sf.SoundFile(voice) as singer,
@@ -31,7 +61,7 @@ def _unmask_backing(
             target, "w", samplerate=music.samplerate, channels=music.channels, subtype="FLOAT"
         ) as output,
     ):
-        return _SpectralUnmasking(music, singer, output, active, cancel).run()
+        return _SpectralUnmasking(music, singer, output, active, cancel, targets).run()
 
 
 class _SpectralUnmasking:
@@ -42,7 +72,9 @@ class _SpectralUnmasking:
         output: sf.SoundFile,
         active: NDArray[np.bool_],
         cancel: threading.Event,
+        reference_targets: np.ndarray | None = None,
     ) -> None:
+        self.reference_targets = reference_targets
         self.music, self.singer, self.output = music, singer, output
         self.active, self.cancel = active, cancel
         # Weighted overlap-add retains the sample timeline and bounds memory independently of
@@ -83,6 +115,7 @@ class _SpectralUnmasking:
             "maxReductionDb": self.maximum.tolist(),
             "affectedFraction": self.affected / max(self.windows, 1),
             "limitDb": 1.5,
+            "referenceBandTargetsDb": self.reference_targets.tolist() if self.reference_targets is not None else None,
             "attackMs": 80,
             "releaseMs": 250,
         }
@@ -117,10 +150,13 @@ class _SpectralUnmasking:
             vocal = np.sum(voice_power[:, selected], axis=1)
             instrumental = np.sum(music_power[:, selected], axis=1)
             overlap = 10 * np.log10(np.maximum(instrumental, 1e-20) / np.maximum(vocal, 1e-20))
+            if self.reference_targets is None:
+                reduction = np.clip((overlap - 3) * 0.2, 0, 1.5)
+            else:
+                current_prominence = -overlap
+                reduction = np.clip(self.reference_targets[band] - current_prominence, 0, 1.5)
             desired[:, band] = np.where(
-                eligible & (vocal / total_voice >= 0.01),
-                np.clip((overlap - 3) * 0.2, 0, 1.5),
-                0,
+                eligible & (vocal / total_voice >= 0.01), reduction, 0,
             )
         return desired
 

@@ -152,7 +152,8 @@ vi.mock('./WindowState', () => ({
 vi.mock('./AudioServiceTransport', () => ({
   sendAudioRequest: mocks.sendAudioRequest,
 }));
-vi.mock('./RoomIdentity', () => ({
+vi.mock('./RoomIdentity', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./RoomIdentity')>()),
   roomParticipantId: async () => 'participant',
   withRoomKey: async (headers: object) => headers,
 }));

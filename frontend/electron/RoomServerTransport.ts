@@ -30,10 +30,15 @@ const roomServerHost =
   process.env.AD_VOICE_ROOM_SERVER_HOST ??
   legacyRoomServerUrl?.hostname ??
   '130.61.169.61';
-const roomServerPort =
-  process.env.AD_VOICE_ROOM_SERVER_PORT ?? legacyRoomServerUrl?.port ?? '8081';
+const localRoomServer = ['127.0.0.1', '[::1]', 'localhost'].includes(
+  roomServerHost,
+);
 const roomServerProtocol =
-  legacyRoomServerUrl?.protocol === 'https:' ? 'https:' : 'http:';
+  legacyRoomServerUrl?.protocol ?? (localRoomServer ? 'http:' : 'https:');
+const roomServerPort =
+  process.env.AD_VOICE_ROOM_SERVER_PORT ||
+  legacyRoomServerUrl?.port ||
+  (localRoomServer ? '8081' : '443');
 export const roomServerApiBase = `${roomServerProtocol}//${roomServerHost}:${roomServerPort}`;
 const roomServerRelayPort = Number(
   process.env.AD_VOICE_ROOM_SERVER_RELAY_PORT ?? '40000',
@@ -68,10 +73,14 @@ export const roomServerRequest = async (
     const response = await fetch(`${roomServerApiBase}${request.path}`, {
       method: request.method,
       // Every room request carries this profile's room key: the server accepts a participant id only from its owner.
-      headers: await withRoomKey({
-        'Content-Type': 'application/json',
-        ...request.headers,
-      }),
+      headers: await withRoomKey(
+        {
+          'Content-Type': 'application/json',
+          ...request.headers,
+        },
+        roomServerApiBase,
+      ),
+      redirect: 'error',
       body:
         request.body === undefined ? undefined : JSON.stringify(request.body),
       signal: controller.signal,
