@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
-import threading
 from collections.abc import Callable
 
 from backend.ai.domain import AiCapability

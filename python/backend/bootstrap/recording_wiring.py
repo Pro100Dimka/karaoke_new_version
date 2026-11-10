@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from functools import partial
-import os
 import threading
 from backend.infrastructure.local_projects import LocalProjectStorage
-from backend.recordings.domain import Recording, recording_adjustments
+from backend.recordings.domain import Recording
 
 from backend.analysis.queries import ListRecordingAnalyses
 from backend.analysis.start_analysis import StartRecordingAnalysis
@@ -23,7 +22,7 @@ from backend.recordings.queries import GetRecording, ListRecordings
 from backend.recordings.register_recording import RegisterRecording
 from backend.recordings.reconcile import ReconcileRecordings
 from backend.recordings.start_studio_master import PublishStudioMaster, StartStudioMaster
-from backend.recordings.studio_master import FfmpegStudioMasterRenderer, recording_stems
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 from backend.recordings.update_recording import UpdateRecordingName
 from backend.settings.queries import get_settings
 

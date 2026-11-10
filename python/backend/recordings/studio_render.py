@@ -100,6 +100,8 @@ class MasterRender:
             self._write_balanced()
             self._unmask()
             self._deliver()
+            from backend.recordings.studio_mix_audit import audit_mix
+            self.processing["postMixAudit"] = audit_mix(self.balanced, self.backing, self.target)
             self.processing["qualityControl"] = inspect_master(
                 self.target, expected_frames=self.info.frames,
                 expected_rate=self.info.samplerate, expected_channels=self.output_channels,

@@ -219,21 +219,18 @@ def test_cancelled_kaggle_call_never_submits_remote_work(tmp_path: Path) -> None
 
 
 @pytest.mark.parametrize("process_cancelled", [False, True])
-def test_kaggle_cancellation_during_startup_skips_polling_and_submission(
-    monkeypatch, process_cancelled
-) -> None:
+def test_offline_processing_never_invokes_notebook_start(process_cancelled):
     cancel = threading.Event()
-    attempts = 0
+    attempts = []
+    starts = []
 
     class OfflineProvider(KaggleAiProvider):
         def _available_client(self, *args):
-            nonlocal attempts
-            attempts += 1
-            if attempts > 2:
-                raise AssertionError("must not poll after startup cancellation")
+            attempts.append(True)
             raise DependencyError("Offline", "not running")
 
     def start(_cancel):
+        starts.append(True)
         cancel.set()
         if process_cancelled:
             raise DomainError("ProcessCancelled", "External process was cancelled", 499)
@@ -244,63 +241,33 @@ def test_kaggle_cancellation_during_startup_skips_polling_and_submission(
         ),
         start_notebook=start,
     )
-    monkeypatch.setattr(
-        kaggle_provider_module.time, "sleep", lambda _seconds: pytest.fail("uncancellable sleep")
+    with pytest.raises(DependencyError) as raised:
+        provider._invoke("/transcribe", cancel)
+    assert raised.value.code == "Offline"
+    assert attempts == [True]
+    assert starts == []
+    assert not cancel.is_set()
+
+
+@pytest.mark.parametrize("connection_failed", [False, True])
+def test_cancellation_during_connection_prevents_submission(connection_failed):
+    cancel = threading.Event()
+    client = _Client(Path("unused-instrumental.wav"), Path("unused-vocal.wav"))
+
+    class CancellingProvider(KaggleAiProvider):
+        def _available_client(self, *args):
+            cancel.set()
+            if connection_failed:
+                raise DependencyError("Offline", "not running")
+            return client
+
+    provider = CancellingProvider(
+        lambda: BackendSettings(2, kaggle_token="test"),
     )
-    with pytest.raises(DomainError, match="cancel") as raised:
+    with pytest.raises(DomainError) as raised:
         provider._invoke("/transcribe", cancel)
     assert raised.value.code == "JobCancelled"
-
-
-@pytest.mark.parametrize("waiting_for_lock", [False, True])
-def test_kaggle_startup_waits_release_promptly_when_cancelled(monkeypatch, waiting_for_lock):
-    entered, done = threading.Event(), threading.Event()
-    errors = []
-
-    class ObservedCancellation(threading.Event):
-        def wait(self, timeout=None):
-            if timeout == 30:
-                entered.set()
-            return super().wait(timeout)
-
-    cancel = ObservedCancellation()
-
-    class OfflineProvider(KaggleAiProvider):
-        def _available_client(self, *args):
-            if waiting_for_lock:
-                entered.set()
-            raise DependencyError("Offline", "not running")
-
-    provider = OfflineProvider(
-        lambda: BackendSettings(
-            2, processing_backend=ProcessingBackend.KAGGLE, kaggle_token="test"
-        ),
-        start_notebook=lambda _cancel: None,
-    )
-    monkeypatch.setattr(kaggle_provider_module, "_STARTUP_POLL_SECONDS", 30)
-
-    def invoke():
-        try:
-            provider._invoke("/transcribe", cancel)
-        except DomainError as error:
-            errors.append(error.code)
-        finally:
-            done.set()
-
-    if waiting_for_lock:
-        provider._startup_lock.acquire()
-    worker = threading.Thread(target=invoke)
-    worker.start()
-    try:
-        assert entered.wait(1)
-        cancel.set()
-        assert done.wait(1), "cancel must interrupt lock or long polling wait"
-    finally:
-        if waiting_for_lock:
-            provider._startup_lock.release()
-        cancel.set()
-        worker.join(1)
-    assert errors == ["JobCancelled"]
+    assert client.calls == []
 
 
 def test_remote_session_reuses_uploaded_vocal_for_later_stages(tmp_path: Path) -> None:
@@ -761,7 +728,7 @@ def test_current_kaggle_share_url_is_discovered_without_rewriting_settings() -> 
     assert requested_headers == ["eacb9ab8f6db03232e40f809d83464809bdfd41203c70051cc4b42e380732afa"]
 
 
-def test_processing_a_song_starts_an_idle_kaggle_notebook_automatically() -> None:
+def test_processing_a_song_requires_explicit_notebook_start() -> None:
     starts: list[str] = []
 
     class AutoStartingProvider(KaggleAiProvider):
@@ -787,8 +754,10 @@ def test_processing_a_song_starts_an_idle_kaggle_notebook_automatically() -> Non
         ),
     )
 
-    assert provider._client() is not None
-    assert starts == ["started"]
+    with pytest.raises(DependencyError) as raised:
+        provider._client()
+    assert raised.value.code == "KaggleNotRunning"
+    assert starts == []
 
 
 def test_configuration_check_does_not_start_an_idle_kaggle_notebook() -> None:

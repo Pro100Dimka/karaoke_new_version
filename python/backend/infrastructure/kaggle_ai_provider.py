@@ -35,7 +35,7 @@ from backend.lyrics.ports import LyricLineTiming
 from backend.lyrics.codec import decode_rhythm
 from backend.processing.compute_policy import ExecutionContext
 from backend.serialization import dumps, loads_object
-from backend.settings.domain import BackendSettings, ProcessingBackend, is_secure_kaggle_url
+from backend.settings.domain import BackendSettings, is_secure_kaggle_url
 from backend.songs.domain import Language
 
 _PROVIDER_ID = "kaggle-p100"
