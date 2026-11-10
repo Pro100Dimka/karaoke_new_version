@@ -6,8 +6,7 @@ import { useEffect } from 'react';
 import { roomSession } from './application';
 import { useNotify, type NotificationIntent } from './notifications';
 import type { SocialNotice } from '../contracts/social';
-import type { MessageKey } from '../i18n/messages';
-import { ru } from '../i18n/messages.ru';
+import type { MessageKey } from './localization/messages';
 import { participantId } from '../services/roomMappers';
 import { socialClient } from '../services/socialClient';
 import { RoomInvitationCoordinator } from '../application/social/RoomInvitationCoordinator';
@@ -61,7 +60,7 @@ export const SocialConnection = observer(() => {
         if (next.type !== 'inbox') return;
         for (const notice of next.notices) {
           const [key, intent] = noticeTexts[notice.kind];
-          notify(tr(ru[key], { name: notice.person.displayName }), intent);
+          notify(tr(key, { name: notice.person.displayName }), intent);
         }
       }),
     [notify],

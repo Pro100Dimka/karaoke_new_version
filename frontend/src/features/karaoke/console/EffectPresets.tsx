@@ -8,7 +8,6 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { ru } from '../../../i18n/messages.ru';
 import { effectPresets, type EffectPreset } from './voiceEffects';
 
 interface EffectPresetsProps {
@@ -38,7 +37,7 @@ export const EffectPresets = memo(
           size="xs"
           round
           icon="sliders"
-          label={tr(ru.consoleMode)}
+          label={tr('consoleMode')}
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => onOpenChange(!open)}
@@ -50,7 +49,7 @@ export const EffectPresets = memo(
               onOpenChange={onOpenChange}
               anchorRef={anchor}
               align="end"
-              label={tr(ru.consoleMode)}
+              label={tr('consoleMode')}
             >
               <Grid className="consolePresets" columns={2} gap={2}>
                 {effectPresets.map((preset) => (
@@ -64,7 +63,7 @@ export const EffectPresets = memo(
                       onOpenChange(false);
                     }}
                   >
-                    {preset.symbol} {tr(ru[preset.label])}
+                    {preset.symbol} {tr((preset.label))}
                   </ToggleButton>
                 ))}
               </Grid>

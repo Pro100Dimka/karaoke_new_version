@@ -12,7 +12,6 @@ import {
 
 import { routes } from '../shared/routes';
 import { useRef, useState } from 'react';
-import { ru } from '../i18n/messages.ru';
 import { store } from '../providers/store';
 import { toggleRadio, setRadioVolume } from '../providers/radio';
 import { useRadioTrack } from './desktop/shellBus';
@@ -29,7 +28,7 @@ export const FloatingControls = observer(() => {
       size="lg"
       variant="ghost"
       icon="settings"
-      label={tr(ru.settings)}
+      label={tr('settings')}
       onClick={() => openSettings()}
     />
   );
@@ -37,7 +36,7 @@ export const FloatingControls = observer(() => {
   const [volumeOpen, setVolumeOpen] = useState(false);
 
   return (
-    <aside className="floatingControls" aria-label={tr(ru.settings)}>
+    <aside className="floatingControls" aria-label={tr('settings')}>
       <div
         onMouseEnter={() => radio.enabled && setVolumeOpen(true)}
         onMouseLeave={() => setVolumeOpen(false)}
@@ -47,7 +46,7 @@ export const FloatingControls = observer(() => {
           round
           size="lg"
           icon="radio"
-          label={tr(ru.radio)}
+          label={tr('radio')}
           aria-pressed={radio.enabled}
           variant={radio.enabled ? 'primary' : 'ghost'}
           disabled={!radio.canControl}
@@ -59,7 +58,7 @@ export const FloatingControls = observer(() => {
           anchorRef={radioAnchor}
           align="end"
           autoFocus={false}
-          label={tr(ru.radioVolume)}
+          label={tr('radioVolume')}
           className="radioPopover"
         >
           {track && (
@@ -71,7 +70,7 @@ export const FloatingControls = observer(() => {
           <div className="radioVolume">
             <Icon name="volume" />
             <Slider
-              label={tr(ru.radioVolume)}
+              label={tr('radioVolume')}
               min={0}
               max={100}
               value={radio.volume}

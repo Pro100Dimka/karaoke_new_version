@@ -15,7 +15,6 @@ import { pythonClient as catalog } from '../../../services/pythonClient';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
 import type { SongDto } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
 import { useGuardedAction } from './useGuardedAction';
 
 /** Confirmation shared by the card and song settings. */
@@ -33,11 +32,11 @@ export const useSongActions = (onDeleted?: () => void) => {
       // The count is informational; deletion is still confirmed explicitly.
     }
     const choice = await ask({
-      title: tr(ru.deleteSongTitle, { value: song.title }),
-      body: tr(ru.deleteSongBody, { count }),
+      title: tr('deleteSongTitle', { value: song.title }),
+      body: tr('deleteSongBody', { count }),
       actions: [
-        { id: 'cancel', label: tr(ru.cancel) },
-        { id: 'delete', label: tr(ru.deleteSong), appearance: 'primary' },
+        { id: 'cancel', label: tr('cancel') },
+        { id: 'delete', label: tr('deleteSong'), appearance: 'primary' },
       ],
     });
     if (choice !== 'delete') return;
@@ -45,7 +44,7 @@ export const useSongActions = (onDeleted?: () => void) => {
       await catalog.deleteSong(song.id);
       await refreshSongs(client);
       onDeleted?.();
-      notify(tr(ru.songDeleted), 'success');
+      notify(tr('songDeleted'), 'success');
     });
   };
 
@@ -75,15 +74,15 @@ export const useSongPlayback = ({
       .find((item) => item.id === tv.songId);
     if (song.id === tv.songId) return;
     const choice = await ask({
-      title: tr(ru.tvBusyTitle),
-      body: tr(ru.tvBusyBody, {
+      title: tr('tvBusyTitle'),
+      body: tr('tvBusyBody', {
         current: current?.title ?? '…',
         title: song.title,
       }),
       actions: [
-        { id: 'cancel', label: tr(ru.cancel) },
-        { id: 'next', label: tr(ru.tvQueueNext) },
-        { id: 'now', label: tr(ru.tvReplaceNow), appearance: 'primary' },
+        { id: 'cancel', label: tr('cancel') },
+        { id: 'next', label: tr('tvQueueNext') },
+        { id: 'now', label: tr('tvReplaceNow'), appearance: 'primary' },
       ],
     });
     if (processing.current || !['next', 'now'].includes(choice ?? '')) return;
@@ -93,7 +92,7 @@ export const useSongPlayback = ({
       choice === 'next' ? 'next' : 'now',
     );
     if (choice === 'next')
-      notify(tr(ru.tvQueued, { title: song.title }), 'success');
+      notify(tr('tvQueued', { title: song.title }), 'success');
   };
 
   const playSong = (song: SongDto, rehearsal = false) => {
@@ -108,7 +107,7 @@ export const useSongPlayback = ({
       return;
     }
     if (intent === 'wait-for-host') {
-      notify(tr(ru.errorRoomPermission), 'warning');
+      notify(tr('errorRoomPermission'), 'warning');
       return;
     }
     markPlayed(song.id);

@@ -24,8 +24,7 @@ import type {
   RecordingDto,
   SongDto,
 } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../i18n/messages';
-import { ru } from '../../../../i18n/messages.ru';
+import type { MessageKey } from '../../../../providers/localization/messages';
 import './analysis.css';
 import {
   analysisMetrics,
@@ -115,8 +114,8 @@ export const PerformanceAnalysisModal = ({
 
   const preparingPanel = (
     <Card border padding="sm" className="analysisPreparing">
-      <Loader animation="wave" size="lg" label={tr(ru.recordingPreparing)} />
-      <Typography tone="muted">{tr(ru.recordingPreparing)}</Typography>
+      <Loader animation="wave" size="lg" label={tr('recordingPreparing')} />
+      <Typography tone="muted">{tr('recordingPreparing')}</Typography>
     </Card>
   );
 
@@ -131,11 +130,11 @@ export const PerformanceAnalysisModal = ({
       icon="wave"
       title={
         <>
-          {tr(ru.performanceAnalysis)} :{' '}
+          {tr('performanceAnalysis')} :{' '}
           {song ? `${song.artist} — ${song.title}` : ''}
         </>
       }
-      closeLabel={tr(ru.closeDialog)}
+      closeLabel={tr('closeDialog')}
       cancelLabel={false}
       art={<Planet className="analysisPlanet" />}
     >
@@ -146,16 +145,16 @@ export const PerformanceAnalysisModal = ({
             {pending && (
               <>
                 <Typography role="status">
-                  {tr(ru[analysisStageLabel(pending.stage)])}
+                  {tr((analysisStageLabel(pending.stage)))}
                 </Typography>
                 <ProgressBar
-                  label={tr(ru[analysisStageLabel(pending.stage)])}
+                  label={tr((analysisStageLabel(pending.stage)))}
                   value={pending.progress}
                   indeterminate={pending.state === 'Queued'}
                 />
               </>
             )}
-            {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
+            {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
             {viewed?.fileStatus === 'PreparationFailed' && (
               <RecordingPlayer recording={viewed} />
             )}
@@ -167,7 +166,7 @@ export const PerformanceAnalysisModal = ({
                 onClick={() =>
                   pending.jobId && onCancelAnalysis?.(pending.jobId)
                 }
-                label={tr(ru.analysisCancel)}
+                label={tr('analysisCancel')}
               />
             )}
           </>
@@ -185,7 +184,7 @@ export const PerformanceAnalysisModal = ({
                     <Landscape className="analysisLandscape">
                       <div className="analysisVerdict">
                         <Typography variant="eyebrow" tone="accent">
-                          {tr(ru[gradeLabel(analysis.score)])}
+                          {tr((gradeLabel(analysis.score)))}
                         </Typography>
                         <Stack direction="row" gap={2} align="baseline">
                           <Typography
@@ -196,19 +195,19 @@ export const PerformanceAnalysisModal = ({
                             {analysis.score}
                           </Typography>
                           <Typography variant="caption" tone="muted">
-                            {tr(ru.analysisOverall)}
+                            {tr('analysisOverall')}
                           </Typography>
                         </Stack>
                         <Typography variant="label">
-                          {tr(ru.analysisRecommendation)}
+                          {tr('analysisRecommendation')}
                         </Typography>
                         <Typography variant="body-sm" tone="muted">
                           {tr(
-                            ru[
+                            (
                               analysis[practice.key] >= 100
                                 ? 'analysisPerfectAdvice'
                                 : practice.advice
-                            ],
+                            ),
                           )}
                         </Typography>
                       </div>
@@ -228,7 +227,7 @@ export const PerformanceAnalysisModal = ({
                         padding="sm"
                         level={4}
                         icon={metricIcons[metric.key]}
-                        title={tr(ru[metric.label])}
+                        title={tr((metric.label))}
                         className="analysisMetric"
                         actions={
                           <Typography as="strong" variant="h3">
@@ -237,11 +236,11 @@ export const PerformanceAnalysisModal = ({
                         }
                       >
                         <ProgressBar
-                          label={tr(ru[metric.label])}
+                          label={tr((metric.label))}
                           value={analysis[metric.key]}
                         />
                         <Typography variant="caption" tone="muted">
-                          {tr(ru[metric.description])}
+                          {tr((metric.description))}
                         </Typography>
                       </Card>
                     ))}
@@ -258,14 +257,14 @@ export const PerformanceAnalysisModal = ({
                       padding="sm"
                       level={4}
                       icon="mic"
-                      title={tr(ru.studioMasterSourceTitle)}
+                      title={tr('studioMasterSourceTitle')}
                       className="analysisOriginal"
                       actions={
                         <IconButton
                           size="sm"
                           variant="danger"
                           icon="trash"
-                          label={tr(ru.recordingDelete)}
+                          label={tr('recordingDelete')}
                           onClick={() => onDelete(viewed)}
                         />
                       }
@@ -279,13 +278,13 @@ export const PerformanceAnalysisModal = ({
                         padding="sm"
                         level={4}
                         icon="sparkle"
-                        title={tr(ru.studioMasterTitle)}
+                        title={tr('studioMasterTitle')}
                         description={tr(
-                          ru[
+                          (
                             master
                               ? 'studioMasterReadyDescription'
                               : 'studioMasterDescription'
-                          ],
+                          ),
                         )}
                         className={master ? 'analysisMaster' : 'analysisStudio'}
                         actions={
@@ -300,7 +299,7 @@ export const PerformanceAnalysisModal = ({
                                 size="sm"
                                 variant="danger"
                                 icon="trash"
-                                label={tr(ru.recordingDelete)}
+                                label={tr('recordingDelete')}
                                 onClick={() => onDelete(master)}
                               />
                             </>
@@ -312,11 +311,11 @@ export const PerformanceAnalysisModal = ({
                         ) : mastering ? (
                           <Stack gap={1}>
                             <ProgressBar
-                              label={tr(ru.studioMasterTitle)}
+                              label={tr('studioMasterTitle')}
                               value={mastering.progress}
                             />
                             <Typography variant="caption" tone="muted">
-                              {tr(ru.studioMasterProgressValue, {
+                              {tr('studioMasterProgressValue', {
                                 progress: mastering.progress,
                               })}
                             </Typography>
@@ -330,7 +329,7 @@ export const PerformanceAnalysisModal = ({
                                 viewed.fileStatus !== 'Ready',
                             )}
                             onClick={() => onCreateStudioMaster(viewed)}
-                            label={tr(ru.studioMasterCreate)}
+                            label={tr('studioMasterCreate')}
                           />
                         )}
                       </Card>

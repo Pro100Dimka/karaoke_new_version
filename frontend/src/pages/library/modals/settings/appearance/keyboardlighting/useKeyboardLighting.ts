@@ -2,7 +2,6 @@ import { store } from '../../../../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect, useRef, useState } from 'react';
 import { useNotify } from '../../../../../../providers/notifications';
-import { ru } from '../../../../../../i18n/messages.ru';
 import { keyboardLightingClient as service } from '../../../../../../services/keyboardLightingClient';
 
 /** Discover devices while this view is open and apply edits to the saved lighting settings. */
@@ -47,7 +46,7 @@ export const useKeyboardLighting = (enabled = true) => {
       .apply(next, preferences.theme)
       .catch((error: unknown) =>
         notify(
-          `${tr(ru.settingsApplyFailed)}: ${error instanceof Error ? error.message : String(error)}`,
+          `${tr('settingsApplyFailed')}: ${error instanceof Error ? error.message : String(error)}`,
           'error',
         ),
       );

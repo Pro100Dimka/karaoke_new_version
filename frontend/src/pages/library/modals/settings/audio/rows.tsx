@@ -10,7 +10,6 @@ import {
 } from '@neo-ui-kit/react';
 import type { IObservableValue } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import { ru } from '../../../../../i18n/messages.ru';
 import type {
   FormBlock,
   SettingsFormValues,
@@ -82,7 +81,7 @@ export const blocks = (
                   text={
                     latency === null
                       ? '—'
-                      : tr(ru.approximateMillisecondsValue, {
+                      : tr('approximateMillisecondsValue', {
                           value: Math.round(latency),
                         })
                   }
@@ -91,7 +90,7 @@ export const blocks = (
                   status={status.audioAvailable ? 'warning' : 'offline'}
                   label={
                     status.audioAvailable
-                      ? tr(ru.latencyIncomplete)
+                      ? tr('latencyIncomplete')
                       : tr('audioNoData')
                   }
                 />

@@ -6,7 +6,6 @@ import { useEffect, useRef } from 'react';
 import { useNotify } from '../providers/notifications';
 
 import { hasEditorDraft } from '../pages/editor/editorDraft';
-import { ru } from '../i18n/messages.ru';
 import { pythonClient } from '../services/pythonClient';
 
 /** Once per launch, surfaces items left unresolved by a previous crash; nothing is auto-resumed. */
@@ -23,10 +22,10 @@ export const StartupRecovery = observer(() => {
       'errors.recovery',
       pythonClient.listJobs().then((jobs) => {
         if (jobs.some((job) => job.state === 'interrupted'))
-          notify(tr(ru.recoveryInterruptedJobs), 'warning');
+          notify(tr('recoveryInterruptedJobs'), 'warning');
       }),
     ).catch(() => undefined);
-    if (hasEditorDraft()) notify(tr(ru.recoveryEditorDraft), 'warning');
+    if (hasEditorDraft()) notify(tr('recoveryEditorDraft'), 'warning');
   }, [python.kind, notify, locale]);
 
   return null;

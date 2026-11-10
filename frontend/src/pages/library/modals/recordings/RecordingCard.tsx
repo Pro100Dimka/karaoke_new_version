@@ -14,10 +14,9 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
-import type { MessageKey } from '../../../../i18n/messages';
+import type { MessageKey } from '../../../../providers/localization/messages';
 import { analysisStageLabel } from '../analysis/analysisPresentation';
 import type { RecordingDto } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
 import performanceArtUrl from '../analysis/performance-art.svg';
 import { RecordingPlayer } from './RecordingPlayer';
 import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
@@ -44,7 +43,7 @@ const TakeName = ({
           size="xs"
           variant="ghost"
           icon="pencil"
-          label={tr(ru.renameTake)}
+          label={tr('renameTake')}
           onClick={() => setDraft(name)}
         />
       </div>
@@ -60,7 +59,7 @@ const TakeName = ({
     >
       <TextField
         size="sm"
-        aria-label={tr(ru.renameTake)}
+        aria-label={tr('renameTake')}
         autoFocus
         value={draft}
         onValueChange={setDraft}
@@ -73,7 +72,7 @@ const TakeName = ({
             size="xs"
             variant="ghost"
             icon="check"
-            label={tr(ru.save)}
+            label={tr('save')}
           />
         }
       />
@@ -148,37 +147,37 @@ export const RecordingCard = ({
           {versions.length > 0 && (
             <SegmentedControl
               size="sm"
-              label={tr(ru.recordingVersion)}
+              label={tr('recordingVersion')}
               value={selected.id}
               onValueChange={setVersionId}
               items={[recording, ...versions].map((item) => ({
                 value: item.id,
                 label: tr(
-                  ru[
+                  (
                     item.sourceRecordingId
                       ? 'studioMasterTitle'
                       : 'recordingOriginal'
-                  ],
+                  ),
                 ),
               }))}
             />
           )}
           <Typography variant="caption" tone="muted">
-            {statuses.map((key) => tr(ru[key])).join('  •  ')}
+            {statuses.map((key) => tr(key)).join('  •  ')}
           </Typography>
           {task && (
             <>
               <Typography variant="caption" role="status">
-                {tr(ru[analysisStageLabel(task.stage)])} · {task.progress}%
+                {tr((analysisStageLabel(task.stage)))} · {task.progress}%
               </Typography>
               <ProgressBar
-                label={tr(ru[analysisStageLabel(task.stage)])}
+                label={tr((analysisStageLabel(task.stage)))}
                 value={task.progress}
                 indeterminate={task.state === 'Queued'}
               />
             </>
           )}
-          {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
+          {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
           {analysis.isError && (
             <MessageBar tone="error">
               {tr(toAppError(analysis.error).message)}
@@ -199,7 +198,7 @@ export const RecordingCard = ({
               as="strong"
               variant="h3"
               tone="accent"
-              title={tr(ru.analysisOverall)}
+              title={tr('analysisOverall')}
             >
               {analysis.data.score}
             </Typography>
@@ -207,7 +206,7 @@ export const RecordingCard = ({
           {preparing ? null : task ? (
             <IconButton
               icon="stop"
-              label={tr(ru.analysisCancel)}
+              label={tr('analysisCancel')}
               disabled={!task.jobId}
               onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
             />
@@ -216,18 +215,18 @@ export const RecordingCard = ({
               size="sm"
               variant="secondary"
               icon="levels"
-              label={tr(ru.recordingOpenAnalysis)}
+              label={tr('recordingOpenAnalysis')}
               onClick={() => onAnalyze(selected)}
             />
           ) : (
             <IconButton
               icon="levels"
               label={tr(
-                ru[
+                (
                   selected.fileStatus === 'RecoveredIncomplete'
                     ? 'errorRecordingTimingUnavailable'
                     : 'recordingAnalyze'
-                ],
+                ),
               )}
               disabled={selected.fileStatus === 'RecoveredIncomplete'}
               onClick={() => onAnalyze(selected)}
@@ -235,7 +234,7 @@ export const RecordingCard = ({
           )}
           <IconButton
             icon="folder"
-            label={tr(ru.openFolder)}
+            label={tr('openFolder')}
             onClick={async () => {
               const current = await catalog.getRecording(selected.id);
               await files.revealInExplorer(current.filePath);
@@ -244,7 +243,7 @@ export const RecordingCard = ({
           <IconButton
             icon="trash"
             variant="danger"
-            label={tr(ru.recordingDelete)}
+            label={tr('recordingDelete')}
             disabled={selected.fileStatus === 'Preparing'}
             onClick={() => onDelete(selected)}
           />

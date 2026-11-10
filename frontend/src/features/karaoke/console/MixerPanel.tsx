@@ -7,8 +7,7 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { MixerChannelGains } from '../../../contracts/models';
-import type { MessageKey } from '../../../i18n/messages';
-import { ru } from '../../../i18n/messages.ru';
+import type { MessageKey } from '../../../providers/localization/messages';
 import { ConsoleSection } from './ConsoleSection';
 import { EffectPresets } from './EffectPresets';
 import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
@@ -99,7 +98,7 @@ export const MixerPanel = memo(
         data-knob={item.id}
         style={fixedKnobWidth(knobDiameter)}
         showLabel
-        label={tr(ru[item.label])}
+        label={tr((item.label))}
         min={item.min}
         max={item.max}
         step={item.step}
@@ -130,7 +129,7 @@ export const MixerPanel = memo(
     )[section];
 
     return (
-      <ConsoleSection icon={panel.icon} title={tr(ru[panel.title])}>
+      <ConsoleSection icon={panel.icon} title={tr((panel.title))}>
         <Stack
           className={`consoleKnobs consoleKnobs-${section}`}
           direction="row"
@@ -146,7 +145,7 @@ export const MixerPanel = memo(
                   size="xs"
                   round
                   icon="mic"
-                  label={tr(ru.monitoring)}
+                  label={tr('monitoring')}
                   aria-pressed={monitoring}
                   variant={monitoring ? 'primary' : 'secondary'}
                   disabled={!microphoneAvailable}

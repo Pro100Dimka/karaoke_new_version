@@ -5,7 +5,6 @@ import {
 import { observer } from 'mobx-react-lite';
 import { store } from '../providers/store';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ru } from '../i18n/messages.ru';
 import { audioClient } from '../services/audioClient';
 import { safeAudioConfiguration } from '../shared/preferences/preferences';
 import { desktopClient } from '../services/desktopClient';
@@ -90,26 +89,26 @@ export const BootstrapGate = observer(
         <EmptyState
           icon="warning"
           title={tr(
-            ru[
+            (
               python.kind === 'incompatible'
                 ? 'pythonIncompatible'
                 : 'pythonUnavailable'
-            ],
+            ),
           )}
           description={
             python.kind === 'incompatible'
-              ? tr(ru.versionMismatch, {
+              ? tr('versionMismatch', {
                   found: python.version,
                   expected: `API ${expectedPythonApiVersion}`,
                 })
-              : tr(ru.pythonUnavailableHint)
+              : tr('pythonUnavailableHint')
           }
           action={
             <Button
               variant="primary"
               icon="refresh"
               onClick={() => void probe()}
-              label={tr(ru.retry)}
+              label={tr('retry')}
             />
           }
         />

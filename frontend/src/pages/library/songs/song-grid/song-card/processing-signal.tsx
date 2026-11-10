@@ -1,7 +1,6 @@
 import { Stack, Waveform, tr, useLocale } from '@neo-ui-kit/react';
 import type { SongDto } from '../../../../../contracts/models';
 import { useWaveformPeaks } from '../../../../../shared/hooks/useWaveformPeaks';
-import { ru } from '../../../../../i18n/messages.ru';
 
 const emptyPeaks: readonly number[] = [];
 
@@ -27,7 +26,7 @@ export const ProcessingSignal = ({
     <Stack style={{ flex: 1, minWidth: 0 }} gap={1}>
       <div
         role="progressbar"
-        aria-label={tr(ru.processing)}
+        aria-label={tr('processing')}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value}
@@ -43,7 +42,7 @@ export const ProcessingSignal = ({
           duration={100}
           position={value}
           disabled
-          label={tr(ru.processing)}
+          label={tr('processing')}
         />
       </div>
     </Stack>

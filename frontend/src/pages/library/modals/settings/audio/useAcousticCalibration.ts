@@ -3,7 +3,6 @@ import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNotify } from '../../../../../providers/notifications';
 import type { RuntimeAudioConfiguration } from '../../../../../contracts/models';
-import { ru } from '../../../../../i18n/messages.ru';
 import { audioClient as audio } from '../../../../../services/audioClient';
 
 const reasonOf = (error: unknown): string =>
@@ -60,7 +59,7 @@ export const useAcousticCalibration = (
           },
         });
       notify(
-        tr(ru.acousticLatencyMeasured, { value: milliseconds }),
+        tr('acousticLatencyMeasured', { value: milliseconds }),
         'success',
       );
     } catch (error) {
@@ -71,9 +70,9 @@ export const useAcousticCalibration = (
         error instanceof Error &&
         error.name === 'AcousticMeasurementCancelled'
       )
-        notify(tr(ru.acousticLatencyCancelled), 'info');
+        notify(tr('acousticLatencyCancelled'), 'info');
       else
-        notify(`${tr(ru.acousticLatencyFailed)}: ${reasonOf(error)}`, 'error');
+        notify(`${tr('acousticLatencyFailed')}: ${reasonOf(error)}`, 'error');
     } finally {
       pending.current = false;
       if (mounted.current) setMeasuring(false);

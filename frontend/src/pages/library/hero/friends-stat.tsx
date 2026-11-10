@@ -2,7 +2,6 @@ import { observer } from 'mobx-react-lite';
 import { store } from '../../../providers/store';
 import { useState } from 'react';
 import { StatTile, tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../../i18n/messages.ru';
 import { FriendsDialog } from '../modals/friends/index';
 
 import '../../../features/social/social.css';
@@ -24,10 +23,10 @@ export const FriendsStat = observer(() => {
         icon="users"
         tilt={false}
         value={friends.length}
-        label={tr(ru.friendsStat, { online })}
+        label={tr('friendsStat', { online })}
         aria-haspopup="dialog"
         badge={waiting > 0 ? waiting : undefined}
-        badgeLabel={tr(ru.incomingRequests)}
+        badgeLabel={tr('incomingRequests')}
         onClick={() => setOpen(true)}
       />
       <FriendsDialog open={open} onClose={() => setOpen(false)} />

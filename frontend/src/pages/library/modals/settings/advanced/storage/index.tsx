@@ -10,8 +10,7 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { StorageUsageDto } from '../../../../../../contracts/models';
-import type { MessageKey } from '../../../../../../i18n/messages';
-import { ru } from '../../../../../../i18n/messages.ru';
+import type { MessageKey } from '../../../../../../providers/localization/messages';
 import { formatBytes } from '../../../../../../shared/utils/format';
 import { useStorageCleanup } from './useStorageCleanup';
 
@@ -57,25 +56,25 @@ export const StoragePanel = ({
         height: '100%',
       }}
       icon="database"
-      title={tr(ru.storage)}
+      title={tr('storage')}
       description={
         usage
-          ? tr(ru.storageFree, { value: formatBytes(usage.free) })
-          : tr(ru.unavailable)
+          ? tr('storageFree', { value: formatBytes(usage.free) })
+          : tr('unavailable')
       }
       actions={<DatabaseArt className="advancedArt" />}
     >
       {usage && (
         <Stack gap={4}>
           <Typography variant="caption" tone="muted">
-            {tr(ru.storageUsed, {
+            {tr('storageUsed', {
               used: formatBytes(used),
             })}
           </Typography>
-          <CollapsibleSection title={tr(ru.storageBreakdown)}>
+          <CollapsibleSection title={tr('storageBreakdown')}>
             <KeyValueList
               items={parts.map(([key, label]) => [
-                tr(ru[label]),
+                tr(label),
                 formatBytes(usage[key]),
               ])}
             />
@@ -89,7 +88,7 @@ export const StoragePanel = ({
                 disabled={cleaning !== null}
                 loading={cleaning === cleanup.kind}
                 onClick={() => void clean(cleanup.kind)}
-                label={tr(ru[cleanup.label])}
+                label={tr((cleanup.label))}
               />
             ))}
           </Stack>

@@ -6,7 +6,6 @@ import { recordingsEn } from './messages.en.recordings';
 import { roomEn } from './messages.en.room';
 import { roomDockEn } from './messages.en.roomDock';
 import { servicesEn } from './messages.en.services';
-import { socialEn } from './messages.en.social';
 export const en = {
   helpTitle: 'Guide',
   helpScreenshot:
@@ -579,7 +578,6 @@ export const en = {
   ...audioEn,
   ...servicesEn,
   ...recordingsEn,
-  ...socialEn,
   ...roomDockEn,
   ...editorEn,
 } as const;

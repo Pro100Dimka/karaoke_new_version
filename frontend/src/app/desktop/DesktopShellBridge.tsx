@@ -6,7 +6,6 @@ import {
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import { tr, useLocale, useRouter } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { desktopClient } from '../../services/desktopClient';
@@ -145,7 +144,7 @@ export const DesktopShellBridge = observer(() => {
           libraryCommands.push(next);
           if (screen === 'library') return;
           if (screen === 'karaoke' || screen === 'editor')
-            notify(tr(ru.desktopActionWaitsForLibrary), 'info');
+            notify(tr('desktopActionWaitsForLibrary'), 'info');
           else navigate(routes.library);
         };
         switch (command.type) {

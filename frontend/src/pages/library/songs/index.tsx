@@ -20,7 +20,6 @@ import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
 import { store } from '../../../providers/store';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
-import { ru } from '../../../i18n/messages.ru';
 import type { SongDto } from '../../../contracts/models';
 import { RecordingsModal } from '../modals/recordings';
 import { SongSettingsModal } from '../modals/song-settings';
@@ -270,7 +269,7 @@ const LibrarySongs = observer(
         ),
         tone: 'warning',
         actions: [
-          { id: 'cancel', label: tr(ru.cancel) },
+          { id: 'cancel', label: tr('cancel') },
           { id: 'delete', label: tr('Удалить'), appearance: 'primary' },
         ],
       });
@@ -337,7 +336,7 @@ const LibrarySongs = observer(
         ) : !catalog.data && catalog.isError ? (
           <Card
             icon="database"
-            title={tr(ru['libraryLoadFailed'])}
+            title={tr('libraryLoadFailed')}
             material="glass"
             padding="lg"
             style={{
@@ -348,7 +347,7 @@ const LibrarySongs = observer(
             actions={
               <Button
                 icon="refresh"
-                label={tr(ru['retry'])}
+                label={tr('retry')}
                 onClick={() => void refreshSongs(client)}
               />
             }
@@ -364,7 +363,7 @@ const LibrarySongs = observer(
                     setSelected(new Set());
                   }}
                 >
-                  {tr(ru.cancel)}
+                  {tr('cancel')}
                 </Button>
                 <Button
                   disabled={deleting || catalog.isPlaceholderData}
@@ -408,7 +407,7 @@ const LibrarySongs = observer(
               loadMore={catalog.fetchNextPage}
               itemKey={(song) => song.id}
               scrollParent={pageRef}
-              label={tr(ru.library)}
+              label={tr('library')}
               renderItem={(song) => (
                 <SongCard
                   song={song}
@@ -453,11 +452,11 @@ const LibrarySongs = observer(
         )}
         {(catalog.isFetchNextPageError || summary.isError) && (
           <Card
-            title={tr(ru.libraryLoadFailed)}
+            title={tr('libraryLoadFailed')}
             actions={
               <Button
                 icon="refresh"
-                label={tr(ru.retry)}
+                label={tr('retry')}
                 onClick={() => void refreshSongs(client)}
               />
             }

@@ -1,8 +1,7 @@
 import { tr } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import type { Language } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
-import type { MessageKey } from '../../i18n/messages';
+import type { MessageKey } from '../../providers/localization/messages';
 
 const presenceKeys = {
   Online: 'presenceOnline',
@@ -37,14 +36,14 @@ export const presenceText = (
   language: Language,
 ): string =>
   person.presence === 'Offline' && person.lastSeenAt
-    ? tr(ru.lastSeen, { when: since(person.lastSeenAt, language) })
-    : tr(ru[presenceKeys[person.presence]]);
+    ? tr('lastSeen', { when: since(person.lastSeenAt, language) })
+    : tr((presenceKeys[person.presence]));
 
 export const durationText = (seconds: number): string => {
   const minutes = Math.max(1, Math.round(seconds / 60));
   return minutes < 60
-    ? tr(ru.durationMinutes, { minutes })
-    : tr(ru.durationHoursMinutes, {
+    ? tr('durationMinutes', { minutes })
+    : tr('durationHoursMinutes', {
         hours: Math.floor(minutes / 60),
         minutes: minutes % 60,
       });

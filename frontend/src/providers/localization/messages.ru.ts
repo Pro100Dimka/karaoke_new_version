@@ -6,7 +6,6 @@ import { recordingsRu } from './messages.ru.recordings';
 import { roomRu } from './messages.ru.room';
 import { roomDockRu } from './messages.ru.roomDock';
 import { servicesRu } from './messages.ru.services';
-import { socialRu } from './messages.ru.social';
 import type { MessageTable } from './messageTable';
 
 export const ru: MessageTable = {
@@ -582,7 +581,6 @@ export const ru: MessageTable = {
   ...audioRu,
   ...servicesRu,
   ...recordingsRu,
-  ...socialRu,
   ...roomDockRu,
   ...editorRu,
 };

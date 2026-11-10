@@ -2,7 +2,6 @@ import { friendRelations } from '../../providers/social';
 import { Button, RotaryKnob, Stack, tr, useLocale } from '@neo-ui-kit/react';
 import type { ParticipantDto } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
-import { ru } from '../../i18n/messages.ru';
 
 import { useSocialAction } from '../social/useSocialAction';
 import {
@@ -43,7 +42,7 @@ export const RoomPersonMenu = ({
     person &&
     void run(
       () => friends.befriend(person),
-      tr(ru[incoming ? 'friendAdded' : 'friendRequestSent'], {
+      tr((incoming ? 'friendAdded' : 'friendRequestSent'), {
         name: person.displayName,
       }),
     );
@@ -60,7 +59,7 @@ export const RoomPersonMenu = ({
               key={effect.id}
               size="xs"
               showLabel
-              label={tr(ru[effect.label])}
+              label={tr((effect.label))}
               min={effect.min}
               max={effect.max}
               step={effect.step}
@@ -77,13 +76,13 @@ export const RoomPersonMenu = ({
         <Stack gap={2}>
           {befriend && (
             <Button size="sm" icon="person" disabled={busy} onClick={addFriend}>
-              {tr(ru[incoming ? 'acceptAction' : 'addFriend'])}
+              {tr((incoming ? 'acceptAction' : 'addFriend'))}
             </Button>
           )}
           {manage && (
             <>
               <Button size="sm" icon="crown" onClick={onTransferHost}>
-                {tr(ru.transferHostAction, { name: participant.name })}
+                {tr('transferHostAction', { name: participant.name })}
               </Button>
               <Button
                 size="sm"
@@ -91,7 +90,7 @@ export const RoomPersonMenu = ({
                 icon="leave"
                 onClick={onRemove}
               >
-                {tr(ru.removeParticipant, { name: participant.name })}
+                {tr('removeParticipant', { name: participant.name })}
               </Button>
             </>
           )}

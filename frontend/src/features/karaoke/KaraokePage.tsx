@@ -25,8 +25,7 @@ import {
 } from 'react';
 import { useRoomPlayback } from '../../providers/application';
 import { useNotify } from '../../providers/notifications';
-import type { MessageKey } from '../../i18n/messages';
-import { ru } from '../../i18n/messages.ru';
+import type { MessageKey } from '../../providers/localization/messages';
 import { errorMessageKey, toAppError } from '../../shared/errors';
 import { effectiveStageLayers } from './displayModes';
 import { KaraokeHeader } from './KaraokeHeader';
@@ -157,7 +156,7 @@ export const KaraokeScreen = observer(
       if (!(await session.confirmExit())) return;
       if (room) {
         if (!canControlRoom(room)) {
-          notify(tr(ru.errorRoomPermission), 'warning');
+          notify(tr('errorRoomPermission'), 'warning');
           return;
         }
         try {
@@ -166,9 +165,9 @@ export const KaraokeScreen = observer(
         } catch (error) {
           notify(
             tr(
-              ru[
+              (
                 errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'
-              ],
+              ),
             ),
             'error',
           );
@@ -266,7 +265,7 @@ export const KaraokeScreen = observer(
           <ProgressBar
             className="karaokeLoading"
             indeterminate
-            label={tr(ru.loadingSong)}
+            label={tr('loadingSong')}
           />
         </main>,
       );
@@ -274,7 +273,7 @@ export const KaraokeScreen = observer(
 
     const back = (
       <Button icon="back" onClick={() => void backToLibrary()}>
-        {tr(ru.library)}
+        {tr('library')}
       </Button>
     );
 
@@ -282,8 +281,8 @@ export const KaraokeScreen = observer(
       return place(
         <StateScreen
           icon="warning"
-          title={tr(ru.songNotFound)}
-          body={tr(ru.songNotFoundHint)}
+          title={tr('songNotFound')}
+          body={tr('songNotFoundHint')}
         >
           {back}
         </StateScreen>,
@@ -293,8 +292,8 @@ export const KaraokeScreen = observer(
       return place(
         <StateScreen
           icon="processing"
-          title={tr(ru.songNotProcessed)}
-          body={tr(ru.songNotProcessedHint)}
+          title={tr('songNotProcessed')}
+          body={tr('songNotProcessedHint')}
         >
           {back}
         </StateScreen>,
@@ -310,8 +309,8 @@ export const KaraokeScreen = observer(
       return place(
         <StateScreen
           icon="file"
-          title={tr(ru.projectInvalid)}
-          body={tr(ru[messages[load.compatibility]])}
+          title={tr('projectInvalid')}
+          body={tr((messages[load.compatibility]))}
         >
           {back}
         </StateScreen>,
@@ -399,7 +398,7 @@ export const KaraokeScreen = observer(
                   icon="settings"
                   onClick={() => openSettings('audio')}
                 >
-                  {tr(ru.openAudioSettings)}
+                  {tr('openAudioSettings')}
                 </Button>
                 <Button
                   size="sm"
@@ -407,7 +406,7 @@ export const KaraokeScreen = observer(
                   icon="refresh"
                   onClick={() => window.location.reload()}
                 >
-                  {tr(ru.retry)}
+                  {tr('retry')}
                 </Button>
               </>
             }
@@ -428,7 +427,7 @@ export const KaraokeScreen = observer(
             return (
               <div className="karaokeConsole">
                 {!microphoneReady && (
-                  <MessageBar tone="info">{tr(ru.noMicrophoneMode)}</MessageBar>
+                  <MessageBar tone="info">{tr('noMicrophoneMode')}</MessageBar>
                 )}
                 <KaraokeConsole
                   song={song}

@@ -1,6 +1,5 @@
 import { ToggleButton, tr, useLocale } from '@neo-ui-kit/react';
-import type { MessageKey } from '../../../i18n/messages';
-import { ru } from '../../../i18n/messages.ru';
+import type { MessageKey } from '../../../providers/localization/messages';
 import { useKaraokeTv } from '../tv/karaokeTv';
 
 interface DisplayTogglesProps {
@@ -79,7 +78,7 @@ export const DisplayToggles = ({
     <div
       className="displayToggles"
       role="group"
-      aria-label={tr(ru.stageLayers)}
+      aria-label={tr('stageLayers')}
     >
       {toggles.map((toggle) => (
         <ToggleButton
@@ -92,7 +91,7 @@ export const DisplayToggles = ({
           style={{ flex: 1 }}
           onValueChange={toggle.set}
         >
-          {tr(ru[toggle.label])}
+          {tr((toggle.label))}
         </ToggleButton>
       ))}
     </div>

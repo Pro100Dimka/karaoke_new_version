@@ -1,6 +1,5 @@
 import { store } from '../../../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import { monitoringErrorText } from '../../../../../shared/errors';
 import { useEffect, useRef, useState } from 'react';
 import { observable, runInAction } from 'mobx';
@@ -32,7 +31,7 @@ export const useInputMonitoring = (canStart: boolean) => {
     const reportError = (error: unknown) => {
       const { notify } = latest.current;
       notify(
-        `${tr(ru.inputTestFailed)}: ${monitoringErrorText(error)}`,
+        `${tr('inputTestFailed')}: ${monitoringErrorText(error)}`,
         'error',
       );
     };
@@ -42,7 +41,7 @@ export const useInputMonitoring = (canStart: boolean) => {
         runInAction(() => inputLevel.set(snapshot.inputLevel));
         if (snapshot.monitoringSafetyTripped) {
           const { notify } = latest.current;
-          notify(tr(ru.monitoringSafetyStopped), 'error');
+          notify(tr('monitoringSafetyStopped'), 'error');
           setTestingInputState(false);
         }
       }, error => {

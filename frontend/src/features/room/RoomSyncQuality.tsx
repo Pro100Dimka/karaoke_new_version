@@ -1,6 +1,5 @@
 import type { RoomTimingReport } from '../../contracts/clients';
-import type { MessageKey } from '../../i18n/messages';
-import { ru } from '../../i18n/messages.ru';
+import type { MessageKey } from '../../providers/localization/messages';
 import { Typography, tr, useLocale } from '@neo-ui-kit/react';
 
 // Up to this voice delay everyone hears everyone as if in one room.
@@ -33,7 +32,7 @@ export const RoomSyncQuality = ({ timing }: { timing: RoomTimingReport }) => {
       variant="caption"
       tone={key === 'roomQualityFar' ? 'danger' : 'muted'}
     >
-      {tr(ru[key], { ms })}
+      {tr(key, { ms })}
     </Typography>
   );
 };

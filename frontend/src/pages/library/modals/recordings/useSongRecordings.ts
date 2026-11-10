@@ -21,8 +21,7 @@ import type {
   RecordingAnalysisProgress,
   StudioMasterProgress,
 } from '../../../../contracts/clients';
-import { ru } from '../../../../i18n/messages.ru';
-import type { MessageKey } from '../../../../i18n/messages';
+import type { MessageKey } from '../../../../providers/localization/messages';
 import { useGuardedAction } from '../../songs/useGuardedAction';
 import { errorMessageKey, toAppError } from '../../../../shared/errors';
 import {
@@ -250,7 +249,7 @@ export const useSongRecordings = (
       } catch (failure) {
         if (current())
           notify(
-            tr(ru[errorMessageKey(toAppError(failure)) ?? 'actionFailed']),
+            tr((errorMessageKey(toAppError(failure)) ?? 'actionFailed')),
             'error',
           );
       }
@@ -286,13 +285,13 @@ export const useSongRecordings = (
   const remove = (recording: RecordingDto) =>
     guarded(async () => {
       const choice = await ask({
-        title: tr(ru.deleteRecordingTitle),
-        body: tr(ru.deleteRecordingBody),
+        title: tr('deleteRecordingTitle'),
+        body: tr('deleteRecordingBody'),
         actions: [
-          { id: 'cancel', label: tr(ru.cancel) },
+          { id: 'cancel', label: tr('cancel') },
           {
             id: 'delete',
-            label: tr(ru.recordingDelete),
+            label: tr('recordingDelete'),
             appearance: 'primary',
           },
         ],
@@ -327,7 +326,7 @@ export const useSongRecordings = (
             mastered,
             ...items.filter((item) => item.id !== mastered.id),
           ]);
-        notify(tr(ru.studioMasterReady), 'success');
+        notify(tr('studioMasterReady'), 'success');
       } finally {
         if (request === requests.current.master) setStudioMaster(null);
       }

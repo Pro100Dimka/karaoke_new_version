@@ -1,5 +1,4 @@
 import { CollapsibleSection, TextArea, tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import { useEnvironmentJson } from './useEnvironmentJson';
 
 export const EnvironmentJson = ({
@@ -16,12 +15,12 @@ export const EnvironmentJson = ({
     <CollapsibleSection
       className="environmentJson"
       icon="braces"
-      title={tr(ru.environmentJson)}
-      description={tr(ru.environmentJsonHint)}
+      title={tr('environmentJson')}
+      description={tr('environmentJsonHint')}
     >
       <TextArea
         className="environmentJsonEditor"
-        aria-label={tr(ru.environmentJson)}
+        aria-label={tr('environmentJson')}
         rows={10}
         spellCheck={false}
         value={source}

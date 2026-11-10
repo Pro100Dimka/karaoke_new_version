@@ -7,11 +7,11 @@ export default function FriendsList({
   rows,
   actions,
   detail,
-}: {
+}: Readonly<{
   rows: readonly SocialPerson[];
   actions(friend: SocialPerson): ReactNode;
   detail?(friend: SocialPerson): string;
-}) {
+}>) {
   if (!rows.length)
     return (
       <EmptyState icon="users" title={tr('friendsEmpty')} description="" />

@@ -1,8 +1,7 @@
 import { tr } from '@neo-ui-kit/react';
-import { ru } from '../i18n/messages.ru';
 import { unverifiedAsioMonitoring } from '../contracts/models';
 import type { AppError } from '../contracts/models';
-import type { MessageKey } from '../i18n/messages';
+import type { MessageKey } from '../providers/localization/messages';
 import { createCommandQueue } from '../app/desktop/shellBus';
 
 export const operationFailures = createCommandQueue<{
@@ -109,7 +108,7 @@ export const errorMessageKey = (error: AppError): MessageKey | null =>
 
 export const monitoringErrorText = (error: unknown): string =>
   error instanceof Error && error.message === unverifiedAsioMonitoring
-    ? tr(ru.monitoringAsio4AllBlocked)
+    ? tr('monitoringAsio4AllBlocked')
     : error instanceof Error
       ? error.message
       : String(error);

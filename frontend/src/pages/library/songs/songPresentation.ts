@@ -1,5 +1,5 @@
 import type { SongStatus } from '../../../contracts/models';
-import type { MessageKey } from '../../../i18n/messages';
+import type { MessageKey } from '../../../providers/localization/messages';
 
 export type SongActionId =
   | 'play'

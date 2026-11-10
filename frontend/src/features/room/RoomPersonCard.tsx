@@ -20,7 +20,6 @@ import { useMicrophoneToggles } from '../../app/desktop/shellBus';
 import type { ParticipantDto } from '../../contracts/models';
 import type { SocialPerson } from '../../contracts/social';
 import { fixedKnobWidth } from '../../shared/ui/knobWidth';
-import { ru } from '../../i18n/messages.ru';
 import { useRoomVoice } from '../../providers/application';
 import { usePersonPhoto } from '../social/usePersonPhoto';
 import type { ParticipantEffect } from './participantEffects';
@@ -128,8 +127,8 @@ export const RoomPersonCard = observer(
       setEffects((current) => ({ ...current, [effect]: value }));
       void voice.setParticipantEffect(participant.id, effect, value);
     };
-    const muteLabel = tr(ru[muted ? 'unmuteMicrophone' : 'muteMicrophone']);
-    const effectsLabel = tr(ru.participantEffects, { name: participant.name });
+    const muteLabel = tr((muted ? 'unmuteMicrophone' : 'muteMicrophone'));
+    const effectsLabel = tr('participantEffects', { name: participant.name });
 
     return (
       <li className="participant" data-connected={participant.connected}>
@@ -149,7 +148,7 @@ export const RoomPersonCard = observer(
               variant={host ? 'host' : 'initials'}
               name={participant.name}
               src={photo}
-              badge={host ? undefined : tr(ru.guestBadge)}
+              badge={host ? undefined : tr('guestBadge')}
             />
           </SpeakingBeacon>
           <div className="roomPersonMain">
@@ -169,18 +168,18 @@ export const RoomPersonCard = observer(
             {!participant.connected && (
               <StatusIndicator
                 status="offline"
-                label={tr(ru.readinessDisconnected)}
+                label={tr('readinessDisconnected')}
               />
             )}
             <Stack direction="row" gap={1} align="center">
               <SpeakingMeter
                 participant={participant}
                 live={participant.connected && !muted}
-                label={tr(ru.liveInputLevel)}
+                label={tr('liveInputLevel')}
               />
               {participant.self && (
                 <Badge tone="info" className="roomPersonYou">
-                  {tr(ru.you)}
+                  {tr('you')}
                 </Badge>
               )}
             </Stack>
@@ -196,7 +195,7 @@ export const RoomPersonCard = observer(
               step={0.01}
               resetValue={1}
               displayScale={100}
-              label={tr(ru.participantVolume, { name: participant.name })}
+              label={tr('participantVolume', { name: participant.name })}
               value={volume}
               onValueChange={setVolume}
               onValueCommit={(value) =>

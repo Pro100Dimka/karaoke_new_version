@@ -13,7 +13,6 @@ import {
 } from '@neo-ui-kit/react';
 import { useRef, useState } from 'react';
 import type { RoomStateDto } from '../../contracts/models';
-import { ru } from '../../i18n/messages.ru';
 import { useTransferEta } from './useTransferEta';
 
 // The code is shown as its first four groups; copying gives all of it.
@@ -50,13 +49,13 @@ const TransferNote = ({
     return (
       <Typography
         role="status"
-        aria-label={tr(ru.roomReconnecting)}
+        aria-label={tr('roomReconnecting')}
         variant="caption"
         tone="warning"
         className="roomHeadNote"
       >
         <Icon name="signal" />
-        {tr(ru.roomReconnecting)}
+        {tr('roomReconnecting')}
       </Typography>
     );
   if (failure) {
@@ -68,7 +67,7 @@ const TransferNote = ({
     return (
       <div className="roomHeadNote">
         <Typography role="alert" variant="caption" tone="warning">
-          {tr(ru[conflict ? 'roomProjectConflict' : failureMessage[failure]])}
+          {tr((conflict ? 'roomProjectConflict' : failureMessage[failure]))}
         </Typography>
         {failure === 'local' && (
           <Button
@@ -78,7 +77,7 @@ const TransferNote = ({
               conflict ? actions.onReplaceProject : actions.onRetryTransfer
             }
           >
-            {tr(ru[conflict ? 'roomReplaceProject' : 'retryTransfer'])}
+            {tr((conflict ? 'roomReplaceProject' : 'retryTransfer'))}
           </Button>
         )}
       </div>
@@ -93,8 +92,8 @@ const TransferNote = ({
   return (
     <Typography variant="caption" tone="muted">
       {minutes <= 1
-        ? tr(ru.transferRemainingSoon)
-        : tr(ru.transferRemaining, { minutes })}
+        ? tr('transferRemainingSoon')
+        : tr('transferRemaining', { minutes })}
     </Typography>
   );
 };
@@ -128,7 +127,7 @@ export const RoomHeadCard = ({
       ? [
           {
             id: 'cancel',
-            label: tr(ru.cancelTransfer),
+            label: tr('cancelTransfer'),
             icon: 'close',
             onSelect: actions.onCancelTransfer,
           },
@@ -142,7 +141,7 @@ export const RoomHeadCard = ({
       padding="sm"
       className="roomHead"
       data-art={artwork ? '' : undefined}
-      aria-label={tr(ru.onlineRoom)}
+      aria-label={tr('onlineRoom')}
     >
       {artwork && (
         <img className="roomArt" src={artwork.url} alt={artwork.title} />
@@ -156,19 +155,19 @@ export const RoomHeadCard = ({
             size="xs"
             variant="ghost"
             icon={actions.copied ? 'check' : 'copy'}
-            label={tr(ru[actions.copied ? 'copied' : 'copyCode'])}
+            label={tr((actions.copied ? 'copied' : 'copyCode'))}
             onClick={actions.onCopy}
           />
         </div>
         {transferring || failure ? (
           <Typography variant="caption" tone="muted" truncate>
-            {tr(ru.transferLabel)}
+            {tr('transferLabel')}
           </Typography>
         ) : null}
         {transferring && (
           <div className="roomProgressRow">
             <ProgressBar
-              label={tr(ru.projectTransfer, { progress })}
+              label={tr('projectTransfer', { progress })}
               value={progress}
             />
             <Typography variant="caption" weight="semibold">
@@ -185,7 +184,7 @@ export const RoomHeadCard = ({
             size="sm"
             variant="ghost"
             icon="more"
-            label={tr(ru.roomActions)}
+            label={tr('roomActions')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}
@@ -210,12 +209,12 @@ export const RoomHeadCard = ({
         {[
           {
             icon: actions.detached ? 'window' : 'minus',
-            label: tr(ru[actions.detached ? 'panelAttach' : 'collapseRoom']),
+            label: tr((actions.detached ? 'panelAttach' : 'collapseRoom')),
             onClick: actions.onTogglePanel,
           },
           {
             icon: 'close',
-            label: tr(ru.leaveRoom),
+            label: tr('leaveRoom'),
             onClick: actions.onLeave,
           },
         ]

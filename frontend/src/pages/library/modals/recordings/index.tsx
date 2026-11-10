@@ -1,7 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { useSongRecordings } from './useSongRecordings';
 import { PerformanceAnalysisModal } from '../analysis';
-import { ru } from '../../../../i18n/messages.ru';
 import { useMemo, useState } from 'react';
 import {
   Dialog,
@@ -98,7 +97,7 @@ export const RecordingsModal = observer(
     const nameOf = (recording: RecordingDto) =>
       recording.displayName ||
       (recording.sourceRecordingId
-        ? tr(ru.studioMasterTitle)
+        ? tr('studioMasterTitle')
         : defaultTakeName(numbers.get(recording.id) ?? 1, recording.createdAt));
 
     return (
@@ -120,13 +119,13 @@ export const RecordingsModal = observer(
                   tone="accent"
                   className="recordingsEyebrow"
                 >
-                  {tr(ru.songPerformances)}
+                  {tr('songPerformances')}
                 </Typography>
                 {song.title}
               </>
             }
-            description={tr(ru.recordingsHint)}
-            closeLabel={tr(ru.closeDialog)}
+            description={tr('recordingsHint')}
+            closeLabel={tr('closeDialog')}
             cancelLabel={false}
             confirmLabel={false}
             art={
@@ -141,7 +140,7 @@ export const RecordingsModal = observer(
                 <ul
                   className="recordingsList"
                   data-view={view}
-                  aria-label={tr(ru.recordings)}
+                  aria-label={tr('recordings')}
                 >
                   {performances.map((recording, index) => (
                     <RecordingCard
@@ -161,34 +160,34 @@ export const RecordingsModal = observer(
                 </ul>
               ) : (
                 <Typography tone="muted" className="recordingsEmpty">
-                  {tr(ru.noRecordings)}
+                  {tr('noRecordings')}
                 </Typography>
               )}
               <footer className="recordingsFooter">
                 <SegmentedControl<View>
                   size="sm"
-                  label={tr(ru.recordings)}
+                  label={tr('recordings')}
                   value={view}
                   onValueChange={setView}
                   items={[
                     {
                       value: 'list',
-                      label: tr(ru.recordingsListView),
+                      label: tr('recordingsListView'),
                       icon: 'list',
                     },
                     {
                       value: 'grid',
-                      label: tr(ru.recordingsGridView),
+                      label: tr('recordingsGridView'),
                       icon: 'grid',
                     },
                   ]}
                 />
                 <Typography variant="caption" tone="muted">
-                  {tr(ru.recordingsCount, { count: performances.length })}
+                  {tr('recordingsCount', { count: performances.length })}
                 </Typography>
                 <Typography variant="caption" className="recordingsSize">
                   <Icon name="database" />
-                  {tr(ru.recordingsTotalSize, { size: formatBytes(totalSize) })}
+                  {tr('recordingsTotalSize', { size: formatBytes(totalSize) })}
                 </Typography>
               </footer>
             </div>

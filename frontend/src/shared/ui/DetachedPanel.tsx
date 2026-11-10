@@ -1,6 +1,5 @@
 import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { ru } from '../../i18n/messages.ru';
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import type { useDetachedPanel } from './useDetachedPanel';
 import { isRecord } from '../storage/localStore';
@@ -83,7 +82,7 @@ export const DetachButton = ({
     <IconButton
       size={size}
       icon="window"
-      label={tr(ru.panelAttach)}
+      label={tr('panelAttach')}
       onClick={panel.attach}
     />
   );

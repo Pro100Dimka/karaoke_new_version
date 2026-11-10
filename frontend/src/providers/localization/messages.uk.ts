@@ -6,7 +6,6 @@ import { recordingsUk } from './messages.uk.recordings';
 import { roomUk } from './messages.uk.room';
 import { roomDockUk } from './messages.uk.roomDock';
 import { servicesUk } from './messages.uk.services';
-import { socialUk } from './messages.uk.social';
 import type { MessageTable } from './messageTable';
 
 /** A complete table: every key is translated here, so no Russian text can leak into the Ukrainian UI. */
@@ -645,7 +644,6 @@ export const uk: MessageTable = {
   ...servicesUk,
   ...processingUk,
   ...recordingsUk,
-  ...socialUk,
   ...roomDockUk,
   ...roomUk,
   ...libraryUk,

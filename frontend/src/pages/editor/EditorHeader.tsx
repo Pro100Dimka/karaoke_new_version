@@ -10,7 +10,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { titleBarLeadingId } from '../../app/TitleBar';
-import { ru } from '../../i18n/messages.ru';
 
 interface EditorHeaderProps {
   title: string;
@@ -45,7 +44,7 @@ export const EditorHeader = ({
       round
       size="lg"
       icon="back"
-      label={tr(ru.library)}
+      label={tr('library')}
       onClick={onBack}
     />
   );
@@ -60,26 +59,26 @@ export const EditorHeader = ({
         </Typography>
         <span className="editorRevision">
           <Typography variant="caption" tone="accent">
-            {tr(ru.melodyEditor)}
+            {tr('melodyEditor')}
           </Typography>
           <Typography variant="caption" tone="muted">
-            {tr(ru.editorRevision, { revision })}
+            {tr('editorRevision', { revision })}
           </Typography>
-          {dirty && <Badge tone="warning">{tr(ru.editorUnsaved)}</Badge>}
+          {dirty && <Badge tone="warning">{tr('editorUnsaved')}</Badge>}
         </span>
       </div>
-      <Toolbar className="editorActions" aria-label={tr(ru.editorHistory)}>
+      <Toolbar className="editorActions" aria-label={tr('editorHistory')}>
         <IconButton
           size="sm"
           icon="undo"
-          label={tr(ru.undo)}
+          label={tr('undo')}
           disabled={!canUndo}
           onClick={onUndo}
         />
         <IconButton
           size="sm"
           icon="redo"
-          label={tr(ru.redo)}
+          label={tr('redo')}
           disabled={!canRedo}
           onClick={onRedo}
         />
@@ -90,7 +89,7 @@ export const EditorHeader = ({
           loading={saving}
           disabled={!dirty}
           onClick={onSave}
-          label={tr(ru.save)}
+          label={tr('save')}
         />
       </Toolbar>
     </header>

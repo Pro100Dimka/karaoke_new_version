@@ -9,7 +9,6 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { ru } from '../../../../../../i18n/messages.ru';
 import type { SubsystemHealth } from '../useSubsystemHealth';
 
 import { useDiagnosticsActions } from './useDiagnosticsActions';
@@ -47,7 +46,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const { backend, audio } = health;
   const { lighting, deliverReport } = useDiagnosticsActions(health);
   const backendStateText = (state: string) =>
-    isBackendState(state) ? tr(ru[`backendState${state}`]) : state;
+    isBackendState(state) ? tr((`backendState${state}`)) : state;
 
   const rows: {
     label: string;
@@ -56,44 +55,44 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
     primary?: boolean;
   }[] = [
     {
-      label: tr(ru.pythonBackend),
+      label: tr('pythonBackend'),
       level: health.loading && !backend ? 'warning' : backendLevel(backend),
       value: backend
         ? backendStateText(backend.state)
-        : tr(ru[health.loading ? 'loadingSettings' : 'unavailable']),
+        : tr((health.loading ? 'loadingSettings' : 'unavailable')),
       primary: true,
     },
     ...(backend
       ? ([
           {
-            label: tr(ru.database),
+            label: tr('database'),
             level: backend.database ? 'success' : 'error',
-            value: tr(ru[backend.database ? 'healthy' : 'unhealthy']),
+            value: tr((backend.database ? 'healthy' : 'unhealthy')),
           },
           {
-            label: tr(ru.aiRuntime),
+            label: tr('aiRuntime'),
             level: backend.cudaAvailable ? 'success' : 'warning',
             value: backend.gpuName ?? 'CPU',
           },
           {
             label: 'FFmpeg',
             level: backend.ffmpegVersion ? 'success' : 'warning',
-            value: backend.ffmpegVersion ?? tr(ru.unavailable),
+            value: backend.ffmpegVersion ?? tr('unavailable'),
           },
         ] satisfies typeof rows)
       : []),
     {
-      label: tr(ru.audioServiceLabel),
+      label: tr('audioServiceLabel'),
       level: health.loading && !audio ? 'warning' : audioLevel(audio),
       value: audio
         ? (audio.ServiceState ?? '')
-        : tr(ru[health.loading ? 'loadingSettings' : 'unavailable']),
+        : tr((health.loading ? 'loadingSettings' : 'unavailable')),
       primary: true,
     },
     ...(audio
       ? ([
           {
-            label: tr(ru.audioXruns),
+            label: tr('audioXruns'),
             level:
               Number(audio.XRuns ?? '0') === 0 &&
               Number(audio.DeadlineMisses ?? '0') === 0
@@ -104,14 +103,14 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
         ] satisfies typeof rows)
       : []),
     {
-      label: tr(ru.keyboardLighting),
+      label: tr('keyboardLighting'),
       level: lighting.available ? 'success' : 'warning',
       value: lighting.available
-        ? tr(ru.keyboardLightingStatus, {
+        ? tr('keyboardLightingStatus', {
             provider: lighting.provider ?? 'OpenRGB',
             count: lighting.deviceCount,
           })
-        : tr(ru.keyboardLightingUnsupported),
+        : tr('keyboardLightingUnsupported'),
     },
   ];
   const [primary, secondary] = [true, false].map((primary) => (
@@ -135,17 +134,17 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       border
       className="advancedDiagnosticsCard"
       icon="stethoscope"
-      title={tr(ru.diagnostics)}
+      title={tr('diagnostics')}
       style={{
         background: 'unset!important',
         height: '100%',
         boxShadow: 'unset!important',
       }}
-      description={tr(ru.diagnosticsHint)}
+      description={tr('diagnosticsHint')}
     >
       <Stack gap={4}>
         {primary}
-        <CollapsibleSection title={tr(ru.diagnosticsDetails)}>
+        <CollapsibleSection title={tr('diagnosticsDetails')}>
           {secondary}
         </CollapsibleSection>
         <Stack direction="row" gap={2} wrap>
@@ -153,19 +152,19 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
             size="sm"
             icon="copy"
             onClick={() => void deliverReport('clipboard')}
-            label={tr(ru.copyDiagnostics)}
+            label={tr('copyDiagnostics')}
           />
           <IconButton
             size="sm"
             icon="download"
-            label={tr(ru.exportDiagnostics)}
+            label={tr('exportDiagnostics')}
             onClick={() => void deliverReport('file')}
           />
           <IconButton
             size="sm"
             variant="ghost"
             icon="refresh"
-            label={tr(ru.refresh)}
+            label={tr('refresh')}
             disabled={health.loading}
             onClick={health.refresh}
           />

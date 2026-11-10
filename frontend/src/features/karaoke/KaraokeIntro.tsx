@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import type { SongDto } from '../../contracts/models';
-import { ru } from '../../i18n/messages.ru';
 import {
   Badge,
   Card,
@@ -87,12 +86,12 @@ export const KaraokeIntro = ({
                 className="karaokeIntroBeat"
                 bars={9}
                 playing
-                label={tr(ru.nowItWillSound)}
+                label={tr('nowItWillSound')}
               />
             </div>
             <div className="karaokeIntroText">
               <Typography variant="eyebrow" tone="accent">
-                {tr(ru.nowItWillSound)}
+                {tr('nowItWillSound')}
               </Typography>
               <Typography variant="display" align="center">
                 <GlowText>{song.title}</GlowText>

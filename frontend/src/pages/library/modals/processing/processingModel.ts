@@ -1,5 +1,5 @@
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../i18n/messages';
+import type { MessageKey } from '../../../../providers/localization/messages';
 
 type JobState = ProcessingJobDto['state'];
 

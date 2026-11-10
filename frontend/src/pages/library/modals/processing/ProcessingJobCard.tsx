@@ -13,7 +13,6 @@ import {
 } from '@neo-ui-kit/react';
 import { useRef, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
 import {
   isActive,
   phaseOf,
@@ -57,7 +56,7 @@ export const ProcessingJobCard = ({
   const menu: MenuItemData[] = [
     {
       id: 'details',
-      label: tr(ru.processingJobDetails),
+      label: tr('processingJobDetails'),
       icon: 'info',
       onSelect: actions.onDetails,
     },
@@ -65,7 +64,7 @@ export const ProcessingJobCard = ({
       ? [
           {
             id: 'folder',
-            label: tr(ru.openFolder),
+            label: tr('openFolder'),
             icon: 'folder',
             onSelect: () => actions.onOpenFolder(song),
           },
@@ -74,11 +73,11 @@ export const ProcessingJobCard = ({
     {
       id: 'motion',
       label: tr(
-        ru[
+        (
           actions.motionPaused
             ? 'processingResumeMotion'
             : 'processingPauseMotion'
-        ],
+        ),
       ),
       icon: 'motion',
       onSelect: actions.onToggleMotion,
@@ -86,7 +85,7 @@ export const ProcessingJobCard = ({
     { id: 'separator', separator: true },
     {
       id: 'remove',
-      label: tr(ru.processingRemove),
+      label: tr('processingRemove'),
       icon: 'trash',
       danger: true,
       onSelect: actions.onRemove,
@@ -106,7 +105,7 @@ export const ProcessingJobCard = ({
       )}
       <div className="processingJobMain">
         <Typography as="strong" variant="title" truncate>
-          {processingTitle(job, song) ?? tr(ru.processingSongUnavailable)}
+          {processingTitle(job, song) ?? tr('processingSongUnavailable')}
         </Typography>
         <Stack
           direction="row"
@@ -116,20 +115,20 @@ export const ProcessingJobCard = ({
         >
           <StatusIndicator
             status={stateTone[job.state]}
-            label={tr(ru[stateLabel[job.state]])}
+            label={tr((stateLabel[job.state]))}
           />
           {job.processingBackend && (
             <Typography
               variant="caption"
               tone="muted"
-              title={tr(ru.processingVia)}
+              title={tr('processingVia')}
             >
               {tr(
-                ru[
+                (
                   job.processingBackend === 'Kaggle'
                     ? 'processingBackendKaggle'
                     : 'processingBackendLocal'
-                ],
+                ),
               )}
             </Typography>
           )}
@@ -137,7 +136,7 @@ export const ProcessingJobCard = ({
             <Typography
               variant="caption"
               tone="muted"
-              title={tr(ru.processingDuration)}
+              title={tr('processingDuration')}
             >
               {duration}
             </Typography>
@@ -145,17 +144,17 @@ export const ProcessingJobCard = ({
         </Stack>
         <Steps
           className="processingSteps"
-          steps={phases.map((step) => tr(ru[step]))}
+          steps={phases.map((step) => tr(step))}
           current={phase ?? -1}
-          aria-label={tr(ru.processingDetailsStage)}
+          aria-label={tr('processingDetailsStage')}
         />
         {(job.state === 'failed' || job.state === 'interrupted') && (
           <MessageBar tone="error">
             {tr(
-              ru[
+              (
                 (job.error && errorMessageKey(job.error)) ||
                   'processingFailedHelp'
-              ],
+              ),
             )}
           </MessageBar>
         )}
@@ -164,7 +163,7 @@ export const ProcessingJobCard = ({
         {job.state === 'completed' && song && (
           <IconButton
             icon="play"
-            label={tr(ru.play)}
+            label={tr('play')}
             disabled={actions.playbackDisabled}
             onClick={() => actions.onPlay(song)}
           />
@@ -173,7 +172,7 @@ export const ProcessingJobCard = ({
           <IconButton
             icon="stop"
             variant="danger"
-            label={tr(ru.cancel)}
+            label={tr('cancel')}
             onClick={actions.onStop}
           />
         )}
@@ -181,7 +180,7 @@ export const ProcessingJobCard = ({
           ref={menuAnchor}
           variant="ghost"
           icon="more"
-          label={tr(ru.processingJobActions)}
+          label={tr('processingJobActions')}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((open) => !open)}

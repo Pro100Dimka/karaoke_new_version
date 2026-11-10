@@ -15,7 +15,6 @@ import {
 import { ask } from '../../providers/dialog';
 import { useNotify } from '../../providers/notifications';
 import type { ParticipantDto } from '../../contracts/models';
-import { ru } from '../../i18n/messages.ru';
 import { errorMessageKey, toAppError } from '../../shared/errors';
 
 import './room-dock.css';
@@ -89,7 +88,7 @@ export const RoomDock = () => {
   const placement = useStoredPanelLayout('room');
   const panel = useDetachedPanel(
     'room',
-    tr(ru.onlineRoom),
+    tr('onlineRoom'),
     roomPanelSize,
     placement.save,
     visible,
@@ -178,7 +177,7 @@ export const RoomDock = () => {
 
   const failure = (error: unknown) =>
     notify(
-      tr(ru[errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable']),
+      tr((errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable')),
       'error',
     );
 
@@ -191,12 +190,12 @@ export const RoomDock = () => {
     const others = room.participants.filter((person) => !person.self).length;
     if (isHost && others > 0) {
       const choice = await ask({
-        title: tr(ru.hostLeavingTitle),
-        body: tr(ru.hostLeavingBody),
+        title: tr('hostLeavingTitle'),
+        body: tr('hostLeavingBody'),
         actions: [
-          { id: 'cancel', label: tr(ru.cancel) },
-          { id: 'transfer', label: tr(ru.transferHost), appearance: 'primary' },
-          { id: 'close', label: tr(ru.closeRoom), appearance: 'secondary' },
+          { id: 'cancel', label: tr('cancel') },
+          { id: 'transfer', label: tr('transferHost'), appearance: 'primary' },
+          { id: 'close', label: tr('closeRoom'), appearance: 'secondary' },
         ],
       });
       if (choice === 'cancel' || choice === null) return;
@@ -227,14 +226,14 @@ export const RoomDock = () => {
 
   const removeParticipant = async (participant: ParticipantDto) => {
     const choice = await ask({
-      title: tr(ru.removeParticipantTitle),
-      body: tr(ru.removeParticipantBody, { name: participant.name }),
+      title: tr('removeParticipantTitle'),
+      body: tr('removeParticipantBody', { name: participant.name }),
       tone: 'warning',
       actions: [
-        { id: 'cancel', label: tr(ru.cancel) },
+        { id: 'cancel', label: tr('cancel') },
         {
           id: 'remove',
-          label: tr(ru.removeParticipant, { name: participant.name }),
+          label: tr('removeParticipant', { name: participant.name }),
           appearance: 'primary',
         },
       ],
@@ -255,7 +254,7 @@ export const RoomDock = () => {
     }
   };
 
-  const collapseLabel = tr(ru[collapsed ? 'expandRoom' : 'collapseRoom']);
+  const collapseLabel = tr((collapsed ? 'expandRoom' : 'collapseRoom'));
 
   if (collapsed && !panel.detached) {
     return (
@@ -282,7 +281,7 @@ export const RoomDock = () => {
     <DetachedPanel panel={panel} keepMounted>
       <aside
         className="roomDock"
-        aria-label={tr(ru.onlineRoom)}
+        aria-label={tr('onlineRoom')}
         ref={frameRef}
         style={
           !panel.detached && floating.layout
@@ -333,7 +332,7 @@ export const RoomDock = () => {
             onLeave: () => void handleLeave(),
           }}
         />
-        <ul className="roomPeople" aria-label={tr(ru.participants)}>
+        <ul className="roomPeople" aria-label={tr('participants')}>
           {room.participants.map((participant) => (
             <RoomPersonCard
               key={participant.id}

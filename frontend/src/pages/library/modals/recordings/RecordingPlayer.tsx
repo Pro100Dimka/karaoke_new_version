@@ -14,7 +14,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { RecordingDto } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
 import { formatTime } from '../../../../shared/utils/format';
 import { useRecordingPeaks } from '../../../../shared/hooks/useWaveformPeaks';
 import { useRecordingPlayback } from './useRecordingPlayback';
@@ -32,7 +31,7 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
           <Loader
             animation="wave"
             size="sm"
-            label={tr(ru.recordingPreparing)}
+            label={tr('recordingPreparing')}
           />
         )}
         <Typography>
@@ -73,7 +72,7 @@ const RecordingVolume = () => {
     <RotaryKnob
       diameter={58}
       style={fixedKnobWidth(58)}
-      label={tr(ru.recordingVolume)}
+      label={tr('recordingVolume')}
       showLabel
       min={0}
       max={1}
@@ -104,7 +103,7 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
         round
         variant="primary"
         icon={playing ? 'pause' : 'play'}
-        label={tr(ru[playing ? 'pause' : 'playRecording'])}
+        label={tr((playing ? 'pause' : 'playRecording'))}
         onClick={() => void toggle()}
       />
       <div className="recordingTimeline">
@@ -112,7 +111,7 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
           points={peaks ?? undefined}
           position={position}
           duration={recording.durationSeconds}
-          label={tr(ru.recordingPosition)}
+          label={tr('recordingPosition')}
           onSeek={(seconds) => void seek(seconds)}
         />
         <Typography variant="caption" tone="muted">

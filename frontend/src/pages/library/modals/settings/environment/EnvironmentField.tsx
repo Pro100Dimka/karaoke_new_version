@@ -7,7 +7,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useRef } from 'react';
-import { ru } from '../../../../../i18n/messages.ru';
 import { desktopClient as desktop } from '../../../../../services/desktopClient';
 import {
   effectiveState,
@@ -46,9 +45,9 @@ export const EnvironmentField = ({
   const messageKey = messageKeyFor(entry);
   const message =
     entry.errorMessage !== undefined
-      ? tr(entry.errorMessage ?? ru.settingsApplyFailed)
+      ? tr(entry.errorMessage ?? 'settingsApplyFailed')
       : messageKey
-        ? tr(ru[messageKey])
+        ? tr(messageKey)
         : entry.message;
   const pick = (file: File | undefined) => {
     const path = file && desktop.pathForFile(file);
@@ -60,13 +59,13 @@ export const EnvironmentField = ({
   return (
     <div className="environmentField" data-span={meta?.span ?? 12}>
       <TextField
-        label={meta ? tr(ru[meta.label]) : entry.key}
+        label={meta ? tr((meta.label)) : entry.key}
         title={entry.key}
         value={entry.value}
         onValueChange={onChange}
         type={secret ? 'password' : undefined}
         autoComplete={secret ? 'off' : undefined}
-        placeholder={savedSecret ? tr(ru.environmentSecretSaved) : undefined}
+        placeholder={savedSecret ? tr('environmentSecretSaved') : undefined}
         error={state === 'invalid' ? message : undefined}
         endAdornment={
           <>
@@ -75,7 +74,7 @@ export const EnvironmentField = ({
                 size="xs"
                 variant="ghost"
                 icon="trash"
-                label={tr(ru.environmentRemoveSecret)}
+                label={tr('environmentRemoveSecret')}
                 onClick={() => onSave('')}
               />
             )}
@@ -85,7 +84,7 @@ export const EnvironmentField = ({
                 variant="ghost"
                 icon="folder"
                 onClick={() => fileInput.current?.click()}
-                label={tr(ru.selectFile)}
+                label={tr('selectFile')}
               />
             )}
             <span

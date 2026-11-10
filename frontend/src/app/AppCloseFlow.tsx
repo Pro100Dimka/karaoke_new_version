@@ -4,7 +4,6 @@ import { tr, useLocale } from '@neo-ui-kit/react';
 import { roomSession } from '../providers/application';
 import { useCloseGuard } from '../providers/close-guards';
 import { ask } from '../providers/dialog';
-import { ru } from '../i18n/messages.ru';
 import { audioClient } from '../services/audioClient';
 import { pythonClient } from '../services/pythonClient';
 
@@ -26,13 +25,13 @@ export const AppCloseFlow = observer(() => {
       const active = jobs.filter((job) => activeStates.has(job.state));
       if (active.length > 0) {
         const choice = await ask({
-          title: tr(ru.closeWithProcessingTitle),
-          body: tr(ru.closeWithProcessingBody, { count: active.length }),
+          title: tr('closeWithProcessingTitle'),
+          body: tr('closeWithProcessingBody', { count: active.length }),
           actions: [
-            { id: 'keep', label: tr(ru.keepOpen) },
+            { id: 'keep', label: tr('keepOpen') },
             {
               id: 'exit',
-              label: tr(ru.cancelJobsAndExit),
+              label: tr('cancelJobsAndExit'),
               appearance: 'primary',
             },
           ],
@@ -62,7 +61,7 @@ export const AppCloseFlow = observer(() => {
           title: tr('errors.close'),
           body: tr('errors.closeUnconfirmed'),
           actions: [
-            { id: 'keep', label: tr(ru.keepOpen) },
+            { id: 'keep', label: tr('keepOpen') },
             { id: 'exit', label: tr('errors.closeAnyway') },
           ],
         })) === 'exit'

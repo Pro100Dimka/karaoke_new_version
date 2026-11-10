@@ -2,7 +2,6 @@ import { observeOperation } from '../../shared/errors';
 import { observable, runInAction } from 'mobx';
 import { openSettings } from '../../pages/library/modals/settings';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import { store } from '../../providers/store';
 import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
@@ -208,11 +207,11 @@ export const useKaraokeSession = (
     const result = await recordingWork.finish();
     if (result.recordingId) {
       setRecordingId(result.recordingId);
-      notify(tr(ru.recordingSaved), 'success');
+      notify(tr('recordingSaved'), 'success');
     }
     if (!result.saved) {
       setRecording('failed');
-      notify(tr(ru.recordingFailed), 'error');
+      notify(tr('recordingFailed'), 'error');
     }
     setRecording((current) => (current === 'failed' ? current : 'idle'));
     dispatch({ type: 'FINISH' });
@@ -280,7 +279,7 @@ export const useKaraokeSession = (
       setMonitoring(snapshot.monitoring);
       if (snapshot.monitoringSafetyTripped && !monitoringWarningShown.current) {
         monitoringWarningShown.current = true;
-        notify(tr(ru.monitoringSafetyStopped), 'error');
+        notify(tr('monitoringSafetyStopped'), 'error');
       } else if (!snapshot.monitoringSafetyTripped) {
         monitoringWarningShown.current = false;
       }
@@ -408,7 +407,7 @@ export const useKaraokeSession = (
     if (result.kind === 'started') setRecording('recording');
     else {
       setRecording('failed');
-      notify(tr(ru.recordingFailed), 'error');
+      notify(tr('recordingFailed'), 'error');
     }
     return result.kind === 'started';
   }, [ask, notify, openSettings, recordingWork]);

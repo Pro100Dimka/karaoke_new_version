@@ -2,7 +2,6 @@ import { useLibraryImport } from '../modals/add-song/useLibraryImport';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../providers/store';
 import { Button, Stack, Switch, Tooltip, tr } from '@neo-ui-kit/react';
-import { ru } from '../../../i18n/messages.ru';
 import LibrarySearchField, {
   type LibraryFilters,
   type LibraryViewFilters,
@@ -45,11 +44,11 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
   };
   const actions = [
     ...(!roomRole
-      ? [{ icon: 'users', label: tr(ru.onlineRoom), onClick: props.onOpenRoom }]
+      ? [{ icon: 'users', label: tr('onlineRoom'), onClick: props.onOpenRoom }]
       : []),
     {
       icon: 'plus',
-      label: tr(ru.addSong),
+      label: tr('addSong'),
       onClick: () => void addSong(),
       variant: 'primary' as const,
     },
@@ -57,7 +56,7 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
   return (
     <Stack
       role="toolbar"
-      aria-label={tr(ru.library)}
+      aria-label={tr('library')}
       direction="row"
       align="center"
       wrap
@@ -80,11 +79,11 @@ export const LibraryActions = observer((props: LibraryActionsProps) => {
         <Button key={action.icon} size="lg" variant="secondary" {...action} />
       ))}
       {roomRole === 'host' && (
-        <Tooltip content={tr(ru.collaborativeControlHint)}>
+        <Tooltip content={tr('collaborativeControlHint')}>
           <Switch
             size="lg"
             checked={collaborativeControl}
-            label={tr(ru.collaborativeControl)}
+            label={tr('collaborativeControl')}
             onValueChange={props.onCollaborativeControlChange}
           />
         </Tooltip>

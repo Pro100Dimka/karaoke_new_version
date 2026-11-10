@@ -7,7 +7,6 @@ import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
 import type { SongDto } from '../../../contracts/models';
 import { Grid, StatTile, tr } from '@neo-ui-kit/react';
 import { FriendsStat } from './friends-stat';
-import { ru } from '../../../i18n/messages.ru';
 import { isInQueue } from '../modals/processing/processingModel';
 
 const LibraryStats = observer(({ onOpenProcessing }: { onOpenProcessing(): void }) => {
@@ -45,18 +44,18 @@ const LibraryStats = observer(({ onOpenProcessing }: { onOpenProcessing(): void 
       <StatTile
         icon="music"
         value={songCount}
-        label={tr(ru.totalSongs)}
+        label={tr('totalSongs')}
         tilt={false}
       />
       <StatTile
         icon="mic"
         value={readyCount}
-        label={tr(ru.readyForKaraoke)}
-        aria-label={`${tr(ru.readyForKaraoke)} · ${tr(ru.processingQueue)}`}
+        label={tr('readyForKaraoke')}
+        aria-label={`${tr('readyForKaraoke')} · ${tr('processingQueue')}`}
         aria-haspopup="dialog"
         tilt={false}
         badge={activeJobs.length || undefined}
-        badgeLabel={tr(ru.processingQueue)}
+        badgeLabel={tr('processingQueue')}
         onClick={() => onOpenProcessing()}
       />
       <FriendsStat />

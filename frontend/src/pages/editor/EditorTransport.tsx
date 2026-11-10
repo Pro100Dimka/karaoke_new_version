@@ -5,7 +5,6 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import { useWaveformPeaks } from '../../shared/hooks/useWaveformPeaks';
 import { formatPreciseTime } from '../../shared/utils/format';
 
@@ -36,14 +35,14 @@ export const EditorTransport = ({
   useLocale();
   const peaks = useWaveformPeaks(songId, revision);
   return (
-    <section className="editorTransport" aria-label={tr(ru.editorTransport)}>
+    <section className="editorTransport" aria-label={tr('editorTransport')}>
       <IconButton
         round
         size="sm"
         variant="primary"
         icon={playing ? 'pause' : 'play'}
         disabled={!audioReady}
-        label={tr(ru[playing ? 'pause' : 'editorListen'])}
+        label={tr((playing ? 'pause' : 'editorListen'))}
         onClick={onTogglePlay}
       />
       <Typography variant="mono">{formatPreciseTime(position)}</Typography>
@@ -51,7 +50,7 @@ export const EditorTransport = ({
         points={peaks ?? emptyPeaks}
         position={position}
         duration={Math.max(duration, 1)}
-        label={tr(ru.songPosition)}
+        label={tr('songPosition')}
         onSeek={onSeek}
       />
       <Typography variant="mono" tone="muted">

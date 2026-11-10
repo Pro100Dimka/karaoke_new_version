@@ -5,7 +5,6 @@ import { useEffect } from 'react';
 import { useRoomLibraryCommands } from '../../../providers/application';
 import { useNotify } from '../../../providers/notifications';
 import type { SongDto } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
 import { sharedStateOf } from '../../../application/room/roomModel';
 import { errorMessageKey, toAppError } from '../../../shared/errors';
 import {
@@ -45,7 +44,7 @@ export const useRoomLibrary = ({
   const commands = useRoomLibraryCommands();
   const reportRoomError = (error: unknown) =>
     notify(
-      tr(ru[errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable']),
+      tr((errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable')),
       'error',
     );
 

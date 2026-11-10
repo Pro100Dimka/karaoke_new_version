@@ -8,7 +8,6 @@ import {
 } from '../../../shared/storage/localStore';
 import type { KaraokeState } from '../../../application/karaoke/karaokeMachine';
 import type { SongDto } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
 import { DetachButton, DetachedPanel } from '../../../shared/ui/DetachedPanel';
 import { useDetachedPanel } from '../../../shared/ui/useDetachedPanel';
 import { useStoredPanelLayout } from '../../../shared/ui/useFloatingPanel';
@@ -99,7 +98,7 @@ export const KaraokeConsole = ({
   const [presetsOpen, setPresetsOpen] = useState(false);
   const panel = useDetachedPanel(
     'karaokeConsole',
-    tr(ru.karaokeConsole),
+    tr('karaokeConsole'),
     consolePanelSize,
     (layout) => {
       placement.save(layout);
@@ -173,7 +172,7 @@ export const KaraokeConsole = ({
         onFloat={() => changeDock('free')}
         width={consoleWidth}
         shown={shown}
-        label={tr(ru.karaokeConsole)}
+        label={tr('karaokeConsole')}
       >
         <Card border shell padding="sm" className="karaokeConsoleCard">
           {dockButtons}

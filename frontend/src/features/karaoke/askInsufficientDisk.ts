@@ -1,5 +1,4 @@
 import { tr } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import type { DialogRequest } from '../../providers/dialog';
 import { formatBytes } from '../../shared/utils/format';
 import { minimumRecordingBytes } from '../../application/karaoke/KaraokeRecordingCoordinator';
@@ -11,16 +10,16 @@ export const askInsufficientDisk = (
   availableBytes: number,
 ): Promise<string | null> =>
   ask({
-    title: tr(ru.insufficientDiskTitle),
-    body: tr(ru.insufficientDisk, {
+    title: tr('insufficientDiskTitle'),
+    body: tr('insufficientDisk', {
       required: formatBytes(minimumRecordingBytes),
       available: formatBytes(availableBytes),
     }),
     actions: [
-      { id: 'close', label: tr(ru.close) },
+      { id: 'close', label: tr('close') },
       {
         id: 'storage',
-        label: tr(ru.openStorageSettings),
+        label: tr('openStorageSettings'),
         appearance: 'primary',
       },
     ],

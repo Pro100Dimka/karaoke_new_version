@@ -2,7 +2,6 @@ import { GlowText, ImageShine, Stack, tr, Typography } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../providers/store';
 import { appThemes } from '../../../providers/theme/variants';
-import { ru } from '../../../i18n/messages.ru';
 
 const LibraryTitle = observer(() => (
   <Stack direction="row" align="center" gap={6}>
@@ -14,12 +13,12 @@ const LibraryTitle = observer(() => (
       <Typography
         variant="eyebrow"
         tone="accent"
-        text={tr(ru.yourMusicCollection)}
+        text={tr('yourMusicCollection')}
       />
       <Typography variant="display" as="h1">
         <GlowText>A&amp;D Voice</GlowText>
       </Typography>
-      <Typography tone="muted" text={tr(ru.libraryTagline)} />
+      <Typography tone="muted" text={tr('libraryTagline')} />
     </Stack>
   </Stack>
 ));

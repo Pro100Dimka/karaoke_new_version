@@ -3,7 +3,6 @@ import {
   clearOperationFailure,
 } from '../../shared/errors';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import { audioClient } from '../../services/audioClient';
 import { pythonClient } from '../../services/pythonClient';
 import { editorApi } from './editorApi';
@@ -61,7 +60,7 @@ export const useEditorSession = (songId: string) => {
   const latest = useRef({ history, saved, dirty, song });
   latest.current = { history, saved, dirty, song };
   const previewFailure = useCallback(
-    () => notify(tr(ru.actionFailed), 'error'),
+    () => notify(tr('actionFailed'), 'error'),
     [notify, locale],
   );
   const preview = useEditorPreview(audioReady, previewFailure);
@@ -98,14 +97,14 @@ export const useEditorSession = (songId: string) => {
         const draft = loadDraft(loaded.id);
         if (draft && draft.baseRevision === document.revision) {
           const choice = await ask({
-            title: tr(ru.draftFoundTitle),
-            body: tr(ru.draftFoundBody),
+            title: tr('draftFoundTitle'),
+            body: tr('draftFoundBody'),
             tone: 'info',
             actions: [
-              { id: 'discard', label: tr(ru.discard) },
+              { id: 'discard', label: tr('discard') },
               {
                 id: 'restore',
-                label: tr(ru.restoreDraft),
+                label: tr('restoreDraft'),
                 appearance: 'primary',
               },
             ],
@@ -207,20 +206,20 @@ export const useEditorSession = (songId: string) => {
           if (pendingEdits)
             saveDraft(target.id, { baseRevision: revision, document: present });
           else clearDraft(target.id);
-          notify(tr(ru.editorSaved), 'success');
+          notify(tr('editorSaved'), 'success');
           return !pendingEdits;
         } catch (error) {
           if (requestGeneration !== generation.current) return false;
           if (toAppError(error).code !== 'RevisionConflict') throw error;
           const choice = await ask({
-            title: tr(ru.editorConflictTitle),
-            body: tr(ru.editorConflictBody),
+            title: tr('editorConflictTitle'),
+            body: tr('editorConflictBody'),
             actions: [
-              { id: 'cancel', label: tr(ru.cancel) },
-              { id: 'reload', label: tr(ru.reloadLatest) },
+              { id: 'cancel', label: tr('cancel') },
+              { id: 'reload', label: tr('reloadLatest') },
               {
                 id: 'overwrite',
-                label: tr(ru.overwriteLatest),
+                label: tr('overwriteLatest'),
                 appearance: 'primary',
               },
             ],
@@ -244,7 +243,7 @@ export const useEditorSession = (songId: string) => {
     } catch {
       // The edits stay in memory so the user can retry.
       if (requestGeneration === generation.current)
-        notify(tr(ru.editorSaveFailed), 'error');
+        notify(tr('editorSaveFailed'), 'error');
       return false;
     } finally {
       if (requestGeneration === generation.current) {
@@ -258,12 +257,12 @@ export const useEditorSession = (songId: string) => {
   const resolveUnsaved = useCallback(async (): Promise<boolean> => {
     if (!latest.current.dirty) return true;
     const choice = await ask({
-      title: tr(ru.unsavedEditorTitle),
-      body: tr(ru.unsavedEditorBody),
+      title: tr('unsavedEditorTitle'),
+      body: tr('unsavedEditorBody'),
       actions: [
-        { id: 'cancel', label: tr(ru.cancel) },
-        { id: 'discard', label: tr(ru.discardChanges) },
-        { id: 'save', label: tr(ru.save), appearance: 'primary' },
+        { id: 'cancel', label: tr('cancel') },
+        { id: 'discard', label: tr('discardChanges') },
+        { id: 'save', label: tr('save'), appearance: 'primary' },
       ],
     });
     if (choice === 'save') return save();

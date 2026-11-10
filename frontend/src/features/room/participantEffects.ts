@@ -1,4 +1,4 @@
-import type { MessageKey } from '../../i18n/messages';
+import type { MessageKey } from '../../providers/localization/messages';
 
 export type ParticipantEffect =
   'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';

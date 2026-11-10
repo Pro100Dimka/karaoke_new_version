@@ -1,4 +1,6 @@
-import '../../i18n/messages';
+import { en as appEn } from './messages.en';
+import { ru as appRu } from './messages.ru';
+import { uk as appUk } from './messages.uk';
 import { addMessages, LocaleProvider } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, type PropsWithChildren } from 'react';
@@ -22,6 +24,7 @@ Object.entries({ en, ru, uk } satisfies Record<string, typeof uk>).forEach(
   ([locale, messages]) => {
     addMessages(locale, {
       ...messages,
+      ...({ en: appEn, ru: appRu, uk: appUk } as Record<string, typeof appEn>)[locale],
       ...Object.fromEntries(
         Object.entries(aliases).map(([key, source]) => [key, messages[source]]),
       ),

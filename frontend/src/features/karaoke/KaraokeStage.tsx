@@ -10,7 +10,6 @@ import {
 } from '@neo-ui-kit/react';
 import { DetachButton, DetachedPanel } from '../../shared/ui/DetachedPanel';
 import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
-import { ru } from '../../i18n/messages.ru';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import type { VocalRange } from '../../application/library/songPreferences';
 import type { StageLayers } from './displayModes';
@@ -112,7 +111,7 @@ const PianoRoll = observer(
     const frameRef = useRef<HTMLDivElement>(null);
     const panel = useDetachedPanel(
       'pianoRoll',
-      tr(ru.pianoRoll),
+      tr('pianoRoll'),
       pianoPanelSize,
     );
     const { layout, active, beginMove, beginResize, handleMove, handleUp } =
@@ -138,7 +137,7 @@ const PianoRoll = observer(
       pitchMatchesTarget(measuredPitch, targetPitch),
     );
     const livePitch = capturedPitch ? undefined : liveMidi;
-    const label = tr(ru.pianoRoll);
+    const label = tr('pianoRoll');
     const melody = useMemo(
       () => (
         <MelodyRoll
@@ -265,7 +264,7 @@ const Lyrics = ({
         <p
           className="lyricsCountdown"
           role="timer"
-          aria-label={tr(ru.introCountdown, { seconds: countdown })}
+          aria-label={tr('introCountdown', { seconds: countdown })}
         >
           <span key={countdown}>{countdown}</span>
         </p>
@@ -411,7 +410,7 @@ export const KaraokeStage = observer(
           )}
           {(instrumental || minimal) && (
             <p className="instrumentalMode">
-              {instrumental ? tr(ru.instrumentalMode) : songTitle}
+              {instrumental ? tr('instrumentalMode') : songTitle}
             </p>
           )}
         </section>

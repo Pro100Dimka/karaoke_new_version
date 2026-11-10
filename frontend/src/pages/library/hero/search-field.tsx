@@ -10,7 +10,6 @@ import {
   tr,
 } from '@neo-ui-kit/react';
 import type { SongStatus } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
 import type { LibrarySortDirection } from '../../../shared/preferences/preferences';
 import type {
   LibraryArtworkFilter,
@@ -72,7 +71,7 @@ export default function LibrarySearchField(props: SearchProps) {
         const label = key === 'language' ? languageNames.get(value) : undefined;
         return {
           value,
-          label: label ? tr(ru[label]) : tr(`library.search.${value}`),
+          label: label ? tr(label) : tr(`library.search.${value}`),
         };
       })}
       searchable={key === 'language'}
@@ -88,7 +87,7 @@ export default function LibrarySearchField(props: SearchProps) {
         maxLength={300}
         role="searchbox"
         size="lg"
-        aria-label={tr(ru.search)}
+        aria-label={tr('search')}
         placeholder={tr('library.search.query')}
         readOnly={locked}
         clearable={!locked}
@@ -100,7 +99,7 @@ export default function LibrarySearchField(props: SearchProps) {
             ref={anchor}
             icon="sliders"
             variant={open ? 'primary' : 'ghost'}
-            label={tr(ru.filtersAndSorting)}
+            label={tr('filtersAndSorting')}
             aria-haspopup="dialog"
             aria-expanded={open}
             disabled={locked}
@@ -113,7 +112,7 @@ export default function LibrarySearchField(props: SearchProps) {
         onOpenChange={setOpen}
         anchorRef={anchor}
         align="end"
-        label={tr(ru.filtersAndSorting)}
+        label={tr('filtersAndSorting')}
       >
         <Grid columns={{ base: 1, sm: 2 }} gap={3}>
           {open &&

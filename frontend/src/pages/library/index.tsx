@@ -11,7 +11,6 @@ import {
 } from 'react';
 import { useRouter, Stack, tr, useLocale } from '@neo-ui-kit/react';
 
-import { ru } from '../../i18n/messages.ru';
 
 import { RoomModal } from '../../features/room/RoomModal';
 import { useKaraokeTv } from '../../features/karaoke/tv/karaokeTv';
@@ -182,7 +181,7 @@ export const LibraryPage = observer(() => {
       }}
       onDrop={handleDrop}
     >
-      {dragging && <div className="dropOverlay">{tr(ru.dropToImport)}</div>}
+      {dragging && <div className="dropOverlay">{tr('dropToImport')}</div>}
       <Stack
         as="section"
         gap={4}

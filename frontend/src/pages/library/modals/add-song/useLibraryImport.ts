@@ -12,7 +12,6 @@ import type {
   ImportMetadata,
   ImportOptions,
 } from '../../../../contracts/clients';
-import { ru } from '../../../../i18n/messages.ru';
 import { errorMessageKey, toAppError } from '../../../../shared/errors';
 import { isSupportedAudio } from './importModel';
 import { useGuardedAction } from '../../songs/useGuardedAction';
@@ -36,7 +35,7 @@ export const useLibraryImport = () => {
       if (song.status !== 'not-processed') return;
       await pythonClient.processSong(song.id);
       await refreshSongs(client);
-      notify(tr(ru.processingStarted), 'info');
+      notify(tr('processingStarted'), 'info');
     });
   };
 
@@ -46,7 +45,7 @@ export const useLibraryImport = () => {
     options?: ImportOptions,
   ) => {
     await importAndProcess(path, metadata, options);
-    notify(tr(ru.songImported), 'success');
+    notify(tr('songImported'), 'success');
   };
 
   // Show the whole batch immediately; import and queue processing one file at a time.
@@ -70,9 +69,9 @@ export const useLibraryImport = () => {
         failed.push(name);
       }
     }
-    if (imported) notify(tr(ru.songsImported, { count: imported }), 'success');
+    if (imported) notify(tr('songsImported', { count: imported }), 'success');
     if (failed.length)
-      notify(tr(ru.songsImportFailed, { names: failed.join(', ') }), 'error');
+      notify(tr('songsImportFailed', { names: failed.join(', ') }), 'error');
   };
 
   // The system file dialog already restricts the choice to supported audio extensions, so there is
@@ -90,7 +89,7 @@ export const useLibraryImport = () => {
         await handleImport(path, {});
       } catch (error) {
         notify(
-          tr(ru[errorMessageKey(toAppError(error)) ?? 'importFailed']),
+          tr((errorMessageKey(toAppError(error)) ?? 'importFailed')),
           'error',
         );
       }

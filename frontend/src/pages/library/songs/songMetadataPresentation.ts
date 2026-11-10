@@ -2,7 +2,7 @@ import type {
   RecordingDto,
   SongLanguage,
 } from '../../../contracts/models';
-import type { MessageKey } from '../../../i18n/messages';
+import type { MessageKey } from '../../../providers/localization/messages';
 
 export const languageLabels = {
   Auto: 'languageAuto',

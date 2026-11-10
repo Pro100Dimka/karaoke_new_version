@@ -5,7 +5,6 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import { EnvironmentGroupCard } from './EnvironmentGroupCard';
 import { EnvironmentJson } from './EnvironmentJson';
 import type { EnvironmentGroup } from './environmentModel';
@@ -34,14 +33,14 @@ export const SecretsSettings = () => {
       <MessageBar
         tone="error"
         action={
-          <Button size="sm" onClick={environment.retry} label={tr(ru.retry)} />
+          <Button size="sm" onClick={environment.retry} label={tr('retry')} />
         }
       >
         {environment.loadError}
       </MessageBar>
     );
   if (!entries)
-    return <ProgressBar indeterminate label={tr(ru.loadingSettings)} />;
+    return <ProgressBar indeterminate label={tr('loadingSettings')} />;
 
   const card = (group: EnvironmentGroup) => (
     <EnvironmentGroupCard
@@ -61,7 +60,7 @@ export const SecretsSettings = () => {
 
   return (
     <section
-      aria-label={tr(ru.environmentKeys)}
+      aria-label={tr('environmentKeys')}
       className="environmentForm"
       style={{ display: 'grid', gap: 'var(--ad-space-4)' }}
     >
