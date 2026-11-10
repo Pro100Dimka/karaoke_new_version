@@ -35,10 +35,11 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     const addedAt = (job: ProcessingJobDto) =>
       Date.parse(songs.get(job.songId)?.createdAt ?? job.createdAt ?? '') ||
       Infinity;
-    return [...visible].sort((a, b) =>
-      Number(isInQueue(b)) - Number(isInQueue(a)) ||
-      addedAt(a) - addedAt(b) ||
-      a.id.localeCompare(b.id),
+    return [...visible].sort(
+      (a, b) =>
+        Number(isInQueue(b)) - Number(isInQueue(a)) ||
+        addedAt(a) - addedAt(b) ||
+        a.id.localeCompare(b.id),
     );
   }, [visible, songs]);
 

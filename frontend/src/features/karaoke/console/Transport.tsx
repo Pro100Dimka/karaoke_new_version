@@ -78,7 +78,7 @@ export const Transport = ({
             size={action.primary ? 'lg' : 'md'}
             variant={action.primary ? 'primary' : 'secondary'}
             icon={action.icon}
-            label={tr((action.label))}
+            label={tr(action.label)}
             disabled={disabled}
             onClick={action.run}
           />

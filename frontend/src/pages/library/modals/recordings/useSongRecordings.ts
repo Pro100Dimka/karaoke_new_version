@@ -1,34 +1,35 @@
-import {
-  observeOperation,
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../../../../shared/errors';
-import { useQueryClient } from '@tanstack/react-query';
-import { refreshSongs } from '../../../../api/api-service';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
-import { audioClient as preview } from '../../../../services/audioClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { store } from '../../../../providers/store';
-import { ask } from '../../../../providers/dialog';
-import { useNotify } from '../../../../providers/notifications';
+import { refreshSongs } from '../../../../components/api-service';
+import type {
+  RecordingAnalysisProgress,
+  StudioMasterProgress,
+} from '../../../../contracts/clients';
 import type {
   AnalysisDto,
   RecordingDto,
   SongDto,
 } from '../../../../contracts/models';
-import type {
-  RecordingAnalysisProgress,
-  StudioMasterProgress,
-} from '../../../../contracts/clients';
+import { ask } from '../../../../providers/dialog';
 import type { MessageKey } from '../../../../providers/localization/messages';
-import { useGuardedAction } from '../../songs/useGuardedAction';
-import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { useNotify } from '../../../../providers/notifications';
+import { store } from '../../../../providers/store';
+import { audioClient as preview } from '../../../../services/audioClient';
 import {
   backendPollInterval,
   nextRecordingChange,
   onRecordingsChange,
 } from '../../../../services/backendEvents';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import {
+  clearOperationFailure,
+  errorMessageKey,
+  observeOperation,
+  reportOperationFailure,
+  toAppError,
+} from '../../../../shared/errors';
+import { useGuardedAction } from '../../songs/useGuardedAction';
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
@@ -249,7 +250,7 @@ export const useSongRecordings = (
       } catch (failure) {
         if (current())
           notify(
-            tr((errorMessageKey(toAppError(failure)) ?? 'actionFailed')),
+            tr(errorMessageKey(toAppError(failure)) ?? 'actionFailed'),
             'error',
           );
       }

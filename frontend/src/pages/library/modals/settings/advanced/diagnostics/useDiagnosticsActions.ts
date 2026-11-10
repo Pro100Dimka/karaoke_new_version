@@ -50,7 +50,7 @@ export const useDiagnosticsActions = (health: SubsystemHealth) => {
       else if (!(await desktop.saveTextFile('ad-voice-diagnostics.json', text)))
         return;
       notify(
-        tr((destination === 'clipboard' ? 'copied' : 'reportExported')),
+        tr(destination === 'clipboard' ? 'copied' : 'reportExported'),
         'success',
       );
     } catch (error) {

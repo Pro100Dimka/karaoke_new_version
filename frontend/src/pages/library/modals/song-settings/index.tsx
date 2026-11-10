@@ -9,7 +9,7 @@ import {
 } from '@neo-ui-kit/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { refreshSongs } from '../../../../api/api-service';
+import { refreshSongs } from '../../../../components/api-service';
 import { desktopClient as files } from '../../../../services/desktopClient';
 import { pythonClient } from '../../../../services/pythonClient';
 import { useGuardedAction } from '../../songs/useGuardedAction';

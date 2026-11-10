@@ -32,10 +32,7 @@ export const roomServerMixParticipantId = '__room_server_mix__';
 export type RoomCommand = 'Start' | 'Pause' | 'Seek' | 'Stop';
 /** Where the applied acoustic correction came from; NONE while the path has none. */
 export type AcousticCalibrationOrigin =
-  | 'NONE'
-  | 'PROFILE'
-  | 'TEST_SIGNAL'
-  | 'SONG';
+  'NONE' | 'PROFILE' | 'TEST_SIGNAL' | 'SONG';
 
 export interface AcousticCalibrationState {
   fingerprint: string;
@@ -60,12 +57,7 @@ export interface RoomSharedState {
   melodyGain: number;
 }
 export type MixerChannel =
-  | 'mic'
-  | 'music'
-  | 'reference'
-  | 'melody'
-  | 'remote'
-  | 'master';
+  'mic' | 'music' | 'reference' | 'melody' | 'remote' | 'master';
 
 export interface RemoteVoiceTiming {
   jitterMs: number;
@@ -90,10 +82,7 @@ export interface RoomRouteStages {
 }
 
 export type RoomRequirementSource =
-  | 'UNKNOWN'
-  | 'BOOTSTRAP'
-  | 'SHORT_WINDOW'
-  | 'STABLE_HISTORY';
+  'UNKNOWN' | 'BOOTSTRAP' | 'SHORT_WINDOW' | 'STABLE_HISTORY';
 
 export interface RoomTimingReport {
   voiceRoute?: 'checking' | 'direct' | 'relay';
@@ -150,15 +139,9 @@ export interface ImportOptions {
 }
 
 export type ProjectCompatibility =
-  | 'Current'
-  | 'Upgradeable'
-  | 'TooNew'
-  | 'Unsupported'
-  | 'Invalid';
+  'Current' | 'Upgradeable' | 'TooNew' | 'Unsupported' | 'Invalid';
 export type ProjectImportDecision =
-  | 'SafeOnly'
-  | 'AcceptOlder'
-  | 'AcceptDivergent';
+  'SafeOnly' | 'AcceptOlder' | 'AcceptDivergent';
 
 export interface PythonClient {
   health(): Promise<{
@@ -337,7 +320,10 @@ export interface AudioServiceClient {
     intervalMs?: number,
   ): () => void;
   observeSpectrum(
-    onValue: (value: { bands: readonly number[]; backingBands: readonly number[] }) => void,
+    onValue: (value: {
+      bands: readonly number[];
+      backingBands: readonly number[];
+    }) => void,
     onError: (error: unknown) => void,
     intervalMs?: number,
   ): () => void;
@@ -404,10 +390,16 @@ export interface AudioServiceClient {
   testInputLevel(): Promise<number>;
   snapshot(): Promise<PlaybackSnapshot>;
   playTestSound(): Promise<void>;
-  prepareSong(song: SongDto, isCurrent?: () => boolean): Promise<PlaybackSnapshot>;
+  prepareSong(
+    song: SongDto,
+    isCurrent?: () => boolean,
+  ): Promise<PlaybackSnapshot>;
   play(schedule?: PlaybackSchedule): Promise<PlaybackSnapshot>;
   pause(): Promise<PlaybackSnapshot>;
-  seek(positionSeconds: number, isCurrent?: () => boolean): Promise<PlaybackSnapshot>;
+  seek(
+    positionSeconds: number,
+    isCurrent?: () => boolean,
+  ): Promise<PlaybackSnapshot>;
   stop(): Promise<PlaybackSnapshot>;
   setMonitoring(enabled: boolean): Promise<PlaybackSnapshot>;
   /** Sets a mixer channel from its knob position (0..1); the loudness law is applied here. */
@@ -423,12 +415,7 @@ export interface AudioServiceClient {
   setParticipantEffect(
     participantId: string,
     effect:
-      | 'reverb'
-      | 'echo'
-      | 'delay'
-      | 'noiseSuppression'
-      | 'octave'
-      | 'autoTune',
+      'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune',
     value: number,
   ): Promise<void>;
   roomLevels(): Promise<{
@@ -462,7 +449,8 @@ export interface AudioServiceClient {
   setPreviewVolume(gain: number): Promise<void>;
   recordingPreviewStatus(owner?: symbol): Promise<RecordingPreviewStatus>;
   observeRecordingPreview(
-    owner: symbol, onValue: (value: RecordingPreviewStatus) => void,
+    owner: symbol,
+    onValue: (value: RecordingPreviewStatus) => void,
     onError: (error: unknown) => void,
   ): () => void;
 }

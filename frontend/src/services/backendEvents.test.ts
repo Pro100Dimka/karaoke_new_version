@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import {
-  backendPollInterval, nextJobChange, nextRecordingChange, onLibraryChange,
-  onJobChange, onModelsChange, onRecordingsChange, readBackendSnapshot, refreshOnJobChanges,
+  backendPollInterval,
+  nextJobChange,
+  nextRecordingChange,
+  onLibraryChange,
+  onJobChange,
+  onModelsChange,
+  onRecordingsChange,
+  readBackendSnapshot,
+  refreshOnJobChanges,
 } from './backendEvents';
 
 let listeners: ((event: unknown) => void)[] = [];
@@ -130,9 +137,14 @@ it('keeps a slow safety reconciliation and the original polling without a deskto
 it('keeps the changed job identity so unrelated query caches do not need refreshing', () => {
   const changed = vi.fn();
   const stop = onJobChange(changed);
-  push({ type: 'job.changed', data: { jobId: 'j1', type: 'ModelDownload', entityId: 'model:1' } });
+  push({
+    type: 'job.changed',
+    data: { jobId: 'j1', type: 'ModelDownload', entityId: 'model:1' },
+  });
   expect(changed).toHaveBeenCalledWith('j1', {
-    jobId: 'j1', type: 'ModelDownload', entityId: 'model:1',
+    jobId: 'j1',
+    type: 'ModelDownload',
+    entityId: 'model:1',
   });
   stop();
 });
@@ -153,8 +165,17 @@ it('wakes recording preparation on an event and still rechecks if that event is 
 it('unsubscribes an aborted snapshot read and does not retry its stale response', async () => {
   const controller = new AbortController();
   let finish!: (value: string) => void;
-  const read = vi.fn(() => new Promise<string>((resolve) => { finish = resolve; }));
-  const pending = readBackendSnapshot(read, ['models.changed'], controller.signal);
+  const read = vi.fn(
+    () =>
+      new Promise<string>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const pending = readBackendSnapshot(
+    read,
+    ['models.changed'],
+    controller.signal,
+  );
   const result = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
   push({ type: 'models.changed' });
   controller.abort();

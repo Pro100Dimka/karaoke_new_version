@@ -28,11 +28,7 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
     return (
       <div role="status">
         {recording.fileStatus === 'Preparing' && (
-          <Loader
-            animation="wave"
-            size="sm"
-            label={tr('recordingPreparing')}
-          />
+          <Loader animation="wave" size="sm" label={tr('recordingPreparing')} />
         )}
         <Typography>
           {tr(
@@ -103,7 +99,7 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
         round
         variant="primary"
         icon={playing ? 'pause' : 'play'}
-        label={tr((playing ? 'pause' : 'playRecording'))}
+        label={tr(playing ? 'pause' : 'playRecording')}
         onClick={() => void toggle()}
       />
       <div className="recordingTimeline">

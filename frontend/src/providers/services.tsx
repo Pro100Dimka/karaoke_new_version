@@ -27,7 +27,8 @@ export const subscribeServices = () => {
           .health()
           .then(pythonStatusFrom)
           .then((status) => {
-            if (!pythonSeenReady) performance.mark(`startup:python:${status.kind}`);
+            if (!pythonSeenReady)
+              performance.mark(`startup:python:${status.kind}`);
             return status;
           })
           .catch((): ServiceStatus => ({ kind: 'unavailable' })),

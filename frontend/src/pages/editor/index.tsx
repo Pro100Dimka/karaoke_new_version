@@ -183,11 +183,9 @@ export const EditorPage = () => {
   }
   if (['failed', 'invalid'].includes(session.load.kind)) {
     const message = tr(
-      (
-        session.load.kind === 'invalid'
-          ? invalidLoadMessage[session.load.compatibility]
-          : 'editorLoadFailed'
-      ),
+      session.load.kind === 'invalid'
+        ? invalidLoadMessage[session.load.compatibility]
+        : 'editorLoadFailed',
     );
     return (
       <main className="editorPage editorState" role="alert">

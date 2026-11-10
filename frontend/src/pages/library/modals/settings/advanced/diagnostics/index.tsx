@@ -46,7 +46,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
   const { backend, audio } = health;
   const { lighting, deliverReport } = useDiagnosticsActions(health);
   const backendStateText = (state: string) =>
-    isBackendState(state) ? tr((`backendState${state}`)) : state;
+    isBackendState(state) ? tr(`backendState${state}`) : state;
 
   const rows: {
     label: string;
@@ -59,7 +59,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       level: health.loading && !backend ? 'warning' : backendLevel(backend),
       value: backend
         ? backendStateText(backend.state)
-        : tr((health.loading ? 'loadingSettings' : 'unavailable')),
+        : tr(health.loading ? 'loadingSettings' : 'unavailable'),
       primary: true,
     },
     ...(backend
@@ -67,7 +67,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
           {
             label: tr('database'),
             level: backend.database ? 'success' : 'error',
-            value: tr((backend.database ? 'healthy' : 'unhealthy')),
+            value: tr(backend.database ? 'healthy' : 'unhealthy'),
           },
           {
             label: tr('aiRuntime'),
@@ -86,7 +86,7 @@ export const DiagnosticsPanel = ({ health }: { health: SubsystemHealth }) => {
       level: health.loading && !audio ? 'warning' : audioLevel(audio),
       value: audio
         ? (audio.ServiceState ?? '')
-        : tr((health.loading ? 'loadingSettings' : 'unavailable')),
+        : tr(health.loading ? 'loadingSettings' : 'unavailable'),
       primary: true,
     },
     ...(audio

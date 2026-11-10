@@ -81,9 +81,7 @@ export const RoomHistory = observer(() => {
   };
 
   if (failed)
-    return (
-      <Typography tone="muted">{tr('roomNetworkUnavailable')}</Typography>
-    );
+    return <Typography tone="muted">{tr('roomNetworkUnavailable')}</Typography>;
   if (!stays)
     return <ProgressBar indeterminate label={tr('friendsTabHistory')} />;
   if (stays.length === 0)

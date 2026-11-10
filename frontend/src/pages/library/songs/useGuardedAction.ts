@@ -15,7 +15,7 @@ export const useGuardedAction = () => {
     try {
       await action();
     } catch (failure) {
-      notify(tr((errorMessageKey(toAppError(failure)) ?? fallback)), 'error');
+      notify(tr(errorMessageKey(toAppError(failure)) ?? fallback), 'error');
     }
   };
 };

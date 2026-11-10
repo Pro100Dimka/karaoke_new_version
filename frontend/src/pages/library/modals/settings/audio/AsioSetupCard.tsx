@@ -25,7 +25,7 @@ export const AsioSetupCard = ({
       return tr('asioSetupLaunched');
     if (setup.phase === 'failed')
       return tr('asioSetupFailed', { reason: setup.error ?? '' });
-    return tr((hasAsio4All ? 'asioSetupConfigureBody' : 'asioSetupBody'));
+    return tr(hasAsio4All ? 'asioSetupConfigureBody' : 'asioSetupBody');
   };
   const action = () => {
     if (ready)
@@ -60,11 +60,9 @@ export const AsioSetupCard = ({
         onClick={() => void setup.install()}
       >
         {tr(
-          (
-            setup.phase === 'downloading'
-              ? 'asioSetupDownloading'
-              : 'asioSetupInstall'
-          ),
+          setup.phase === 'downloading'
+            ? 'asioSetupDownloading'
+            : 'asioSetupInstall',
         )}
       </Button>
     );
@@ -76,7 +74,7 @@ export const AsioSetupCard = ({
       role="region"
       aria-label="ASIO4ALL"
       icon="audio"
-      title={tr((hasAsio4All ? 'asioSetupConfigureTitle' : 'asioSetupTitle'))}
+      title={tr(hasAsio4All ? 'asioSetupConfigureTitle' : 'asioSetupTitle')}
       description={message()}
       actions={action()}
     />

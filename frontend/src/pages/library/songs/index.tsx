@@ -1,10 +1,10 @@
-import type { LibraryViewFilters } from '../hero/search-field';
-import { openSettings } from '../modals/settings';
-import { createPortal } from 'react-dom';
-import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
-import { loadLastPlayed } from './lastPlayed';
-import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
-import type { LibraryFilters } from '../hero/actions';
+import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { observer } from 'mobx-react-lite';
 import {
   useCallback,
@@ -16,35 +16,35 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
-import { store } from '../../../providers/store';
-import { ask } from '../../../providers/dialog';
-import { useNotify } from '../../../providers/notifications';
-import type { SongDto } from '../../../contracts/models';
-import { RecordingsModal } from '../modals/recordings';
-import { SongSettingsModal } from '../modals/song-settings';
-import { LibraryEmptyState } from '../empty-library';
-import { SongCard } from './song-grid/song-card';
-import { VirtualGrid } from './song-grid';
+import { createPortal } from 'react-dom';
+import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
 import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
-import {
+  refreshSongs,
   songsQuery,
   songSummaryQuery,
-  refreshSongs,
-} from '../../../api/api-service';
-import { pythonClient } from '../../../services/pythonClient';
+} from '../../../components/api-service';
+import type { SongDto } from '../../../contracts/models';
+import { useJobs } from '../../../providers/application';
+import { ask } from '../../../providers/dialog';
+import { useNotify } from '../../../providers/notifications';
+import { store } from '../../../providers/store';
 import {
   libraryChanged,
   onLibraryChange,
 } from '../../../services/backendEvents';
-import { useJobs } from '../../../providers/application';
-import { curtainMilliseconds } from './useSongActions';
+import { pythonClient } from '../../../services/pythonClient';
+import { LibraryEmptyState } from '../empty-library';
+import type { LibraryFilters } from '../hero/actions';
+import type { LibraryViewFilters } from '../hero/search-field';
+import { RecordingsModal } from '../modals/recordings';
+import { openSettings } from '../modals/settings';
+import { SongSettingsModal } from '../modals/song-settings';
+import { loadLastPlayed } from './lastPlayed';
+import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
+import { VirtualGrid } from './song-grid';
+import { SongCard } from './song-grid/song-card';
 import type { useRoomLibrary } from './useRoomLibrary';
+import { curtainMilliseconds } from './useSongActions';
 
 const emptyImports: readonly SongDto[] = [];
 

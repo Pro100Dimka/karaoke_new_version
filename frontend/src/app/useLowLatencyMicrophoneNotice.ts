@@ -14,11 +14,9 @@ export const useLowLatencyMicrophoneNotice = (): void => {
       audioClient.onLowLatencyMicrophoneFallback(({ microphoneAvailable }) =>
         tools.current.notify(
           tr(
-            (
-              microphoneAvailable
-                ? 'lowLatencyMicrophoneFallback'
-                : 'microphoneHeldByAnotherApp'
-            ),
+            microphoneAvailable
+              ? 'lowLatencyMicrophoneFallback'
+              : 'microphoneHeldByAnotherApp',
           ),
           microphoneAvailable ? 'info' : 'warning',
         ),

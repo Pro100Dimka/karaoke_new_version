@@ -1,7 +1,4 @@
-import type {
-  RecordingDto,
-  SongLanguage,
-} from '../../../contracts/models';
+import type { RecordingDto, SongLanguage } from '../../../contracts/models';
 import type { MessageKey } from '../../../providers/localization/messages';
 
 export const languageLabels = {

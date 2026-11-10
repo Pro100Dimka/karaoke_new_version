@@ -42,7 +42,7 @@ export const EditorTransport = ({
         variant="primary"
         icon={playing ? 'pause' : 'play'}
         disabled={!audioReady}
-        label={tr((playing ? 'pause' : 'editorListen'))}
+        label={tr(playing ? 'pause' : 'editorListen')}
         onClick={onTogglePlay}
       />
       <Typography variant="mono">{formatPreciseTime(position)}</Typography>

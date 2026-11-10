@@ -42,7 +42,7 @@ export const RoomPersonMenu = ({
     person &&
     void run(
       () => friends.befriend(person),
-      tr((incoming ? 'friendAdded' : 'friendRequestSent'), {
+      tr(incoming ? 'friendAdded' : 'friendRequestSent', {
         name: person.displayName,
       }),
     );
@@ -59,7 +59,7 @@ export const RoomPersonMenu = ({
               key={effect.id}
               size="xs"
               showLabel
-              label={tr((effect.label))}
+              label={tr(effect.label)}
               min={effect.min}
               max={effect.max}
               step={effect.step}
@@ -76,7 +76,7 @@ export const RoomPersonMenu = ({
         <Stack gap={2}>
           {befriend && (
             <Button size="sm" icon="person" disabled={busy} onClick={addFriend}>
-              {tr((incoming ? 'acceptAction' : 'addFriend'))}
+              {tr(incoming ? 'acceptAction' : 'addFriend')}
             </Button>
           )}
           {manage && (

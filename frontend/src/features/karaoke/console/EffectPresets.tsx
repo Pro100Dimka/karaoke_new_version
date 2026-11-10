@@ -63,7 +63,7 @@ export const EffectPresets = memo(
                       onOpenChange(false);
                     }}
                   >
-                    {preset.symbol} {tr((preset.label))}
+                    {preset.symbol} {tr(preset.label)}
                   </ToggleButton>
                 ))}
               </Grid>

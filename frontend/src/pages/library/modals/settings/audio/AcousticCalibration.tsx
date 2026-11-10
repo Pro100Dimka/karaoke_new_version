@@ -51,13 +51,11 @@ export const AcousticCalibration = observer(
               onClick={() => void measure()}
             >
               {tr(
-                (
-                  measuring
-                    ? 'acousticLatencyMeasuring'
-                    : measured === undefined
-                      ? 'acousticLatencyMeasure'
-                      : 'acousticLatencyRecheck'
-                ),
+                measuring
+                  ? 'acousticLatencyMeasuring'
+                  : measured === undefined
+                    ? 'acousticLatencyMeasure'
+                    : 'acousticLatencyRecheck',
               )}
             </Button>
           </Tooltip>

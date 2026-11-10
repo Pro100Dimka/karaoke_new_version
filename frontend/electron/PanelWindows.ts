@@ -79,9 +79,7 @@ export const panelWindowOpenHandler =
       };
     }
     const options: BrowserWindowConstructorOptions = {
-      ...(ownedPanelNames.includes(frameName) && parent
-        ? { parent }
-        : {}),
+      ...(ownedPanelNames.includes(frameName) && parent ? { parent } : {}),
       // Only the panel itself is seen: no Windows title bar, nothing around the panel. The panel is
       // moved by its own surface and sized to itself by the renderer (useDetachedPanel).
       frame: false,
@@ -102,7 +100,10 @@ export const panelWindowOpenHandler =
   };
 
 /** A panel window shows only what the app renders into it: it navigates nowhere and opens nothing. */
-export const securePanelWindow = (panel: BrowserWindow, name?: string): void => {
+export const securePanelWindow = (
+  panel: BrowserWindow,
+  name?: string,
+): void => {
   if (name && ownedPanelNames.includes(name)) panelNames.set(panel, name);
   panel.webContents.on('will-navigate', (event) => event.preventDefault());
   panel.webContents.on('will-redirect', (event) => event.preventDefault());

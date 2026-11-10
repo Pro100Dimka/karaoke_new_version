@@ -10,8 +10,7 @@ const backendEventsAvailable = (): boolean =>
 // Events update immediately; this slow reconciliation also covers a missed renderer IPC message.
 export const backendPollInterval = <T extends number | false>(
   fallback: T,
-): number | T =>
-  backendEventsAvailable() ? 30_000 : fallback;
+): number | T => (backendEventsAvailable() ? 30_000 : fallback);
 
 const onBackendChange = (
   types: readonly string[],
@@ -76,9 +75,13 @@ export const onLibraryChange = (listener: () => void): (() => void) => {
           'PackageImport',
           'LibraryReconciliation',
         ].includes(String(event.data.type ?? '')) &&
-          ['Queued', 'Succeeded', 'Failed', 'Cancelled', 'Interrupted'].includes(
-            String(event.data.state ?? ''),
-          ))
+          [
+            'Queued',
+            'Succeeded',
+            'Failed',
+            'Cancelled',
+            'Interrupted',
+          ].includes(String(event.data.state ?? '')))
       )
         listener();
     },
@@ -114,9 +117,10 @@ export const nextJobChange = (
   pollMilliseconds: number,
 ): Promise<void> =>
   nextChange(
-    (done) => onJobChange((changed) => {
-      if (changed === null || changed === jobId) done();
-    }),
+    (done) =>
+      onJobChange((changed) => {
+        if (changed === null || changed === jobId) done();
+      }),
     pollMilliseconds,
   );
 

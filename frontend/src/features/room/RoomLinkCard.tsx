@@ -130,11 +130,7 @@ export const RoomLinkCard = () => {
           <>
             {' '}
             · {tr('roomRoute')}:{' '}
-            {tr(
-              (
-                link.route === 'direct' ? 'roomRouteDirect' : 'roomRouteRelay'
-              ),
-            )}
+            {tr(link.route === 'direct' ? 'roomRouteDirect' : 'roomRouteRelay')}
           </>
         )}
       </Typography>
@@ -170,18 +166,16 @@ export const RoomLinkCard = () => {
           <SignalBars
             level={rated.bars}
             weak={rated.bad}
-            label={tr((rated.key))}
+            label={tr(rated.key)}
           />
         </button>
       </Tooltip>
       <div className="roomLinkDelay">
         <Typography variant="caption" tone="muted">
           {tr(
-            (
-              scheduledDelayMs > 0
-                ? 'roomLatencyLabel'
-                : 'roomEstimatedLatencyLabel'
-            ),
+            scheduledDelayMs > 0
+              ? 'roomLatencyLabel'
+              : 'roomEstimatedLatencyLabel',
           )}
         </Typography>
         <Typography as="strong" variant="h3">
@@ -195,9 +189,7 @@ export const RoomLinkCard = () => {
               })
             : '—'}
         </Typography>
-        <Badge tone={rated.bad ? 'warning' : 'success'}>
-          {tr((rated.key))}
-        </Badge>
+        <Badge tone={rated.bad ? 'warning' : 'success'}>{tr(rated.key)}</Badge>
       </div>
       <Sparkline
         fit

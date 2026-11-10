@@ -63,9 +63,7 @@ const KaggleElapsed = ({ startedAt }: { startedAt: number | null }) => {
     return () => clearInterval(timer);
   }, [startedAt]);
   const elapsed =
-    startedAt === null
-      ? 0
-      : Math.max(0, Math.floor((now - startedAt) / 1000));
+    startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
   return (
     <Typography variant="caption" tone="muted">
       {tr('kaggleDeployProgressTiming', { elapsed: formatElapsed(elapsed) })}
@@ -143,8 +141,8 @@ export const EnvironmentGroupCard = ({
       data-group={group}
       data-state={state}
       icon={ui.icon}
-      title={tr((ui.title))}
-      description={tr((ui.hint))}
+      title={tr(ui.title)}
+      description={tr(ui.hint)}
       style={{ background: 'unset!important', boxShadow: 'unset!important' }}
       actions={
         <span className="environmentGroupArt" aria-hidden="true">

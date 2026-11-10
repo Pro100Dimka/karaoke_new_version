@@ -164,9 +164,7 @@ describe('RadioConnection', () => {
     };
     render(<RadioConnection libraryActive />);
 
-    await waitFor(() =>
-      expect(store.radio.enabled).toBe(true),
-    );
+    await waitFor(() => expect(store.radio.enabled).toBe(true));
     act(() => toggleRadio());
 
     await waitFor(() =>
@@ -182,9 +180,7 @@ describe('RadioConnection', () => {
   it("publishes the host's current radio state when the host creates a room", async () => {
     const view = render(<RadioConnection libraryActive />);
     act(() => toggleRadio());
-    await waitFor(() =>
-      expect(store.radio.enabled).toBe(true),
-    );
+    await waitFor(() => expect(store.radio.enabled).toBe(true));
 
     appState.room = {
       code: 'NEW-ROOM',

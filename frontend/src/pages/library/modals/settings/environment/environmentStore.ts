@@ -343,7 +343,10 @@ class EnvironmentStore {
     }
   };
 
-  runKaggleAction = (action: KaggleAction, restore = false): Promise<string> => {
+  runKaggleAction = (
+    action: KaggleAction,
+    restore = false,
+  ): Promise<string> => {
     if (this.action) return this.action.promise;
     const run: KaggleRun = {
       phase: action,

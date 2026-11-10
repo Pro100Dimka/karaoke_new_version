@@ -70,8 +70,7 @@ export const BootstrapGate = observer(
         if (paintedFrames === 2) {
           performance.mark('startup:ui-ready');
           void desktopClient.appReady();
-        }
-        else frame = window.requestAnimationFrame(paint);
+        } else frame = window.requestAnimationFrame(paint);
       };
       // Keep scheduling frames while hidden so the first ready frame does not wait for an idle renderer.
       frame = window.requestAnimationFrame(paint);
@@ -89,11 +88,9 @@ export const BootstrapGate = observer(
         <EmptyState
           icon="warning"
           title={tr(
-            (
-              python.kind === 'incompatible'
-                ? 'pythonIncompatible'
-                : 'pythonUnavailable'
-            ),
+            python.kind === 'incompatible'
+              ? 'pythonIncompatible'
+              : 'pythonUnavailable',
           )}
           description={
             python.kind === 'incompatible'

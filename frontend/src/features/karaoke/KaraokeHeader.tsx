@@ -35,9 +35,7 @@ export const KaraokeHeader = ({
             round
             size="lg"
             icon={consoleToggle.visible ? 'down' : 'up'}
-            label={tr(
-              (consoleToggle.visible ? 'hideConsole' : 'showConsole'),
-            )}
+            label={tr(consoleToggle.visible ? 'hideConsole' : 'showConsole')}
             onClick={consoleToggle.onToggle}
           />
         )}

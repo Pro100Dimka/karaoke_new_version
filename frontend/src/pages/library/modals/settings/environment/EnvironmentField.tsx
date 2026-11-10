@@ -59,7 +59,7 @@ export const EnvironmentField = ({
   return (
     <div className="environmentField" data-span={meta?.span ?? 12}>
       <TextField
-        label={meta ? tr((meta.label)) : entry.key}
+        label={meta ? tr(meta.label) : entry.key}
         title={entry.key}
         value={entry.value}
         onValueChange={onChange}

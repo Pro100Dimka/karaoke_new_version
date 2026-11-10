@@ -17,9 +17,7 @@ export const useSocialAction = () => {
         return true;
       } catch (error) {
         notify(
-          tr(
-            (errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
-          ),
+          tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
           'error',
         );
         return false;

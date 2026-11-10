@@ -119,5 +119,7 @@ it('reloads a recording after its preview was stopped and released', async () =>
   await players.stopRecordingPreview();
   expect((await players.recordingPreviewStatus()).recordingId).toBeNull();
   await players.playRecording('take');
-  expect(command.mock.calls.filter(([name]) => name === 'LoadRecordingPreview')).toHaveLength(2);
+  expect(
+    command.mock.calls.filter(([name]) => name === 'LoadRecordingPreview'),
+  ).toHaveLength(2);
 });

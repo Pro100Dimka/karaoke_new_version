@@ -22,7 +22,8 @@
     "check:rules": "node scripts/check-rules.mjs",
     "check:architecture": "node scripts/check-architecture.mjs",
     "check:security": "npm audit --audit-level=moderate",
-    "dev:app": "node scripts/dev-electron.mjs"
+    "dev:app": "node scripts/dev-electron.mjs",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@neo-ui-kit/react": "1.4.1",
@@ -47,6 +48,7 @@
     "electron": "^42.11.8",
     "esbuild": "^0.28.2",
     "jsdom": "^26.1.0",
+    "prettier": "^3.9.10",
     "rcedit": "^5.0.2",
     "three-quantum-scene": "npm:three@0.182.0",
     "typescript": "^5.9.2",

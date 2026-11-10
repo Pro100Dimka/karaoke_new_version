@@ -63,9 +63,7 @@ export const RoomModal = observer(
         onClose();
       } catch (error) {
         setFailure(
-          tr(
-            (errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
-          ),
+          tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
         );
       } finally {
         setBusy(null);

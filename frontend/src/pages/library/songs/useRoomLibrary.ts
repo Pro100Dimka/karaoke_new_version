@@ -44,7 +44,7 @@ export const useRoomLibrary = ({
   const commands = useRoomLibraryCommands();
   const reportRoomError = (error: unknown) =>
     notify(
-      tr((errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable')),
+      tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
       'error',
     );
 

@@ -88,7 +88,7 @@ export const StoragePanel = ({
                 disabled={cleaning !== null}
                 loading={cleaning === cleanup.kind}
                 onClick={() => void clean(cleanup.kind)}
-                label={tr((cleanup.label))}
+                label={tr(cleanup.label)}
               />
             ))}
           </Stack>

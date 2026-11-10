@@ -135,16 +135,20 @@ export const useSpectrumFeed = (
 
   useEffect(() => {
     if (!enabled || !ready) return;
-    return audioClient.observeSpectrum(({ bands, backingBands }) => {
-      const frame = toSpectrumFrame(bands, backingBands);
-      if (isSilent(frame)) {
-        if (performance.now() - lastSound.current > 1000) setQuiet(true);
-      } else {
-        lastSound.current = performance.now();
-        setQuiet(false);
-      }
-      onFrame(frame);
-    // The service banner owns outage reporting; a decorative frame may simply be absent.
-    }, () => undefined, quiet ? silentPollMilliseconds : pollMilliseconds);
+    return audioClient.observeSpectrum(
+      ({ bands, backingBands }) => {
+        const frame = toSpectrumFrame(bands, backingBands);
+        if (isSilent(frame)) {
+          if (performance.now() - lastSound.current > 1000) setQuiet(true);
+        } else {
+          lastSound.current = performance.now();
+          setQuiet(false);
+        }
+        onFrame(frame);
+        // The service banner owns outage reporting; a decorative frame may simply be absent.
+      },
+      () => undefined,
+      quiet ? silentPollMilliseconds : pollMilliseconds,
+    );
   }, [enabled, ready, onFrame, pollMilliseconds, quiet]);
 };

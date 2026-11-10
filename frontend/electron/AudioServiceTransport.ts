@@ -16,7 +16,9 @@ export interface AudioNotification extends AudioResponse {
 }
 
 const audioNotificationCommands = [
-  'GetPlaybackSnapshot', 'GetSpectrum', 'GetInputLevel',
+  'GetPlaybackSnapshot',
+  'GetSpectrum',
+  'GetInputLevel',
 ] as const;
 
 /** Read-only stream; control commands retain their existing queue and deadlines. */
@@ -25,8 +27,12 @@ export const subscribeAudioNotifications = (
   intervalMs: number,
   listener: (notification: AudioNotification | null) => void,
 ): (() => void) => {
-  if (!audioNotificationCommands.some((value) => value === command) ||
-      !Number.isInteger(intervalMs) || intervalMs < 16 || intervalMs > 1000)
+  if (
+    !audioNotificationCommands.some((value) => value === command) ||
+    !Number.isInteger(intervalMs) ||
+    intervalMs < 16 ||
+    intervalMs > 1000
+  )
     throw new TypeError('Invalid AudioService subscription');
   let stopped = false;
   let connection: net.Socket | undefined;
@@ -55,10 +61,13 @@ export const subscribeAudioNotifications = (
     };
     cancelWatchdog = () => clearTimeout(watchdog);
     armWatchdog();
-    socket.once('connect', () => socket.write(encode({ command, args: { intervalMs } })));
+    socket.once('connect', () =>
+      socket.write(encode({ command, args: { intervalMs } })),
+    );
     socket.on('data', (chunk: Buffer) => {
       if (closed || stopped) return;
-      if (buffer.length + chunk.length > maxResponseBytes + 4) return disconnect();
+      if (buffer.length + chunk.length > maxResponseBytes + 4)
+        return disconnect();
       buffer = Buffer.concat([buffer, chunk]);
       while (buffer.length >= 4) {
         const length = buffer.readUInt32LE(0);

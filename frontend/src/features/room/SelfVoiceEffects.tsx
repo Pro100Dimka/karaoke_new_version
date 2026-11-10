@@ -17,7 +17,7 @@ export const SelfVoiceEffects = observer(() => {
           key={effect.id}
           size="xs"
           showLabel
-          label={tr((effect.label))}
+          label={tr(effect.label)}
           min={effect.min}
           max={effect.max}
           step={effect.step}

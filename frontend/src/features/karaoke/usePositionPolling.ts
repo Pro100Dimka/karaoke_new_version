@@ -1,4 +1,7 @@
-import { audioClient as audio, invalidateAudioSnapshots } from '../../services/audioClient';
+import {
+  audioClient as audio,
+  invalidateAudioSnapshots,
+} from '../../services/audioClient';
 import { useCallback, useEffect, useRef } from 'react';
 import type { PlaybackSnapshot } from '../../contracts/models';
 
@@ -29,15 +32,20 @@ export const usePositionPolling = (
 
   useEffect(() => {
     if (!enabled) return;
-    return audio.observeSnapshots((snapshot) => {
-      const current = callbacks.current;
-      if (!current.isPollable()) return;
-      current.onSnapshot?.(snapshot);
-      current.onPosition(snapshot.positionSeconds);
-      if (snapshot.state === 'finished' && current.isPlaying()) current.onFinished();
-    }, () => {
-      if (callbacks.current.isPollable()) callbacks.current.onLost();
-    }, playing ? 16 : 500);
+    return audio.observeSnapshots(
+      (snapshot) => {
+        const current = callbacks.current;
+        if (!current.isPollable()) return;
+        current.onSnapshot?.(snapshot);
+        current.onPosition(snapshot.positionSeconds);
+        if (snapshot.state === 'finished' && current.isPlaying())
+          current.onFinished();
+      },
+      () => {
+        if (callbacks.current.isPollable()) callbacks.current.onLost();
+      },
+      playing ? 16 : 500,
+    );
   }, [enabled, playing]);
 
   const invalidate = useCallback(() => {

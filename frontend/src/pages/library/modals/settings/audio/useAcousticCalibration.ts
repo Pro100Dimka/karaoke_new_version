@@ -58,10 +58,7 @@ export const useAcousticCalibration = (
             [measured.fingerprint]: measured.milliseconds,
           },
         });
-      notify(
-        tr('acousticLatencyMeasured', { value: milliseconds }),
-        'success',
-      );
+      notify(tr('acousticLatencyMeasured', { value: milliseconds }), 'success');
     } catch (error) {
       if (!mounted.current || current.current.activeContext !== activeContext)
         return;

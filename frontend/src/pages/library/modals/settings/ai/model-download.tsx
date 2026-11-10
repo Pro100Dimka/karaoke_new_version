@@ -1,5 +1,3 @@
-import { pythonClient } from '../../../../../services/pythonClient';
-import { useNotify } from '../../../../../providers/notifications';
 import {
   Button,
   ProgressBar,
@@ -14,7 +12,9 @@ import {
   isModelBusy,
   jobQuery,
   modelKey,
-} from '../../../../../api/api-service';
+} from '../../../../../components/api-service';
+import { useNotify } from '../../../../../providers/notifications';
+import { pythonClient } from '../../../../../services/pythonClient';
 import type { ModelCardProps } from '../../../../../utils/contracts';
 
 const formats = new Map<string, Intl.NumberFormat>();

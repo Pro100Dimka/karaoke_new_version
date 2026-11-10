@@ -41,7 +41,7 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
         size="xs"
         round
         icon={action.icon}
-        label={tr((action.label))}
+        label={tr(action.label)}
         disabled={action.disabled}
         onClick={action.run}
       />
@@ -60,7 +60,7 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
       }}
     >
       <Typography variant="caption" tone="muted">
-        {tr((metric.label))}
+        {tr(metric.label)}
       </Typography>
       <Stack direction="row" gap={2} align="center" justify="center">
         {step(metric.previous)}

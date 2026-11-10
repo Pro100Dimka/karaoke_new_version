@@ -153,11 +153,9 @@ export const RecordingCard = ({
               items={[recording, ...versions].map((item) => ({
                 value: item.id,
                 label: tr(
-                  (
-                    item.sourceRecordingId
-                      ? 'studioMasterTitle'
-                      : 'recordingOriginal'
-                  ),
+                  item.sourceRecordingId
+                    ? 'studioMasterTitle'
+                    : 'recordingOriginal',
                 ),
               }))}
             />
@@ -168,10 +166,10 @@ export const RecordingCard = ({
           {task && (
             <>
               <Typography variant="caption" role="status">
-                {tr((analysisStageLabel(task.stage)))} · {task.progress}%
+                {tr(analysisStageLabel(task.stage))} · {task.progress}%
               </Typography>
               <ProgressBar
-                label={tr((analysisStageLabel(task.stage)))}
+                label={tr(analysisStageLabel(task.stage))}
                 value={task.progress}
                 indeterminate={task.state === 'Queued'}
               />
@@ -222,11 +220,9 @@ export const RecordingCard = ({
             <IconButton
               icon="levels"
               label={tr(
-                (
-                  selected.fileStatus === 'RecoveredIncomplete'
-                    ? 'errorRecordingTimingUnavailable'
-                    : 'recordingAnalyze'
-                ),
+                selected.fileStatus === 'RecoveredIncomplete'
+                  ? 'errorRecordingTimingUnavailable'
+                  : 'recordingAnalyze',
               )}
               disabled={selected.fileStatus === 'RecoveredIncomplete'}
               onClick={() => onAnalyze(selected)}

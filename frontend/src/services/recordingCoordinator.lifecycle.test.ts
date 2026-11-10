@@ -61,35 +61,63 @@ describe('recording lifecycle', () => {
   beforeEach(() => vi.resetModules());
   afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
-  it.each([false, true])('keeps one recording target across a mode change, already paused=%s', async (paused) => {
-    const { recordingCoordinator: coordinator, audioRequest, pythonRequest } = await setup();
-    await coordinator.start(song);
-    if (paused) await coordinator.pause();
-    const switching = deferred();
-    const changed = coordinator.reconfigure(async (format) => {
-      expect(format).toMatchObject({ sampleRate: 44100, channels: 1 });
-      await switching.promise;
-    }, async () => 2);
-    const stopped = coordinator.stop();
-    await Promise.resolve();
-    expect(audioRequest.mock.calls.some(([r]) => r.command === 'StopRecording')).toBe(false);
-    switching.resolve();
-    await changed;
-    await stopped;
-    const commands = audioRequest.mock.calls.map(([r]) => r.command);
-    expect(commands.filter(c => c === 'PrepareRecording')).toHaveLength(1);
-    expect(commands.filter(c => c === 'ResumeRecording')).toHaveLength(paused ? 0 : 1);
-    expect(commands.filter(c => c === 'StopRecording')).toHaveLength(1);
-    expect(pythonRequest.mock.calls.filter(([r]) => r.path === '/recordings/target')).toHaveLength(1);
-  });
+  it.each([false, true])(
+    'keeps one recording target across a mode change, already paused=%s',
+    async (paused) => {
+      const {
+        recordingCoordinator: coordinator,
+        audioRequest,
+        pythonRequest,
+      } = await setup();
+      await coordinator.start(song);
+      if (paused) await coordinator.pause();
+      const switching = deferred();
+      const changed = coordinator.reconfigure(
+        async (format) => {
+          expect(format).toMatchObject({ sampleRate: 44100, channels: 1 });
+          await switching.promise;
+        },
+        async () => 2,
+      );
+      const stopped = coordinator.stop();
+      await Promise.resolve();
+      expect(
+        audioRequest.mock.calls.some(([r]) => r.command === 'StopRecording'),
+      ).toBe(false);
+      switching.resolve();
+      await changed;
+      await stopped;
+      const commands = audioRequest.mock.calls.map(([r]) => r.command);
+      expect(commands.filter((c) => c === 'PrepareRecording')).toHaveLength(1);
+      expect(commands.filter((c) => c === 'ResumeRecording')).toHaveLength(
+        paused ? 0 : 1,
+      );
+      expect(commands.filter((c) => c === 'StopRecording')).toHaveLength(1);
+      expect(
+        pythonRequest.mock.calls.filter(
+          ([r]) => r.path === '/recordings/target',
+        ),
+      ).toHaveLength(1);
+    },
+  );
 
   it('resumes the same recording after a rejected switch has restored its device', async () => {
     const { recordingCoordinator: coordinator, audioRequest } = await setup();
     await coordinator.start(song);
-    await expect(coordinator.reconfigure(async () => { throw new Error('Exclusive rejected'); },
-      async () => 2)).rejects.toThrow('Exclusive rejected');
+    await expect(
+      coordinator.reconfigure(
+        async () => {
+          throw new Error('Exclusive rejected');
+        },
+        async () => 2,
+      ),
+    ).rejects.toThrow('Exclusive rejected');
     expect(audioRequest.mock.calls.map(([r]) => r.command)).toEqual([
-      'PrepareRecording', 'StartRecording', 'PauseRecording', 'GetRecordingState', 'ResumeRecording',
+      'PrepareRecording',
+      'StartRecording',
+      'PauseRecording',
+      'GetRecordingState',
+      'ResumeRecording',
     ]);
     await coordinator.stop();
   });
@@ -138,28 +166,44 @@ describe('recording lifecycle', () => {
   });
 
   it('recovers an interrupted file before allocating and writing the next fragment', async () => {
-    const { recordingCoordinator: coordinator, audioRequest, pythonRequest } =
-      await setup();
+    const {
+      recordingCoordinator: coordinator,
+      audioRequest,
+      pythonRequest,
+    } = await setup();
     let target = 0;
     pythonRequest.mockImplementation(async (request) => ({
       ok: true,
       status: 200,
-      body: request.path === '/recordings/target'
-        ? { recordingId: `take-${++target}`, filePath: `D:/take-${target}.wav` }
-        : {},
+      body:
+        request.path === '/recordings/target'
+          ? {
+              recordingId: `take-${++target}`,
+              filePath: `D:/take-${target}.wav`,
+            }
+          : {},
     }));
     await coordinator.start(song);
     coordinator.interrupt();
-    await coordinator.start(song, { sourceSeconds: 12, playbackRate: 1, keyShift: 0 });
+    await coordinator.start(song, {
+      sourceSeconds: 12,
+      playbackRate: 1,
+      keyShift: 0,
+    });
     const requests = pythonRequest.mock.calls.map(([request]) => request.path);
     expect(requests).toEqual([
-      '/recordings/target', '/recordings/take-1/recover', '/recordings/target',
+      '/recordings/target',
+      '/recordings/take-1/recover',
+      '/recordings/target',
     ]);
-    expect(audioRequest.mock.calls
-      .filter(([request]) => request.command === 'PrepareRecording')
-      .map(([request]) => request.args?.path))
-      .toEqual(['D:/take-1.wav', 'D:/take-2.wav']);
-    await expect(coordinator.stop()).resolves.toMatchObject({ recordingId: 'take-2' });
+    expect(
+      audioRequest.mock.calls
+        .filter(([request]) => request.command === 'PrepareRecording')
+        .map(([request]) => request.args?.path),
+    ).toEqual(['D:/take-1.wav', 'D:/take-2.wav']);
+    await expect(coordinator.stop()).resolves.toMatchObject({
+      recordingId: 'take-2',
+    });
   });
 
   it('retains a prepared take when native Start fails, so Stop can still finalize it', async () => {

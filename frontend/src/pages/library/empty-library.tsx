@@ -8,9 +8,9 @@ import {
 } from '@neo-ui-kit/react';
 import { useIsMutating, useQuery } from '@tanstack/react-query';
 import {
-  requiredModelsQuery,
   processingSettingsQuery,
-} from '../../api/api-service';
+  requiredModelsQuery,
+} from '../../components/api-service';
 import { routes } from '../../shared/routes';
 
 type EmptyKind = 'firstRun' | 'noResults';

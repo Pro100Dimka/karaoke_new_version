@@ -302,9 +302,11 @@ const sustainedGroups = (
       glyphProgress(text, groups, syllable, 0, geometry);
     for (const [sound, index] of indices.entries()) {
       if (
-        index < first || index >= last ||
+        index < first ||
+        index >= last ||
         !/[aeiouyаеёиоуыэюяіїєймнлрmnrl]/i.test(characters[index] ?? '')
-      ) continue;
+      )
+        continue;
       const next = indices[sound + 1] ?? characters.length;
       const start = starts[index];
       const end = next === characters.length ? 1 : starts[next];
@@ -312,12 +314,16 @@ const sustainedGroups = (
         glyphProgress(text, indices, sound, 1, geometry) -
         glyphProgress(text, indices, sound, 0, geometry);
       if (
-        start === undefined || end === undefined ||
-        start < (starts[first] ?? 0) || end > (starts[last] ?? 1) ||
-        end <= start || width <= 0 ||
+        start === undefined ||
+        end === undefined ||
+        start < (starts[first] ?? 0) ||
+        end > (starts[last] ?? 1) ||
+        end <= start ||
+        width <= 0 ||
         (next < characters.length && end >= 1)
-      ) continue;
-      if (end - start > duration * soundWidth / width) {
+      )
+        continue;
+      if (end - start > (duration * soundWidth) / width) {
         anchors.add(index);
         if (next < last) anchors.add(next);
       }
@@ -357,14 +363,18 @@ export const syllableProgress = (
     groups.every((index, i) => {
       const at = starts[index];
       return (
-        at !== undefined && at >= 0 && at < 1 &&
+        at !== undefined &&
+        at >= 0 &&
+        at < 1 &&
         (i === 0 || at > (starts[groups[i - 1] ?? 0] ?? 0))
       );
     });
   // Missing or collapsed syllable anchors cannot define a separate visual interval.
-  const layout = geometry ?? characters.map((_, i) =>
-    [i / characters.length, (i + 1) / characters.length] as const,
-  );
+  const layout =
+    geometry ??
+    characters.map(
+      (_, i) => [i / characters.length, (i + 1) / characters.length] as const,
+    );
   return timedLetterProgress(
     measured ? starts : [0],
     word.text,

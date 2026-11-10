@@ -145,10 +145,10 @@ export const PerformanceAnalysisModal = ({
             {pending && (
               <>
                 <Typography role="status">
-                  {tr((analysisStageLabel(pending.stage)))}
+                  {tr(analysisStageLabel(pending.stage))}
                 </Typography>
                 <ProgressBar
-                  label={tr((analysisStageLabel(pending.stage)))}
+                  label={tr(analysisStageLabel(pending.stage))}
                   value={pending.progress}
                   indeterminate={pending.state === 'Queued'}
                 />
@@ -184,7 +184,7 @@ export const PerformanceAnalysisModal = ({
                     <Landscape className="analysisLandscape">
                       <div className="analysisVerdict">
                         <Typography variant="eyebrow" tone="accent">
-                          {tr((gradeLabel(analysis.score)))}
+                          {tr(gradeLabel(analysis.score))}
                         </Typography>
                         <Stack direction="row" gap={2} align="baseline">
                           <Typography
@@ -203,11 +203,9 @@ export const PerformanceAnalysisModal = ({
                         </Typography>
                         <Typography variant="body-sm" tone="muted">
                           {tr(
-                            (
-                              analysis[practice.key] >= 100
-                                ? 'analysisPerfectAdvice'
-                                : practice.advice
-                            ),
+                            analysis[practice.key] >= 100
+                              ? 'analysisPerfectAdvice'
+                              : practice.advice,
                           )}
                         </Typography>
                       </div>
@@ -227,7 +225,7 @@ export const PerformanceAnalysisModal = ({
                         padding="sm"
                         level={4}
                         icon={metricIcons[metric.key]}
-                        title={tr((metric.label))}
+                        title={tr(metric.label)}
                         className="analysisMetric"
                         actions={
                           <Typography as="strong" variant="h3">
@@ -236,11 +234,11 @@ export const PerformanceAnalysisModal = ({
                         }
                       >
                         <ProgressBar
-                          label={tr((metric.label))}
+                          label={tr(metric.label)}
                           value={analysis[metric.key]}
                         />
                         <Typography variant="caption" tone="muted">
-                          {tr((metric.description))}
+                          {tr(metric.description)}
                         </Typography>
                       </Card>
                     ))}
@@ -280,11 +278,9 @@ export const PerformanceAnalysisModal = ({
                         icon="sparkle"
                         title={tr('studioMasterTitle')}
                         description={tr(
-                          (
-                            master
-                              ? 'studioMasterReadyDescription'
-                              : 'studioMasterDescription'
-                          ),
+                          master
+                            ? 'studioMasterReadyDescription'
+                            : 'studioMasterDescription',
                         )}
                         className={master ? 'analysisMaster' : 'analysisStudio'}
                         actions={
@@ -326,7 +322,7 @@ export const PerformanceAnalysisModal = ({
                             icon="sparkle"
                             disabled={Boolean(
                               viewed.fileStatus &&
-                                viewed.fileStatus !== 'Ready',
+                              viewed.fileStatus !== 'Ready',
                             )}
                             onClick={() => onCreateStudioMaster(viewed)}
                             label={tr('studioMasterCreate')}

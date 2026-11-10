@@ -51,7 +51,7 @@ export const TvRemote = () => {
       <IconButton
         round
         icon={playing?.playing ? 'pause' : 'play'}
-        label={tr((playing?.playing ? 'pause' : 'tvPlay'))}
+        label={tr(playing?.playing ? 'pause' : 'tvPlay')}
         disabled={!playing}
         onClick={() => playing?.togglePlayback()}
       />

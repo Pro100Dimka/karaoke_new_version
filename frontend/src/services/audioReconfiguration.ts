@@ -52,7 +52,9 @@ export class AudioReconfigurationState {
   ): Promise<void> {
     await operations.ensureSession();
     if (checkpoint) {
-      const { PlaybackState } = parseKeyValues(await operations.command('GetPlaybackSnapshot'));
+      const { PlaybackState } = parseKeyValues(
+        await operations.command('GetPlaybackSnapshot'),
+      );
       if (!['2', '3', '4', '6'].includes(PlaybackState ?? '')) {
         const artifacts = await operations.resolveArtifacts(checkpoint.song);
         await operations.command('LoadSong', artifacts);

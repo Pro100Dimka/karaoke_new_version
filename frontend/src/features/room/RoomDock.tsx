@@ -177,7 +177,7 @@ export const RoomDock = () => {
 
   const failure = (error: unknown) =>
     notify(
-      tr((errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable')),
+      tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
       'error',
     );
 
@@ -254,7 +254,7 @@ export const RoomDock = () => {
     }
   };
 
-  const collapseLabel = tr((collapsed ? 'expandRoom' : 'collapseRoom'));
+  const collapseLabel = tr(collapsed ? 'expandRoom' : 'collapseRoom');
 
   if (collapsed && !panel.detached) {
     return (

@@ -114,23 +114,33 @@ it('disposes the connection without erasing the persisted room for the next moun
 
 it('refreshes active model caches after events and reconnection without a polling tick', async () => {
   const listeners = new Set<(event: unknown) => void>();
-  Object.assign(window, { desktop: { onBackendEvent: (listener: (event: unknown) => void) => {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  } } });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  Object.assign(window, {
+    desktop: {
+      onBackendEvent: (listener: (event: unknown) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    },
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   let generation = 1;
   const read = vi.fn(async () => generation);
   const observers = [
-    ['models', 'required'], ['model-free-space'],
-    ['job', 'ModelDownload', 'model:1'], ['job', 'ModelDownload', 'other:1'],
-  ].map((queryKey) =>
-    new QueryObserver(client, { queryKey, queryFn: read }),
+    ['models', 'required'],
+    ['model-free-space'],
+    ['job', 'ModelDownload', 'model:1'],
+    ['job', 'ModelDownload', 'other:1'],
+  ].map((queryKey) => new QueryObserver(client, { queryKey, queryFn: read }));
+  const stops = observers.map((observer) =>
+    observer.subscribe(() => undefined),
   );
-  const stops = observers.map((observer) => observer.subscribe(() => undefined));
   const stop = subscribeApplication(client);
   try {
-    await vi.waitFor(() => expect(client.getQueryData(['models', 'required'])).toBe(1));
+    await vi.waitFor(() =>
+      expect(client.getQueryData(['models', 'required'])).toBe(1),
+    );
     for (const type of ['models.changed', 'connected', 'resync']) {
       generation += 1;
       listeners.forEach((listener) => listener({ type }));
@@ -141,10 +151,15 @@ it('refreshes active model caches after events and reconnection without a pollin
     }
     expect(read).toHaveBeenCalledTimes(14);
     generation += 1;
-    listeners.forEach((listener) => listener({
-      type: 'job.changed', data: { jobId: 'j1', type: 'ModelDownload', entityId: 'model:1' },
-    }));
-    await vi.waitFor(() => expect(client.getQueryData(['job', 'ModelDownload', 'model:1'])).toBe(5));
+    listeners.forEach((listener) =>
+      listener({
+        type: 'job.changed',
+        data: { jobId: 'j1', type: 'ModelDownload', entityId: 'model:1' },
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(client.getQueryData(['job', 'ModelDownload', 'model:1'])).toBe(5),
+    );
     expect(client.getQueryData(['job', 'ModelDownload', 'other:1'])).toBe(4);
     expect(read).toHaveBeenCalledTimes(15);
   } finally {

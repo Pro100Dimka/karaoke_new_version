@@ -48,7 +48,7 @@ export const RoomSync = observer(() => {
       },
       curtain: setLaunching,
       notify: (key, tone, params) =>
-        latest.current.notify(tr((key as MessageKey), params), tone, {
+        latest.current.notify(tr(key as MessageKey, params), tone, {
           silent: key === 'participantJoined' || key === 'participantLeft',
         }),
       chime: (kind) => {

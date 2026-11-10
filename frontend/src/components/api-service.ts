@@ -37,9 +37,10 @@ export const songsQuery = (epoch: number, filter?: SongSearch) =>
     initialPageParam: null as string | null,
     queryFn: ({ signal, pageParam }): Promise<SongPage> =>
       readBackendSnapshot(
-        async () => filter
-          ? pythonClient.searchSongs(filter, pageParam)
-          : { items: await pythonClient.listSongs(), nextCursor: null },
+        async () =>
+          filter
+            ? pythonClient.searchSongs(filter, pageParam)
+            : { items: await pythonClient.listSongs(), nextCursor: null },
         ['library.changed'],
         signal,
       ),
@@ -55,7 +56,9 @@ export const songSummaryQuery = (epoch: number) =>
     queryKey: ['song-summary', epoch],
     queryFn: ({ signal }) =>
       readBackendSnapshot(
-        () => pythonClient.songSummary(), ['library.changed'], signal,
+        () => pythonClient.songSummary(),
+        ['library.changed'],
+        signal,
       ),
     refetchInterval: backendPollInterval(15_000),
   });
@@ -106,11 +109,11 @@ export const importSong = async (
           current.map((item) =>
             item.id === placeholderId
               ? {
-                ...item,
-                progress: value.progress,
-                stage: value.stage,
-                jobId: value.jobId,
-              }
+                  ...item,
+                  progress: value.progress,
+                  stage: value.stage,
+                  jobId: value.jobId,
+                }
               : item,
           ),
         );
@@ -153,18 +156,23 @@ export const isActiveJob = (job?: JobProgress | null) =>
 const modelListQuery = (catalogOnly: boolean) =>
   queryOptions({
     queryKey: catalogOnly ? ['models', 'required'] : ['models'],
-    queryFn: ({ signal }) => readBackendSnapshot(async () => {
-      const models = await bridgedHttp(
-        'pythonRequest',
-        {
-          method: 'GET',
-          path: catalogOnly ? '/models?catalog_only=true' : '/models',
+    queryFn: ({ signal }) =>
+      readBackendSnapshot(
+        async () => {
+          const models = await bridgedHttp(
+            'pythonRequest',
+            {
+              method: 'GET',
+              path: catalogOnly ? '/models?catalog_only=true' : '/models',
+            },
+            'Models request failed',
+          );
+          signal.throwIfAborted();
+          return parse(array(modelSchema), models);
         },
-        'Models request failed',
-      );
-      signal.throwIfAborted();
-      return parse(array(modelSchema), models);
-    }, ['models.changed'], signal),
+        ['models.changed'],
+        signal,
+      ),
     refetchInterval: backendPollInterval(5000),
   });
 
@@ -185,18 +193,23 @@ export const processingSettingsQuery = queryOptions({
 export const jobQuery = (type: JobType, entityId: string) =>
   queryOptions({
     queryKey: ['job', type, entityId],
-    queryFn: ({ signal }) => readBackendSnapshot(async () => {
-      const result = await bridgedHttp(
-        'pythonRequest',
-        {
-          method: 'GET',
-          path: `/jobs?type=${type}&entityId=${encodeURIComponent(entityId)}&limit=1`,
+    queryFn: ({ signal }) =>
+      readBackendSnapshot(
+        async () => {
+          const result = await bridgedHttp(
+            'pythonRequest',
+            {
+              method: 'GET',
+              path: `/jobs?type=${type}&entityId=${encodeURIComponent(entityId)}&limit=1`,
+            },
+            'Job request failed',
+          );
+          signal.throwIfAborted();
+          return parse(jobsSchema, result).items[0] ?? null;
         },
-        'Job request failed',
-      );
-      signal.throwIfAborted();
-      return parse(jobsSchema, result).items[0] ?? null;
-    }, ['job.changed'], signal),
+        ['job.changed'],
+        signal,
+      ),
     refetchInterval: backendPollInterval(1000),
   });
 

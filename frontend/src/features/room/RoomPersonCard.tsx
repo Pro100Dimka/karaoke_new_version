@@ -127,7 +127,7 @@ export const RoomPersonCard = observer(
       setEffects((current) => ({ ...current, [effect]: value }));
       void voice.setParticipantEffect(participant.id, effect, value);
     };
-    const muteLabel = tr((muted ? 'unmuteMicrophone' : 'muteMicrophone'));
+    const muteLabel = tr(muted ? 'unmuteMicrophone' : 'muteMicrophone');
     const effectsLabel = tr('participantEffects', { name: participant.name });
 
     return (

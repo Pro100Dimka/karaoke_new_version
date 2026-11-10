@@ -36,19 +36,23 @@ export const useInputMonitoring = (canStart: boolean) => {
       );
     };
     const sample = () => {
-      stopSamples = audio.observeSnapshots(snapshot => {
-        if (stopped) return;
-        runInAction(() => inputLevel.set(snapshot.inputLevel));
-        if (snapshot.monitoringSafetyTripped) {
-          const { notify } = latest.current;
-          notify(tr('monitoringSafetyStopped'), 'error');
+      stopSamples = audio.observeSnapshots(
+        (snapshot) => {
+          if (stopped) return;
+          runInAction(() => inputLevel.set(snapshot.inputLevel));
+          if (snapshot.monitoringSafetyTripped) {
+            const { notify } = latest.current;
+            notify(tr('monitoringSafetyStopped'), 'error');
+            setTestingInputState(false);
+          }
+        },
+        (error) => {
+          if (stopped) return;
+          reportError(error);
           setTestingInputState(false);
-        }
-      }, error => {
-        if (stopped) return;
-        reportError(error);
-        setTestingInputState(false);
-      }, meterIntervalMs);
+        },
+        meterIntervalMs,
+      );
       void session.refresh();
     };
     void session

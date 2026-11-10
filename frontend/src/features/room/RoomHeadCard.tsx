@@ -67,7 +67,7 @@ const TransferNote = ({
     return (
       <div className="roomHeadNote">
         <Typography role="alert" variant="caption" tone="warning">
-          {tr((conflict ? 'roomProjectConflict' : failureMessage[failure]))}
+          {tr(conflict ? 'roomProjectConflict' : failureMessage[failure])}
         </Typography>
         {failure === 'local' && (
           <Button
@@ -77,7 +77,7 @@ const TransferNote = ({
               conflict ? actions.onReplaceProject : actions.onRetryTransfer
             }
           >
-            {tr((conflict ? 'roomReplaceProject' : 'retryTransfer'))}
+            {tr(conflict ? 'roomReplaceProject' : 'retryTransfer')}
           </Button>
         )}
       </div>
@@ -155,7 +155,7 @@ export const RoomHeadCard = ({
             size="xs"
             variant="ghost"
             icon={actions.copied ? 'check' : 'copy'}
-            label={tr((actions.copied ? 'copied' : 'copyCode'))}
+            label={tr(actions.copied ? 'copied' : 'copyCode')}
             onClick={actions.onCopy}
           />
         </div>
@@ -209,7 +209,7 @@ export const RoomHeadCard = ({
         {[
           {
             icon: actions.detached ? 'window' : 'minus',
-            label: tr((actions.detached ? 'panelAttach' : 'collapseRoom')),
+            label: tr(actions.detached ? 'panelAttach' : 'collapseRoom'),
             onClick: actions.onTogglePanel,
           },
           {
@@ -217,18 +217,17 @@ export const RoomHeadCard = ({
             label: tr('leaveRoom'),
             onClick: actions.onLeave,
           },
-        ]
-          .map(({ icon, label, onClick }) => (
-            <IconButton
-              key={icon}
-              size="xs"
-              variant="secondary"
-              icon={icon}
-              label={label}
-              style={{ fontSize: '1rem', color: 'var(--ad-text)' }}
-              onClick={onClick}
-            />
-          ))}
+        ].map(({ icon, label, onClick }) => (
+          <IconButton
+            key={icon}
+            size="xs"
+            variant="secondary"
+            icon={icon}
+            label={label}
+            style={{ fontSize: '1rem', color: 'var(--ad-text)' }}
+            onClick={onClick}
+          />
+        ))}
       </div>
     </Card>
   );

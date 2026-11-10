@@ -24,32 +24,79 @@ const installBridge = (
 describe('audioClient contract', () => {
   it('finishes obsolete native loading before preparing the replacement song', async () => {
     let release!: () => void;
-    const held = new Promise<void>(resolve => { release = resolve; });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     let current = true;
-    const { requests } = installBridge(async ({ command, args }) => {
-      if (command === 'LoadSong' && args?.instrumental === 'old') await held;
-      return { status: 0, text: 'SessionState: Running\nPlaybackState: 2' };
-    }, { resolveProjectArtifacts: vi.fn(async id => ({ instrumental: id, vocals: '', melody: '' })) });
-    const song = { id: 'old', activeRevision: 1 } as import('../contracts/models').SongDto;
-    const old = audioClient.prepareSong(song, () => current).catch(error => error);
-    await vi.waitFor(() => expect(requests.some(request => request.command === 'LoadSong')).toBe(true));
+    const { requests } = installBridge(
+      async ({ command, args }) => {
+        if (command === 'LoadSong' && args?.instrumental === 'old') await held;
+        return { status: 0, text: 'SessionState: Running\nPlaybackState: 2' };
+      },
+      {
+        resolveProjectArtifacts: vi.fn(async (id) => ({
+          instrumental: id,
+          vocals: '',
+          melody: '',
+        })),
+      },
+    );
+    const song = {
+      id: 'old',
+      activeRevision: 1,
+    } as import('../contracts/models').SongDto;
+    const old = audioClient
+      .prepareSong(song, () => current)
+      .catch((error) => error);
+    await vi.waitFor(() =>
+      expect(requests.some((request) => request.command === 'LoadSong')).toBe(
+        true,
+      ),
+    );
     current = false;
     const next = audioClient.prepareSong({ ...song, id: 'new' });
     release();
     await Promise.all([old, next]);
-    expect(requests.filter(request => ['LoadSong', 'UnloadSong'].includes(request.command)).map(request => [request.command, request.args?.instrumental])).toEqual([
-      ['LoadSong', 'old'], ['UnloadSong', undefined], ['LoadSong', 'new'],
+    expect(
+      requests
+        .filter((request) =>
+          ['LoadSong', 'UnloadSong'].includes(request.command),
+        )
+        .map((request) => [request.command, request.args?.instrumental]),
+    ).toEqual([
+      ['LoadSong', 'old'],
+      ['UnloadSong', undefined],
+      ['LoadSong', 'new'],
     ]);
   });
   it('does not load an obsolete song after resolving its artifacts', async () => {
-    let finish!: (value: { instrumental: string; vocals: string; melody: string }) => void;
+    let finish!: (value: {
+      instrumental: string;
+      vocals: string;
+      melody: string;
+    }) => void;
     let current = true;
-    const resolveProjectArtifacts = vi.fn(() => new Promise<{ instrumental: string; vocals: string; melody: string }>(resolve => { finish = resolve; }));
-    const { commands } = installBridge(() => ({ status: 0, text: 'SessionState: Running\nPlaybackState: 2' }), { resolveProjectArtifacts });
-    const song = { id: 'obsolete', activeRevision: 1 } as import('../contracts/models').SongDto;
+    const resolveProjectArtifacts = vi.fn(
+      () =>
+        new Promise<{ instrumental: string; vocals: string; melody: string }>(
+          (resolve) => {
+            finish = resolve;
+          },
+        ),
+    );
+    const { commands } = installBridge(
+      () => ({ status: 0, text: 'SessionState: Running\nPlaybackState: 2' }),
+      { resolveProjectArtifacts },
+    );
+    const song = {
+      id: 'obsolete',
+      activeRevision: 1,
+    } as import('../contracts/models').SongDto;
     const preparing = audioClient.prepareSong(song, () => current);
-    const settled = preparing.catch(error => error);
-    await vi.waitFor(() => expect(resolveProjectArtifacts).toHaveBeenCalledOnce());
+    const settled = preparing.catch((error) => error);
+    await vi.waitFor(() =>
+      expect(resolveProjectArtifacts).toHaveBeenCalledOnce(),
+    );
     current = false;
     finish({ instrumental: 'old.wav', vocals: '', melody: '' });
     await settled;
@@ -58,21 +105,37 @@ describe('audioClient contract', () => {
   it('serializes health observations with a complete device transition', async () => {
     const { audioState } = await import('./audioSession');
     let release: () => void = () => undefined;
-    const held = new Promise<void>(resolve => { release = resolve; });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     let entered: () => void = () => undefined;
-    const started = new Promise<void>(resolve => { entered = resolve; });
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
     const { requests } = installBridge(async ({ command }) => {
-      if (command === 'GetServiceState') { entered(); await held; }
-      return { status: 0, text: command === 'GetServiceState' ? 'Running'
-        : 'SessionState: Running\nRuntimeOutputSampleRate: 48000' };
+      if (command === 'GetServiceState') {
+        entered();
+        await held;
+      }
+      return {
+        status: 0,
+        text:
+          command === 'GetServiceState'
+            ? 'Running'
+            : 'SessionState: Running\nRuntimeOutputSampleRate: 48000',
+      };
     });
     audioState.reconfiguration.song = null;
     const health = audioClient.health();
     await started;
-    const changed = audioClient.applyConfiguration({ backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 });
+    const changed = audioClient.applyConfiguration({
+      backend: 'WASAPI Shared',
+      sampleRate: 48000,
+      periodFrames: 0,
+    });
     try {
-      await new Promise(resolve => setTimeout(resolve, 0));
-      expect(requests.some(r => r.command === 'Reconfigure')).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(requests.some((r) => r.command === 'Reconfigure')).toBe(false);
     } finally {
       release();
       await Promise.allSettled([health, changed]);
@@ -83,12 +146,21 @@ describe('audioClient contract', () => {
     let generation = 1;
     installBridge(({ command }) => {
       if (command === 'Reconfigure') generation++;
-      return { status: 0, text: command === 'GetServiceState' ? 'Running'
-        : `SessionState: Running\nServiceInstanceId: controlled-test\ngenerationId: ${generation}\nRuntimeOutputSampleRate: 48000` };
+      return {
+        status: 0,
+        text:
+          command === 'GetServiceState'
+            ? 'Running'
+            : `SessionState: Running\nServiceInstanceId: controlled-test\ngenerationId: ${generation}\nRuntimeOutputSampleRate: 48000`,
+      };
     });
     audioState.reconfiguration.song = null;
     const before = await audioClient.health();
-    await audioClient.applyConfiguration({ backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 });
+    await audioClient.applyConfiguration({
+      backend: 'WASAPI Shared',
+      sampleRate: 48000,
+      periodFrames: 0,
+    });
     expect((await audioClient.health()).instanceId).toBe(before.instanceId);
     generation++;
     expect((await audioClient.health()).instanceId).not.toBe(before.instanceId);
@@ -98,21 +170,36 @@ describe('audioClient contract', () => {
     let backend = 'WASAPI Shared';
     const { requests } = installBridge(({ command, args }) => {
       if (command === 'Reconfigure')
-        backend = args?.backend === 'wasapi-exclusive' ? 'WASAPI Exclusive' : 'WASAPI Shared';
-      return { status: 0, text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
-        ? `SessionState: Running\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 480`
-        : 'Ok' };
+        backend =
+          args?.backend === 'wasapi-exclusive'
+            ? 'WASAPI Exclusive'
+            : 'WASAPI Shared';
+      return {
+        status: 0,
+        text: ['GetDiagnostics', 'GetPlaybackSnapshot'].includes(command)
+          ? `SessionState: Running\nBackend: ${backend}\nRuntimeOutputSampleRate: 48000\nRuntimeOutputPeriodFrames: 480`
+          : 'Ok',
+      };
     });
-    audioState.preferred = { backend: 'WASAPI Shared', sampleRate: 48000, periodFrames: 0 };
+    audioState.preferred = {
+      backend: 'WASAPI Shared',
+      sampleRate: 48000,
+      periodFrames: 0,
+    };
     audioState.active = audioState.preferred;
     audioState.reconfiguration.song = null;
     await audioClient.setMonitoring(true);
     expect(backend).toBe('WASAPI Exclusive');
-    expect(requests.find(r => r.command === 'Reconfigure')?.args?.period).toBe(0);
+    expect(
+      requests.find((r) => r.command === 'Reconfigure')?.args?.period,
+    ).toBe(0);
     await audioClient.setMonitoring(false);
     expect(backend).toBe('WASAPI Shared');
-    expect(requests.filter(r => r.command === 'Reconfigure').map(r => r.args?.backend))
-      .toEqual(['wasapi-exclusive', 'wasapi-shared']);
+    expect(
+      requests
+        .filter((r) => r.command === 'Reconfigure')
+        .map((r) => r.args?.backend),
+    ).toEqual(['wasapi-exclusive', 'wasapi-shared']);
   });
   it('reports voice queue gaps and confirmed device underruns separately from clock pressure', () => {
     expect(
@@ -127,7 +214,9 @@ describe('audioClient contract', () => {
       }),
     ).toMatchObject({
       deviceStarvedFrames: 128,
-      remotes: { __room_server_mix__: { decodeUnderruns: 30, lostPackets: 12 } },
+      remotes: {
+        __room_server_mix__: { decodeUnderruns: 30, lostPackets: 12 },
+      },
     });
   });
   it('detects lost prepared media even when a restarted process answers successfully', async () => {
@@ -201,24 +290,43 @@ describe('audioClient contract', () => {
 
   it.each([
     { readyAfter: 30_000, progressUntil: 30_000, expected: 'ready' },
-    { readyAfter: Infinity, progressUntil: 5_000, expected: 'AudioService song loading timed out' },
-  ])('waits for actual loading progress and still bounds a stalled decoder: $expected',
+    {
+      readyAfter: Infinity,
+      progressUntil: 5_000,
+      expected: 'AudioService song loading timed out',
+    },
+  ])(
+    'waits for actual loading progress and still bounds a stalled decoder: $expected',
     async ({ readyAfter, progressUntil, expected }) => {
       vi.useFakeTimers();
       try {
         const started = performance.now();
         installBridge(() => {
           const elapsed = performance.now() - started;
-          return { status: 0, text: `PlaybackState: ${elapsed >= readyAfter ? 2 : 1}\nPlaybackLoadProgressFrames: ${Math.floor(Math.min(elapsed, progressUntil) / 1000) * 48000}` };
+          return {
+            status: 0,
+            text: `PlaybackState: ${elapsed >= readyAfter ? 2 : 1}\nPlaybackLoadProgressFrames: ${Math.floor(Math.min(elapsed, progressUntil) / 1000) * 48000}`,
+          };
         });
         let finishedAt = 0;
-        const result = waitForReady().then(() => 'ready', (error: Error) => error.message)
-          .finally(() => { finishedAt = performance.now() - started; });
+        const result = waitForReady()
+          .then(
+            () => 'ready',
+            (error: Error) => error.message,
+          )
+          .finally(() => {
+            finishedAt = performance.now() - started;
+          });
         await vi.advanceTimersByTimeAsync(31_000);
         expect(await result).toBe(expected);
-        expect(finishedAt).toBe(readyAfter === Infinity ? progressUntil + 15_000 : readyAfter);
-      } finally { vi.useRealTimers(); }
-    });
+        expect(finishedAt).toBe(
+          readyAfter === Infinity ? progressUntil + 15_000 : readyAfter,
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
   it('preserves capture confidence and rejects impossible confidence values', async () => {
     installBridge(() => ({
       status: 0,
@@ -1440,7 +1548,8 @@ describe('audioClient contract', () => {
           }
           if (request.command === 'LoadSong') playbackState = 2;
           if (request.command === 'Pause') playbackState = 4;
-          if (request.command === 'Seek') playbackFrames = Number(request.args?.frame);
+          if (request.command === 'Seek')
+            playbackFrames = Number(request.args?.frame);
           if (request.command === 'Play') {
             if (playbackState === 3)
               return { status: 5, text: 'media is already playing' };

@@ -203,7 +203,7 @@ export const TitleBar = () => {
           variant="ghost"
           icon={icon}
           label={tr(
-            (id === 'fullscreen' && fullscreen ? 'exitFullscreen' : label),
+            id === 'fullscreen' && fullscreen ? 'exitFullscreen' : label,
           )}
           onClick={run}
         />

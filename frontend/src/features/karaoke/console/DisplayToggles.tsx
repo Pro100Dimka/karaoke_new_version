@@ -75,11 +75,7 @@ export const DisplayToggles = ({
       : []),
   ];
   return (
-    <div
-      className="displayToggles"
-      role="group"
-      aria-label={tr('stageLayers')}
-    >
+    <div className="displayToggles" role="group" aria-label={tr('stageLayers')}>
       {toggles.map((toggle) => (
         <ToggleButton
           key={toggle.id}
@@ -91,7 +87,7 @@ export const DisplayToggles = ({
           style={{ flex: 1 }}
           onValueChange={toggle.set}
         >
-          {tr((toggle.label))}
+          {tr(toggle.label)}
         </ToggleButton>
       ))}
     </div>

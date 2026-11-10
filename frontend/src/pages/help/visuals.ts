@@ -46,8 +46,14 @@ export const visuals = {
   'takes-play': { image: 'recordings', focus: [27.8, 25.5, 3.4, 5.7] },
   'takes-file': { image: 'recordings', focus: [73, 22.8, 3.3, 5.6] },
   'takes-analyze': { image: 'recordings', focus: [69.5, 22.8, 3.3, 5.6] },
-  'takes-versions': { image: 'recording-versions', focus: [28.3, 21.7, 40, 4.6] },
+  'takes-versions': {
+    image: 'recording-versions',
+    focus: [28.3, 21.7, 40, 4.6],
+  },
   analysis: { image: 'analysis', focus: [50.5, 72, 15, 6] },
-} as const satisfies Record<string, { image: string; focus: readonly [number, number, number, number] }>;
+} as const satisfies Record<
+  string,
+  { image: string; focus: readonly [number, number, number, number] }
+>;
 
 export type GuideVisual = keyof typeof visuals;

@@ -36,17 +36,21 @@ const useBackdropSpectrum = (listening: boolean): number[] | undefined => {
     }
     const publish = () =>
       setBands(backdropSpectrum(output.current, voice.current));
-    const stopVoice = observeMicrophoneLevel(level => {
-      const next = voiceLevel(level);
-      setQuietVoice(next === 0);
-      if (next > 0 || voice.current > 0) {
-        voice.current = next;
-        publish();
-      }
-    }, () => {
-      // Without AudioService there is no voice; the service banner reports the outage.
-      voice.current = 0;
-    }, quietVoice ? quietVoicePollMilliseconds : voicePollMilliseconds);
+    const stopVoice = observeMicrophoneLevel(
+      (level) => {
+        const next = voiceLevel(level);
+        setQuietVoice(next === 0);
+        if (next > 0 || voice.current > 0) {
+          voice.current = next;
+          publish();
+        }
+      },
+      () => {
+        // Without AudioService there is no voice; the service banner reports the outage.
+        voice.current = 0;
+      },
+      quietVoice ? quietVoicePollMilliseconds : voicePollMilliseconds,
+    );
     const unsubscribe = subscribeSpectrum((frame) => {
       output.current = frame.bands;
       publish();

@@ -73,11 +73,9 @@ export const ProcessingJobCard = ({
     {
       id: 'motion',
       label: tr(
-        (
-          actions.motionPaused
-            ? 'processingResumeMotion'
-            : 'processingPauseMotion'
-        ),
+        actions.motionPaused
+          ? 'processingResumeMotion'
+          : 'processingPauseMotion',
       ),
       icon: 'motion',
       onSelect: actions.onToggleMotion,
@@ -115,7 +113,7 @@ export const ProcessingJobCard = ({
         >
           <StatusIndicator
             status={stateTone[job.state]}
-            label={tr((stateLabel[job.state]))}
+            label={tr(stateLabel[job.state])}
           />
           {job.processingBackend && (
             <Typography
@@ -124,11 +122,9 @@ export const ProcessingJobCard = ({
               title={tr('processingVia')}
             >
               {tr(
-                (
-                  job.processingBackend === 'Kaggle'
-                    ? 'processingBackendKaggle'
-                    : 'processingBackendLocal'
-                ),
+                job.processingBackend === 'Kaggle'
+                  ? 'processingBackendKaggle'
+                  : 'processingBackendLocal',
               )}
             </Typography>
           )}
@@ -151,10 +147,8 @@ export const ProcessingJobCard = ({
         {(job.state === 'failed' || job.state === 'interrupted') && (
           <MessageBar tone="error">
             {tr(
-              (
-                (job.error && errorMessageKey(job.error)) ||
-                  'processingFailedHelp'
-              ),
+              (job.error && errorMessageKey(job.error)) ||
+                'processingFailedHelp',
             )}
           </MessageBar>
         )}

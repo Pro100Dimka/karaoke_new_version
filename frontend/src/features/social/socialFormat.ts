@@ -37,7 +37,7 @@ export const presenceText = (
 ): string =>
   person.presence === 'Offline' && person.lastSeenAt
     ? tr('lastSeen', { when: since(person.lastSeenAt, language) })
-    : tr((presenceKeys[person.presence]));
+    : tr(presenceKeys[person.presence]);
 
 export const durationText = (seconds: number): string => {
   const minutes = Math.max(1, Math.round(seconds / 60));

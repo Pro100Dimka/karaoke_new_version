@@ -60,11 +60,16 @@ export const createAudioPlayers = (
   const ownsPreview = (owner?: symbol) =>
     owner === undefined || owner === previewOwner;
   const previewStatus = (values: Record<string, string>, owner?: symbol) => {
-    const sampleRate = Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate) || 0;
+    const sampleRate =
+      Number(values.RuntimeOutputSampleRate || values.RequestedSampleRate) || 0;
     return {
       recordingId: ownsPreview(owner) ? previewRecordingId : null,
-      state: previewStates[Number(values.PreviewState ?? readyState)] ?? 'ready',
-      positionSeconds: sampleRate > 0 ? (Number(values.PreviewPositionFrames) || 0) / sampleRate : 0,
+      state:
+        previewStates[Number(values.PreviewState ?? readyState)] ?? 'ready',
+      positionSeconds:
+        sampleRate > 0
+          ? (Number(values.PreviewPositionFrames) || 0) / sampleRate
+          : 0,
     };
   };
 
@@ -165,7 +170,8 @@ export const createAudioPlayers = (
       await ops.command('SeekRecordingPreview', { frame });
     },
     async stopRecordingPreview(owner, recordingId) {
-      if (recordingId !== undefined && previewRecordingId !== recordingId) return;
+      if (recordingId !== undefined && previewRecordingId !== recordingId)
+        return;
       if (!ownsPreview(owner)) return;
       previewGeneration += 1;
       previewOwner = undefined;
@@ -179,8 +185,12 @@ export const createAudioPlayers = (
       return previewStatus(await ops.diagnostics(true), owner);
     },
     observeRecordingPreview(owner, onValue, onError) {
-      return observeAudioTelemetry('GetPlaybackSnapshot', 16,
-        text => onValue(previewStatus(parseKeyValues(text), owner)), onError);
+      return observeAudioTelemetry(
+        'GetPlaybackSnapshot',
+        16,
+        (text) => onValue(previewStatus(parseKeyValues(text), owner)),
+        onError,
+      );
     },
   };
 };

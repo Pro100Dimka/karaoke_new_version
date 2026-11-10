@@ -1,17 +1,4 @@
 import {
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../../../../shared/errors';
-import { observer } from 'mobx-react-lite';
-import { store } from '../../../../providers/store';
-import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { desktopClient } from '../../../../services/desktopClient';
-import { refreshSongs, songsQuery } from '../../../../api/api-service';
-import { useGuardedAction } from '../../songs/useGuardedAction';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import {
   Dialog,
   IconButton,
   NeonWaves,
@@ -20,8 +7,22 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { observer } from 'mobx-react-lite';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { refreshSongs, songsQuery } from '../../../../components/api-service';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
+import { store } from '../../../../providers/store';
+import { desktopClient } from '../../../../services/desktopClient';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import {
+  clearOperationFailure,
+  reportOperationFailure,
+} from '../../../../shared/errors';
 import { formatBytes } from '../../../../shared/utils/format';
+import { useGuardedAction } from '../../songs/useGuardedAction';
+import './processing.css';
 import { ProcessingJobCard } from './ProcessingJobCard';
 import {
   processingDuration,
@@ -29,7 +30,6 @@ import {
   stateLabel,
 } from './processingModel';
 import { useProcessingQueue } from './useProcessingQueue';
-import './processing.css';
 
 /** A question or a note over the queue: confirmed actions run only after "OK". */
 interface Notice {
@@ -154,7 +154,7 @@ export const ProcessingModal = observer(
         title: tr('processingJobDetails'),
         text: [
           processingTitle(job, song) ?? tr('processingSongUnavailable'),
-          `${tr('processingDetailsState')}: ${tr((stateLabel[job.state]))}`,
+          `${tr('processingDetailsState')}: ${tr(stateLabel[job.state])}`,
           `${tr('processingDetailsStage')}: ${job.stage}`,
           `${tr('processingDetailsProgress')}: ${job.progress}%`,
           `${tr('processingDetailsTime')}: ${processingDuration(job) ?? '0:00'}`,
@@ -187,8 +187,8 @@ export const ProcessingModal = observer(
     ]: (typeof clearGroups)[keyof typeof clearGroups]) => {
       const selected = queue.visible.filter(matches);
       setNotice({
-        title: tr((`processingClear${name}Title`)),
-        text: tr((`processingClear${name}Text`), { count: selected.length }),
+        title: tr(`processingClear${name}Title`),
+        text: tr(`processingClear${name}Text`, { count: selected.length }),
         confirm: tr('processingClear'),
         cancel: tr('cancel'),
         onConfirm: () => queue.hide(selected.map((job) => job.id)),
@@ -302,7 +302,7 @@ export const ProcessingModal = observer(
               }
               items={Object.entries(clearGroups).map(([id, group]) => ({
                 id,
-                label: tr((`processingClear${group[0]}`)),
+                label: tr(`processingClear${group[0]}`),
                 disabled: !queue.visible.some(group[1]),
                 onSelect: () => clear(group),
               }))}

@@ -172,7 +172,7 @@ export const AddSongModal = ({
               if (form.submitting) importController.current?.abort();
               else handleClose();
             }}
-            label={tr((form.submitting ? 'cancelImport' : 'cancel'))}
+            label={tr(form.submitting ? 'cancelImport' : 'cancel')}
           />
           <Button
             type="submit"

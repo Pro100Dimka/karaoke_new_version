@@ -1,13 +1,14 @@
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { friendRelations } from '../../../../providers/social';
-import { store } from '../../../../providers/store';
-
 import type { OnlineInbox, SocialPerson } from '../../../../contracts/social';
 import { presenceText } from '../../../../features/social/socialFormat';
 import { useSocialAction } from '../../../../features/social/useSocialAction';
 import { ask } from '../../../../providers/dialog';
-import { useRoomInvitations } from '../../../../providers/social';
+import {
+  friendRelations,
+  useRoomInvitations,
+} from '../../../../providers/social';
+import { store } from '../../../../providers/store';
 import FriendsRows from './list';
 
 const presenceOrder = { InRoom: 0, Online: 1, Offline: 2 } as const;

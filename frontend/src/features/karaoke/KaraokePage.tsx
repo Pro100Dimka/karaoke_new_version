@@ -164,11 +164,7 @@ export const KaraokeScreen = observer(
           await roomPlayback.clearSong();
         } catch (error) {
           notify(
-            tr(
-              (
-                errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'
-              ),
-            ),
+            tr(errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'),
             'error',
           );
           return;
@@ -310,7 +306,7 @@ export const KaraokeScreen = observer(
         <StateScreen
           icon="file"
           title={tr('projectInvalid')}
-          body={tr((messages[load.compatibility]))}
+          body={tr(messages[load.compatibility])}
         >
           {back}
         </StateScreen>,

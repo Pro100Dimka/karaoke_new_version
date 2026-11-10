@@ -11,15 +11,15 @@ import {
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
-import { pythonClient } from '../../../../../services/pythonClient';
 import {
   changeModel,
   modelKey,
   modelsQuery,
-} from '../../../../../api/api-service';
-import { useNotify } from '../../../../../providers/notifications';
+} from '../../../../../components/api-service';
 import { ask } from '../../../../../providers/dialog';
+import { useNotify } from '../../../../../providers/notifications';
 import { backendPollInterval } from '../../../../../services/backendEvents';
+import { pythonClient } from '../../../../../services/pythonClient';
 import ModelCard from './model-card';
 
 const Models = () => {

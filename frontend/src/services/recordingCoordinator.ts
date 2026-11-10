@@ -215,21 +215,27 @@ const stop = async (): Promise<RecordingStatus> => {
 
 export const recordingCoordinator = {
   async reconfigure(
-    work: (format?: Pick<NativeRecordingResult, 'sampleRate' | 'channels'>) => Promise<void>,
+    work: (
+      format?: Pick<NativeRecordingResult, 'sampleRate' | 'channels'>,
+    ) => Promise<void>,
     resumedPosition: () => Promise<number>,
   ): Promise<void> {
     let executed = false;
     await transition(`reconfigure:${++reconfigurationId}`, async () => {
       executed = true;
       const take = active;
-      const preserve = take?.prepared && !take.interrupted && !take.finalizedPath;
-      const resume = preserve && take.startedAt !== null && take.pausedAt === null;
+      const preserve =
+        take?.prepared && !take.interrupted && !take.finalizedPath;
+      const resume =
+        preserve && take.startedAt !== null && take.pausedAt === null;
       if (resume) {
         await audio('PauseRecording');
         take.pausedAt = performance.now();
       }
       const format = preserve
-        ? nativeRecordingResult(await audio('GetRecordingState', { details: true, paused: true }))
+        ? nativeRecordingResult(
+            await audio('GetRecordingState', { details: true, paused: true }),
+          )
         : undefined;
       try {
         await work(format);
@@ -237,12 +243,15 @@ export const recordingCoordinator = {
         if (resume && active === take && !take.interrupted) {
           const sourceSeconds = await resumedPosition();
           await audio('ResumeRecording');
-          take.pausedMilliseconds += performance.now() - (take.pausedAt ?? performance.now());
+          take.pausedMilliseconds +=
+            performance.now() - (take.pausedAt ?? performance.now());
           take.pausedAt = null;
           const last = take.playbackAdjustments.at(-1);
           take.playbackAdjustments.push({
-            elapsedSeconds: takeSeconds(take), sourceSeconds,
-            playbackRate: last?.playbackRate ?? 1, keyShift: last?.keyShift ?? 0,
+            elapsedSeconds: takeSeconds(take),
+            sourceSeconds,
+            playbackRate: last?.playbackRate ?? 1,
+            keyShift: last?.keyShift ?? 0,
           });
         }
       }

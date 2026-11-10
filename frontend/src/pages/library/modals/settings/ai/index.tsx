@@ -1,14 +1,14 @@
-import { Form, Button, Grid, MessageBar, tr } from '@neo-ui-kit/react';
+import { Button, Form, Grid, MessageBar, tr } from '@neo-ui-kit/react';
 import {
   useIsMutating,
   useMutation,
   useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
+import { processingSettingsQuery } from '../../../../../components/api-service';
 import { useNotify } from '../../../../../providers/notifications';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
-import { processingSettingsQuery } from '../../../../../api/api-service';
 import useSettingsForm from '../form';
 import FormCards from '../form-cards';
 import Models from './models';

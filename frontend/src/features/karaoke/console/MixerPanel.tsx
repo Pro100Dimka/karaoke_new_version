@@ -98,7 +98,7 @@ export const MixerPanel = memo(
         data-knob={item.id}
         style={fixedKnobWidth(knobDiameter)}
         showLabel
-        label={tr((item.label))}
+        label={tr(item.label)}
         min={item.min}
         max={item.max}
         step={item.step}
@@ -129,7 +129,7 @@ export const MixerPanel = memo(
     )[section];
 
     return (
-      <ConsoleSection icon={panel.icon} title={tr((panel.title))}>
+      <ConsoleSection icon={panel.icon} title={tr(panel.title)}>
         <Stack
           className={`consoleKnobs consoleKnobs-${section}`}
           direction="row"

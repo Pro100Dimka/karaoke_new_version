@@ -19,7 +19,7 @@ export const useStorageCleanup = (onChanged: () => void) => {
     setCleaning(kind);
     try {
       const choice = await ask({
-        title: tr((kind === 'cache' ? 'clearCache' : 'removeTemporaryFiles')),
+        title: tr(kind === 'cache' ? 'clearCache' : 'removeTemporaryFiles'),
         body: tr('cleanupBody'),
         actions: [
           { id: 'cancel', label: tr('cancel') },

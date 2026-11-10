@@ -1,20 +1,20 @@
+import { tr, useLocale } from '@neo-ui-kit/react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   importSong,
   queueSongImport,
   refreshSongs,
-} from '../../../../api/api-service';
-import { pythonClient } from '../../../../services/pythonClient';
-import { tr, useLocale } from '@neo-ui-kit/react';
-import { desktopClient as libraryFiles } from '../../../../services/desktopClient';
-import { useNotify } from '../../../../providers/notifications';
+} from '../../../../components/api-service';
 import type {
   ImportMetadata,
   ImportOptions,
 } from '../../../../contracts/clients';
+import { useNotify } from '../../../../providers/notifications';
+import { desktopClient as libraryFiles } from '../../../../services/desktopClient';
+import { pythonClient } from '../../../../services/pythonClient';
 import { errorMessageKey, toAppError } from '../../../../shared/errors';
-import { isSupportedAudio } from './importModel';
 import { useGuardedAction } from '../../songs/useGuardedAction';
+import { isSupportedAudio } from './importModel';
 
 /** Picked and dropped files share import progress in the query cache. */
 export const useLibraryImport = () => {
@@ -29,7 +29,13 @@ export const useLibraryImport = () => {
     options?: ImportOptions,
     placeholderId?: string,
   ) => {
-    const song = await importSong(client, path, metadata, options, placeholderId);
+    const song = await importSong(
+      client,
+      path,
+      metadata,
+      options,
+      placeholderId,
+    );
     // A freshly added song is processed right away; a failure to start is reported by the action itself.
     await guarded(async () => {
       if (song.status !== 'not-processed') return;
@@ -89,7 +95,7 @@ export const useLibraryImport = () => {
         await handleImport(path, {});
       } catch (error) {
         notify(
-          tr((errorMessageKey(toAppError(error)) ?? 'importFailed')),
+          tr(errorMessageKey(toAppError(error)) ?? 'importFailed'),
           'error',
         );
       }

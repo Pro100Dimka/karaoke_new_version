@@ -1,9 +1,9 @@
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
-import { refreshSongs, type SongPage } from '../../../api/api-service';
 import { useRef, useState } from 'react';
-import { store } from '../../../providers/store';
+import { refreshSongs, type SongPage } from '../../../components/api-service';
 import type { KaraokeTv } from '../../../features/karaoke/tv/karaokeTv';
 import { roomSongPlayIntent } from '../../../features/room/roomSongIntent';
+import { store } from '../../../providers/store';
 import { routes } from '../../../shared/routes';
 import { markPlayed } from './lastPlayed';
 import type { useRoomLibrary } from './useRoomLibrary';
@@ -11,10 +11,10 @@ import type { useRoomLibrary } from './useRoomLibrary';
 export const curtainMilliseconds = 400;
 
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { pythonClient as catalog } from '../../../services/pythonClient';
+import type { SongDto } from '../../../contracts/models';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
-import type { SongDto } from '../../../contracts/models';
+import { pythonClient as catalog } from '../../../services/pythonClient';
 import { useGuardedAction } from './useGuardedAction';
 
 /** Confirmation shared by the card and song settings. */

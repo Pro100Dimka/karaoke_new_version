@@ -13,10 +13,10 @@ import {
 } from '@neo-ui-kit/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useState } from 'react';
-import { refreshSongs } from '../../../../../api/api-service';
+import { refreshSongs } from '../../../../../components/api-service';
 import type { SongDto } from '../../../../../contracts/models';
-import type { MessageKey } from '../../../../../providers/localization/messages';
 import { ask } from '../../../../../providers/dialog';
+import type { MessageKey } from '../../../../../providers/localization/messages';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
 import {
@@ -203,7 +203,7 @@ export const SongCard = memo(
               tone={presentation.tone}
               style={{ alignSelf: 'start' }}
             >
-              {tr((presentation.label))}
+              {tr(presentation.label)}
             </Badge>
             <Stack
               direction="row"
@@ -236,7 +236,7 @@ export const SongCard = memo(
                       ? primaryIcon(primary, roomSelection)
                       : actionMeta[id].icon
                   }
-                  label={tr((actionMeta[id].label))}
+                  label={tr(actionMeta[id].label)}
                   variant={id === primary ? 'primary' : 'ghost'}
                   disabled={id === 'play' && playbackDisabled}
                   onClick={actions[id]}
