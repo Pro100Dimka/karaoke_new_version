@@ -55,7 +55,6 @@ class RecordingArchive:
         self._wake = threading.Event()
         self._lock = threading.Lock()
         self._pending: set[Path] = set()
-        self._resumed = False
         self._loop = ServiceLoop("recording-archive", self._step, 5)
 
     def start(self) -> None:
@@ -116,10 +115,8 @@ class RecordingArchive:
         with job_failure(
             partial(logger.exception, "Recording archive recovery deferred"), suppress=True
         ):
-            if not self._resumed:
-                with self._lock:
-                    self._pending.update(self._root.glob("*/archive-pending.json"))
-                self._resumed = True
+            # Do not scan historical markers at startup: archival is scheduled
+            # only for completed Masters through request().
             with self._lock:
                 markers = tuple(self._pending)
             for marker in markers:
@@ -137,6 +134,18 @@ class RecordingArchive:
                         self._pending.discard(marker)
             except ConflictError:
                 pass  # Active jobs still own the WAV files; retry after they finish.
+            except (ValueError, OSError) as exc:
+                # Invalid audio will not become valid on the next 5-second tick.
+                # Preserve all working files and quarantine only the retry marker.
+                logger.warning(
+                    "Recording archive paused for invalid audio: %s",
+                    exc,
+                    extra={"marker": str(marker)},
+                )
+                with self._lock:
+                    if marker.is_file():
+                        marker.replace(marker.with_name("archive-invalid.json"))
+                    self._pending.discard(marker)
 
     def _archive_failed(self, marker: Path) -> None:
         if not self._cancel.is_set():
@@ -168,6 +177,9 @@ class RecordingArchive:
             return False
         # Encoding only reads finalized audio. Publication/removal shares the job submission lock.
         self._when_idle(lambda: None)
+        # Validate the complete pair before encoding either file.
+        for item in (source, master):
+            self._validate_audio(self._path(item))
         converted = [(item, self._encode(self._path(item))) for item in (source, master)]
         if self._cancel.is_set():
             return False
@@ -204,6 +216,17 @@ class RecordingArchive:
                     raise ValueError("Recording cleanup cannot follow file aliases")
                 working.unlink(missing_ok=True)
         marker.unlink(missing_ok=True)
+
+    @staticmethod
+    def _validate_audio(source: Path) -> None:
+        if not source.is_file():
+            raise ValueError(f"Recording audio is missing: {source.name}")
+        try:
+            info = sf.info(source)
+        except (OSError, RuntimeError) as exc:
+            raise ValueError(f"Recording audio cannot be decoded: {source.name}") from exc
+        if info.channels not in (1, 2) or info.frames <= 0 or info.samplerate <= 0:
+            raise ValueError(f"Recording audio is empty or not mono/stereo: {source.name}")
 
     def _encode(self, source: Path) -> Path:
         target = source.with_name("recording.mp3")

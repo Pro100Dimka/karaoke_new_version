@@ -90,6 +90,7 @@ class MasterRender:
             bypass = self._match_reference()
             if bypass is not None:
                 return bypass
+            self._schedule_loudness(loudness_pool)
             # Preserve the accompaniment exactly as recorded; only the vocal is leveled.
             # Master delivery is peak-limited, not globally loudness-normalized.
             self._finish_voice()

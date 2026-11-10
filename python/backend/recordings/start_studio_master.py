@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import logging
+import threading
 from collections.abc import Callable
 
 from backend.ai.domain import AiCapability
@@ -22,6 +24,7 @@ from backend.settings.domain import ProcessingBackend
 from backend.settings.queries import SettingsReader
 
 _KAGGLE_PROVIDER = "kaggle-p100"
+logger = logging.getLogger(__name__)
 
 
 class StartStudioMaster:
@@ -55,7 +58,10 @@ class StartStudioMaster:
                 raise NotFoundError(
                     "StudioMasterUnavailable", "Original song stems are unavailable"
                 )
-        stems = recording_stems(recording.file_path, prefer_dry=True)
+        # Recover older recordings with only a backing track before deciding to
+        # run costly source separation. The original take remains untouched.
+        stems = self._stems(recording)
+        logger.info("Studio Master requested: recording=%s stems=%s", recording_id, bool(stems))
         return self._jobs.start(
             JobType.RECORDING_MASTERING,
             lambda context: self._run(recording, context),
@@ -76,7 +82,7 @@ class StartStudioMaster:
         workspace = self._workspaces.allocate(f"studio-{recording.recording_id}")
         try:
             context.ensure_not_cancelled()
-            stems = recording_stems(recording.file_path, prefer_dry=True)
+            stems = self._stems(recording)
             exact_stems = stems is not None
             if stems is None:
                 stems = self._separate(recording, workspace, context)
@@ -109,10 +115,11 @@ class StartStudioMaster:
     ) -> tuple[Path, Path]:
         context.progress("SeparatingPerformance", 0.0, 0.1)
         settings = self._settings()
-        remote = settings.processing_backend is ProcessingBackend.KAGGLE
+        # Studio Master never starts Kaggle implicitly. Only an explicit
+        # user-initiated Kaggle action may activate the remote runtime.
+        remote = False
         provider = self._resolver.execute(
-            AiCapability.SEPARATION,
-            _KAGGLE_PROVIDER if remote else settings.selected_separation_provider,
+            AiCapability.SEPARATION, settings.selected_separation_provider,
         )
         lease = self._resources.claim_provider(
             provider,
@@ -130,6 +137,16 @@ class StartStudioMaster:
             return separated.reference_vocal, separated.instrumental
         finally:
             lease.release()
+
+    def _stems(self, recording: Recording) -> tuple[Path, Path] | None:
+        stems = recording_stems(recording.file_path, prefer_dry=True)
+        if stems is not None:
+            return stems
+        backing = Path(str(recording.file_path) + ".backing.wav")
+        if backing.is_file():
+            self._renderer.preserve_stems(recording.file_path)
+            return recording_stems(recording.file_path, prefer_dry=True)
+        return None
 
     def _recording(self, recording_id: str) -> Recording:
         with self._uow.create() as transaction:

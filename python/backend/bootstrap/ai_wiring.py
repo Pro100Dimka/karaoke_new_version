@@ -52,10 +52,8 @@ def configured_ai_providers(
         local = (_command_provider("local-torch", "1", worker, required, config, processes),)
     return (
         *local,
-        KaggleAiProvider(
-            settings,
-            start_notebook=lambda cancel: _start_kaggle_notebook(config, settings, cancel),
-        ),
+        # Kaggle is opt-in: only the explicit Settings deploy action may launch it.
+        KaggleAiProvider(settings),
     )
 
 

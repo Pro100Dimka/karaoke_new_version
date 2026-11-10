@@ -61,6 +61,8 @@ class StartRecordingAnalysis:
 
     def _start(self, recording_id: str) -> Job:
         recording, song_id, revision = self._inputs(recording_id)
+        if not recording.file_path.is_file():
+            raise NotFoundError("RecordingFileMissing", "Recording audio file is unavailable")
         live = live_result(recording)
         result = self._create_result(
             recording_id, song_id, revision, self._hasher(recording.file_path)

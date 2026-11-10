@@ -255,16 +255,9 @@ class KaggleAiProvider(AiProvider):
                 "KaggleNotConfigured",
                 "Kaggle access token must be configured in Settings",
             )
-        try:
-            return self._available_client(settings, token)
-        except DependencyError:
-            if (
-                not allow_start
-                or self._start_notebook is None
-                or settings.processing_backend is not ProcessingBackend.KAGGLE
-            ):
-                raise
-            return self._start_and_wait(settings, token, cancel or threading.Event())
+        # Never deploy a notebook as a side effect of processing or health checks.
+        # Explicit deployment is handled by the Settings API.
+        return self._available_client(settings, token)
 
     def _available_client(self, settings: BackendSettings, token: str) -> Client:
         url = self._discover_url(token) or (settings.kaggle_url or "").strip().rstrip("/")

@@ -81,6 +81,11 @@ def create_app(
 async def _domain_error(request: Request, error: Exception) -> JSONResponse:
     if not isinstance(error, DomainError):
         return await _internal_error(request, error)
+    if request.url.path.endswith("/studio-master"):
+        logger.warning(
+            "Studio Master request rejected: %s %s: %s",
+            request.url.path, error.code if hasattr(error, "code") else type(error).__name__, error,
+        )
     return domain_error_response(request, error)
 
 
