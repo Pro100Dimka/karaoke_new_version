@@ -43,6 +43,7 @@ export const useSongRecordings = (
   const guarded = useGuardedAction();
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
   const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
@@ -151,9 +152,12 @@ export const useSongRecordings = (
     }
   };
 
+  const recordingsTargetId = song?.id ?? (analysisRecordId ? analysisSong?.id : undefined);
+  const preparingRecordings = recordings.some((item) =>
+    ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
+  );
   useEffect(() => {
-    const target = song ?? (analysisRecordId ? analysisSong : null);
-    if (!target) return;
+    if (!recordingsTargetId) return;
     let active = true;
     let pending = false;
     const request = requests.current.recordings;
@@ -161,7 +165,7 @@ export const useSongRecordings = (
       if (pending) return;
       pending = true;
       void catalog
-        .listRecordings(target.id)
+        .listRecordings(recordingsTargetId)
         .then((items) => {
           if (active && request === requests.current.recordings) {
             clearOperationFailure('errors.recordings');
@@ -177,10 +181,7 @@ export const useSongRecordings = (
         });
     };
     const stop = onRecordingsChange(refresh);
-    const preparing = recordings.some((item) =>
-      ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
-    );
-    const timer = preparing
+    const timer = preparingRecordings
       ? window.setInterval(refresh, backendPollInterval(1000))
       : undefined;
     return () => {
@@ -188,15 +189,21 @@ export const useSongRecordings = (
       stop();
       window.clearInterval(timer);
     };
-  }, [song, analysisSong, analysisRecordId, recordings]);
+  }, [recordingsTargetId, preparingRecordings]);
 
   const open = (target: SongDto) =>
     guarded(async () => {
       const request = ++requests.current.recordings;
-      const items = await catalog.listRecordings(target.id);
-      if (request !== requests.current.recordings) return;
-      setRecordings(items);
+      // Show the dialog immediately; the network must not delay its first paint.
       setSong(target);
+      setRecordings([]);
+      setLoadingRecordings(true);
+      try {
+        const items = await catalog.listRecordings(target.id);
+        if (request === requests.current.recordings) setRecordings(items);
+      } finally {
+        if (request === requests.current.recordings) setLoadingRecordings(false);
+      }
     });
 
   useEffect(
@@ -348,6 +355,7 @@ export const useSongRecordings = (
   return {
     song,
     recordings,
+    loadingRecordings,
     analysis,
     analysisSong,
     analysisRecordId,
@@ -361,6 +369,7 @@ export const useSongRecordings = (
     createStudioMaster,
     close: () => {
       requests.current.recordings += 1;
+      setLoadingRecordings(false);
       setSong(null);
     },
     closeAnalysis: () => {

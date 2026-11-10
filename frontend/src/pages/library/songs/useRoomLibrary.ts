@@ -1,5 +1,5 @@
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   canControlRoom,
   encodeSharedLibraryView,
@@ -100,10 +100,13 @@ export const useRoomLibrary = ({
   };
 
   /** How a card shows the room's selection; only for members who may choose the song. */
-  const songSelection = (song: SongDto) =>
-    room && canControlRoom(room) && song.status === 'ready'
-      ? { role: room.role, selected: room.songId === song.id }
-      : undefined;
+  const songSelection = useCallback(
+    (song: SongDto) =>
+      room && canControlRoom(room) && song.status === 'ready'
+        ? { role: room.role, selected: room.songId === song.id }
+        : undefined,
+    [room],
+  );
 
   return {
     room,

@@ -66,7 +66,10 @@ export const moveNotes = (
 ): EditorDocument => {
   const selected = document.notes.filter((note) => ids.has(note.id));
   if (selected.length === 0) return document;
-  const words = new Map<string, EditorWord>();
+  const words =
+    selected.length > 8
+      ? new Map(document.words.map((word) => [word.id, word]))
+      : undefined;
   let low = -Infinity;
   let high = Infinity;
   let pitchLow = -Infinity;
@@ -74,9 +77,8 @@ export const moveNotes = (
   for (const note of selected) {
     pitchLow = Math.max(pitchLow, minPitch - note.pitch);
     pitchHigh = Math.min(pitchHigh, maxPitch - note.pitch);
-    const word = words.get(note.wordId) ?? wordOf(document, note);
+    const word = words?.get(note.wordId) ?? wordOf(document, note);
     if (!word) continue;
-    words.set(note.wordId, word);
     low = Math.max(low, word.start - note.start);
     high = Math.min(high, word.end - note.end);
   }
@@ -197,11 +199,53 @@ export const alignBoundary = (
   ids: ReadonlySet<string>,
   edge: 'start' | 'end',
   seconds: number,
-): EditorDocument =>
-  [...ids].reduce(
-    (current, id) => resizeNote(current, id, edge, seconds),
-    document,
-  );
+): EditorDocument => {
+  if (ids.size < 4)
+    return [...ids].reduce(
+      (current, id) => resizeNote(current, id, edge, seconds),
+      document,
+    );
+  // Index once: a batch edit must not repeatedly scan and copy every note.
+  const byId = new Map(document.notes.map((note, index) => [note.id, index]));
+  const words = new Map(document.words.map((word) => [word.id, word]));
+  const byWord = new Map<string, number[]>();
+  document.notes.forEach((note, index) => {
+    const siblings = byWord.get(note.wordId) ?? [];
+    siblings.push(index);
+    byWord.set(note.wordId, siblings);
+  });
+  const notes = [...document.notes];
+  let changed = false;
+  for (const id of ids) {
+    const index = byId.get(id);
+    if (index === undefined) continue;
+    const note = notes[index];
+    if (!note) continue;
+    const word = words.get(note.wordId);
+    if (!word) continue;
+    changed = true;
+    let boundary = edge === 'start' ? word.start : word.end;
+    for (const otherIndex of byWord.get(note.wordId) ?? []) {
+      const other = notes[otherIndex];
+      if (!other || other.id === id) continue;
+      if (edge === 'start' && other.end <= note.start)
+        boundary = Math.max(boundary, other.end);
+      if (edge === 'end' && other.start >= note.end)
+        boundary = Math.min(boundary, other.start);
+    }
+    notes[index] =
+      edge === 'start'
+        ? {
+            ...note,
+            start: round(clamp(seconds, boundary, note.end - minNoteSeconds)),
+          }
+        : {
+            ...note,
+            end: round(clamp(seconds, note.start + minNoteSeconds, boundary)),
+          };
+  }
+  return changed ? withNotes(document, notes) : document;
+};
 
 /** Content equality, ignoring the local revision counter: a document is dirty only when its content differs. */
 export const isEditorDirty = (

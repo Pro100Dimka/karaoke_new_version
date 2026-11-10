@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import {
   Dialog,
   Icon,
+  Loader,
   Planet,
   SegmentedControl,
   Typography,
@@ -62,6 +63,7 @@ export const RecordingsModal = observer(
     const {
       song,
       recordings,
+      loadingRecordings,
       close: onClose,
       analyze: onAnalyze,
       remove: onDelete,
@@ -136,7 +138,11 @@ export const RecordingsModal = observer(
             }
           >
             <div className="recordingsBody">
-              {recordings.length > 0 ? (
+              {loadingRecordings ? (
+                <div className="recordingsEmpty" role="status">
+                  <Loader size="md" label={tr('library.loading')} />
+                </div>
+              ) : recordings.length > 0 ? (
                 <ul
                   className="recordingsList"
                   data-view={view}
@@ -193,29 +199,23 @@ export const RecordingsModal = observer(
             </div>
           </Dialog>
         )}
-        <PerformanceAnalysisModal
-          analysis={actions.analysis}
-          song={actions.analysisSong}
-          recordingId={actions.analysisRecordId ?? undefined}
-          pending={
-            actions.analysisRecordId
-              ? progress[actions.analysisRecordId]
-              : undefined
-          }
-          failure={
-            actions.analysisRecordId
-              ? failures[actions.analysisRecordId]
-              : undefined
-          }
-          onCancelAnalysis={onCancelAnalysis}
-          recordings={recordings}
-          onDelete={onDelete}
-          onCreateStudioMaster={(recording) =>
-            void actions.createStudioMaster(recording)
-          }
-          studioMaster={actions.studioMaster}
-          onClose={actions.closeAnalysis}
-        />
+        {actions.analysisRecordId && (
+          <PerformanceAnalysisModal
+            analysis={actions.analysis}
+            song={actions.analysisSong}
+            recordingId={actions.analysisRecordId}
+            pending={progress[actions.analysisRecordId]}
+            failure={failures[actions.analysisRecordId]}
+            onCancelAnalysis={onCancelAnalysis}
+            recordings={recordings}
+            onDelete={onDelete}
+            onCreateStudioMaster={(recording) =>
+              void actions.createStudioMaster(recording)
+            }
+            studioMaster={actions.studioMaster}
+            onClose={actions.closeAnalysis}
+          />
+        )}
       </>
     );
   },

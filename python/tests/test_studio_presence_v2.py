@@ -24,3 +24,12 @@ def test_invalid_profiles_are_safe():
     gains = np.zeros(20)
     result, _ = _protect_vocal_presence(gains, np.full(20, np.nan), np.zeros(20))
     np.testing.assert_array_equal(result, gains)
+
+
+def test_presence_protection_never_adds_more_than_five_db_to_attenuated_voice():
+    voice = np.full(120, -12.0)
+    music = np.full(120, -16.0)
+    gains = np.full(120, -30.0)
+    result, report = _protect_vocal_presence(gains, voice, music)
+    assert np.all(result - gains <= 5.0 + 1e-9)
+    assert report['presenceBoostMaxDb'] <= 5.0

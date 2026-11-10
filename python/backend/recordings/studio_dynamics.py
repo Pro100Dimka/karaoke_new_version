@@ -74,12 +74,12 @@ def _protect_vocal_presence(
     # Preserve at least half of the musical rise in vocal prominence, while
     # leaving the original reference matching intact on quieter passages.
     minimum_gain = np.minimum(5.0, 0.55 * rise)
-    corrected = np.maximum(gains, minimum_gain - 4.0)
+    corrected = np.maximum(gains, minimum_gain)
     # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
     extra = np.clip(corrected - gains, 0.0, 5.0)
     extra = uniform_filter1d(extra, size=21, mode="nearest")
     extra[~(uniform_filter1d(active.astype(float), size=11) > 0.25)] = 0.0
-    result = np.clip(gains + extra, -18.0, _MAX_BOOST_DB)
+    result = np.minimum(gains + extra, _MAX_BOOST_DB)
     return result, {
         "presenceBoostMaxDb": float(np.max(extra)),
         "presenceBoostMeanDb": float(np.mean(extra[active])),

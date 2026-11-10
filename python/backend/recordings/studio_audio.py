@@ -73,13 +73,20 @@ def _check_cancel(cancel: threading.Event) -> None:
 def _profile(path: Path, cancel: threading.Event) -> NDArray[np.float64]:
     levels: list[float] = []
     with sf.SoundFile(path) as source:
+        # Read ordinary PCM/FLOAT audio directly into float32 buffers to halve
+        # conversion and memory traffic. Preserve double-precision source samples.
+        sample_dtype = "float64" if source.subtype == "DOUBLE" else "float32"
         for samples in source.blocks(
-            blocksize=round(source.samplerate * _PROFILE_SECONDS), dtype="float64", always_2d=True
+            blocksize=round(source.samplerate * _PROFILE_SECONDS),
+            dtype=sample_dtype,
+            always_2d=True,
         ):
             _check_cancel(cancel)
             if not np.isfinite(samples).all():
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
-            levels.append(10 * math.log10(max(1e-12, float(np.mean(samples * samples)))))
+            levels.append(
+                10 * math.log10(max(1e-12, float(np.mean(np.square(samples, dtype=np.float64)))))
+            )
     if not levels:
         raise DependencyError("StudioMasterSilentTrack", "Recording contains no audio")
     return np.asarray(levels, dtype=np.float64)
