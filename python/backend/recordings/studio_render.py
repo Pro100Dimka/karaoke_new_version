@@ -53,6 +53,8 @@ class MasterRender:
     voice_db: NDArray[np.float64] = field(init=False)
     backing_db: NDArray[np.float64] = field(init=False)
     reference_db: NDArray[np.float64] = field(init=False)
+    reference_full_db: NDArray[np.float64] = field(init=False)
+    original_full_db: NDArray[np.float64] = field(init=False)
     original_db: NDArray[np.float64] = field(init=False)
     offset_result: tuple[float, float] | None = field(init=False)
     times: NDArray[np.floating] = field(init=False)
@@ -170,6 +172,8 @@ class MasterRender:
             self.backing_db, self.reference_db, self.original_db = (
                 future.result() for future in profile_tasks
             )
+            self.reference_full_db = self.reference_db.copy()
+            self.original_full_db = self.original_db.copy()
             self.offset_result = alignment.result() if alignment is not None else None
         return None
 
@@ -196,32 +200,12 @@ class MasterRender:
             self.gains.fill(0)
             self.reliable.fill(False)
         if not self.timing_known or not self.reliable.any():
-            # A missing reference timeline must not silently discard the entire
-            # mastering chain. Keep unity vocal gain instead of guessing an
-            # alignment; reference-space analysis is independent of timing.
-            if not self.process_voice:
-                shutil.copyfile(self.performance_mix, self.target)
-                return StudioMasterBalance(
-                    0,
-                    float(np.median(self.voice_db)),
-                    float(np.median(self.backing_db)),
-                    float(np.median(self.reference_db)),
-                    float(np.median(self.original_db)),
-                    0,
-                    processing={
-                        "effectsApplied": False,
-                        "outputChannels": self.info.channels,
-                        "bypassReason": "unknown-timeline"
-                        if not self.timing_known
-                        else "no-reference-match",
-                    },
-                )
-            self.processing["balanceFallback"] = (
-                "unity-gain-unknown-timeline" if not self.timing_known
-                else "unity-gain-unreliable-reference"
-            )
-            self.gains.fill(0)
+            # Estimate the song-specific vocal-to-accompaniment relationship from
+            # active frames in the original stems. Never copy the performance mix
+            # and silently skip mastering when word alignment is unavailable.
+            self.gains.fill(0.0)
             self.reliable.fill(False)
+            self.processing["balanceFallback"] = "reference-stem-distribution"
         return None
 
     def _match_backing(self) -> None:
@@ -317,28 +301,42 @@ class MasterRender:
         return active
 
     def _fallback_balance(self) -> None:
-        """Bounded level match when original-vocal timing is unavailable.
+        """Use the original song's measured vocal prominence, not a preset dB gap.
 
-        Do not normalize the instrumental or infer a singer's target from a
-        different passage. A conservative vocal-to-backing level is sufficient.
+        Compare active vocal frames against the accompaniment distribution on
+        both recordings. Quantiles permit a partial take to match a full song
+        without assuming the user sang the same chronological section.
         """
         voice = self.voice_db
         backing = self.backing_db
-        active = self._voice_activity() & (backing > -70)
-        if np.count_nonzero(active) < 12:
-            self.processing["balanceFallback"] = "insufficient-activity-unity"
+        reference = self.reference_full_db
+        original = self.original_full_db
+        if not all(len(x) for x in (voice, backing, reference, original)):
+            self.processing["balanceFallback"] = "missing-profiles-unity"
             return
-        relative = float(np.median((voice - backing)[active]))
-        # Conservative bounded correction; avoids boosting noise in quiet phrases.
-        correction = float(np.clip(2.5 - relative, -4.0, 4.0))
+        voice_active = self._voice_activity()
+        reference_floor = float(np.percentile(reference, 25))
+        reference_active = reference > max(reference_floor + 6.0, float(np.percentile(reference, 75)) - 12.0)
+        valid = voice_active & np.isfinite(voice) & np.isfinite(backing)
+        ref_valid = reference_active & np.isfinite(reference) & np.isfinite(original)
+        if np.count_nonzero(valid) < 3 or np.count_nonzero(ref_valid) < 3:
+            self.processing["balanceFallback"] = "insufficient-reference-activity-unity"
+            return
+        measured = float(np.median((voice - backing)[valid]))
+        expected = float(np.median((reference - original)[ref_valid]))
+        # Gain bounds are safety constraints, not a fabricated target balance.
+        correction = float(np.clip(expected - measured, -18.0, 9.0))
         self.gains.fill(correction)
-        self.processing["balanceFallback"] = "bounded-vocal-to-backing"
-        self.processing["fallbackRelativeDb"] = relative
-        self.processing["fallbackVocalGainDb"] = correction
+        self.processing.update({
+            "balanceFallback": "reference-stem-distribution",
+            "referenceVocalProminenceDb": expected,
+            "performanceVocalProminenceDb": measured,
+            "fallbackVocalGainDb": correction,
+        })
 
     def _finish_voice(self) -> None:
-        if not self.process_voice:
-            return
+        # Spatial matching is needed for both dry and previously processed stems.
+        # The latter bypasses the destructive EQ/compression preparation above.
         # Spatial matching needs no word-level alignment. It remains available
         # when reference loudness matching is too uncertain to be safe.
         spatial = self.work / "spatial-voice.wav"
@@ -385,6 +383,7 @@ class MasterRender:
         self.processing["voiceLeveling"] += "-presence-protected"
         self.processing["voiceOutputGainDb"] = self.voice_gain_db
         self.processing["spaceAudible"] = spatial.is_file()
+        self.processing["effectsApplied"] = spatial.is_file()
         self.processing["adaptive"] = {
             "referenceTimingTrusted": bool(self.timing_known),
             "referenceMatchedFraction": float(np.mean(self.reliable)),

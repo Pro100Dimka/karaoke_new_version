@@ -1,6 +1,7 @@
 import {
   AnimatedBorder,
   Dialog,
+  Loader,
   Stack,
   Tabs,
   tr,
@@ -9,13 +10,7 @@ import {
 import { createCommandQueue } from '../../../../app/desktop/shellBus';
 import '../../../../providers/localization';
 import type { SettingsTab } from '../../../../contracts/models';
-import {
-  lazy,
-  startTransition,
-  Suspense,
-  useLayoutEffect,
-  useState,
-} from 'react';
+import { lazy, startTransition, Suspense, useLayoutEffect, useState } from 'react';
 
 const tabs = {
   appearance: {
@@ -63,10 +58,9 @@ const SettingsModal = ({
   const [tab, setTab] = useState<SettingsTab | null>(null);
   useLayoutEffect(() => {
     const unsubscribe = requests.subscribe((tab) => {
-      startTransition(() => {
-        setTab(tab);
-        onOpenChange(true);
-      });
+      // Opening the dialog is urgent user input; only tab content is deferred.
+      setTab(tab);
+      onOpenChange(true);
     });
     return () => {
       unsubscribe();
@@ -79,8 +73,7 @@ const SettingsModal = ({
   };
   const Content = tab ? tabs[tab].Component : null;
   return (
-    <Suspense fallback={null}>
-      <Dialog
+    <Dialog
         open={tab !== null}
         onOpenChange={(open) => {
           if (!open) close();
@@ -97,8 +90,8 @@ const SettingsModal = ({
             <AnimatedBorder shell style={{ position: 'absolute', inset: 0 }} />
           </>
         }
-      >
-        {tab && Content && (
+    >
+      {tab && Content && (
           <Stack gap={4} style={{ paddingInline: 'var(--ad-space-4)' }}>
             <Tabs
               className="settingsTabs"
@@ -111,12 +104,15 @@ const SettingsModal = ({
               }))}
             />
             <div className="settingsBody">
-              <Content />
+              <Suspense
+                fallback={<Loader size="md" label={tr('library.loading')} />}
+              >
+                <Content />
+              </Suspense>
             </div>
           </Stack>
-        )}
-      </Dialog>
-    </Suspense>
+      )}
+    </Dialog>
   );
 };
 export default SettingsModal;

@@ -1,7 +1,3 @@
-import { observer } from 'mobx-react-lite';
-import { useSongRecordings } from './useSongRecordings';
-import { PerformanceAnalysisModal } from '../analysis';
-import { useMemo, useState } from 'react';
 import {
   Dialog,
   Icon,
@@ -12,11 +8,15 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RecordingDto, SongDto } from '../../../../contracts/models';
 import { formatBytes } from '../../../../shared/utils/format';
+import { PerformanceAnalysisModal } from '../analysis';
 import { RecordingCard } from './RecordingCard';
-import { defaultTakeName, numberTakes } from './takeNames';
 import './recordings.css';
+import { defaultTakeName, numberTakes } from './takeNames';
+import { useSongRecordings } from './useSongRecordings';
 
 type View = 'list' | 'grid';
 
@@ -74,6 +74,32 @@ export const RecordingsModal = observer(
     } = actions;
     useLocale();
     const [view, setView] = useState<View>('list');
+    // Progress notifications are frequent. Keep the callbacks' identities stable so
+    // unaffected cards can preserve their waveform/player subtrees.
+    const actionRef = useRef({
+      onRename,
+      onAnalyze,
+      onDelete,
+      onCancelAnalysis,
+    });
+    useLayoutEffect(() => {
+      actionRef.current = { onRename, onAnalyze, onDelete, onCancelAnalysis };
+    });
+    const renameTake = useCallback((recording: RecordingDto, name: string) => {
+      actionRef.current.onRename(recording, name);
+    }, []);
+    const analyzeTake = useCallback(
+      (recording: RecordingDto, recalculate?: boolean) => {
+        actionRef.current.onAnalyze(recording, recalculate);
+      },
+      [],
+    );
+    const deleteTake = useCallback((recording: RecordingDto) => {
+      actionRef.current.onDelete(recording);
+    }, []);
+    const cancelTakeAnalysis = useCallback((jobId: string) => {
+      actionRef.current.onCancelAnalysis(jobId);
+    }, []);
     const numbers = useMemo(() => numberTakes(recordings), [recordings]);
     const versions = useMemo(() => {
       const grouped = new Map<string, RecordingDto[]>();
@@ -155,12 +181,12 @@ export const RecordingsModal = observer(
                       versions={versions.get(recording.id)}
                       index={index}
                       name={nameOf(recording)}
-                      onRename={(value) => onRename(recording, value)}
-                      onAnalyze={onAnalyze}
+                      onRename={renameTake}
+                      onAnalyze={analyzeTake}
                       progress={progress}
                       failures={failures}
-                      onCancelAnalysis={onCancelAnalysis}
-                      onDelete={onDelete}
+                      onCancelAnalysis={cancelTakeAnalysis}
+                      onDelete={deleteTake}
                     />
                   ))}
                 </ul>

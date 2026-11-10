@@ -1,7 +1,7 @@
 import { useJobs } from '../../../../providers/application';
 import { useEffect, useMemo, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { isInQueue } from './processingModel';
+import { orderProcessingJobs } from './processingModel';
 import {
   readJson,
   storageKey,
@@ -31,17 +31,10 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
     () => jobs.filter((job) => !hidden.has(job.id)),
     [jobs, hidden],
   );
-  const ordered = useMemo(() => {
-    const addedAt = (job: ProcessingJobDto) =>
-      Date.parse(songs.get(job.songId)?.createdAt ?? job.createdAt ?? '') ||
-      Infinity;
-    return [...visible].sort(
-      (a, b) =>
-        Number(isInQueue(b)) - Number(isInQueue(a)) ||
-        addedAt(a) - addedAt(b) ||
-        a.id.localeCompare(b.id),
-    );
-  }, [visible, songs]);
+  const ordered = useMemo(
+    () => orderProcessingJobs(visible, songs),
+    [visible, songs],
+  );
 
   const count = (states: readonly JobState[]) =>
     visible.filter((job) => states.includes(job.state)).length;

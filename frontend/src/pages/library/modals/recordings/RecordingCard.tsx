@@ -10,7 +10,7 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useQuery } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
 import type { RecordingDto } from '../../../../contracts/models';
 import { desktopClient as files } from '../../../../services/desktopClient';
@@ -80,7 +80,7 @@ const TakeName = ({
 };
 
 /** One take: its picture, name, file and analysis state, player and actions. */
-export const RecordingCard = ({
+const RecordingCardView = ({
   recording,
   versions = [],
   name,
@@ -96,7 +96,7 @@ export const RecordingCard = ({
   versions?: readonly RecordingDto[];
   name: string;
   index: number;
-  onRename(name: string): void;
+  onRename(recording: RecordingDto, name: string): void;
   onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
   onDelete(recording: RecordingDto): void;
   progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
@@ -142,7 +142,10 @@ export const RecordingCard = ({
           alt=""
         />
         <div className="recordingMain">
-          <TakeName name={name} onRename={onRename} />
+          <TakeName
+            name={name}
+            onRename={(value) => onRename(recording, value)}
+          />
           {versions.length > 0 && (
             <SegmentedControl
               size="sm"
@@ -247,3 +250,45 @@ export const RecordingCard = ({
     </li>
   );
 };
+
+/** Progress for an unrelated take must not re-render this card or its waveform. */
+const sameTakeProgress = (
+  previous: Readonly<Record<string, RecordingAnalysisProgress>>,
+  next: Readonly<Record<string, RecordingAnalysisProgress>>,
+  recording: RecordingDto,
+  versions: readonly RecordingDto[],
+): boolean =>
+  [recording, ...versions].every((item) => previous[item.id] === next[item.id]);
+
+const sameTakeFailures = (
+  previous: Readonly<Record<string, string>>,
+  next: Readonly<Record<string, string>>,
+  recording: RecordingDto,
+  versions: readonly RecordingDto[],
+): boolean =>
+  [recording, ...versions].every((item) => previous[item.id] === next[item.id]);
+
+export const RecordingCard = memo(
+  RecordingCardView,
+  (previous, next) =>
+    previous.recording === next.recording &&
+    previous.versions === next.versions &&
+    previous.name === next.name &&
+    previous.index === next.index &&
+    previous.onRename === next.onRename &&
+    previous.onAnalyze === next.onAnalyze &&
+    previous.onDelete === next.onDelete &&
+    previous.onCancelAnalysis === next.onCancelAnalysis &&
+    sameTakeProgress(
+      previous.progress ?? {},
+      next.progress ?? {},
+      next.recording,
+      next.versions ?? [],
+    ) &&
+    sameTakeFailures(
+      previous.failures ?? {},
+      next.failures ?? {},
+      next.recording,
+      next.versions ?? [],
+    ),
+);
