@@ -90,9 +90,8 @@ class MasterRender:
             bypass = self._match_reference()
             if bypass is not None:
                 return bypass
-            if self.process_voice:
-                self._match_backing()
-            self._schedule_loudness(loudness_pool)
+            # Preserve the accompaniment exactly as recorded; only the vocal is leveled.
+            # Master delivery is peak-limited, not globally loudness-normalized.
             self._finish_voice()
             self._write_balanced()
             self._unmask()
@@ -185,7 +184,7 @@ class MasterRender:
         if not self.timing_known:
             self.gains.fill(0)
             self.reliable.fill(False)
-        if not self.timing_known or (not self.process_voice and not self.reliable.any()):
+        if not self.timing_known or not self.reliable.any():
             shutil.copyfile(self.performance_mix, self.target)
             return StudioMasterBalance(
                 0,

@@ -26,10 +26,8 @@ def _balance_curve(
         floor = max(-55.0, upper - 10.0)
     reliable = (voice > floor) & (reference > max(-55.0, float(np.max(reference)) - 30))
     if phrase_smoothing:
-        # Calibrate the recording once; accompaniment dynamics must not duck the singer.
-        music = (backing > -60) & (original > -60)
-        offset = float(np.median((backing - original)[music])) if music.any() else 0.0
-        target = reference + offset
+        # Match the original singer directly, without scaling to the accompaniment.
+        target = reference
     else:
         reliable &= (backing > -60) & (original > -60)
         target = backing

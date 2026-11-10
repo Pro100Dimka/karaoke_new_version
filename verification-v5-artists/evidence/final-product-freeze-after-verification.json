@@ -1,8 +1,0 @@
-{
-  "checkedUtc": "2026-10-31T21:09:08.559746+00:00",
-  "manifestSha256": "850eb1f660dcca0bafb3e3390d34ec4aef17f8ce42607a1861d22f754897a68d",
-  "verifiedFiles": 865,
-  "mismatches": [],
-  "sourceUnchanged": true,
-  "scope": "Read-only final product verification after full gates, paired variances and paired benchmark; harness/report writes excluded from product freeze."
-}

@@ -106,33 +106,8 @@ def prepare_recording(
     recording: Recording,
     cancel: threading.Event,
 ) -> None:
-    path = recording.file_path
-    renderer.preserve_stems(path)
-    stems = recording_stems(path)
-    if stems is None or recording.song_id is None or recording.song_revision is None:
+    # Keep the original take untouched. Full balance/voice processing belongs to
+    # the explicitly requested AD Master job, not the recording readiness path.
+    if cancel.is_set():
         return
-    reference = projects.artifact_path(recording.song_id, recording.song_revision, "referenceVocal")
-    instrumental = projects.artifact_path(
-        recording.song_id, recording.song_revision, "instrumental"
-    )
-    if not reference.is_file() or not instrumental.is_file():
-        return
-    adjustments = recording_adjustments(recording)
-    temporary = path.with_suffix(".balancing.wav")
-    try:
-        renderer.render(
-            *stems,
-            reference,
-            instrumental,
-            temporary,
-            cancel,
-            performance_mix=path,
-            exact_stems=True,
-            process_voice=False,
-            adjustments=adjustments,
-        )
-        if cancel.is_set():
-            return
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
+    renderer.preserve_stems(recording.file_path)

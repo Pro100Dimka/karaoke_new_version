@@ -47,8 +47,27 @@ class MasterDelivery:
             self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];"
             voice = "[voice]"
         self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-        self._measure_delivery()
-        self._write_delivery()
+        if self.process_voice:
+            # A limiter acts only on peaks, unlike a global gain reduction that
+            # makes the entire accompaniment quieter throughout the song.
+            self.graph += "alimiter=limit=0.891251:attack=5:release=80:level=0,"
+            self.gain = 0.0
+            self.renderer._mix(
+                self.backing, self.balanced,
+                self.graph + "anull[out]",
+                ["-ar", str(self.info.samplerate), "-ac", str(self.output_channels),
+                 "-c:a", "pcm_s24le", str(self.target)],
+                self.cancel,
+            )
+            self.processing["delivery"] = {
+                "method": "peak-limited-unity-backing",
+                "globalGainDb": 0.0,
+                "limiterCeilingDbfs": -1.0,
+                "note": "Limiter reduces only peaks; overlapping peaks may affect accompaniment",
+            }
+        else:
+            self._measure_delivery()
+            self._write_delivery()
 
     def _measure_delivery(self) -> None:
         if self.progress:
