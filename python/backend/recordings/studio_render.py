@@ -2,9 +2,7 @@ from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import (
-    _backing_curve, _protect_vocal_presence, _guard_global_vocal_balance,
-)
+from backend.recordings.studio_dynamics import _backing_curve, _protect_vocal_presence
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -383,10 +381,6 @@ class MasterRender:
         self.gains, presence = _protect_vocal_presence(
             self.gains, self.voice_db, self.backing_db
         )
-        self.gains, global_balance = _guard_global_vocal_balance(
-            self.gains, self.voice_db, self.backing_db
-        )
-        self.processing["globalVocalBalance"] = global_balance
         self.processing["vocalPresence"] = presence
         self.processing["voiceLeveling"] += "-presence-protected"
         self.processing["voiceOutputGainDb"] = self.voice_gain_db
