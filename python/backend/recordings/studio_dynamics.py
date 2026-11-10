@@ -48,6 +48,45 @@ def _balance_curve(
     return gains, reliable
 
 
+def _protect_vocal_presence(
+    gains: NDArray[np.float64],
+    voice: NDArray[np.float64],
+    backing: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], dict[str, float]]:
+    """Prevent reference matching from burying vocals during loud passages.
+
+    Track slow accompaniment changes, not individual drum hits. The adjustment
+    never boosts pauses and is capped to avoid excessive noise or pumping.
+    """
+    if not len(gains) or len(gains) != len(voice) or len(voice) != len(backing):
+        return gains, {"presenceBoostMaxDb": 0.0}
+    active_floor = min(
+        float(np.percentile(voice, 80)) - 6.0,
+        max(-48.0, float(np.percentile(voice, 20)) + 9.0),
+    )
+    active = voice > active_floor
+    if np.count_nonzero(active) < 10:
+        return gains, {"presenceBoostMaxDb": 0.0}
+    # A quiet intro should not establish the target level for the climax.
+    local_backing = median_filter(backing, size=31, mode="nearest")
+    reference_backing = float(np.percentile(local_backing[active], 35))
+    rise = np.clip(local_backing - reference_backing, 0.0, 8.0)
+    # Preserve at least half of the musical rise in vocal prominence, while
+    # leaving the original reference matching intact on quieter passages.
+    minimum_gain = np.minimum(5.0, 0.55 * rise)
+    corrected = np.maximum(gains, minimum_gain - 4.0)
+    # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
+    extra = np.clip(corrected - gains, 0.0, 5.0)
+    extra = uniform_filter1d(extra, size=21, mode="nearest")
+    extra[~(uniform_filter1d(active.astype(float), size=11) > 0.25)] = 0.0
+    result = np.clip(gains + extra, -18.0, _MAX_BOOST_DB)
+    return result, {
+        "presenceBoostMaxDb": float(np.max(extra)),
+        "presenceBoostMeanDb": float(np.mean(extra[active])),
+        "backingReferenceDbfs": reference_backing,
+    }
+
+
 def _voice_filters(
     path: Path,
     levels: NDArray[np.float64],

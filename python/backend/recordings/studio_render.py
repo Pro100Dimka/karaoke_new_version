@@ -1,7 +1,8 @@
 from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
+from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import _backing_curve
+from backend.recordings.studio_dynamics import _backing_curve, _protect_vocal_presence
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -97,6 +98,10 @@ class MasterRender:
             self._write_balanced()
             self._unmask()
             self._deliver()
+            self.processing["qualityControl"] = inspect_master(
+                self.target, expected_frames=self.info.frames,
+                expected_rate=self.info.samplerate, expected_channels=self.output_channels,
+            )
             return self._balance_report()
 
     def _prepare_stems(self) -> None:
@@ -253,7 +258,7 @@ class MasterRender:
                 self.cancel,
                 quiet=False,
             )
-            if self.match_recording_loudness
+            if self.match_recording_loudness and not self.process_voice
             else None
         )
 
@@ -373,6 +378,11 @@ class MasterRender:
         else:
             self._fallback_balance()
             self.processing["voiceLeveling"] = "bounded-song-level-fallback"
+        self.gains, presence = _protect_vocal_presence(
+            self.gains, self.voice_db, self.backing_db
+        )
+        self.processing["vocalPresence"] = presence
+        self.processing["voiceLeveling"] += "-presence-protected"
         self.processing["voiceOutputGainDb"] = self.voice_gain_db
         self.processing["spaceAudible"] = spatial.is_file()
         self.processing["adaptive"] = {
