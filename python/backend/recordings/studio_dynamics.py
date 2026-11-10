@@ -4,7 +4,7 @@ import math
 import threading
 import numpy as np
 from numpy.typing import NDArray
-from scipy.ndimage import median_filter, minimum_filter1d, uniform_filter1d
+from scipy.ndimage import gaussian_filter1d, median_filter, minimum_filter1d, uniform_filter1d
 from scipy.signal import find_peaks
 import soundfile as sf
 
@@ -53,37 +53,61 @@ def _protect_vocal_presence(
     voice: NDArray[np.float64],
     backing: NDArray[np.float64],
 ) -> tuple[NDArray[np.float64], dict[str, float]]:
-    """Prevent reference matching from burying vocals during loud passages.
+    """Slow, activity-gated vocal rides for songs that build to a climax.
 
-    Track slow accompaniment changes, not individual drum hits. The adjustment
-    never boosts pauses and is capped to avoid excessive noise or pumping.
+    All inputs are 100 ms RMS profiles in dBFS. Never amplify rests, avoid
+    following drum transients, and preserve the musical rise of the singer.
     """
-    if not len(gains) or len(gains) != len(voice) or len(voice) != len(backing):
-        return gains, {"presenceBoostMaxDb": 0.0}
-    active_floor = min(
-        float(np.percentile(voice, 80)) - 6.0,
-        max(-48.0, float(np.percentile(voice, 20)) + 9.0),
-    )
-    active = voice > active_floor
+    if not (len(gains) and len(gains) == len(voice) == len(backing)):
+        return gains, {"presenceBoostMaxDb": 0.0, "presenceBoostMeanDb": 0.0}
+    if not all(np.isfinite(x).all() for x in (gains, voice, backing)):
+        return gains, {"presenceBoostMaxDb": 0.0, "presenceBoostMeanDb": 0.0}
+
+    floor = min(float(np.percentile(voice, 80)) - 6.0,
+                max(-48.0, float(np.percentile(voice, 20)) + 9.0))
+    active = voice > floor
     if np.count_nonzero(active) < 10:
-        return gains, {"presenceBoostMaxDb": 0.0}
-    # A quiet intro should not establish the target level for the climax.
-    local_backing = median_filter(backing, size=31, mode="nearest")
-    reference_backing = float(np.percentile(local_backing[active], 35))
-    rise = np.clip(local_backing - reference_backing, 0.0, 8.0)
-    # Preserve at least half of the musical rise in vocal prominence, while
-    # leaving the original reference matching intact on quieter passages.
-    minimum_gain = np.minimum(5.0, 0.55 * rise)
-    corrected = np.maximum(gains, minimum_gain - 4.0)
-    # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
-    extra = np.clip(corrected - gains, 0.0, 5.0)
-    extra = uniform_filter1d(extra, size=21, mode="nearest")
-    extra[~(uniform_filter1d(active.astype(float), size=11) > 0.25)] = 0.0
-    result = np.clip(gains + extra, -18.0, _MAX_BOOST_DB)
+        return gains, {"presenceBoostMaxDb": 0.0, "presenceBoostMeanDb": 0.0}
+
+    # Offline, non-causal analysis: the music envelope can be anticipated before
+    # a crescendo. A broad median ignores individual drums and transient hits.
+    music = median_filter(backing, size=31, mode="nearest")
+    vocal = median_filter(voice + gains, size=15, mode="nearest")
+    baseline = float(np.percentile(music[active], 35))
+    rise = np.clip(music - baseline, 0.0, 12.0)
+    relative = vocal - music
+    typical = float(np.percentile(relative[active], 60))
+    deficit = np.clip(typical - relative - 2.0, 0.0, 5.0)
+
+    # A soft dead band prevents a gain jump when the music crosses a threshold.
+    # A low-level hysteresis envelope suppresses gain chatter around that band.
+    raw = np.minimum(5.0, np.maximum(0.5 * rise, 0.6 * deficit))
+    raw = np.clip((raw - 0.45) / 0.9, 0.0, 1.0) * raw
+    hysteresis = np.empty_like(raw)
+    hysteresis[0] = raw[0]
+    for index in range(1, len(raw)):
+        difference = raw[index] - hysteresis[index - 1]
+        if abs(difference) < 0.12:
+            hysteresis[index] = hysteresis[index - 1]
+        else:
+            hysteresis[index] = hysteresis[index - 1] + np.clip(difference, -0.18, 0.18)
+
+    # Smooth over ~4 s on both sides; this is an offline render, so looking
+    # ahead does not add playback latency. Use the same curve on the way down.
+    desired = gaussian_filter1d(hysteresis, sigma=20, mode="nearest")
+    # Only amplify audible phrases. Smooth gates avoid syllable-by-syllable pumping.
+    activity = gaussian_filter1d(active.astype(float), sigma=4, mode="nearest")
+    gate = np.clip((activity - 0.12) / 0.7, 0.0, 1.0)
+    gate = gate * gate * (3.0 - 2.0 * gate)
+    desired *= gate
+    extra = np.clip(np.minimum(desired, np.maximum(0.0, _MAX_BOOST_DB - gains)), 0.0, 5.0)
+    result = gains + extra
     return result, {
         "presenceBoostMaxDb": float(np.max(extra)),
         "presenceBoostMeanDb": float(np.mean(extra[active])),
-        "backingReferenceDbfs": reference_backing,
+        "backingReferenceDbfs": baseline,
+        "presenceTargetRelativeDb": typical,
+        "presenceAlgorithm": "offline-lookahead-smooth-hysteresis-v3",
     }
 
 
@@ -326,3 +350,38 @@ def _voice_tails(levels: NDArray[np.float64]) -> list[float]:
         if i >= 5 and i + 5 < len(levels) and float(np.max(levels[i : i + 5])) < upper - 15
     ]
     return tails
+
+
+def _guard_global_vocal_balance(
+    gains: NDArray[np.float64],
+    voice: NDArray[np.float64],
+    backing: NDArray[np.float64],
+) -> tuple[NDArray[np.float64], dict[str, float | str]]:
+    """Keep the overall vocal from dominating, without flattening phrase dynamics.
+
+    Use only singing frames and a robust percentile, never full-song silence.
+    Preserve the local ride shape and apply one constant corrective offset.
+    """
+    if not (len(gains) == len(voice) == len(backing) and len(gains)) or not all(
+        np.isfinite(values).all() for values in (gains, voice, backing)
+    ):
+        return gains, {"status": "invalid-profile"}
+    threshold = min(float(np.percentile(voice, 80)) - 6.0,
+                    max(-48.0, float(np.percentile(voice, 20)) + 9.0))
+    active = (voice > threshold) & (backing > -65.0)
+    if np.count_nonzero(active) < 12:
+        return gains, {"status": "insufficient-activity"}
+    relative = voice[active] + gains[active] - backing[active]
+    # A soft upper ceiling: tolerate short expressive peaks, but not a vocal
+    # that consistently towers over the accompaniment. dBFS is a proxy, not LUFS.
+    median = float(np.median(relative))
+    upper = float(np.percentile(relative, 75))
+    correction = float(np.clip(min(0.0, 5.0 - median, 8.0 - upper), -9.0, 0.0))
+    result = gains + correction
+    return result, {
+        "status": "applied" if correction < -0.01 else "within-range",
+        "globalCorrectionDb": correction,
+        "vocalToBackingMedianBeforeDb": median,
+        "vocalToBackingP75BeforeDb": upper,
+        "vocalToBackingMedianAfterDb": median + correction,
+    }

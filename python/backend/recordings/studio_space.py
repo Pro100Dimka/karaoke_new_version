@@ -22,6 +22,8 @@ class SpaceProfile:
     decay_seconds: float = 0
     reverb_gain: float = 0
     decay_count: int = 0
+    stereo_width: float = 0.0
+    effect_type: str = "none"
 
 
 def apply_reference_space(
@@ -35,6 +37,21 @@ def apply_reference_space(
     expected = analyze_space(reference, cancel)
     existing = analyze_space(recorded, cancel)
     selected = match_space(expected, existing)
+    method = "reference-cepstrum-pause-decay-and-stereo"
+    if not (selected.delay_gain or selected.reverb_gain):
+        # A separated reference often has no isolated pauses, so absence of
+        # measurable tails is NOT evidence that the production is dry.
+        # Estimate only a bounded room impression; do not invent an echo.
+        width = _reference_width(reference, cancel)
+        recorded_width = _reference_width(recorded, cancel)
+        if width > recorded_width + 0.025:
+            selected = SpaceProfile(
+                decay_seconds=float(np.clip(0.28 + 0.45 * width, 0.28, 0.65)),
+                reverb_gain=float(np.clip(0.12 + 0.12 * (width - recorded_width), 0.12, 0.20)),
+                stereo_width=width,
+                effect_type="subtle-room",
+            )
+            method = "reference-width-informed-room"
     applied = bool(selected.delay_gain or selected.reverb_gain)
     if applied:
         info = sf.info(voice)
@@ -49,7 +66,8 @@ def apply_reference_space(
             cancel,
         )
     return {
-        "method": "reference-cepstrum-and-pause-decay",
+        "method": method,
+        "effectDetection": {"delay": expected.effect_type if expected.delay_gain else "not-confident", "delayConfidence": expected.delay_support, "reverbEvidenceCount": expected.decay_count, "referenceStereoWidth": expected.stereo_width, "recordedStereoWidth": existing.stereo_width},
         "status": "matched" if applied else "no-supported-addition",
         "reference": asdict(expected),
         "recorded": asdict(existing),
@@ -57,11 +75,37 @@ def apply_reference_space(
     }
 
 
+def _reference_width(path: Path, cancel: threading.Event) -> float:
+    """Robust stereo difference ratio from active blocks, bounded to [0, 1].
+
+    Width alone cannot prove the presence or settings of a reverb. It is used
+    only to choose a restrained fallback when direct tail evidence is absent.
+    """
+    values: list[float] = []
+    with sf.SoundFile(path) as source:
+        if source.channels < 2:
+            return 0.0
+        for index, samples in enumerate(source.blocks(
+            blocksize=source.samplerate, dtype="float32", always_2d=True
+        )):
+            _check_cancel(cancel)
+            if index >= 90:
+                break
+            left, right = samples[:, 0], samples[:, 1]
+            power = float(np.mean(left * left + right * right))
+            if power > 1e-7:
+                difference = float(np.mean((left - right) ** 2))
+                values.append(float(np.clip(difference / power, 0, 1)))
+    return float(np.median(values)) if values else 0.0
+
+
 def analyze_space(path: Path, cancel: threading.Event) -> SpaceProfile:
     levels, cepstra = _read_evidence(path, cancel)
     delay, gain, support = _delay(cepstra)
     decay, wet, count = _decay(levels)
-    return SpaceProfile(delay, gain, support, decay, wet, count)
+    width = _reference_width(path, cancel)
+    kind = ("slapback" if delay < 0.12 else "delay") if gain else "none"
+    return SpaceProfile(delay, gain, support, decay, wet, count, width, kind)
 
 
 def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile:
@@ -78,6 +122,8 @@ def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile
         decay_seconds=reference.decay_seconds,
         reverb_gain=float(np.clip(reverb, 0, 0.35)),
         decay_count=reference.decay_count,
+        stereo_width=reference.stereo_width,
+        effect_type=reference.effect_type,
     )
 
 
@@ -88,7 +134,15 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
     if profile.delay_gain:
         delay_index = round(profile.delay_seconds * rate)
         if 0 < delay_index < length:
-            impulse[delay_index] += profile.delay_gain
+            # Preserve the centered dry signal; place repeat energy in the sides.
+            if channels >= 2 and profile.stereo_width > 0.08:
+                impulse[delay_index, 0] += profile.delay_gain
+                opposite = min(length - 1, delay_index + round(0.017 * rate))
+                impulse[opposite, 1] += profile.delay_gain * 0.85
+                if channels > 2:
+                    impulse[delay_index, 2:] += profile.delay_gain * 0.5
+            else:
+                impulse[delay_index] += profile.delay_gain
     if profile.reverb_gain and profile.decay_seconds > 0:
         start = round(0.02 * rate)
         time = np.arange(length - start) / rate
@@ -98,6 +152,9 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
             -6.9078 * time[:, None] / profile.decay_seconds
         )
         tail /= np.maximum(np.linalg.norm(tail, axis=0), 1e-12)
+        if channels >= 2 and profile.stereo_width > 0.08:
+            # Independent diffuse tails widen only the wet component.
+            tail[:, :2] *= min(1.0, 0.65 + profile.stereo_width)
         impulse[start:] += profile.reverb_gain * tail
     sf.write(path, impulse, rate, subtype="FLOAT")
 
@@ -145,7 +202,8 @@ def _delay(cepstra: np.ndarray) -> tuple[float, float, float]:
         return 0, 0, 0
     # Persistent long-quefrency peaks indicate a delayed copy, not vocal pitch.
     curve = np.median(cepstra, axis=0)
-    lower, upper = 640, 4800
+    # 40–600 ms: include short slapback while excluding the voiced pitch region.
+    lower, upper = 320, 4800
     noise = float(np.median(np.abs(curve[lower:upper])))
     peaks, _ = find_peaks(curve[lower:upper], height=max(0.015, noise * 10), distance=80)
     if not len(peaks):
@@ -153,12 +211,12 @@ def _delay(cepstra: np.ndarray) -> tuple[float, float, float]:
     index = int(peaks[np.argmax(curve[lower:upper][peaks])] + lower)
     agreeing = cepstra[:, index] > max(0.01, noise * 6)
     support = float(np.mean(agreeing))
-    if support < 0.6:
+    if support < 0.7:
         return 0, 0, support
     seconds = index / 8000
     # A block boundary can cut off a repeat. Estimate strength from the upper
     # quartile of agreeing blocks, rather than treating cut tails as a quieter effect.
-    gain = float(np.clip(2 * np.percentile(cepstra[agreeing, index], 75), 0, 0.5))
+    gain = float(np.clip(2 * np.percentile(cepstra[agreeing, index], 75), 0, 0.30))
     return seconds, gain, support
 
 
