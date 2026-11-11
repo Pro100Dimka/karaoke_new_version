@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from time import monotonic
 from dataclasses import dataclass, replace
 from typing import Callable, Sequence
 
@@ -45,6 +46,8 @@ class ProcessingJobManager:
         # Serialize job transitions with progress so stale snapshots cannot undo cancellation.
         self._state_lock = threading.RLock()
         self._active_job_types: dict[str, JobType] = {}
+        self._pending_progress: dict[str, Job] = {}
+        self._progress_saved_at: dict[str, float] = {}
 
     def start(
         self,
@@ -111,6 +114,18 @@ class ProcessingJobManager:
             job = transaction.jobs.get(job_id)
         if job is None:
             raise NotFoundError("JobNotFound", "Background job was not found", jobId=job_id)
+        return self._live_progress(job)
+
+    def _live_progress(self, job: Job) -> Job:
+        pending = self._pending_progress.get(job.job_id)
+        if pending and job.state is JobState.RUNNING and pending.updated_at >= job.updated_at:
+            return replace(
+                job,
+                stage=pending.stage,
+                stage_progress=pending.stage_progress,
+                overall_progress=pending.overall_progress,
+                updated_at=pending.updated_at,
+            )
         return job
 
     def run_when_idle(
@@ -142,9 +157,10 @@ class ProcessingJobManager:
         entity_id: str | None = None,
     ) -> Sequence[Job]:
         with self._uow.create() as transaction:
-            return transaction.jobs.list(
+            jobs = transaction.jobs.list(
                 limit=limit, offset=offset, job_type=job_type, entity_id=entity_id
             )
+            return tuple(self._live_progress(job) for job in jobs)
 
     def cancel(self, job_id: str) -> Job:
         with self._state_lock:
@@ -196,6 +212,8 @@ class ProcessingJobManager:
             finally:
                 with self._state_lock:
                     self._active_job_types.pop(job_id, None)
+                    self._pending_progress.pop(job_id, None)
+                    self._progress_saved_at.pop(job_id, None)
 
     def _execute(self, job_id: str, work: JobWork, cancel: threading.Event) -> None:
         with self._state_lock:
@@ -232,7 +250,14 @@ class ProcessingJobManager:
                 overall_progress=max(job.overall_progress, clamped_overall),
                 updated_at=self._clock.now(),
             )
-            self._save(updated)
+            # Progress is transient. Coalesce disk flushes while keeping API reads
+            # and events current; state transitions still commit immediately.
+            previous = self._progress_saved_at.get(job_id)
+            if previous is None or monotonic() - previous >= 0.5:
+                self._save(updated)
+                self._progress_saved_at[job_id] = monotonic()
+            else:
+                self._pending_progress[job_id] = updated
             self._publish(updated)
 
     def _succeed_or_cancel(
@@ -319,6 +344,7 @@ class ProcessingJobManager:
         with self._uow.create() as transaction:
             transaction.jobs.update(job)
             transaction.commit()
+        self._pending_progress.pop(job.job_id, None)
 
     def _publish(self, job: Job) -> None:
         self._events.publish(

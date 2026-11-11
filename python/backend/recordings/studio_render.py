@@ -2,7 +2,7 @@ from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import _backing_curve
+from backend.recordings.studio_dynamics import _backing_curve, _slow_gain_envelope
 from backend.recordings.studio_voice import VoicePreparation, apply_reference_tone
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
@@ -19,6 +19,7 @@ from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
 from backend.recordings.studio_audio import (
     StudioMasterBalance,
     _PROFILE_SECONDS,
+    _MAX_BOOST_DB,
     _VOCAL_TARGET_OFFSET_DB,
     _check_cancel,
     _profile,
@@ -77,9 +78,7 @@ class MasterRender:
             raise DependencyError(
                 "InsufficientDiskSpace", "Not enough space for recording stems and master"
             )
-        with (
-            TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory,
-        ):
+        with TemporaryDirectory(prefix=".master-", dir=self.target.parent) as directory:
             self.work = Path(directory)
             self._prepare_stems()
             self._scope_reference()
@@ -336,6 +335,7 @@ class MasterRender:
                 self.renderer, self.vocal, self.backing, spatial, self.cancel
             )
         if spatial.is_file():
+            before_effects = self.voice_db
             self.vocal = spatial
             self.processing["toneCohesion"] = apply_reference_tone(
                 self.renderer, self.vocal, self.reference_vocal, self.cancel
@@ -346,20 +346,23 @@ class MasterRender:
             )
             self.voice_db = _profile(self.vocal, self.cancel, voice_band=True)
             if self.reliable.any():
-                self.gains, self.reliable = self.renderer._balance_curve(
-                    self.voice_db,
-                    self.backing_db,
-                    self.reference_db,
-                    self.original_db,
-                    phrase_smoothing=True,
+                # Keep the bounded performance balance, then compensate the gain
+                # introduced by effects without treating it as a singer's crescendo.
+                positions = np.arange(len(self.voice_db))
+                compensation = np.interp(
+                    positions,
+                    positions[self.reliable],
+                    (before_effects - self.voice_db)[self.reliable],
+                )
+                self.gains = np.clip(
+                    self.gains + _slow_gain_envelope(compensation), -18.0, _MAX_BOOST_DB
                 )
         self._report_voice(reference_effects)
 
     def _report_voice(self, reference_effects: dict[str, object]) -> None:
         if self.reliable.any():
-            target = self.voice_db + self.gains
             self.processing["voiceBalanceTargetDb"] = float(
-                np.median((target - self.backing_db)[self.reliable])
+                np.median((self.voice_db + self.gains - self.backing_db)[self.reliable])
             )
             self.processing["voiceLeveling"] = "post-effects-reference-envelope"
         else:
@@ -443,10 +446,8 @@ class MasterRender:
             ],
             self.cancel,
         )
-        self.user_vocal, self.backing = (
-            self.work / "dry-stereo.wav",
-            self.work / "backing-stereo.wav",
-        )
+        self.user_vocal = self.work / "dry-stereo.wav"
+        self.backing = self.work / "backing-stereo.wav"
         self.output_channels = 2
 
     def _prepare_voice(
@@ -457,9 +458,8 @@ class MasterRender:
         if np.count_nonzero(confident) * _PROFILE_SECONDS < 3:
             shutil.copyfile(self.performance_mix, self.target)
             profiles = [raw_profile, *(future.result() for future in profile_tasks)]
-            voice_level, backing_level, reference_level, original_level = map(
-                lambda levels: float(np.median(levels)),
-                profiles,
+            voice_level, backing_level, reference_level, original_level = (
+                float(np.median(levels)) for levels in profiles
             )
             return StudioMasterBalance(
                 0,
