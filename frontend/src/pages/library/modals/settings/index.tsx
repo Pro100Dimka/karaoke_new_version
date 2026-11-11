@@ -10,7 +10,7 @@ import {
 import { createCommandQueue } from '../../../../app/desktop/shellBus';
 import '../../../../providers/localization';
 import type { SettingsTab } from '../../../../contracts/models';
-import { lazy, startTransition, Suspense, useLayoutEffect, useState } from 'react';
+import { lazy, Suspense, useLayoutEffect, useState } from 'react';
 
 const tabs = {
   appearance: {
@@ -58,7 +58,7 @@ const SettingsModal = ({
   const [tab, setTab] = useState<SettingsTab | null>(null);
   useLayoutEffect(() => {
     const unsubscribe = requests.subscribe((tab) => {
-      // Opening the dialog is urgent user input; only tab content is deferred.
+      // Opening the dialog is urgent user input; Suspense handles lazy tab loading.
       setTab(tab);
       onOpenChange(true);
     });
@@ -74,6 +74,7 @@ const SettingsModal = ({
   const Content = tab ? tabs[tab].Component : null;
   return (
     <Dialog
+        className="settingsDialog"
         open={tab !== null}
         onOpenChange={(open) => {
           if (!open) close();
@@ -96,7 +97,7 @@ const SettingsModal = ({
             <Tabs
               className="settingsTabs"
               value={tab}
-              onValueChange={(value) => startTransition(() => setTab(value))}
+              onValueChange={setTab}
               items={(Object.keys(tabs) as SettingsTab[]).map((value) => ({
                 value,
                 label: tr(tabs[value].label),

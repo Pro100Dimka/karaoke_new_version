@@ -54,7 +54,7 @@ const App = () => {
             <DialogView />
             <BootstrapGate>
               <SocialConnection />
-              <Suspense fallback={null}>
+              <Suspense fallback={<div className="libraryCurtain" aria-hidden />}>
                 <Router routes={appRoutes} transition />
               </Suspense>
             </BootstrapGate>

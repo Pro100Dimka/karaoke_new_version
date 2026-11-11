@@ -8,6 +8,7 @@
 #include <mutex>
 #include <vector>
 struct IMFSourceReader;
+class WavDecoder;
 class MediaFoundationDecoder final : public IAudioDecoder {
   public:
     MediaFoundationDecoder();
@@ -20,6 +21,7 @@ class MediaFoundationDecoder final : public IAudioDecoder {
 
   private:
     friend struct MediaFoundationTestAccess;
+    std::unique_ptr<WavDecoder> pcm_;
     IMFSourceReader* reader_{nullptr};
     std::mutex readerMutex_; // Publication and cancel/close lifetime; never held during ReadSample.
     std::atomic<bool> cancelled_{false};

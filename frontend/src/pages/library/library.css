@@ -15,12 +15,6 @@
 .songCard {
   position: relative;
 }
-.libraryCurtain {
-  position: fixed;
-  inset: 0;
-  z-index: calc(var(--ad-z-system) - 1);
-  background: #000;
-}
 .libraryCurtain[data-ready] {
   animation: library-reveal 700ms ease-in-out both;
   pointer-events: none;

@@ -79,8 +79,8 @@ export const BootstrapGate = observer(
 
     if (admitted) return <>{children}</>;
 
-    if (python.kind === 'starting') {
-      return null;
+    if (['starting', 'ready'].includes(python.kind)) {
+      return <div className="libraryCurtain" aria-hidden />;
     }
 
     return (

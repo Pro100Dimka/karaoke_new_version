@@ -1,5 +1,6 @@
 #ifdef _WIN32
 #include "media/MediaFoundationDecoder.hpp"
+#include "media/WavDecoder.hpp"
 #include "common/Types.hpp"
 #include "common/WindowsText.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
@@ -10,8 +11,10 @@
 #define NOMINMAX
 #endif
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <mfapi.h>
 #include <mfidl.h>
 #include <mfreadwrite.h>
@@ -44,6 +47,21 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
     if (initialized != RPC_E_CHANGED_MODE)
         check(initialized, "MF COM initialization failed");
     comInitialized_ = SUCCEEDED(initialized);
+    auto extension = std::filesystem::path{std::u8string{pathOrUrl.begin(), pathOrUrl.end()}}
+                         .extension().string();
+    std::ranges::transform(extension, extension.begin(),
+                           [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+    if (extension == ".wav") {
+        auto pcm = std::make_unique<WavDecoder>();
+        try {
+            const auto format = pcm->open(pathOrUrl);
+            pcm_ = std::move(pcm);
+            cancelled_.store(false, std::memory_order_release);
+            return format;
+        } catch (const std::runtime_error&) {
+            // Compressed and extensible WAV formats still use Media Foundation.
+        }
+    }
     check(MFStartup(MF_VERSION, MFSTARTUP_LITE), "MFStartup failed");
     mfStarted_ = true;
     ComPtr<IMFAttributes> attributes;
@@ -92,6 +110,8 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
     throw;
 }
 std::uint32_t MediaFoundationDecoder::read(std::span<float> output, std::uint32_t maxFrames) {
+    if (pcm_)
+        return cancelled_.load(std::memory_order_acquire) ? 0 : pcm_->read(output, maxFrames);
     RealtimeInstrumentation::reportDiskIo();
     RealtimeInstrumentation::reportNetworkIo();
     if (reader_ == nullptr || format_.channels == 0)
@@ -182,6 +202,11 @@ std::uint32_t MediaFoundationDecoder::read(std::span<float> output, std::uint32_
     return static_cast<std::uint32_t>(written / format_.channels);
 }
 void MediaFoundationDecoder::seek(std::uint64_t frame) {
+    if (pcm_) {
+        pcm_->seek(frame);
+        cancelled_.store(false, std::memory_order_release);
+        return;
+    }
     RealtimeInstrumentation::reportDiskIo();
     RealtimeInstrumentation::reportNetworkIo();
     if (reader_ == nullptr || format_.sampleRateHz == 0)
@@ -213,6 +238,7 @@ void MediaFoundationDecoder::close() noexcept {
     RealtimeInstrumentation::reportNetworkIo();
     std::lock_guard lock(readerMutex_);
     pending_.clear();
+    pcm_.reset();
     pendingOffset_ = 0;
     format_ = {};
     if (reader_ != nullptr) {
