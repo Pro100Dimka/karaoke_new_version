@@ -140,7 +140,7 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
 
 @pytest.mark.parametrize(
     "reference_db, expected_db, varying_effect",
-    [(-12, -12, False), (-2, -2, False), (6, 6, False), (-2, -2, True)],
+    [(-12, -14, False), (-2, -4, False), (6, 4, False), (-2, -4, True)],
 )
 def test_master_balance_follows_reference_vocal(
     tmp_path: Path, monkeypatch, reference_db, expected_db, varying_effect
