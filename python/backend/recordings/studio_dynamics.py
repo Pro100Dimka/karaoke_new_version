@@ -13,7 +13,13 @@ from scipy.ndimage import (
 from scipy.signal import find_peaks
 import soundfile as sf
 
-from backend.recordings.studio_audio import _MAX_BOOST_DB, _PROFILE_SECONDS, _check_cancel, _profile
+from backend.recordings.studio_audio import (
+    _MAX_BOOST_DB,
+    _PROFILE_SECONDS,
+    _VOCAL_TARGET_OFFSET_DB,
+    _check_cancel,
+    _profile,
+)
 
 from backend.recordings.studio_compression import (
     _reference_compression as _reference_compression,
@@ -62,6 +68,8 @@ def _balance_curve(
     if not reliable.any():
         return np.zeros_like(voice), reliable
     target = backing + reference - original
+    if phrase_smoothing:
+        target += _VOCAL_TARGET_OFFSET_DB
     desired = np.minimum(target - voice, _MAX_BOOST_DB)
     positions = np.arange(len(voice))
     # Interpolate *only* between reliable vocal frames; then use one slow
@@ -73,7 +81,8 @@ def _balance_curve(
         # a slow activity envelope, never reset at individual syllable gaps.
         baseline = float(np.median(gains[reliable]))
         activity = _slow_gain_envelope(reliable.astype(np.float64), seconds=2.0)
-        gains = baseline + (gains - baseline) * np.clip(activity, 0.0, 1.0)
+        # Keep reference crescendos from imposing large gain rides on another singer.
+        gains = baseline + np.clip(gains - baseline, -2.0, 2.0) * np.clip(activity, 0.0, 1.0)
     noise = voice <= max(-70.0, upper - 45.0)
     gains[noise] = np.minimum(gains[noise], 0.0)
     return np.clip(gains, -18.0, _MAX_BOOST_DB), reliable

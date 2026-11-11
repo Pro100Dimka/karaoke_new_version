@@ -23,6 +23,7 @@ from backend.recordings.studio_audio import (
 from backend.recordings.studio_dynamics import _balance_curve, _voice_filters
 from backend.recordings.studio_spectrum import _repeated_output_channels, _unmask_backing
 from backend.recordings.studio_reference import _reference_offset
+from backend.recordings.studio_pitch import PitchAnalyzer
 
 
 class FfmpegStudioMasterRenderer:
@@ -75,6 +76,7 @@ class FfmpegStudioMasterRenderer:
         match_recording_loudness: bool = False,
         adjustments: Sequence[Mapping[str, object]] = (),
         progress: Callable[[str, float, float], None] | None = None,
+        pitch: PitchAnalyzer | None = None,
     ) -> StudioMasterBalance:
         return MasterRender(
             self,
@@ -90,6 +92,7 @@ class FfmpegStudioMasterRenderer:
             match_recording_loudness,
             adjustments,
             progress,
+            pitch,
         ).run()
 
     def _mix(

@@ -8,7 +8,94 @@ import soundfile as sf
 from numpy.typing import NDArray
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_dynamics import _reference_compression
+from backend.recordings.studio_dynamics import _reference_compression, _reference_tone
+
+
+def _cohesion_bands(
+    measured: tuple[float, np.ndarray, np.ndarray],
+    reference: tuple[float, np.ndarray, np.ndarray],
+) -> list[dict[str, float]]:
+    centers, tone = measured[1:]
+    excess = tone - np.interp(centers, reference[1], reference[2])
+    bands = []
+    # Broad corrections preserve the singer's formants; gains come from the song.
+    for low, high, boost, cut in ((300, 600, 0, 1.5), (1200, 2400, 1, 1.5), (4800, 9600, 0, 3)):
+        selected = (centers >= low) & (centers < high)
+        values = excess[selected]
+        if len(values) < 4:
+            continue
+        difference = float(np.median(values))
+        if abs(difference) < 1 or np.mean(np.sign(values) == np.sign(difference)) < 0.75:
+            continue
+        gain = float(np.clip(-difference * 0.5, -cut, boost))
+        if not gain:
+            continue
+        frequency = float(np.exp(np.average(np.log(centers[selected]), weights=np.abs(values))))
+        bands.append(
+            {
+                "lowHz": low,
+                "highHz": high,
+                "frequencyHz": frequency,
+                "gainDb": gain,
+                "differenceDb": difference,
+            }
+        )
+    return bands
+
+
+def _cohesion_error(
+    measured: tuple[float, np.ndarray, np.ndarray],
+    reference: tuple[float, np.ndarray, np.ndarray],
+    bands: list[dict[str, float]],
+) -> np.ndarray:
+    centers, tone = measured[1:]
+    excess = tone - np.interp(centers, reference[1], reference[2])
+    return np.array(
+        [
+            abs(float(np.median(excess[(centers >= band["lowHz"]) & (centers < band["highHz"])])))
+            for band in bands
+        ]
+    )
+
+
+def apply_reference_tone(
+    renderer: MasterRenderer, voice: Path, reference: Path, cancel: threading.Event
+) -> dict[str, object]:
+    measured, expected = _reference_tone(voice, cancel), _reference_tone(reference, cancel)
+    if measured is None or expected is None:
+        return {"applied": False, "method": "insufficient-tone-evidence"}
+    bands = _cohesion_bands(measured, expected)
+    if not bands:
+        return {"applied": False, "method": "no-broad-tone-mismatch"}
+    filters = [
+        (
+            f"highshelf=f={band['lowHz']:.3f}"
+            if band["lowHz"] >= 4800
+            else f"equalizer=f={band['frequencyHz']:.3f}"
+        )
+        + f":t=q:w=0.7:g={band['gainDb']:.6f}"
+        for band in bands
+    ]
+    target = voice.with_suffix(".tone.wav")
+    try:
+        graph = "[0:a]" + ",".join(filters) + "[out]"
+        output = ["-c:a", "pcm_f32le", str(target)]
+        renderer._mix(voice, voice, graph, output, cancel)
+        candidate = _reference_tone(target, cancel)
+        before = _cohesion_error(measured, expected, bands)
+        after = _cohesion_error(candidate, expected, bands) if candidate else before
+        accepted = bool(np.all(after <= before) and np.sum(after) < np.sum(before))
+        if accepted:
+            target.replace(voice)
+        return {
+            "applied": accepted,
+            "method": "post-space-reference-broad-tone",
+            "bands": bands,
+            "beforeErrorDb": before.tolist(),
+            "afterErrorDb": after.tolist(),
+        }
+    finally:
+        target.unlink(missing_ok=True)
 
 
 @dataclass(slots=True)

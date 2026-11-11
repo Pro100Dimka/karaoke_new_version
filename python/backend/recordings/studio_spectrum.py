@@ -5,7 +5,7 @@ import numpy as np
 from numpy.typing import NDArray
 import soundfile as sf
 
-from backend.recordings.studio_audio import _PROFILE_SECONDS, _check_cancel
+from backend.recordings.studio_audio import _PROFILE_SECONDS, _VOCAL_TARGET_OFFSET_DB, _check_cancel
 
 
 def _repeated_output_channels(path: Path, cancel: threading.Event) -> bool:
@@ -75,6 +75,9 @@ def _unmask_backing(
         if reference_vocal is not None and reference_backing is not None
         else None
     )
+    if targets is not None:
+        # Keep accompaniment cuts consistent with the chosen vocal balance.
+        targets = targets + _VOCAL_TARGET_OFFSET_DB
     with (
         sf.SoundFile(backing) as music,
         sf.SoundFile(voice) as singer,

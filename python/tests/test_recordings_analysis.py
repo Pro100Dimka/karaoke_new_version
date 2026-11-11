@@ -27,7 +27,7 @@ def test_recording_balance_targets_bounded_reference_prominence(reference_level:
 
 
 @pytest.mark.parametrize("quiet_backing", [-48.0, -120.0])
-def test_master_follows_reference_vocal_when_accompaniment_drops(quiet_backing: float) -> None:
+def test_master_bounds_reference_gain_rides_when_accompaniment_drops(quiet_backing: float) -> None:
     import numpy as np
     from backend.recordings.studio_dynamics import _balance_curve
 
@@ -37,8 +37,12 @@ def test_master_follows_reference_vocal_when_accompaniment_drops(quiet_backing: 
     reference = np.repeat([-24.0, -20.0, -28.0], 100)
     gains, reliable = _balance_curve(voice, backing, reference, original, phrase_smoothing=True)
     assert reliable.all()
-    for section in (slice(30, 70), slice(130, 170), slice(230, 270)):
-        np.testing.assert_allclose((voice + gains)[section], (reference - 3)[section], atol=0.1)
+    # Keep the agreed 2 dB vocal offset and at most 2 dB rides around its baseline.
+    for section, expected in zip(
+        (slice(30, 70), slice(130, 170), slice(230, 270)), (-29.0, -27.0, -31.0), strict=True
+    ):
+        np.testing.assert_allclose((voice + gains)[section], expected, atol=0.1)
+    assert np.ptp(gains) <= 4.0
 
 
 def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None:
@@ -49,7 +53,7 @@ def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None
     backing = np.full(100, -30.0)
     reference = np.concatenate((np.full(80, -24.0), np.full(20, -48.0)))
     gains, _ = _balance_curve(voice, backing, reference, backing, phrase_smoothing=True)
-    np.testing.assert_allclose((voice + gains)[50:65], -24.0, atol=0.5)
+    np.testing.assert_allclose((voice + gains)[50:65], -26.0, atol=0.5)
 
 
 def test_master_does_not_boost_recorded_noise_during_reference_vocals() -> None:

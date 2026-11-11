@@ -7,7 +7,7 @@ import shutil
 import threading
 import numpy as np
 import soundfile as sf
-from scipy.signal import lfilter, oaconvolve
+from scipy.signal import butter, lfilter, oaconvolve, sosfilt
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import MasterRenderer, _check_cancel
 from backend.recordings.studio_space_analysis import (
@@ -17,6 +17,7 @@ from backend.recordings.studio_space_analysis import (
     analyze_space as analyze_space,
     match_space as match_space,
     write_impulse as write_impulse,
+    StereoField,
 )
 
 
@@ -30,29 +31,51 @@ def apply_reference_space(
 ) -> dict[str, object]:
     expected, existing = analyze_space(reference, cancel), analyze_space(recorded, cancel)
     selected = match_space(expected, existing)
-    wet = _render_separate_buses(renderer, voice, target, cancel, selected)
+    wet, field = _render_chain(renderer, voice, target, cancel, selected)
     calibration = wet.get("calibration", {})
     applied = (
         isinstance(calibration, dict) and calibration.get("measuredOutputWetToDryDb") is not None
-    )
+    ) or field.get("applied", False)
     return {
         "method": "reference-cepstrum-pause-decay-and-stereo",
         "status": "matched" if applied else "no-supported-addition",
-        "estimatedNotDetected": False,
+        "estimatedNotDetected": bool(
+            field.get("applied", False) or (selected.reverb_gain and not expected.reverb_gain)
+        ),
         "reference": asdict(expected),
         "recorded": asdict(existing),
         "applied": asdict(selected),
         "wetBalance": wet,
+        "stereoField": field,
         "effectDetection": {
             "delayConfidence": expected.delay_support,
             "reverbEvidenceCount": expected.decay_count,
             "predelay": "unidentified-no-added-delay",
             "earlyReflections": "not-separated-from-direct-vocal",
             "doubling": "not-identifiable-from-stereo-width-alone",
-            "tailColorMethod": "measured-decay-window-spectral-quantiles",
+            "tailColorMethod": "measured-decay-window-spectral-quantiles"
+            if expected.reverb_gain
+            else "estimated-delayed-stereo-energy-band",
             "stereoCorrelationApproximation": 1 - expected.stereo_width,
         },
     }
+
+
+def _render_chain(
+    renderer: MasterRenderer,
+    voice: Path,
+    target: Path,
+    cancel: threading.Event,
+    profile: SpaceProfile,
+) -> tuple[dict[str, object], dict[str, object]]:
+    stereo = target.with_suffix(".stereo.wav")
+    try:
+        field = _render_field(voice, stereo, cancel, profile.field)
+        source = stereo if field.get("applied", False) else voice
+        wet = _render_separate_buses(renderer, source, target, cancel, profile)
+        return wet, field
+    finally:
+        stereo.unlink(missing_ok=True)
 
 
 def apply_fallback_space(
@@ -61,6 +84,89 @@ def apply_fallback_space(
     _check_cancel(cancel)
     shutil.copyfile(voice, target)
     return {"applied": False, "method": "no-supported-spatial-evidence"}
+
+
+def _render_field(
+    voice: Path, target: Path, cancel: threading.Event, field: StereoField
+) -> dict[str, object]:
+    if not field.lag or not field.ratio or sf.info(voice).channels != 2:
+        return {"applied": False, "method": "no-supported-stereo-field"}
+    temporary = target.with_suffix(".field.wav")
+    try:
+        dry_energy, energy, peak = _write_field(voice, temporary, cancel, field)
+        gain = min(math.sqrt(dry_energy / max(energy, 1e-20)), 0.95 / max(peak, 1e-12))
+        with (
+            sf.SoundFile(temporary) as source,
+            sf.SoundFile(
+                target, "w", samplerate=source.samplerate, channels=2, subtype="FLOAT"
+            ) as output,
+        ):
+            for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
+                _check_cancel(cancel)
+                output.write(block * gain)
+        return {
+            "applied": True,
+            "method": "reference-delayed-stereo-energy-approximation",
+            "effectIdentityConfirmed": False,
+            "parameters": asdict(field),
+            "modulation": "synthesized-from-envelope-lag-spread-not-detected-pitch-modulation",
+            "normalizationGainDb": 20 * math.log10(max(gain, 1e-12)),
+            "dryPreserved": False,
+            "audibilityVerified": False,
+        }
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _field_copies(
+    block: np.ndarray, history: np.ndarray, rate: int, position: int, field: StereoField
+) -> tuple[np.ndarray, np.ndarray]:
+    samples = np.concatenate((history, block))
+    axis = np.arange(len(samples))
+    time = (position + np.arange(len(block))) / rate
+    # The measured envelope lag/spread sets the scale, not an asserted echo tap.
+    delays = [
+        field.lag
+        + field.spread * (offset + depth * np.sin(time * 2 * np.pi / (cycles * field.lag) + phase))
+        for offset, depth, cycles, phase in ((0.4, 0.4, 90, 0), (1.7, 0.6, 72, 1.7))
+    ]
+    copies = np.column_stack(
+        [
+            np.interp(len(history) + np.arange(len(block)) - delay * rate, axis, samples)
+            for delay in delays
+        ]
+    )
+    return copies, samples[-len(history) :]
+
+
+def _write_field(
+    voice: Path, target: Path, cancel: threading.Event, field: StereoField
+) -> tuple[float, float, float]:
+    dry_energy = energy = peak = 0.0
+    with (
+        sf.SoundFile(voice) as source,
+        sf.SoundFile(
+            target, "w", samplerate=source.samplerate, channels=2, subtype="FLOAT"
+        ) as output,
+    ):
+        band = butter(2, field.low_hz, fs=source.samplerate, btype="highpass", output="sos")
+        state = np.zeros((len(band), 2))
+        history = np.zeros(math.ceil((field.lag + 3 * field.spread) * source.samplerate) + 2)
+        amount = math.sqrt(2 * field.ratio / max(1 - field.ratio, 0.35))
+        position = 0
+        for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
+            _check_cancel(cancel)
+            mono, state = sosfilt(band, block.mean(axis=1), zi=state)
+            copies, history = _field_copies(mono, history, source.samplerate, position, field)
+            mixed = block + amount * copies
+            if not np.isfinite(mixed).all():
+                raise DependencyError("StudioMasterInvalidWet", "Invalid spatial samples")
+            dry_energy += float(np.sum(block.astype(np.float64) ** 2))
+            energy += float(np.sum(mixed**2))
+            peak = max(peak, float(np.max(abs(mixed))))
+            output.write(mixed)
+            position += len(block)
+    return dry_energy, energy, peak
 
 
 def _voice_activity_level(path: Path, cancel: threading.Event) -> float:
@@ -128,8 +234,8 @@ def _render_separate_buses(
     reference: Path | None = None,
     recorded: Path | None = None,
 ) -> dict[str, object]:
-    # Measured impulse gains already encode the effect strength. Recalibrating
-    # them to stereo width would mistake doubles for reverb and override Dry/Wet.
+    # Echo gains are direct tap ratios. Diffuse reverb energy is calibrated
+    # against the actual voice, never against stereo width (which includes doubles).
     taps = profile.echo_taps or ((profile.delay_seconds, profile.delay_gain),)
     specs = {
         f"echo-{index + 1}": replace(
@@ -176,6 +282,7 @@ class _SpatialBuses:
         impulse, _ = sf.read(self.impulses[name], dtype="float32", always_2d=True)
         overlap = np.zeros((len(impulse) - 1, self.info.channels), dtype="float32")
         wet_peak = dry_peak = 0.0
+        wet_energy = dry_energy = 0.0
         position = 0
         with (
             sf.SoundFile(self.voice) as source,
@@ -197,10 +304,17 @@ class _SpatialBuses:
                 position += len(block)
                 dry_peak = max(dry_peak, float(np.max(np.abs(block))))
                 wet_peak = max(wet_peak, float(np.max(np.abs(wet))))
+                dry_energy += float(np.sum(block.astype(np.float64) ** 2))
+                wet_energy += float(np.sum(wet.astype(np.float64) ** 2))
                 output.write(wet)
         self.peaks[name] = wet_peak
-        # A safety ceiling can only attenuate evidence-backed effects, never boost them.
-        self.gains[name] = min(1.0, 0.5 * dry_peak / max(wet_peak, 1e-12))
+        # Unit-energy noise impulses do not preserve Wet/Dry for colored vocals.
+        gain = (
+            profile.reverb_gain * math.sqrt(dry_energy / max(wet_energy, 1e-20))
+            if profile.reverb_gain
+            else 1.0
+        )
+        self.gains[name] = min(gain, 0.5 * dry_peak / max(wet_peak, 1e-12))
 
     def _region_mask(self, profile: SpaceProfile, position: int, frames: int) -> np.ndarray:
         regions = [

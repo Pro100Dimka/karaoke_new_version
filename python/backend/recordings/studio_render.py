@@ -3,10 +3,10 @@ from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
 from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
 from backend.recordings.studio_dynamics import _backing_curve
-from backend.recordings.studio_voice import VoicePreparation
+from backend.recordings.studio_voice import VoicePreparation, apply_reference_tone
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 import shutil
 import threading
@@ -15,24 +15,18 @@ import numpy as np
 import soundfile as sf
 from backend.analysis.scoring import reference_audio_start
 from backend.domain_errors import DependencyError
-from backend.infrastructure.process_runner import ProcessResult
+from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
 from backend.recordings.studio_audio import (
     StudioMasterBalance,
     _PROFILE_SECONDS,
+    _VOCAL_TARGET_OFFSET_DB,
     _check_cancel,
     _profile,
 )
-
 from dataclasses import dataclass, field
-from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_reference import (
-    scope_reference,
-    mapped_reference_times,
-)
-from backend.recordings.studio_calibration import (
-    calibrate_mix,
-)
+from backend.recordings.studio_reference import scope_reference, mapped_reference_times
+from backend.recordings.studio_calibration import calibrate_mix
 
 
 @dataclass(slots=True)
@@ -50,6 +44,7 @@ class MasterRender:
     match_recording_loudness: bool
     adjustments: Sequence[Mapping[str, object]]
     progress: Callable[[str, float, float], None] | None
+    pitch: PitchAnalyzer | None = None
     info: sf._SoundFileInfo = field(init=False)
     work: Path = field(init=False)
     backing: Path = field(init=False)
@@ -59,8 +54,6 @@ class MasterRender:
     voice_db: NDArray[np.float64] = field(init=False)
     backing_db: NDArray[np.float64] = field(init=False)
     reference_db: NDArray[np.float64] = field(init=False)
-    reference_full_db: NDArray[np.float64] = field(init=False)
-    original_full_db: NDArray[np.float64] = field(init=False)
     original_db: NDArray[np.float64] = field(init=False)
     offset_result: tuple[float, float] | None = field(init=False)
     times: NDArray[np.floating] = field(init=False)
@@ -68,10 +61,9 @@ class MasterRender:
     timing_known: bool = field(init=False)
     gains: NDArray[np.float64] = field(init=False)
     reliable: NDArray[np.bool_] = field(init=False)
-    recording_analysis: Future[ProcessResult] | None = field(init=False)
+    pitch_adjustments: Sequence[Mapping[str, object]] = field(init=False)
     balanced: Path = field(init=False)
     peak_bound: float = field(init=False)
-    voice_analysis: dict[str, object] = field(init=False)
     voice_gain_db: float = field(default=0, init=False)
     reference_origin: float = field(default=0, init=False)
 
@@ -97,8 +89,8 @@ class MasterRender:
             bypass = self._match_reference()
             if bypass is not None:
                 return bypass
-            self.recording_analysis = None
             self._finish_voice()
+            self.processing["pitchCorrection"] = apply_reference_pitch(self)
             self._write_balanced()
             self._unmask()
             self._deliver()
@@ -135,6 +127,7 @@ class MasterRender:
             section,
             self._redeliver,
             self.processing,
+            vocal_offset_db=_VOCAL_TARGET_OFFSET_DB,
         )
 
     def _redeliver(self, gain: float) -> None:
@@ -198,12 +191,11 @@ class MasterRender:
             self.backing_db, self.reference_db, self.original_db = (
                 future.result() for future in profile_tasks
             )
-            self.reference_full_db = self.reference_db.copy()
-            self.original_full_db = self.original_db.copy()
             self.offset_result = alignment.result() if alignment is not None else None
         return None
 
     def _scope_reference(self) -> None:
+        self.pitch_adjustments = self.adjustments
         self.reference_vocal, self.original_instrumental, self.reference_origin, report = (
             scope_reference(
                 self.reference_vocal,
@@ -221,6 +213,15 @@ class MasterRender:
             ]
 
     def _match_reference(self) -> StudioMasterBalance | None:
+        # Match the audit's vocal band so bass energy does not set the lead level.
+        self.voice_db, self.backing_db, self.reference_db, self.original_db = (
+            _profile(path, self.cancel, voice_band=True)
+            for path in (self.vocal, self.backing, self.reference_vocal, self.original_instrumental)
+        )
+        self.processing.update(
+            balanceBandHz=[300, min(3500, self.info.samplerate / 2)],
+            vocalTargetOffsetDb=_VOCAL_TARGET_OFFSET_DB,
+        )
         self._map_reference_time()
         profiles = []
         for levels, positions in (
@@ -336,12 +337,14 @@ class MasterRender:
             )
         if spatial.is_file():
             self.vocal = spatial
-            self.processing["space"] = (
-                "reference-matched"
-                if reference_effects.get("status") == "matched"
-                else "unchanged-no-supported-effects"
+            self.processing["toneCohesion"] = apply_reference_tone(
+                self.renderer, self.vocal, self.reference_vocal, self.cancel
             )
-            self.voice_db = _profile(self.vocal, self.cancel)
+            matched = reference_effects.get("status") == "matched"
+            self.processing["space"] = (
+                "reference-matched" if matched else "unchanged-no-supported-effects"
+            )
+            self.voice_db = _profile(self.vocal, self.cancel, voice_band=True)
             if self.reliable.any():
                 self.gains, self.reliable = self.renderer._balance_curve(
                     self.voice_db,
@@ -415,7 +418,7 @@ class MasterRender:
             self.output_channels,
             self.process_voice,
             self.match_recording_loudness,
-            self.recording_analysis,
+            None,
             self.peak_bound,
             self.reliable,
             self.processing,

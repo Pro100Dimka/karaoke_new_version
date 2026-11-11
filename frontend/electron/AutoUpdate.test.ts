@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createServer } from 'node:http';
+import { createServer, type ServerResponse } from 'node:http';
 import {
   mkdtemp,
   readFile,
@@ -42,14 +42,14 @@ it('resumes a real HTTP transfer after its socket is interrupted', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
   roots.push(directory);
   const ranges: string[] = [];
+  let interrupted: ServerResponse | undefined;
   const server = createServer((request, response) => {
     const range = request.headers.range ?? '';
     ranges.push(range);
     if (!range) {
       response.writeHead(200, { 'Content-Length': payload.length });
-      response.write(payload.subarray(0, 100_000), () =>
-        setTimeout(() => response.destroy(), 50),
-      );
+      interrupted = response;
+      response.write(payload.subarray(0, 100_000));
     } else {
       const offset = Number(/^bytes=(\d+)-$/.exec(range)?.[1]);
       response.writeHead(206, {
@@ -68,6 +68,9 @@ it('resumes a real HTTP transfer after its socket is interrupted', async () => {
       fetch,
       { ...release(), url: `http://127.0.0.1:${address.port}/installer` },
       directory,
+      (percent) => {
+        if (percent >= 33) interrupted?.destroy();
+      },
     );
     expect(ranges).toEqual(['', 'bytes=100000-']);
     expect(await readFile(file!)).toEqual(payload);

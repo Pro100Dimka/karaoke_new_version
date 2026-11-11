@@ -1,10 +1,17 @@
 from collections.abc import Callable
 from pathlib import Path
 from copy import deepcopy
+import math
 import shutil
 import numpy as np
 
 from backend.recordings.studio_mix_audit import audit_mix, reference_voice_band_distribution
+
+_VOICE_QUANTILES = (
+    ("p10", "voiceBandVocalToBackingP10Db"),
+    ("median", "voiceBandVocalToBackingMedianDb"),
+    ("p90", "voiceBandVocalToBackingP90Db"),
+)
 
 
 def distribution_improved(
@@ -16,13 +23,8 @@ def distribution_improved(
         # Ignore changes below the encoded PCM noise floor, not audible limiting.
         if not np.isfinite(new_residual) or new_residual > max(-80.0, old_residual):
             return False
-    fields = {
-        "p10": "voiceBandVocalToBackingP10Db",
-        "median": "voiceBandVocalToBackingMedianDb",
-        "p90": "voiceBandVocalToBackingP90Db",
-    }
     errors = []
-    for label, field in fields.items():
+    for label, field in _VOICE_QUANTILES:
         old, new = before.get(field), after.get(field)
         if not isinstance(old, (int, float)) or not isinstance(new, (int, float)):
             return False
@@ -34,6 +36,22 @@ def distribution_improved(
     )
 
 
+def _bounded_correction(
+    expected: dict[str, float], audit: dict[str, object], error: float
+) -> float:
+    lower, upper = -3.0, 3.0
+    for label, field in _VOICE_QUANTILES:
+        current = audit.get(field)
+        if not isinstance(current, (int, float)) or not np.isfinite(current):
+            return 0.0
+        delta = expected[label] - current
+        # A shift between zero and twice the error cannot worsen this quantile.
+        # Stay inside that interval: the audit rounds both measurements to 0.01 dB.
+        bound = math.copysign(max(0.0, 2 * abs(delta) - 0.02), delta)
+        lower, upper = max(lower, min(0.0, bound)), min(upper, max(0.0, bound))
+    return float(np.clip(error, lower, upper)) if abs(error) > 1.0 else 0.0
+
+
 def calibrate_mix(
     vocal: Path,
     backing: Path,
@@ -43,14 +61,14 @@ def calibrate_mix(
     section: tuple[float, float] | None,
     deliver: Callable[[float], None],
     processing: dict[str, object],
+    *,
+    vocal_offset_db: float = 0.0,
 ) -> float:
     audit = audit_mix(vocal, backing, target)
     processing["postMixAudit"] = audit
-    expected = (
-        reference_voice_band_distribution(reference, original, time_range=section)
-        if section
-        else None
-    )
+    expected = None
+    if section:
+        expected = reference_voice_band_distribution(reference, original, time_range=section)
     current = audit.get("voiceBandVocalToBackingMedianDb")
     processing["postMixReferenceScope"] = (
         "matched-recording-section" if section else "unmatched-skip-global-feedback"
@@ -58,16 +76,16 @@ def calibrate_mix(
     if not expected or not isinstance(current, (int, float)):
         processing["postMixCalibration"] = {"status": "skipped-insufficient-reference-data"}
         return 0.0
+    expected = {key: value + vocal_offset_db for key, value in expected.items()}
     error = expected["median"] - current
-    correction = float(np.clip(error, -3.0, 3.0)) if abs(error) > 1.0 else 0.0
-    gain = (
-        _try_correction(vocal, backing, target, expected, deliver, processing, correction)
-        if correction
-        else 0.0
-    )
+    correction = _bounded_correction(expected, audit, error)
+    gain = 0.0
+    if correction:
+        gain = _try_correction(vocal, backing, target, expected, deliver, processing, correction)
     processing["postMixCalibration"] = {
         "status": "improved" if gain else "rejected-or-already-balanced",
-        "referenceVoiceBandDb": expected["median"],
+        "referenceVoiceBandDb": expected["median"] - vocal_offset_db,
+        "targetVoiceBandDb": expected["median"],
         "beforeVoiceBandDb": current,
         "requestedCorrectionDb": correction,
         "correctionDb": gain,

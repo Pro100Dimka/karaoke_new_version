@@ -47,6 +47,12 @@ ru.ConfirmUninstall=Удалить %1 вместе со всеми обрабо�
 uk.ConfirmUninstall=Видалити %1 разом з усіма обробленими піснями, записами, моделями й налаштуваннями? Цю дію неможливо скасувати.
 
 [CustomMessages]
+en.UpdatePreparing=Preparing the update
+ru.UpdatePreparing=Подготовка обновления
+uk.UpdatePreparing=Підготовка оновлення
+en.UpdateChecking=Checking installed files. Checked: %1
+ru.UpdateChecking=Проверка установленных файлов. Проверено: %1
+uk.UpdateChecking=Перевірка встановлених файлів. Перевірено: %1
 en.DesktopIcon=Create a desktop shortcut
 ru.DesktopIcon=Создать ярлык на рабочем столе
 uk.DesktopIcon=Створити ярлик на робочому столі
@@ -190,6 +196,8 @@ const
 var
   DownloadPage: TOutputProgressWizardPage;
   StoragePage: TOutputProgressWizardPage;
+  VerificationPage: TOutputMarqueeProgressWizardPage;
+  InstallingPayload: Boolean;
   StorageReady: Boolean;
   DownloadAbort: TNewButton;
   DownloadCancelFile, DownloadError: string;
@@ -221,6 +229,15 @@ begin
     Exit;
   end;
   Result := True;
+  if WizardSilent and not InstallingPayload and (VerificationPage <> nil) then
+  begin
+    VerificationPage.Show;
+    WizardForm.Show;
+    VerificationPage.SetText(
+      FmtMessage(CustomMessage('UpdateChecking'), [IntToStr(PayloadChecks.Count)]),
+      ExtractFileName(Target));
+    VerificationPage.Animate;
+  end;
   if FileExists(Target) then
     try
       Result := CompareText(GetSHA256OfFile(Target), ExpectedHash) <> 0;
@@ -258,6 +275,8 @@ end;
 
 procedure InitializeWizard;
 begin
+  VerificationPage := CreateOutputMarqueeProgressPage(
+    CustomMessage('UpdatePreparing'), CustomMessage('UpdatePreparing'));
   StoragePage := CreateOutputProgressPage(CustomMessage('StorageMoving'), CustomMessage('StorageMovingHint'));
   DownloadPage := CreateOutputProgressPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'));
   DownloadAbort := TNewButton.Create(DownloadPage);
@@ -268,6 +287,13 @@ begin
   DownloadAbort.Left := DownloadPage.SurfaceWidth - DownloadAbort.Width;
   DownloadAbort.Top := DownloadPage.ProgressBar.Top + DownloadPage.ProgressBar.Height + ScaleY(16);
   DownloadAbort.OnClick := @SkipDownloads;
+  if WizardSilent then
+  begin
+    VerificationPage.SetText(FmtMessage(CustomMessage('UpdateChecking'), ['0']), '');
+    VerificationPage.Show;
+    WizardForm.Show;
+    VerificationPage.Animate;
+  end;
 end;
 
 procedure DownloadOutput(const S: String; const Error, FirstLine: Boolean);
@@ -355,7 +381,12 @@ var
   Names, Folders: TArrayOfString;
 begin
   { Older versions start updates with /VERYSILENT. Keep their first migration visible too. }
-  if CurStep = ssInstall then WizardForm.Show;
+  if CurStep = ssInstall then
+  begin
+    InstallingPayload := True;
+    VerificationPage.Hide;
+    WizardForm.Show;
+  end;
   if CurStep <> ssPostInstall then Exit;
   ForceDirectories(ExpandConstant('{app}\data'));
   if not Exec(ExpandConstant('{sys}\icacls.exe'),
@@ -502,6 +533,7 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  VerificationPage.Hide;
   Result := RequireClosedApplication(CustomMessage('CloseBeforeInstall'));
 end;
 

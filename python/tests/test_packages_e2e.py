@@ -14,6 +14,7 @@ from backend.songs.recognition import RecognizedSong
 from backend.domain_errors import ConflictError
 from backend.lyrics.domain import LyricsDocument
 from backend.projects.operations import SongOperation, SongOperationRegistry
+from backend.packages.policy import PackagePolicy
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
@@ -93,7 +94,12 @@ def test_exported_repetitive_audio_obeys_import_compression_policy(tmp_path: Pat
         assert exported["state"] == "Succeeded", exported
         package = Path(exported["report"]["path"])
         with zipfile.ZipFile(package) as bundle:
-            assert bundle.getinfo("audio/melody.wav").compress_type == zipfile.ZIP_STORED
+            melody_info = bundle.getinfo("audio/melody.flac")
+            assert bundle.read(melody_info)[:4] == b"fLaC"
+            assert (
+                melody_info.file_size
+                <= melody_info.compress_size * PackagePolicy().max_compression_ratio
+            )
 
     with app_client(tmp_path / "target-runtime") as client:
         started = client.post("/packages/import", json={"path": str(package)})

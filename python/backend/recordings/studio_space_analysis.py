@@ -6,9 +6,21 @@ import threading
 import numpy as np
 import soundfile as sf
 from scipy.ndimage import median_filter
+from scipy.optimize import nnls
 from scipy.signal import butter, find_peaks, resample_poly, sosfilt
 from backend.recordings.studio_audio import _check_cancel
 from backend.domain_errors import DependencyError
+
+
+@dataclass(frozen=True, slots=True)
+class StereoField:
+    ratio: float = 0.0
+    lag: float = 0.0
+    spread: float = 0.0
+    low_hz: float = 0.0
+    support: int = 0
+    tail_seconds: float = 0.0
+    tail_gain: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +37,7 @@ class SpaceProfile:
     echo_regions: tuple[tuple[float, float, float], ...] = ()
     duration: float = 0.0
     tail_band_hz: tuple[float, float] = (0.0, 0.0)
+    field: StereoField = StereoField()
 
 
 def _reference_width(path: Path, cancel: threading.Event) -> float:
@@ -67,6 +80,7 @@ def analyze_space(path: Path, cancel: threading.Event) -> SpaceProfile:
         _echo_regions(cepstra, positions, taps),
         sf.info(path).duration,
         _tail_band(path, levels, cancel) if wet else (0.0, 0.0),
+        _stereo_field(path, cancel) if width > 0.05 else StereoField(),
     )
 
 
@@ -96,9 +110,11 @@ def _missing_taps(
 
 def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile:
     # Existing recorded tails cannot be shortened by adding another effect.
+    decay = reference.decay_seconds or reference.field.tail_seconds
+    strength = reference.reverb_gain or reference.field.tail_gain
     reverb = (
-        math.sqrt(max(0, reference.reverb_gain**2 - existing.reverb_gain**2))
-        if existing.decay_seconds <= reference.decay_seconds
+        math.sqrt(max(0, strength**2 - existing.reverb_gain**2))
+        if existing.decay_seconds <= decay
         else 0.0
     )
     # Subtract existing echo only when it is the *same* measured repeat.
@@ -116,7 +132,7 @@ def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile
         delay_seconds=reference.delay_seconds,
         delay_gain=float(np.clip(reference.delay_gain - existing_echo_gain, 0, 0.35)),
         delay_support=reference.delay_support,
-        decay_seconds=reference.decay_seconds,
+        decay_seconds=decay,
         reverb_gain=float(np.clip(reverb, 0, 0.35)),
         decay_count=reference.decay_count,
         stereo_width=reference.stereo_width,
@@ -124,8 +140,122 @@ def match_space(reference: SpaceProfile, existing: SpaceProfile) -> SpaceProfile
         echo_taps=tuple((delay, gain) for delay, gain in taps if gain > 0.001),
         echo_regions=reference.echo_regions,
         duration=reference.duration,
-        tail_band_hz=reference.tail_band_hz,
+        tail_band_hz=reference.tail_band_hz
+        if reference.reverb_gain
+        else (reference.field.low_hz, 3500.0),
+        field=_missing_field(reference, existing),
     )
+
+
+def _missing_field(reference: SpaceProfile, existing: SpaceProfile) -> StereoField:
+    field = reference.field
+    if not field.lag:
+        return StereoField()
+    # Reserve energy for tails and echoes before filling the remaining stereo field.
+    tail = max(reference.reverb_gain, field.tail_gain)
+    ratio = max(0.0, field.ratio - tail**2 - reference.delay_gain**2 - existing.field.ratio)
+    if ratio < 0.05:
+        return StereoField()
+    return StereoField(ratio, field.lag, field.spread, field.low_hz, field.support)
+
+
+def _field_envelopes(path: Path, cancel: threading.Event) -> np.ndarray:
+    rows = []
+    with sf.SoundFile(path) as source:
+        if source.channels < 2 or source.samplerate <= 7000:
+            return np.empty((0, 2, 2))
+        step = max(1, round(source.samplerate * 0.02))
+        bands = [
+            butter(2, edges, fs=source.samplerate, btype="bandpass", output="sos")
+            for edges in ((150, 500), (500, 3500))
+        ]
+        states = [np.zeros((len(band), 2, 2)) for band in bands]
+        for block in source.blocks(blocksize=step * 150, always_2d=True):
+            _check_cancel(cancel)
+            count = len(block) // step
+            if not count:
+                continue
+            powers = []
+            for index, band in enumerate(bands):
+                samples, states[index] = sosfilt(band, block[:, :2], axis=0, zi=states[index])
+                mid_side = np.column_stack(
+                    (samples.mean(axis=1), np.diff(samples, axis=1)[:, 0] / 2)
+                )
+                powers.append(
+                    np.mean(mid_side[: count * step].reshape(count, step, 2) ** 2, axis=1)
+                )
+            rows.append(np.stack(powers, axis=1))
+    return np.concatenate(rows) if rows else np.empty((0, 2, 2))
+
+
+def _field_lags(envelopes: np.ndarray) -> list[float]:
+    fits = []
+    floor = max(1e-10, float(np.percentile(envelopes[:, 0], 80)) * 0.15)
+    for start in range(0, len(envelopes) - 149, 150):
+        section = envelopes[start : start + 150]
+        if np.count_nonzero(section[:, 0] > floor) < 30:
+            continue
+        mid, side = np.sqrt(section).T
+        if min(float(np.std(mid)), float(np.std(side))) < 1e-8:
+            continue
+        scores = np.array([np.corrcoef(mid[: 150 - lag], side[lag:])[0, 1] for lag in range(9)])
+        if not np.isfinite(scores).all():
+            continue
+        best = int(np.argmax(scores))
+        if 0 < best < 8 and scores[best] >= 0.6 and scores[best] - scores[0] > 0.015:
+            fits.append(best * 0.02)
+    return fits
+
+
+def _stereo_field(path: Path, cancel: threading.Event) -> StereoField:
+    """Measure delayed stereo energy, without identifying a production effect."""
+    envelopes = _field_envelopes(path, cancel)
+    if len(envelopes) < 450:
+        return StereoField()
+    active = envelopes[:, 1, 0] > max(1e-10, float(np.percentile(envelopes[:, 1, 0], 80)) * 0.15)
+    power = envelopes[active].sum(axis=0)
+    ratios = power[:, 1] / np.maximum(power[:, 0], 1e-20)
+    ratio = float(np.clip(ratios[1], 0, 0.65))
+    fits = _field_lags(envelopes[:, 1])
+    if ratio < 0.1 or len(fits) < 3:
+        return StereoField(ratio=ratio)
+    lag = float(np.median(fits))
+    consistent = np.abs(np.asarray(fits) - lag) <= 0.04
+    if np.count_nonzero(consistent) < max(3, len(fits) * 0.6):
+        return StereoField(ratio=ratio)
+    spread = float(np.clip(np.std(np.asarray(fits)[consistent]), 0.002, lag * 0.25))
+    low = float(np.clip(300 * max(0, ratios[1] / max(ratios[0], 1e-8) - 1) ** 0.25, 150, 1200))
+    decay, wet = _field_tail(envelopes[:, 1])
+    return StereoField(ratio, lag, spread, low, int(np.count_nonzero(consistent)), decay, wet)
+
+
+def _field_tail(envelopes: np.ndarray) -> tuple[float, float]:
+    """Estimate a diffuse response, not an identified reverb, from stereo energy."""
+    scale = max(float(np.percentile(envelopes[:, 0], 85)), 1e-10)
+    mid, side = (envelopes / scale).T
+    windows = np.lib.stride_tricks.sliding_window_view(np.pad(mid, (30, 0)), 31)[:, ::-1]
+    partition = (np.arange(len(mid)) // 150) % 2 == 0
+    improvements = []
+    kernels = []
+    for training in (partition, ~partition):
+        try:
+            kernel, _ = nnls(windows[training], side[training])
+            short, _ = nnls(windows[training, :7], side[training])
+        except RuntimeError:
+            return 0.0, 0.0
+        full_error = float(np.mean((windows[~training] @ kernel - side[~training]) ** 2))
+        short_error = float(np.mean((windows[~training, :7] @ short - side[~training]) ** 2))
+        improvements.append(1 - full_error / max(short_error, 1e-20))
+        kernels.append(kernel)
+    if min(improvements) < 0.05 or np.mean(improvements) < 0.1:
+        return 0.0, 0.0
+    kernel = np.mean(kernels, axis=0)
+    late = float(np.sum(kernel[7:]))
+    if late < 0.05 or late < np.sum(kernel) * 0.2:
+        return 0.0, 0.0
+    # Convert the late energy's mean excess delay to an exponential-decay proxy.
+    mean_delay = float(np.average(np.arange(7, 31) * 0.02 - 0.14, weights=kernel[7:]))
+    return float(np.clip(13.8155 * mean_delay, 0.3, 2.5)), min(0.35, math.sqrt(late))
 
 
 def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -> None:
@@ -278,7 +408,12 @@ def _decay(levels: np.ndarray) -> tuple[float, float, int]:
         return 0, 0, 0
     smooth = median_filter(levels, size=3)
     floor = max(-85.0, float(np.percentile(smooth, 10)) + 6)
-    candidates = np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2
+    # A diffuse tail can emerge gradually after the direct voice releases.
+    # Keep abrupt releases and also examine falls across a vocal-release window.
+    candidates = np.union1d(
+        np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2,
+        np.flatnonzero(smooth[:-4] - smooth[4:] > 6) + 4,
+    )
     evidence = []
     previous = -50
     for index in candidates:
@@ -318,7 +453,10 @@ def _fit_decay(levels: np.ndarray, index: int, floor: float) -> tuple[float, flo
 def _tail_band(path: Path, levels: np.ndarray, cancel: threading.Event) -> tuple[float, float]:
     smooth = median_filter(levels, size=3)
     floor = max(-85.0, float(np.percentile(smooth, 10)) + 6)
-    candidates = np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2
+    candidates = np.union1d(
+        np.flatnonzero(smooth[:-2] - smooth[2:] > 5) + 2,
+        np.flatnonzero(smooth[:-4] - smooth[4:] > 6) + 4,
+    )
     bands = []
     with sf.SoundFile(path) as source:
         for index in candidates:

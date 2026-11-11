@@ -18,8 +18,8 @@ def test_unmatched_partial_take_does_not_use_whole_song_balance():
     render.gains = np.zeros(100)
     render.voice_db = np.full(100, -30.0)
     render.backing_db = np.full(100, -20.0)
-    render.reference_full_db = np.tile([-25.0, -10.0], 200)
-    render.original_full_db = np.full(400, -20.0)
+    render.reference_db = np.tile([-25.0, -10.0], 200)
+    render.original_db = np.full(400, -20.0)
     render.processing = {}
     render._fallback_balance()
     np.testing.assert_array_equal(render.gains, 0)

@@ -58,11 +58,13 @@ class FfmpegAudioValidator:
         self._ffprobe = ffprobe
 
     def validate(self, path: Path) -> None:
-        if path.suffix.lower() == ".wav":
+        if path.suffix.lower() in {".wav", ".flac"}:
             try:
                 with path.open("rb") as stream:
                     header = stream.read(12)
-                if header[:4] in {b"RIFF", b"RF64"} and header[8:12] == b"WAVE":
+                if header.startswith(b"fLaC") or (
+                    header[:4] in {b"RIFF", b"RF64"} and header[8:12] == b"WAVE"
+                ):
                     WaveRecordingInspector().inspect(path)
                     return
             except (OSError, DomainError):

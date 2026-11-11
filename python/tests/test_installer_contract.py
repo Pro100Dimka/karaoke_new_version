@@ -71,7 +71,12 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
         "[Setup]\nAppName=Installer verification\nAppVersion=1\n"
         f"DefaultDirName={installed}\nOutputDir={tmp_path}\nOutputBaseFilename=probe\n"
         "PrivilegesRequired=lowest\nUninstallable=no\nCreateUninstallRegKey=no\n"
-        f'#include "{catalog}"\n[Code]\nvar PayloadChecks: TStringList;\n{check}',
+        "[CustomMessages]\nUpdateChecking=Checked: %1\n"
+        f'#include "{catalog}"\n[Code]\nvar PayloadChecks: TStringList;\n'
+        "VerificationPage: TOutputMarqueeProgressWizardPage;\nInstallingPayload: Boolean;\n"
+        "procedure InitializeWizard;\nbegin\n"
+        "VerificationPage := CreateOutputMarqueeProgressPage('Preparing', 'Checking');\nend;\n"
+        f"{check}",
         encoding="utf-8-sig",
     )
     subprocess.run(

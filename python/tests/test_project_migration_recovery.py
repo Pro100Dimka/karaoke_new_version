@@ -65,7 +65,7 @@ def test_reconciliation_marks_corrupt_ready_project_without_guessing_repair(tmp_
         song_id = str(song["songId"])
         revision = int(song["activeRevision"])
         instrumental = (
-            root / "songs" / song_id / "revisions" / str(revision) / "audio" / "instrumental.wav"
+            root / "songs" / song_id / "revisions" / str(revision) / "audio" / "instrumental.flac"
         )
         instrumental.write_bytes(b"corrupted")
 

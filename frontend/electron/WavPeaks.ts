@@ -61,7 +61,7 @@ export const waveformPeaks = async (
 ): Promise<number[]> => {
   if (!Number.isFinite(bins)) throw new TypeError('bins must be finite');
   const count = Math.max(1, Math.min(maxBins, Math.floor(bins)));
-  if (filePath.toLowerCase().endsWith('.mp3')) {
+  if (['.mp3', '.flac'].some((suffix) => filePath.toLowerCase().endsWith(suffix))) {
     const saved: unknown = JSON.parse(
       await readFile(`${filePath}.peaks.json`, 'utf8'),
     );

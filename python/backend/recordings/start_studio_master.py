@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from functools import partial
 
-from backend.ai.domain import AiCapability
+from backend.ai.domain import AiCapability, PitchPoint
 from backend.ai.provider_resolver import ResolveAiProvider
 from backend.domain_errors import DomainError, NotFoundError
 from backend.infrastructure.local_storage import LocalWorkStorage
@@ -100,6 +101,7 @@ class StartStudioMaster:
                 match_recording_loudness=True,
                 adjustments=adjustments,
                 progress=context.progress,
+                pitch=partial(self._pitch, context=context),
             )
             context.ensure_not_cancelled()
             context.progress("PublishingStudioMaster", 1.0, 0.92)
@@ -107,6 +109,21 @@ class StartStudioMaster:
             return {"recordingId": master.recording_id, "balance": balance.payload()}
         finally:
             self._workspaces.cleanup(workspace)
+
+    def _pitch(self, vocal: Path, *, context: JobContext) -> Sequence[PitchPoint]:
+        context.ensure_not_cancelled()
+        settings = self._settings()
+        preferred = settings.selected_pitch_provider
+        provider = self._resolver.execute(
+            AiCapability.PITCH, None if preferred == _KAGGLE_PROVIDER else preferred
+        )
+        lease = self._resources.claim_provider(
+            provider, vocal.stat().st_size, settings.compute_mode, cpu_threads=settings.cpu_threads
+        )
+        try:
+            return provider.pitch(vocal, context.cancel, execution=lease.execution)
+        finally:
+            lease.release()
 
     def _separate(
         self, recording: Recording, workspace: Path, context: JobContext

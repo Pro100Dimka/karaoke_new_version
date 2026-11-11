@@ -16,6 +16,7 @@ _PROFILE_SECONDS = 0.1
 
 
 _MAX_BOOST_DB = 9.0
+_VOCAL_TARGET_OFFSET_DB = -2.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +71,9 @@ def _check_cancel(cancel: threading.Event) -> None:
         raise DomainError("ProcessCancelled", "Studio master was cancelled", 499)
 
 
-def _profile(path: Path, cancel: threading.Event) -> NDArray[np.float64]:
+def _profile(
+    path: Path, cancel: threading.Event, *, voice_band: bool = False
+) -> NDArray[np.float64]:
     levels: list[float] = []
     with sf.SoundFile(path) as source:
         for samples in source.blocks(
@@ -79,7 +82,14 @@ def _profile(path: Path, cancel: threading.Event) -> NDArray[np.float64]:
             _check_cancel(cancel)
             if not np.isfinite(samples).all():
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
-            levels.append(10 * math.log10(max(1e-12, float(np.mean(samples * samples)))))
+            power = float(np.mean(samples * samples))
+            if voice_band:
+                window = np.hanning(len(samples))[:, None]
+                spectrum = np.fft.rfft(samples * window, axis=0)
+                hz = np.fft.rfftfreq(len(samples), 1 / source.samplerate)
+                power = 2 * float(np.sum(np.abs(spectrum[(hz >= 300) & (hz <= 3500)]) ** 2))
+                power /= max(1.0, len(samples) * float(np.sum(window**2)) * source.channels)
+            levels.append(10 * math.log10(max(1e-12, power)))
     if not levels:
         raise DependencyError("StudioMasterSilentTrack", "Recording contains no audio")
     return np.asarray(levels, dtype=np.float64)
