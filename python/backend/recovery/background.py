@@ -15,7 +15,7 @@ class StartLibraryReconciliation:
 
     def _run(self, context: JobContext) -> dict[str, object]:
         context.progress("Reconcile", 0.0, 0.1)
-        issues = self._reconcile.execute()
+        issues = self._reconcile.execute(check_cancel=context.ensure_not_cancelled)
         context.progress("Reconcile", 1.0, 1.0)
         return {
             "issues": [

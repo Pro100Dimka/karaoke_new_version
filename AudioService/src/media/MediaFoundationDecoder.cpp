@@ -1,6 +1,7 @@
 #ifdef _WIN32
 #include "media/MediaFoundationDecoder.hpp"
 #include "media/WavDecoder.hpp"
+#include "media/DecoderFactory.hpp"
 #include "common/Types.hpp"
 #include "common/WindowsText.hpp"
 #include "realtime/RealtimeInstrumentation.hpp"
@@ -51,6 +52,13 @@ DecodedAudioFormat MediaFoundationDecoder::open(const std::string& pathOrUrl) tr
                          .extension().string();
     std::ranges::transform(extension, extension.begin(),
                            [](unsigned char value) { return static_cast<char>(std::tolower(value)); });
+    if (extension == ".flac") {
+        auto decoder = createFlacDecoder();
+        const auto format = decoder->open(pathOrUrl);
+        pcm_ = std::move(decoder);
+        cancelled_.store(false, std::memory_order_release);
+        return format;
+    }
     if (extension == ".wav") {
         auto pcm = std::make_unique<WavDecoder>();
         try {

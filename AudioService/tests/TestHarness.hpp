@@ -428,6 +428,7 @@ void wavDecoderRejectsMalformedDimensionsAndTruncation();
 void mediaFoundationDistinguishesErrorsTicksAndEof();
 void mediaFoundationCloseDrainsCancellation();
 void mediaFoundationOwnsComOnTheDecodingThread();
+void mediaFoundationFlacSeekMatchesDecodedTimeline();
 void mediaPositionsUseTheCorrectClockDomain();
 void wavDecoderHonorsDataBoundaryAndCanSeekAfterEof();
 void wavDecoderSeekIsDeterministic();

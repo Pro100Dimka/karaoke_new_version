@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
+from collections.abc import Callable
 
 from backend.domain_errors import DomainError
 from backend.persistence import UnitOfWorkFactory
@@ -29,12 +30,18 @@ class ReconcileLibrary:
         self._songs = songs
         self._clock = clock
 
-    def execute(self, *, workers: int = 1) -> tuple[ReconciliationIssue, ...]:
+    def execute(
+        self, *, workers: int = 1, check_cancel: Callable[[], None] | None = None
+    ) -> tuple[ReconciliationIssue, ...]:
         database_songs = self._all_songs()
         known_ids = {song.song_id for song in database_songs}
         with ThreadPoolExecutor(max_workers=workers) if workers > 1 else nullcontext() as pool:
             results = (pool.map if pool else map)(self._song_issues, database_songs)
-            issues = [issue for result in results for issue in result]
+            issues = []
+            for result in results:
+                if check_cancel:
+                    check_cancel()
+                issues.extend(result)
         for song_id in self._catalog.song_ids():
             if song_id not in known_ids:
                 issues.append(
@@ -66,7 +73,7 @@ class ReconcileLibrary:
             issues.append(
                 self._issue("MissingProject", song.song_id, RecoveryAction.REPROCESS_REQUIRED)
             )
-            self._mark(song.song_id, SongStatus.PROJECT_INVALID)
+            self._mark(song, SongStatus.PROJECT_INVALID)
             return issues
         if song.source_state is SourceState.MANAGED and (
             song.source_path is None or not self._songs.exists(song.source_path)
@@ -74,7 +81,7 @@ class ReconcileLibrary:
             issues.append(
                 self._issue("SourceMissing", song.song_id, RecoveryAction.MANUAL_ACTION_REQUIRED)
             )
-            self._mark(song.song_id, SongStatus.SOURCE_MISSING)
+            self._mark(song, SongStatus.SOURCE_MISSING)
         try:
             self._validator.validate(
                 song.song_id,
@@ -90,16 +97,16 @@ class ReconcileLibrary:
                     {"errorCode": exc.code},
                 )
             )
-            self._mark(song.song_id, SongStatus.PROJECT_INVALID)
+            self._mark(song, SongStatus.PROJECT_INVALID)
         return issues
 
     @staticmethod
     def _issue(code: str, entity_id: str, action: RecoveryAction) -> ReconciliationIssue:
         return ReconciliationIssue(code, entity_id, action, {})
 
-    def _mark(self, song_id: str, status: SongStatus) -> None:
+    def _mark(self, expected: Song, status: SongStatus) -> None:
         with self._uow.create() as transaction:
-            song = transaction.songs.get(song_id)
-            if song and song.status is not status:
+            song = transaction.songs.get(expected.song_id)
+            if song is not None and song == expected and song.status is not status:
                 transaction.songs.update(replace(song, status=status, updated_at=self._clock.now()))
                 transaction.commit()

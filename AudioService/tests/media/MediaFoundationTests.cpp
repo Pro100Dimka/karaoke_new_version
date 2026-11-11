@@ -1,6 +1,7 @@
 #include "TestHarness.hpp"
 #ifdef _WIN32
 #include "media/MediaFoundationDecoder.hpp"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -208,6 +209,43 @@ void mediaFoundationOwnsComOnTheDecodingThread() {
     });
     worker.join();
     expect(initialized && cleaned, "decoder initializes and balances COM on its worker thread");
+#endif
+}
+
+void mediaFoundationFlacSeekMatchesDecodedTimeline() {
+#ifdef _WIN32
+    for (const auto rate : {44100U, 48000U}) {
+        const auto path = std::filesystem::path{__FILE__}.parent_path() / "fixtures" /
+                          ("seek-" + std::to_string(rate) + ".flac");
+        MediaFoundationDecoder decoder;
+        const auto format = decoder.open(path.string());
+        expect(format.sampleRateHz == rate && format.channels == 2, "FLAC fixture format");
+        std::vector<float> reference;
+        std::array<float, 2048> block{};
+        while (const auto frames = decoder.read(block, 1024))
+            reference.insert(reference.end(), block.begin(), block.begin() + frames * 2);
+        expect(reference.size() == rate * 4, "FLAC full decode retains every frame");
+        for (const auto target : {rate + 17U, 333U, rate - 1U, rate * 2 - 29U, 0U}) {
+            decoder.seek(target);
+            const auto wanted = std::min(1024U, rate * 2 - target);
+            const auto frames = decoder.read(block, wanted);
+            expect(frames == wanted, "FLAC seek returns all requested frames including near EOF");
+            bool identical = true;
+            for (std::size_t sample = 0; sample < frames * 2; ++sample)
+                identical &= block[sample] == reference[target * 2 + sample];
+            if (!identical) {
+                std::cerr << "FLAC seek mismatch: rate=" << rate << " target=" << target << '\n';
+                for (std::size_t frame = 0; frame + 8 < reference.size() / 2; ++frame) {
+                    if (std::equal(block.begin(), block.begin() + 16,
+                                   reference.begin() + frame * 2)) {
+                        std::cerr << "Actual decoded frame=" << frame << '\n';
+                        break;
+                    }
+                }
+            }
+            expect(identical, "FLAC seek must start at the exact requested decoded sample");
+        }
+    }
 #endif
 }
 } // namespace Tests

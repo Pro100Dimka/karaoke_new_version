@@ -27,6 +27,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(opus)
 
+FetchContent_Declare(
+    dr_flac
+    URL https://raw.githubusercontent.com/mackron/dr_libs/f12e197fd462e4c22873fbd70d11b1d2f2c1dc3c/dr_flac.h
+    URL_HASH SHA256=3f010d3142a5b9df80a0bd8b325de54317468b1aff85abb257c86dbfefe9bd2a
+    DOWNLOAD_NO_EXTRACT TRUE
+)
+FetchContent_MakeAvailable(dr_flac)
+
 option(AUDIOSERVICE_WARNINGS_AS_ERRORS "Treat warnings as errors" ON)
 option(AUDIOSERVICE_BUILD_TESTS "Build tests" ON)
 option(AUDIOSERVICE_BUILD_RELEASE_GATES "Build long release repetition gates" OFF)
@@ -55,6 +63,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/ipc/ControlProtocol.cpp
     src/media/MediaController.cpp
     src/media/DecoderFactory.cpp
+    src/media/FlacDecoder.cpp
     src/media/MediaSource.cpp
     src/media/RateTransposeProcessor.cpp
     src/media/WavDecoder.cpp
@@ -95,6 +104,7 @@ endif()
 
 add_library(audioservice_core ${AUDIOSERVICE_CORE_SOURCES})
 target_include_directories(audioservice_core PUBLIC src)
+target_include_directories(audioservice_core SYSTEM PRIVATE ${dr_flac_SOURCE_DIR})
 target_compile_definitions(audioservice_core PUBLIC $<$<BOOL:${AUDIOSERVICE_ENABLE_ASIO}>:AUDIOSERVICE_ENABLE_ASIO=1>)
 if(WIN32)
     target_compile_definitions(audioservice_core PUBLIC NOMINMAX WIN32_LEAN_AND_MEAN)
@@ -144,6 +154,7 @@ target_link_libraries(AudioService PRIVATE audioservice_core)
 audioservice_apply_warnings(AudioService)
 
 install(TARGETS AudioService RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
+install(FILES ${dr_flac_SOURCE_DIR}/dr_flac.h DESTINATION licenses COMPONENT AudioServiceRuntime)
 install(TARGETS NativeVoiceRelay RUNTIME DESTINATION . COMPONENT AudioServiceRuntime)
 if(MSVC)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION .)
