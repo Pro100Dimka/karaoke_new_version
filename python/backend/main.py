@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import uvicorn
 
-from backend.api.app import create_app
 from backend.bootstrap.config import BackendConfig
 from backend.infrastructure.logging_config import configure_logging
 from backend.infrastructure.job_executor import watch_parent_input
@@ -20,8 +21,11 @@ from backend.infrastructure.audd_recognition import (
 from backend.infrastructure.runtime_probe import forget_torch_facts
 from backend.infrastructure.torch_runtime import prepare_gpu_build
 
+if TYPE_CHECKING:
+    from starlette.types import ASGIApp
 
-def main() -> None:
+
+def main(create_app: Callable[..., ASGIApp]) -> None:
     config = BackendConfig.load()
     managed = os.environ.get("AD_VOICE_MANAGED") == "1"
     configure_logging(config.roots.logs, config.log_level, sys.stdout if managed else None)
@@ -64,4 +68,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    from backend.api.app import create_app
+
+    main(create_app)

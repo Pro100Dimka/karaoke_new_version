@@ -122,7 +122,13 @@ def _processing_wiring(
         LocalWorkStorage(config.roots.temp),
         runtime_probe,
         storage,
-        ProcessingResourceScheduler(runtime_probe, storage, config.roots.temp, config.resources),
+        ProcessingResourceScheduler(
+            runtime_probe,
+            storage,
+            config.roots.temp,
+            config.resources,
+            cpu_runtime=runtime_probe.without_waiting(),
+        ),
         runtime_probe.without_waiting(),
     )
 
