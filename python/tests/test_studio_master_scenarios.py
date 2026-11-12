@@ -84,6 +84,6 @@ def test_master_scenario(name: str, tmp_path: Path):
     processing = report["processing"]
     assert processing["qualityControl"]["verified"]
     assert processing["delivery"]["truePeakDbtp"] <= -1
-    assert "referenceCompression" in processing
+    assert processing["compressionSource"] == "performance-vocal"
     if name == "partial":
         assert processing["adaptive"]["referenceTimingTrusted"]

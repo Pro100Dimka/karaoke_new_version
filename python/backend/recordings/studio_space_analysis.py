@@ -8,7 +8,7 @@ import soundfile as sf
 from scipy.ndimage import median_filter
 from scipy.optimize import nnls
 from scipy.signal import butter, find_peaks, resample_poly, sosfilt
-from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_audio import _check_cancel, _temporary_wave
 from backend.domain_errors import DependencyError
 
 
@@ -282,11 +282,12 @@ def write_impulse(profile: SpaceProfile, path: Path, rate: int, channels: int) -
         tail = noise * np.exp(-6.9078 * time[:, None] / profile.decay_seconds)
         tail /= np.maximum(np.linalg.norm(tail, axis=0), 1e-12)
         impulse[start:] += profile.reverb_gain * tail
-    sf.write(path, impulse, rate, subtype="FLOAT")
+    with _temporary_wave(path, samplerate=rate, channels=channels) as output:
+        output.write(impulse)
 
 
 def _read_evidence(
-    path: Path, cancel: threading.Event
+    path: Path, cancel: threading.Event, *, include_cepstra: bool = True
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Measure loudness continuously and echo evidence in overlapping windows.
 
@@ -313,7 +314,7 @@ def _read_evidence(
                     axis=(1, 2),
                 )
                 levels.extend(10 * np.log10(np.maximum(power, 1e-12)))
-        if source.frames < block:
+        if source.frames < block or not include_cepstra:
             return np.asarray(levels), np.empty((0, 8193)), np.empty(0)
         energies, cepstra, positions = _sample_cepstra(source, cancel)
     if not energies:

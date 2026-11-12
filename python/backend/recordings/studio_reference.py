@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from scipy.signal import correlate, resample_poly
 import soundfile as sf
 
-from backend.recordings.studio_audio import _check_cancel
+from backend.recordings.studio_audio import _check_cancel, _temporary_wave
 from backend.analysis.scoring import parse_playback_adjustments
 
 
@@ -38,12 +38,10 @@ def copy_reference_section(
 ) -> None:
     with (
         sf.SoundFile(source) as original,
-        sf.SoundFile(
+        _temporary_wave(
             target,
-            "w",
             samplerate=original.samplerate,
             channels=original.channels,
-            subtype="FLOAT",
         ) as output,
     ):
         original.seek(min(original.frames, round(section[0] * original.samplerate)))
@@ -227,8 +225,8 @@ def _copy_segments(
 ) -> None:
     with (
         sf.SoundFile(source) as original,
-        sf.SoundFile(
-            target, "w", samplerate=original.samplerate, channels=original.channels, subtype="FLOAT"
+        _temporary_wave(
+            target, samplerate=original.samplerate, channels=original.channels
         ) as output,
     ):
         elapsed = 0.0

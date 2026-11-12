@@ -14,35 +14,33 @@ from tests.helpers import import_song, wait_for_job, wait_for_recording
 pytestmark = pytest.mark.integration
 
 
-@pytest.mark.parametrize("reference_level", [-42.0, -18.0])
-def test_recording_balance_targets_bounded_reference_prominence(reference_level: float) -> None:
+@pytest.mark.parametrize("backing_level", [-42.0, -18.0])
+def test_recording_balance_targets_bounded_backing_level(backing_level: float) -> None:
     import numpy as np
     from backend.recordings.studio_dynamics import _balance_curve
 
     voice = np.full(100, -18.0)
-    backing = np.full(100, -30.0)
-    gains, reliable = _balance_curve(voice, backing, np.full(100, reference_level), backing)
+    backing = np.full(100, backing_level)
+    gains, reliable = _balance_curve(voice, backing)
     assert reliable.all()
-    np.testing.assert_allclose(gains, np.clip(reference_level - voice, -18, 9), atol=0.1)
+    np.testing.assert_allclose(gains, np.clip(backing_level - voice, -18, 9), atol=0.1)
 
 
 @pytest.mark.parametrize("quiet_backing", [-48.0, -120.0])
-def test_master_bounds_reference_gain_rides_when_accompaniment_drops(quiet_backing: float) -> None:
+def test_master_keeps_performance_level_when_reference_and_accompaniment_change(
+    quiet_backing: float,
+) -> None:
     import numpy as np
     from backend.recordings.studio_dynamics import _balance_curve
 
     voice = np.full(300, -24.0)
     original = np.repeat([-24.0, quiet_backing, -24.0], 100)
     backing = original - 3
-    reference = np.repeat([-24.0, -20.0, -28.0], 100)
-    gains, reliable = _balance_curve(voice, backing, reference, original, phrase_smoothing=True)
+    gains, reliable = _balance_curve(voice, backing)
     assert reliable.all()
-    # Keep the agreed 2 dB vocal offset and at most 2 dB rides around its baseline.
-    for section, expected in zip(
-        (slice(30, 70), slice(130, 170), slice(230, 270)), (-29.0, -27.0, -31.0), strict=True
-    ):
-        np.testing.assert_allclose((voice + gains)[section], expected, atol=0.1)
-    assert np.ptp(gains) <= 4.0
+    # Silent accompaniment gaps do not reset the performance level.
+    np.testing.assert_allclose(voice + gains, -27.0, atol=0.1)
+    assert np.ptp(gains) < 0.05
 
 
 def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None:
@@ -51,9 +49,8 @@ def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None
 
     voice = np.full(100, -18.0)
     backing = np.full(100, -30.0)
-    reference = np.concatenate((np.full(80, -24.0), np.full(20, -48.0)))
-    gains, _ = _balance_curve(voice, backing, reference, backing, phrase_smoothing=True)
-    np.testing.assert_allclose((voice + gains)[50:65], -26.0, atol=0.5)
+    gains, _ = _balance_curve(voice, backing)
+    np.testing.assert_allclose(voice + gains, -30.0, atol=0.1)
 
 
 def test_master_does_not_boost_recorded_noise_during_reference_vocals() -> None:
@@ -62,9 +59,7 @@ def test_master_does_not_boost_recorded_noise_during_reference_vocals() -> None:
 
     voice = np.repeat([-28.0, -70.0, -28.0], 100)
     backing = np.full(300, -24.0)
-    gains, reliable = _balance_curve(
-        voice, backing, np.full(300, -20.0), backing, phrase_smoothing=True
-    )
+    gains, reliable = _balance_curve(voice, backing)
     assert not reliable[100:200].any()
     assert np.max(gains[100:200]) <= 0
     assert np.max(gains) <= 9

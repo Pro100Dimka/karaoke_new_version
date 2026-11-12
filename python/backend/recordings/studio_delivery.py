@@ -3,6 +3,7 @@ from numpy.typing import NDArray
 from collections.abc import Callable
 from pathlib import Path
 import math
+import re
 import threading
 import numpy as np
 import soundfile as sf
@@ -12,6 +13,51 @@ from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
 from dataclasses import dataclass, field
 from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
+
+
+def measure_stem_loudness(
+    renderer: MasterRenderer,
+    path: Path,
+    section: tuple[float, float] | None,
+    cancel: threading.Event,
+) -> float:
+    trim = f"atrim=start={section[0]:.9f}:end={section[1]:.9f}," if section else ""
+    result = renderer._mix(
+        path,
+        path,
+        "[0:a]" + trim + loudnorm_filter(lra=11) + "[out]",
+        ["-f", "null", "-"],
+        cancel,
+        quiet=False,
+    )
+    measured = parse_loudness(result.stderr)
+    return measured["input_i"] if measured else float("nan")
+
+
+def measure_mix_loudness(
+    renderer: MasterRenderer, vocal: Path, backing: Path, cancel: threading.Event
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Read paired K-weighted 400 ms windows without normalizing either stem."""
+    result = renderer._mix(
+        vocal,
+        backing,
+        "[0:a]ebur128=metadata=1,ametadata@voice=print:key=lavfi.r128.M[v];"
+        "[1:a]ebur128=metadata=1,ametadata@music=print:key=lavfi.r128.M[m];"
+        "[v][m]amix=inputs=2:normalize=0[out]",
+        ["-f", "null", "-"],
+        cancel,
+        quiet=False,
+    )
+    profiles: dict[bytes, list[float]] = {b"voice": [], b"music": []}
+    for name, value in re.findall(
+        rb"\[ametadata@(voice|music)[^\]]*\]\s+lavfi\.r128\.M=([+-]?[\d.]+)", result.stderr
+    ):
+        profiles[name].append(float(value))
+    if not profiles[b"voice"] or len(profiles[b"voice"]) != len(profiles[b"music"]):
+        raise DependencyError(
+            "StudioMasterInvalidAudio", "Paired loudness measurement is incomplete"
+        )
+    return np.asarray(profiles[b"voice"]), np.asarray(profiles[b"music"])
 
 
 @dataclass(slots=True)

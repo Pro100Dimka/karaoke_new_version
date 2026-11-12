@@ -7,9 +7,17 @@ import shutil
 import threading
 import numpy as np
 import soundfile as sf
-from scipy.signal import butter, lfilter, oaconvolve, sosfilt
+from scipy.signal import lfilter, oaconvolve
+from scipy.ndimage import median_filter
 from backend.domain_errors import DependencyError
-from backend.recordings.studio_audio import MasterRenderer, _check_cancel
+from backend.recordings.studio_audio import (
+    MasterRenderer,
+    _check_cancel,
+    _profile,
+    _PROFILE_SECONDS,
+    _temporary_wave,
+)
+from backend.recordings.studio_compression import _reference_compressor_timing
 from backend.recordings.studio_space_analysis import (
     _cepstrum as _cepstrum,
     _delay as _delay,
@@ -17,8 +25,46 @@ from backend.recordings.studio_space_analysis import (
     analyze_space as analyze_space,
     match_space as match_space,
     write_impulse as write_impulse,
-    StereoField,
+    _read_evidence,
 )
+
+
+def _estimate_ambience(
+    reference: Path,
+    expected: SpaceProfile,
+    existing: SpaceProfile,
+    cancel: threading.Event,
+) -> dict[str, SpaceProfile]:
+    width = max(0.0, expected.stereo_width - existing.stereo_width)
+    if expected.reverb_gain or width < 0.05:
+        return {}
+    levels, _, _ = _read_evidence(reference, cancel, include_cepstra=False)
+    if len(levels) < 150:
+        return {}
+    smooth = median_filter(levels, size=5)
+    active = smooth > max(-60.0, float(np.percentile(smooth, 80)) - 18.0)
+    edges = np.diff(np.r_[False, ~active, False].astype(int))
+    gaps = (np.flatnonzero(edges == -1) - np.flatnonzero(edges == 1)) * 0.02
+    gaps = gaps[(gaps >= 0.08) & (gaps <= 2.0)]
+    if len(gaps) < 3:
+        return {}
+    room_seconds = float(np.clip(np.median(gaps) * 2.5, 0.2, 0.6))
+    room = SpaceProfile(
+        decay_seconds=room_seconds,
+        reverb_gain=min(0.2, math.sqrt(width) * 0.375),
+        stereo_width=expected.stereo_width,
+        tail_band_hz=(600.0, 3500.0),
+    )
+    result = {"estimated-room": room}
+    timing = _reference_compressor_timing(levels[::5])
+    if timing["timingMethod"] == "reference-phrase-envelope":
+        result["estimated-tail"] = replace(
+            room,
+            decay_seconds=float(np.clip(float(timing["releaseMs"]) / 500, 0.35, 1.8)),
+            reverb_gain=min(0.15, math.sqrt(width) * 0.28125),
+            tail_band_hz=(600.0, 4500.0),
+        )
+    return result
 
 
 def apply_reference_space(
@@ -28,10 +74,21 @@ def apply_reference_space(
     voice: Path,
     target: Path,
     cancel: threading.Event,
+    *,
+    full_reference: Path | None = None,
 ) -> dict[str, object]:
     expected, existing = analyze_space(reference, cancel), analyze_space(recorded, cancel)
     selected = match_space(expected, existing)
-    wet, field = _render_chain(renderer, voice, target, cancel, selected)
+    ambience = _estimate_ambience(full_reference or reference, expected, existing, cancel)
+    wet, field = _render_chain(renderer, voice, target, cancel, selected, ambience)
+    if wet.get("buses"):
+        width = _match_stereo_width(voice, target, _reference_side_ratio(reference, cancel), cancel)
+        wet["stereoBalance"] = width
+        if width.get("applied"):
+            wet["dryPreserved"] = False
+            calibration = wet.get("calibration")
+            if isinstance(calibration, dict):
+                calibration["scope"] = "before-stereo-balance"
     calibration = wet.get("calibration", {})
     applied = (
         isinstance(calibration, dict) and calibration.get("measuredOutputWetToDryDb") is not None
@@ -40,24 +97,29 @@ def apply_reference_space(
         "method": "reference-cepstrum-pause-decay-and-stereo",
         "status": "matched" if applied else "no-supported-addition",
         "estimatedNotDetected": bool(
-            field.get("applied", False) or (selected.reverb_gain and not expected.reverb_gain)
+            ambience or (selected.reverb_gain and not expected.reverb_gain)
         ),
+        "estimatedAmbience": {name: asdict(spec) for name, spec in ambience.items()},
         "reference": asdict(expected),
         "recorded": asdict(existing),
         "applied": asdict(selected),
         "wetBalance": wet,
         "stereoField": field,
-        "effectDetection": {
-            "delayConfidence": expected.delay_support,
-            "reverbEvidenceCount": expected.decay_count,
-            "predelay": "unidentified-no-added-delay",
-            "earlyReflections": "not-separated-from-direct-vocal",
-            "doubling": "not-identifiable-from-stereo-width-alone",
-            "tailColorMethod": "measured-decay-window-spectral-quantiles"
-            if expected.reverb_gain
-            else "estimated-delayed-stereo-energy-band",
-            "stereoCorrelationApproximation": 1 - expected.stereo_width,
-        },
+        "effectDetection": _effect_detection(expected),
+    }
+
+
+def _effect_detection(expected: SpaceProfile) -> dict[str, object]:
+    return {
+        "delayConfidence": expected.delay_support,
+        "reverbEvidenceCount": expected.decay_count,
+        "predelay": "unidentified-no-added-delay",
+        "earlyReflections": "not-separated-from-direct-vocal",
+        "doubling": "not-identifiable-from-stereo-width-alone",
+        "tailColorMethod": "measured-decay-window-spectral-quantiles"
+        if expected.reverb_gain
+        else "estimated-delayed-stereo-energy-band",
+        "stereoCorrelationApproximation": 1 - expected.stereo_width,
     }
 
 
@@ -67,15 +129,12 @@ def _render_chain(
     target: Path,
     cancel: threading.Event,
     profile: SpaceProfile,
+    ambience: dict[str, SpaceProfile] | None = None,
 ) -> tuple[dict[str, object], dict[str, object]]:
-    stereo = target.with_suffix(".stereo.wav")
-    try:
-        field = _render_field(voice, stereo, cancel, profile.field)
-        source = stereo if field.get("applied", False) else voice
-        wet = _render_separate_buses(renderer, source, target, cancel, profile)
-        return wet, field
-    finally:
-        stereo.unlink(missing_ok=True)
+    # Stereo-envelope lag does not identify a doubled or pitch-modulated voice.
+    # Preserve the performance instead of inventing modulated vocal copies.
+    wet = _render_separate_buses(renderer, voice, target, cancel, profile, ambience=ambience)
+    return wet, {"applied": False, "method": "no-identified-doubling-effect"}
 
 
 def apply_fallback_space(
@@ -86,87 +145,82 @@ def apply_fallback_space(
     return {"applied": False, "method": "no-supported-spatial-evidence"}
 
 
-def _render_field(
-    voice: Path, target: Path, cancel: threading.Event, field: StereoField
+def _reference_side_ratio(path: Path, cancel: threading.Event) -> float:
+    levels = _profile(path, cancel)
+    active = levels > max(-100.0, float(np.percentile(levels, 80)) - 10.0)
+    mid_energy = side_energy = 0.0
+    with sf.SoundFile(path) as source:
+        if source.channels != 2:
+            return 0.0
+        size = round(source.samplerate * _PROFILE_SECONDS)
+        for index, block in enumerate(source.blocks(blocksize=size, always_2d=True)):
+            _check_cancel(cancel)
+            if not active[index]:
+                continue
+            mid_energy += float(np.sum(block.mean(axis=1) ** 2))
+            side_energy += float(np.sum(((block[:, 0] - block[:, 1]) / 2) ** 2))
+    return side_energy / max(mid_energy, 1e-20)
+
+
+def _match_stereo_width(
+    voice: Path, target: Path, reference_ratio: float, cancel: threading.Event
 ) -> dict[str, object]:
-    if not field.lag or not field.ratio or sf.info(voice).channels != 2:
-        return {"applied": False, "method": "no-supported-stereo-field"}
-    temporary = target.with_suffix(".field.wav")
+    if sf.info(voice).channels != 2 or reference_ratio <= 0:
+        return {"applied": False, "method": "no-stereo-reference"}
+    mid_energy = dry_side_energy = wet_side_energy = cross = energy = 0.0
+    with sf.SoundFile(voice) as dry, sf.SoundFile(target) as mixed:
+        for block in dry.blocks(blocksize=65536, always_2d=True):
+            _check_cancel(cancel)
+            output = mixed.read(len(block), always_2d=True)
+            dry_side = (block[:, 0] - block[:, 1]) / 2
+            wet_side = (output[:, 0] - output[:, 1]) / 2 - dry_side
+            mid_energy += float(np.sum(output.mean(axis=1) ** 2))
+            dry_side_energy += float(np.sum(dry_side**2))
+            wet_side_energy += float(np.sum(wet_side**2))
+            cross += float(np.sum(dry_side * wet_side))
+            energy += float(np.sum(output**2))
+    current_side = dry_side_energy + 2 * cross + wet_side_energy
+    desired_side = min(reference_ratio * 0.5, 0.2) * mid_energy
+    if desired_side <= current_side or wet_side_energy <= energy * 1e-10:
+        return {"applied": False, "method": "existing-width-preserved"}
+    factor = (
+        -cross + math.sqrt(max(0.0, cross**2 + wet_side_energy * (desired_side - dry_side_energy)))
+    ) / wet_side_energy
+    gain = math.sqrt(energy / (energy + 2 * (desired_side - current_side)))
+    _write_stereo_width(voice, target, factor, gain, cancel)
+    return {
+        "applied": True,
+        "method": "reference-diffuse-side-energy",
+        "referenceSideToMidRatio": reference_ratio,
+        "beforeSideToMidRatio": current_side / max(mid_energy, 1e-20),
+        "afterSideToMidRatio": desired_side / max(mid_energy, 1e-20),
+        "wetSideGainDb": 20 * math.log10(factor),
+        "normalizationGainDb": 20 * math.log10(gain),
+        "centerPreservedUpToLevel": True,
+    }
+
+
+def _write_stereo_width(
+    voice: Path, target: Path, factor: float, gain: float, cancel: threading.Event
+) -> None:
+    temporary = target.with_suffix(".width.wav")
     try:
-        dry_energy, energy, peak = _write_field(voice, temporary, cancel, field)
-        gain = min(math.sqrt(dry_energy / max(energy, 1e-20)), 0.95 / max(peak, 1e-12))
         with (
-            sf.SoundFile(temporary) as source,
-            sf.SoundFile(
-                target, "w", samplerate=source.samplerate, channels=2, subtype="FLOAT"
-            ) as output,
+            sf.SoundFile(voice) as dry,
+            sf.SoundFile(target) as mixed,
+            _temporary_wave(temporary, samplerate=dry.samplerate, channels=2) as writer,
         ):
-            for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
+            for block in dry.blocks(blocksize=65536, always_2d=True):
                 _check_cancel(cancel)
-                output.write(block * gain)
-        return {
-            "applied": True,
-            "method": "reference-delayed-stereo-energy-approximation",
-            "effectIdentityConfirmed": False,
-            "parameters": asdict(field),
-            "modulation": "synthesized-from-envelope-lag-spread-not-detected-pitch-modulation",
-            "normalizationGainDb": 20 * math.log10(max(gain, 1e-12)),
-            "dryPreserved": False,
-            "audibilityVerified": False,
-        }
+                output = mixed.read(len(block), always_2d=True)
+                wet_side = ((output[:, 0] - output[:, 1]) - (block[:, 0] - block[:, 1])) / 2
+                adjustment = wet_side * (factor - 1)
+                output[:, 0] += adjustment
+                output[:, 1] -= adjustment
+                writer.write(output * gain)
+        temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
-
-
-def _field_copies(
-    block: np.ndarray, history: np.ndarray, rate: int, position: int, field: StereoField
-) -> tuple[np.ndarray, np.ndarray]:
-    samples = np.concatenate((history, block))
-    axis = np.arange(len(samples))
-    time = (position + np.arange(len(block))) / rate
-    # The measured envelope lag/spread sets the scale, not an asserted echo tap.
-    delays = [
-        field.lag
-        + field.spread * (offset + depth * np.sin(time * 2 * np.pi / (cycles * field.lag) + phase))
-        for offset, depth, cycles, phase in ((0.4, 0.4, 90, 0), (1.7, 0.6, 72, 1.7))
-    ]
-    copies = np.column_stack(
-        [
-            np.interp(len(history) + np.arange(len(block)) - delay * rate, axis, samples)
-            for delay in delays
-        ]
-    )
-    return copies, samples[-len(history) :]
-
-
-def _write_field(
-    voice: Path, target: Path, cancel: threading.Event, field: StereoField
-) -> tuple[float, float, float]:
-    dry_energy = energy = peak = 0.0
-    with (
-        sf.SoundFile(voice) as source,
-        sf.SoundFile(
-            target, "w", samplerate=source.samplerate, channels=2, subtype="FLOAT"
-        ) as output,
-    ):
-        band = butter(2, field.low_hz, fs=source.samplerate, btype="highpass", output="sos")
-        state = np.zeros((len(band), 2))
-        history = np.zeros(math.ceil((field.lag + 3 * field.spread) * source.samplerate) + 2)
-        amount = math.sqrt(2 * field.ratio / max(1 - field.ratio, 0.35))
-        position = 0
-        for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
-            _check_cancel(cancel)
-            mono, state = sosfilt(band, block.mean(axis=1), zi=state)
-            copies, history = _field_copies(mono, history, source.samplerate, position, field)
-            mixed = block + amount * copies
-            if not np.isfinite(mixed).all():
-                raise DependencyError("StudioMasterInvalidWet", "Invalid spatial samples")
-            dry_energy += float(np.sum(block.astype(np.float64) ** 2))
-            energy += float(np.sum(mixed**2))
-            peak = max(peak, float(np.max(abs(mixed))))
-            output.write(mixed)
-            position += len(block)
-    return dry_energy, energy, peak
 
 
 def _voice_activity_level(path: Path, cancel: threading.Event) -> float:
@@ -233,6 +287,7 @@ def _render_separate_buses(
     *,
     reference: Path | None = None,
     recorded: Path | None = None,
+    ambience: dict[str, SpaceProfile] | None = None,
 ) -> dict[str, object]:
     # Echo gains are direct tap ratios. Diffuse reverb energy is calibrated
     # against the actual voice, never against stereo width (which includes doubles).
@@ -249,6 +304,7 @@ def _render_separate_buses(
         for index, (delay, gain) in enumerate(taps)
     }
     specs["reverb"] = replace(profile, delay_gain=0, delay_seconds=0, echo_taps=(), echo_regions=())
+    specs.update(ambience or {})
     specs = {name: spec for name, spec in specs.items() if spec.delay_gain or spec.reverb_gain}
     if not specs:
         shutil.copyfile(voice, target)
@@ -286,12 +342,10 @@ class _SpatialBuses:
         position = 0
         with (
             sf.SoundFile(self.voice) as source,
-            sf.SoundFile(
+            _temporary_wave(
                 self.paths[name],
-                "w",
                 samplerate=self.info.samplerate,
                 channels=self.info.channels,
-                subtype="FLOAT",
             ) as output,
         ):
             for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
@@ -346,12 +400,10 @@ class _SpatialBuses:
                 name: stack.enter_context(sf.SoundFile(path)) for name, path in self.paths.items()
             }
             output = stack.enter_context(
-                sf.SoundFile(
+                _temporary_wave(
                     self.target,
-                    "w",
                     samplerate=self.info.samplerate,
                     channels=self.info.channels,
-                    subtype="FLOAT",
                 )
             )
             for block in dry.blocks(blocksize=32768, dtype="float32", always_2d=True):
@@ -389,7 +441,11 @@ class _SpatialBuses:
         return {
             "status": "rendered",
             "dryPreserved": True,
-            "referenceMethod": "measured-temporal-evidence",
+            "referenceMethod": (
+                "estimated-reference-phrase-and-stereo"
+                if any(name.startswith("estimated-") for name in self.specs)
+                else "measured-temporal-evidence"
+            ),
             "buses": {
                 name: {
                     "gainDb": 20 * math.log10(max(gain, 1e-12)),

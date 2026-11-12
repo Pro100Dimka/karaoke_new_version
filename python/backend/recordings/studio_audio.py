@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Protocol
+from contextlib import contextmanager
+from collections.abc import Iterator
 from backend.infrastructure.process_runner import ProcessResult
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -16,7 +18,39 @@ _PROFILE_SECONDS = 0.1
 
 
 _MAX_BOOST_DB = 9.0
-_VOCAL_TARGET_OFFSET_DB = -2.0
+_VOCAL_TARGET_OFFSET_DB = -3.5
+
+
+@contextmanager
+def _temporary_wave(path: Path, *, samplerate: int, channels: int) -> Iterator[sf.SoundFile]:
+    """Close scratch PCM before reuse without forcing a disk durability flush per stage."""
+    with path.open("w+b") as stream:
+        with sf.SoundFile(
+            stream, "w", samplerate=samplerate, channels=channels, subtype="FLOAT", format="WAV"
+        ) as output:
+            yield output
+
+
+def _write_gain_envelope(
+    source: Path,
+    target: Path,
+    times: NDArray[np.floating],
+    gains: NDArray[np.float64],
+    cancel: threading.Event,
+) -> None:
+    with (
+        sf.SoundFile(source) as original,
+        _temporary_wave(
+            target, samplerate=original.samplerate, channels=original.channels
+        ) as output,
+    ):
+        offset = 0
+        for samples in original.blocks(blocksize=65536, dtype="float32", always_2d=True):
+            _check_cancel(cancel)
+            positions = (offset + np.arange(len(samples))) / original.samplerate
+            gain = np.power(10.0, np.interp(positions, times, gains) / 20)
+            output.write(samples * gain[:, None])
+            offset += len(samples)
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,10 +145,6 @@ class MasterRenderer(Protocol):
         self,
         voice: NDArray[np.float64],
         backing: NDArray[np.float64],
-        reference: NDArray[np.float64],
-        original: NDArray[np.float64],
-        *,
-        phrase_smoothing: bool = False,
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]: ...
 
     def _voice_filters(

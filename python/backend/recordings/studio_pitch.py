@@ -12,7 +12,7 @@ from scipy.ndimage import gaussian_filter1d, median_filter, minimum_filter1d
 
 from backend.ai.domain import PitchPoint
 from backend.analysis.scoring import parse_playback_adjustments
-from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile
+from backend.recordings.studio_audio import MasterRenderer, _check_cancel, _profile, _temporary_wave
 from backend.recordings.studio_reference import mapped_reference_times
 from backend.recordings.studio_quality import inspect_master
 
@@ -31,6 +31,10 @@ class PitchRender(Protocol):
     timing_known: bool
     reliable: NDArray[np.bool_]
     voice_db: NDArray[np.float64]
+    gains: NDArray[np.float64]
+    backing_db: NDArray[np.float64]
+    reference_db: NDArray[np.float64]
+    original_db: NDArray[np.float64]
     adjustments: Sequence[Mapping[str, object]]
     pitch_adjustments: Sequence[Mapping[str, object]]
     offset_result: tuple[float, float] | None
@@ -77,8 +81,9 @@ def _pitch_curve(
     error -= 12 * np.round(error / 12)
     eligible &= abs(error) < 2.5
     eligible = minimum_filter1d(eligible.astype(float), size=9, mode="constant") > 0
-    correction = np.where(eligible, np.clip(-0.8 * error, -1.0, 1.0), 0.0)
-    correction = gaussian_filter1d(median_filter(correction, size=11), sigma=3)
+    # Correct sustained note drift without following syllables or natural vibrato.
+    correction = np.where(eligible, np.clip(-0.6 * error, -0.75, 0.75), 0.0)
+    correction = gaussian_filter1d(median_filter(correction, size=31), sigma=8)
     return times, correction, voice, target, eligible
 
 
@@ -90,21 +95,45 @@ def _render_correction(render: PitchRender, times: np.ndarray, correction: np.nd
     escaped = "".join("\\" + c if c in "\\'[],;" else c for c in value)
     try:
         with commands.open("w", encoding="utf-8") as output:
-            for index in range(0, len(times), 5):
+            for index in range(len(times)):
                 _check_cancel(render.cancel)
                 ratio = 2 ** (correction[index] / 12)
                 output.write(f"{times[index]:.3f} rubberband@tune pitch {ratio:.9f};\n")
         graph = (
             f"[0:a]asendcmd=f={escaped},rubberband@tune=tempo=1:pitch=1:"
-            "formant=preserved:pitchq=quality:transients=smooth:channels=together,"
+            "formant=preserved:pitchq=consistency:transients=smooth:channels=together,"
             f"apad,atrim=end_sample={render.info.frames}[out]"
         )
         render.renderer._mix(
             render.vocal, render.vocal, graph, ["-c:a", "pcm_f32le", str(target)], render.cancel
         )
+        _preserve_pitch_intervals(render, target, times, correction)
         return target
     finally:
         commands.unlink(missing_ok=True)
+
+
+def _preserve_pitch_intervals(
+    render: PitchRender, target: Path, times: np.ndarray, correction: np.ndarray
+) -> None:
+    # A unity pitch ratio still resynthesizes the signal. Keep the original
+    # consonants, rests and in-tune phrases, fading in only real corrections.
+    preserved = render.work / "pitch-selective.wav"
+    with (
+        sf.SoundFile(render.vocal) as dry,
+        sf.SoundFile(target) as wet,
+        _temporary_wave(preserved, samplerate=dry.samplerate, channels=dry.channels) as output,
+    ):
+        offset = 0
+        weights = np.clip((np.abs(correction) - 0.005) / 0.045, 0.0, 1.0)
+        for original in dry.blocks(blocksize=65536, dtype="float32", always_2d=True):
+            _check_cancel(render.cancel)
+            shifted = wet.read(len(original), dtype="float32", always_2d=True)
+            positions = (offset + np.arange(len(original))) / dry.samplerate
+            amount = np.interp(positions, times, weights)[:, None]
+            output.write(original + amount * (shifted - original))
+            offset += len(original)
+    preserved.replace(target)
 
 
 def _pitch_improvement(
@@ -157,7 +186,11 @@ def _normalize_pitch(render: PitchRender, candidate: Path) -> float:
         expected_channels=render.output_channels,
     )
     render.vocal = target
-    render.voice_db = _profile(target, render.cancel, voice_band=True)
+    render.voice_db = _profile(target, render.cancel)
+    render.gains, render.reliable = render.renderer._balance_curve(
+        render.voice_db,
+        render.backing_db,
+    )
     return gain
 
 
@@ -183,7 +216,7 @@ def apply_reference_pitch(render: PitchRender) -> dict[str, object]:
         return {
             "applied": accepted,
             "method": "soft-reference-pitch-nearest-octave",
-            "limitSemitones": 1.0,
+            "limitSemitones": 0.75,
             "correctedSeconds": corrected * 0.01,
             "normalizationGainDb": gain,
             "verification": verification,

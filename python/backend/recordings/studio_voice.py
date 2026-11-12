@@ -7,89 +7,151 @@ import numpy as np
 import soundfile as sf
 from numpy.typing import NDArray
 from backend.domain_errors import DependencyError
-from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_dynamics import _reference_compression, _reference_tone
+from backend.recordings.studio_audio import (
+    MasterRenderer,
+    _PROFILE_SECONDS,
+    _profile,
+    _write_gain_envelope,
+)
+from backend.recordings.studio_dynamics import _protect_vocal_presence
+from backend.recordings.studio_spectrum import _reference_band_targets
 
 
-def _cohesion_bands(
-    measured: tuple[float, np.ndarray, np.ndarray],
-    reference: tuple[float, np.ndarray, np.ndarray],
-) -> list[dict[str, float]]:
-    centers, tone = measured[1:]
-    excess = tone - np.interp(centers, reference[1], reference[2])
-    bands = []
-    # Broad corrections preserve the singer's formants; gains come from the song.
-    for low, high, boost, cut in ((300, 600, 0, 1.5), (1200, 2400, 1, 1.5), (4800, 9600, 0, 3)):
-        selected = (centers >= low) & (centers < high)
-        values = excess[selected]
-        if len(values) < 4:
-            continue
-        difference = float(np.median(values))
-        if abs(difference) < 1 or np.mean(np.sign(values) == np.sign(difference)) < 0.75:
-            continue
-        gain = float(np.clip(-difference * 0.5, -cut, boost))
-        if not gain:
-            continue
-        frequency = float(np.exp(np.average(np.log(centers[selected]), weights=np.abs(values))))
-        bands.append(
-            {
-                "lowHz": low,
-                "highHz": high,
-                "frequencyHz": frequency,
-                "gainDb": gain,
-                "differenceDb": difference,
-            }
+def control_vocal_presence(
+    voice: Path, backing: Path, cancel: threading.Event
+) -> dict[str, object]:
+    levels = _profile(voice, cancel)
+    music = _profile(backing, cancel, voice_band=True)
+    gains, report = _protect_vocal_presence(np.zeros_like(levels), levels, music)
+    if np.any(gains):
+        target = voice.with_suffix(".presence.wav")
+        times = (np.arange(len(gains)) + 0.5) * _PROFILE_SECONDS
+        try:
+            _write_gain_envelope(voice, target, times, gains, cancel)
+            target.replace(voice)
+        finally:
+            target.unlink(missing_ok=True)
+    return {"method": "post-compression-accompaniment-relative-envelope", **report}
+
+
+def control_vocal_peaks(
+    renderer: MasterRenderer, voice: Path, cancel: threading.Event
+) -> dict[str, object]:
+    levels = _profile(voice, cancel)
+    active = levels > max(-60.0, float(np.percentile(levels, 85)) - 22.0)
+    if not np.any(active):
+        return {"applied": False, "method": "insufficient-active-vocal"}
+    threshold_db = float(np.percentile(levels[active], 80))
+    threshold = float(np.clip(10 ** (threshold_db / 20), 0.000976, 1.0))
+    compressed = voice.with_suffix(".compressed.wav")
+    target = voice.with_suffix(".peaks.wav")
+    try:
+        _compress_voice(renderer, voice, compressed, threshold, cancel)
+        measured = _profile(compressed, cancel)
+        info = sf.info(voice)
+        before, after = (_profile_energy(values, info) for values in (levels, measured))
+        gain_db = 10 * math.log10(max(before, 1e-12) / max(after, 1e-12))
+        renderer._mix(
+            compressed,
+            compressed,
+            f"[0:a]volume={gain_db:.9f}dB[out]",
+            ["-c:a", "pcm_f32le", str(target)],
+            cancel,
         )
-    return bands
+        target.replace(voice)
+        return {
+            "applied": True,
+            "method": "performance-derived-soft-peak-control",
+            "thresholdDb": 20 * math.log10(threshold),
+            "ratio": 2.0,
+            "attackMs": 5,
+            "releaseMs": 120,
+            "normalizationGainDb": gain_db,
+        }
+    finally:
+        compressed.unlink(missing_ok=True)
+        target.unlink(missing_ok=True)
 
 
-def _cohesion_error(
-    measured: tuple[float, np.ndarray, np.ndarray],
-    reference: tuple[float, np.ndarray, np.ndarray],
-    bands: list[dict[str, float]],
-) -> np.ndarray:
-    centers, tone = measured[1:]
-    excess = tone - np.interp(centers, reference[1], reference[2])
-    return np.array(
-        [
-            abs(float(np.median(excess[(centers >= band["lowHz"]) & (centers < band["highHz"])])))
-            for band in bands
-        ]
+def _compress_voice(
+    renderer: MasterRenderer,
+    voice: Path,
+    compressed: Path,
+    threshold: float,
+    cancel: threading.Event,
+) -> None:
+    renderer._mix(
+        voice,
+        voice,
+        f"[0:a]acompressor=threshold={threshold:.9f}:ratio=2:knee=2.828:"
+        "attack=5:release=120:makeup=1:link=maximum:detection=rms[out]",
+        ["-c:a", "pcm_f32le", str(compressed)],
+        cancel,
     )
 
 
-def apply_reference_tone(
-    renderer: MasterRenderer, voice: Path, reference: Path, cancel: threading.Event
+def _profile_energy(levels: NDArray[np.float64], info: sf._SoundFileInfo) -> float:
+    weights = np.full(len(levels), round(info.samplerate * _PROFILE_SECONDS), dtype=float)
+    weights[-1] = info.frames - float(np.sum(weights[:-1]))
+    return float(np.dot(10 ** (levels / 10), weights))
+
+
+def _cohesion_bands(centers: np.ndarray, ratios: np.ndarray) -> list[dict[str, float]]:
+    excess = ratios[1:-1] - (ratios[:-2] + ratios[2:]) / 2
+    baseline = float(np.median(ratios[1:-1]))
+    return [
+        {
+            "frequencyHz": float(centers[index]),
+            "gainDb": -min(float(amount) * 0.5, 1.5),
+            "differenceDb": float(amount),
+        }
+        for index, amount in enumerate(excess, start=1)
+        if amount > 3 and ratios[index] > baseline + 1
+    ]
+
+
+def _cohesion_error(
+    centers: np.ndarray, ratios: np.ndarray, bands: list[dict[str, float]]
+) -> np.ndarray:
+    excess = ratios[1:-1] - (ratios[:-2] + ratios[2:]) / 2
+    indices = [int(np.argmin(abs(centers[1:-1] - band["frequencyHz"]))) for band in bands]
+    return np.asarray(np.abs(excess[indices]), dtype=float)
+
+
+def apply_mix_tone(
+    renderer: MasterRenderer, voice: Path, backing: Path, cancel: threading.Event
 ) -> dict[str, object]:
-    measured, expected = _reference_tone(voice, cancel), _reference_tone(reference, cancel)
-    if measured is None or expected is None:
-        return {"applied": False, "method": "insufficient-tone-evidence"}
-    bands = _cohesion_bands(measured, expected)
+    # Paired octave energies retain real vocal harmonics and use the same
+    # time windows for both tracks; independent median spectra can hide them.
+    edges = np.array([150, 300, 600, 1200, 2400, 4800, 9600], dtype=float)
+    centers = np.sqrt(edges[:-1] * edges[1:])
+    ratios = _reference_band_targets(voice, backing, centers, cancel)
+    if ratios is None:
+        return {"applied": False, "method": "insufficient-paired-spectrum"}
+    bands = _cohesion_bands(centers, ratios)
     if not bands:
         return {"applied": False, "method": "no-broad-tone-mismatch"}
     filters = [
-        (
-            f"highshelf=f={band['lowHz']:.3f}"
-            if band["lowHz"] >= 4800
-            else f"equalizer=f={band['frequencyHz']:.3f}"
-        )
-        + f":t=q:w=0.7:g={band['gainDb']:.6f}"
-        for band in bands
+        f"equalizer=f={band['frequencyHz']:.3f}:t=q:w=0.7:g={band['gainDb']:.6f}" for band in bands
     ]
     target = voice.with_suffix(".tone.wav")
     try:
-        graph = "[0:a]" + ",".join(filters) + "[out]"
-        output = ["-c:a", "pcm_f32le", str(target)]
-        renderer._mix(voice, voice, graph, output, cancel)
-        candidate = _reference_tone(target, cancel)
-        before = _cohesion_error(measured, expected, bands)
-        after = _cohesion_error(candidate, expected, bands) if candidate else before
+        renderer._mix(
+            voice,
+            voice,
+            "[0:a]" + ",".join(filters) + "[out]",
+            ["-c:a", "pcm_f32le", str(target)],
+            cancel,
+        )
+        candidate = _reference_band_targets(target, backing, centers, cancel)
+        before = _cohesion_error(centers, ratios, bands)
+        after = _cohesion_error(centers, candidate, bands) if candidate is not None else before
         accepted = bool(np.all(after <= before) and np.sum(after) < np.sum(before))
         if accepted:
             target.replace(voice)
         return {
             "applied": accepted,
-            "method": "post-space-reference-broad-tone",
+            "method": "paired-octave-context-tone",
             "bands": bands,
             "beforeErrorDb": before.tolist(),
             "afterErrorDb": after.tolist(),
@@ -110,31 +172,14 @@ class VoicePreparation:
     cancel: threading.Event
     processing: dict[str, object] = field(init=False)
 
-    def run(
-        self, raw_profile: NDArray[np.float64], reference_levels: NDArray[np.float64]
-    ) -> dict[str, object]:
+    def run(self, raw_profile: NDArray[np.float64]) -> dict[str, object]:
         active = raw_profile[raw_profile > max(-80.0, float(np.max(raw_profile)) - 35)]
         if active.size == 0:
             raise DependencyError("StudioMasterSilentTrack", "No audible recorded voice")
-        dynamics = _reference_compression(raw_profile, reference_levels)
-        ratio = float(dynamics["ratio"])
-        threshold = float(np.clip(10 ** (float(dynamics["thresholdDb"]) / 20), 0.001, 1))
-        self.processing = {"referenceCompression": dynamics}
         filters, analysis = self.renderer._voice_filters(
             self.user_vocal, raw_profile, self.cancel, self.reference_vocal
         )
-        self.processing.update(
-            compressorRatio=ratio,
-            compressorThresholdDb=20 * math.log10(threshold),
-            voiceAnalysis=analysis,
-            compressorMix=1.0,
-        )
-        if ratio > 1.01:
-            filters.append(
-                f"acompressor=threshold={threshold:.9f}:ratio={ratio:.6f}:"
-                f"attack={float(dynamics['attackMs']):.3f}:release={float(dynamics['releaseMs']):.3f}:"
-                "makeup=1:mix=1:link=maximum:detection=rms"
-            )
+        self.processing = {"voiceAnalysis": analysis, "compressionSource": "performance-vocal"}
         filters.extend(
             (
                 f"aresample={self.info.samplerate}",

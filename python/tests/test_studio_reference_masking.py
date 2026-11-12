@@ -29,3 +29,23 @@ def test_reference_driven_masking_uses_song_specific_spectral_target(tmp_path):
     result, _ = sf.read(tmp_path / "out.wav", dtype="float32")
     assert np.isfinite(result).all()
     assert len(result) == len(t)
+
+
+def test_masking_uses_actual_voice_and_music_without_an_original(tmp_path):
+    rate = 8000
+    time = np.arange(rate) / rate
+    tone = np.sin(2 * np.pi * 1000 * time)
+    for name, gain in [("voice", 0.05), ("backing", 0.2)]:
+        sf.write(tmp_path / f"{name}.wav", tone * gain, rate, subtype="FLOAT")
+    report = _unmask_backing(
+        tmp_path / "backing.wav",
+        tmp_path / "voice.wav",
+        tmp_path / "out.wav",
+        np.ones(10, dtype=bool),
+        threading.Event(),
+    )
+    output, actual_rate = sf.read(tmp_path / "out.wav")
+    assert actual_rate == rate and len(output) == len(tone)
+    assert report["referenceBandTargetsDb"] is None
+    assert 0 < max(report["maxReductionDb"]) <= 1.5
+    assert np.mean(output**2) < np.mean((tone * 0.2) ** 2)

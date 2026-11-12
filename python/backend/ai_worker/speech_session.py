@@ -59,7 +59,7 @@ def _validate(
         not isinstance(arguments, list)
         or not arguments
         or not all(isinstance(value, str) for value in arguments)
-        or arguments[0] not in ["transcribe", "transcribe-many", "align"]
+        or arguments[0] not in ["transcribe", "transcribe-many", "align", "pitch"]
         or "--stream-input" in arguments
         or not isinstance(environment, dict)
         or not all(isinstance(value, str) for value in environment.values())

@@ -5,7 +5,12 @@ import numpy as np
 from numpy.typing import NDArray
 import soundfile as sf
 
-from backend.recordings.studio_audio import _PROFILE_SECONDS, _VOCAL_TARGET_OFFSET_DB, _check_cancel
+from backend.recordings.studio_audio import (
+    _PROFILE_SECONDS,
+    _VOCAL_TARGET_OFFSET_DB,
+    _check_cancel,
+    _temporary_wave,
+)
 
 
 def _repeated_output_channels(path: Path, cancel: threading.Event) -> bool:
@@ -81,9 +86,7 @@ def _unmask_backing(
     with (
         sf.SoundFile(backing) as music,
         sf.SoundFile(voice) as singer,
-        sf.SoundFile(
-            target, "w", samplerate=music.samplerate, channels=music.channels, subtype="FLOAT"
-        ) as output,
+        _temporary_wave(target, samplerate=music.samplerate, channels=music.channels) as output,
     ):
         return _SpectralUnmasking(music, singer, output, active, cancel, targets).run()
 
@@ -177,7 +180,7 @@ class _SpectralUnmasking:
             instrumental = np.sum(music_power[:, selected], axis=1)
             overlap = 10 * np.log10(np.maximum(instrumental, 1e-20) / np.maximum(vocal, 1e-20))
             if self.reference_targets is None:
-                reduction = np.zeros_like(overlap)
+                reduction = np.clip(overlap, 0, 1.5)
             else:
                 current_prominence = -overlap
                 reduction = np.clip(self.reference_targets[band] - current_prominence, 0, 1.5)

@@ -140,9 +140,9 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
 
 @pytest.mark.parametrize(
     "reference_db, expected_db, varying_effect",
-    [(-12, -14, False), (-2, -4, False), (6, 4, False), (-2, -4, True)],
+    [(-80, -1, False), (-12, -1, False), (-2, -1, False), (6, -1, False), (-2, -1, True)],
 )
-def test_master_balance_follows_reference_vocal(
+def test_master_balance_uses_backing_independently_of_reference_level(
     tmp_path: Path, monkeypatch, reference_db, expected_db, varying_effect
 ):
     from backend.infrastructure.process_runner import ProcessRunner
@@ -159,7 +159,8 @@ def test_master_balance_follows_reference_vocal(
     )
     if varying_effect:
 
-        def spatial_energy(renderer, reference, recorded, voice, target, cancel):
+        def spatial_energy(renderer, reference, recorded, voice, target, cancel, *, full_reference):
+            assert full_reference == paths["reference"]
             samples, rate = sf.read(voice)
             samples[: len(samples) // 2] *= 2
             samples[len(samples) // 2 :] *= 4
@@ -193,12 +194,15 @@ def test_master_balance_follows_reference_vocal(
         process_voice=True,
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
-    assert result.processing["voiceBalanceTargetDb"] == pytest.approx(expected_db, abs=0.15)
     rendered, _ = sf.read(tmp_path / "master.wav")
     delivery_gain = 10 ** (result.processing["delivery"]["gainDb"] / 20)
     vocal = rendered / delivery_gain - backing
     measured = 10 * np.log10(np.mean(vocal**2) / np.mean(backing**2))
     assert measured == pytest.approx(expected_db, abs=1)
+    assert (
+        result.processing["postMixCalibration"]["method"]
+        == "perceptual-and-spectral-backing-balance"
+    )
     if varying_effect:
         for section in (slice(8000, 16000), slice(32000, 40000)):
             level = 10 * np.log10(np.mean(vocal[section] ** 2) / np.mean(backing[section] ** 2))
@@ -228,7 +232,7 @@ def test_master_clarity_only_corrects_supported_dark_voice(tmp_path, dark, secon
     assert path.read_bytes() == original
 
 
-def test_master_restores_backing_dynamics_without_rewriting_source(tmp_path):
+def test_master_preserves_performed_backing_dynamics(tmp_path, monkeypatch):
     from backend.recordings.studio_render import MasterRender
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
     from backend.infrastructure.process_runner import ProcessRunner
@@ -236,38 +240,44 @@ def test_master_restores_backing_dynamics_without_rewriting_source(tmp_path):
     rate = 8000
     original = np.repeat([-24.0, -30.0, -24.0], 100)
     recorded = original + np.repeat([-3.0, -9.0, -3.0], 100)
-    samples = np.sin(2 * np.pi * 440 * np.arange(rate * 30) / rate)
-    samples *= np.repeat(10 ** (recorded / 20) * np.sqrt(2), rate // 10)
-    source = tmp_path / "backing.wav"
-    sf.write(source, samples, rate, subtype="FLOAT")
-    initial = source.read_bytes()
-    render = MasterRender(
-        FfmpegStudioMasterRenderer(ProcessRunner()),
-        source,
-        source,
-        source,
-        source,
+    time = np.arange(rate * 30) / rate
+    tone = np.sin(2 * np.pi * 440 * time)
+    music = tone * np.repeat(10 ** (recorded / 20) * np.sqrt(2), rate // 10)
+    reference = tone * np.repeat(10 ** (original / 20) * np.sqrt(2), rate // 10)
+    voice = 0.02 * np.sin(2 * np.pi * 880 * time)
+    paths = {name: tmp_path / f"{name}.wav" for name in ("voice", "music", "original", "mix")}
+    for name, samples in [
+        ("voice", voice),
+        ("music", music),
+        ("original", reference),
+        ("mix", music + voice),
+    ]:
+        sf.write(paths[name], samples, rate, subtype="FLOAT")
+    initial = paths["music"].read_bytes()
+    calibrate = MasterRender._calibrate
+    observed = []
+
+    def capture(render):
+        calibrate(render)
+        observed.append(sf.read(render.backing)[0])
+
+    monkeypatch.setattr(MasterRender, "_calibrate", capture)
+    FfmpegStudioMasterRenderer(ProcessRunner()).render(
+        paths["voice"],
+        paths["music"],
+        paths["voice"],
+        paths["original"],
         tmp_path / "master.wav",
         threading.Event(),
-        source,
-        True,
-        True,
-        False,
-        (),
-        None,
+        performance_mix=paths["mix"],
+        exact_stems=True,
+        process_voice=False,
+        adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
-    render.work = tmp_path
-    render.backing = source
-    render.backing_db = recorded
-    render.original_db = original
-    render.times = (np.arange(300) + 0.5) * 0.1
-    render.processing = {}
-    render._match_backing()
-    adjusted, _ = sf.read(render.backing)
     for index in (5, 15, 25):
-        level = 10 * np.log10(np.mean(adjusted[index * rate : (index + 1) * rate] ** 2))
-        assert level == pytest.approx(original[index * 10] - 3, abs=0.15)
-    assert source.read_bytes() == initial
+        level = 10 * np.log10(np.mean(observed[0][index * rate : (index + 1) * rate] ** 2))
+        assert level == pytest.approx(recorded[index * 10], abs=1.6)
+    assert paths["music"].read_bytes() == initial
 
 
 @pytest.mark.parametrize("reference_ratio,amount", [(-16.0, 1.5), (-24.0, 0.0)])

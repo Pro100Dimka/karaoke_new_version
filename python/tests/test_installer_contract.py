@@ -64,7 +64,7 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
         check=True,
     )
     source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
-    start = source.index("function FileNeedsUpdate(")
+    start = source.index("function GetTickCount64:")
     check = source[start : source.index("{ An NVIDIA GPU", start)]
     script = tmp_path / "probe.iss"
     script.write_text(
@@ -73,6 +73,7 @@ def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_pa
         "PrivilegesRequired=lowest\nUninstallable=no\nCreateUninstallRegKey=no\n"
         "[CustomMessages]\nUpdateChecking=Checked: %1\n"
         f'#include "{catalog}"\n[Code]\nvar PayloadChecks: TStringList;\n'
+        "VerificationUpdatedAt: Int64;\n"
         "VerificationPage: TOutputMarqueeProgressWizardPage;\nInstallingPayload: Boolean;\n"
         "procedure InitializeWizard;\nbegin\n"
         "VerificationPage := CreateOutputMarqueeProgressPage('Preparing', 'Checking');\nend;\n"

@@ -41,20 +41,28 @@ class CommandAiProvider:
         self._recognition_lock = threading.Lock()
         self._budget = resource_budget
         self._alignment_workspaces: dict[threading.Event, Path] = {}
-        self._speech_sessions: dict[threading.Event, SpeechSession] = {}
+        self._speech_sessions: dict[threading.Event, tuple[SpeechSession, ComputeDevice]] = {}
 
     @contextmanager
     def reuse_speech(self, cancel: threading.Event, execution: ExecutionContext) -> Iterator[None]:
+        if execution.device is not ComputeDevice.CUDA:
+            yield
+            return
+        with self.reuse_pitch(cancel, execution):
+            yield
+
+    @contextmanager
+    def reuse_pitch(self, cancel: threading.Event, execution: ExecutionContext) -> Iterator[None]:
         if (
             self._descriptor.provider_id != "local-torch"
-            or execution.device is not ComputeDevice.CUDA
+            or execution.cpu_fraction is not None
             or not isinstance(self._runner, ProcessRunner)
         ):
             yield
             return
         session = SpeechSession(self._command)
         with self._recognition_lock:
-            self._speech_sessions[cancel] = session
+            self._speech_sessions[cancel] = session, execution.device
         try:
             yield
         finally:
@@ -347,15 +355,15 @@ class CommandAiProvider:
         timeout_seconds: float,
     ) -> ProcessResult:
         with self._recognition_lock:
-            session = self._speech_sessions.get(cancel)
+            reusable = self._speech_sessions.get(cancel)
         if (
-            session is not None
-            and execution.device is ComputeDevice.CUDA
-            and action in ["transcribe", "transcribe-many", "align"]
+            reusable is not None
+            and execution.device is reusable[1]
+            and action in ["transcribe", "transcribe-many", "align", "pitch"]
             and not callable(input_data)
             and execution.cpu_fraction is None
         ):
-            return session.run(
+            return reusable[0].run(
                 [action, *arguments],
                 environment=_execution_environment(execution),
                 input_data=input_data,

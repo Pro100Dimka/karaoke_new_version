@@ -207,10 +207,15 @@ var
   RemainingData: string;
   CheckedRoots: string;
   PayloadChecks: TStringList;
+  VerificationUpdatedAt: Int64;
+
+function GetTickCount64: Int64;
+  external 'GetTickCount64@kernel32.dll stdcall';
 
 function FileNeedsUpdate(const RelativeName, ExpectedHash: string): Boolean;
 var
   Target: string;
+  NowTicks: Int64;
 begin
   Target := ExpandConstant('{app}\') + RelativeName;
   if PayloadChecks = nil then
@@ -231,12 +236,17 @@ begin
   Result := True;
   if WizardSilent and not InstallingPayload and (VerificationPage <> nil) then
   begin
-    VerificationPage.Show;
-    WizardForm.Show;
-    VerificationPage.SetText(
-      FmtMessage(CustomMessage('UpdateChecking'), [IntToStr(PayloadChecks.Count)]),
-      ExtractFileName(Target));
-    VerificationPage.Animate;
+    NowTicks := GetTickCount64;
+    if (PayloadChecks.Count = 0) or (NowTicks - VerificationUpdatedAt >= 100) then
+    begin
+      VerificationUpdatedAt := NowTicks;
+      VerificationPage.Show;
+      if not WizardForm.Visible then WizardForm.Show;
+      { SetText also pumps window messages; do not repaint for every small file. }
+      VerificationPage.SetText(
+        FmtMessage(CustomMessage('UpdateChecking'), [IntToStr(PayloadChecks.Count)]),
+        ExtractFileName(Target));
+    end;
   end;
   if FileExists(Target) then
     try

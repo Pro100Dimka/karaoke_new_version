@@ -60,6 +60,7 @@ vi.mock('./DiscordPresence', () => ({
 }));
 vi.mock('./AutoUpdate', () => ({
   startAutoUpdate: () => ({
+    requiresLaunchCheck: () => false,
     beforeLaunch: async () => false,
     install: () => false,
     stop: vi.fn(),
@@ -142,6 +143,7 @@ vi.mock('./Splash', () => ({
   openSplash: vi.fn(),
   setSplashStatus: vi.fn(),
   waitForStorageMigration: vi.fn(async () => undefined),
+  hasPendingStorageMigration: () => false,
   readSavedTheme: () => 'dark',
   isThemeName: () => false,
 }));

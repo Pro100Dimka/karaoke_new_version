@@ -16,7 +16,6 @@ import soundfile as sf
 from backend.recordings.studio_audio import (
     _MAX_BOOST_DB,
     _PROFILE_SECONDS,
-    _VOCAL_TARGET_OFFSET_DB,
     _check_cancel,
     _profile,
 )
@@ -54,38 +53,32 @@ def _slow_gain_envelope(
 def _balance_curve(
     voice: NDArray[np.float64],
     backing: NDArray[np.float64],
-    reference: NDArray[np.float64],
-    original: NDArray[np.float64],
-    *,
-    phrase_smoothing: bool = False,
 ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]:
-    # Compare only voiced frames; never amplify silence to reference level.
+    # Level this performance independently of another singer's timing or level.
     upper = float(np.percentile(voice, 80))
     floor = max(-80.0, min(float(np.percentile(voice, 20)) + 10.0, upper - 10.0))
-    reliable = (voice > floor) & (reference > max(-55.0, float(np.max(reference)) - 30))
-    if not phrase_smoothing:
-        reliable &= (backing > -60) & (original > -60)
+    reliable = voice > floor
     if not reliable.any():
         return np.zeros_like(voice), reliable
-    target = backing + reference - original
-    if phrase_smoothing:
-        target += _VOCAL_TARGET_OFFSET_DB
-    desired = np.minimum(target - voice, _MAX_BOOST_DB)
-    positions = np.arange(len(voice))
-    # Interpolate *only* between reliable vocal frames; then use one slow
-    # phrase-level envelope rather than applying a second syllable tracker.
-    raw = np.interp(positions, positions[reliable], desired[reliable])
-    gains = _slow_gain_envelope(raw)
-    if phrase_smoothing:
-        # The global offset is held through rests; local boosts are faded using
-        # a slow activity envelope, never reset at individual syllable gaps.
-        baseline = float(np.median(gains[reliable]))
-        activity = _slow_gain_envelope(reliable.astype(np.float64), seconds=2.0)
-        # Keep reference crescendos from imposing large gain rides on another singer.
-        gains = baseline + np.clip(gains - baseline, -2.0, 2.0) * np.clip(activity, 0.0, 1.0)
+    leveling = _performance_leveling(voice, floor)
+    accompanied = reliable & (backing > -60)
+    baseline = (
+        float(np.median((backing - voice - leveling)[accompanied])) if accompanied.any() else 0.0
+    )
+    gains = baseline + leveling
     noise = voice <= max(-70.0, upper - 45.0)
     gains[noise] = np.minimum(gains[noise], 0.0)
     return np.clip(gains, -18.0, _MAX_BOOST_DB), reliable
+
+
+def _presence_activity(
+    voice: NDArray[np.float64], backing: NDArray[np.float64]
+) -> NDArray[np.bool_]:
+    floor = min(
+        float(np.percentile(voice, 80)) - 6.0,
+        max(-70.0, float(np.percentile(voice, 10)) + 9.0),
+    )
+    return (voice > floor) & (backing > -60)
 
 
 def _protect_vocal_presence(
@@ -93,33 +86,34 @@ def _protect_vocal_presence(
     voice: NDArray[np.float64],
     backing: NDArray[np.float64],
 ) -> tuple[NDArray[np.float64], dict[str, float]]:
-    """Prevent reference matching from burying vocals during loud passages.
+    """Keep vocal presence steady when the accompaniment grows.
 
     Track slow accompaniment changes, not individual drum hits. The adjustment
     never boosts pauses and is capped to avoid excessive noise or pumping.
     """
     if not len(gains) or len(gains) != len(voice) or len(voice) != len(backing):
         return gains, {"presenceBoostMaxDb": 0.0}
-    active_floor = min(
-        float(np.percentile(voice, 80)) - 6.0,
-        max(-48.0, float(np.percentile(voice, 20)) + 9.0),
-    )
-    active = voice > active_floor
+    active = _presence_activity(voice, backing)
     if np.count_nonzero(active) < 10:
         return gains, {"presenceBoostMaxDb": 0.0}
     # A quiet intro should not establish the target level for the climax.
     local_backing = median_filter(backing, size=31, mode="nearest")
     reference_backing = float(np.percentile(local_backing[active], 35))
-    rise = np.clip(local_backing - reference_backing, 0.0, 8.0)
-    # Preserve at least half of the musical rise in vocal prominence, while
-    # leaving the original reference matching intact on quieter passages.
-    minimum_gain = np.minimum(5.0, 0.55 * rise)
-    corrected = np.maximum(gains, minimum_gain)
-    # Limit any *additional* gain to +5 dB and avoid sudden envelope changes.
-    extra = np.clip(corrected - gains, 0.0, 5.0)
-    extra = _slow_gain_envelope(extra)
-    extra *= np.clip(_slow_gain_envelope(active.astype(float), seconds=2.0), 0.0, 1.0)
-    result = np.minimum(np.clip(gains + extra, -18.0, _MAX_BOOST_DB), gains + 5.0)
+    positions = np.arange(len(voice))
+    # Keep short syllables in the detector; a median discards their peaks and
+    # leaves the preceding quiet-word boost active over a louder syllable.
+    levels = np.interp(positions, positions[active], (voice + gains)[active])
+    output_voice = gaussian_filter1d(levels, sigma=0.05 / _PROFILE_SECONDS, mode="nearest")
+    reference_voice = float(np.median(output_voice[active & (local_backing <= reference_backing)]))
+    rise = np.maximum(local_backing - reference_backing, 0.0)
+    quiet_word = np.clip(reference_voice - output_voice, 0.0, 4.0)
+    # Preserve crescendos; allow the same bounded soft-word leveling as the
+    # performance envelope when musical rise compensation uses its gain budget.
+    desired = rise - (output_voice - reference_voice)
+    ceiling = np.minimum(rise, _MAX_BOOST_DB) + quiet_word
+    extra = np.where(rise > 1.0, np.clip(desired, 0.0, ceiling), 0.0)
+    extra *= np.clip(_slow_gain_envelope(active.astype(float), seconds=0.3), 0.0, 1.0)
+    result = gains + np.minimum(extra, np.maximum(0.0, _MAX_BOOST_DB + quiet_word - gains))
     return result, {
         "presenceBoostMaxDb": float(np.max(extra)),
         "presenceBoostMeanDb": float(np.mean(extra[active])),
@@ -411,3 +405,15 @@ def _voice_tails(levels: NDArray[np.float64]) -> list[float]:
         if i >= 5 and i + 5 < len(levels) and float(np.max(levels[i : i + 5])) < upper - 15
     ]
     return tails
+
+
+def _performance_leveling(voice: NDArray[np.float64], floor: float) -> NDArray[np.float64]:
+    positions = np.arange(len(voice))
+    voiced = voice > floor
+    envelope = np.interp(positions, positions[voiced], voice[voiced])
+    leveling = np.clip(
+        _slow_gain_envelope(float(np.median(voice[voiced])) - envelope, seconds=1.0),
+        -4.0,
+        4.0,
+    )
+    return leveling
