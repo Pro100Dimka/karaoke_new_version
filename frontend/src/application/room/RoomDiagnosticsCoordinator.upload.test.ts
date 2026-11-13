@@ -5,12 +5,10 @@ import { RoomDiagnosticsCoordinator } from './RoomDiagnosticsCoordinator';
 import type { RoomSessionScope } from './RoomSessionController';
 
 const mocks = vi.hoisted(() => ({
-  diagnosticsDump: vi.fn(
-    async (): Promise<Record<string, string>> => ({
-      Backend: 'ASIO',
-      RoomCompensationFrames: '960',
-    }),
-  ),
+  diagnosticsDump: vi.fn(async (): Promise<Record<string, string>> => ({
+    Backend: 'ASIO',
+    RoomCompensationFrames: '960',
+  })),
   listDevices: vi.fn(async () => [
     { id: 'mic-1', name: 'Microphone Array', kind: 'input', channels: 2 },
   ]),

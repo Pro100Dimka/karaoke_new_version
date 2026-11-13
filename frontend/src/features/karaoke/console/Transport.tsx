@@ -1,7 +1,5 @@
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { useMemo, useRef } from 'react';
-import type { MessageKey } from '../../../i18n/messages';
-import { ru } from '../../../i18n/messages.ru';
 import type { KaraokeState } from '../../../application/karaoke/karaokeMachine';
 
 const skipSeconds = 10;
@@ -59,7 +57,7 @@ export const Transport = ({
       },
     ] satisfies readonly {
       id: string;
-      label: MessageKey;
+      label: string;
       icon: string;
       primary: boolean;
       run(): void;
@@ -69,7 +67,7 @@ export const Transport = ({
       <div
         className="transport"
         role="toolbar"
-        aria-label={tr(ru.transportControls)}
+        aria-label={tr('transportControls')}
       >
         {actions.map((action) => (
           <IconButton
@@ -79,7 +77,7 @@ export const Transport = ({
             size={action.primary ? 'lg' : 'md'}
             variant={action.primary ? 'primary' : 'secondary'}
             icon={action.icon}
-            label={tr(ru[action.label])}
+            label={tr(action.label)}
             disabled={disabled}
             onClick={action.run}
           />

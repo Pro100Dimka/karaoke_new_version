@@ -203,8 +203,16 @@ export const RollFx = ({
     const canvas = document.createElement('canvas');
     canvas.className = 'showRollFx';
     element.append(canvas);
-    const renderer = new RollFxRenderer(canvas, engine, frame, current, undefined, () =>
-      new Worker(new URL('./rollFxWorker.ts', import.meta.url), { type: 'module' }),
+    const renderer = new RollFxRenderer(
+      canvas,
+      engine,
+      frame,
+      current,
+      undefined,
+      () =>
+        new Worker(new URL('./rollFxWorker.ts', import.meta.url), {
+          type: 'module',
+        }),
     );
     activeRenderer.current = renderer;
     return () => {

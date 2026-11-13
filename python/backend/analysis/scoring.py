@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import statistics
 from bisect import bisect_left
+from collections import Counter
 from dataclasses import dataclass
 from itertools import pairwise
 from typing import Mapping, Sequence
@@ -60,10 +61,7 @@ def score_pitch(
 ) -> ScoreSummary:
     adjustments = parse_playback_adjustments(playback_adjustments)
     if reference_pitch is not None:
-        notes = sorted(
-            (note for word in reference.words for note in word.notes), key=lambda note: note.start
-        )
-        if notes:
+        if any(word.notes for word in reference.words):
             reference_pitch = tuple(
                 PitchPoint(
                     time,
@@ -198,10 +196,13 @@ def _pitch_at(
     step: float,
 ) -> tuple[float | None, bool]:
     index = bisect_left(times, time)
-    candidates = [candidate for candidate in (index - 1, index) if 0 <= candidate < len(points)]
-    if not candidates:
+    if not points:
         return None, False
-    point = points[min(candidates, key=lambda candidate: abs(times[candidate] - time))]
+    if index > 0 and (
+        index == len(points) or abs(times[index - 1] - time) <= abs(times[index] - time)
+    ):
+        index -= 1
+    point = points[index]
     if abs(point.time - time) > step * 0.51:
         return None, False
     pitched = point.confidence >= 0.3 and point.frequency > 0
@@ -476,25 +477,24 @@ def _sections(
 ) -> tuple[SectionResult, ...]:
     result: list[SectionResult] = []
     step = 10.0
-    start = 0.0
-    while start < duration:
+    groups: list[list[float]] = [[] for _ in range(max(0, math.ceil(duration / step)))]
+    for time, value in samples:
+        if 0 <= time < duration:
+            groups[int(time // step)].append(value)
+    totals = Counter(int(time // step) for time in (expected_times or ()) if 0 <= time < duration)
+    for index, values in enumerate(groups):
+        start = index * step
         end = min(duration, start + step)
-        values = [value for time, value in samples if start <= time < end]
-        total = (
-            sum(start <= time < end for time in expected_times)
-            if expected_times is not None
-            else len(values)
-        )
+        total = len(values) if expected_times is None else totals[index]
         if total:
             result.append(
                 SectionResult(
                     start,
                     end,
                     100.0
-                    * sum(1 for value in values if value <= KARAOKE_PITCH_TOLERANCE_SEMITONES)
+                    * sum(value <= KARAOKE_PITCH_TOLERANCE_SEMITONES for value in values)
                     / total,
                     sum(values) / len(values) if values else 0.0,
                 )
             )
-        start = end
     return tuple(result)

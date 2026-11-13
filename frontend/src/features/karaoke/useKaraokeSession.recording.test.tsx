@@ -341,7 +341,9 @@ describe('karaoke recording ownership', () => {
   it.each(['Normal', 'Rehearsal'] as const)(
     'continues an interrupted %s performance after recovery',
     async (mode) => {
-      const { result } = renderHook(() => useKaraokeSession('song', mode, true));
+      const { result } = renderHook(() =>
+        useKaraokeSession('song', mode, true),
+      );
       if (mode === 'Normal') {
         await waitFor(() => expect(result.current.state.kind).toBe('ready'));
         await act(() => result.current.togglePlay());
@@ -384,16 +386,23 @@ describe('karaoke recording ownership', () => {
 
   it('does not resume a recovered room song as solo playback after leaving the room', async () => {
     roomState.room = {
-      code: 'room', hostId: 'host', role: 'participant',
-      participants: [], playbackLocked: false, playbackState: 'playing',
-      songId: 'song', revision: 1,
+      code: 'room',
+      hostId: 'host',
+      role: 'participant',
+      participants: [],
+      playbackLocked: false,
+      playbackState: 'playing',
+      songId: 'song',
+      revision: 1,
     };
     const { result, rerender } = renderHook(() =>
       useKaraokeSession('song', 'RoomPrepared', true),
     );
     await waitFor(() => expect(result.current.state.kind).toBe('ready'));
     act(() => {
-      vi.mocked(useSynchronizedRoomPlayback).mock.calls.at(-1)?.[0].onEvent('PLAY');
+      vi.mocked(useSynchronizedRoomPlayback)
+        .mock.calls.at(-1)?.[0]
+        .onEvent('PLAY');
     });
     await waitFor(() => expect(result.current.recording).toBe('recording'));
     act(() => {
@@ -466,13 +475,21 @@ describe('karaoke recording ownership', () => {
   });
 
   it('keeps the last monitoring intent when toggled twice before the driver responds', async () => {
-    const { result } = renderHook(() => useKaraokeSession('song', 'Normal', true));
+    const { result } = renderHook(() =>
+      useKaraokeSession('song', 'Normal', true),
+    );
     await waitFor(() => expect(result.current.state.kind).toBe('ready'));
     await act(async () => {
-      await Promise.all([result.current.toggleMonitoring(), result.current.toggleMonitoring()]);
+      await Promise.all([
+        result.current.toggleMonitoring(),
+        result.current.toggleMonitoring(),
+      ]);
     });
-    expect(vi.mocked(audioClient.setMonitoring).mock.calls.map(([enabled]) => enabled))
-      .toEqual([true, false]);
+    expect(
+      vi
+        .mocked(audioClient.setMonitoring)
+        .mock.calls.map(([enabled]) => enabled),
+    ).toEqual([true, false]);
     expect(result.current.monitoring).toBe(false);
   });
 

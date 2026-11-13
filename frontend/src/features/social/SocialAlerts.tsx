@@ -19,7 +19,6 @@ import type {
   SocialInvite,
   SocialPerson,
 } from '../../contracts/social';
-import { ru } from '../../i18n/messages.ru';
 import { PersonAvatar } from './PersonAvatar';
 import { useSocialAction } from './useSocialAction';
 
@@ -106,7 +105,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={invite.inviteId}
           person={invite.sender}
-          text={tr(ru.roomInviteAlert, { name: invite.sender.displayName })}
+          text={tr('social.roomInviteAlert', { name: invite.sender.displayName })}
           actions={
             <>
               <Button
@@ -116,7 +115,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                 disabled={busy}
                 onClick={() => void acceptInvite(invite)}
               >
-                {tr(ru.acceptAction)}
+                {tr('social.acceptAction')}
               </Button>
               <Button
                 size="sm"
@@ -126,7 +125,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                   void run(() => invitations.decline(invite.inviteId))
                 }
               >
-                {tr(ru.declineAction)}
+                {tr('social.declineAction')}
               </Button>
             </>
           }
@@ -136,7 +135,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={`join:${request.person.accountId}:${request.roomId}`}
           person={request.person}
-          text={tr(ru.joinRequested, { name: request.person.displayName })}
+          text={tr('social.joinRequested', { name: request.person.displayName })}
           actions={
             <Button
               size="sm"
@@ -151,7 +150,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                   );
               }}
             >
-              {tr(ru.acceptAction)}
+              {tr('social.acceptAction')}
             </Button>
           }
         />
@@ -160,7 +159,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={person.accountId}
           person={person}
-          text={tr(ru.friendRequestAlert, { name: person.displayName })}
+          text={tr('social.friendRequestAlert', { name: person.displayName })}
           actions={
             <>
               <Button
@@ -170,7 +169,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                 disabled={busy}
                 onClick={() => void run(() => friends.accept(person.accountId))}
               >
-                {tr(ru.acceptAction)}
+                {tr('social.acceptAction')}
               </Button>
               <Button
                 size="sm"
@@ -180,7 +179,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                   void run(() => friends.decline(person.accountId))
                 }
               >
-                {tr(ru.declineAction)}
+                {tr('social.declineAction')}
               </Button>
               <Button
                 size="sm"
@@ -191,7 +190,7 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
                   setLater((current) => new Set(current).add(person.accountId))
                 }
               >
-                {tr(ru.laterAction)}
+                {tr('social.laterAction')}
               </Button>
             </>
           }

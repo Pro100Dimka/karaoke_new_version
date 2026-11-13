@@ -82,11 +82,10 @@ export const selectLibrarySongs = (
         normalizeSearch(value).includes(query),
       );
     })
-    .sort(
-      (a, b) =>
-        sort === 'recent'
-          ? compareAddedSongs(a, b, direction)
-          : (direction === 'asc' ? 1 : -1) * primary[sort](a, b, played) ||
-            stableTail(a, b),
+    .sort((a, b) =>
+      sort === 'recent'
+        ? compareAddedSongs(a, b, direction)
+        : (direction === 'asc' ? 1 : -1) * primary[sort](a, b, played) ||
+          stableTail(a, b),
     );
 };

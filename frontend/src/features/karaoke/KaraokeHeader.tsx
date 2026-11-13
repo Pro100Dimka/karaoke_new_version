@@ -1,6 +1,5 @@
 import { createPortal } from 'react-dom';
 import { titleBarLeadingId } from '../../app/TitleBar';
-import { ru } from '../../i18n/messages.ru';
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 
 interface KaraokeHeaderProps {
@@ -28,7 +27,7 @@ export const KaraokeHeader = ({
           round
           icon="back"
           size="lg"
-          label={tr(ru.library)}
+          label={tr('library')}
           onClick={onBack}
         />
         {consoleToggle && (
@@ -36,9 +35,7 @@ export const KaraokeHeader = ({
             round
             size="lg"
             icon={consoleToggle.visible ? 'down' : 'up'}
-            label={tr(
-              ru[consoleToggle.visible ? 'hideConsole' : 'showConsole'],
-            )}
+            label={tr(consoleToggle.visible ? 'hideConsole' : 'showConsole')}
             onClick={consoleToggle.onToggle}
           />
         )}

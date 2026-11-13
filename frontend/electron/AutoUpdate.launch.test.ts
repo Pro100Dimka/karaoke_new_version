@@ -78,6 +78,7 @@ it('launches while the update downloads in the background and installs the cache
     directory,
   });
 
+  expect(updater.requiresLaunchCheck()).toBe(false);
   expect(await updater.beforeLaunch(() => undefined)).toBe(false);
   expect(fetchImpl).toHaveBeenCalledTimes(0);
   expect(mocks.spawn).not.toHaveBeenCalled();
@@ -86,6 +87,7 @@ it('launches while the update downloads in the background and installs the cache
   expect(fetchImpl).toHaveBeenCalledTimes(2);
   finishDownload();
   await vi.waitFor(() => expect(ready).toHaveBeenCalledWith('1.1.5'));
+  expect(updater.requiresLaunchCheck()).toBe(true);
   expect(await updater.beforeLaunch(() => undefined)).toBe(true);
   expect(mocks.spawn).toHaveBeenCalledWith(
     path.join(directory, 'AD-Voice-Setup-1.1.5.exe'),
@@ -93,6 +95,36 @@ it('launches while the update downloads in the background and installs the cache
     expect.anything(),
   );
   updater.stop();
+});
+
+it('does not hold startup on a slow update check when automatic installation is off', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'updates-'));
+  roots.push(directory);
+  let finish!: (response: Response) => void;
+  const pending = new Promise<Response>((resolve) => {
+    finish = resolve;
+  });
+  const updater = startAutoUpdate({
+    directory,
+    automatic: () => false,
+    ready: vi.fn(),
+    quit: vi.fn(),
+    log: vi.fn(),
+    fetchImpl: vi.fn(() => pending),
+  });
+  let opened = false;
+  const launch = updater
+    .beforeLaunch(() => undefined)
+    .then(() => {
+      opened = true;
+    });
+  try {
+    await vi.waitFor(() => expect(opened).toBe(true), { timeout: 200 });
+  } finally {
+    finish(new Response(JSON.stringify(release)));
+    await launch;
+    updater.stop();
+  }
 });
 
 it('with updates off only offers the new version, and installs it when asked', async () => {
@@ -120,7 +152,7 @@ it('with updates off only offers the new version, and installs it when asked', a
 
   // Start-up: nothing is downloaded or installed, the version is offered.
   expect(await updater.beforeLaunch(() => undefined)).toBe(false);
-  expect(available).toHaveBeenCalledWith('1.1.5');
+  await vi.waitFor(() => expect(available).toHaveBeenCalledWith('1.1.5'));
   expect(fetchImpl).toHaveBeenCalledTimes(1);
   expect(mocks.spawn).not.toHaveBeenCalled();
 

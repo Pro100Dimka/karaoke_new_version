@@ -1,5 +1,11 @@
 import {
-  Button, Dialog, Icon, TextField, tr, useLocale, useRouter,
+  Button,
+  Dialog,
+  Icon,
+  TextField,
+  tr,
+  useLocale,
+  useRouter,
 } from '@neo-ui-kit/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -9,7 +15,11 @@ import { store } from '../../providers/store';
 import { openSettings } from '../library/modals/settings';
 import { routes } from '../../shared/routes';
 import {
-  articles, quickAnswers, searchArticles, sections, type SectionId,
+  articles,
+  quickAnswers,
+  searchArticles,
+  sections,
+  type SectionId,
 } from './content';
 import { visuals, type GuideVisual } from './visuals';
 import './help.css';
@@ -22,14 +32,16 @@ const settingsActions = {
   advanced: 'Открыть дополнительные настройки',
 };
 const sectionEntries = Object.entries(sections) as [
-  SectionId, (typeof sections)[SectionId],
+  SectionId,
+  (typeof sections)[SectionId],
 ][];
 
 export const HelpPage = observer(() => {
   useLocale();
   const { navigate } = useRouter();
   const { theme } = store.interface;
-  const mediaRoot = import.meta.env.BASE_URL + 'help/' + (theme === 'dark' ? '' : theme + '/');
+  const mediaRoot =
+    import.meta.env.BASE_URL + 'help/' + (theme === 'dark' ? '' : theme + '/');
   const page = useRef<HTMLElement>(null);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
@@ -39,7 +51,9 @@ export const HelpPage = observer(() => {
   const [section, setSection] = useState<SectionId | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [zoom, setZoom] = useState<{
-    visual: GuideVisual; title: string; number: number;
+    visual: GuideVisual;
+    title: string;
+    number: number;
   } | null>(null);
   const article = articles.find(({ id }) => id === articleId);
   const nextArticle = articles.find(({ id }) => id === article?.next);
@@ -64,36 +78,51 @@ export const HelpPage = observer(() => {
     page.current?.scrollTo({ top: 0 });
   };
   const screenshot = (
-    visual: GuideVisual, title: string, number: number, cropped = false,
+    visual: GuideVisual,
+    title: string,
+    number: number,
+    cropped = false,
   ) => {
     const { image, focus } = visuals[visual];
     const scale = cropped
       ? Math.max(1, Math.min(2.4, 78 / Math.max(focus[2], focus[3])))
       : 1;
-    const translation = [focus[0] + focus[2] / 2, focus[1] + focus[3] / 2]
-      .map((center) => Math.max(100 * (1 - scale), Math.min(0, 50 - center * scale)));
+    const translation = [focus[0] + focus[2] / 2, focus[1] + focus[3] / 2].map(
+      (center) => Math.max(100 * (1 - scale), Math.min(0, 50 - center * scale)),
+    );
     return (
       <span className="helpScreen">
         <span
           className="helpScreenCanvas"
           style={{
-            transform: 'translate(' + translation.join('%, ') + '%) scale(' + scale + ')',
+            transform:
+              'translate(' +
+              translation.join('%, ') +
+              '%) scale(' +
+              scale +
+              ')',
             transformOrigin: '0 0',
           }}
         >
           <img
             src={mediaRoot + image + '.jpg'}
-            alt={tr(title)} loading="lazy"
+            alt={tr(title)}
+            loading="lazy"
           />
           <span
-            className="helpFocus" aria-hidden
+            className="helpFocus"
+            aria-hidden
             style={{
-              left: focus[0] + '%', top: focus[1] + '%',
-              width: focus[2] + '%', height: focus[3] + '%',
+              left: focus[0] + '%',
+              top: focus[1] + '%',
+              width: focus[2] + '%',
+              height: focus[3] + '%',
               borderWidth: 1.5 / scale,
             }}
           >
-            <span style={{ transform: 'scale(' + (1 / scale) + ')' }}>{number}</span>
+            <span style={{ transform: 'scale(' + 1 / scale + ')' }}>
+              {number}
+            </span>
           </span>
         </span>
       </span>
@@ -102,8 +131,10 @@ export const HelpPage = observer(() => {
   const header = (
     <header className="helpHeader" data-window-drag>
       <Button
-        variant="ghost" icon="back"
-        onClick={() => navigate(routes.library)} label={tr('Библиотека')}
+        variant="ghost"
+        icon="back"
+        onClick={() => navigate(routes.library)}
+        label={tr('Библиотека')}
       />
       <div className="helpHeaderTitle">
         <Icon name="document" size={18} />
@@ -118,7 +149,9 @@ export const HelpPage = observer(() => {
       <div className="helpLayout">
         <nav className="helpSidebar" aria-label={tr('Разделы инструкции')}>
           <Button
-            variant="ghost" icon="grid" label={tr('Обзор')}
+            variant="ghost"
+            icon="grid"
+            label={tr('Обзор')}
             aria-current={!section && !searching ? 'page' : undefined}
             onClick={() => showSection(null)}
           />
@@ -126,20 +159,32 @@ export const HelpPage = observer(() => {
           {sectionEntries.map(([id, item]) => (
             <div className="helpNavGroup" key={id}>
               <Button
-                variant="ghost" icon={item.icon} label={tr(item.title)}
-                aria-current={section === id && !article && !searching ? 'page' : undefined}
+                variant="ghost"
+                icon={item.icon}
+                label={tr(item.title)}
+                aria-current={
+                  section === id && !article && !searching ? 'page' : undefined
+                }
                 aria-expanded={section === id}
                 onClick={() => showSection(id)}
               />
               {section === id && (
                 <div className="helpSidebarTopics">
-                  {articles.filter((item) => item.section === id).map((item) => (
-                    <Button
-                      key={item.id} variant="ghost" label={tr(item.title)}
-                      aria-current={articleId === item.id && !searching ? 'page' : undefined}
-                      onClick={() => openArticle(item.id)}
-                    />
-                  ))}
+                  {articles
+                    .filter((item) => item.section === id)
+                    .map((item) => (
+                      <Button
+                        key={item.id}
+                        variant="ghost"
+                        label={tr(item.title)}
+                        aria-current={
+                          articleId === item.id && !searching
+                            ? 'page'
+                            : undefined
+                        }
+                        onClick={() => openArticle(item.id)}
+                      />
+                    ))}
                 </div>
               )}
             </div>
@@ -152,27 +197,43 @@ export const HelpPage = observer(() => {
                 <>
                   <span className="helpEyebrow">A&D Voice</span>
                   <h1>{tr('Что хотите сделать?')}</h1>
-                  <p>{tr('Выберите раздел или опишите задачу своими словами.')}</p>
+                  <p>
+                    {tr('Выберите раздел или опишите задачу своими словами.')}
+                  </p>
                 </>
               )}
               <TextField
-                value={query} onValueChange={setQuery}
+                value={query}
+                onValueChange={setQuery}
                 className="helpSearchField"
                 aria-label={tr('Поиск по инструкции')}
-                placeholder={tr('Например: не слышу себя или как записать песню')}
+                placeholder={tr(
+                  'Например: не слышу себя или как записать песню',
+                )}
                 startAdornment={<Icon name="search" size={19} />}
               />
             </div>
 
             {searching || (!article && section) ? (
-              <section className="helpResults" aria-labelledby="helpResultsTitle">
+              <section
+                className="helpResults"
+                aria-labelledby="helpResultsTitle"
+              >
                 <h1 id="helpResultsTitle">
-                  {tr(searching ? 'Результаты поиска' : section ? sections[section].title : 'Инструкция')}
+                  {tr(
+                    searching
+                      ? 'Результаты поиска'
+                      : section
+                        ? sections[section].title
+                        : 'Инструкция',
+                  )}
                 </h1>
                 <div className="helpTopicList">
                   {results.map((item) => (
                     <Button
-                      key={item.id} variant="ghost" className="helpResult"
+                      key={item.id}
+                      variant="ghost"
+                      className="helpResult"
                       onClick={() => openArticle(item.id)}
                     >
                       <span className="helpResultContent">
@@ -181,18 +242,32 @@ export const HelpPage = observer(() => {
                           <strong>{tr(item.title)}</strong>
                           <small>{tr(sections[item.section].title)}</small>
                         </span>
-                        <Icon name="back" size={16} style={{ transform: 'rotate(180deg)' }} />
+                        <Icon
+                          name="back"
+                          size={16}
+                          style={{ transform: 'rotate(180deg)' }}
+                        />
                       </span>
                     </Button>
                   ))}
                 </div>
                 {!results.length && (
-                  <p role="status">{tr('Попробуйте написать короче: «микрофон», «задержка», «записать» или выберите раздел.')}</p>
+                  <p role="status">
+                    {tr(
+                      'Попробуйте написать короче: «микрофон», «задержка», «записать» или выберите раздел.',
+                    )}
+                  </p>
                 )}
               </section>
             ) : article ? (
-              <article className="helpArticle" key={article.id} aria-labelledby="helpArticleTitle">
-                <span className="helpEyebrow">{tr(sections[article.section].title)}</span>
+              <article
+                className="helpArticle"
+                key={article.id}
+                aria-labelledby="helpArticleTitle"
+              >
+                <span className="helpEyebrow">
+                  {tr(sections[article.section].title)}
+                </span>
                 <h1 id="helpArticleTitle">{tr(article.title)}</h1>
                 <ol className="helpSteps">
                   {article.steps.map(({ visual, ...step }, index) => (
@@ -205,7 +280,9 @@ export const HelpPage = observer(() => {
                         <p>{tr(step.body)}</p>
                         {step.settings && (
                           <Button
-                            className="helpAction" variant="ghost" icon="settings"
+                            className="helpAction"
+                            variant="ghost"
+                            icon="settings"
                             onClick={() => openSettings(step.settings)}
                             label={tr(settingsActions[step.settings])}
                           />
@@ -218,11 +295,19 @@ export const HelpPage = observer(() => {
                         )}
                         {step.clip && (
                           <details className="helpDetails helpClip">
-                            <summary><Icon name="play" size={15} />{tr('Посмотреть короткое видео')}</summary>
+                            <summary>
+                              <Icon name="play" size={15} />
+                              {tr('Посмотреть короткое видео')}
+                            </summary>
                             <video
-                              controls playsInline preload="none"
+                              controls
+                              playsInline
+                              preload="none"
                               src={mediaRoot + step.clip + '.webm'}
-                              poster={visual && mediaRoot + visuals[visual].image + '.jpg'}
+                              poster={
+                                visual &&
+                                mediaRoot + visuals[visual].image + '.jpg'
+                              }
                               aria-label={tr(step.title)}
                             >
                               {tr('Основные действия описаны над видео.')}
@@ -232,13 +317,23 @@ export const HelpPage = observer(() => {
                       </div>
                       {visual && (
                         <button
-                          type="button" className="helpScreenshot"
-                          onClick={() => setZoom({ visual, title: step.title, number: index + 1 })}
-                          aria-label={tr('Увеличить изображение: {name}', { name: tr(step.title) })}
+                          type="button"
+                          className="helpScreenshot"
+                          onClick={() =>
+                            setZoom({
+                              visual,
+                              title: step.title,
+                              number: index + 1,
+                            })
+                          }
+                          aria-label={tr('Увеличить изображение: {name}', {
+                            name: tr(step.title),
+                          })}
                         >
                           {screenshot(visual, step.title, index + 1, true)}
                           <span className="helpZoomHint">
-                            <Icon name="search" size={14} />{tr('Нажмите, чтобы увеличить')}
+                            <Icon name="search" size={14} />
+                            {tr('Нажмите, чтобы увеличить')}
                           </span>
                         </button>
                       )}
@@ -248,9 +343,16 @@ export const HelpPage = observer(() => {
                 {nextArticle && (
                   <footer className="helpNext">
                     <span>{tr('Следующий шаг')}</span>
-                    <Button variant="ghost" onClick={() => openArticle(nextArticle.id)}>
+                    <Button
+                      variant="ghost"
+                      onClick={() => openArticle(nextArticle.id)}
+                    >
                       {tr(nextArticle.title)}
-                      <Icon name="back" size={16} style={{ transform: 'rotate(180deg)' }} />
+                      <Icon
+                        name="back"
+                        size={16}
+                        style={{ transform: 'rotate(180deg)' }}
+                      />
                     </Button>
                   </footer>
                 )}
@@ -260,7 +362,9 @@ export const HelpPage = observer(() => {
                 <div className="helpHomeGrid">
                   {sectionEntries.map(([id, item]) => (
                     <Button
-                      key={id} variant="ghost" className="helpCategory"
+                      key={id}
+                      variant="ghost"
+                      className="helpCategory"
                       onClick={() => showSection(id)}
                     >
                       <span className="helpCategoryContent">
@@ -269,7 +373,11 @@ export const HelpPage = observer(() => {
                           <strong>{tr(item.title)}</strong>
                           <small>{tr(item.description)}</small>
                         </span>
-                        <Icon name="back" size={16} style={{ transform: 'rotate(180deg)' }} />
+                        <Icon
+                          name="back"
+                          size={16}
+                          style={{ transform: 'rotate(180deg)' }}
+                        />
                       </span>
                     </Button>
                   ))}
@@ -277,16 +385,24 @@ export const HelpPage = observer(() => {
                 <section className="helpQuick" aria-labelledby="helpQuickTitle">
                   <h2 id="helpQuickTitle">{tr('Быстрые ответы')}</h2>
                   <div>
-                    {articles.filter(({ id }) => quickAnswers.includes(id)).map((item) => (
-                      <Button
-                        key={item.id} variant="ghost" className="helpQuickLink"
-                        onClick={() => openArticle(item.id)}
-                      >
-                        <Icon name="wrench" size={17} />
-                        {tr(item.title)}
-                        <Icon name="back" size={15} style={{ transform: 'rotate(180deg)' }} />
-                      </Button>
-                    ))}
+                    {articles
+                      .filter(({ id }) => quickAnswers.includes(id))
+                      .map((item) => (
+                        <Button
+                          key={item.id}
+                          variant="ghost"
+                          className="helpQuickLink"
+                          onClick={() => openArticle(item.id)}
+                        >
+                          <Icon name="wrench" size={17} />
+                          {tr(item.title)}
+                          <Icon
+                            name="back"
+                            size={15}
+                            style={{ transform: 'rotate(180deg)' }}
+                          />
+                        </Button>
+                      ))}
                   </div>
                 </section>
               </>
@@ -297,9 +413,14 @@ export const HelpPage = observer(() => {
       <Dialog
         className="helpZoomDialog"
         open={zoom !== null}
-        onOpenChange={(open) => { if (!open) setZoom(null); }}
-        width="full" title={zoom ? tr(zoom.title) : ''}
-        closeLabel={tr('closeDialog')} cancelLabel={false} confirmLabel={false}
+        onOpenChange={(open) => {
+          if (!open) setZoom(null);
+        }}
+        width="full"
+        title={zoom ? tr(zoom.title) : ''}
+        closeLabel={tr('closeDialog')}
+        cancelLabel={false}
+        confirmLabel={false}
       >
         {zoom && screenshot(zoom.visual, zoom.title, zoom.number)}
       </Dialog>

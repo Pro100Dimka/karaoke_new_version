@@ -23,7 +23,7 @@ from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.models.commands import DeclareModel
 from backend.lyrics.retry import CancelAwareWaiter, RetryingLyricsProvider, RetryPolicy
-from backend.settings.domain import BackendSettings
+from backend.settings.domain import BackendSettings, room_server_url
 from backend.settings.environment import default_environment_store
 
 
@@ -52,10 +52,8 @@ def configured_ai_providers(
         local = (_command_provider("local-torch", "1", worker, required, config, processes),)
     return (
         *local,
-        KaggleAiProvider(
-            settings,
-            start_notebook=lambda cancel: _start_kaggle_notebook(config, settings, cancel),
-        ),
+        # Kaggle is opt-in: only the explicit Settings deploy action may launch it.
+        KaggleAiProvider(settings),
     )
 
 
@@ -77,7 +75,7 @@ def _start_kaggle_notebook(
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
     KaggleNotebookAutomation(account_token=account_token, cancel=cancel).deploy(
         current.kaggle_token,
-        f"http://{host}:{port}",
+        room_server_url(host, port),
         installation_notebook_slug(config.roots.app),
     )
 

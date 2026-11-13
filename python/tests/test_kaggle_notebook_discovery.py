@@ -10,13 +10,22 @@ import zlib
 import pytest
 
 
-def test_server_reuses_timed_recognition_with_session_language_and_offset_isolation(tmp_path):
+@pytest.mark.parametrize("free_bytes, expected_calls", [(100_000_000, (1, 4, 4)), (0, (3, 6, 7))])
+def test_server_reuses_timed_recognition_with_session_language_and_offset_isolation(
+    tmp_path, monkeypatch, free_bytes, expected_calls
+):
     import shutil
     import threading
     from types import SimpleNamespace
     from unittest.mock import Mock
 
     from backend.ai_worker.runtime import AlignmentReuse
+
+    monkeypatch.setattr(
+        shutil,
+        "disk_usage",
+        lambda _path: SimpleNamespace(total=1_000_000_000, free=free_bytes),
+    )
 
     source = (Path(__file__).parents[2] / "kaggle/ad_voice_server.py").read_text(encoding="utf-8")
     selected = [
@@ -49,14 +58,14 @@ def test_server_reuses_timed_recognition_with_session_language_and_offset_isolat
     for _ in range(2):
         assert namespace["transcribe_song"]("first", "Ukrainian") == "тобі"
     namespace["align_song"]("first", "тобі", "Ukrainian", "[]")
-    assert transcribe.call_count == 1
+    assert transcribe.call_count == expected_calls[0]
     assert align.call_args.kwargs["recognition"] == payload
     namespace["transcribe_song"]("first", "Ukrainian", 60.0)
     namespace["transcribe_song"]("first", "Russian")
     namespace["transcribe_song"]("second", "Ukrainian")
-    assert transcribe.call_count == 4
+    assert transcribe.call_count == expected_calls[1]
     namespace["align_song"]("first", "інший текст", "Ukrainian", "[]")
-    assert transcribe.call_count == 4
+    assert transcribe.call_count == expected_calls[2]
     assert align.call_args.kwargs["recognition"] == payload
 
 

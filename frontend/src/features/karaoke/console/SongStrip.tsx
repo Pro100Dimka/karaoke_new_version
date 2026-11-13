@@ -8,7 +8,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { SongDto } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
 import { formatTime } from '../../../shared/utils/format';
 import { useWaveformPeaks } from '../../../shared/hooks/useWaveformPeaks';
 
@@ -47,7 +46,7 @@ export const SongStrip = memo(
           position={position}
           duration={duration}
           disabled={locked}
-          label={tr(ru.songPosition)}
+          label={tr('songPosition')}
           onSeek={onSeek}
         />
         <Typography className="songStripDuration" variant="caption">

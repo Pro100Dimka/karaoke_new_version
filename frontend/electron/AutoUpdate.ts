@@ -288,6 +288,7 @@ export const startAutoUpdate = ({
   if (!app.isPackaged)
     return {
       beforeLaunch: async () => false,
+      requiresLaunchCheck: () => false,
       install: () => false,
       cancelInstall: () => undefined,
       stop: () => undefined,
@@ -344,6 +345,21 @@ export const startAutoUpdate = ({
     }
   };
 
+  const hasCachedUpdate = () => {
+    const prefix = 'AD-Voice-Setup-';
+    return (
+      fs.existsSync(updates) &&
+      fs
+        .readdirSync(updates)
+        .some(
+          (name) =>
+            name.startsWith(prefix) &&
+            name.endsWith('.exe') &&
+            isNewerVersion(name.slice(prefix.length, -4), app.getVersion()),
+        )
+    );
+  };
+
   // The checks while the app runs begin only once the check before launch is over: two downloads
   // of the same installer at once removed each other's file, and no update was ever installed.
   let first: NodeJS.Timeout | undefined;
@@ -357,6 +373,13 @@ export const startAutoUpdate = ({
   };
 
   return {
+    requiresLaunchCheck: () => {
+      try {
+        return automatic() && hasCachedUpdate();
+      } catch {
+        return true;
+      }
+    },
     /**
      * Before the app opens: installs an already downloaded newer version and reports
      * true once the installer has taken over; false opens the app as usual.
@@ -364,34 +387,17 @@ export const startAutoUpdate = ({
     async beforeLaunch(
       progress: (state: LaunchUpdateState) => void,
     ): Promise<boolean> {
+      if (!automatic()) {
+        void check();
+        scheduleChecks();
+        return false;
+      }
       checking = true;
       try {
-        const automaticUpdate = automatic();
-        if (automaticUpdate) {
-          const prefix = 'AD-Voice-Setup-';
-          const cachedUpdate =
-            fs.existsSync(updates) &&
-            fs
-              .readdirSync(updates)
-              .some(
-                (name) =>
-                  name.startsWith(prefix) &&
-                  name.endsWith('.exe') &&
-                  isNewerVersion(
-                    name.slice(prefix.length, -4),
-                    app.getVersion(),
-                  ),
-              );
-          if (!cachedUpdate) return false;
-        }
+        if (!hasCachedUpdate()) return false;
         progress({ phase: 'checking' });
         const installer = await latestInstaller(fetchImpl, 5_000);
         if (!installer) return false;
-        // Updates off: nothing is downloaded or installed; the Library offers the new version.
-        if (!automaticUpdate) {
-          offer(installer);
-          return false;
-        }
         const { version } = installer;
         const file = await fetchInstaller(
           fetchImpl,

@@ -80,6 +80,10 @@ class RegisterRecording:
             and self._prepare_recording is not None
             and recording.song_id is not None
             and not (recording.session_metadata or {}).get("studioMaster")
+            # Native recordings already contain synchronized voice/backing stems.
+            # Do not hold the original recording hostage to background mastering.
+            and Path(str(path) + ".backing.wav").is_file()
+            and not Path(str(path) + ".vocal.wav").is_file()
         )
         if prepare and self._jobs is not None:
             recording = replace(recording, file_status="Preparing")

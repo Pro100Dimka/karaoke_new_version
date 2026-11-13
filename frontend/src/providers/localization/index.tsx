@@ -1,11 +1,10 @@
-import '../../i18n/messages';
+import { en as appEn } from './messages.en';
+import { ru as appRu } from './messages.ru';
+import { uk as appUk } from './messages.uk';
 import { addMessages, LocaleProvider } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { useEffect, type PropsWithChildren } from 'react';
 import { store } from '../store';
-import en from './en.json';
-import ru from './ru.json';
-import uk from './uk.json';
 
 const aliases = {
   'NetworkError when attempting to fetch resource.': 'Failed to fetch',
@@ -18,12 +17,15 @@ const aliases = {
   '{label}: {value} · ведите по кругу или тяните за центр': 'rotaryHint',
 } as const;
 
-Object.entries({ en, ru, uk } satisfies Record<string, typeof uk>).forEach(
+Object.entries({ en: appEn, ru: appRu, uk: appUk }).forEach(
   ([locale, messages]) => {
     addMessages(locale, {
       ...messages,
       ...Object.fromEntries(
-        Object.entries(aliases).map(([key, source]) => [key, messages[source]]),
+        Object.entries(aliases).map(([key, source]) => [
+          key,
+          messages[source as keyof typeof messages],
+        ]),
       ),
     });
   },

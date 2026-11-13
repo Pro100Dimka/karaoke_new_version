@@ -1,8 +1,3 @@
-import { openSettings } from '../../pages/library/modals/settings';
-import { Observer, observer } from 'mobx-react-lite';
-import { store } from '../../providers/store';
-import { canControlRoom } from '../../application/room/roomModel';
-import './karaoke.css';
 import {
   Button,
   EmptyState,
@@ -12,6 +7,7 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { Observer, observer } from 'mobx-react-lite';
 import {
   createContext,
   useContext,
@@ -23,27 +19,29 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
+import { usePublishNowPlaying } from '../../app/desktop/shellBus';
+import { canControlRoom } from '../../application/room/roomModel';
+import type { AudioCapabilities } from '../../contracts/models';
+import { openSettings } from '../../pages/library/modals/settings';
 import { useRoomPlayback } from '../../providers/application';
 import { useNotify } from '../../providers/notifications';
-import type { MessageKey } from '../../i18n/messages';
-import { ru } from '../../i18n/messages.ru';
-import { errorMessageKey, toAppError } from '../../shared/errors';
-import { effectiveStageLayers } from './displayModes';
-import { KaraokeHeader } from './KaraokeHeader';
+import { store } from '../../providers/store';
+import { errorstring, toAppError } from '../../shared/errors';
+import { HostWindowContext } from '../../shared/ui/hostWindow';
 import { KaraokeConsole } from './console/KaraokeConsole';
-import { useKaraokeShortcuts } from './useKaraokeShortcuts';
-import { useAutoHideConsole } from './console/useAutoHideConsole';
 import { rangeOf } from './console/noteRange';
+import { useAutoHideConsole } from './console/useAutoHideConsole';
+import { effectiveStageLayers } from './displayModes';
+import './karaoke.css';
+import { KaraokeHeader } from './KaraokeHeader';
 import { KaraokeIntro } from './KaraokeIntro';
+import { opensWithFullIntroduction } from './karaokeOpenMode';
 import { KaraokeStage } from './KaraokeStage';
 import { SceneBackdrop } from './SceneBackdrop';
-import { useKaraokeSession, type KaraokeOpenMode } from './useKaraokeSession';
-import { opensWithFullIntroduction } from './karaokeOpenMode';
-import { usePublishNowPlaying } from '../../app/desktop/shellBus';
-import { HostWindowContext } from '../../shared/ui/hostWindow';
-import { createPortal } from 'react-dom';
 import { useKaraokeTv } from './tv/karaokeTv';
-import type { AudioCapabilities } from '../../contracts/models';
+import { useKaraokeSession, type KaraokeOpenMode } from './useKaraokeSession';
+import { useKaraokeShortcuts } from './useKaraokeShortcuts';
 
 export const microphoneAvailableForKaraoke = (
   capability: AudioCapabilities['microphone'],
@@ -157,7 +155,7 @@ export const KaraokeScreen = observer(
       if (!(await session.confirmExit())) return;
       if (room) {
         if (!canControlRoom(room)) {
-          notify(tr(ru.errorRoomPermission), 'warning');
+          notify(tr('errorRoomPermission'), 'warning');
           return;
         }
         try {
@@ -165,11 +163,7 @@ export const KaraokeScreen = observer(
           await roomPlayback.clearSong();
         } catch (error) {
           notify(
-            tr(
-              ru[
-                errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'
-              ],
-            ),
+            tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
             'error',
           );
           return;
@@ -266,7 +260,7 @@ export const KaraokeScreen = observer(
           <ProgressBar
             className="karaokeLoading"
             indeterminate
-            label={tr(ru.loadingSong)}
+            label={tr('loadingSong')}
           />
         </main>,
       );
@@ -274,7 +268,7 @@ export const KaraokeScreen = observer(
 
     const back = (
       <Button icon="back" onClick={() => void backToLibrary()}>
-        {tr(ru.library)}
+        {tr('library')}
       </Button>
     );
 
@@ -282,8 +276,8 @@ export const KaraokeScreen = observer(
       return place(
         <StateScreen
           icon="warning"
-          title={tr(ru.songNotFound)}
-          body={tr(ru.songNotFoundHint)}
+          title={tr('songNotFound')}
+          body={tr('songNotFoundHint')}
         >
           {back}
         </StateScreen>,
@@ -293,8 +287,8 @@ export const KaraokeScreen = observer(
       return place(
         <StateScreen
           icon="processing"
-          title={tr(ru.songNotProcessed)}
-          body={tr(ru.songNotProcessedHint)}
+          title={tr('songNotProcessed')}
+          body={tr('songNotProcessedHint')}
         >
           {back}
         </StateScreen>,
@@ -306,12 +300,12 @@ export const KaraokeScreen = observer(
         Unsupported: 'errorProjectUpgrade',
         TooNew: 'errorProjectTooNew',
         Invalid: 'errorProjectInvalid',
-      } as const satisfies Record<typeof load.compatibility, MessageKey>;
+      } as const satisfies Record<typeof load.compatibility, string>;
       return place(
         <StateScreen
           icon="file"
-          title={tr(ru.projectInvalid)}
-          body={tr(ru[messages[load.compatibility]])}
+          title={tr('projectInvalid')}
+          body={tr(messages[load.compatibility])}
         >
           {back}
         </StateScreen>,
@@ -399,7 +393,7 @@ export const KaraokeScreen = observer(
                   icon="settings"
                   onClick={() => openSettings('audio')}
                 >
-                  {tr(ru.openAudioSettings)}
+                  {tr('openAudioSettings')}
                 </Button>
                 <Button
                   size="sm"
@@ -407,7 +401,7 @@ export const KaraokeScreen = observer(
                   icon="refresh"
                   onClick={() => window.location.reload()}
                 >
-                  {tr(ru.retry)}
+                  {tr('retry')}
                 </Button>
               </>
             }
@@ -428,7 +422,7 @@ export const KaraokeScreen = observer(
             return (
               <div className="karaokeConsole">
                 {!microphoneReady && (
-                  <MessageBar tone="info">{tr(ru.noMicrophoneMode)}</MessageBar>
+                  <MessageBar tone="info">{tr('noMicrophoneMode')}</MessageBar>
                 )}
                 <KaraokeConsole
                   song={song}

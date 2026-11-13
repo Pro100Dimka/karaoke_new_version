@@ -7,6 +7,10 @@
 #include <limits>
 #include <ranges>
 #include <stdexcept>
+#ifdef _WIN32
+#include <windows.h>
+#include <avrt.h>
+#endif
 
 namespace {
 constexpr double MaximumRoomClockCorrection = 0.002;
@@ -735,6 +739,11 @@ void MediaSource::decodeChunk() {
 }
 
 void MediaSource::workerMain() noexcept {
+#ifdef _WIN32
+    // Decoding must refill the music queue even while graphics threads saturate the CPU.
+    DWORD taskIndex = 0;
+    const auto task = AvSetMmThreadCharacteristicsW(L"Audio", &taskIndex);
+#endif
     while (true) {
         std::string loadPath;
         bool doLoad = false;
@@ -744,8 +753,7 @@ void MediaSource::workerMain() noexcept {
         SourceGenerationId requestGeneration{0};
         if (!waitForWorkerRequest(loadPath, doLoad, doSeek, doUnload, seekFrame,
                                   requestGeneration)) {
-            decoder_->close(); // Release thread-affine decoder resources on their owning worker.
-            return;
+            break;
         }
 
         try {
@@ -774,4 +782,9 @@ void MediaSource::workerMain() noexcept {
             }
         }
     }
+    decoder_->close(); // Release thread-affine decoder resources on their owning worker.
+#ifdef _WIN32
+    if (task)
+        AvRevertMmThreadCharacteristics(task);
+#endif
 }

@@ -680,6 +680,8 @@ constexpr std::array tests{
     Test{"mediaFoundationCloseDrainsCancellation", Tests::mediaFoundationCloseDrainsCancellation},
     Test{"mediaFoundationOwnsComOnTheDecodingThread",
          Tests::mediaFoundationOwnsComOnTheDecodingThread},
+    Test{"mediaFoundationFlacSeekMatchesDecodedTimeline",
+         Tests::mediaFoundationFlacSeekMatchesDecodedTimeline},
     Test{"mediaPositionsUseTheCorrectClockDomain", Tests::mediaPositionsUseTheCorrectClockDomain},
     Test{"wavDecoderHonorsDataBoundaryAndCanSeekAfterEof",
          Tests::wavDecoderHonorsDataBoundaryAndCanSeekAfterEof},

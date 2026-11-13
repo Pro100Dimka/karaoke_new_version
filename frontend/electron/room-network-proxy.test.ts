@@ -28,8 +28,7 @@ describe('room server network proxy', () => {
     const client = dgram.createSocket('udp4');
     await new Promise<void>((resolve) => client.bind(0, '127.0.0.1', resolve));
     client.send(packetFor(17), proxy.port, '127.0.0.1');
-    await new Promise((resolve) => setTimeout(resolve, 30));
-    expect(received).toHaveLength(1);
+    await expect.poll(() => received.length).toBe(1);
     expect(received[0].message.readUInt32LE(12)).toBe(17);
     expect(proxy.serverPortFor(17)).toBe(received[0].address.port);
     expect(

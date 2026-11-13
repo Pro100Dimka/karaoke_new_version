@@ -96,7 +96,7 @@
 }
 
 @property --show-roll-glow {
-  syntax: "<number>";
+  syntax: '<number>';
   inherits: false;
   initial-value: 0;
 }
@@ -112,7 +112,9 @@
 }
 /* Keep the stationary inset; the changing outer shadow is painted beside the voice in its worker. */
 .karaokePage .pianoRollLane.ad-melody-roll[data-show-roll-glow] {
-  box-shadow: inset 0 0.0625rem 0 #ffffff12, 0 0 0 transparent;
+  box-shadow:
+    inset 0 0.0625rem 0 #ffffff12,
+    0 0 0 transparent;
 }
 .karaokePage .pianoRollLane.ad-melody-roll::after {
   transition: none;

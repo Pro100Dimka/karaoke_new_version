@@ -8,7 +8,6 @@ import { useAudioSettings } from './useAudioSettings';
 import { useInputMonitoring } from './useInputMonitoring';
 import useSettingsForm from '../form';
 import { AsioSetupCard } from './AsioSetupCard';
-import { ru } from '../../../../../i18n/messages.ru';
 import FormCards from '../form-cards';
 import AudioDiagnostics from './diagnostics';
 import { blocks } from './rows';
@@ -106,11 +105,11 @@ const AudioPanel = observer(() => {
   const asio4all = /asio4all/i.test(selected?.name ?? '');
   const microphone = status.capabilities.microphone;
   const microphoneMessages = {
-    ready: ru.microphoneReady,
-    'permission-denied': ru.microphonePermissionDenied,
-    'privacy-disabled': ru.microphonePrivacyDisabled,
-    missing: ru.microphoneMissing,
-    busy: ru.microphoneBusy,
+    ready: 'microphoneReady',
+    'permission-denied': 'microphonePermissionDenied',
+    'privacy-disabled': 'microphonePrivacyDisabled',
+    missing: 'microphoneMissing',
+    busy: 'microphoneBusy',
   };
   return (
     <Form form={form}>
@@ -125,13 +124,13 @@ const AudioPanel = observer(() => {
         {status.ready && !status.audioAvailable && (
           <Grid span="full">
             <MessageBar tone="error">
-              {tr(ru.audioServiceUnavailable)}
+              {tr('audioServiceUnavailable')}
             </MessageBar>
           </Grid>
         )}
         {status.asioUnavailable && drivers.length > 0 && (
           <Grid span="full">
-            <MessageBar tone="error">{tr(ru.asioDriverOpenFailed)}</MessageBar>
+            <MessageBar tone="error">{tr('asioDriverOpenFailed')}</MessageBar>
           </Grid>
         )}
         {status.audioAvailable && microphone !== 'ready' && (
@@ -144,7 +143,7 @@ const AudioPanel = observer(() => {
                 ) && (
                   <Button
                     size="sm"
-                    label={tr(ru.openMicrophonePrivacy)}
+                    label={tr('openMicrophonePrivacy')}
                     onClick={() => void desktopClient.openMicrophonePrivacy()}
                   />
                 )
@@ -171,7 +170,7 @@ const AudioPanel = observer(() => {
       <Dialog
         open={diagnostics}
         onOpenChange={setDiagnostics}
-        title={tr(ru.latencyTechnicalDetails)}
+        title={tr('latencyTechnicalDetails')}
         cancelLabel={false}
         confirmLabel={false}
       >

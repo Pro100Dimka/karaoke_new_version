@@ -26,6 +26,7 @@ import {
   readSavedTheme,
   setSplashStatus,
   waitForStorageMigration,
+  hasPendingStorageMigration,
 } from './Splash';
 import { shellLanguages, shellText } from './ShellText';
 import { createTrustedIpc } from './TrustedIpc';
@@ -89,7 +90,10 @@ let quitting = false;
 const trustedIpc = createTrustedIpc(() => mainWindow, rendererUrl);
 const backendEndpoint = new BackendEndpoint();
 const backendEventsStop = new AbortController();
-const appLogs = new AppLogUploader(sendAppLogs, path.join(app.getPath('userData'), 'pending-app-logs.json'));
+const appLogs = new AppLogUploader(
+  sendAppLogs,
+  path.join(app.getPath('userData'), 'pending-app-logs.json'),
+);
 appLogs.captureConsole(console);
 const services = new ManagedServices(backendEndpoint, (source, level, data) =>
   appLogs.write(source, level, data),
@@ -242,6 +246,23 @@ registerServiceIpc(
 // One instance owns the services and the audio pipe; a second launch must not kill them, it only focuses the window.
 const isPrimaryInstance = app.requestSingleInstanceLock();
 if (!isPrimaryInstance) app.quit();
+const startManagedServices = (): void => {
+  if (backendDataRoot) return;
+  backendDataRoot = configuredStorageRoot();
+  services.start(backendDataRoot);
+};
+// Services can prepare alongside Electron unless an update or migration owns the files.
+let earlyStartupError: unknown;
+try {
+  if (
+    isPrimaryInstance &&
+    !hasPendingStorageMigration() &&
+    !updater.requiresLaunchCheck()
+  )
+    startManagedServices();
+} catch (error) {
+  earlyStartupError = error;
+}
 app.on('second-instance', (_event, argv) => {
   // A second launch hands over what it was started for: an invitation link, a task, opened files.
   desktopLaunch?.secondLaunch(argv);
@@ -255,6 +276,7 @@ app.on('second-instance', (_event, argv) => {
 app
   .whenReady()
   .then(async () => {
+    if (earlyStartupError !== undefined) throw earlyStartupError;
     // The windows are frameless and draw their own controls; a released app also drops the default
     // menu's hidden shortcuts (developer tools, reload) that would otherwise still respond to keys.
     if (app.isPackaged) Menu.setApplicationMenu(null);
@@ -287,8 +309,7 @@ app
     }
     setSplashStatus('');
     registerSceneProtocol(projectRoot());
-    backendDataRoot = configuredStorageRoot();
-    services.start(backendDataRoot);
+    startManagedServices();
     appLogs.start();
     socialSocket.start();
     streamBackendEvents(

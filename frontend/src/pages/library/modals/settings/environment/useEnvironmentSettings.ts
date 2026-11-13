@@ -1,11 +1,11 @@
 import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useNotify } from '../../../../../providers/notifications';
-import { ru } from '../../../../../i18n/messages.ru';
 import { pythonClient } from '../../../../../services/pythonClient';
 import { environmentStoreFor } from './environmentStore';
 import { valuesOf, isSecret, saveDelayMilliseconds } from './environmentModel';
 import { toAppError } from '../../../../../shared/errors';
+import { ask } from '../../../../../providers/dialog';
 
 const errorText = (error: unknown, fallback: string) => {
   const failure = toAppError(error);
@@ -25,7 +25,7 @@ export const useEnvironmentSettings = () => {
     new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>(),
   );
   const reportError = (error: unknown) =>
-    notify(errorText(error, tr(ru.settingsApplyFailed)), 'error');
+    notify(errorText(error, tr('settingsApplyFailed')), 'error');
   const reportErrorRef = useRef(reportError);
   reportErrorRef.current = reportError;
   const discard = (key: string) => {
@@ -117,6 +117,32 @@ export const useEnvironmentSettings = () => {
       await flush();
       notify(await store.runKaggleAction(action), 'success');
     } catch (error) {
+      if (toAppError(error).code === 'KaggleNotebookStalled') {
+        const choice = await ask({
+          title: tr('kaggleRestoreTitle'),
+          body: tr('kaggleRestoreBody'),
+          tone: 'warning',
+          actions: [
+            {
+              id: 'restore',
+              label: tr('kaggleRestoreTitle'),
+              appearance: 'primary',
+            },
+            {
+              id: 'cancel',
+              label: tr('cancel'),
+              appearance: 'secondary',
+            },
+          ],
+        });
+        if (choice !== 'restore') return;
+        try {
+          notify(await store.runKaggleAction('deploy', true), 'success');
+        } catch (failure) {
+          reportError(failure);
+        }
+        return;
+      }
       reportError(error);
     }
   };
@@ -124,7 +150,7 @@ export const useEnvironmentSettings = () => {
   return {
     entries,
     loadError: snapshot.loadError
-      ? errorText(snapshot.loadError, tr(ru.actionFailed))
+      ? errorText(snapshot.loadError, tr('actionFailed'))
       : null,
     retry: () => void store.load(),
     json: valuesOf(entries ?? []),

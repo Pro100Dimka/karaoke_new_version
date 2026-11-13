@@ -1,14 +1,7 @@
-import type { LibraryViewFilters } from '../hero/search-field';
-import { openSettings } from '../modals/settings';
-import { createPortal } from 'react-dom';
-import { mergeRoomLibrary } from '../../../application/room/roomLibrary';
-import { loadLastPlayed } from './lastPlayed';
-import { compareAddedSongs, selectLibrarySongs } from './librarySelectors';
-import type { LibraryFilters } from '../hero/actions';
+import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -16,38 +9,24 @@ import {
   useState,
   type RefObject,
 } from 'react';
-import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
-import { store } from '../../../providers/store';
+import { createPortal } from 'react-dom';
+import { refreshSongs } from '../../../components/api-service';
+import type { SongDto } from '../../../contracts/models';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
-import { ru } from '../../../i18n/messages.ru';
-import type { SongDto } from '../../../contracts/models';
-import { RecordingsModal } from '../modals/recordings';
-import { SongSettingsModal } from '../modals/song-settings';
-import { LibraryEmptyState } from '../empty-library';
-import { SongCard } from './song-grid/song-card';
-import { VirtualGrid } from './song-grid';
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
-import {
-  songsQuery,
-  songSummaryQuery,
-  refreshSongs,
-} from '../../../api/api-service';
+import { store } from '../../../providers/store';
 import { pythonClient } from '../../../services/pythonClient';
-import {
-  libraryChanged,
-  onLibraryChange,
-} from '../../../services/backendEvents';
-import { useJobs } from '../../../providers/application';
-import { curtainMilliseconds } from './useSongActions';
+import { LibraryEmptyState } from '../empty-library';
+import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
+import { RecordingsModal } from '../modals/recordings';
+import { openSettings } from '../modals/settings';
+import { SongSettingsModal } from '../modals/song-settings';
+import { VirtualGrid } from './song-grid';
+import { SongCard } from './song-grid/song-card';
+import { SelectionToolbar } from './SelectionToolbar';
 import type { useRoomLibrary } from './useRoomLibrary';
-
-const emptyImports: readonly SongDto[] = [];
+import { useLibraryCatalog } from './useLibraryCatalog';
+import { curtainMilliseconds } from './useSongActions';
 
 const activeJobStatuses = new Set<SongDto['status']>(['queued', 'processing']);
 
@@ -91,6 +70,7 @@ const useRememberedScroll = (
 };
 
 interface LibrarySongsProps {
+  onReady(): void;
   view: { query: string; filters: LibraryViewFilters };
   onOpenProcessing(songId: string): void;
   pageRef: RefObject<HTMLElement | null>;
@@ -100,14 +80,13 @@ interface LibrarySongsProps {
 
 const LibrarySongs = observer(
   ({
+    onReady,
     view,
     pageRef,
     onPlay,
     onOpenProcessing,
     songSelection,
   }: LibrarySongsProps) => {
-    const { room } = store.online;
-    const { preferences } = store;
     const { query, filters: viewFilters } = view;
     const [recordingsSong, setRecordingsSong] = useState<SongDto | null>(null);
     const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(
@@ -128,102 +107,8 @@ const LibrarySongs = observer(
       });
     }, []);
     const selecting = selected.size > 0;
-    const deferredQuery = useDeferredValue(query);
-    const filters: LibraryFilters = useMemo(
-      () => ({
-        ...viewFilters,
-        sort: preferences.librarySort,
-        direction: preferences.librarySortDirection,
-      }),
-      [viewFilters, preferences.librarySort, preferences.librarySortDirection],
-    );
-    const completeCatalog = !!room || selecting || filters.sort === 'played';
-    const serverFilter = useMemo(
-      () => ({ ...filters, query: deferredQuery }),
-      [filters, deferredQuery],
-    );
-    const client = useQueryClient();
-    const { pythonEpoch } = store.application.services;
-    const { jobs } = useJobs();
-    const queryOptions = songsQuery(
-      pythonEpoch,
-      completeCatalog ? undefined : serverFilter,
-    );
-    const catalog = useInfiniteQuery({
-      ...queryOptions,
-      placeholderData: keepPreviousData,
-    });
-    const summary = useQuery({
-      ...songSummaryQuery(pythonEpoch),
-      enabled: false,
-    });
-    const { data: imports = emptyImports } = useQuery<readonly SongDto[]>({
-      queryKey: ['song-imports'],
-      enabled: false,
-    });
-    useEffect(() => {
-      client.removeQueries({ queryKey: ['songs'], type: 'inactive' });
-    }, [client, pythonEpoch, completeCatalog, serverFilter]);
-    useEffect(
-      () =>
-        onLibraryChange(() => {
-          void refreshSongs(client);
-        }),
-      [client],
-    );
-    const jobStates = jobs.map((job) => `${job.id}:${job.state}`).join('|');
-    const previousJobs = useRef(jobStates);
-    useEffect(() => {
-      if (previousJobs.current === jobStates) return;
-      previousJobs.current = jobStates;
-      libraryChanged();
-    }, [jobStates]);
-    const localSongs = useMemo(() => {
-      const songs = catalog.data?.pages.flatMap((page) => page.items) ?? [];
-      const pending =
-        filters.sort === 'recent' && filters.direction === 'asc'
-          ? [...imports].reverse()
-          : imports;
-      const active = new Map(
-        jobs
-          .filter((job) =>
-            ['queued', 'processing', 'cancelling'].includes(job.state),
-          )
-          .map((job) => [job.songId, job]),
-      );
-      return [...pending, ...songs].map((song) => {
-        const job = active.get(song.id);
-        return job
-          ? {
-              ...song,
-              jobId: job.id,
-              stage: job.stage,
-              progress: job.progress,
-              status:
-                job.state === 'queued'
-                  ? ('queued' as const)
-                  : ('processing' as const),
-            }
-          : song;
-      });
-    }, [catalog.data, imports, jobs, filters.sort, filters.direction]);
-    const selfId = room?.participants.find((person) => person.self)?.id ?? '';
-    const songs = useMemo(
-      () => mergeRoomLibrary(localSongs, room?.sharedSongs ?? [], selfId),
-      [localSongs, room?.sharedSongs, selfId],
-    );
-    const played = useMemo(() => loadLastPlayed(), []);
-    const visibleSongs = useMemo(
-      () =>
-        completeCatalog
-          ? selectLibrarySongs(songs, serverFilter, played)
-          : serverFilter.sort === 'recent'
-            ? [...songs].sort((a, b) =>
-                compareAddedSongs(a, b, serverFilter.direction),
-              )
-            : songs,
-      [songs, completeCatalog, serverFilter, played],
-    );
+    const { catalog, summary, client, localSongs, songs, visibleSongs, completeCatalog } =
+      useLibraryCatalog(query, viewFilters, selecting);
 
     const entrance = store.playback.returned;
     const [returning, setReturning] = useState(
@@ -256,6 +141,48 @@ const LibrarySongs = observer(
       [],
     );
     useRememberedScroll(pageRef, !!catalog.data);
+    // Opening/closing a modal must not rebuild the visible virtualized cards.
+    // These callbacks change only when the actual card inputs change.
+    const itemKey = useCallback((song: SongDto) => song.id, []);
+    const renderSong = useCallback(
+      (song: SongDto) => (
+        <SongCard
+          song={song}
+          onOpenSettings={setSettingsSong}
+          onOpenRecordings={setRecordingsSong}
+          onPlay={play}
+          onOpenProcessing={onOpenProcessing}
+          playbackDisabled={
+            localProcessing || selecting || catalog.isPlaceholderData
+          }
+          selection={
+            !song.roomOwnerId
+              ? {
+                  checked: selected.has(song.id),
+                  active: selecting,
+                  disabled:
+                    deleting ||
+                    catalog.isPlaceholderData ||
+                    activeJobStatuses.has(song.status),
+                  toggle: toggleSelected,
+                }
+              : undefined
+          }
+          roomSelection={songSelection(song)}
+        />
+      ),
+      [
+        play,
+        onOpenProcessing,
+        localProcessing,
+        selecting,
+        catalog.isPlaceholderData,
+        selected,
+        deleting,
+        toggleSelected,
+        songSelection,
+      ],
+    );
     const deleteSelected = async () => {
       const targets = localSongs.filter(
         (song) => selected.has(song.id) && !activeJobStatuses.has(song.status),
@@ -270,17 +197,18 @@ const LibrarySongs = observer(
         ),
         tone: 'warning',
         actions: [
-          { id: 'cancel', label: tr(ru.cancel) },
+          { id: 'cancel', label: tr('cancel') },
           { id: 'delete', label: tr('Удалить'), appearance: 'primary' },
         ],
       });
       if (choice !== 'delete') return;
       setDeleting(true);
+      let changed = false;
       try {
         for (const song of targets) {
           try {
             await pythonClient.deleteSong(song.id);
-            await refreshSongs(client);
+            changed = true;
             setSelected((current) => {
               const next = new Set(current);
               next.delete(song.id);
@@ -294,9 +222,101 @@ const LibrarySongs = observer(
           }
         }
       } finally {
-        setDeleting(false);
+        try {
+          if (changed) await refreshSongs(client);
+        } finally {
+          setDeleting(false);
+        }
       }
     };
+
+    const isLoadingCatalog = !catalog.data && !catalog.isError;
+    useEffect(() => {
+      if (isLoadingCatalog) return;
+      // Let the virtual grid attach and lay out its rows beneath the curtain.
+      let frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(onReady);
+      });
+      return () => cancelAnimationFrame(frame);
+    }, [isLoadingCatalog, onReady]);
+    const isCatalogLoadFailed = !catalog.data && catalog.isError;
+    const emptyStateKind =
+      (completeCatalog ? songs.length === 0 : summary.data?.total === 0)
+        ? 'firstRun'
+        : 'noResults';
+
+    const content = (() => {
+      if (isLoadingCatalog) {
+        return (
+          <Stack align="center" style={{ paddingBlock: 'var(--ad-space-6)' }}>
+            <StatusIndicator
+              status="processing"
+              label={tr('library.loading')}
+            />
+          </Stack>
+        );
+      }
+      if (isCatalogLoadFailed) {
+        return (
+          <Card
+            icon="database"
+            title={tr('libraryLoadFailed')}
+            material="glass"
+            padding="lg"
+            style={{
+              width: 'min(100%, 40rem)',
+              alignSelf: 'center',
+              marginBlock: 'clamp(1rem, 4vh, 3rem)',
+            }}
+            actions={
+              <Button
+                icon="refresh"
+                label={tr('retry')}
+                onClick={() => void refreshSongs(client)}
+              />
+            }
+          />
+        );
+      }
+      if (visibleSongs.length > 0) {
+        return (
+          <>
+            {selecting && (
+              <SelectionToolbar
+                selected={selected}
+                songs={visibleSongs}
+                disabled={catalog.isPlaceholderData}
+                deleting={deleting}
+                onSelect={setSelected}
+                onDelete={() => void deleteSelected()}
+              />
+            )}
+            <VirtualGrid
+              items={visibleSongs}
+              scrollParent={pageRef}
+              label={tr('library.songs')}
+              hasNextPage={
+                catalog.hasNextPage &&
+                !catalog.isPlaceholderData &&
+                !catalog.isError
+              }
+              loading={catalog.isFetching}
+              loadMore={catalog.fetchNextPage}
+              itemKey={itemKey}
+              renderItem={renderSong}
+            />
+          </>
+        );
+      }
+
+      return (
+        <LibraryEmptyState
+          kind={emptyStateKind}
+          onOpenAudioSettings={() => openSettings('audio')}
+          onOpenModels={() => openSettings('ai')}
+        />
+      );
+    })();
 
     return (
       <>
@@ -327,137 +347,17 @@ const LibrarySongs = observer(
             />,
             pageRef.current,
           )}
-        {!catalog.data && !catalog.isError ? (
-          <Stack align="center" style={{ paddingBlock: 'var(--ad-space-6)' }}>
-            <StatusIndicator
-              status="processing"
-              label={tr('library.loading')}
-            />
-          </Stack>
-        ) : !catalog.data && catalog.isError ? (
-          <Card
-            icon="database"
-            title={tr(ru['libraryLoadFailed'])}
-            material="glass"
-            padding="lg"
-            style={{
-              width: 'min(100%, 40rem)',
-              alignSelf: 'center',
-              marginBlock: 'clamp(1rem, 4vh, 3rem)',
-            }}
-            actions={
-              <Button
-                icon="refresh"
-                label={tr(ru['retry'])}
-                onClick={() => void refreshSongs(client)}
-              />
-            }
-          />
-        ) : visibleSongs.length > 0 ? (
-          <>
-            {selecting && (
-              <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
-                <Button
-                  icon="check"
-                  disabled={deleting || catalog.isPlaceholderData}
-                  onClick={() => {
-                    setSelected(new Set());
-                  }}
-                >
-                  {tr(ru.cancel)}
-                </Button>
-                <Button
-                  disabled={deleting || catalog.isPlaceholderData}
-                  onClick={() =>
-                    setSelected(
-                      new Set(
-                        visibleSongs
-                          .filter(
-                            (song) =>
-                              !song.roomOwnerId &&
-                              !activeJobStatuses.has(song.status),
-                          )
-                          .map((song) => song.id),
-                      ),
-                    )
-                  }
-                >
-                  {tr('Выбрать все показанные')}
-                </Button>
-                <Button
-                  icon="trash"
-                  disabled={
-                    deleting || catalog.isPlaceholderData || !selected.size
-                  }
-                  onClick={() => void deleteSelected()}
-                >
-                  {tr('Удалить выбранные ({count})', {
-                    count: selected.size,
-                  })}
-                </Button>
-              </Stack>
-            )}
-            <VirtualGrid
-              items={visibleSongs}
-              hasNextPage={
-                catalog.hasNextPage &&
-                !catalog.isPlaceholderData &&
-                !catalog.isError
-              }
-              loading={catalog.isFetching}
-              loadMore={catalog.fetchNextPage}
-              itemKey={(song) => song.id}
-              scrollParent={pageRef}
-              label={tr(ru.library)}
-              renderItem={(song) => (
-                <SongCard
-                  song={song}
-                  onOpenSettings={setSettingsSong}
-                  onOpenRecordings={setRecordingsSong}
-                  onPlay={play}
-                  onOpenProcessing={onOpenProcessing}
-                  playbackDisabled={
-                    localProcessing || selecting || catalog.isPlaceholderData
-                  }
-                  selection={
-                    !song.roomOwnerId
-                      ? {
-                          checked: selected.has(song.id),
-                          active: selecting,
-                          disabled:
-                            deleting ||
-                            catalog.isPlaceholderData ||
-                            activeJobStatuses.has(song.status),
-                          toggle: toggleSelected,
-                        }
-                      : undefined
-                  }
-                  roomSelection={songSelection(song)}
-                />
-              )}
-            />
-          </>
-        ) : (
-          <LibraryEmptyState
-            kind={
-              (completeCatalog ? songs.length === 0 : summary.data?.total === 0)
-                ? 'firstRun'
-                : 'noResults'
-            }
-            onOpenAudioSettings={() => openSettings('audio')}
-            onOpenModels={() => openSettings('ai')}
-          />
-        )}
-        {catalog.isFetching && !!catalog.data && (
+        {content}
+        {catalog.isFetchingNextPage && !!catalog.data && (
           <StatusIndicator status="processing" label={tr('library.loading')} />
         )}
         {(catalog.isFetchNextPageError || summary.isError) && (
           <Card
-            title={tr(ru.libraryLoadFailed)}
+            title={tr('libraryLoadFailed')}
             actions={
               <Button
                 icon="refresh"
-                label={tr(ru.retry)}
+                label={tr('retry')}
                 onClick={() => void refreshSongs(client)}
               />
             }

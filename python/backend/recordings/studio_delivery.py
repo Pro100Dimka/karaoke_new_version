@@ -3,16 +3,61 @@ from numpy.typing import NDArray
 from collections.abc import Callable
 from pathlib import Path
 import math
+import re
 import threading
 import numpy as np
 import soundfile as sf
 from backend.domain_errors import DependencyError
 from backend.infrastructure.process_runner import ProcessResult
 from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
-from backend.recordings.studio_audio import _PROFILE_SECONDS
 from dataclasses import dataclass, field
 from concurrent.futures import Future
 from backend.recordings.studio_audio import MasterRenderer
+
+
+def measure_stem_loudness(
+    renderer: MasterRenderer,
+    path: Path,
+    section: tuple[float, float] | None,
+    cancel: threading.Event,
+) -> float:
+    trim = f"atrim=start={section[0]:.9f}:end={section[1]:.9f}," if section else ""
+    result = renderer._mix(
+        path,
+        path,
+        "[0:a]" + trim + loudnorm_filter(lra=11) + "[out]",
+        ["-f", "null", "-"],
+        cancel,
+        quiet=False,
+    )
+    measured = parse_loudness(result.stderr)
+    return measured["input_i"] if measured else float("nan")
+
+
+def measure_mix_loudness(
+    renderer: MasterRenderer, vocal: Path, backing: Path, cancel: threading.Event
+) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
+    """Read paired K-weighted 400 ms windows without normalizing either stem."""
+    result = renderer._mix(
+        vocal,
+        backing,
+        "[0:a]ebur128=metadata=1,ametadata@voice=print:key=lavfi.r128.M[v];"
+        "[1:a]ebur128=metadata=1,ametadata@music=print:key=lavfi.r128.M[m];"
+        "[v][m]amix=inputs=2:normalize=0[out]",
+        ["-f", "null", "-"],
+        cancel,
+        quiet=False,
+    )
+    profiles: dict[bytes, list[float]] = {b"voice": [], b"music": []}
+    for name, value in re.findall(
+        rb"\[ametadata@(voice|music)[^\]]*\]\s+lavfi\.r128\.M=([+-]?[\d.]+)", result.stderr
+    ):
+        profiles[name].append(float(value))
+    if not profiles[b"voice"] or len(profiles[b"voice"]) != len(profiles[b"music"]):
+        raise DependencyError(
+            "StudioMasterInvalidAudio", "Paired loudness measurement is incomplete"
+        )
+    return np.asarray(profiles[b"voice"]), np.asarray(profiles[b"music"])
 
 
 @dataclass(slots=True)
@@ -31,100 +76,39 @@ class MasterDelivery:
     reliable: NDArray[np.bool_]
     processing: dict[str, object]
     progress: Callable[[str, float, float], None] | None
-    measured: dict[str, float] | None = field(init=False)
-    ceiling: float = field(init=False)
-    target_lufs: float = field(init=False)
-    gain: float = field(init=False)
-    unity_candidate: bool = field(init=False)
-    final_levels: dict[str, float] | None = field(init=False)
+    voice_gain_db: float = 0
     graph: str = field(init=False)
 
     def run(self) -> None:
-        self._measure_delivery()
-        self._write_delivery()
+        voice = "[1:a]"
+        self.graph = ""
+        if self.voice_gain_db:
+            self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];"
+            voice = "[voice]"
+        self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
+        # Use the same delivery path for dry and already-processed vocal stems.
+        # Loudness normalization of the entire mix changed the accompaniment level
+        # whenever an existing-effects vocal was selected.
+        self.graph += "alimiter=limit=0.891251:attack=5:release=80:level=0:latency=1,anull[out]"
+        self._encode()
+        levels = self._verify_peaks()
+        self.processing["delivery"] = {
+            "method": "peak-limited-unity-backing",
+            "globalGainDb": 0.0,
+            "gainDb": 0.0,
+            "integratedLufs": levels["input_i"] if math.isfinite(levels["input_i"]) else None,
+            "truePeakDbtp": levels["input_tp"],
+            "loudnessRangeLu": levels["input_lra"],
+            "verified": True,
+            "limiterCeilingDbfs": -1.0,
+            "note": "Same final mix for dry and existing-effects stems; limiter only handles peaks",
+        }
 
-    def _measure_delivery(self) -> None:
-        if self.progress:
-            self.progress("AnalyzingBalance", 1.0, 0.78)
-        self.graph = "[0:a][1:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-        # A unity-gain original needs no preliminary loudness scan if its samples cannot
-        # clip. Always meter the encoded samples; intersample overshoots still trigger attenuation.
-        self.unity_candidate = (
-            not self.process_voice and not self.match_recording_loudness and self.peak_bound < 0.95
-        )
-        self.measured = None
-        self.ceiling = -1.0 if self.process_voice else -3.0
-        self.target_lufs, self.gain = 0.0, 0.0
-        if not self.unity_candidate:
-            analysis = self.renderer._mix(
-                self.backing,
-                self.balanced,
-                self.graph + loudnorm_filter(lra=11) + "[out]",
-                ["-f", "null", "-"],
-                self.cancel,
-                quiet=False,
-            )
-            self.measured = parse_loudness(analysis.stderr)
-            if self.measured is None or not all(
-                math.isfinite(value) for value in self.measured.values()
-            ):
-                raise DependencyError(
-                    "StudioMasterFailed", "Studio master loudness analysis failed"
-                )
-            self.target_lufs = -14.0 if self.process_voice else self.measured["input_i"]
-            self._match_loudness()
-            self.gain = min(
-                self.target_lufs - self.measured["input_i"],
-                self.ceiling - 0.05 - self.measured["input_tp"],
-            )
-            if self.process_voice and np.count_nonzero(self.reliable) * _PROFILE_SECONDS < 3:
-                self.gain = min(self.gain, 0.0)
-
-    def _write_delivery(self) -> None:
-        if self.progress:
-            self.progress("AnalyzingBalance", 1.0, 0.85)
-        self.final_levels = None
-        for attempt in range(2):
-            self.final_levels = self._encode_verified()
-            if self.measured is None:
-                self.measured = self.final_levels
-                self.target_lufs = self.measured["input_i"]
-            peak_limit = (
-                self.ceiling - 0.05 if self.unity_candidate and attempt == 0 else self.ceiling
-            )
-            if (
-                self.final_levels["input_tp"] <= peak_limit
-                and self.final_levels["input_i"] <= self.target_lufs + 0.2
-            ):
-                break
-            if attempt == 1:
-                raise DependencyError(
-                    "StudioMasterFailed", "Final master exceeds its loudness or peak ceiling"
-                )
-            # Re-render from float stems, never repeatedly quantize the published result.
-            self.gain += min(
-                0.0,
-                self.ceiling - 0.05 - self.final_levels["input_tp"],
-                self.target_lufs - self.final_levels["input_i"],
-            )
-        if self.final_levels is not None and self.measured is not None:
-            self.processing["delivery"] = {
-                "method": "measured-linear-gain",
-                "gainDb": self.gain,
-                "targetLufs": self.target_lufs,
-                "truePeakCeilingDbtp": self.ceiling,
-                "integratedLufs": self.final_levels["input_i"],
-                "truePeakDbtp": self.final_levels["input_tp"],
-                "loudnessRangeLu": self.final_levels["input_lra"],
-                "mixLoudnessRangeLu": self.measured["input_lra"],
-                "verified": True,
-            }
-
-    def _encode_verified(self) -> dict[str, float]:
-        verification = self.renderer._mix(
+    def _encode(self) -> None:
+        self.renderer._mix(
             self.backing,
             self.balanced,
-            self.graph + f"volume={self.gain:.9f}dB[out]",
+            self.graph,
             [
                 "-ar",
                 str(self.info.samplerate),
@@ -133,35 +117,31 @@ class MasterDelivery:
                 "-c:a",
                 "pcm_s24le",
                 str(self.target),
-                "-dec",
-                "0:0",
-                "-filter_complex",
-                "[dec:0]" + loudnorm_filter(lra=11) + "[verified]",
-                "-map",
-                "[verified]",
-                "-f",
-                "null",
-                "-",
             ],
             self.cancel,
-            quiet=False,
         )
-        self.final_levels = parse_loudness(verification.stderr)
-        if self.final_levels is None or not all(
-            math.isfinite(v) for v in self.final_levels.values()
-        ):
-            raise DependencyError(
-                "StudioMasterFailed", "Final master loudness could not be verified"
-            )
-        return self.final_levels
 
-    def _match_loudness(self) -> None:
-        assert self.measured is not None
-        if self.match_recording_loudness:
-            assert self.recording_analysis is not None
-            recording_levels = parse_loudness(self.recording_analysis.result().stderr)
-            if recording_levels is None or not math.isfinite(recording_levels["input_i"]):
+    def _verify_peaks(self) -> dict[str, float]:
+        limit = 0.891251
+        for attempt in range(3):
+            measured = self.renderer._mix(
+                self.target,
+                self.target,
+                "[0:a]" + loudnorm_filter(lra=11) + "[out]",
+                ["-f", "null", "-"],
+                self.cancel,
+                quiet=False,
+            )
+            levels = parse_loudness(measured.stderr)
+            if levels is None or not math.isfinite(levels["input_tp"]):
                 raise DependencyError(
-                    "StudioMasterFailed", "Recording loudness could not be measured"
+                    "StudioMasterInvalidAudio", "Master true peak could not be measured"
                 )
-            self.target_lufs = min(self.measured["input_i"], recording_levels["input_i"])
+            if levels["input_tp"] <= -1.0:
+                return levels
+            if attempt < 2:
+                previous = limit
+                limit *= 10 ** ((-1.1 - levels["input_tp"]) / 20)
+                self.graph = self.graph.replace(f"limit={previous:.6f}", f"limit={limit:.6f}")
+                self._encode()
+        raise DependencyError("StudioMasterInvalidAudio", "Master exceeds the true-peak ceiling")

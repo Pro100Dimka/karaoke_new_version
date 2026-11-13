@@ -1,9 +1,0 @@
-Wildways — full recording, word56 «столом»
-
-The word changed63.590–65.650 ->63.590–65.350s; letters and neighboring timings stayed unchanged.
-
-Raw mix/vocal/backing spectra were inspected before reading word identity or CTC-letter marks. The preceding vocal decays after65.00s. Vocal RMS reaches−50.8dBFS at65.30–65.35 and−55.4/−56.6dBFS at65.35–65.45. A separate rise appears near65.46s, followed by strong broadband/high-frequency noise until about65.70s and a new harmonic rise near65.78s. This is not a continuous nasal /m/ or held vowel spanning the removed300ms. No cut sustained vocal is observed.
-
-The evidence supports excluding the later noisy onset from the preceding word; it does not supply an exact independent human reference. Do not claim a300ms quantified accuracy improvement or certify65.350 as the real release. The commercial mix/reverb and separation limit confidence on very quiet remnants. No listening annotation or fresh model/pitch inference was performed.
-
-See wildways-word56-final-audit.json for source/stem hashes, numerical curves, protocol and limitations.

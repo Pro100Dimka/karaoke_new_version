@@ -96,8 +96,11 @@ interface DesktopApi {
   ): () => void;
   audioRequest(request: AudioBridgeRequest): Promise<AudioBridgeResponse>;
   onAudioNotification(
-    command: string, intervalMs: number,
-    listener: (value: (AudioBridgeResponse & { observedAt: number }) | null) => void,
+    command: string,
+    intervalMs: number,
+    listener: (
+      value: (AudioBridgeResponse & { observedAt: number }) | null,
+    ) => void,
   ): () => void;
   waveformPeaks(
     songId: string,

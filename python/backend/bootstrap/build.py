@@ -5,7 +5,6 @@ from contextlib import ExitStack
 from functools import partial
 
 from backend.ai.ports import AiProvider
-from backend.cpu_info import logical_cpu_count
 from backend.ai.registry import AiProviderRegistry
 from backend.bootstrap.config import BackendConfig
 from backend.bootstrap.container import ApplicationContainer, SystemCases
@@ -122,7 +121,13 @@ def _processing_wiring(
         LocalWorkStorage(config.roots.temp),
         runtime_probe,
         storage,
-        ProcessingResourceScheduler(runtime_probe, storage, config.roots.temp, config.resources),
+        ProcessingResourceScheduler(
+            runtime_probe,
+            storage,
+            config.roots.temp,
+            config.resources,
+            cpu_runtime=runtime_probe.without_waiting(),
+        ),
         runtime_probe.without_waiting(),
     )
 
@@ -316,7 +321,7 @@ def _system_cases(
     system = build_system_cases(
         runtime, project, processing, lifecycle, executor, settings, reconcile
     )
-    reconcile.execute(workers=min(2, logical_cpu_count()))
+    system.reconcile.execute()
     return system
 
 

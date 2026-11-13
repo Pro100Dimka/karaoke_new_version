@@ -1,5 +1,4 @@
 import { tr } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import type {
   AudioBackendName,
   AudioConfigurationCapabilities,
@@ -15,10 +14,10 @@ export const deviceOptions = (
   const missing =
     current !== '' && !devices.some((device) => device.id === current);
   return {
-    error: missing ? tr(ru.deviceUnavailable) : undefined,
+    error: missing ? tr('deviceUnavailable') : undefined,
     options: [
-      ...(missing ? [{ value: current, label: tr(ru.deviceUnavailable) }] : []),
-      { value: '', label: tr(ru.systemDefault) },
+      ...(missing ? [{ value: current, label: tr('deviceUnavailable') }] : []),
+      { value: '', label: tr('systemDefault') },
       ...devices.map((device) => ({ value: device.id, label: device.name })),
     ],
   };
@@ -84,21 +83,21 @@ export const audioOptions = ({
   return {
     sampleRates: supportedRates.map((rate) => ({
       value: rate,
-      label: tr(ru.kilohertzValue, { value: rate / 1000 }),
+      label: tr('kilohertzValue', { value: rate / 1000 }),
     })),
     periods: visiblePeriods.map((frames) => ({
       value: frames,
       label:
         values.backend === 'WASAPI Shared'
-          ? `${tr(ru.framesValue, { value: frames })} — ${((frames * 1000) / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`
-          : tr(ru.framesValue, { value: frames }),
+          ? `${tr('framesValue', { value: frames })} — ${((frames * 1000) / (configurationCapabilities.defaultSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`
+          : tr('framesValue', { value: frames }),
     })),
     inputPeriods: inputPeriods.length
       ? [
-          { value: 0, label: tr(ru.audioInputPeriodFollowOutput) },
+          { value: 0, label: tr('audioInputPeriodFollowOutput') },
           ...inputPeriods.map((frames) => ({
             value: frames,
-            label: `${tr(ru.framesValue, { value: frames })} — ${((frames * 1000) / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
+            label: `${tr('framesValue', { value: frames })} — ${((frames * 1000) / (configurationCapabilities.inputSampleRate || runtime.sampleRate || 1)).toFixed(2)} ms`,
           })),
         ]
       : [],

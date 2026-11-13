@@ -1,5 +1,7 @@
 import {
-  sendAudioRequest, subscribeAudioNotifications, type AudioRequest,
+  sendAudioRequest,
+  subscribeAudioNotifications,
+  type AudioRequest,
 } from './AudioServiceTransport';
 import type { BackendEndpoint } from './BackendEndpoint';
 import { ipcChannels } from './ipcChannels';

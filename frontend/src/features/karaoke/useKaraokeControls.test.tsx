@@ -1,3 +1,9 @@
+import { addMessages, setLocale } from '@neo-ui-kit/react';
+import { ru } from '../../providers/localization/messages.ru';
+
+addMessages('ru', ru);
+setLocale('ru');
+
 import { store } from '../../providers/store';
 import { QueryProvider } from '../../test/QueryProvider';
 import { act, renderHook, waitFor } from '@testing-library/react';

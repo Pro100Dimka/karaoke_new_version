@@ -13,10 +13,8 @@ import {
 } from '@neo-ui-kit/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useState } from 'react';
-import { refreshSongs } from '../../../../../api/api-service';
+import { refreshSongs } from '../../../../../components/api-service';
 import type { SongDto } from '../../../../../contracts/models';
-import type { MessageKey } from '../../../../../i18n/messages';
-import { ru } from '../../../../../i18n/messages.ru';
 import { ask } from '../../../../../providers/dialog';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
@@ -30,7 +28,7 @@ import { ProcessingSignal } from './processing-signal';
 
 const actionMeta: Record<
   SongActionId,
-  { label: MessageKey; icon: string; style?: React.CSSProperties }
+  { label: string; icon: string; style?: React.CSSProperties }
 > = {
   play: { label: 'play', icon: 'play' },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },
@@ -86,7 +84,7 @@ export const SongCard = memo(
     const guarded = useGuardedAction();
     const { confirmDelete } = useSongActions();
     const showError = async () => {
-      let message = tr(ru.errorProjectInvalid);
+      let message = tr('errorProjectInvalid');
       try {
         const failed = (await pythonClient.listJobs()).find(
           (job) => job.songId === song.id && job.error,
@@ -99,7 +97,7 @@ export const SongCard = memo(
       await ask({
         title: `${song.artist} — ${song.title}`,
         body: message,
-        actions: [{ id: 'ok', label: tr(ru.close), appearance: 'primary' }],
+        actions: [{ id: 'ok', label: tr('close'), appearance: 'primary' }],
       });
     };
     const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
@@ -204,7 +202,7 @@ export const SongCard = memo(
               tone={presentation.tone}
               style={{ alignSelf: 'start' }}
             >
-              {tr(ru[presentation.label])}
+              {tr(presentation.label)}
             </Badge>
             <Stack
               direction="row"
@@ -221,7 +219,7 @@ export const SongCard = memo(
                   variant="primary"
                   icon="music"
                   style={{ flexShrink: 0 }}
-                  label={tr(ru['recordingRehearsal'])}
+                  label={tr('recordingRehearsal')}
                   disabled={playbackDisabled}
                   onClick={() => onPlay(song, true)}
                 />
@@ -237,7 +235,7 @@ export const SongCard = memo(
                       ? primaryIcon(primary, roomSelection)
                       : actionMeta[id].icon
                   }
-                  label={tr(ru[actionMeta[id].label])}
+                  label={tr(actionMeta[id].label)}
                   variant={id === primary ? 'primary' : 'ghost'}
                   disabled={id === 'play' && playbackDisabled}
                   onClick={actions[id]}
@@ -249,7 +247,7 @@ export const SongCard = memo(
               {song.status === 'importing' && (
                 <ProgressBar
                   value={song.progress ?? 0}
-                  label={tr(ru.importing)}
+                  label={tr('importing')}
                 />
               )}
             </Stack>

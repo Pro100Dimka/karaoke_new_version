@@ -8,7 +8,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { RuntimeAudioConfiguration } from '../../../../../contracts/models';
-import { ru } from '../../../../../i18n/messages.ru';
 import { useAcousticCalibration } from './useAcousticCalibration';
 
 /** Measures acoustic delay from test signals; the result does not identify its physical cause. */
@@ -37,13 +36,13 @@ export const AcousticCalibration = observer(
         <Stack direction="row" wrap align="center" justify="between" gap={3}>
           <Typography variant="caption" tone="muted">
             {measured === undefined
-              ? tr(ru.latencyPartAcousticUnknown)
-              : tr(ru.latencyPartAcoustic, {
+              ? tr('latencyPartAcousticUnknown')
+              : tr('latencyPartAcoustic', {
                   value: Math.round(measured),
-                  source: tr(ru[sourceKey]),
+                  source: tr(sourceKey),
                 })}
           </Typography>
-          <Tooltip content={tr(ru.acousticLatencyHint)}>
+          <Tooltip content={tr('acousticLatencyHint')}>
             <Button
               size="sm"
               icon="target"
@@ -52,20 +51,18 @@ export const AcousticCalibration = observer(
               onClick={() => void measure()}
             >
               {tr(
-                ru[
-                  measuring
-                    ? 'acousticLatencyMeasuring'
-                    : measured === undefined
-                      ? 'acousticLatencyMeasure'
-                      : 'acousticLatencyRecheck'
-                ],
+                measuring
+                  ? 'acousticLatencyMeasuring'
+                  : measured === undefined
+                    ? 'acousticLatencyMeasure'
+                    : 'acousticLatencyRecheck',
               )}
             </Button>
           </Tooltip>
         </Stack>
         {measured !== undefined && (
           <Typography variant="caption" tone="muted">
-            {tr(ru.acousticLatencyUncertaintyHint)}
+            {tr('acousticLatencyUncertaintyHint')}
           </Typography>
         )}
       </Stack>

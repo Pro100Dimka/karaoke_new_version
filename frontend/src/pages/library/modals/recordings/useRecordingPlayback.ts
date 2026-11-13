@@ -72,13 +72,17 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
 
   useEffect(() => {
     if (!playing) return;
-    return preview.observeRecordingPreview(owner.current, status => {
-      if (status.recordingId !== id || status.state === 'finished') release();
-      else setPosition(status.positionSeconds);
-    }, error => {
-      release();
-      reportOperationFailure('errors.previewPlayback', error);
-    });
+    return preview.observeRecordingPreview(
+      owner.current,
+      (status) => {
+        if (status.recordingId !== id || status.state === 'finished') release();
+        else setPosition(status.positionSeconds);
+      },
+      (error) => {
+        release();
+        reportOperationFailure('errors.previewPlayback', error);
+      },
+    );
   }, [playing, id, release, preview]);
 
   useEffect(() => {

@@ -1,33 +1,40 @@
 import { Grid } from '@neo-ui-kit/react';
-import LibraryTitle from './title';
-import LibraryStats from './stats';
+import type { useRoomLibrary } from '../songs/useRoomLibrary';
+import LibraryActions from './filters&actions/actions';
+import type { LibraryView } from './filters&actions/useLibraryView';
+import type { LibraryViewFilters } from './filters&actions/search-field';
+import LibraryHeader from './header';
 
-export const LibraryHeader = ({
-  onOpenProcessing,
-}: {
-  onOpenProcessing(): void;
-}) => (
-  <header data-window-drag>
-    <Grid
-      columns={{ base: 1, lg: 12 }}
-      gap={10}
-      style={{ position: 'relative' }}
-    >
-      {[
-        { content: <LibraryTitle />, display: undefined },
-        {
-          content: <LibraryStats onOpenProcessing={onOpenProcessing} />,
-          display: 'flex',
-        },
-      ].map(({ content, display }, index) => (
-        <Grid
-          key={index}
-          span={{ base: 'full', lg: 6 }}
-          style={{ display, zIndex: 2 }}
-        >
-          {content}
-        </Grid>
-      ))}
+type Props = {
+  view: LibraryView;
+  setQuery(query: string): void;
+  setViewFilters(update: (current: LibraryViewFilters) => LibraryViewFilters): void;
+  roomLibrary: ReturnType<typeof useRoomLibrary>;
+  openProcessing(): void;
+  onOpenRoom(): void;
+};
+
+const Hero = ({
+  view, setQuery, setViewFilters, roomLibrary,
+  openProcessing, onOpenRoom,
+}: Props) => (
+  <Grid columns={12} gap={10} style={{ position: 'relative' }}>
+    <Grid span={{ base: 'full' }} style={{ zIndex: 2 }}>
+      <LibraryHeader onOpenProcessing={openProcessing} />
     </Grid>
-  </header>
+    <Grid span={{ base: 'full' }}>
+      <LibraryActions
+        view={view}
+        onQueryChange={setQuery}
+        onFiltersChange={(filters) => setViewFilters(() => filters)}
+        roomRole={roomLibrary.room?.role}
+        collaborativeControl={roomLibrary.room?.collaborativeControl}
+        onCollaborativeControlChange={roomLibrary.setCollaborativeControl}
+        onOpenRoom={onOpenRoom}
+        onViewChange={roomLibrary.publishView}
+      />
+    </Grid>
+  </Grid>
 );
+
+export default Hero;

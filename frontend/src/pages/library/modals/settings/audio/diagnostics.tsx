@@ -6,7 +6,6 @@ import {
   Typography,
   tr,
 } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import type { SettingsFormValues } from '../../../../../utils/contracts';
 import { AcousticCalibration } from './AcousticCalibration';
 
@@ -46,11 +45,11 @@ export default function AudioDiagnostics() {
         compact
         icon="info"
         level={4}
-        title={tr(ru.latencyTechnicalDetails)}
+        title={tr('latencyTechnicalDetails')}
       />
       {notes.map((note) => (
         <Typography key={note} variant="caption" tone="muted">
-          {tr(ru[note])}
+          {tr(note)}
         </Typography>
       ))}
       {audioAvailable && runtime.backend !== 'ASIO' && (
@@ -62,16 +61,16 @@ export default function AudioDiagnostics() {
             ] as const
           ).map(([label, milliseconds]) => (
             <Typography key={label} variant="caption" tone="muted">
-              {tr(ru[label], {
+              {tr(label, {
                 value:
                   milliseconds == null
-                    ? tr(ru.latencyUsbUnknown)
+                    ? tr('latencyUsbUnknown')
                     : milliseconds.toFixed(2),
               })}
             </Typography>
           ))}
           <Typography variant="caption" tone="muted">
-            {tr(ru.latencyUsbHint)}
+            {tr('latencyUsbHint')}
           </Typography>
         </Stack>
       )}
@@ -84,7 +83,7 @@ export default function AudioDiagnostics() {
           {partRows.map(([label, value]) =>
             value === null ? null : (
               <Typography key={label} as="li" variant="caption" tone="muted">
-                {tr(ru[label], { value })}
+                {tr(label, { value })}
               </Typography>
             ),
           )}
@@ -102,18 +101,18 @@ export default function AudioDiagnostics() {
           ).map(([label, value]) =>
             value === null ? null : (
               <Typography key={label} variant="caption" tone="muted">
-                {tr(ru[label], { value: value.toFixed(3) })}
+                {tr(label, { value: value.toFixed(3) })}
               </Typography>
             ),
           )}
           <Typography variant="caption" tone="muted">
-            {tr(ru.latencyTimingNotCpu)}
+            {tr('latencyTimingNotCpu')}
           </Typography>
         </Stack>
       )}
       {audioAvailable && runtime.calibratedLatencyMs != null && (
         <Typography variant="caption" tone="muted">
-          {tr(ru.latencyActiveCorrection, {
+          {tr('latencyActiveCorrection', {
             value: runtime.calibratedLatencyMs.toFixed(2),
           })}
         </Typography>
@@ -121,7 +120,7 @@ export default function AudioDiagnostics() {
       {runtime.backend === 'WASAPI Shared' &&
         form.values.audioStatus.options.inputPeriods.length > 0 && (
           <Select
-            label={tr(ru.audioInputPeriod)}
+            label={tr('audioInputPeriod')}
             value={form.values.audio.configuration.inputPeriodFrames ?? 0}
             options={form.values.audioStatus.options.inputPeriods}
             onValueChange={(value) =>
@@ -133,7 +132,7 @@ export default function AudioDiagnostics() {
         compact
         icon="wave"
         level={4}
-        title={tr(ru.latencyOptionalAcoustic)}
+        title={tr('latencyOptionalAcoustic')}
       />
       <AcousticCalibration audioAvailable={audioAvailable} runtime={runtime} />
     </Stack>

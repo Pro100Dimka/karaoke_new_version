@@ -1,6 +1,0 @@
-{
-  "reviewedAtUtc": "2026-10-31T18:02:32.712808+00:00",
-  "imageSha256": "f15530a0d3797c58c4ba94188b581670242c5898950b7327d20e3acd5bc5e207",
-  "visualInspection": "Passed after moving plot grid upward to separate final x-axis label from caption; three rows, timings, signed error values, color legend and reference-uncertainty note are legible and do not overlap.",
-  "method": "Viewed rendered PNG; no audio listening claimed."
-}

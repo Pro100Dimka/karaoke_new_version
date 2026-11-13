@@ -3,6 +3,8 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import hashlib
+import time
 import sys
 import threading
 import tempfile
@@ -75,10 +77,18 @@ class KaggleNotebookAutomation:
         token: str,
         discovery_url: str,
         notebook_slug: str,
+        *,
+        recovery_directory: Path | None = None,
     ) -> KaggleDeployment:
         username = self._valid_username()
         if not re.fullmatch(r"[a-z0-9-]{1,64}", notebook_slug):
             raise DependencyError("KaggleNotebookInvalid", "Kaggle notebook name is invalid")
+        reference = f"{username}/{notebook_slug}"
+        if self._reuse_or_restore(reference, token, recovery_directory):
+            return KaggleDeployment(
+                f"https://www.kaggle.com/code/{reference}",
+                "Kaggle notebook is already starting or running",
+            )
         notebook = self._notebook(token, discovery_url)
         with tempfile.TemporaryDirectory(prefix="ad-voice-kaggle-") as folder:
             target = Path(folder)
@@ -98,9 +108,88 @@ class KaggleNotebookAutomation:
                 600,
             )
         return KaggleDeployment(
-            url=f"https://www.kaggle.com/code/{username}/{notebook_slug}",
+            url=f"https://www.kaggle.com/code/{reference}",
             message=self._output(result) or "Kaggle GPU notebook started",
         )
+
+    def _reuse_or_restore(
+        self, reference: str, token: str, recovery_directory: Path | None
+    ) -> bool:
+        state = self._state(reference, token)
+        stalled = state.get("status") == "QUEUED" and float(str(state.get("age", 0))) >= 900
+        if stalled:
+            if recovery_directory is None:
+                raise DependencyError(
+                    "KaggleNotebookStalled", "The application notebook is stuck in the Kaggle queue"
+                )
+            self._restore_queued(reference, token, recovery_directory)
+        elif state.get("status") in {"RUNNING", "QUEUED", "CANCEL_REQUESTED"}:
+            if not state.get("matching") or state.get("status") == "CANCEL_REQUESTED":
+                raise DependencyError(
+                    "KaggleNotebookBusy", "A different notebook version is still active"
+                )
+            return True
+        return False
+
+    def _restore_queued(self, reference: str, token: str, recovery_directory: Path) -> None:
+        if not re.fullmatch(r"ad-voice-gpu-[0-9a-f]{12}", reference.split("/")[-1]):
+            raise DependencyError(
+                "KaggleNotebookInvalid", "Only the installation notebook can be restored"
+            )
+        backup = recovery_directory / str(time.time_ns())
+        backup.mkdir(parents=True, exist_ok=False)
+        self._run(
+            [sys.executable, "-m", "kaggle", "kernels", "pull", reference, "-p", str(backup), "-m"],
+            120,
+        )
+        if not list(backup.glob("*.ipynb")) or not (backup / "kernel-metadata.json").is_file():
+            raise DependencyError("KaggleAutomationFailed", "Notebook backup is incomplete")
+        state = self._state(reference, token)
+        if state.get("status") != "QUEUED" or float(str(state.get("age", 0))) < 900:
+            raise DependencyError(
+                "KaggleNotebookBusy", "Notebook state changed; it was not removed"
+            )
+        self._run([sys.executable, "-m", "kaggle", "kernels", "delete", reference, "-y"], 120)
+
+    def _state(self, reference: str, token: str) -> dict[str, object]:
+        signature = hashlib.sha256(
+            f'os.environ["AD_VOICE_TOKEN"] = {dumps(token)}'.encode()
+        ).hexdigest()
+        result = self._run(
+            [
+                sys.executable,
+                "-c",
+                """
+import hashlib, json, sys
+from datetime import datetime, timezone
+from kaggle.api.kaggle_api_extended import KaggleApi
+from kagglesdk.kernels.types.kernels_api_service import ApiGetKernelRequest
+from requests.exceptions import HTTPError
+api = KaggleApi()
+api.authenticate()
+try:
+    status = api.kernels_status(sys.argv[1]).status.name
+    with api.build_kaggle_client() as client:
+        request = ApiGetKernelRequest()
+        request.user_name, request.kernel_slug = sys.argv[1].split('/')
+        kernel = client.kernels.kernels_api_client.get_kernel(request)
+    notebook = json.loads(kernel.blob.source)
+    matching = any(hashlib.sha256(line.strip().encode()).hexdigest() == sys.argv[2]
+                   for cell in notebook.get('cells', []) for line in ''.join(cell.get('source', [])).splitlines())
+    started = kernel.metadata.last_run_time
+    age = (datetime.now(timezone.utc) - started.replace(tzinfo=timezone.utc)).total_seconds() if started else 0
+    print(json.dumps({'status': status, 'age': age, 'matching': matching}))
+except HTTPError as error:
+    if error.response.status_code != 404:
+        raise
+    print(json.dumps({'status': 'MISSING'}))
+""",
+                reference,
+                signature,
+            ],
+            60,
+        )
+        return loads_object(self._output(result).splitlines()[-1])
 
     def _valid_username(self) -> str:
         username = self._username_loader().strip()
@@ -215,6 +304,11 @@ class KaggleNotebookAutomation:
         )
         stdout = self._output(result)
         stderr = self._output(result, stderr=True)
+        if re.search(r"Maximum batch GPU session count of \d+ reached", stdout + "\n" + stderr):
+            raise DependencyError(
+                "KaggleGpuSessionLimit",
+                "Kaggle GPU sessions are in use. Stop an unused notebook in Kaggle and try again.",
+            )
         if result.exit_code or re.search(r"(?im)^Kernel push error:", stdout + "\n" + stderr):
             message = stderr or stdout or "Kaggle command failed"
             raise DependencyError("KaggleAutomationFailed", message)

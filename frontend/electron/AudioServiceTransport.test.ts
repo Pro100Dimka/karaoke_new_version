@@ -35,16 +35,24 @@ it('streams fragmented notifications over one connection and reconnects after a 
   expect(transport).toHaveProperty('subscribeAudioNotifications');
   if (!('subscribeAudioNotifications' in transport)) return;
   const received = vi.fn();
-  const stop = transport.subscribeAudioNotifications('GetPlaybackSnapshot', 16, received);
+  const stop = transport.subscribeAudioNotifications(
+    'GetPlaybackSnapshot',
+    16,
+    received,
+  );
   await vi.advanceTimersByTimeAsync(0);
-  const payload = Buffer.from('1000000|0|PlaybackState: 3\nInputPitchHistory: 1,2,3,440\n');
+  const payload = Buffer.from(
+    '1000000|0|PlaybackState: 3\nInputPitchHistory: 1,2,3,440\n',
+  );
   const header = Buffer.alloc(4);
   header.writeUInt32LE(payload.length);
   for (const byte of Buffer.concat([header, payload, header, payload]))
     sockets[0]?.emit('data', Buffer.from([byte]));
   expect(received).toHaveBeenCalledTimes(2);
   expect(received).toHaveBeenLastCalledWith({
-    status: 0, text: 'PlaybackState: 3\nInputPitchHistory: 1,2,3,440', observedAt: 1000000,
+    status: 0,
+    text: 'PlaybackState: 3\nInputPitchHistory: 1,2,3,440',
+    observedAt: 1000000,
   });
   expect(createConnection).toHaveBeenCalledOnce();
   sockets[0]?.emit('end');
@@ -57,16 +65,20 @@ it('streams fragmented notifications over one connection and reconnects after a 
 });
 
 it.each(['oversized', 'malformed', 'stalled'])(
-  'resynchronizes a %s notification stream and stops retries on cleanup', async (kind) => {
+  'resynchronizes a %s notification stream and stops retries on cleanup',
+  async (kind) => {
     reply = () => {};
-    const { subscribeAudioNotifications } = await import('./AudioServiceTransport');
+    const { subscribeAudioNotifications } =
+      await import('./AudioServiceTransport');
     const received = vi.fn();
     const stop = subscribeAudioNotifications('GetSpectrum', 50, received);
     await vi.advanceTimersByTimeAsync(0);
     if (kind !== 'stalled') {
       const payload = Buffer.from('bad|0|bands=0.5\n');
       const header = Buffer.alloc(4);
-      header.writeUInt32LE(kind === 'oversized' ? (1 << 20) + 1 : payload.length);
+      header.writeUInt32LE(
+        kind === 'oversized' ? (1 << 20) + 1 : payload.length,
+      );
       sockets[0]?.emit('data', Buffer.concat([header, payload]));
     } else {
       await vi.advanceTimersByTimeAsync(3000);
@@ -80,13 +92,18 @@ it.each(['oversized', 'malformed', 'stalled'])(
   },
 );
 
-it.each([['Play', 16], ['GetSpectrum', 0], ['GetPlaybackSnapshot', Infinity]])(
-  'rejects an invalid subscription %s at %s', async (command, interval) => {
-    const { subscribeAudioNotifications } = await import('./AudioServiceTransport');
-    expect(() => subscribeAudioNotifications(command, interval, vi.fn())).toThrow();
-    expect(createConnection).not.toHaveBeenCalled();
-  },
-);
+it.each([
+  ['Play', 16],
+  ['GetSpectrum', 0],
+  ['GetPlaybackSnapshot', Infinity],
+])('rejects an invalid subscription %s at %s', async (command, interval) => {
+  const { subscribeAudioNotifications } =
+    await import('./AudioServiceTransport');
+  expect(() =>
+    subscribeAudioNotifications(command, interval, vi.fn()),
+  ).toThrow();
+  expect(createConnection).not.toHaveBeenCalled();
+});
 
 it('decodes a multibyte device name split across pipe reads', async () => {
   reply = (connection) => {

@@ -35,6 +35,23 @@ const roomTransport = readFileSync(
   'utf8',
 );
 
+test('normal startup prepares services before window readiness behind update and migration gates', () => {
+  assert.match(
+    main,
+    /isPrimaryInstance\s*&&\s*!hasPendingStorageMigration\(\)\s*&&\s*!updater\.requiresLaunchCheck\(\)/,
+  );
+  assert.ok(
+    main.indexOf('startManagedServices();') < main.indexOf('.whenReady()'),
+  );
+  assert.match(main, /await waitForStorageMigration\(language\)/);
+  assert.match(main, /await updater\.beforeLaunch/);
+  assert.match(main, /earlyStartupError = error/);
+  assert.match(
+    main,
+    /if \(earlyStartupError !== undefined\) throw earlyStartupError/,
+  );
+});
+
 test('startup splash contains only the glowing theme icon on a transparent page', () => {
   assert.match(splash, /background:\s*transparent/);
   assert.match(splash, /<image\s+id="icon"/i);

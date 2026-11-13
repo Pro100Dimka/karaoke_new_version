@@ -2,7 +2,6 @@ import { friendRelations } from '../../../../providers/social';
 import { socialClient } from '../../../../services/socialClient';
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../../providers/store';
-import { ru } from '../../../../i18n/messages.ru';
 import { useEffect, useState } from 'react';
 import {
   IconButton,
@@ -54,7 +53,7 @@ export const RoomHistory = observer(() => {
         const relation = await friends.requestAccount(accountId);
         setRelations((current) => ({ ...current, [accountId]: relation }));
       },
-      tr(ru.friendRequestSent, { name }),
+      tr('friendRequestSent', { name }),
     );
 
   const personActions = ({ person, displayName }: RoomStayPerson) => {
@@ -66,7 +65,7 @@ export const RoomHistory = observer(() => {
         <IconButton
           size="sm"
           icon="check"
-          label={tr(ru.requestPending)}
+          label={tr('social.requestPending')}
           disabled
         />
       );
@@ -74,7 +73,7 @@ export const RoomHistory = observer(() => {
       <IconButton
         size="sm"
         icon="person"
-        label={tr(ru.addFriend)}
+        label={tr('addFriend')}
         disabled={busy}
         onClick={() => void add(person.accountId, displayName)}
       />
@@ -82,13 +81,11 @@ export const RoomHistory = observer(() => {
   };
 
   if (failed)
-    return (
-      <Typography tone="muted">{tr(ru.roomNetworkUnavailable)}</Typography>
-    );
+    return <Typography tone="muted">{tr('roomNetworkUnavailable')}</Typography>;
   if (!stays)
-    return <ProgressBar indeterminate label={tr(ru.friendsTabHistory)} />;
+    return <ProgressBar indeterminate label={tr('friendsTabHistory')} />;
   if (stays.length === 0)
-    return <Typography tone="muted">{tr(ru.roomHistoryEmpty)}</Typography>;
+    return <Typography tone="muted">{tr('social.roomHistoryEmpty')}</Typography>;
   return (
     <ol className="roomStays">
       {stays.map((stay) => (
@@ -101,12 +98,12 @@ export const RoomHistory = observer(() => {
           </Typography>
           <Typography variant="body-sm" tone="muted">
             {stay.leftAt
-              ? tr(ru.historySpent, { duration: durationText(stay.seconds) })
-              : tr(ru.historyStillHere)}
+              ? tr('social.historySpent', { duration: durationText(stay.seconds) })
+              : tr('social.historyStillHere')}
           </Typography>
           {stay.people.length === 0 ? (
             <Typography variant="body-sm" tone="muted">
-              {tr(ru.historyAlone)}
+              {tr('social.historyAlone')}
             </Typography>
           ) : (
             <ul className="personList">
@@ -116,7 +113,7 @@ export const RoomHistory = observer(() => {
                   accountId={item.person?.accountId}
                   avatarVersion={item.person?.avatarVersion}
                   name={item.person?.displayName || item.displayName}
-                  detail={item.person ? undefined : tr(ru.historyUnknownPerson)}
+                  detail={item.person ? undefined : tr('social.historyUnknownPerson')}
                   actions={personActions(item)}
                 />
               ))}

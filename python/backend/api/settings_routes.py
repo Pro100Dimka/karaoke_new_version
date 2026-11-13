@@ -13,7 +13,7 @@ from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
 from backend.bootstrap.container import ApplicationContainer
 from backend.models.domain import ComputeMode
-from backend.settings.domain import BackendSettings, ProcessingBackend
+from backend.settings.domain import BackendSettings, ProcessingBackend, room_server_url
 from backend.settings.environment import EnvironmentEntry, default_environment_store
 from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
 from backend.infrastructure.kaggle_notebook_automation import (
@@ -177,12 +177,12 @@ def login_to_kaggle(app: ContainerDep) -> KaggleActionDto:
 
 
 @router.post("/kaggle/deploy", response_model=KaggleActionDto)
-def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
+def deploy_kaggle_notebook(app: ContainerDep, restore: bool = False) -> KaggleActionDto:
     global _active_kaggle_deployment
     with _kaggle_deployment_lock:
         active = _active_kaggle_deployment
         if active is None:
-            active = _kaggle_deployment_executor.submit(_deploy_kaggle_notebook, app)
+            active = _kaggle_deployment_executor.submit(_deploy_kaggle_notebook, app, restore)
             _active_kaggle_deployment = active
             created = True
         else:
@@ -192,20 +192,24 @@ def deploy_kaggle_notebook(app: ContainerDep) -> KaggleActionDto:
     return active.result()
 
 
-def _deploy_kaggle_notebook(app: ApplicationContainer) -> KaggleActionDto:
+def _deploy_kaggle_notebook(app: ApplicationContainer, restore: bool = False) -> KaggleActionDto:
     current = app.system.settings()
+    account_token = _kaggle_account_token(app)
     token = (
         current.kaggle_token
-        if current.kaggle_url and current.kaggle_token
+        if current.kaggle_token and current.kaggle_token != account_token
         else secrets.token_urlsafe(32)
     )
     environment = {entry.key: entry.value for entry in default_environment_store().read()}
+    # Keep the worker credential stable when submission succeeds but readiness fails.
+    app.system.update_settings.execute(kaggle_token=token)
     host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
     port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    deployment = KaggleNotebookAutomation(account_token=_kaggle_account_token(app)).deploy(
+    deployment = KaggleNotebookAutomation(account_token=account_token).deploy(
         token,
-        f"http://{host}:{port}",
+        room_server_url(host, port),
         _kaggle_notebook_slug(app),
+        recovery_directory=app.roots.app / "kaggle-backups" if restore else None,
     )
     settings = app.system.update_settings.execute(
         kaggle_url=deployment.url,

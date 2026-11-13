@@ -616,3 +616,39 @@ def test_speech_reuse_keeps_cpu_calls_native_and_closes_scope(monkeypatch):
         assert provider._invoke("transcribe", [], cancel, execution=cuda)["text"] == "reused"
         assert provider._invoke("transcribe", [], cancel, execution=EXECUTION)["text"] == "native"
     assert sessions[0].closed and sessions[0].calls == 1
+
+
+@pytest.mark.parametrize("device", [ComputeDevice.CPU, ComputeDevice.CUDA])
+def test_pitch_reuse_keeps_three_analyses_in_one_worker(monkeypatch, device):
+    from backend.infrastructure import command_ai_provider
+    from backend.ai_worker.speech_session import _validate
+
+    sessions = []
+
+    class Session:
+        def __init__(self, command):
+            self.calls = []
+            self.closed = False
+            sessions.append(self)
+
+        def run(self, arguments, **kwargs):
+            self.calls.append((arguments, kwargs))
+            return ProcessResult(0, b'{"points":[]}', b"")
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(command_ai_provider, "SpeechSession", Session)
+    provider = _provider(b'{"points":[]}', provider_id="local-torch")
+    cancel = threading.Event()
+    execution = ExecutionContext(device, 2)
+    with provider.reuse_pitch(cancel, execution):
+        for name in ["voice.wav", "reference.wav", "corrected.wav"]:
+            assert provider.pitch(Path(name), cancel, execution=execution) == ()
+        assert not sessions[0].closed
+    assert len(sessions) == 1 and sessions[0].closed
+    assert [args for args, _ in sessions[0].calls] == [
+        ["pitch", "--input", name] for name in ["voice.wav", "reference.wav", "corrected.wav"]
+    ]
+    assert all(kw["cancel"] is cancel for _, kw in sessions[0].calls)
+    assert _validate(["pitch", "--input", "voice.wav"], {}, "")[0][0] == "pitch"

@@ -12,7 +12,9 @@ from tests.fakes import FakeAiProvider
 from tests.helpers import import_song, wait_for_job
 from backend.songs.recognition import RecognizedSong
 from backend.domain_errors import ConflictError
+from backend.lyrics.domain import LyricsDocument
 from backend.projects.operations import SongOperation, SongOperationRegistry
+from backend.packages.policy import PackagePolicy
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
@@ -69,9 +71,35 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
 
 def test_exported_repetitive_audio_obeys_import_compression_policy(tmp_path: Path) -> None:
     source = tmp_path / "repetitive-tone.wav"
+    melody = tmp_path / "silent-melody.wav"
     write_wav(source, seconds=90, sample_rate=48_000)
+    write_wav(melody, seconds=90, sample_rate=48_000, frequency=0)
     with app_client(tmp_path / "source-runtime", ai_providers=(FakeAiProvider(),)) as client:
-        song, package = make_ready_and_export(client, source)
+        song = import_song(client, source)
+        # Seed a validated ready revision without coupling archive checks to DSP timing.
+        publisher = client.app.state.container.songs.start_processing._pipeline._publisher
+        publisher.publish_generated(
+            song["songId"],
+            song["activeRevision"],
+            source,
+            source,
+            melody,
+            LyricsDocument("Song", "Artist", 90, None, None, "", ()),
+            {},
+            song["songId"],
+        )
+        export = client.post(f"/packages/export/{song['songId']}")
+        assert export.status_code == 202, export.text
+        exported = wait_for_job(client, export.json()["jobId"])
+        assert exported["state"] == "Succeeded", exported
+        package = Path(exported["report"]["path"])
+        with zipfile.ZipFile(package) as bundle:
+            melody_info = bundle.getinfo("audio/melody.flac")
+            assert bundle.read(melody_info)[:4] == b"fLaC"
+            assert (
+                melody_info.file_size
+                <= melody_info.compress_size * PackagePolicy().max_compression_ratio
+            )
 
     with app_client(tmp_path / "target-runtime") as client:
         started = client.post("/packages/import", json={"path": str(package)})

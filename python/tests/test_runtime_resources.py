@@ -10,6 +10,7 @@ from backend.domain_errors import DependencyError
 from backend.infrastructure import runtime_probe
 from backend.infrastructure.process_runner import ProcessResult
 from backend.infrastructure.runtime_probe import SystemRuntimeProbe
+from backend.models.domain import ComputeMode
 from tests.fakes import FakeAiProvider
 from tests.test_resource_scheduler import FakeStorage
 
@@ -74,6 +75,33 @@ def test_configured_probe_refreshes_free_memory_without_probing_torch_again(tmp_
     )
     assert runner.calls.count("torch") == 1
     assert runner.calls.count("ffmpeg") == 1
+
+
+@pytest.mark.parametrize(
+    "mode,resources,needs_cuda",
+    [
+        (ComputeMode.AUTO, {}, False),
+        (ComputeMode.AUTO, {"remote": True}, False),
+        (ComputeMode.CPU, {"supportsCuda": True}, False),
+        (ComputeMode.AUTO, {"supportsCuda": True}, True),
+        (ComputeMode.AUTO, {"requiresCuda": True}, True),
+    ],
+)
+def test_cpu_admission_does_not_wait_for_cuda_probe(
+    tmp_path, monkeypatch, mode, resources, needs_cuda
+):
+    monkeypatch.setattr(SystemRuntimeProbe, "warm_up", lambda self: None)
+    runner = Runner(ProcessResult(0, CUDA_FACTS, b""))
+    provider = FakeAiProvider(required_resources=resources)
+    wiring = _processing_wiring(
+        BackendConfig.load(tmp_path), runner, Mock(), (provider,), (), FakeStorage()
+    )
+    lease = wiring.resources.claim_provider(provider, 0, mode)
+    try:
+        assert ("torch" in runner.calls) is needs_cuda
+        assert lease.execution.device.value == ("CUDA" if needs_cuda else "CPU")
+    finally:
+        lease.release()
 
 
 def test_picks_the_gpu_pytorch_uses_when_the_driver_lists_several():

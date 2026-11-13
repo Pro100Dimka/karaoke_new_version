@@ -1,5 +1,3 @@
-import type { MessageKey } from '../../i18n/messages';
-
 export type ParticipantEffect =
   'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';
 
@@ -52,7 +50,7 @@ export const participantEffectKnobs = [
   },
 ] as const satisfies ReadonlyArray<{
   id: ParticipantEffect;
-  label: MessageKey;
+  label: string;
   min: number;
   max: number;
   step: number;

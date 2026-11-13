@@ -34,14 +34,19 @@ def _envelope(path: Path) -> tuple[list[float], int]:
         if width != 2:
             raise wave.Error("Music analyzer expects 16-bit PCM")
         block = max(1, sample_rate * channels // _FRAME_RATE)
+        sum_type = np.int32 if block * 32768 <= np.iinfo(np.int32).max else np.int64
         # Keep block boundaries identical to the original sample-based envelope,
         # including the final partial block's full-block divisor.
-        frames = block // math.gcd(block, channels) * 1024
+        aligned_frames = block // math.gcd(block, channels)
+        frames = aligned_frames * max(1, (64 * 1024) // (aligned_frames * channels * width))
         values: list[float] = []
         while raw := stream.readframes(frames):
             samples = np.abs(np.frombuffer(raw, dtype="<i2").astype(np.int32))
             values.extend(
-                (np.add.reduceat(samples, np.arange(0, len(samples), block)) / block).tolist()
+                (
+                    np.add.reduceat(samples, np.arange(0, len(samples), block), dtype=sum_type)
+                    / block
+                ).tolist()
             )
     return values, _FRAME_RATE
 
@@ -55,11 +60,22 @@ def _estimate_bpm(envelope: list[float], frame_rate: int) -> float | None:
     ]
     min_lag = max(1, round(60 * frame_rate / _MAX_BPM))
     max_lag = max(min_lag, round(60 * frame_rate / _MIN_BPM))
+    samples = np.asarray(onset, dtype=np.float64)
     scores = {
-        lag: sum(onset[index] * onset[index - lag] for index in range(lag, len(onset)))
+        lag: float(np.einsum("i,i->", samples[lag:], samples[:-lag], optimize=False))
         for lag in range(min_lag, min(max_lag, len(onset) - 1) + 1)
     }
     if not scores:
         return None
     best_lag = max(scores, key=lambda lag: scores[lag])
+    # Preserve scalar ranking when summation rounding could change a near tie.
+    tolerance = np.finfo(np.float64).eps * len(onset) * scores[best_lag]
+    tied = [lag for lag, score in scores.items() if scores[best_lag] - score <= tolerance]
+    if len(tied) > 1 and scores[best_lag] > 0:
+        best_lag = max(
+            tied,
+            key=lambda lag: sum(
+                onset[index] * onset[index - lag] for index in range(lag, len(onset))
+            ),
+        )
     return round(60.0 * frame_rate / best_lag, 2)

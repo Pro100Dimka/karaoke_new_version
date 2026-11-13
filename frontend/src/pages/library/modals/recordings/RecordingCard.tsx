@@ -1,7 +1,3 @@
-import { desktopClient as files } from '../../../../services/desktopClient';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
-import { useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   IconButton,
@@ -13,16 +9,18 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useQuery } from '@tanstack/react-query';
+import { memo, useCallback, useRef, useState } from 'react';
 import type { RecordingAnalysisProgress } from '../../../../contracts/clients';
-import type { MessageKey } from '../../../../i18n/messages';
-import { analysisStageLabel } from '../analysis/analysisPresentation';
 import type { RecordingDto } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { toAppError } from '../../../../shared/errors';
+import { useNearView } from '../../../../shared/hooks/useNearView';
+import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
+import { analysisStageLabel } from '../analysis/analysisPresentation';
 import performanceArtUrl from '../analysis/performance-art.svg';
 import { RecordingPlayer } from './RecordingPlayer';
-import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
-import { useNearView } from '../../../../shared/hooks/useNearView';
-import { toAppError } from '../../../../shared/errors';
 
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
@@ -44,7 +42,7 @@ const TakeName = ({
           size="xs"
           variant="ghost"
           icon="pencil"
-          label={tr(ru.renameTake)}
+          label={tr('renameTake')}
           onClick={() => setDraft(name)}
         />
       </div>
@@ -60,7 +58,7 @@ const TakeName = ({
     >
       <TextField
         size="sm"
-        aria-label={tr(ru.renameTake)}
+        aria-label={tr('renameTake')}
         autoFocus
         value={draft}
         onValueChange={setDraft}
@@ -73,7 +71,7 @@ const TakeName = ({
             size="xs"
             variant="ghost"
             icon="check"
-            label={tr(ru.save)}
+            label={tr('save')}
           />
         }
       />
@@ -82,7 +80,7 @@ const TakeName = ({
 };
 
 /** One take: its picture, name, file and analysis state, player and actions. */
-export const RecordingCard = ({
+const RecordingCardView = ({
   recording,
   versions = [],
   name,
@@ -93,16 +91,18 @@ export const RecordingCard = ({
   progress = {},
   failures = {},
   onCancelAnalysis,
+  measureElement,
 }: {
   recording: RecordingDto;
+  measureElement?: (element: Element | null) => void;
   versions?: readonly RecordingDto[];
   name: string;
   index: number;
-  onRename(name: string): void;
+  onRename(recording: RecordingDto, name: string): void;
   onAnalyze(recording: RecordingDto, recalculate?: boolean): void;
   onDelete(recording: RecordingDto): void;
   progress?: Readonly<Record<string, RecordingAnalysisProgress>>;
-  failures?: Readonly<Record<string, MessageKey>>;
+  failures?: Readonly<Record<string, string>>;
   onCancelAnalysis?(jobId: string): void;
 }) => {
   useLocale();
@@ -119,6 +119,13 @@ export const RecordingCard = ({
   // A song can have dozens of takes; each player's waveform is dozens of animated parts, so it is
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
+  const setCardRef = useCallback(
+    (element: HTMLLIElement | null) => {
+      card.current = element;
+      measureElement?.(element);
+    },
+    [measureElement],
+  );
   const nearView = useNearView(card);
   const analysis = useQuery({
     queryKey: ['recording-analysis', selected.id, selected.analysisStatus],
@@ -136,7 +143,7 @@ export const RecordingCard = ({
   );
 
   return (
-    <li ref={card}>
+    <li ref={setCardRef} data-index={index}>
       <Card border padding="sm" className="recordingCard">
         <img
           className="recordingArt"
@@ -144,41 +151,42 @@ export const RecordingCard = ({
           alt=""
         />
         <div className="recordingMain">
-          <TakeName name={name} onRename={onRename} />
+          <TakeName
+            name={name}
+            onRename={(value) => onRename(recording, value)}
+          />
           {versions.length > 0 && (
             <SegmentedControl
               size="sm"
-              label={tr(ru.recordingVersion)}
+              label={tr('recordingVersion')}
               value={selected.id}
               onValueChange={setVersionId}
               items={[recording, ...versions].map((item) => ({
                 value: item.id,
                 label: tr(
-                  ru[
-                    item.sourceRecordingId
-                      ? 'studioMasterTitle'
-                      : 'recordingOriginal'
-                  ],
+                  item.sourceRecordingId
+                    ? 'studioMasterTitle'
+                    : 'recordingOriginal',
                 ),
               }))}
             />
           )}
           <Typography variant="caption" tone="muted">
-            {statuses.map((key) => tr(ru[key])).join('  •  ')}
+            {statuses.map((key) => tr(key)).join('  •  ')}
           </Typography>
           {task && (
             <>
               <Typography variant="caption" role="status">
-                {tr(ru[analysisStageLabel(task.stage)])} · {task.progress}%
+                {tr(analysisStageLabel(task.stage))} · {task.progress}%
               </Typography>
               <ProgressBar
-                label={tr(ru[analysisStageLabel(task.stage)])}
+                label={tr(analysisStageLabel(task.stage))}
                 value={task.progress}
                 indeterminate={task.state === 'Queued'}
               />
             </>
           )}
-          {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
+          {failure && <MessageBar tone="error">{tr(failure)}</MessageBar>}
           {analysis.isError && (
             <MessageBar tone="error">
               {tr(toAppError(analysis.error).message)}
@@ -199,7 +207,7 @@ export const RecordingCard = ({
               as="strong"
               variant="h3"
               tone="accent"
-              title={tr(ru.analysisOverall)}
+              title={tr('analysisOverall')}
             >
               {analysis.data.score}
             </Typography>
@@ -207,7 +215,7 @@ export const RecordingCard = ({
           {preparing ? null : task ? (
             <IconButton
               icon="stop"
-              label={tr(ru.analysisCancel)}
+              label={tr('analysisCancel')}
               disabled={!task.jobId}
               onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
             />
@@ -216,18 +224,16 @@ export const RecordingCard = ({
               size="sm"
               variant="secondary"
               icon="levels"
-              label={tr(ru.recordingOpenAnalysis)}
+              label={tr('recordingOpenAnalysis')}
               onClick={() => onAnalyze(selected)}
             />
           ) : (
             <IconButton
               icon="levels"
               label={tr(
-                ru[
-                  selected.fileStatus === 'RecoveredIncomplete'
-                    ? 'errorRecordingTimingUnavailable'
-                    : 'recordingAnalyze'
-                ],
+                selected.fileStatus === 'RecoveredIncomplete'
+                  ? 'errorRecordingTimingUnavailable'
+                  : 'recordingAnalyze',
               )}
               disabled={selected.fileStatus === 'RecoveredIncomplete'}
               onClick={() => onAnalyze(selected)}
@@ -235,7 +241,7 @@ export const RecordingCard = ({
           )}
           <IconButton
             icon="folder"
-            label={tr(ru.openFolder)}
+            label={tr('openFolder')}
             onClick={async () => {
               const current = await catalog.getRecording(selected.id);
               await files.revealInExplorer(current.filePath);
@@ -244,7 +250,7 @@ export const RecordingCard = ({
           <IconButton
             icon="trash"
             variant="danger"
-            label={tr(ru.recordingDelete)}
+            label={tr('recordingDelete')}
             disabled={selected.fileStatus === 'Preparing'}
             onClick={() => onDelete(selected)}
           />
@@ -253,3 +259,46 @@ export const RecordingCard = ({
     </li>
   );
 };
+
+/** Progress for an unrelated take must not re-render this card or its waveform. */
+const sameTakeProgress = (
+  previous: Readonly<Record<string, RecordingAnalysisProgress>>,
+  next: Readonly<Record<string, RecordingAnalysisProgress>>,
+  recording: RecordingDto,
+  versions: readonly RecordingDto[],
+): boolean =>
+  [recording, ...versions].every((item) => previous[item.id] === next[item.id]);
+
+const sameTakeFailures = (
+  previous: Readonly<Record<string, string>>,
+  next: Readonly<Record<string, string>>,
+  recording: RecordingDto,
+  versions: readonly RecordingDto[],
+): boolean =>
+  [recording, ...versions].every((item) => previous[item.id] === next[item.id]);
+
+export const RecordingCard = memo(
+  RecordingCardView,
+  (previous, next) =>
+    previous.recording === next.recording &&
+    previous.versions === next.versions &&
+    previous.name === next.name &&
+    previous.index === next.index &&
+    previous.measureElement === next.measureElement &&
+    previous.onRename === next.onRename &&
+    previous.onAnalyze === next.onAnalyze &&
+    previous.onDelete === next.onDelete &&
+    previous.onCancelAnalysis === next.onCancelAnalysis &&
+    sameTakeProgress(
+      previous.progress ?? {},
+      next.progress ?? {},
+      next.recording,
+      next.versions ?? [],
+    ) &&
+    sameTakeFailures(
+      previous.failures ?? {},
+      next.failures ?? {},
+      next.recording,
+      next.versions ?? [],
+    ),
+);

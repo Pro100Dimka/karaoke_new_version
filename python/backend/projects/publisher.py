@@ -3,10 +3,13 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from pathlib import Path
+import threading
 from typing import Mapping
 
 from backend.domain_errors import ConflictError, NotFoundError
 from backend.history.domain import HistoryEvent
+from backend.infrastructure.lossless_audio import compress_audio
+from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.codec import encode_document
 from backend.lyrics.domain import LyricsDocument
 from backend.persistence import UnitOfWork, UnitOfWorkFactory
@@ -109,6 +112,10 @@ class ProjectPublisher:
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
     ) -> tuple[ProjectManifest, Path]:
+        runner, cancel = ProcessRunner(), threading.Event()
+        instrumental, reference_vocal, melody = (
+            compress_audio(path, runner, cancel) for path in (instrumental, reference_vocal, melody)
+        )
         lyrics_text = encode_document(lyrics)
         manifest = self._manifest(
             song_id,
@@ -216,46 +223,49 @@ class ProjectPublisher:
         melody: Path,
         lyrics_text: str,
     ) -> tuple[ProjectArtifact, ...]:
-        return (
+        files = {
+            "instrumental": ("instrumental", instrumental),
+            "referenceVocal": ("reference-vocal", reference_vocal),
+            "melody": ("melody", melody),
+        }
+        artifacts = tuple(
             ProjectArtifact(
-                "instrumental",
-                Path("audio/instrumental.wav"),
+                logical,
+                Path("audio/" + name + source.suffix),
                 ArtifactCategory.PORTABLE,
-                self._hasher(instrumental),
-            ),
+                self._hasher(source),
+            )
+            for logical, (name, source) in files.items()
+        )
+        if instrumental.suffix == ".flac":
+            peaks = Path(str(instrumental) + ".peaks.json")
+            artifacts += (
+                ProjectArtifact(
+                    "instrumentalPeaks",
+                    Path("audio/instrumental.flac.peaks.json"),
+                    ArtifactCategory.PORTABLE,
+                    self._hasher(peaks),
+                ),
+            )
+        return artifacts + tuple(
             ProjectArtifact(
-                "referenceVocal",
-                Path("audio/reference-vocal.wav"),
-                ArtifactCategory.PORTABLE,
-                self._hasher(reference_vocal),
-            ),
-            ProjectArtifact(
-                "melody",
-                Path("audio/melody.wav"),
-                ArtifactCategory.PORTABLE,
-                self._hasher(melody),
-            ),
-            ProjectArtifact(
-                "lyricsSync",
-                Path("lyricsSync.json"),
-                ArtifactCategory.PORTABLE,
-                _text_hash(lyrics_text),
-            ),
-            ProjectArtifact(
-                "lyricsBaseline",
-                Path("lyricsBaseline.json"),
-                ArtifactCategory.PORTABLE,
-                _text_hash(lyrics_text),
-            ),
+                name, Path(name + ".json"), ArtifactCategory.PORTABLE, _text_hash(lyrics_text)
+            )
+            for name in ("lyricsSync", "lyricsBaseline")
         )
 
     @staticmethod
     def _audio_files(instrumental: Path, reference_vocal: Path, melody: Path) -> dict[Path, Path]:
-        return {
-            Path("audio/instrumental.wav"): instrumental,
-            Path("audio/reference-vocal.wav"): reference_vocal,
-            Path("audio/melody.wav"): melody,
+        files = {
+            Path("audio/instrumental" + instrumental.suffix): instrumental,
+            Path("audio/reference-vocal" + reference_vocal.suffix): reference_vocal,
+            Path("audio/melody" + melody.suffix): melody,
         }
+        if instrumental.suffix == ".flac":
+            files[Path("audio/instrumental.flac.peaks.json")] = Path(
+                str(instrumental) + ".peaks.json"
+            )
+        return files
 
     @staticmethod
     def _text_files(lyrics_text: str, manifest: ProjectManifest) -> dict[Path, str]:

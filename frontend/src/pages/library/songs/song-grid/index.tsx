@@ -1,6 +1,7 @@
 import { Grid } from '@neo-ui-kit/react';
 import {
   elementScroll,
+  measureElement,
   observeElementOffset,
   observeElementRect,
   Virtualizer,
@@ -9,7 +10,7 @@ import {
 import { action, observableRef } from 'mobx';
 import { observer, useLocalObservable } from 'mobx-react-lite';
 import type { ReactNode, RefObject } from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { SongDto } from '../../../../contracts/models';
 
 interface SongGridProps {
@@ -46,22 +47,36 @@ export const VirtualGrid = observer(
       { rows: observableRef },
     );
     const count = Math.ceil(songs.length / layout.columns);
-    const options = {
-      count,
-      estimateSize: () => Math.max(140, layout.width / layout.columns / 3),
-      scrollMargin: layout.margin,
-      overscan: 3,
-      gap: 16,
-      useScrollendEvent: true,
-      observeElementOffset,
-      observeElementRect,
-      scrollToFn: elementScroll,
-    };
+    // Keep Virtualizer configuration stable while only the surrounding modal changes.
+    // A new options object would force a synchronous virtualizer update on every render.
+    const options = useMemo(
+      () => ({
+        count,
+        estimateSize: () => Math.max(140, layout.width / layout.columns / 3),
+        scrollMargin: layout.margin,
+        overscan: 3,
+        gap: 16,
+        useScrollendEvent: true,
+        observeElementOffset,
+        observeElementRect,
+        scrollToFn: elementScroll,
+      }),
+      [count, layout.width, layout.columns, layout.margin],
+    );
     const [virtualizer] = useState(
       () =>
         new Virtualizer<HTMLElement, HTMLDivElement>({
           ...options,
           getScrollElement: () => null,
+          // Use observer measurements after layout, rather than forcing layout during each mount.
+          measureElement: (element, entry, instance) => {
+            const index = instance.indexFromElement(element);
+            return entry
+              ? measureElement(element, entry, instance)
+              : (instance.itemSizeCache.get(
+                  instance.options.getItemKey(index),
+                ) ?? instance.options.estimateSize(index));
+          },
           onChange: action((instance) => {
             layout.rows = instance.getVirtualItems();
             layout.height = instance.getTotalSize();
@@ -71,7 +86,8 @@ export const VirtualGrid = observer(
     const { rows, height } = layout;
     const hasRows = rows.length > 0;
     useLayoutEffect(() => virtualizer._didMount(), [virtualizer]);
-    useLayoutEffect(() => {
+    // The parent's scroll ref is attached after this child's layout effects.
+    useEffect(() => {
       virtualizer.setOptions({
         ...virtualizer.options,
         ...options,
@@ -79,17 +95,21 @@ export const VirtualGrid = observer(
       });
       virtualizer._willUpdate();
       virtualizer.options.onChange?.(virtualizer, false);
-    });
+    }, [virtualizer, options, scrollRef]);
     useLayoutEffect(() => {
       const grid = gridRef.current;
       const scroll = scrollRef.current;
       if (!grid || !scroll) return;
       const measure = action(() => {
         const probe = grid.firstElementChild?.firstElementChild;
-        if (!probe) return;
+        const card = probe?.firstElementChild;
+        if (!probe || !card) return;
+        const width = probe.getBoundingClientRect().width;
+        const cardWidth = card.getBoundingClientRect().width;
+        if (width <= 0 || cardWidth <= 0) return;
+        const gap = parseFloat(getComputedStyle(probe).columnGap) || 0;
         Object.assign(layout, {
-          columns:
-            getComputedStyle(probe).gridTemplateColumns.split(' ').length,
+          columns: Math.max(1, Math.round((width + gap) / (cardWidth + gap))),
           margin:
             grid.getBoundingClientRect().top -
             scroll.getBoundingClientRect().top +

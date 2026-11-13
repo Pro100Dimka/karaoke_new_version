@@ -1,8 +1,6 @@
 import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { MessageKey } from '../i18n/messages';
-import { ru } from '../i18n/messages.ru';
 import { desktopClient } from '../services/desktopClient';
 import { useWindowState } from './useWindowState';
 
@@ -28,7 +26,7 @@ const windowActions = [
   },
 ] as const satisfies readonly {
   id: string;
-  label: MessageKey;
+  label: string;
   icon: string;
   run(): void;
 }[];
@@ -193,7 +191,7 @@ export const TitleBar = () => {
       className="titleBarControls"
       data-fullscreen={fullscreen || moving || undefined}
       role="toolbar"
-      aria-label={tr(ru.windowControls)}
+      aria-label={tr('windowControls')}
     >
       {windowActions.map(({ id, label, icon, run }) => (
         <IconButton
@@ -204,7 +202,7 @@ export const TitleBar = () => {
           variant="ghost"
           icon={icon}
           label={tr(
-            ru[id === 'fullscreen' && fullscreen ? 'exitFullscreen' : label],
+            id === 'fullscreen' && fullscreen ? 'exitFullscreen' : label,
           )}
           onClick={run}
         />

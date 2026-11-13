@@ -1,6 +1,0 @@
-{
-  "scope": "All existing v3 frontend files, byte identity before/after v4; generated deps/artifacts excluded.",
-  "comparedFiles": 699,
-  "same": true,
-  "mismatches": []
-}

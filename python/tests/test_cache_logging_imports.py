@@ -65,7 +65,11 @@ def test_importing_backend_main_has_no_filesystem_side_effect(tmp_path: Path) ->
     project_root = Path(__file__).resolve().parents[1]
     environment = {"PYTHONPATH": str(project_root)}
     result = ProcessRunner().run(
-        [sys.executable, "-c", "import backend.main; print('ok')"],
+        [
+            sys.executable,
+            "-c",
+            "import sys, backend.main; assert 'backend.api.app' not in sys.modules; print('ok')",
+        ],
         timeout_seconds=5,
         cwd=tmp_path,
         environment=environment,

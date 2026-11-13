@@ -51,7 +51,7 @@ const AppearancePanel = observer(() => {
       });
     } catch (error) {
       notify(
-        error instanceof Error ? error.message : tr('photoUnreadable'),
+        error instanceof Error ? error.message : tr('social.photoUnreadable'),
         'error',
       );
     } finally {

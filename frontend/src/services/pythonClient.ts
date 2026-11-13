@@ -531,8 +531,11 @@ export const pythonClient: PythonClient = {
     return request<KaggleActionDto>('POST', '/settings/kaggle/login');
   },
 
-  async deployKaggle(): Promise<KaggleActionDto> {
-    return request<KaggleActionDto>('POST', '/settings/kaggle/deploy');
+  async deployKaggle(restore = false): Promise<KaggleActionDto> {
+    return request<KaggleActionDto>(
+      'POST',
+      `/settings/kaggle/deploy${restore ? '?restore=true' : ''}`,
+    );
   },
 
   async cancelJob(jobId) {

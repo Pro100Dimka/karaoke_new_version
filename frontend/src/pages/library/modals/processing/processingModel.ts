@@ -1,5 +1,4 @@
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import type { MessageKey } from '../../../../i18n/messages';
 
 type JobState = ProcessingJobDto['state'];
 
@@ -11,7 +10,7 @@ export const stateLabel = {
   failed: 'failed',
   cancelled: 'jobCancelled',
   interrupted: 'jobInterrupted',
-} as const satisfies Record<JobState, MessageKey>;
+} as const satisfies Record<JobState, string>;
 
 /** The LED of each state: done, working, waiting or broken. */
 export const stateTone = {
@@ -42,6 +41,33 @@ export const isActive = (job: ProcessingJobDto) =>
 export const isInQueue = (job: ProcessingJobDto) =>
   job.state === 'queued' || isActive(job);
 
+/** Cache the sort keys once per queue snapshot rather than parsing dates in every comparison. */
+export const orderProcessingJobs = (
+  jobs: readonly ProcessingJobDto[],
+  songs: ReadonlyMap<string, SongDto>,
+): ProcessingJobDto[] => {
+  const keys = new Map(
+    jobs.map((job) => [
+      job.id,
+      {
+        queued: Number(isInQueue(job)),
+        created: Date.parse(
+          songs.get(job.songId)?.createdAt ?? job.createdAt ?? '',
+        ) || Infinity,
+      },
+    ]),
+  );
+  return [...jobs].sort((a, b) => {
+    const left = keys.get(a.id)!;
+    const right = keys.get(b.id)!;
+    return (
+      right.queued - left.queued ||
+      left.created - right.created ||
+      a.id.localeCompare(b.id)
+    );
+  });
+};
+
 /** How long a finished job ran, as m:ss. */
 export const processingDuration = (
   job: ProcessingJobDto,
@@ -62,7 +88,7 @@ export const phases = [
   'processingPhaseLyrics',
   'processingPhaseMelody',
   'processingPhasePublish',
-] as const satisfies readonly MessageKey[];
+] as const satisfies readonly string[];
 const stagePhase: Readonly<Record<string, number>> = {
   Recognition: 0,
   DecodeNormalize: 0,

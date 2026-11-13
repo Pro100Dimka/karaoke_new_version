@@ -47,6 +47,12 @@ ru.ConfirmUninstall=Удалить %1 вместе со всеми обрабо�
 uk.ConfirmUninstall=Видалити %1 разом з усіма обробленими піснями, записами, моделями й налаштуваннями? Цю дію неможливо скасувати.
 
 [CustomMessages]
+en.UpdatePreparing=Preparing the update
+ru.UpdatePreparing=Подготовка обновления
+uk.UpdatePreparing=Підготовка оновлення
+en.UpdateChecking=Checking installed files. Checked: %1
+ru.UpdateChecking=Проверка установленных файлов. Проверено: %1
+uk.UpdateChecking=Перевірка встановлених файлів. Перевірено: %1
 en.DesktopIcon=Create a desktop shortcut
 ru.DesktopIcon=Создать ярлык на рабочем столе
 uk.DesktopIcon=Створити ярлик на робочому столі
@@ -138,9 +144,6 @@ uk.StorageMoveFailed=Не вдалося завершити перенесенн
 Name: "desktopicon"; Description: "{cm:DesktopIcon}"; GroupDescription: "{cm:Shortcuts}"; Flags: unchecked
 Name: "models"; Description: "{cm:Models}"; Flags: unchecked
 
-[Files]
-Source: "{#AppSource}\*"; DestDir: "{app}"; Excludes: "\data\*"; Flags: ignoreversion recursesubdirs createallsubdirs
-
 [Icons]
 ; AppUserModelID matches app.setAppUserModelId in electron/main.ts: Windows notifications need it.
 Name: "{group}\A&D Voice"; Filename: "{app}\AD Voice.exe"; WorkingDir: "{app}"; IconFilename: "{app}\resources\theme-icons\app.ico"; AppUserModelID: "ADVoice.App"
@@ -193,6 +196,8 @@ const
 var
   DownloadPage: TOutputProgressWizardPage;
   StoragePage: TOutputProgressWizardPage;
+  VerificationPage: TOutputMarqueeProgressWizardPage;
+  InstallingPayload: Boolean;
   StorageReady: Boolean;
   DownloadAbort: TNewButton;
   DownloadCancelFile, DownloadError: string;
@@ -201,6 +206,57 @@ var
   GpuPresent: Boolean;
   RemainingData: string;
   CheckedRoots: string;
+  PayloadChecks: TStringList;
+  VerificationUpdatedAt: Int64;
+
+function GetTickCount64: Int64;
+  external 'GetTickCount64@kernel32.dll stdcall';
+
+function FileNeedsUpdate(const RelativeName, ExpectedHash: string): Boolean;
+var
+  Target: string;
+  NowTicks: Int64;
+begin
+  Target := ExpandConstant('{app}\') + RelativeName;
+  if PayloadChecks = nil then
+  begin
+    PayloadChecks := TStringList.Create;
+    PayloadChecks.Sorted := True;
+  end;
+  if PayloadChecks.IndexOf('0:' + Target) >= 0 then
+  begin
+    Result := False;
+    Exit;
+  end;
+  if PayloadChecks.IndexOf('1:' + Target) >= 0 then
+  begin
+    Result := True;
+    Exit;
+  end;
+  Result := True;
+  if WizardSilent and not InstallingPayload and (VerificationPage <> nil) then
+  begin
+    NowTicks := GetTickCount64;
+    if (PayloadChecks.Count = 0) or (NowTicks - VerificationUpdatedAt >= 100) then
+    begin
+      VerificationUpdatedAt := NowTicks;
+      VerificationPage.Show;
+      if not WizardForm.Visible then WizardForm.Show;
+      { SetText also pumps window messages; do not repaint for every small file. }
+      VerificationPage.SetText(
+        FmtMessage(CustomMessage('UpdateChecking'), [IntToStr(PayloadChecks.Count)]),
+        ExtractFileName(Target));
+    end;
+  end;
+  if FileExists(Target) then
+    try
+      Result := CompareText(GetSHA256OfFile(Target), ExpectedHash) <> 0;
+    except
+      Log('Cannot verify existing file; replacing: ' + RelativeName);
+    end;
+  if Result then PayloadChecks.Add('1:' + Target)
+  else PayloadChecks.Add('0:' + Target);
+end;
 
 { An NVIDIA GPU with its driver: nvidia-smi lists it. }
 function HasNvidiaGpu: Boolean;
@@ -229,6 +285,8 @@ end;
 
 procedure InitializeWizard;
 begin
+  VerificationPage := CreateOutputMarqueeProgressPage(
+    CustomMessage('UpdatePreparing'), CustomMessage('UpdatePreparing'));
   StoragePage := CreateOutputProgressPage(CustomMessage('StorageMoving'), CustomMessage('StorageMovingHint'));
   DownloadPage := CreateOutputProgressPage(CustomMessage('DownloadTitle'), CustomMessage('DownloadHint'));
   DownloadAbort := TNewButton.Create(DownloadPage);
@@ -239,6 +297,13 @@ begin
   DownloadAbort.Left := DownloadPage.SurfaceWidth - DownloadAbort.Width;
   DownloadAbort.Top := DownloadPage.ProgressBar.Top + DownloadPage.ProgressBar.Height + ScaleY(16);
   DownloadAbort.OnClick := @SkipDownloads;
+  if WizardSilent then
+  begin
+    VerificationPage.SetText(FmtMessage(CustomMessage('UpdateChecking'), ['0']), '');
+    VerificationPage.Show;
+    WizardForm.Show;
+    VerificationPage.Animate;
+  end;
 end;
 
 procedure DownloadOutput(const S: String; const Error, FirstLine: Boolean);
@@ -326,7 +391,12 @@ var
   Names, Folders: TArrayOfString;
 begin
   { Older versions start updates with /VERYSILENT. Keep their first migration visible too. }
-  if CurStep = ssInstall then WizardForm.Show;
+  if CurStep = ssInstall then
+  begin
+    InstallingPayload := True;
+    VerificationPage.Hide;
+    WizardForm.Show;
+  end;
   if CurStep <> ssPostInstall then Exit;
   ForceDirectories(ExpandConstant('{app}\data'));
   if not Exec(ExpandConstant('{sys}\icacls.exe'),
@@ -473,6 +543,7 @@ end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
+  VerificationPage.Hide;
   Result := RequireClosedApplication(CustomMessage('CloseBeforeInstall'));
 end;
 

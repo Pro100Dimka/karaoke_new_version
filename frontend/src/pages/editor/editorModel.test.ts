@@ -41,6 +41,31 @@ describe('editor operations', () => {
     expect(moved.notes[1]?.end).toBe(3);
   });
 
+  it('moves a large selection without changing independent note constraints', () => {
+    const words = Array.from({ length: 20 }, (_, index) => ({
+      id: `w${index}`,
+      text: 'la',
+      start: index,
+      end: index + 1,
+    }));
+    const notes = words.map((word, index) => ({
+      id: `n${index}`,
+      wordId: word.id,
+      pitch: 60,
+      start: index + 0.2,
+      end: index + 0.8,
+    }));
+    const result = moveNotes(
+      { revision: 0, words, notes },
+      new Set(notes.map((note) => note.id)),
+      2,
+      0.1,
+    );
+    expect(result.notes).toHaveLength(20);
+    expect(result.notes[0]).toMatchObject({ pitch: 62, start: 0.3, end: 0.9 });
+    expect(result.notes[19]).toMatchObject({ pitch: 62, start: 19.3, end: 19.9 });
+  });
+
   it('resizes without crossing the opposite edge or a neighbouring note', () => {
     expect(resizeNote(document, 'n1', 'end', 2.5).notes[0]?.end).toBe(2);
     expect(resizeNote(document, 'n2', 'start', 0.1).notes[1]?.start).toBe(1.8);
@@ -63,6 +88,35 @@ describe('editor operations', () => {
     expect(
       alignBoundary(document, ids('n3'), 'start', 4.5).notes[2]?.start,
     ).toBe(4.5);
+  });
+
+  it('batch alignment preserves sequential resize behavior across shared words', () => {
+    const selected = ids('n2', 'n1');
+    for (const edge of ['start', 'end'] as const) {
+      const expected = [...selected].reduce(
+        (current, id) => resizeNote(current, id, edge, 2.2),
+        document,
+      );
+      expect(alignBoundary(document, selected, edge, 2.2)).toEqual(expected);
+    }
+  });
+
+  it('batch alignment handles empty, missing and many selected notes', () => {
+    expect(alignBoundary(document, ids(), 'start', 2)).toBe(document);
+    expect(alignBoundary(document, ids('missing'), 'start', 2)).toEqual(document);
+    const words = Array.from({ length: 1000 }, (_, i) => ({
+      id: `w${i}`, text: 'la', start: i, end: i + 1,
+    }));
+    const notes = words.map((word, i) => ({
+      id: `n${i}`, wordId: word.id, pitch: 60,
+      start: i + 0.1, end: i + 0.9,
+    }));
+    const large = { revision: 0, words, notes };
+    const selected = new Set(notes.filter((_, i) => i % 2 === 0).map(n => n.id));
+    const aligned = alignBoundary(large, selected, 'end', 0);
+    expect(aligned.notes[0]?.end).toBe(0.13);
+    expect(aligned.notes[1]).toBe(notes[1]);
+    expect(aligned.notes[998]?.end).toBe(998.13);
   });
 
   it('snaps to the grid only when enabled', () => {

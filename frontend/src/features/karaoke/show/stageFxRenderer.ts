@@ -561,11 +561,12 @@ export class StageFxRenderer {
       (this.engine.state.ambient.consoleGlow * 0.85).toFixed(3),
       '.karaokeConsoleCard',
     );
-    if (!this.host.querySelector('.pianoRollLane[data-show-roll-glow]')) this.setStyle(
-      '--show-roll-glow',
-      this.engine.state.ambient.rollGlow.toFixed(3),
-      '.pianoRollLane',
-    );
+    if (!this.host.querySelector('.pianoRollLane[data-show-roll-glow]'))
+      this.setStyle(
+        '--show-roll-glow',
+        this.engine.state.ambient.rollGlow.toFixed(3),
+        '.pianoRollLane',
+      );
   }
 
   private setStyle(name: string, value: string, selector: string): void {

@@ -7,6 +7,34 @@ ROOT = Path(__file__).resolve().parents[2]
 BUILD_STEPS = "build-steps.mjs"
 
 
+def test_installer_catalog_tracks_payload_content_and_excludes_user_data(tmp_path: Path) -> None:
+    import hashlib
+
+    payload = tmp_path / "app"
+    (payload / "resources").mkdir(parents=True)
+    (payload / "data").mkdir()
+    source = payload / "resources" / "worker.py"
+    source.write_bytes(b"first")
+    (payload / "data" / "recording.wav").write_bytes(b"private")
+    catalog = tmp_path / "catalog.iss"
+    command = [
+        sys.executable,
+        str(ROOT / "installer/generate_config.py"),
+        str(catalog),
+        str(payload),
+    ]
+    subprocess.run(command, check=True)
+    before = catalog.read_text(encoding="utf-8-sig")
+    assert hashlib.sha256(b"first").hexdigest() in before
+    assert "FileNeedsUpdate" in before
+    assert "recording.wav" not in before
+    source.write_bytes(b"other")
+    subprocess.run(command, check=True)
+    after = catalog.read_text(encoding="utf-8-sig")
+    assert hashlib.sha256(b"other").hexdigest() in after
+    assert hashlib.sha256(b"first").hexdigest() not in after
+
+
 def test_installer_prepares_owner_writable_data_and_persists_its_language() -> None:
     source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
     assert "icacls.exe" in source
@@ -15,6 +43,64 @@ def test_installer_prepares_owner_writable_data_and_persists_its_language() -> N
     assert "installer-language" in source and "ActiveLanguage" in source
     assert "DeleteFile(ExpandConstant('{app}\\data\\installer-language'))" in source
     assert "Permissions: users-modify" not in source
+
+
+def test_reinstallation_skips_identical_files_and_repairs_changed_content(tmp_path: Path) -> None:
+    import os
+    import shutil
+    import pytest
+
+    compiler = shutil.which("ISCC.exe") or str(
+        Path(os.environ.get("ProgramFiles(x86)", "")) / "Inno Setup 6/ISCC.exe"
+    )
+    if sys.platform != "win32" or not Path(compiler).is_file():
+        pytest.skip("Requires Windows and Inno Setup")
+    payload, installed = tmp_path / "payload", tmp_path / "installed"
+    payload.mkdir()
+    (payload / "worker.py").write_bytes(b"original")
+    catalog = tmp_path / "catalog.iss"
+    subprocess.run(
+        [sys.executable, str(ROOT / "installer/generate_config.py"), str(catalog), str(payload)],
+        check=True,
+    )
+    source = (ROOT / "installer/ad-voice.iss").read_text(encoding="utf-8")
+    start = source.index("function GetTickCount64:")
+    check = source[start : source.index("{ An NVIDIA GPU", start)]
+    script = tmp_path / "probe.iss"
+    script.write_text(
+        "[Setup]\nAppName=Installer verification\nAppVersion=1\n"
+        f"DefaultDirName={installed}\nOutputDir={tmp_path}\nOutputBaseFilename=probe\n"
+        "PrivilegesRequired=lowest\nUninstallable=no\nCreateUninstallRegKey=no\n"
+        "[CustomMessages]\nUpdateChecking=Checked: %1\n"
+        f'#include "{catalog}"\n[Code]\nvar PayloadChecks: TStringList;\n'
+        "VerificationUpdatedAt: Int64;\n"
+        "VerificationPage: TOutputMarqueeProgressWizardPage;\nInstallingPayload: Boolean;\n"
+        "procedure InitializeWizard;\nbegin\n"
+        "VerificationPage := CreateOutputMarqueeProgressPage('Preparing', 'Checking');\nend;\n"
+        f"{check}",
+        encoding="utf-8-sig",
+    )
+    subprocess.run(
+        [compiler, "/Q", f"/DAppSource={payload}", str(script)], check=True, capture_output=True
+    )
+    for phase in ("first", "repeat", "repair"):
+        log = tmp_path / f"{phase}.log"
+        subprocess.run(
+            [str(tmp_path / "probe.exe"), "/VERYSILENT", "/NORESTART", f"/LOG={log}"],
+            check=True,
+            timeout=30,
+        )
+        target = installed / "worker.py"
+        assert target.read_bytes() == b"original"
+        if phase == "first":
+            (installed / "data").mkdir()
+            (installed / "data/recording.wav").write_bytes(b"keep")
+        if phase == "repeat":
+            assert "Installing the file." not in log.read_text(encoding="utf-8-sig")
+            timestamp = target.stat().st_mtime_ns
+            target.write_bytes(b"tampered")
+            os.utime(target, ns=(timestamp, timestamp))
+        assert (installed / "data/recording.wav").read_bytes() == b"keep"
 
 
 def _entrypoint(name: str) -> str:

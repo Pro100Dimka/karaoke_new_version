@@ -117,7 +117,21 @@ class LocalModelStorage:
 def _tree_size(root: Path) -> int:
     if not root.exists():
         return 0
-    return sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
+    pending = [str(root)]
+    total = 0
+    while pending:
+        try:
+            entries = os.scandir(pending.pop())
+        except OSError:
+            # Match rglob: inaccessible or removed directories are not traversed.
+            continue
+        with entries:
+            for entry in entries:
+                if entry.is_dir(follow_symlinks=False):
+                    pending.append(entry.path)
+                elif entry.is_file():
+                    total += entry.stat().st_size
+    return total
 
 
 class LocalWorkStorage:

@@ -1,17 +1,4 @@
 import {
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../../../../shared/errors';
-import { observer } from 'mobx-react-lite';
-import { store } from '../../../../providers/store';
-import { useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
-import { desktopClient } from '../../../../services/desktopClient';
-import { refreshSongs, songsQuery } from '../../../../api/api-service';
-import { useGuardedAction } from '../../songs/useGuardedAction';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import {
   Dialog,
   IconButton,
   NeonWaves,
@@ -20,9 +7,22 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { observer } from 'mobx-react-lite';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { refreshSongs, songsQuery } from '../../../../components/api-service';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { ru } from '../../../../i18n/messages.ru';
+import { store } from '../../../../providers/store';
+import { desktopClient } from '../../../../services/desktopClient';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import {
+  clearOperationFailure,
+  reportOperationFailure,
+} from '../../../../shared/errors';
 import { formatBytes } from '../../../../shared/utils/format';
+import { useGuardedAction } from '../../songs/useGuardedAction';
+import './processing.css';
 import { ProcessingJobCard } from './ProcessingJobCard';
 import {
   processingDuration,
@@ -30,7 +30,6 @@ import {
   stateLabel,
 } from './processingModel';
 import { useProcessingQueue } from './useProcessingQueue';
-import './processing.css';
 
 /** A question or a note over the queue: confirmed actions run only after "OK". */
 interface Notice {
@@ -142,44 +141,44 @@ export const ProcessingModal = observer(
       if (open && focusedIndex >= 0) rows.scrollToIndex(focusedIndex);
     }, [open, focusedIndex, rows]);
     const diskText = disk
-      ? tr(ru.processingDiskUsage, {
+      ? tr('processingDiskUsage', {
           free: formatBytes(disk.free),
           used: formatBytes(disk.used),
         })
-      : tr(ru.processingDiskUnavailable);
+      : tr('processingDiskUnavailable');
 
     const songOf = (job: ProcessingJobDto) => songsById.get(job.songId);
     const details = (job: ProcessingJobDto) => {
       const song = songOf(job);
       setNotice({
-        title: tr(ru.processingJobDetails),
+        title: tr('processingJobDetails'),
         text: [
-          processingTitle(job, song) ?? tr(ru.processingSongUnavailable),
-          `${tr(ru.processingDetailsState)}: ${tr(ru[stateLabel[job.state]])}`,
-          `${tr(ru.processingDetailsStage)}: ${job.stage}`,
-          `${tr(ru.processingDetailsProgress)}: ${job.progress}%`,
-          `${tr(ru.processingDetailsTime)}: ${processingDuration(job) ?? '0:00'}`,
+          processingTitle(job, song) ?? tr('processingSongUnavailable'),
+          `${tr('processingDetailsState')}: ${tr(stateLabel[job.state])}`,
+          `${tr('processingDetailsStage')}: ${job.stage}`,
+          `${tr('processingDetailsProgress')}: ${job.progress}%`,
+          `${tr('processingDetailsTime')}: ${processingDuration(job) ?? '0:00'}`,
           job.error?.message ?? '',
         ]
           .filter(Boolean)
           .join('\n'),
-        confirm: tr(ru.done),
+        confirm: tr('done'),
       });
     };
     const stop = (job: ProcessingJobDto) =>
       setNotice({
-        title: tr(ru.processingStopTitle),
-        text: tr(ru.processingStopText),
-        confirm: tr(ru.processingStop),
-        cancel: tr(ru.cancel),
+        title: tr('processingStopTitle'),
+        text: tr('processingStopText'),
+        confirm: tr('processingStop'),
+        cancel: tr('cancel'),
         onConfirm: () => void onCancel(job.id),
       });
     const remove = (job: ProcessingJobDto) =>
       setNotice({
-        title: tr(ru.processingRemoveTitle),
-        text: tr(ru.processingRemoveText),
-        confirm: tr(ru.processingRemoveConfirm),
-        cancel: tr(ru.cancel),
+        title: tr('processingRemoveTitle'),
+        text: tr('processingRemoveText'),
+        confirm: tr('processingRemoveConfirm'),
+        cancel: tr('cancel'),
         onConfirm: () => queue.hide([job.id]),
       });
     const clear = ([
@@ -188,10 +187,10 @@ export const ProcessingModal = observer(
     ]: (typeof clearGroups)[keyof typeof clearGroups]) => {
       const selected = queue.visible.filter(matches);
       setNotice({
-        title: tr(ru[`processingClear${name}Title`]),
-        text: tr(ru[`processingClear${name}Text`], { count: selected.length }),
-        confirm: tr(ru.processingClear),
-        cancel: tr(ru.cancel),
+        title: tr(`processingClear${name}Title`),
+        text: tr(`processingClear${name}Text`, { count: selected.length }),
+        confirm: tr('processingClear'),
+        cancel: tr('cancel'),
         onConfirm: () => queue.hide(selected.map((job) => job.id)),
       });
     };
@@ -205,11 +204,11 @@ export const ProcessingModal = observer(
         className="processingDialog"
         width="large"
         icon="processing"
-        title={tr(ru.processingQueue)}
-        closeLabel={tr(ru.closeDialog)}
+        title={tr('processingQueue')}
+        closeLabel={tr('closeDialog')}
         cancelLabel={false}
         confirmLabel={false}
-        description={tr(ru.processingSummary, {
+        description={tr('processingSummary', {
           total: queue.visible.length,
           active: queue.count(['processing', 'cancelling']),
           queued: queue.count(['queued']),
@@ -223,17 +222,17 @@ export const ProcessingModal = observer(
           <div className="processingScroll" ref={scrollRef}>
             {queue.failed && (
               <Typography role="alert" tone="danger">
-                {tr(ru.processingLoadFailed)}
+                {tr('processingLoadFailed')}
               </Typography>
             )}
             {!queue.failed && queue.ordered.length === 0 && (
-              <Typography tone="muted">{tr(ru.processingEmpty)}</Typography>
+              <Typography tone="muted">{tr('processingEmpty')}</Typography>
             )}
             <ul
               className="processingList"
               ref={listRef}
               style={{ height: rows.getTotalSize() }}
-              aria-label={tr(ru.processingQueue)}
+              aria-label={tr('processingQueue')}
             >
               {rows.getVirtualItems().map((row) => {
                 const job = queue.ordered[row.index];
@@ -279,12 +278,12 @@ export const ProcessingModal = observer(
             <IconButton
               variant="ghost"
               icon="database"
-              label={tr(ru.processingDiskInfo)}
+              label={tr('processingDiskInfo')}
               onClick={() =>
                 setNotice({
-                  title: tr(ru.processingDiskTitle),
+                  title: tr('processingDiskTitle'),
                   text: diskText,
-                  confirm: tr(ru.done),
+                  confirm: tr('done'),
                 })
               }
             />
@@ -297,18 +296,18 @@ export const ProcessingModal = observer(
               size="sm"
               icon="trash"
               aria-disabled={queue.visible.length === 0}
-              label={tr(ru.processingClear)}
+              label={tr('processingClear')}
               onClick={() =>
                 queue.visible.length > 0 && clear(clearGroups.completed)
               }
               items={Object.entries(clearGroups).map(([id, group]) => ({
                 id,
-                label: tr(ru[`processingClear${group[0]}`]),
+                label: tr(`processingClear${group[0]}`),
                 disabled: !queue.visible.some(group[1]),
                 onSelect: () => clear(group),
               }))}
             >
-              {tr(ru.processingClear)}
+              {tr('processingClear')}
             </SplitButton>
           </footer>
         </div>

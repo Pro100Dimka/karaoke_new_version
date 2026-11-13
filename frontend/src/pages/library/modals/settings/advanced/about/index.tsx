@@ -9,7 +9,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { version } from '../../../../../../../package.json';
-import { ru } from '../../../../../../i18n/messages.ru';
 import type { SubsystemHealth } from '../useSubsystemHealth';
 
 export const frontendVersion: string = version;
@@ -18,18 +17,18 @@ export const frontendVersion: string = version;
 export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
   useLocale();
   const { backend, audioVersion } = health;
-  const unavailable = tr(ru.unavailable);
+  const unavailable = tr('unavailable');
   const rows: [string, string][] = [
-    [tr(ru.frontendVersion), frontendVersion],
+    [tr('frontendVersion'), frontendVersion],
     [
-      tr(ru.pythonBackendVersion),
+      tr('pythonBackendVersion'),
       backend
         ? `${backend.backendVersion} (API ${backend.apiVersion})`
         : unavailable,
     ],
-    [tr(ru.audioServiceVersion), audioVersion || unavailable],
+    [tr('audioServiceVersion'), audioVersion || unavailable],
     [
-      tr(ru.pipelineVersion),
+      tr('pipelineVersion'),
       backend
         ? `DB ${backend.dbSchema} · project format ${backend.projectFormat}`
         : unavailable,
@@ -53,12 +52,12 @@ export const AboutPanel = ({ health }: { health: SubsystemHealth }) => {
             A&amp;D Voice
           </Typography>
           <Typography variant="caption" tone="muted">
-            {tr(ru.copyright)}
+            {tr('copyright')}
           </Typography>
         </Stack>
         <div className="advancedAboutPromise" aria-hidden="true">
-          <span>{tr(ru.brandPromiseSound)}</span>
-          <span>{tr(ru.brandPromiseSinging)}</span>
+          <span>{tr('brandPromiseSound')}</span>
+          <span>{tr('brandPromiseSinging')}</span>
           <Equalizer bars={7} playing />
         </div>
       </Planet>

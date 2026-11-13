@@ -1,22 +1,24 @@
-import { observeOperation } from '../../../shared/errors';
-import { store } from '../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { useEffect } from 'react';
-import { useRoomLibraryCommands } from '../../../providers/application';
-import { useNotify } from '../../../providers/notifications';
-import type { SongDto } from '../../../contracts/models';
-import { ru } from '../../../i18n/messages.ru';
-import { sharedStateOf } from '../../../application/room/roomModel';
-import { errorMessageKey, toAppError } from '../../../shared/errors';
+import { useCallback, useEffect } from 'react';
 import {
   canControlRoom,
   encodeSharedLibraryView,
   sharedLibraryView,
+  sharedStateOf,
 } from '../../../application/room/roomModel';
-import type { LibraryFilters } from '../hero/actions';
-import type { LibraryViewFilters } from '../hero/search-field';
+import type { SongDto } from '../../../contracts/models';
+import { useRoomLibraryCommands } from '../../../providers/application';
+import { useNotify } from '../../../providers/notifications';
+import { store } from '../../../providers/store';
+import {
+  errorstring,
+  observeOperation,
+  toAppError,
+} from '../../../shared/errors';
+import type { LibraryFilters } from '../hero/filters&actions/actions';
+import type { LibraryViewFilters } from '../hero/filters&actions/search-field';
 
-interface RoomLibraryOptions {
+export interface RoomLibraryOptions {
   setQuery: (query: string) => void;
   setViewFilters: (
     update: (current: LibraryViewFilters) => LibraryViewFilters,
@@ -45,7 +47,7 @@ export const useRoomLibrary = ({
   const commands = useRoomLibraryCommands();
   const reportRoomError = (error: unknown) =>
     notify(
-      tr(ru[errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable']),
+      tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
       'error',
     );
 
@@ -98,10 +100,13 @@ export const useRoomLibrary = ({
   };
 
   /** How a card shows the room's selection; only for members who may choose the song. */
-  const songSelection = (song: SongDto) =>
-    room && canControlRoom(room) && song.status === 'ready'
-      ? { role: room.role, selected: room.songId === song.id }
-      : undefined;
+  const songSelection = useCallback(
+    (song: SongDto) =>
+      room && canControlRoom(room) && song.status === 'ready'
+        ? { role: room.role, selected: room.songId === song.id }
+        : undefined,
+    [room],
+  );
 
   return {
     room,

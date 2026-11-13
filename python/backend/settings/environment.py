@@ -60,7 +60,7 @@ def default_environment_store() -> "EnvironmentSettingsStore":
         frontend_file=frontend,
         default_values={
             "AD_VOICE_ROOM_SERVER_HOST": "130.61.169.61",
-            "AD_VOICE_ROOM_SERVER_PORT": "8081",
+            "AD_VOICE_ROOM_SERVER_PORT": "443",
             "AD_VOICE_ROOM_SERVER_RELAY_PORT": "40000",
             "AD_VOICE_ROOM_SERVER_SSH_KEY": str(
                 project_root / "local-secrets" / "ssh" / "karaoke_room_server"

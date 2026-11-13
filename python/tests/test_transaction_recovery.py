@@ -245,3 +245,61 @@ def test_delete_restores_quarantine_when_metadata_commit_fails(
             if path.is_file()
         } == original
         assert _journal(root).entries() == ()
+
+
+@pytest.mark.parametrize("phase", ["before_move", "after_move", "after_commit"])
+def test_recording_delete_recovers_interrupted_publication(tmp_path: Path, monkeypatch, phase):
+    from datetime import datetime, UTC
+    from backend.infrastructure.database import Database
+    from backend.infrastructure.recording_files import LocalRecordingStorage
+    from backend.recordings.delete_recording import DeleteRecording
+
+    root = tmp_path / "runtime"
+    with app_client(root) as client:
+        target = client.post("/recordings/target").json()
+        path = Path(target["filePath"])
+        write_wav(path)
+        response = client.post(
+            "/recordings",
+            json={
+                **target,
+                "duration": 1,
+                "sampleRate": 16000,
+                "channels": 1,
+                "createdAt": datetime.now(UTC).isoformat(),
+            },
+        )
+        assert response.status_code == 201, response.text
+    original = path.read_bytes()
+    storage = LocalRecordingStorage(StorageRoots.under(root))
+    move = storage.quarantine
+
+    def interrupted_move(recording_id, file_path):
+        if phase == "before_move":
+            raise SystemExit("interrupted before rename")
+        result = move(recording_id, file_path)
+        if phase == "after_move":
+            raise SystemExit("interrupted after rename")
+        return result
+
+    def interrupted_finalize(_path):
+        raise SystemExit("interrupted after commit")
+
+    monkeypatch.setattr(storage, "quarantine", interrupted_move)
+    monkeypatch.setattr(storage, "finalize_quarantine", interrupted_finalize)
+    database = Database(root / "app.db")
+    try:
+        operation = DeleteRecording(database, storage, _journal(root))
+        with pytest.raises(SystemExit):
+            operation.execute(target["recordingId"])
+    finally:
+        database.dispose()
+    with app_client(root) as client:
+        response = client.get("/recordings/" + target["recordingId"])
+        if phase == "after_commit":
+            assert response.status_code == 404
+            assert not storage.quarantine_path(target["recordingId"], path).parent.exists()
+        else:
+            assert response.status_code == 200
+            assert path.read_bytes() == original
+    assert _journal(root).entries() == ()

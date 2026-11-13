@@ -8,7 +8,9 @@ import {
 } from './useSpectrumFeed';
 
 const { observeSpectrum } = vi.hoisted(() => ({ observeSpectrum: vi.fn() }));
-vi.mock('../../services/audioClient', () => ({ audioClient: { observeSpectrum } }));
+vi.mock('../../services/audioClient', () => ({
+  audioClient: { observeSpectrum },
+}));
 vi.mock('../../providers/store', () => ({
   store: { application: { services: { audio: { kind: 'ready' } } } },
 }));
@@ -67,9 +69,12 @@ it('unsubscribes when disabled', () => {
   const stop = vi.fn();
   observeSpectrum.mockReturnValue(stop);
   const callback = vi.fn();
-  const { rerender } = renderHook(({ enabled }) => useSpectrumFeed(enabled, callback), {
-    initialProps: { enabled: true },
-  });
+  const { rerender } = renderHook(
+    ({ enabled }) => useSpectrumFeed(enabled, callback),
+    {
+      initialProps: { enabled: true },
+    },
+  );
   rerender({ enabled: false });
   expect(stop).toHaveBeenCalledOnce();
   expect(observeSpectrum).toHaveBeenCalledOnce();
@@ -79,11 +84,15 @@ it('retains only one active subscription when callbacks change', () => {
   let active = 0;
   observeSpectrum.mockImplementation(() => {
     active++;
-    return () => { active--; };
+    return () => {
+      active--;
+    };
   });
-  const { rerender, unmount } = renderHook(({ callback }: {
-    callback: (frame: SpectrumFrame) => void;
-  }) => useSpectrumFeed(true, callback), { initialProps: { callback: vi.fn() } });
+  const { rerender, unmount } = renderHook(
+    ({ callback }: { callback: (frame: SpectrumFrame) => void }) =>
+      useSpectrumFeed(true, callback),
+    { initialProps: { callback: vi.fn() } },
+  );
   rerender({ callback: vi.fn() });
   expect(active).toBe(1);
   unmount();
@@ -91,15 +100,33 @@ it('retains only one active subscription when callbacks change', () => {
 });
 
 it('reduces the silent feed rate and restores the full rate when sound returns', async () => {
-  let deliver: (value: { bands: number[]; backingBands: number[] }) => void = () => {};
-  observeSpectrum.mockImplementation(onValue => { deliver = onValue; return vi.fn(); });
+  let deliver: (value: {
+    bands: number[];
+    backingBands: number[];
+  }) => void = () => {};
+  observeSpectrum.mockImplementation((onValue) => {
+    deliver = onValue;
+    return vi.fn();
+  });
   const onFrame = vi.fn();
   renderHook(() => useSpectrumFeed(true, onFrame));
-  expect(observeSpectrum).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Function), 50);
+  expect(observeSpectrum).toHaveBeenLastCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    50,
+  );
   await vi.advanceTimersByTimeAsync(1100);
   act(() => deliver({ bands: [0], backingBands: [0] }));
-  expect(observeSpectrum).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Function), 250);
+  expect(observeSpectrum).toHaveBeenLastCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    250,
+  );
   act(() => deliver({ bands: [0.5], backingBands: [0.5] }));
-  expect(observeSpectrum).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Function), 50);
+  expect(observeSpectrum).toHaveBeenLastCalledWith(
+    expect.any(Function),
+    expect.any(Function),
+    50,
+  );
   expect(onFrame).toHaveBeenCalledTimes(2);
 });

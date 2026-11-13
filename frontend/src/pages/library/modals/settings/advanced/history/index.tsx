@@ -10,7 +10,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import type { HistoryEventDto } from '../../../../../../contracts/models';
-import { ru } from '../../../../../../i18n/messages.ru';
 import { historyKindLabel, type HistoryTab } from './historyModel';
 
 import { useHistory } from './useHistory';
@@ -31,12 +30,12 @@ export const HistoryPanel = () => {
   } = useHistory();
   const songOf = (event: HistoryEventDto) => {
     if (!event.songId) return '—';
-    if (!catalog.titles) return catalog.failed ? tr(ru.unavailable) : '—';
-    return catalog.titles.get(event.songId) ?? tr(ru.historySongRemoved);
+    if (!catalog.titles) return catalog.failed ? tr('unavailable') : '—';
+    return catalog.titles.get(event.songId) ?? tr('historySongRemoved');
   };
   const kindOf = (event: HistoryEventDto) => {
     const label = historyKindLabel(event.kind);
-    return label ? tr(ru[label]) : event.kind;
+    return label ? tr(label) : event.kind;
   };
 
   return (
@@ -49,8 +48,8 @@ export const HistoryPanel = () => {
         boxShadow: 'unset!important',
       }}
       icon="list"
-      title={tr(ru.history)}
-      description={tr(ru.historyHint)}
+      title={tr('history')}
+      description={tr('historyHint')}
       actions={<NeonWaves className="advancedArt" strands={20} stars={false} />}
     >
       <Stack gap={4}>
@@ -59,8 +58,8 @@ export const HistoryPanel = () => {
           value={tab}
           onValueChange={setTab}
           items={[
-            { value: 'performances', label: tr(ru.historyPerformances) },
-            { value: 'processing', label: tr(ru.historyProcessing) },
+            { value: 'performances', label: tr('historyPerformances') },
+            { value: 'processing', label: tr('historyProcessing') },
           ]}
         />
         {(failed || catalog.failed) && (
@@ -68,24 +67,24 @@ export const HistoryPanel = () => {
             tone="error"
             action={
               <Button size="sm" icon="refresh" onClick={retry}>
-                {tr(ru.retry)}
+                {tr('retry')}
               </Button>
             }
           >
-            {tr(ru.historyLoadFailed)}
+            {tr('historyLoadFailed')}
           </MessageBar>
         )}
         {(!failed || events.length > 0) && (
           <DataTable<HistoryEventDto & Record<string, unknown>>
             dense
             loading={loading && events.length === 0}
-            empty={tr(ru.historyEmpty)}
+            empty={tr('historyEmpty')}
             rowKey={(event) => event.id}
             rows={events.map((event) => ({ ...event }))}
             columns={[
               {
                 key: 'createdAt',
-                title: tr(ru.historyColumnDate),
+                title: tr('historyColumnDate'),
                 width: '12rem',
                 render: (event) => (
                   <time dateTime={event.createdAt}>
@@ -95,13 +94,13 @@ export const HistoryPanel = () => {
               },
               {
                 key: 'songId',
-                title: tr(ru.historyColumnSong),
+                title: tr('historyColumnSong'),
                 render: songOf,
                 value: songOf,
               },
               {
                 key: 'kind',
-                title: tr(ru.historyColumnKind),
+                title: tr('historyColumnKind'),
                 width: '15rem',
                 render: kindOf,
                 value: kindOf,
@@ -111,7 +110,7 @@ export const HistoryPanel = () => {
         )}
         {events.length < total && (
           <Button size="sm" icon="down" loading={loading} onClick={loadMore}>
-            {tr(ru.loadMore)}
+            {tr('loadMore')}
           </Button>
         )}
       </Stack>

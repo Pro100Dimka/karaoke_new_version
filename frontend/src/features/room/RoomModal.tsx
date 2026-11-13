@@ -1,6 +1,3 @@
-import { observer } from 'mobx-react-lite';
-import { store } from '../../providers/store';
-import { useEffect, useState } from 'react';
 import {
   Avatar,
   Beacon,
@@ -16,9 +13,11 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
+import { useEffect, useState } from 'react';
 import { roomSession } from '../../providers/application';
-import { ru } from '../../i18n/messages.ru';
-import { errorMessageKey, toAppError } from '../../shared/errors';
+import { store } from '../../providers/store';
+import { errorstring, toAppError } from '../../shared/errors';
 import './room-entry.css';
 
 type Busy = 'create' | 'join' | null;
@@ -53,9 +52,9 @@ export const RoomModal = observer(
     const enter = async (roomCode?: string) => {
       const trimmed = name.trim();
       setFailure(undefined);
-      setNameError(trimmed ? undefined : tr(ru.fieldRequired));
+      setNameError(trimmed ? undefined : tr('fieldRequired'));
       if (roomCode !== undefined)
-        setCodeError(roomCode.trim() ? undefined : tr(ru.fieldRequired));
+        setCodeError(roomCode.trim() ? undefined : tr('fieldRequired'));
       if (!trimmed || (roomCode !== undefined && !roomCode.trim())) return;
       setBusy(roomCode === undefined ? 'create' : 'join');
       try {
@@ -64,9 +63,7 @@ export const RoomModal = observer(
         onClose();
       } catch (error) {
         setFailure(
-          tr(
-            ru[errorMessageKey(toAppError(error)) ?? 'roomNetworkUnavailable'],
-          ),
+          tr(errorstring(toAppError(error)) ?? 'roomNetworkUnavailable'),
         );
       } finally {
         setBusy(null);
@@ -82,9 +79,9 @@ export const RoomModal = observer(
         className="roomEntryDialog"
         width="wide"
         icon="users"
-        title={tr(ru.roomTitle)}
-        description={tr(ru.roomIntro)}
-        closeLabel={tr(ru.closeDialog)}
+        title={tr('roomTitle')}
+        description={tr('roomIntro')}
+        closeLabel={tr('closeDialog')}
         cancelLabel={false}
         confirmLabel={false}
         art={
@@ -102,7 +99,7 @@ export const RoomModal = observer(
             <TextField
               className="roomEntryName"
               name="name"
-              label={tr(ru.displayName)}
+              label={tr('displayName')}
               required
               clearable
               autoComplete="name"
@@ -127,10 +124,10 @@ export const RoomModal = observer(
                   <Icon name="users" surface="tile" size={28} />
                 </Beacon>
                 <Typography as="h3" variant="title">
-                  {tr(ru.createRoom)}
+                  {tr('createRoom')}
                 </Typography>
                 <Typography variant="body-sm" tone="muted">
-                  {tr(ru.createAndInvite)}
+                  {tr('createAndInvite')}
                 </Typography>
                 <Button
                   variant="primary"
@@ -139,7 +136,7 @@ export const RoomModal = observer(
                   disabled={busy === 'join'}
                   onClick={() => void enter()}
                 >
-                  {tr(ru.createRoom)}
+                  {tr('createRoom')}
                 </Button>
               </Card>
             </div>
@@ -153,7 +150,7 @@ export const RoomModal = observer(
               >
                 <Icon name="key" surface="tile" size={28} />
                 <Typography as="h3" variant="title">
-                  {tr(ru.joinByCode)}
+                  {tr('joinByCode')}
                 </Typography>
                 <form
                   className="roomEntryJoin"
@@ -166,13 +163,13 @@ export const RoomModal = observer(
                   <TextField
                     className="roomEntryCode"
                     name="code"
-                    label={tr(ru.roomCode)}
+                    label={tr('roomCode')}
                     required
                     autoComplete="off"
-                    placeholder={tr(ru.roomCodePlaceholder)}
+                    placeholder={tr('roomCodePlaceholder')}
                     value={code}
                     error={codeError}
-                    description={tr(ru.roomCodePasteHint)}
+                    description={tr('roomCodePasteHint')}
                     onValueChange={(value) => {
                       setCode(value);
                       setCodeError(undefined);
@@ -193,7 +190,7 @@ export const RoomModal = observer(
                     loading={busy === 'join'}
                     disabled={busy === 'create'}
                   >
-                    {tr(ru.joinRoom)}
+                    {tr('joinRoom')}
                   </Button>
                 </form>
               </Card>

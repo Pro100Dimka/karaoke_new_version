@@ -9,8 +9,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { memo, useEffect, useState, type ReactNode } from 'react';
-import type { MessageKey } from '../../../i18n/messages';
-import { ru } from '../../../i18n/messages.ru';
 import { ConsoleSection } from './ConsoleSection';
 import { DisplayToggles } from './DisplayToggles';
 import { rangeLabel, type NoteRange } from './noteRange';
@@ -21,14 +19,14 @@ export const maxPlaybackRate = 1.5;
 
 interface StepAction {
   icon: string;
-  label: MessageKey;
+  label: string;
   disabled: boolean;
   run(): void;
 }
 
 interface Metric {
   id: string;
-  label: MessageKey;
+  label: string;
   value: ReactNode;
   previous?: StepAction;
   next?: StepAction;
@@ -42,7 +40,7 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
         size="xs"
         round
         icon={action.icon}
-        label={tr(ru[action.label])}
+        label={tr(action.label)}
         disabled={action.disabled}
         onClick={action.run}
       />
@@ -61,7 +59,7 @@ const MetricCard = ({ metric }: { metric: Metric }) => {
       }}
     >
       <Typography variant="caption" tone="muted">
-        {tr(ru[metric.label])}
+        {tr(metric.label)}
       </Typography>
       <Stack direction="row" gap={2} align="center" justify="center">
         {step(metric.previous)}
@@ -143,7 +141,7 @@ export const TempoField = ({
       label={label}
       size={label ? undefined : 'xs'}
       className={label ? undefined : 'tempoField'}
-      aria-label={tr(ru.practiceSpeed)}
+      aria-label={tr('practiceSpeed')}
       controls={false}
       value={draft}
       min={minimum}
@@ -229,7 +227,7 @@ export const PracticeParameters = memo(
     ];
 
     return (
-      <ConsoleSection icon="settings" title={tr(ru.consoleParameters)}>
+      <ConsoleSection icon="settings" title={tr('consoleParameters')}>
         <Grid className="consoleParameters" columns={3} gap={1}>
           {metrics.map((metric) => (
             <MetricCard key={metric.id} metric={metric} />

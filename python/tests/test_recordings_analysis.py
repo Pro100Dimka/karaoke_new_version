@@ -14,6 +14,57 @@ from tests.helpers import import_song, wait_for_job, wait_for_recording
 pytestmark = pytest.mark.integration
 
 
+@pytest.mark.parametrize("backing_level", [-42.0, -18.0])
+def test_recording_balance_targets_bounded_backing_level(backing_level: float) -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(100, -18.0)
+    backing = np.full(100, backing_level)
+    gains, reliable = _balance_curve(voice, backing)
+    assert reliable.all()
+    np.testing.assert_allclose(gains, np.clip(backing_level - voice, -18, 9), atol=0.1)
+
+
+@pytest.mark.parametrize("quiet_backing", [-48.0, -120.0])
+def test_master_keeps_performance_level_when_reference_and_accompaniment_change(
+    quiet_backing: float,
+) -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(300, -24.0)
+    original = np.repeat([-24.0, quiet_backing, -24.0], 100)
+    backing = original - 3
+    gains, reliable = _balance_curve(voice, backing)
+    assert reliable.all()
+    # Silent accompaniment gaps do not reset the performance level.
+    np.testing.assert_allclose(voice + gains, -27.0, atol=0.1)
+    assert np.ptp(gains) < 0.05
+
+
+def test_master_does_not_duck_a_phrase_before_the_reference_gets_quiet() -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.full(100, -18.0)
+    backing = np.full(100, -30.0)
+    gains, _ = _balance_curve(voice, backing)
+    np.testing.assert_allclose(voice + gains, -30.0, atol=0.1)
+
+
+def test_master_does_not_boost_recorded_noise_during_reference_vocals() -> None:
+    import numpy as np
+    from backend.recordings.studio_dynamics import _balance_curve
+
+    voice = np.repeat([-28.0, -70.0, -28.0], 100)
+    backing = np.full(300, -24.0)
+    gains, reliable = _balance_curve(voice, backing)
+    assert not reliable[100:200].any()
+    assert np.max(gains[100:200]) <= 0
+    assert np.max(gains) <= 9
+
+
 def ready_song(client, source: Path) -> dict[str, object]:
     song = import_song(client, source)
     started = client.post(
@@ -85,7 +136,7 @@ def test_capture_without_a_backing_companion_does_not_need_processed_song_artifa
         assert Path(recording["filePath"]).is_file()
 
 
-def test_new_performance_is_balanced_in_background_and_retry_preserves_stems(tmp_path):
+def test_new_performance_is_preserved_in_background_and_retry_preserves_stems(tmp_path):
     import numpy as np
     import soundfile as sf
 
@@ -128,11 +179,7 @@ def test_new_performance_is_balanced_in_background_and_retry_preserves_stems(tmp
         stems = {file: file.read_bytes() for file in (vocal_path, backing_path)}
         samples, rate = sf.read(path)
         assert rate == 44100 and len(samples) == 88200
-        levels = [
-            abs(np.mean(samples * np.exp(-2j * np.pi * frequency * axis)))
-            for frequency in (880, 220)
-        ]
-        assert abs(20 * np.log10(levels[0] / levels[1])) < 3
+        np.testing.assert_array_equal(samples, captured)
         balanced = path.read_bytes()
         assert client.post("/recordings", json=payload).status_code == 201
         assert path.read_bytes() == balanced
@@ -556,6 +603,11 @@ def test_studio_master_creates_a_separate_adaptively_balanced_recording(
         # The interface names a master in its own language from its source take.
         assert master.json()["displayName"] is None
         assert Path(master.json()["filePath"]).is_file()
+        import json
+
+        diagnostic = Path(master.json()["filePath"]).with_suffix(".studio.json")
+        assert json.loads(diagnostic.read_text())["sourceRecordingId"] == recording["recordingId"]
+        assert Path(recording["filePath"]).is_file()
         assert len(originals) == 2
         assert job["report"]["balance"]["vocalGainDb"] is not None
 

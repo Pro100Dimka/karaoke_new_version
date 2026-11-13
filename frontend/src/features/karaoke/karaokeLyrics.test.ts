@@ -31,7 +31,7 @@ const line = (start: number, end: number): LyricLine => ({
 describe('syllable fill', () => {
   it.each(['тобі', 'тоби'])(
     'keeps the held final vowel of %s from stretching the preceding stop',
-    text => {
+    (text) => {
       const saved = { ...word(text, 0, 1), letters: [0, 0.08, 0.16, 0.26] };
       expect(syllableProgress(saved, 0.26)).toBeCloseTo(0.75);
       expect(syllableProgress(saved, 0.63)).toBeCloseTo(0.875);
@@ -53,23 +53,35 @@ describe('syllable fill', () => {
   );
   it.each([
     {
-      text: 'льоту', end: 0.84,
-      letters: [0, 0.08, 0.08, 0.22, 0.34], at: 0.11, expected: (2 + 0.03 / 0.14) / 5,
+      text: 'льоту',
+      end: 0.84,
+      letters: [0, 0.08, 0.08, 0.22, 0.34],
+      at: 0.11,
+      expected: (2 + 0.03 / 0.14) / 5,
     },
     {
-      text: 'слухала', end: 0.7,
-      letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6], at: 0.18, expected: 2 / 7 * 0.18 / 0.22,
+      text: 'слухала',
+      end: 0.7,
+      letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6],
+      at: 0.18,
+      expected: ((2 / 7) * 0.18) / 0.22,
     },
-    { text: 'Так', end: 0.22, letters: [0, 0.08, 0.1], at: 0.11, expected: 0.5 },
+    {
+      text: 'Так',
+      end: 0.22,
+      letters: [0, 0.08, 0.1],
+      at: 0.11,
+      expected: 0.5,
+    },
   ])(
     'fills short clusters in $text smoothly while respecting the measured vowel hold',
     ({ text, end, letters, at, expected }) => {
       const saved = Object.freeze({
         ...word(text, 0, end),
-        letters: Object.freeze(letters.map(t => t / end)),
+        letters: Object.freeze(letters.map((t) => t / end)),
       });
-      const geometry = [...text].map((_, i) =>
-        [i / text.length, (i + 1) / text.length] as const,
+      const geometry = [...text].map(
+        (_, i) => [i / text.length, (i + 1) / text.length] as const,
       );
       expect(syllableProgress(saved, at, geometry)).toBeCloseTo(expected);
       expect(syllableProgress(saved, 0, geometry)).toBe(0);

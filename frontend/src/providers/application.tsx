@@ -1,32 +1,27 @@
 import {
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../shared/errors';
-import { reaction, runInAction } from 'mobx';
-import {
   QueryObserver,
   useQuery,
   type QueryClient,
 } from '@tanstack/react-query';
+import { reaction, runInAction } from 'mobx';
 import { useMemo, useSyncExternalStore } from 'react';
-import { store } from './store';
-import { RoomSessionController } from '../application/room/RoomSessionController';
-import { RoomPlaybackCoordinator } from '../application/room/RoomPlaybackCoordinator';
+import { appVisibility, subscribeAppVisibility } from '../app/useAppOnScreen';
 import { RoomLibraryCoordinator } from '../application/room/RoomLibraryCoordinator';
 import { RoomMembershipCoordinator } from '../application/room/RoomMembershipCoordinator';
+import { RoomPlaybackCoordinator } from '../application/room/RoomPlaybackCoordinator';
 import { RoomRuntimeCoordinator } from '../application/room/RoomRuntimeCoordinator';
+import { RoomSessionController } from '../application/room/RoomSessionController';
 import type { RoomVoiceCoordinator } from '../application/room/RoomVoiceCoordinator';
-import { applyAppFonts } from '../shared/preferences/appFonts';
 import type { ProcessingJobDto } from '../contracts/models';
 import { audioClient } from '../services/audioClient';
-import { desktopClient } from '../services/desktopClient';
-import { pythonClient } from '../services/pythonClient';
 import {
   backendPollInterval,
   onJobChange,
   onModelsChange,
   refreshOnJobChanges,
 } from '../services/backendEvents';
+import { desktopClient } from '../services/desktopClient';
+import { pythonClient } from '../services/pythonClient';
 import { roomClient } from '../services/roomClient';
 import { participantId } from '../services/roomMappers';
 import {
@@ -34,12 +29,17 @@ import {
   roomProjectCopy,
 } from '../services/roomProjectCopies';
 import {
+  clearOperationFailure,
+  reportOperationFailure,
+} from '../shared/errors';
+import { applyAppFonts } from '../shared/preferences/appFonts';
+import {
   readText,
   removeKey,
   storageKey,
   writeText,
 } from '../shared/storage/localStore';
-import { subscribeAppVisibility, appVisibility } from '../app/useAppOnScreen';
+import { store } from './store';
 
 const sessionKey = storageKey('roomSession');
 const createRoomSession = () =>

@@ -2,10 +2,7 @@ import { stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Worker } from 'node:worker_threads';
 
-type ComputePeaks = (
-  filePath: string,
-  bins: number,
-) => Promise<number[]>;
+type ComputePeaks = (filePath: string, bins: number) => Promise<number[]>;
 
 const cachedFiles = 256;
 

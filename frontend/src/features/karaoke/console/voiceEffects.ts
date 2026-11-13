@@ -1,10 +1,8 @@
-import type { MessageKey } from '../../../i18n/messages';
-
 export type VoiceEffectId = 'echo' | 'reverb' | 'delay' | 'autoTune';
 
 interface VoiceEffect {
   id: VoiceEffectId;
-  label: MessageKey;
+  label: string;
   /** AudioService DSP parameter the knob drives. */
   parameter: string;
   /** AudioService receives the knob value times this scale. */
@@ -83,7 +81,7 @@ export const anyEffectActive = (
 
 export interface EffectPreset {
   id: string;
-  label: MessageKey;
+  label: string;
   symbol: string;
   echo: number;
   reverb: number;

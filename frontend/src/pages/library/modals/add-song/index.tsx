@@ -1,6 +1,3 @@
-import { useLibraryImport } from './useLibraryImport';
-import { desktopClient as files } from '../../../../services/desktopClient';
-import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -8,17 +5,18 @@ import {
   MessageBar,
   ProgressBar,
   Stack,
+  tr,
   Typography,
   useForm,
-  tr,
   useLocale,
 } from '@neo-ui-kit/react';
+import { useEffect, useRef, useState } from 'react';
 import type { ImportProgress } from '../../../../contracts/clients';
-import type { MessageKey } from '../../../../i18n/messages';
-import { ru } from '../../../../i18n/messages.ru';
-import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { desktopClient as files } from '../../../../services/desktopClient';
+import { errorstring, toAppError } from '../../../../shared/errors';
 import { formatBytes } from '../../../../shared/utils/format';
 import { isSupportedAudio } from './importModel';
+import { useLibraryImport } from './useLibraryImport';
 
 type FileState =
   | { kind: 'none' }
@@ -29,7 +27,7 @@ const fileErrors = {
   ready: null,
   unsupported: 'errorUnsupportedMedia',
   unreadable: 'errorInvalidMedia',
-} as const satisfies Record<FileState['kind'], MessageKey | null>;
+} as const satisfies Record<FileState['kind'], string | null>;
 
 /** Picking an audio file and importing it; title and artist are detected, so nothing else is asked. */
 export const AddSongModal = ({
@@ -52,12 +50,12 @@ export const AddSongModal = ({
     initialValues: { path: initialPath },
     reinitialize: false,
     validate: () =>
-      file.kind === 'ready' ? {} : { path: tr(ru.chooseAudioFirst) },
+      file.kind === 'ready' ? {} : { path: tr('chooseAudioFirst') },
     onSubmit: async (values, current) => {
       setFailure(undefined);
       const controller = new AbortController();
       importController.current = controller;
-      setProgress({ jobId: '', stage: tr(ru.importing), progress: 0 });
+      setProgress({ jobId: '', stage: tr('importing'), progress: 0 });
       try {
         await onImport(
           values.path,
@@ -70,11 +68,11 @@ export const AddSongModal = ({
       } catch (failure) {
         setProgress(null);
         if (failure instanceof DOMException && failure.name === 'AbortError') {
-          setFailure(tr(ru.importCancelled));
+          setFailure(tr('importCancelled'));
           return;
         }
-        const key = errorMessageKey(toAppError(failure));
-        setFailure(key ? tr(ru[key]) : tr(ru.importFailed));
+        const key = errorstring(toAppError(failure));
+        setFailure(key ? tr(key) : tr('importFailed'));
       } finally {
         importController.current = null;
       }
@@ -129,8 +127,8 @@ export const AddSongModal = ({
       }}
       className="addSongDialog"
       icon="plus"
-      title={tr(ru.addSong)}
-      closeLabel={tr(ru.closeDialog)}
+      title={tr('addSong')}
+      closeLabel={tr('closeDialog')}
       cancelLabel={false}
       confirmLabel={false}
     >
@@ -146,25 +144,25 @@ export const AddSongModal = ({
           variant="zone"
           className="audioFilePicker"
           icon="music"
-          label={tr(ru.addSong)}
-          description={tr(ru.audioFileFormats)}
+          label={tr('addSong')}
+          description={tr('audioFileFormats')}
           value={info?.name}
           onPick={() => void pickAudio()}
         />
         {info && (
           <Typography variant="caption" tone="muted" className="importInfo">
-            {tr(ru.importFormat, { value: info.extension.toUpperCase() })} ·{' '}
-            {tr(ru.importSize, { value: formatBytes(info.sizeBytes) })}
+            {tr('importFormat', { value: info.extension.toUpperCase() })} ·{' '}
+            {tr('importSize', { value: formatBytes(info.sizeBytes) })}
           </Typography>
         )}
-        {fileError && <MessageBar tone="error">{tr(ru[fileError])}</MessageBar>}
+        {fileError && <MessageBar tone="error">{tr(fileError)}</MessageBar>}
         {failure && <MessageBar tone="error">{failure}</MessageBar>}
         {progress && (
           <Stack gap={1}>
             <Typography variant="caption" tone="muted">
               {progress.stage} · {progress.progress}%
             </Typography>
-            <ProgressBar label={tr(ru.importing)} value={progress.progress} />
+            <ProgressBar label={tr('importing')} value={progress.progress} />
           </Stack>
         )}
         <div className="addSongActions">
@@ -173,14 +171,14 @@ export const AddSongModal = ({
               if (form.submitting) importController.current?.abort();
               else handleClose();
             }}
-            label={tr(ru[form.submitting ? 'cancelImport' : 'cancel'])}
+            label={tr(form.submitting ? 'cancelImport' : 'cancel')}
           />
           <Button
             type="submit"
             variant="primary"
             icon="plus"
             disabled={form.submitting || file.kind !== 'ready'}
-            label={tr(ru.addSong)}
+            label={tr('addSong')}
           />
         </div>
       </form>

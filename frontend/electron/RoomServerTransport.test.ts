@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendAudioRequest = vi.fn();
 vi.mock('./AudioServiceTransport', () => ({ sendAudioRequest }));
+vi.mock('./SocialIdentity', () => ({
+  deviceSecret: async () => 'transport-test-secret',
+}));
 
 describe('central room voice transport', () => {
   afterEach(() => {
@@ -30,7 +33,17 @@ describe('central room voice transport', () => {
 
     const transport = await import('./RoomServerTransport');
 
-    expect(transport.roomServerApiBase).toBe('http://rooms.example.com:9443');
+    expect(transport.roomServerApiBase).toBe('https://rooms.example.com:9443');
+  });
+
+  it('refuses to send a room key over public HTTP', async () => {
+    vi.stubEnv('AD_VOICE_ROOM_SERVER', 'http://rooms.example.com:8081');
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+    const { roomServerRequest } = await import('./RoomServerTransport');
+    const response = await roomServerRequest({ method: 'GET', path: '/rooms' });
+    expect(response.ok).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it.each(['', '0', '1'])(

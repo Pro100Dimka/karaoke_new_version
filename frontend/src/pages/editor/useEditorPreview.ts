@@ -18,10 +18,16 @@ export const useEditorPreview = (
       return;
     }
     if (!playing) return;
-    return audioClient.observeSnapshots(snapshot => {
-      runInAction(() => position.set(snapshot.positionSeconds));
-      if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
-    }, () => { setPlaying(false); onFailure(); });
+    return audioClient.observeSnapshots(
+      (snapshot) => {
+        runInAction(() => position.set(snapshot.positionSeconds));
+        if (['finished', 'ready'].includes(snapshot.state)) setPlaying(false);
+      },
+      () => {
+        setPlaying(false);
+        onFailure();
+      },
+    );
   }, [audioReady, playing, onFailure, position]);
 
   const togglePlay = useCallback(async () => {
@@ -39,13 +45,16 @@ export const useEditorPreview = (
     }
   }, [audioReady, onFailure]);
 
-  const seek = useCallback(async (seconds: number) => {
-    const snapshot = await observeOperation(
-      'errors.seek',
-      audioClient.seek(seconds),
-    ).catch(() => null);
-    if (snapshot) runInAction(() => position.set(snapshot.positionSeconds));
-  }, [position]);
+  const seek = useCallback(
+    async (seconds: number) => {
+      const snapshot = await observeOperation(
+        'errors.seek',
+        audioClient.seek(seconds),
+      ).catch(() => null);
+      if (snapshot) runInAction(() => position.set(snapshot.positionSeconds));
+    },
+    [position],
+  );
 
   return {
     playing,

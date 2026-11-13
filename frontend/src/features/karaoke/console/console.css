@@ -45,15 +45,15 @@
   gap: var(--ad-space-2);
 }
 
-
-
 .consoleDockButton.ad-icon-button {
   position: absolute;
   z-index: 1;
   transform: none;
-  background: linear-gradient(145deg,
-      color-mix(in srgb, var(--ad-primary) 55%, #16080c),
-      #16080c);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--ad-primary) 55%, #16080c),
+    #16080c
+  );
   border-color: var(--ad-primary);
   color: #fff;
   box-shadow: 0 0 5px rgb(from var(--ad-primary) r g b / 0.6);
@@ -113,7 +113,7 @@
   gap: var(--ad-space-3);
 }
 
-.consoleTopRow>.ad-icon-button {
+.consoleTopRow > .ad-icon-button {
   position: absolute;
   top: 0;
   right: 0;
@@ -128,7 +128,7 @@
   min-inline-size: 0;
 }
 
-.songStrip>.ad-waveform {
+.songStrip > .ad-waveform {
   height: 2.5rem;
 }
 
@@ -177,7 +177,7 @@
   flex-shrink: 0;
 }
 
-.consoleKnob>.ad-icon-button {
+.consoleKnob > .ad-icon-button {
   position: absolute;
   left: -12px;
   bottom: 0;
@@ -193,11 +193,14 @@
   padding-inline-end: 32px;
 }
 
-.karaokeConsolePanel[data-orientation='horizontal'] .consoleKnob[data-channel='mic'] {
+.karaokeConsolePanel[data-orientation='horizontal']
+  .consoleKnob[data-channel='mic'] {
   padding-inline-start: 12px;
 }
 
-.karaokeConsolePanel[data-orientation='horizontal'] .consoleKnob[data-channel='mic']>.ad-icon-button {
+.karaokeConsolePanel[data-orientation='horizontal']
+  .consoleKnob[data-channel='mic']
+  > .ad-icon-button {
   left: 0;
 }
 
@@ -239,7 +242,7 @@
   --ad-size-h: 1.8rem;
 }
 
-.karaokeConsolePanel[data-orientation='horizontal'] .songStrip>.ad-waveform {
+.karaokeConsolePanel[data-orientation='horizontal'] .songStrip > .ad-waveform {
   height: 2rem;
 }
 
@@ -274,7 +277,7 @@
     grid-area: 2 / 1;
   }
 
-  .songStrip>.ad-waveform {
+  .songStrip > .ad-waveform {
     grid-area: 2 / 2 / 3 / 5;
   }
 
@@ -303,7 +306,7 @@
     gap: 4px 12px;
   }
 
-  .consoleKnobs> :is([data-channel='melody'], [data-channel='autoTune']) {
+  .consoleKnobs > :is([data-channel='melody'], [data-channel='autoTune']) {
     grid-column: 1 / -1;
     justify-self: center;
   }
@@ -325,7 +328,7 @@
     grid-area: 1 / 2;
   }
 
-  .consoleMetric-key>.ad-stack {
+  .consoleMetric-key > .ad-stack {
     gap: 4px;
   }
 

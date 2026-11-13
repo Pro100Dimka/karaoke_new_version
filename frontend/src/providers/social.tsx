@@ -1,19 +1,17 @@
-import { observeOperation } from '../shared/errors';
 import { tr } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { store } from './store';
 import { useEffect } from 'react';
-import { roomSession } from './application';
-import { useNotify, type NotificationIntent } from './notifications';
+import { FriendRelationsCoordinator } from '../application/social/FriendRelationsCoordinator';
+import { RoomInvitationCoordinator } from '../application/social/RoomInvitationCoordinator';
 import type { SocialNotice } from '../contracts/social';
-import type { MessageKey } from '../i18n/messages';
-import { ru } from '../i18n/messages.ru';
+import { SocialAlerts } from '../features/social/SocialAlerts';
+import { desktopClient } from '../services/desktopClient';
 import { participantId } from '../services/roomMappers';
 import { socialClient } from '../services/socialClient';
-import { RoomInvitationCoordinator } from '../application/social/RoomInvitationCoordinator';
-import { FriendRelationsCoordinator } from '../application/social/FriendRelationsCoordinator';
-import { desktopClient } from '../services/desktopClient';
-import { SocialAlerts } from '../features/social/SocialAlerts';
+import { observeOperation } from '../shared/errors';
+import { roomSession } from './application';
+import { useNotify, type NotificationIntent } from './notifications';
+import { store } from './store';
 
 export const friendRelations = new FriendRelationsCoordinator(
   socialClient,
@@ -45,7 +43,7 @@ const noticeTexts = {
   JoinRequested: ['joinRequested', 'info'],
 } as const satisfies Record<
   SocialNotice['kind'],
-  readonly [MessageKey, NotificationIntent]
+  readonly [string, NotificationIntent]
 >;
 
 export const SocialConnection = observer(() => {
@@ -61,7 +59,7 @@ export const SocialConnection = observer(() => {
         if (next.type !== 'inbox') return;
         for (const notice of next.notices) {
           const [key, intent] = noticeTexts[notice.kind];
-          notify(tr(ru[key], { name: notice.person.displayName }), intent);
+          notify(tr(key, { name: notice.person.displayName }), intent);
         }
       }),
     [notify],

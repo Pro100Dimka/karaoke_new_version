@@ -1,5 +1,4 @@
 import { tr } from '@neo-ui-kit/react';
-import { ru } from '../../../../i18n/messages.ru';
 import type { RecordingDto } from '../../../../contracts/models';
 
 const pad = (value: number): string => String(value).padStart(2, '0');
@@ -8,20 +7,19 @@ const pad = (value: number): string => String(value).padStart(2, '0');
 export const defaultTakeName = (number: number, createdAt: string): string => {
   const date = new Date(createdAt);
   const stamp = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
-  return tr(ru.takeDefaultName, { number, date: stamp });
+  return tr('takeDefaultName', { number, date: stamp });
 };
 
 export const numberTakes = (
   recordings: readonly RecordingDto[],
-): ReadonlyMap<string, number> =>
-  new Map(
-    // A Studio Master is a version of a take, not a take of its own: it does not use a number.
-    recordings
-      .filter((recording) => !recording.sourceRecordingId)
-      .sort(
-        (a, b) =>
-          Date.parse(a.createdAt) - Date.parse(b.createdAt) ||
-          a.id.localeCompare(b.id),
-      )
-      .map((recording, index) => [recording.id, index + 1] as const),
+): ReadonlyMap<string, number> => {
+  // Parse each date once: the comparator otherwise parses it O(n log n) times.
+  const takes = recordings
+    .filter((recording) => !recording.sourceRecordingId)
+    .map((recording) => ({ recording, created: Date.parse(recording.createdAt) }));
+  takes.sort(
+    (a, b) =>
+      a.created - b.created || a.recording.id.localeCompare(b.recording.id),
   );
+  return new Map(takes.map(({ recording }, index) => [recording.id, index + 1]));
+};

@@ -65,7 +65,13 @@ export const setSplashStatus = (
   if (splash && !splash.webContents.isLoading()) showStatus();
 };
 
-/** Keep the verified-data cleanup visible after the installer exits and releases its own file. */
+/** Migration markers keep services from opening files owned by the installer. */
+export const hasPendingStorageMigration = (): boolean =>
+  ['.storage-cleanup', '.storage-migration', 'storage-progress.json'].some(
+    (name) => fs.existsSync(path.join(app.getPath('appData'), name)),
+  );
+
+/** Keep verified-data cleanup visible after the installer releases its own window. */
 export const waitForStorageMigration = async (
   language: ShellStatus['language'],
 ): Promise<void> => {
@@ -75,7 +81,7 @@ export const waitForStorageMigration = async (
     ['.storage-cleanup', '.storage-migration'].some((name) =>
       fs.existsSync(path.join(root, name)),
     );
-  if (!pending() && !fs.existsSync(file)) return;
+  if (!hasPendingStorageMigration()) return;
   const phases: Record<string, ShellTextKey> = {
     Prepare: 'storagePrepare',
     Copy: 'storageCopy',

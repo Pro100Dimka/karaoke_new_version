@@ -29,23 +29,52 @@ import {
 
 let commandRevision = 0;
 let observedPlaybackTicks = 0;
-export const invalidateAudioSnapshots = (): void => { ++commandRevision; };
+export const invalidateAudioSnapshots = (): void => {
+  ++commandRevision;
+};
 export const command = async (
   name: string,
   args?: AudioBridgeRequest['args'],
 ): Promise<string> => {
   const changesState = [
-    'LoadSong', 'UnloadSong', 'Play', 'Pause', 'Resume', 'Stop', 'Seek',
-    'SetPlaybackRate', 'SetTranspose', 'PrepareSession', 'StartSession', 'StopSession',
-    'RecoverSession', 'SuspendSession', 'ResumeSession', 'Reconfigure', 'SetMonitoring',
-    'LoadRecordingPreview', 'PlayRecordingPreview', 'PauseRecordingPreview',
-    'StopRecordingPreview', 'SeekRecordingPreview', 'LoadPreview', 'PlayPreview',
-    'PausePreview', 'StopPreview', 'SeekPreview', 'SetRoomClock', 'SetRoomFollow',
-    'SetRoomPlayoutDelay', 'LeaveMediaSession',
+    'LoadSong',
+    'UnloadSong',
+    'Play',
+    'Pause',
+    'Resume',
+    'Stop',
+    'Seek',
+    'SetPlaybackRate',
+    'SetTranspose',
+    'PrepareSession',
+    'StartSession',
+    'StopSession',
+    'RecoverSession',
+    'SuspendSession',
+    'ResumeSession',
+    'Reconfigure',
+    'SetMonitoring',
+    'LoadRecordingPreview',
+    'PlayRecordingPreview',
+    'PauseRecordingPreview',
+    'StopRecordingPreview',
+    'SeekRecordingPreview',
+    'LoadPreview',
+    'PlayPreview',
+    'PausePreview',
+    'StopPreview',
+    'SeekPreview',
+    'SetRoomClock',
+    'SetRoomFollow',
+    'SetRoomPlayoutDelay',
+    'LeaveMediaSession',
   ].includes(name);
   if (changesState) ++commandRevision;
   try {
-    const response = await desktopBridge().audioRequest({ command: name, args });
+    const response = await desktopBridge().audioRequest({
+      command: name,
+      args,
+    });
     if (response.status !== 0)
       throw new Error(response.text || `AudioService command failed: ${name}`);
     return response.text;
@@ -55,16 +84,24 @@ export const command = async (
       // Both clocks use QPC. Its measured round-trip bounds discard pre-command frames even
       // when the independent notification pipe delivers them after the command's reply.
       if (nativeClock)
-        observedPlaybackTicks = Math.max(observedPlaybackTicks, Math.ceil(
-          (performance.now() + nativeClock.offset + nativeClock.roundTrip / 2) * 1e6,
-        ));
+        observedPlaybackTicks = Math.max(
+          observedPlaybackTicks,
+          Math.ceil(
+            (performance.now() +
+              nativeClock.offset +
+              nativeClock.roundTrip / 2) *
+              1e6,
+          ),
+        );
     }
   }
 };
 
 /** Stream delivery wakes the consumer; only an outage uses a bounded recovery read. */
 export const observeAudioTelemetry = (
-  name: string, intervalMs: number, onValue: (text: string) => void | Promise<void>,
+  name: string,
+  intervalMs: number,
+  onValue: (text: string) => void | Promise<void>,
   onError: (error: unknown) => void,
 ): (() => void) => {
   let active = true;
@@ -73,33 +110,61 @@ export const observeAudioTelemetry = (
   let latest: { text: string; revision: number; ticks: number } | undefined;
   const publish = (text: string) => {
     if (!active) return;
-    if (name !== 'GetPlaybackSnapshot') { onValue(text); return; }
-    latest = { text, revision: commandRevision, ticks: Number(parseKeyValues(text).MonotonicTicks) };
+    if (name !== 'GetPlaybackSnapshot') {
+      onValue(text);
+      return;
+    }
+    latest = {
+      text,
+      revision: commandRevision,
+      ticks: Number(parseKeyValues(text).MonotonicTicks),
+    };
     if (pending) return;
     pending = true;
     void enqueueAudioOperation(async () => {
       const value = latest;
       latest = undefined;
-      if (!active || !value || value.revision !== commandRevision || !Number.isFinite(value.ticks) ||
-          value.ticks < observedPlaybackTicks) return;
+      if (
+        !active ||
+        !value ||
+        value.revision !== commandRevision ||
+        !Number.isFinite(value.ticks) ||
+        value.ticks < observedPlaybackTicks
+      )
+        return;
       observedPlaybackTicks = value.ticks;
       await onValue(value.text);
-    }).catch(error => { if (active) onError(error); })
-      .finally(() => { pending = false; });
+    })
+      .catch((error) => {
+        if (active) onError(error);
+      })
+      .finally(() => {
+        pending = false;
+      });
   };
-  const stop = desktopBridge().onAudioNotification(name, intervalMs, (value) => {
-    if (!active) return;
-    if (value?.status === 0) {
-      publish(value.text);
-    } else if (!recovering) {
-      recovering = true;
-      void command(name).then(
-        publish,
-        error => { if (active) onError(error); },
-      ).finally(() => { recovering = false; });
-    }
-  });
-  return () => { active = false; stop(); };
+  const stop = desktopBridge().onAudioNotification(
+    name,
+    intervalMs,
+    (value) => {
+      if (!active) return;
+      if (value?.status === 0) {
+        publish(value.text);
+      } else if (!recovering) {
+        recovering = true;
+        void command(name)
+          .then(publish, (error) => {
+            if (active) onError(error);
+          })
+          .finally(() => {
+            recovering = false;
+          });
+      }
+    },
+  );
+  return () => {
+    active = false;
+    stop();
+  };
 };
 
 /** Windows' default endpoints in Shared mode: what a missing or failed device falls back to. */
@@ -224,7 +289,10 @@ export const diagnostics = async (
     await command(playbackOnly ? 'GetPlaybackSnapshot' : 'GetDiagnostics'),
   );
   const received = performance.now();
-  observedPlaybackTicks = Math.max(observedPlaybackTicks, Number(values.MonotonicTicks) || 0);
+  observedPlaybackTicks = Math.max(
+    observedPlaybackTicks,
+    Number(values.MonotonicTicks) || 0,
+  );
   nativeClock = acceptClockSample(
     nativeClock,
     Number(values.MonotonicTicks),
@@ -252,10 +320,12 @@ const playbackStates: Readonly<
 
 export const snapshot = async (
   forcedState?: PlaybackSnapshot['state'],
-): Promise<PlaybackSnapshot> => snapshotFromValues(await diagnostics(true), forcedState);
+): Promise<PlaybackSnapshot> =>
+  snapshotFromValues(await diagnostics(true), forcedState);
 
 const snapshotFromValues = (
-  values: Record<string, string>, forcedState?: PlaybackSnapshot['state'],
+  values: Record<string, string>,
+  forcedState?: PlaybackSnapshot['state'],
 ): PlaybackSnapshot => {
   if (audioState.reconfiguration.song && values.PlaybackState === '0')
     throw new Error('AudioService lost the prepared song');
@@ -318,9 +388,14 @@ export const observeSnapshots = (
   onError: (error: unknown) => void,
   intervalMs = 16,
 ): (() => void) => {
-  return observeAudioTelemetry('GetPlaybackSnapshot', intervalMs, text => {
-    onValue(snapshotFromValues(parseKeyValues(text)));
-  }, onError);
+  return observeAudioTelemetry(
+    'GetPlaybackSnapshot',
+    intervalMs,
+    (text) => {
+      onValue(snapshotFromValues(parseKeyValues(text)));
+    },
+    onError,
+  );
 };
 
 /** Ready, playing or paused: a song is loaded. */
@@ -332,9 +407,11 @@ export const waitForReady = async (isCurrent = () => true): Promise<void> => {
   let deadline = performance.now() + 15_000;
   let progress = 0;
   do {
-    if (!isCurrent()) throw new DOMException('Song loading cancelled', 'AbortError');
+    if (!isCurrent())
+      throw new DOMException('Song loading cancelled', 'AbortError');
     const values = await diagnostics();
-    if (!isCurrent()) throw new DOMException('Song loading cancelled', 'AbortError');
+    if (!isCurrent())
+      throw new DOMException('Song loading cancelled', 'AbortError');
     const state = Number(values.PlaybackState ?? 0);
     if (loadedPlaybackStates.has(state)) return;
     if (state === failedPlaybackState)

@@ -2,7 +2,6 @@ import { tr, useLocale } from '@neo-ui-kit/react';
 import { useEffect, useState } from 'react';
 import { version as frontendVersion } from '../../../../../../../package.json';
 import { useNotify } from '../../../../../../providers/notifications';
-import { ru } from '../../../../../../i18n/messages.ru';
 import { pythonClient as backend } from '../../../../../../services/pythonClient';
 import { desktopClient as desktop } from '../../../../../../services/desktopClient';
 import type { SubsystemHealth } from '../useSubsystemHealth';
@@ -51,12 +50,12 @@ export const useDiagnosticsActions = (health: SubsystemHealth) => {
       else if (!(await desktop.saveTextFile('ad-voice-diagnostics.json', text)))
         return;
       notify(
-        tr(ru[destination === 'clipboard' ? 'copied' : 'reportExported']),
+        tr(destination === 'clipboard' ? 'copied' : 'reportExported'),
         'success',
       );
     } catch (error) {
       notify(
-        error instanceof Error ? error.message : tr(ru.settingsApplyFailed),
+        error instanceof Error ? error.message : tr('settingsApplyFailed'),
         'error',
       );
     }

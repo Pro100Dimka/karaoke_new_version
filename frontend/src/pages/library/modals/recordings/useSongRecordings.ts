@@ -1,34 +1,34 @@
-import {
-  observeOperation,
-  reportOperationFailure,
-  clearOperationFailure,
-} from '../../../../shared/errors';
-import { useQueryClient } from '@tanstack/react-query';
-import { refreshSongs } from '../../../../api/api-service';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { pythonClient as catalog } from '../../../../services/pythonClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { store } from '../../../../providers/store';
-import { ask } from '../../../../providers/dialog';
-import { useNotify } from '../../../../providers/notifications';
+import { refreshSongs } from '../../../../components/api-service';
+import type {
+  RecordingAnalysisProgress,
+  StudioMasterProgress,
+} from '../../../../contracts/clients';
 import type {
   AnalysisDto,
   RecordingDto,
   SongDto,
 } from '../../../../contracts/models';
-import type {
-  RecordingAnalysisProgress,
-  StudioMasterProgress,
-} from '../../../../contracts/clients';
-import { ru } from '../../../../i18n/messages.ru';
-import type { MessageKey } from '../../../../i18n/messages';
-import { useGuardedAction } from '../../songs/useGuardedAction';
-import { errorMessageKey, toAppError } from '../../../../shared/errors';
+import { ask } from '../../../../providers/dialog';
+import { useNotify } from '../../../../providers/notifications';
+import { store } from '../../../../providers/store';
+import { audioClient as preview } from '../../../../services/audioClient';
 import {
   backendPollInterval,
   nextRecordingChange,
   onRecordingsChange,
 } from '../../../../services/backendEvents';
+import { pythonClient as catalog } from '../../../../services/pythonClient';
+import {
+  clearOperationFailure,
+  errorstring,
+  observeOperation,
+  reportOperationFailure,
+  toAppError,
+} from '../../../../shared/errors';
+import { useGuardedAction } from '../../songs/useGuardedAction';
 
 /** Recordings and analysis for one song; also honours "open my take" navigation from a finished performance. */
 export const useSongRecordings = (
@@ -43,6 +43,7 @@ export const useSongRecordings = (
   const guarded = useGuardedAction();
   const [song, setSong] = useState<SongDto | null>(null);
   const [recordings, setRecordings] = useState<readonly RecordingDto[]>([]);
+  const [loadingRecordings, setLoadingRecordings] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisDto | null>(null);
   const [analysisSong, setAnalysisSong] = useState<SongDto | null>(null);
   const [analysisRecordId, setAnalysisRecordId] = useState<string | null>(null);
@@ -50,7 +51,7 @@ export const useSongRecordings = (
     Readonly<Record<string, RecordingAnalysisProgress>>
   >({});
   const [analysisFailures, setAnalysisFailures] = useState<
-    Readonly<Record<string, MessageKey>>
+    Readonly<Record<string, string>>
   >({});
   const [studioMaster, setStudioMaster] = useState<StudioMasterProgress | null>(
     null,
@@ -134,7 +135,7 @@ export const useSongRecordings = (
         return null;
       setAnalysisFailures((items) => ({
         ...items,
-        [recordingId]: errorMessageKey(toAppError(failure)) ?? 'actionFailed',
+        [recordingId]: errorstring(toAppError(failure)) ?? 'actionFailed',
       }));
       throw failure;
     } finally {
@@ -151,9 +152,12 @@ export const useSongRecordings = (
     }
   };
 
+  const recordingsTargetId = song?.id ?? (analysisRecordId ? analysisSong?.id : undefined);
+  const preparingRecordings = recordings.some((item) =>
+    ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
+  );
   useEffect(() => {
-    const target = song ?? (analysisRecordId ? analysisSong : null);
-    if (!target) return;
+    if (!recordingsTargetId) return;
     let active = true;
     let pending = false;
     const request = requests.current.recordings;
@@ -161,7 +165,7 @@ export const useSongRecordings = (
       if (pending) return;
       pending = true;
       void catalog
-        .listRecordings(target.id)
+        .listRecordings(recordingsTargetId)
         .then((items) => {
           if (active && request === requests.current.recordings) {
             clearOperationFailure('errors.recordings');
@@ -177,10 +181,7 @@ export const useSongRecordings = (
         });
     };
     const stop = onRecordingsChange(refresh);
-    const preparing = recordings.some((item) =>
-      ['Preparing', 'PreparationFailed'].includes(item.fileStatus ?? ''),
-    );
-    const timer = preparing
+    const timer = preparingRecordings
       ? window.setInterval(refresh, backendPollInterval(1000))
       : undefined;
     return () => {
@@ -188,15 +189,21 @@ export const useSongRecordings = (
       stop();
       window.clearInterval(timer);
     };
-  }, [song, analysisSong, analysisRecordId, recordings]);
+  }, [recordingsTargetId, preparingRecordings]);
 
   const open = (target: SongDto) =>
     guarded(async () => {
       const request = ++requests.current.recordings;
-      const items = await catalog.listRecordings(target.id);
-      if (request !== requests.current.recordings) return;
-      setRecordings(items);
+      // Show the dialog immediately; the network must not delay its first paint.
       setSong(target);
+      setRecordings([]);
+      setLoadingRecordings(true);
+      try {
+        const items = await catalog.listRecordings(target.id);
+        if (request === requests.current.recordings) setRecordings(items);
+      } finally {
+        if (request === requests.current.recordings) setLoadingRecordings(false);
+      }
     });
 
   useEffect(
@@ -249,7 +256,7 @@ export const useSongRecordings = (
       } catch (failure) {
         if (current())
           notify(
-            tr(ru[errorMessageKey(toAppError(failure)) ?? 'actionFailed']),
+            tr(errorstring(toAppError(failure)) ?? 'actionFailed'),
             'error',
           );
       }
@@ -285,18 +292,19 @@ export const useSongRecordings = (
   const remove = (recording: RecordingDto) =>
     guarded(async () => {
       const choice = await ask({
-        title: tr(ru.deleteRecordingTitle),
-        body: tr(ru.deleteRecordingBody),
+        title: tr('deleteRecordingTitle'),
+        body: tr('deleteRecordingBody'),
         actions: [
-          { id: 'cancel', label: tr(ru.cancel) },
+          { id: 'cancel', label: tr('cancel') },
           {
             id: 'delete',
-            label: tr(ru.recordingDelete),
+            label: tr('recordingDelete'),
             appearance: 'primary',
           },
         ],
       });
       if (choice !== 'delete') return;
+      await preview.stopRecordingPreview(undefined, recording.id);
       await catalog.deleteRecording(recording.id);
       setRecordings((items) =>
         items.filter((item) => item.id !== recording.id),
@@ -325,7 +333,7 @@ export const useSongRecordings = (
             mastered,
             ...items.filter((item) => item.id !== mastered.id),
           ]);
-        notify(tr(ru.studioMasterReady), 'success');
+        notify(tr('studioMasterReady'), 'success');
       } finally {
         if (request === requests.current.master) setStudioMaster(null);
       }
@@ -347,6 +355,7 @@ export const useSongRecordings = (
   return {
     song,
     recordings,
+    loadingRecordings,
     analysis,
     analysisSong,
     analysisRecordId,
@@ -360,6 +369,7 @@ export const useSongRecordings = (
     createStudioMaster,
     close: () => {
       requests.current.recordings += 1;
+      setLoadingRecordings(false);
       setSong(null);
     },
     closeAnalysis: () => {

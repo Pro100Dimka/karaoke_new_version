@@ -1,6 +1,5 @@
 import { store } from '../../../../../providers/store';
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import { audioOptions, deviceOptions } from './audioOptions';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useNotify } from '../../../../../providers/notifications';
@@ -29,7 +28,7 @@ export const useAudioSettings = (enabled = true) => {
       updatePreferences({ audio: request }),
     onError: (error: unknown) =>
       notify(
-        `${tr(ru.settingsApplyFailed)}: ${error instanceof Error ? error.message : String(error)}`,
+        `${tr('settingsApplyFailed')}: ${error instanceof Error ? error.message : String(error)}`,
         'error',
       ),
   };
@@ -119,7 +118,7 @@ export const useAudioSettings = (enabled = true) => {
           await audio.playTestSound();
         } catch (error) {
           notify(
-            `${tr(ru.outputTestFailed)}: ${error instanceof Error ? error.message : String(error)}`,
+            `${tr('outputTestFailed')}: ${error instanceof Error ? error.message : String(error)}`,
             'error',
           );
         }

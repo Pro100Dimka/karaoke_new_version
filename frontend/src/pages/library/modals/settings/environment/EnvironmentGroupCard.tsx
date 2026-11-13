@@ -12,7 +12,6 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { ru } from '../../../../../i18n/messages.ru';
 import type { KaggleSettings } from './useEnvironmentSettings';
 import {
   groupState,
@@ -64,12 +63,10 @@ const KaggleElapsed = ({ startedAt }: { startedAt: number | null }) => {
     return () => clearInterval(timer);
   }, [startedAt]);
   const elapsed =
-    startedAt === null
-      ? 0
-      : Math.max(0, Math.floor((now - startedAt) / 1000));
+    startedAt === null ? 0 : Math.max(0, Math.floor((now - startedAt) / 1000));
   return (
     <Typography variant="caption" tone="muted">
-      {tr(ru.kaggleDeployProgressTiming, { elapsed: formatElapsed(elapsed) })}
+      {tr('kaggleDeployProgressTiming', { elapsed: formatElapsed(elapsed) })}
     </Typography>
   );
 };
@@ -90,11 +87,11 @@ const KaggleControls = ({
         <Stack gap={1} role="status">
           <ProgressBar
             indeterminate
-            label={tr(ru.kaggleDeployProgressLabel)}
-            aria-valuetext={tr(ru.kaggleDeployProgressTitle)}
+            label={tr('kaggleDeployProgressLabel')}
+            aria-valuetext={tr('kaggleDeployProgressTitle')}
           />
           <Typography as="strong" variant="body-sm">
-            {tr(ru.kaggleDeployProgressTitle)}
+            {tr('kaggleDeployProgressTitle')}
           </Typography>
           <KaggleElapsed startedAt={kaggleStartedAt} />
         </Stack>
@@ -110,7 +107,7 @@ const KaggleControls = ({
               loading={kaggleAction === action}
               disabled={kaggleAction !== null}
               onClick={() => void runKaggleAction(action)}
-              label={tr(ru[label])}
+              label={tr(label)}
             />
           ))}
         </Stack>
@@ -144,8 +141,8 @@ export const EnvironmentGroupCard = ({
       data-group={group}
       data-state={state}
       icon={ui.icon}
-      title={tr(ru[ui.title])}
-      description={tr(ru[ui.hint])}
+      title={tr(ui.title)}
+      description={tr(ui.hint)}
       style={{ background: 'unset!important', boxShadow: 'unset!important' }}
       actions={
         <span className="environmentGroupArt" aria-hidden="true">

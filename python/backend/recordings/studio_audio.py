@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import Protocol
+from contextlib import contextmanager
+from collections.abc import Iterator
 from backend.infrastructure.process_runner import ProcessResult
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -16,6 +18,39 @@ _PROFILE_SECONDS = 0.1
 
 
 _MAX_BOOST_DB = 9.0
+_VOCAL_TARGET_OFFSET_DB = -3.5
+
+
+@contextmanager
+def _temporary_wave(path: Path, *, samplerate: int, channels: int) -> Iterator[sf.SoundFile]:
+    """Close scratch PCM before reuse without forcing a disk durability flush per stage."""
+    with path.open("w+b") as stream:
+        with sf.SoundFile(
+            stream, "w", samplerate=samplerate, channels=channels, subtype="FLOAT", format="WAV"
+        ) as output:
+            yield output
+
+
+def _write_gain_envelope(
+    source: Path,
+    target: Path,
+    times: NDArray[np.floating],
+    gains: NDArray[np.float64],
+    cancel: threading.Event,
+) -> None:
+    with (
+        sf.SoundFile(source) as original,
+        _temporary_wave(
+            target, samplerate=original.samplerate, channels=original.channels
+        ) as output,
+    ):
+        offset = 0
+        for samples in original.blocks(blocksize=65536, dtype="float32", always_2d=True):
+            _check_cancel(cancel)
+            positions = (offset + np.arange(len(samples))) / original.samplerate
+            gain = np.power(10.0, np.interp(positions, times, gains) / 20)
+            output.write(samples * gain[:, None])
+            offset += len(samples)
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,16 +105,36 @@ def _check_cancel(cancel: threading.Event) -> None:
         raise DomainError("ProcessCancelled", "Studio master was cancelled", 499)
 
 
-def _profile(path: Path, cancel: threading.Event) -> NDArray[np.float64]:
+def _profile(
+    path: Path,
+    cancel: threading.Event,
+    *,
+    voice_band: bool = False,
+    frame_seconds: float = _PROFILE_SECONDS,
+    band_hz: tuple[float, float] = (300.0, 3500.0),
+    center: bool = False,
+) -> NDArray[np.float64]:
     levels: list[float] = []
     with sf.SoundFile(path) as source:
         for samples in source.blocks(
-            blocksize=round(source.samplerate * _PROFILE_SECONDS), dtype="float64", always_2d=True
+            blocksize=max(1, round(source.samplerate * frame_seconds)),
+            dtype="float64",
+            always_2d=True,
         ):
             _check_cancel(cancel)
             if not np.isfinite(samples).all():
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
-            levels.append(10 * math.log10(max(1e-12, float(np.mean(samples * samples)))))
+            if center:
+                samples = samples.mean(axis=1, keepdims=True)
+            power = float(np.mean(samples * samples))
+            if voice_band:
+                window = np.hanning(len(samples))[:, None]
+                spectrum = np.fft.rfft(samples * window, axis=0)
+                hz = np.fft.rfftfreq(len(samples), 1 / source.samplerate)
+                low, high = band_hz
+                power = 2 * float(np.sum(np.abs(spectrum[(hz >= low) & (hz <= high)]) ** 2))
+                power /= max(1.0, len(samples) * float(np.sum(window**2)) * samples.shape[1])
+            levels.append(10 * math.log10(max(1e-12, power)))
     if not levels:
         raise DependencyError("StudioMasterSilentTrack", "Recording contains no audio")
     return np.asarray(levels, dtype=np.float64)
@@ -101,14 +156,14 @@ class MasterRenderer(Protocol):
         self,
         voice: NDArray[np.float64],
         backing: NDArray[np.float64],
-        reference: NDArray[np.float64],
-        original: NDArray[np.float64],
-        *,
-        phrase_smoothing: bool = False,
     ) -> tuple[NDArray[np.float64], NDArray[np.bool_]]: ...
 
     def _voice_filters(
-        self, path: Path, levels: NDArray[np.float64], cancel: threading.Event
+        self,
+        path: Path,
+        levels: NDArray[np.float64],
+        cancel: threading.Event,
+        reference: Path | None = None,
     ) -> tuple[list[str], dict[str, object]]: ...
 
     def _repeated_output_channels(self, path: Path, cancel: threading.Event) -> bool: ...
@@ -120,6 +175,8 @@ class MasterRenderer(Protocol):
         target: Path,
         active: NDArray[np.bool_],
         cancel: threading.Event,
+        reference_vocal: Path | None = None,
+        reference_backing: Path | None = None,
     ) -> dict[str, object]: ...
 
     def _reference_offset(

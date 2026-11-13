@@ -37,12 +37,11 @@ def test_managed_backend_announces_the_bound_port_once(monkeypatch, tmp_path, ca
     )
     monkeypatch.setattr(main.BackendConfig, "load", lambda: config)
     monkeypatch.setattr(main, "configure_logging", lambda *_: None)
-    monkeypatch.setattr(main, "create_app", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(main.uvicorn, "Config", lambda *_args, **kwargs: options.update(kwargs))
     monkeypatch.setattr(main.uvicorn, "Server", Server)
     monkeypatch.setattr(main, "watch_parent_input", lambda *_: None)
     monkeypatch.setenv("AD_VOICE_MANAGED", "1")
-    main.main()
+    main.main(lambda *_args, **_kwargs: object())
     assert capsys.readouterr().out == "AD_VOICE_BACKEND_READY:51234\n"
 
 
@@ -75,7 +74,6 @@ def test_managed_backend_stops_on_parent_stdin_eof(
     )
     monkeypatch.setattr(main.BackendConfig, "load", lambda: config)
     monkeypatch.setattr(main, "configure_logging", lambda *_: None)
-    monkeypatch.setattr(main, "create_app", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(main.uvicorn, "Config", lambda *_args, **_kwargs: object())
     monkeypatch.setattr(main.uvicorn, "Server", Server)
     monkeypatch.setattr(main.uvicorn, "run", lambda *_args, **_kwargs: Server(None).run())
@@ -85,6 +83,6 @@ def test_managed_backend_stops_on_parent_stdin_eof(
     else:
         monkeypatch.delenv("AD_VOICE_MANAGED", raising=False)
 
-    main.main()
+    main.main(lambda *_args, **_kwargs: object())
 
     assert observed == [managed]

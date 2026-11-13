@@ -52,14 +52,18 @@ export { invalidateAudioSnapshots } from './audioSession';
 let calibrationContext = '';
 // What AudioService was already told per device path, so unchanged values are not resent.
 const rememberedLatencies = new Map<string, number>();
-let healthySession: { process: string; native: string; reported: string } | undefined;
+let healthySession:
+  { process: string; native: string; reported: string } | undefined;
 const healthIdentity = (values: Record<string, string>, controlled = false) => {
   const process = values.ServiceInstanceId;
   if (!process) return undefined;
   const native = [process, values.generationId].filter(Boolean).join(':');
-  const reported = controlled && healthySession?.process === process
-    ? healthySession.reported
-    : healthySession?.native === native ? healthySession.reported : native;
+  const reported =
+    controlled && healthySession?.process === process
+      ? healthySession.reported
+      : healthySession?.native === native
+        ? healthySession.reported
+        : native;
   healthySession = { process, native, reported };
   return reported;
 };
@@ -89,12 +93,18 @@ const activateConfiguration = async (
   format?: { sampleRate: number; channels: number },
 ): Promise<void> => {
   await command('Reconfigure', {
-    ...endpointArgs(format ? { ...configuration, sampleRate: format.sampleRate } : configuration,
-      0, format?.channels ?? 0),
+    ...endpointArgs(
+      format
+        ? { ...configuration, sampleRate: format.sampleRate }
+        : configuration,
+      0,
+      format?.channels ?? 0,
+    ),
     ...(format && { preserveRecording: true }),
   });
   audioState.active = configuration;
-  if ((await diagnostics()).SessionState === 'Prepared') await command('StartSession');
+  if ((await diagnostics()).SessionState === 'Prepared')
+    await command('StartSession');
   if (configuration.lowLatencyInput)
     await reportMicrophoneMode().catch(() => undefined);
   await restoreVoiceSession();
@@ -102,7 +112,9 @@ const activateConfiguration = async (
   healthIdentity(await diagnostics(), true);
 };
 
-const applyConfiguration = async (configuration: RequestedAudioConfiguration) => {
+const applyConfiguration = async (
+  configuration: RequestedAudioConfiguration,
+) => {
   const devices = await rawDevices();
   configuration = safeAudioConfiguration(configuration, devices);
   if (!endpointsAvailable(devices, configuration))
@@ -110,24 +122,33 @@ const applyConfiguration = async (configuration: RequestedAudioConfiguration) =>
   const previous = audioState.active;
   const previousPreferred = audioState.preferred;
   const checkpoint = await audioState.reconfiguration.checkpoint(snapshot);
-  await recordingCoordinator.reconfigure(async (format) => {
-    audioState.preferred = configuration;
-    try {
-      await activateConfiguration(effectiveConfiguration(configuration), checkpoint, format);
-    } catch (error) {
-      audioState.preferred = previousPreferred;
-      await activateConfiguration(previous, checkpoint, format);
-      throw error;
-    }
-  }, async () => (await snapshot()).positionSeconds);
+  await recordingCoordinator.reconfigure(
+    async (format) => {
+      audioState.preferred = configuration;
+      try {
+        await activateConfiguration(
+          effectiveConfiguration(configuration),
+          checkpoint,
+          format,
+        );
+      } catch (error) {
+        audioState.preferred = previousPreferred;
+        await activateConfiguration(previous, checkpoint, format);
+        throw error;
+      }
+    },
+    async () => (await snapshot()).positionSeconds,
+  );
   return runtimeConfigurationFromDiagnostics(await diagnostics());
 };
 
 const reconcileWindowsMode = async (): Promise<void> => {
   if (audioState.preferred.backend !== 'WASAPI Shared') return;
   const running = (await diagnostics()).Backend;
-  if (effectiveConfiguration().backend !==
-    (running === undefined ? audioState.active.backend : backendName(running)))
+  if (
+    effectiveConfiguration().backend !==
+    (running === undefined ? audioState.active.backend : backendName(running))
+  )
     await applyConfiguration(audioState.preferred);
 };
 
@@ -161,14 +182,21 @@ const parseBands = (value: string | undefined): number[] =>
   (value ?? '').split(',').map(Number).filter(Number.isFinite);
 const spectrumFromText = (text: string) => {
   const values = parseKeyValues(text);
-  return { bands: parseBands(values.bands), backingBands: parseBands(values.backingBands) };
+  return {
+    bands: parseBands(values.bands),
+    backingBands: parseBands(values.backingBands),
+  };
 };
 
 export const audioClient: AudioServiceClient = {
   observeSnapshots,
   observeSpectrum(onValue, onError, intervalMs = 50) {
-    return observeAudioTelemetry('GetSpectrum', intervalMs,
-      text => onValue(spectrumFromText(text)), onError);
+    return observeAudioTelemetry(
+      'GetSpectrum',
+      intervalMs,
+      (text) => onValue(spectrumFromText(text)),
+      onError,
+    );
   },
   snapshot() {
     return enqueueAudioOperation(() => snapshot());
@@ -340,14 +368,17 @@ export const audioClient: AudioServiceClient = {
 
   prepareSong(song, isCurrent = () => true) {
     return enqueueAudioOperation(async () => {
-      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
+      if (!isCurrent())
+        throw new DOMException('Song preparation cancelled', 'AbortError');
       await ensureSession();
-      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
+      if (!isCurrent())
+        throw new DOMException('Song preparation cancelled', 'AbortError');
       const artifacts = await desktopBridge().resolveProjectArtifacts(
         song.id,
         song.activeRevision,
       );
-      if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
+      if (!isCurrent())
+        throw new DOMException('Song preparation cancelled', 'AbortError');
       await command('LoadSong', {
         instrumental: artifacts.instrumental,
         vocals: artifacts.vocals,
@@ -355,7 +386,8 @@ export const audioClient: AudioServiceClient = {
       });
       try {
         await waitForReady(isCurrent);
-        if (!isCurrent()) throw new DOMException('Song preparation cancelled', 'AbortError');
+        if (!isCurrent())
+          throw new DOMException('Song preparation cancelled', 'AbortError');
       } catch (error) {
         if (!isCurrent()) await command('UnloadSong');
         throw error;

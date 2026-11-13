@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="3" time="7.381" timestamp="2026-10-31T16:14:52.675467+01:00" hostname="cd9b16f8b000"><testcase classname="tests.test_recordings_analysis" name="test_recording_name_and_status_are_backend_authoritative" time="3.869"><failure message="AssertionError: assert 'Preparing' == 'Ready'&#10;  &#10;  - Ready&#10;  + Preparing">tests/test_recordings_analysis.py:516: in test_recording_name_and_status_are_backend_authoritative
-    assert renamed.json()["fileStatus"] == "Ready"
-E   AssertionError: assert 'Preparing' == 'Ready'
-E     
-E     - Ready
-E     + Preparing</failure></testcase><testcase classname="tests.test_recordings_analysis" name="test_studio_master_creates_a_separate_adaptively_balanced_recording" time="1.884" /><testcase classname="tests.test_recordings_analysis" name="test_studio_master_keeps_the_recorded_balance_wet_effects_and_take_duration[effects]" time="1.488" /></testsuite></testsuites>

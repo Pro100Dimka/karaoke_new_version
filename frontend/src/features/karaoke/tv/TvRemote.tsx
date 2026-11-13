@@ -7,7 +7,6 @@ import {
   useLocale,
 } from '@neo-ui-kit/react';
 import { useNowPlaying } from '../../../app/desktop/shellBus';
-import { ru } from '../../../i18n/messages.ru';
 import { useKaraokeTv } from './karaokeTv';
 import './tv.css';
 
@@ -29,36 +28,36 @@ export const TvRemote = () => {
       padding="sm"
       className="tvRemote"
       role="region"
-      aria-label={tr(ru.tvRemote)}
+      aria-label={tr('tvRemote')}
     >
       <span className="tvRemoteIcon">
         <Icon name="window" />
       </span>
       <div className="tvRemoteSong">
-        <span className="tvRemoteLabel">{tr(ru.tvNowPlaying)}</span>
+        <span className="tvRemoteLabel">{tr('tvNowPlaying')}</span>
         <strong className="tvRemoteTitle">
           {playing
             ? [playing.title, playing.artist].filter(Boolean).join(' — ')
-            : tr(ru.loadingSong)}
+            : tr('loadingSong')}
         </strong>
         {next && (
           <span className="tvRemoteNext">
             {later > 0
-              ? tr(ru.tvNextMany, { title: next.title, count: later })
-              : tr(ru.tvNext, { title: next.title })}
+              ? tr('tvNextMany', { title: next.title, count: later })
+              : tr('tvNext', { title: next.title })}
           </span>
         )}
       </div>
       <IconButton
         round
         icon={playing?.playing ? 'pause' : 'play'}
-        label={tr(ru[playing?.playing ? 'pause' : 'tvPlay'])}
+        label={tr(playing?.playing ? 'pause' : 'tvPlay')}
         disabled={!playing}
         onClick={() => playing?.togglePlayback()}
       />
-      <IconButton round icon="stop" label={tr(ru.tvStop)} onClick={tv.stop} />
+      <IconButton round icon="stop" label={tr('tvStop')} onClick={tv.stop} />
       <Button size="sm" icon="back" onClick={tv.bringBack}>
-        {tr(ru.tvBringBack)}
+        {tr('tvBringBack')}
       </Button>
     </Card>
   );

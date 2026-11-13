@@ -1,6 +1,5 @@
 import { Button, Card, tr, useLocale } from '@neo-ui-kit/react';
 import type { DeviceDto } from '../../../../../contracts/models';
-import { ru } from '../../../../../i18n/messages.ru';
 import { useAsioSetup } from './useAsioSetup';
 
 /** Guides installation, driver detection and the restart after preferences are saved. */
@@ -20,13 +19,13 @@ export const AsioSetupCard = ({
   // Finding a driver does not prove its preference was successfully saved.
   const ready = readyToRestart;
   const message = () => {
-    if (setup.error) return tr(ru.asioSetupFailed, { reason: setup.error });
-    if (ready) return tr(ru.asioSetupReady);
+    if (setup.error) return tr('asioSetupFailed', { reason: setup.error });
+    if (ready) return tr('asioSetupReady');
     if (setup.phase === 'launched' || setup.phase === 'detected')
-      return tr(ru.asioSetupLaunched);
+      return tr('asioSetupLaunched');
     if (setup.phase === 'failed')
-      return tr(ru.asioSetupFailed, { reason: setup.error ?? '' });
-    return tr(ru[hasAsio4All ? 'asioSetupConfigureBody' : 'asioSetupBody']);
+      return tr('asioSetupFailed', { reason: setup.error ?? '' });
+    return tr(hasAsio4All ? 'asioSetupConfigureBody' : 'asioSetupBody');
   };
   const action = () => {
     if (ready)
@@ -37,19 +36,19 @@ export const AsioSetupCard = ({
           icon="reset"
           onClick={() => void setup.restart()}
         >
-          {tr(ru.asioSetupRestart)}
+          {tr('asioSetupRestart')}
         </Button>
       );
     if (setup.phase === 'launched' || setup.phase === 'detected')
       return (
         <Button size="sm" icon="refresh" onClick={() => void setup.detect()}>
-          {tr(ru.asioSetupCheck)}
+          {tr('asioSetupCheck')}
         </Button>
       );
     if (hasAsio4All)
       return (
         <Button size="sm" icon="sliders" onClick={onOpenAsioControlPanel}>
-          {tr(ru.asioSetupConfigure)}
+          {tr('asioSetupConfigure')}
         </Button>
       );
     return (
@@ -61,11 +60,9 @@ export const AsioSetupCard = ({
         onClick={() => void setup.install()}
       >
         {tr(
-          ru[
-            setup.phase === 'downloading'
-              ? 'asioSetupDownloading'
-              : 'asioSetupInstall'
-          ],
+          setup.phase === 'downloading'
+            ? 'asioSetupDownloading'
+            : 'asioSetupInstall',
         )}
       </Button>
     );
@@ -77,7 +74,7 @@ export const AsioSetupCard = ({
       role="region"
       aria-label="ASIO4ALL"
       icon="audio"
-      title={tr(ru[hasAsio4All ? 'asioSetupConfigureTitle' : 'asioSetupTitle'])}
+      title={tr(hasAsio4All ? 'asioSetupConfigureTitle' : 'asioSetupTitle')}
       description={message()}
       actions={action()}
     />

@@ -21,6 +21,13 @@ class SpeechReuseProvider(Protocol):
 
 
 @runtime_checkable
+class PitchReuseProvider(Protocol):
+    def reuse_pitch(
+        self, cancel: threading.Event, execution: ExecutionContext
+    ) -> AbstractContextManager[None]: ...
+
+
+@runtime_checkable
 class AlignmentReuseProvider(Protocol):
     def reuse_alignment(
         self, workdir: Path, cancel: threading.Event

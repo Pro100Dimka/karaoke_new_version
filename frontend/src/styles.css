@@ -1,6 +1,12 @@
 :root {
   --title: 2.625rem;
 }
+.libraryCurtain {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ad-z-system) - 1);
+  background: #000;
+}
 * {
   box-sizing: border-box;
 }
@@ -36,6 +42,11 @@ body,
   width: 100%;
 }
 
+.settingsDialog {
+  height: min(45rem, calc(100dvh - 2rem));
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
 .settingsTabs.ad-tabs {
   overflow: clip;
 }
@@ -49,6 +60,11 @@ body,
 
 .settingsBody {
   min-height: min(18rem, 50dvh);
+}
+
+.settingsBody form .ad-grid > .ad-grid-item {
+  animation-duration: 160ms;
+  animation-delay: 0s;
 }
 
 .settingsBody

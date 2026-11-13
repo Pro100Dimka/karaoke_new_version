@@ -1,9 +1,0 @@
-Reproduction scope
-
-The three changed test files are self-contained regressions using the project's existing dependencies. Run from python/: python -m pytest tests/test_approximate_core_review.py tests/test_guided_core_boundaries.py tests/test_letter_timing_evidence.py. Full project verification remains check.bat backend on the supported host; the supplied Linux logs execute all constituent commands and retain every failure.
-
-The tracing scripts are the exact scripts used in this run, not a newly supported product API. Their saved paths point to the investigation workspace. To repeat real inference, obtain the exact recordings from evidence/ten-song-results.json, prepare the corresponding selected waveform/stems and legally available transcript, preserve offsets and hashes, and configure existing model paths. run_alignment.py also reads the investigation's model-downloads.json provenance; replace that local path with the verified model manifest for your workspace. No new models are required by the product patch.
-
-Full copyrighted recording files, complete new lyric transcripts, model weights and private score caches are not shipped. Consequently the public numeric audit is not a self-contained audio inference dataset. Do not replace absent inputs with invented timestamps or call synthetic data the original audio. The full source ZIP retains the project's four original binary npz test fixtures; the temporary baseline-v5 text snapshot did not contain those binary files.
-
-benchmark_abba.py compares full imported backends in separate A/B/B/A processes, with strict frozen evidence and exact expected output. It does not splice AST functions and does not measure full-song processing. MP4s use the actual production editor/lyrics functions; render visibility filtering affects glyph drawing only, never the source JSON or timebase.

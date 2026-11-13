@@ -1,28 +1,22 @@
-import './editor.css';
-import { Observer } from 'mobx-react-lite';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  useRouter,
   Button,
   EmptyState,
   IconButton,
   PianoRoll,
-  ProgressBar,
   Popover,
+  ProgressBar,
   ToggleButton,
   Toolbar,
-  Typography,
-  type PianoRollGesture,
   tr,
+  Typography,
   useLocale,
+  useRouter,
+  type PianoRollGesture,
 } from '@neo-ui-kit/react';
+import { Observer } from 'mobx-react-lite';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import './editor.css';
 
-import { routes } from '../../shared/routes';
-import type { ProjectCompatibility } from '../../contracts/clients';
-import type { MessageKey } from '../../i18n/messages';
-import { ru } from '../../i18n/messages.ru';
-import { EditorHeader } from './EditorHeader';
-import { EditorTransport } from './EditorTransport';
 import {
   documentEnd,
   maxPitch,
@@ -33,6 +27,10 @@ import {
   snapTime,
   type EditorDocument,
 } from '../../application/editor/editorModel';
+import type { ProjectCompatibility } from '../../contracts/clients';
+import { routes } from '../../shared/routes';
+import { EditorHeader } from './EditorHeader';
+import { EditorTransport } from './EditorTransport';
 import { useEditorSession } from './useEditorSession';
 
 const isEditingText = (target: EventTarget | null): boolean =>
@@ -52,7 +50,7 @@ const invalidLoadMessage = {
   Invalid: 'errorProjectUpgrade',
 } satisfies Record<
   Exclude<ProjectCompatibility, 'Current'> | 'NotReady',
-  MessageKey
+  string
 >;
 
 /** The roll shows the melody's own range with a little air around it, never past what a note may reach. */
@@ -169,7 +167,7 @@ export const EditorPage = () => {
 
   const back = (
     <Button icon="back" onClick={() => navigate(routes.library)}>
-      {tr(ru.library)}
+      {tr('library')}
     </Button>
   );
   if (
@@ -178,17 +176,15 @@ export const EditorPage = () => {
   ) {
     return (
       <main className="editorPage editorState" aria-live="polite">
-        <ProgressBar indeterminate label={tr(ru.loadingEditor)} />
+        <ProgressBar indeterminate label={tr('loadingEditor')} />
       </main>
     );
   }
   if (['failed', 'invalid'].includes(session.load.kind)) {
     const message = tr(
-      ru[
-        session.load.kind === 'invalid'
-          ? invalidLoadMessage[session.load.compatibility]
-          : 'editorLoadFailed'
-      ],
+      session.load.kind === 'invalid'
+        ? invalidLoadMessage[session.load.compatibility]
+        : 'editorLoadFailed',
     );
     return (
       <main className="editorPage editorState" role="alert">
@@ -242,7 +238,7 @@ export const EditorPage = () => {
 
   return (
     <main className="editorPage" ref={page}>
-      <section className="editorControls" aria-label={tr(ru.editorTools)}>
+      <section className="editorControls" aria-label={tr('editorTools')}>
         <EditorHeader
           title={`${song.title} — ${song.artist}`}
           revision={document.revision}
@@ -270,13 +266,13 @@ export const EditorPage = () => {
           )}
         </Observer>
 
-        <Toolbar className="editorTools" aria-label={tr(ru.editorTools)}>
+        <Toolbar className="editorTools" aria-label={tr('editorTools')}>
           {toggles.map(([icon, label, checked, onValueChange]) => (
             <ToggleButton
               key={icon}
               size="sm"
               icon={icon}
-              label={tr(ru[label])}
+              label={tr(label)}
               checked={checked}
               onValueChange={onValueChange}
             />
@@ -285,19 +281,19 @@ export const EditorPage = () => {
             <IconButton
               size="sm"
               icon="minus"
-              label={tr(ru.zoomOut)}
+              label={tr('zoomOut')}
               disabled={zoomIndex <= 0}
               onClick={() =>
                 setZoom(zoomSteps[Math.max(0, zoomIndex - 1)] ?? 1)
               }
             />
-            <Typography variant="mono" aria-label={tr(ru.zoom)}>
+            <Typography variant="mono" aria-label={tr('zoom')}>
               {Math.round(zoom * 100)}%
             </Typography>
             <IconButton
               size="sm"
               icon="plus"
-              label={tr(ru.zoomIn)}
+              label={tr('zoomIn')}
               disabled={zoom >= maxZoom}
               onClick={() =>
                 setZoom(zoomSteps.find((step) => step > zoom) ?? zoom)
@@ -306,7 +302,7 @@ export const EditorPage = () => {
             <IconButton
               size="sm"
               icon="fit"
-              label={tr(ru.editorZoomReset)}
+              label={tr('editorZoomReset')}
               disabled={zoom === 1}
               onClick={() => setZoom(1)}
             />
@@ -314,7 +310,7 @@ export const EditorPage = () => {
           <IconButton
             size="sm"
             icon="trash"
-            label={tr(ru.editorDeleteNotes)}
+            label={tr('editorDeleteNotes')}
             disabled={selection.size === 0}
             onClick={() => session.remove(selection)}
           />
@@ -322,7 +318,7 @@ export const EditorPage = () => {
             ref={helpAnchor}
             size="sm"
             icon="info"
-            label={tr(ru.helpTitle)}
+            label={tr('helpTitle')}
             aria-expanded={helpOpen}
             onClick={() => setHelpOpen((open) => !open)}
           />
@@ -331,10 +327,10 @@ export const EditorPage = () => {
             onOpenChange={setHelpOpen}
             anchorRef={helpAnchor}
             align="end"
-            label={tr(ru.editorTools)}
+            label={tr('editorTools')}
           >
             <Typography className="editorHint" variant="caption" tone="muted">
-              {tr(ru.editorHint)}
+              {tr('editorHint')}
             </Typography>
           </Popover>
         </Toolbar>
@@ -344,7 +340,7 @@ export const EditorPage = () => {
         {() => (
           <PianoRoll
             className="editorRoll"
-            label={tr(ru.melodyEditor)}
+            label={tr('melodyEditor')}
             notes={document.notes}
             words={document.words}
             duration={duration}

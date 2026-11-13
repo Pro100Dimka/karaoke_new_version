@@ -1,7 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import { RotaryKnob, tr, useLocale } from '@neo-ui-kit/react';
-import { ru } from '../../i18n/messages.ru';
 import { voiceEffects } from '../karaoke/console/voiceEffects';
 
 /**
@@ -18,7 +17,7 @@ export const SelfVoiceEffects = observer(() => {
           key={effect.id}
           size="xs"
           showLabel
-          label={tr(ru[effect.label])}
+          label={tr(effect.label)}
           min={effect.min}
           max={effect.max}
           step={effect.step}
@@ -38,7 +37,7 @@ export const SelfVoiceEffects = observer(() => {
       <RotaryKnob
         size="xs"
         showLabel
-        label={tr(ru.noiseSuppression)}
+        label={tr('noiseSuppression')}
         min={0}
         max={1}
         step={0.01}

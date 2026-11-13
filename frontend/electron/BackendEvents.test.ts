@@ -1,7 +1,11 @@
 import { expect, it, vi } from 'vitest';
 import { createServer, type ServerResponse } from 'node:http';
 import { BackendEndpoint } from './BackendEndpoint';
-import { parseServerSentEvents, streamBackendEvents, type BackendEvent } from './BackendEvents';
+import {
+  parseServerSentEvents,
+  streamBackendEvents,
+  type BackendEvent,
+} from './BackendEvents';
 
 it('parses complete messages, skips heartbeats and keeps a partial message for the next chunk', () => {
   const job = {
@@ -34,13 +38,17 @@ it('reconnects after a real SSE connection closes and requests a fresh snapshot 
     response.writeHead(200, { 'Content-Type': 'text/event-stream' });
     response.flushHeaders();
     if (connections === 1) first = response;
-    response.write(`data: ${JSON.stringify({
-      type: 'job.changed', data: { jobId: connections === 1 ? 'old' : 'current' },
-    })}\n\n`);
+    response.write(
+      `data: ${JSON.stringify({
+        type: 'job.changed',
+        data: { jobId: connections === 1 ? 'old' : 'current' },
+      })}\n\n`,
+    );
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Missing test server address');
+  if (!address || typeof address === 'string')
+    throw new Error('Missing test server address');
   const endpoint = new BackendEndpoint();
   endpoint.stdout(Buffer.from(`AD_VOICE_BACKEND_READY:${address.port}\n`));
   const stop = new AbortController();
@@ -51,8 +59,10 @@ it('reconnects after a real SSE connection closes and requests a fresh snapshot 
     first?.destroy();
     await vi.waitFor(() => expect(received).toHaveLength(4), { timeout: 3000 });
     expect(received).toEqual([
-      { type: 'connected' }, { type: 'job.changed', data: { jobId: 'old' } },
-      { type: 'connected' }, { type: 'job.changed', data: { jobId: 'current' } },
+      { type: 'connected' },
+      { type: 'job.changed', data: { jobId: 'old' } },
+      { type: 'connected' },
+      { type: 'job.changed', data: { jobId: 'current' } },
     ]);
   } finally {
     stop.abort();

@@ -46,7 +46,7 @@ PROTOCOL_VERSION = 7
 WORKER_REVISION = os.environ.get("AD_VOICE_KAGGLE_REVISION", "")
 SESSION_GENERATION = uuid.uuid4().hex
 DISCOVERY_BASE_URL = os.environ.get(
-    "AD_VOICE_KAGGLE_DISCOVERY_URL", "http://130.61.169.61:8081"
+    "AD_VOICE_KAGGLE_DISCOVERY_URL", "https://130.61.169.61:443"
 ).rstrip("/")
 _lock = threading.Lock()
 _recognition_lock = threading.Lock()
