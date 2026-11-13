@@ -119,6 +119,47 @@ def test_recognized_phrase_entry_keeps_a_pause_hidden_by_reverberation():
     assert [(w.start, w.end) for w in document.words] == [(0, 2), (2, 3)]
 
 
+@pytest.mark.parametrize("pause", [0, 0.5])
+def test_a_confirmed_phrase_break_is_consistent_across_repeated_lyric_contexts(pause):
+    lyrics = "sing with us now\nstay with us now\nsing to them now"
+    words = tuple(
+        WordTiming(text, start, end, 0.8)
+        for line, offset in [
+            ("sing with us now", 0),
+            ("stay with us now", 5),
+            ("sing to them now", 10),
+        ]
+        for index, text in enumerate(line.split())
+        for start, end in [
+            (offset + index + (pause if offset == 0 and index == 3 else 0), offset + index + 1)
+        ]
+    )
+    document = construct_document("t", "a", 15, lyrics, words, (), _music())
+    expected = "sing with us\nnow\nstay with us\nnow\nsing to them now" if pause else lyrics
+    assert document.lyrics == expected
+    assert [(w.text, w.start, w.end) for w in document.words] == [
+        (w.text, w.start, w.end) for w in words
+    ]
+
+
+@pytest.mark.parametrize('boundary', [1, 2])
+def test_a_repeated_context_keeps_the_position_of_its_confirmed_break(boundary):
+    texts = ['sing', 'with', 'me']
+    words = tuple(
+        WordTiming(
+            text,
+            offset + index * 0.5 + (0.5 if offset == 0 and index >= boundary else 0),
+            offset + (index + 1) * 0.5 + (0.5 if offset == 0 and index >= boundary else 0),
+            0.8,
+        )
+        for offset in [0, 3]
+        for index, text in enumerate(texts)
+    )
+    document = construct_document("t", "a", 5, "sing with me\nsing with me", words, (), _music())
+    phrase = " ".join(texts[:boundary]) + "\n" + " ".join(texts[boundary:])
+    assert document.lyrics == phrase + "\n" + phrase
+
+
 def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> (
     None
 ):

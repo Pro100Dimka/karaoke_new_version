@@ -98,10 +98,32 @@ def _phrase_lines(
     for line in lyrics.splitlines():
         count += len(line.split())
         boundaries.add(count)
-    if count != sum("RecoveredVocalization" not in word.diagnostics for word in words):
+    written = [word for word in words if "RecoveredVocalization" not in word.diagnostics]
+    if count != len(written):
         return lyrics
+    contexts: dict[int, tuple[int, tuple[str, ...]]] = {}
+    first = 0
+    for last in sorted(boundaries):
+        for index in range(first + 1, last):
+            contexts[index] = (
+                min(2, index - first),
+                tuple(
+                    word.text.casefold()
+                    for word in written[max(first, index - 2) : min(last, index + 2)]
+                ),
+            )
+        first = last
+    confirmed_breaks = {
+        context
+        for index, context in contexts.items()
+        if written[index].start - written[index - 1].end >= pause_seconds
+        or "RecognizedPhraseEntry" in written[index].diagnostics
+    }
+    boundaries.update(index for index, context in contexts.items() if context in confirmed_breaks)
     pauses = [
-        (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= pause_seconds
+        (left[1], right[0])
+        for left, right in pairwise(activity)
+        if right[0] - left[1] >= pause_seconds
     ]
     lines: list[list[WordTiming]] = []
     written_index = 0
