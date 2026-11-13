@@ -7,6 +7,7 @@ import {
   resizeEdges,
   tr,
   useLocale,
+  useReducedMotion,
 } from '@neo-ui-kit/react';
 import { DetachButton, DetachedPanel } from '../../shared/ui/DetachedPanel';
 import { useDetachedPanel } from '../../shared/ui/useDetachedPanel';
@@ -288,6 +289,7 @@ export const KaraokeStage = observer(
     onNoteScoreChange,
   }: KaraokeStageProps) => {
     useLocale();
+    const reducedMotion = useReducedMotion();
     const position = useSmoothPosition(polledPosition, playing, rate);
     const { preferences } = store;
     const showLyrics = layers.showLyrics && document !== null;
@@ -320,10 +322,12 @@ export const KaraokeStage = observer(
     );
     const showSettings = useMemo(
       () => ({
-        intensity: 'full' as const,
-        reducedMotion: preferences.reducedMotion,
+        intensity: preferences.reducedMotion
+          ? ('balanced' as const)
+          : ('full' as const),
+        reducedMotion,
       }),
-      [preferences.reducedMotion],
+      [preferences.reducedMotion, reducedMotion],
     );
     const show = useShowEngine({
       vocalActivity: document?.vocalActivity,
@@ -375,7 +379,7 @@ export const KaraokeStage = observer(
               position={position}
               shown={shown}
               phase={phase}
-              reducedMotion={preferences.reducedMotion}
+              reducedMotion={reducedMotion}
               font={preferences.headingFont}
             />
           )}

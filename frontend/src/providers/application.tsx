@@ -1,3 +1,4 @@
+import { setDecorationLevel } from '@neo-ui-kit/react';
 import {
   QueryObserver,
   useQuery,
@@ -133,6 +134,16 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     for (const queryKey of [['models'], ['model-free-space']])
       void client.invalidateQueries({ queryKey });
   });
+  const systemMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const applyMotion = () => {
+    const { localProcessing, onScreen } = store.application;
+    const reduced = systemMotion.matches || localProcessing;
+    setDecorationLevel(store.preferences.reducedMotion ? 'light' : 'full');
+    document.documentElement.dataset.reducedMotion = String(reduced);
+    document.documentElement.dataset.adMotion =
+      reduced || !onScreen ? 'off' : 'on';
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
   const stopMotion = reaction(
     () =>
       [
@@ -140,17 +151,10 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
         store.application.localProcessing,
         store.application.onScreen,
       ] as const,
-    ([reduced, processing, visible]) => {
-      document.documentElement.dataset.reducedMotion = String(
-        reduced || processing,
-      );
-      document.documentElement.dataset.adMotion =
-        reduced || processing || !visible ? 'off' : 'on';
-      if (visible && !reduced && !processing)
-        document.dispatchEvent(new Event('visibilitychange'));
-    },
+    applyMotion,
     { fireImmediately: true },
   );
+  systemMotion.addEventListener('change', applyMotion);
   const stopFonts = reaction(
     () => [store.preferences.headingFont, store.preferences.textFont] as const,
     ([heading, text]) => applyAppFonts(heading, text),
@@ -173,6 +177,7 @@ export const subscribeApplication = (client: QueryClient): (() => void) => {
     stopRoom();
     stopVisibility();
     stopMotion();
+    systemMotion.removeEventListener('change', applyMotion);
     stopFonts();
     stopTheme();
     activeRuntime.dispose();

@@ -71,3 +71,7 @@ Automated regression tests remain required, but they are only a prerequisite for
 When technical facts are unknown or uncertain, verify them on the internet before
 relying on them. Prefer official documentation and primary sources; distinguish
 documented behavior from hypotheses and locally measured results.
+
+# Multi-computer synchronization
+
+- When working on the same project on multiple computers, commit completed changes and push the working branch before reporting completion or switching computers. Synchronize every participating checkout to that committed state, then verify the branch, HEAD and working-tree status on each computer. Preserve local changes before pulling; never overwrite them or leave completed work only in working files or stashes. If a computer is unavailable or synchronization fails, explicitly report that synchronization is incomplete.

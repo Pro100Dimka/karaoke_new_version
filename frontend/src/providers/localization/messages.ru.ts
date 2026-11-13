@@ -188,7 +188,7 @@ export const ru = {
   headingFont: 'Шрифт заголовков',
   textFont: 'Шрифт текста',
   language: 'Язык',
-  reduceAnimations: 'Уменьшить анимации',
+  reduceAnimations: 'Облегчить анимацию',
   discordPresence: 'Показывать в Discord, что я пою',
   autoUpdate: 'Устанавливать обновления автоматически',
   fontMelodix: 'Melodix — для заголовков',

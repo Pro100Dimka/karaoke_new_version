@@ -77,7 +77,12 @@ const AppearancePanel = observer(() => {
         if (key === 'displayName' && typeof value === 'string')
           value = value.slice(0, 48);
         const parsed = parsePreferences({ ...store.preferences, [key]: value });
-        store.updatePreferences({ [key]: parsed[key] });
+        store.updatePreferences({
+          [key]: parsed[key],
+          ...(key === 'reducedMotion'
+            ? { animationQualitySelected: true }
+            : {}),
+        });
       } else if (path === 'profile.photo') {
         if (Array.isArray(value) && value[0] instanceof File)
           void changePhoto(value[0]);

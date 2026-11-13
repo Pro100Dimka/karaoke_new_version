@@ -2,7 +2,7 @@ import { subscribeAudioFocus } from '../providers/application';
 import { observer } from 'mobx-react-lite';
 import { store } from '../providers/store';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { refreshMotion, useRouter } from '@neo-ui-kit/react';
+import { refreshMotion, useReducedMotion, useRouter } from '@neo-ui-kit/react';
 
 import { KaraokeHost } from '../features/karaoke/KaraokeHost';
 import { useKaraokeTv } from '../features/karaoke/tv/karaokeTv';
@@ -79,12 +79,12 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
     });
   }, [libraryActive]);
   useEffect(() => subscribeRadio(notify), [notify]);
-  const { preferences } = store;
+  const reducedMotion = useReducedMotion();
   const { localProcessing } = store.application;
   const onScreen = useAppOnScreen();
   const karaoke = isKaraoke(pathname) || onTv;
   useSpectrumFeed(
-    onScreen && !preferences.reducedMotion && !localProcessing,
+    onScreen && !reducedMotion && !localProcessing,
     publishSpectrum,
     karaoke ? 1000 / 60 : 50,
   );
@@ -124,10 +124,7 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
       <TitleBar />
       <RouteSurface
         animateBackground={
-          libraryActive &&
-          onScreen &&
-          !preferences.reducedMotion &&
-          !localProcessing
+          libraryActive && onScreen && !reducedMotion && !localProcessing
         }
       >
         {children}

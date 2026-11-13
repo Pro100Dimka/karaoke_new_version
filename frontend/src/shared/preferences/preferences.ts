@@ -85,7 +85,9 @@ export interface Preferences {
   /** Which default text face the saved choice was made under (see parseTextFont). */
   fontDefaults: number;
   language: Language;
+  /** Saved under the original key for compatibility; lightens decoration, keeping motion. */
   reducedMotion: boolean;
+  animationQualitySelected: boolean;
   /** Show on the singer's Discord profile what they sing or listen to (Rich Presence). */
   discordPresence: boolean;
   /** Install new versions by themselves at start-up; off, the Library offers them instead. */
@@ -137,17 +139,14 @@ export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
 
 const storageKey = localKey('preferences');
 
-const systemReducedMotion = (): boolean =>
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 export const defaultPreferences = (): Preferences => ({
   theme: 'dark',
   headingFont: defaultHeadingFont,
   textFont: defaultTextFont,
   fontDefaults: currentFontDefaults,
   language: oneOf(window.desktop?.initialLanguage, ['uk', 'ru', 'en'], 'ru'),
-  reducedMotion: systemReducedMotion(),
+  reducedMotion: false,
+  animationQualitySelected: false,
   discordPresence: true,
   autoUpdate: true,
   librarySort: 'recent',
@@ -331,6 +330,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
     fontDefaults: currentFontDefaults,
     language: oneOf(value.language, ['uk', 'ru', 'en'], base.language),
     reducedMotion: booleanValue(value.reducedMotion, base.reducedMotion),
+    animationQualitySelected: booleanValue(
+      value.animationQualitySelected,
+      value.reducedMotion === true,
+    ),
     discordPresence: booleanValue(value.discordPresence, base.discordPresence),
     autoUpdate: booleanValue(value.autoUpdate, base.autoUpdate),
     librarySort: oneOf(

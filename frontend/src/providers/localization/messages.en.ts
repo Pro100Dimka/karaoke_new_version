@@ -186,7 +186,7 @@ export const en = {
   headingFont: 'Heading font',
   textFont: 'Text font',
   language: 'Language',
-  reduceAnimations: 'Reduce animations',
+  reduceAnimations: 'Lighten animations',
   discordPresence: 'Show in Discord what I sing',
   autoUpdate: 'Install updates automatically',
   fontMelodix: 'Melodix — for headings',

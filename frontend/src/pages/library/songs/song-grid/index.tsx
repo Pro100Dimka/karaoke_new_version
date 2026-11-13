@@ -165,7 +165,7 @@ export const VirtualGrid = observer(
                 .map((song) => (
                   <Grid
                     key={itemKey(song)}
-                    span={{ base: 'full', sm: 6, md: 4, lg: 4 }}
+                    span={{ base: 'full', sm: 6, md: 4, lg: 3, xl: 2 }}
                   >
                     {renderItem(song)}
                   </Grid>

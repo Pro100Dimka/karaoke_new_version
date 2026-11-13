@@ -1,7 +1,15 @@
-import { Stack, tr, useLocale, useRouter } from '@neo-ui-kit/react';
+import {
+  Stack,
+  subscribeTick,
+  tr,
+  useLocale,
+  useMotion,
+  useRouter,
+} from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 
+import { store } from '../../providers/store';
 import { useKaraokeTv } from '../../features/karaoke/tv/karaokeTv';
 import Hero from './hero';
 import { useLibraryView } from './hero/filters&actions/useLibraryView';
@@ -14,6 +22,8 @@ import './library.css';
 
 const LibraryPage = observer(() => {
   useLocale();
+  const motion = useMotion();
+  const qualitySelected = store.preferences.animationQualitySelected;
   const pageRef = useRef<HTMLElement>(null);
   const { navigate } = useRouter();
   const tv = useKaraokeTv();
@@ -28,6 +38,45 @@ const LibraryPage = observer(() => {
     const timer = window.setTimeout(reveal, 5000);
     return () => window.clearTimeout(timer);
   }, [reveal]);
+
+  useEffect(() => {
+    if (!revealed || !motion || qualitySelected) return;
+    let started = 0;
+    let previous = 0;
+    let frames = 0;
+    let slowFrames = 0;
+    let slowWindows = 0;
+    const stop = subscribeTick((now: number) => {
+      if (
+        document.hidden ||
+        !document.hasFocus() ||
+        document.querySelector('dialog[open]')
+      ) {
+        started = previous = frames = slowFrames = slowWindows = 0;
+        return;
+      }
+      started ||= now;
+      if (now - started < 1500) {
+        previous = now;
+        return;
+      }
+      if (previous && now - previous > 25) slowFrames++;
+      previous = now;
+      if (++frames < 120) return;
+      const light = slowFrames > 12;
+      if (light && ++slowWindows < 2) {
+        frames = slowFrames = 0;
+        return;
+      }
+      if (!store.preferences.animationQualitySelected)
+        store.updatePreferences({
+          reducedMotion: light,
+          animationQualitySelected: true,
+        });
+      stop();
+    });
+    return stop;
+  }, [revealed, motion, qualitySelected]);
 
   const [processing, setProcessing] = useState<{ focusSongId?: string } | null>(null);
   const [roomOpen, setRoomOpen] = useState(false);

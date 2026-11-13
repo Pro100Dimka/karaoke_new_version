@@ -188,7 +188,7 @@ export const uk = {
   headingFont: 'Шрифт заголовків',
   textFont: 'Шрифт тексту',
   language: 'Мова',
-  reduceAnimations: 'Зменшити анімації',
+  reduceAnimations: 'Полегшити анімацію',
   discordPresence: 'Показувати в Discord, що я співаю',
   autoUpdate: 'Встановлювати оновлення автоматично',
   fontMelodix: 'Melodix — для заголовків',
