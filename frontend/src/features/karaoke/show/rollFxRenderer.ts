@@ -109,6 +109,7 @@ export class RollFxRenderer {
   private worker: Worker | undefined;
   private workerAvailable = false;
   private queued = false;
+  private playing = true;
   private sentVoice: ShowEngine['voiceHistory'][number] | undefined;
   private sentNotes: readonly ShowNote[] | undefined;
   private commands: FxCommand[] = [];
@@ -203,6 +204,7 @@ export class RollFxRenderer {
     this.lightContext = this.light.getContext('2d');
     this.bloomContext = this.bloom.getContext('2d');
     this.unsubscribe = engine.onCommand((command) => {
+      if (!this.playing) return;
       if (this.worker) this.commands.push(command);
       else this.onCommand(command);
     });
@@ -242,8 +244,10 @@ export class RollFxRenderer {
   }
 
   setPlaying(playing: boolean): void {
+    this.playing = playing;
     if (playing) this.start();
     else {
+      this.commands = [];
       this.host.cancelAnimationFrame(this.frame);
       this.draw(performance.now());
     }

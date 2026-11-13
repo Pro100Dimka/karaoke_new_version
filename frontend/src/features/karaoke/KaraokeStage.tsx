@@ -62,29 +62,23 @@ const PianoRoll = observer(
     document,
     position,
     vocalRange,
-    shownWordIds,
     keyShift,
     pitchHz,
     pitchFrame,
     capturedPitch,
     show,
     hitNoteIds,
-    hidden,
-    opacity,
     playing,
   }: {
     document: EditorDocument;
     position: number;
     vocalRange: VocalRange;
-    shownWordIds: ReadonlySet<string>;
     keyShift: number;
     pitchHz?: number;
     pitchFrame?: PitchFrame;
     capturedPitch: boolean;
     show: ShowEngine;
     hitNoteIds: ReadonlySet<string>;
-    hidden: boolean;
-    opacity: number;
     playing: boolean;
   }) => {
     useLocale();
@@ -101,12 +95,10 @@ const PianoRoll = observer(
       () => pitchRange(notes, vocalRange),
       [notes, vocalRange],
     );
-    // Scoped to the same current-and-next line the lyrics panel shows: the roll's own lookahead is
-    // otherwise wider than a line typically lasts, so it would preview a further line's melody with no text
-    // on screen to read it against -- exactly what reads as "unrelated to the vocal".
-    const inLine = useMemo(
-      () => notes.filter((note) => shownWordIds.has(note.wordId)),
-      [notes, shownWordIds],
+    const hidden = !notes.some(
+      (note) =>
+        note.end >= position - span * rollLead &&
+        note.start <= position + span * (1 - rollLead),
     );
     const frameRef = useRef<HTMLDivElement>(null);
     const panel = useDetachedPanel(
@@ -143,7 +135,7 @@ const PianoRoll = observer(
         <MelodyRoll
           className="pianoRollLane"
           label={label}
-          notes={inLine}
+          notes={notes}
           position={position}
           minPitch={range.min}
           maxPitch={range.max}
@@ -157,7 +149,7 @@ const PianoRoll = observer(
       ),
       [
         label,
-        inLine,
+        notes,
         position,
         range,
         span,
@@ -184,30 +176,28 @@ const PianoRoll = observer(
           ref={frameRef}
           className="pianoRoll"
           hidden={hidden}
+          inert={hidden}
+          data-ad-paused={hidden ? '' : undefined}
           data-active={(active && !panel.detached) || undefined}
-          style={{ ...frameStyle, opacity }}
+          style={frameStyle}
           // In its own window the roll is placed and sized by that window, not dragged inside the app.
           onPointerDown={panel.detached ? undefined : beginMove}
           onPointerMove={panel.detached ? undefined : handleMove}
           onPointerUp={panel.detached ? undefined : handleUp}
         >
-          {!hidden && (
-            <>
-              {melody}
-              <RollFx
-                playing={playing}
-                engine={show}
-                view={{
-                  notes: inLine,
-                  position,
-                  span,
-                  lead: rollLead,
-                  low: range.min,
-                  high: range.max,
-                }}
-              />
-            </>
-          )}
+          {melody}
+          <RollFx
+            playing={playing && !hidden}
+            engine={show}
+            view={{
+              notes,
+              position,
+              span,
+              lead: rollLead,
+              low: range.min,
+              high: range.max,
+            }}
+          />
           <span
             className="pianoRollDetach"
             onPointerDown={(event) => event.stopPropagation()}
@@ -304,8 +294,6 @@ export const KaraokeStage = observer(
     const showPiano = layers.showNotes && document !== null;
     const instrumental = document === null || document.words.length === 0;
     const minimal = !showLyrics && !showPiano;
-    // Computed once and shared by both panels, so the piano roll can never show a different slice of the
-    // song than the lyrics being read alongside it (see PianoRoll's shownWordIds).
     const lines = useMemo(
       () =>
         document
@@ -359,20 +347,6 @@ export const KaraokeStage = observer(
           : hits,
       );
     });
-    // The piano roll also keeps the line just finished, one word set wider than the lyrics text shows: a
-    // note whose line just ended is often still mid-scroll past the cursor, and the piano roll's own time
-    // window already fades it out gracefully -- dropping it here the instant the line changes cut that
-    // scroll off abruptly instead of letting it finish sliding behind the keyboard.
-    const shownWordIds = useMemo(
-      () =>
-        new Set(
-          [lines[lineIndex - 1], current, preview].flatMap(
-            (line) => line?.words.map((word) => word.id) ?? [],
-          ),
-        ),
-      [lines, lineIndex, current, preview],
-    );
-
     return (
       <>
         {/* Rendered as a sibling of .stage, not inside it: the piano roll is position: fixed and freely
@@ -385,15 +359,12 @@ export const KaraokeStage = observer(
             document={document}
             position={position}
             vocalRange={vocalRange}
-            shownWordIds={shownWordIds}
             keyShift={keyShift}
             pitchHz={pitchHz}
             pitchFrame={pitchFrames?.at(-1)}
             capturedPitch={pitchFrames !== undefined}
             show={show}
             hitNoteIds={hitNoteIds}
-            hidden={lines.length > 0 && phase.kind !== 'text'}
-            opacity={phase.opacity ?? 1}
           />
         )}
         {/* After the roll: stage light passes in front of its glass (softened over it) but stays under the lyrics and console. */}
