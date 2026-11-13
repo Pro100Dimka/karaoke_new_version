@@ -6,6 +6,7 @@ import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import type { IpcMainInvokeEvent } from 'electron';
 
 const mocks = vi.hoisted(() => ({
+  profileRoot: '',
   handlers: new Map<
     string,
     (event: IpcMainInvokeEvent, raw?: unknown) => unknown
@@ -78,7 +79,7 @@ vi.mock('electron', () => ({
   app: {
     isPackaged: false,
     getAppPath: () => process.cwd(),
-    getPath: () => 'D:/profile',
+    getPath: () => mocks.profileRoot,
     getLocale: () => 'ru-RU',
     exit: vi.fn(),
     requestSingleInstanceLock: () => true,
@@ -161,6 +162,8 @@ vi.mock('./RoomIdentity', async (importOriginal) => ({
 }));
 
 beforeAll(async () => {
+  mocks.profileRoot = await mkdtemp(join(tmpdir(), 'ad-voice-main-security-'));
+  vi.stubEnv('AD_VOICE_DATA', join(mocks.profileRoot, 'backend-data'));
   Object.defineProperty(process, 'resourcesPath', {
     configurable: true,
     value: 'D:/app/resources',
@@ -170,9 +173,11 @@ beforeAll(async () => {
   await mocks.ready.run();
   trustedRendererUrl = contents.mainFrame.url;
 });
-afterAll(() => {
+afterAll(async () => {
   Reflect.deleteProperty(process, 'resourcesPath');
   vi.unstubAllEnvs();
+  if (mocks.profileRoot)
+    await rm(mocks.profileRoot, { recursive: true, force: true });
 });
 beforeEach(() => {
   contents.mainFrame.url = trustedRendererUrl;
