@@ -1,7 +1,7 @@
 from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from math import ceil
+from math import ceil, floor
 from types import MappingProxyType
 import numpy as np
 import torch
@@ -78,8 +78,9 @@ def _align_window(
     recovery_bounds: tuple[float, float] | None = None,
 ) -> list[AlignedWord]:
     """Retry a failed crop only within caller-supplied neighbouring acoustic anchors."""
-    begin = max(0, int(window.start / frame_seconds))
-    stop = min(scores.shape[0], max(begin + 1, int(window.end / frame_seconds)))
+    # Serialized frame boundaries can divide to n-epsilon; keep the requested complete frames.
+    begin = max(0, floor(window.start / frame_seconds + 1e-9))
+    stop = min(scores.shape[0], max(begin + 1, floor(window.end / frame_seconds + 1e-9)))
     attempts = [(begin, stop)]
     if recovery_bounds is not None:
         first, last = recovery_bounds
@@ -87,7 +88,7 @@ def _align_window(
             max(0, ceil(max(first, window.start - _CONTEXT_SECONDS) / frame_seconds)),
             min(
                 scores.shape[0],
-                int(min(last, window.end + _CONTEXT_SECONDS) / frame_seconds),
+                floor(min(last, window.end + _CONTEXT_SECONDS) / frame_seconds + 1e-9),
             ),
         )
         if expanded[0] < expanded[1] and expanded != attempts[0]:

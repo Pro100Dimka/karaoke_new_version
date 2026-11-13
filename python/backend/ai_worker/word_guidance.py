@@ -76,13 +76,33 @@ def with_word_guidance(
     result = list(words)
     for window in windows:
         pass_.apply(result, window)
-    return [
-        replace(word, diagnostics=(*word.diagnostics, "OnsetReviewRequired"))
-        if "OnsetReviewRequired" not in word.diagnostics
-        and _silent_prefix_entry(word, scores, frame_seconds, voiced) is not None
-        else word
-        for word in result
-    ]
+    for index, word in enumerate(result):
+        if _silent_prefix_entry(word, scores, frame_seconds, voiced) is None:
+            continue
+        candidates, recovered = _review_candidates(
+            [word],
+            scores,
+            frame_seconds,
+            voiced,
+            # CTC's trailing unmatched-audio state needs a frame after the final phoneme.
+            ctc.Window(index, index + 1, word.start, word.end + frame_seconds),
+            frozenset({index}),
+            heard,
+            onsets,
+        )
+        interval = heard.get(index)
+        if (
+            recovered
+            and candidates
+            and (
+                candidates[0].score > ctc._PREFERENCE
+                and (interval is None or interval[0] - margin <= candidates[0].start < interval[1])
+            )
+        ):
+            result[index] = candidates[0]
+        elif "OnsetReviewRequired" not in word.diagnostics:
+            result[index] = replace(word, diagnostics=(*word.diagnostics, "OnsetReviewRequired"))
+    return result
 
 
 @dataclass(frozen=True, slots=True)

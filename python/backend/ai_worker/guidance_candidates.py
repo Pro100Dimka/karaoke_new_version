@@ -4,6 +4,7 @@ from dataclasses import replace
 import numpy as np
 import torch
 from backend.ai_worker import ctc
+from backend.ai_worker.timing import _runs
 
 from backend.ai_worker.guidance_windows import _REVIEW_MAX_SECONDS
 
@@ -283,10 +284,10 @@ def _silent_prefix_entry(
     if (
         len(word.letters) < 2
         or word.end - word.start < ctc._SILENCE_ENDS_WORD_SECONDS
-        or voiced[first : first + round(ctc._SILENCE_ENDS_WORD_SECONDS / voice_step)].any()
         or _onset_confidence(word, scores, step) > ctc._PREFERENCE
     ):
         return None
+    anchors = []
     for moment, tokens in zip(word.letters[1:], ctc._character_tokens(word.text)[1:]):
         frame, anchor = round(moment / step), round(moment / voice_step)
         if (
@@ -297,10 +298,23 @@ def _silent_prefix_entry(
             or float(scores[frame, tokens[0]].exp()) <= ctc._PREFERENCE
         ):
             continue
-        active = np.flatnonzero(voiced[first : anchor + 1])
+        anchors.append(anchor)
+    needed = round(ctc._SILENCE_ENDS_WORD_SECONDS / voice_step)
+    for anchor in anchors:
+        prefix = voiced[first : anchor + 1]
+        active = np.flatnonzero(prefix)
+        if not len(active):
+            continue
         entry = first + int(active[0])
+        if voiced[first : first + needed].any():
+            pauses = [(a, b) for a, b in _runs(prefix, False) if b - a >= needed]
+            if not pauses:
+                continue
+            entry = first + pauses[-1][1]
+            if sum(at >= entry for at in anchors) < 2:
+                continue
         if not voiced[entry : anchor + 1].all():
-            return None  # An intervening sound may be a real quiet opening, not padding.
+            continue
         return entry * voice_step
     return None
 

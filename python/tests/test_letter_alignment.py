@@ -27,6 +27,80 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_ctc_window_keeps_exact_frame_edges_after_float_division():
+    import torch
+    from backend.ai_worker.ctc import Window, _align_window
+    from backend.ai_worker.ctc_tokens import _character_tokens
+
+    scores = torch.full((200, 28), -12.0)
+    scores[:, 0] = 0
+    tokens = [part[0] for part in _character_tokens("help")]
+    for frame, token in zip([29, 115, 120, 125], tokens):
+        scores[frame, token] = np.log(0.8)
+    scores[28, tokens[0]] = scores[127, tokens[-1]] = np.log(0.99)
+    result = _align_window(scores, 0.02, ["help"], Window(0, 1, 0.58, 2.54))[0]
+    assert result.start == pytest.approx(0.58)
+    assert result.end == pytest.approx(2.52)
+    assert result.letters == pytest.approx((0.58, 2.3, 2.4, 2.5))
+
+
+@pytest.mark.parametrize(
+    "evidence", ["stray", "strong_opening", "continuous", "short_pause", "one_anchor"]
+)
+def test_a_stray_opening_before_a_pause_cannot_cut_off_the_actual_word_body(evidence):
+    import torch
+    from backend.ai_worker.guidance_candidates import _silent_prefix_entry
+    from backend.ai_worker.ctc_tokens import _character_tokens
+
+    word = AlignedWord("take", 1, 2.6, (1, 2.3, 2.4, 2.5), 0.4)
+    scores = torch.full((200, 28), -12.0)
+    tokens = [part[0] for part in _character_tokens(word.text)]
+    scores[50, tokens[0]] = np.log(0.8 if evidence == "strong_opening" else 0.002)
+    for time, token in zip(word.letters[1:], tokens[1:]):
+        scores[round(time / 0.02), token] = np.log(0.8)
+    if evidence == "one_anchor":
+        scores[120:, :] = -12
+    voiced = np.zeros(400, bool)
+    voiced[100:150] = voiced[210:300] = True
+    if evidence == "continuous":
+        voiced[150:210] = True
+    if evidence == "short_pause":
+        voiced[150:200] = True
+    assert _silent_prefix_entry(word, scores, 0.02, voiced) == (
+        2.1 if evidence == "stray" else None
+    )
+
+
+@pytest.mark.parametrize("spelling", ["help", "gone", "гори"])
+def test_word_guidance_recovers_a_supported_body_before_tail_refinement(spelling):
+    import torch
+    from backend.ai_worker.ctc_tokens import _character_tokens
+    from backend.ai_worker.word_guidance import with_word_guidance
+
+    word = AlignedWord(spelling, 1, 2.52, (1, 2.3, 2.4, 2.5), 0.4)
+    scores = torch.full((200, 28), -12.0)
+    scores[:, 0] = 0
+    tokens = [part[0] for part in _character_tokens(spelling)]
+    scores[50, tokens[0]] = np.log(0.002)
+    scores[108, tokens[0]] = np.log(0.001)
+    for time, token in zip(word.letters[1:], tokens[1:]):
+        scores[round(time / 0.02), token] = np.log(0.8)
+    voiced = np.zeros(400, bool)
+    voiced[100:150] = voiced[210:300] = True
+    result = with_word_guidance([word], scores, 0.02, [], {}, voiced, 0.6)
+    assert 2.1 <= result[0].start < 2.3
+    assert result[0].end == word.end
+    assert result[0].letters[1:] == word.letters[1:]
+    ended = with_sung_ends(
+        result,
+        np.zeros(400 * _HOP, np.float32),
+        voiced=voiced,
+        audible=voiced,
+        periodicity=voiced.astype(float),
+    )
+    assert ended[0].end >= 2.5
+
+
 @pytest.mark.parametrize("text", ["hey", "go", "гей"])
 @pytest.mark.parametrize(
     "evidence",
@@ -952,7 +1026,9 @@ def test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings(
     words = [AlignedWord("ah", 1.0, 1.3, (1.0, 1.2), 0.8)]
     samples = _signal([(1.0, 3.0)], 4.0)
     monkeypatch.setattr(speech, "read_mono", lambda path, *_: samples)
-    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, []))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
+        speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, []
+    ))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
     monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(
@@ -1755,7 +1831,9 @@ def test_speech_alignment_reports_supported_score_instead_of_perfect_confidence(
     samples = _signal([(1.0, 2.0)], 3.0)
     words = [AlignedWord("stay", 1.0, 2.0, (1.0, 1.1, 1.2, 1.3), score)]
     monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
-    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, []))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_args: (
+        speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, []
+    ))
     monkeypatch.setattr(speech, "align_words", lambda *_args: words)
     monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
 
@@ -1773,7 +1851,9 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
     words = [AlignedWord("stay", 1.0, 11.0, (1.0, 1.1, 1.2, 10.9), 0.8)]
     monkeypatch.setattr(speech, "read_mono", lambda *_args: samples)
     monkeypatch.setattr(
-        speech, "_alignment_evidence", lambda *_args: ("scores", 0.02, [("stay", 1.0, 2.0)])
+        speech, "_alignment_evidence", lambda *_args: (
+            speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, [("stay", 1.0, 2.0)]
+        )
     )
     monkeypatch.setattr(speech, "align_words", lambda *_args: words)
     monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
