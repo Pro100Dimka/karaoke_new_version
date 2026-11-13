@@ -26,6 +26,58 @@ _STEP = 0.01
 HeardWord = tuple[str, float, float]
 
 
+def backing_overlap_indices(
+    words: Sequence[AlignedWord],
+    views: Sequence[list[HeardWord]],
+    activity: np.ndarray,
+    periodicity: np.ndarray,
+) -> frozenset[int]:
+    """Keep proven solo replies, excluding weak simultaneous copies over an independently heard lead."""
+    known = {_key(word.text) for word in words if "AcousticRepeatRetimed" in word.diagnostics}
+    if len(views) < 2 or not known:
+        return frozenset()
+    backing = set()
+    for index, word in enumerate(words):
+        if (
+            _key(word.text) not in known
+            or "AcousticRepeatRetimed" in word.diagnostics
+            or word.score > _PREFERENCE
+            or word.end - word.start < 0.25
+        ):
+            continue
+        first, last = max(0, round(word.start / _STEP)), min(len(activity), round(word.end / _STEP))
+        if np.count_nonzero(activity[first:last] & (periodicity[first:last] >= 0.7)) >= 10:
+            continue
+        phrase = words[index + 1 : index + 5]
+        if len(phrase) < 3:
+            continue
+        window = Window(
+            index + 1,
+            index + 1 + len(phrase),
+            word.start,
+            phrase[-1].end + _MARGIN,
+            phrase[0].start,
+        )
+        agreed = []
+        for view in views:
+            if any(
+                key == _key(word.text) and start < word.end and end > word.start
+                for key, start, end in view
+            ):
+                break
+            _, intervals = recognized_phrase(window, [item.text for item in phrase], view, _MARGIN)
+            lead = intervals.get(index + 1)
+            if lead is None or len(intervals) < 2:
+                break
+            overlap = max(0.0, min(word.end, lead[1]) - max(word.start, lead[0]))
+            if overlap < (word.end - word.start) / 2:
+                break
+            agreed.append(lead[0])
+        if len(agreed) == len(views) and max(agreed) - min(agreed) <= _MARGIN:
+            backing.add(index)
+    return frozenset(backing)
+
+
 def with_acoustic_repeats(
     words: list[AlignedWord],
     onsets: Sequence[float],

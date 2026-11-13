@@ -14,6 +14,12 @@ def alignment_warnings(
     words: Sequence[WordTiming], *, lyrics: str = "", bpm: float | None = None
 ) -> tuple[str, ...]:
     """Zero support includes proportional fallback; it is not a precise alignment."""
+    backing = tuple(
+        f"BackingVocalOverlap:text={word.text};start={word.start:.3f};end={word.end:.3f}"
+        for word in words
+        if "BackingVocalOverlap" in word.diagnostics
+    )
+    words = tuple(word for word in words if "BackingVocalOverlap" not in word.diagnostics)
     approximate = [str(index) for index, word in enumerate(words) if word.confidence <= 0]
     warnings = (f"AlignmentApproximate:wordIndices={','.join(approximate)}",) if approximate else ()
     return (
@@ -24,6 +30,7 @@ def alignment_warnings(
             for index, word in enumerate(words)
             for reason in word.diagnostics
         )
+        + backing
     )
 
 

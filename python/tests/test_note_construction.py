@@ -67,6 +67,25 @@ def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line
     assert [word.text for word in document.words] == text.split()
 
 
+def test_backing_overlaps_are_not_published_as_main_words_or_notes():
+    words = (
+        WordTiming("we", 0, 1, 0.8),
+        WordTiming("sing", 1, 2, 0.8),
+        WordTiming("hey", 2, 2.1, 0.002, diagnostics=("BackingVocalOverlap",)),
+        WordTiming("on", 2.1, 3, 0),
+    )
+    pitch = tuple(PitchPoint(i / 100, _A4, 0.99, True) for i in range(300))
+    document = construct_document("t", "a", 4, "we sing\nhey on", words, pitch, _music())
+    assert [word.text for word in document.words] == ["we", "sing", "on"]
+    assert document.lyrics == "we sing\non"
+    assert document.words[-1].notes
+    assert [(word.start, word.end) for word in document.words] == [(0, 1), (1, 2), (2.1, 3)]
+    warnings = processing_reporting.alignment_warnings(words, lyrics=document.lyrics)
+    assert any(warning.startswith("BackingVocalOverlap:") for warning in warnings)
+    assert "AlignmentApproximate:wordIndices=2" in warnings
+    assert not any("wordIndex=3" in warning for warning in warnings)
+
+
 def test_recovered_vocalization_keeps_notes_and_catalogue_phrase_boundaries():
     words = (
         WordTiming("first", 0, 1, 0.8),

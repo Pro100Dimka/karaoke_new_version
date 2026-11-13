@@ -18,6 +18,60 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+def test_processing_keeps_solo_replies_but_excludes_overlapping_backing_from_the_project(
+    tmp_path, monkeypatch
+):
+    from backend.ai.domain import PitchPoint, WordTiming
+
+    source = tmp_path / "backing.wav"
+    write_wav(source, seconds=7)
+    provider = FakeAiProvider()
+    lyrics = "hey hey hey night hey we sing on forever"
+    intervals = [
+        (0, 0.5),
+        (1, 1.5),
+        (2, 2.5),
+        (3, 4),
+        (4, 4.8),
+        (4.8, 5.3),
+        (5.3, 5.7),
+        (5.7, 6),
+        (6, 6.5),
+    ]
+    words = tuple(
+        WordTiming(
+            text, start, end, 0.8, diagnostics=("BackingVocalOverlap",) if index == 4 else ()
+        )
+        for index, (text, (start, end)) in enumerate(zip(lyrics.split(), intervals, strict=True))
+    )
+    monkeypatch.setattr(provider, "transcribe", lambda *args, **kwargs: lyrics)
+    monkeypatch.setattr(provider, "align", lambda *args, **kwargs: words)
+    monkeypatch.setattr(
+        provider,
+        "pitch",
+        lambda *args, **kwargs: tuple(PitchPoint(i / 100, 440, 0.99, True) for i in range(650)),
+    )
+    with app_client(tmp_path / "runtime", ai_providers=(provider,)) as client:
+        song = import_song(client, source)
+        response = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        job = wait_for_job(client, response.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        document = client.get(f"/songs/{song['songId']}/editor").json()["document"]
+        kept = [word for index, word in enumerate(words) if index != 4]
+        assert document["lyrics"].split() == [word.text for word in kept]
+        assert [word["text"] for word in document["words"]] == [word.text for word in kept]
+        assert [(word["start"], word["end"]) for word in document["words"]] == [
+            (word.start, word.end) for word in kept
+        ]
+        assert all(word["notes"] for word in document["words"])
+        manifest = (
+            tmp_path / "runtime" / "songs" / song["songId"] / "revisions" / "2" / "manifest.json"
+        )
+        assert json.loads(manifest.read_text("utf-8"))["provenance"]["lyricsSourceText"] == lyrics
+
+
 def test_recovered_wordless_singing_does_not_discard_confirmed_catalogue_repeats():
     from backend.ai.domain import WordTiming
     from backend.lyrics.discovery import LyricsDiscoveryResult

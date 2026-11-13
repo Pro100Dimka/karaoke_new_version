@@ -68,9 +68,10 @@ def construct_document(
     # Fit the performed melody before cutting it at lyric boundaries. Otherwise
     # a short word on the crest of vibrato becomes an invented semitone change.
     melody = _notes_from_points(pitch, 0.0, duration)
-    mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in words)
+    performed = tuple(word for word in words if "BackingVocalOverlap" not in word.diagnostics)
+    mapped_words = tuple(_word_with_notes(word, pitch, melody) for word in performed)
     activity = _vocal_activity(
-        [point for point in pitch if any(word.start <= point.time < word.end for word in words)],
+        [point for point in pitch if any(word.start <= point.time < word.end for word in performed)],
         duration,
     )
     document = LyricsDocument(
@@ -102,33 +103,39 @@ def _phrase_lines(
     pauses = [
         (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= pause_seconds
     ]
-    lines: list[list[str]] = []
+    lines: list[list[WordTiming]] = []
     written_index = 0
-    for index, word in enumerate(words):
+    previous_index = -1
+    previous: WordTiming | None = None
+    for word in words:
         vocalization = "RecoveredVocalization" in word.diagnostics
-        if not lines or (
-            written_index in boundaries
+        if "BackingVocalOverlap" in word.diagnostics:
+            written_index += not vocalization
+            continue
+        if previous is None or (
+            any(previous_index < boundary <= written_index for boundary in boundaries)
             or vocalization
-            or "RecoveredVocalization" in words[index - 1].diagnostics
+            or "RecoveredVocalization" in previous.diagnostics
             or len(lines[-1]) >= 8
-            or word.start - words[index - 1].end >= pause_seconds
+            or word.start - previous.end >= pause_seconds
             or any(
-                words[index - 1].start < start < word.start and end <= word.start + 0.15
+                previous.start < start < word.start and end <= word.start + 0.15
                 for start, end in pauses
             )
         ):
             lines.append([])
-        lines[-1].append(word.text)
+        lines[-1].append(word)
+        previous, previous_index = word, written_index
         written_index += not vocalization
     for index in range(len(lines) - 2, -1, -1):
-        if len(lines[index]) == 1 and lines[index][0].casefold() in {
+        if len(lines[index]) == 1 and lines[index][0].text.casefold() in {
             "в", "у", "з", "с", "к", "a", "an", "the", "to", "of", "in"
         }:
-            following = sum(len(line) for line in lines[: index + 1])
-            previous = words[following - 1]
-            if previous.end - previous.start < 0.8 and words[following].start - previous.end < 3:
-                lines[index + 1].insert(0, lines[index].pop())
-    return "\n".join(" ".join(line) for line in lines if line)
+            previous = lines[index][0]
+            if previous.end - previous.start < 0.8 and lines[index + 1][0].start - previous.end < 3:
+                lines[index + 1].insert(0, previous)
+                lines.pop(index)
+    return "\n".join(" ".join(word.text for word in line) for line in lines)
 
 
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequence[Note]) -> Word:

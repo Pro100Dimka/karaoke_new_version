@@ -28,6 +28,61 @@ _STEP = _HOP / _RATE
 
 
 @pytest.mark.parametrize("text", ["hey", "go", "гей"])
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        "overlap",
+        "one_view",
+        "strong_word",
+        "clear_voice",
+        "recognized_word",
+        "sequential",
+        "disagree",
+        "unknown_reply",
+    ],
+)
+def test_backing_overlap_keeps_main_lyrics_and_requires_independent_positive_evidence(
+    text, evidence
+):
+    from backend.ai_worker.recognition import backing_overlap_indices
+
+    words = [
+        AlignedWord(
+            text,
+            i,
+            i + 0.5,
+            (),
+            0.002,
+            () if evidence == "unknown_reply" else ("AcousticRepeatRetimed",),
+        )
+        for i in range(3)
+    ] + [
+        AlignedWord("night", 3, 4, (), 0.8),
+        AlignedWord(text, 4, 4.8, (), 0.8 if evidence == "strong_word" else 0.002),
+        AlignedWord("we", 4.8, 5.3, (), 0.8),
+        AlignedWord("sing", 5.3, 5.7, (), 0.8),
+        AlignedWord("on", 5.7, 6, (), 0.8),
+        AlignedWord("forever", 6, 6.5, (), 0.8),
+    ]
+    views = [
+        [("we", start, 5.3), ("sing", 5.3, 5.7), ("on", 5.7, 6), ("forever", 6, 6.5)]
+        for start in ([4.9, 4.95] if evidence == "sequential" else [4.1, 4.15])
+    ]
+    if evidence == "one_view":
+        views = views[:1]
+    if evidence == "disagree":
+        views[1][0] = ("we", 4.9, 5.3)
+    if evidence == "recognized_word":
+        views[0].insert(0, (text, 4, 4.3))
+    periodicity = np.ones(700)
+    periodicity[400:480] = 0.9 if evidence == "clear_voice" else 0.2
+    assert backing_overlap_indices(words, views, np.ones(700, bool), periodicity) == (
+        frozenset({4}) if evidence == "overlap" else frozenset()
+    )
+    assert all(word.text == text for word in words[:3])
+
+
+@pytest.mark.parametrize("text", ["hey", "go", "гей"])
 @pytest.mark.parametrize("evidence", ["three", "recognized", "ambiguous", "vibrato"])
 def test_fast_repeats_split_short_unvoiced_attacks_without_changing_word_count(text, evidence):
     from backend.ai_worker.recognition import with_acoustic_repeats

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import partial
 from pathlib import Path
 
@@ -56,6 +56,7 @@ from backend.ai_worker.recognition import (
     recover_leading_words,
     recover_vocalizations,
     with_acoustic_repeats,
+    backing_overlap_indices,
     heard_words,
     heard_timings as _heard_timings,
     rate_review_indices,
@@ -468,6 +469,13 @@ class _AlignmentPass:
             _levels(self.audio, _HOP)[0],
             intervals,
         )
+        backing = backing_overlap_indices(timed, self.views, activity, acoustic[1])
+        timed = [
+            replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
+            if index in backing
+            else word
+            for index, word in enumerate(timed)
+        ]
         payload = alignment_payload(
             timed,
             independent_timings(self.words, [self.heard, *self.views], timed),
