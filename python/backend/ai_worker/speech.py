@@ -480,6 +480,16 @@ class _AlignmentPass:
             else word
             for index, word in enumerate(timed)
         ]
+        vowels = recover_vocalizations(
+            timed, self.scores, self.step, activity, acoustic[1], recognize
+        )
+        extended = {
+            (word.start, word.text): word
+            for word in vowels
+            if "VocalizationRetimed" in word.diagnostics
+        }
+        timed = [extended.get((word.start, word.text), word) for word in timed]
+        recovered_vowels = [word for word in vowels if "RecoveredVocalization" in word.diagnostics]
         payload = alignment_payload(
             timed,
             independent_timings(self.words, [self.heard, *self.views], timed),
@@ -487,9 +497,6 @@ class _AlignmentPass:
             reviewed=frozenset(
                 rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
             ),
-        )
-        recovered_vowels = recover_vocalizations(
-            timed, self.scores, self.step, activity, acoustic[1], recognize
         )
         payload["words"].extend(alignment_payload(recovered_vowels, {})["words"])
         payload["words"] = [

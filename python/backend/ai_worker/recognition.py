@@ -177,7 +177,7 @@ def recover_vocalizations(
     periodicity: np.ndarray,
     recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
 ) -> list[AlignedWord]:
-    """Recover unwritten held vowels only when independent recognition agrees with CTC and phonation."""
+    """Recover or extend held vowels only when recognition agrees with CTC and phonation."""
     if scores is None or not words or not activity.any():
         return []
     vowels = [token[0] for token in _character_tokens("aeiou")]
@@ -187,18 +187,37 @@ def recover_vocalizations(
         dim=1, keepdim=True
     ).clamp_min(1e-12)
     vowel_support = vowel_support.masked_fill(probabilities[:, vowels] <= _PREFERENCE, 0)
-    gaps = zip(
-        [0.0, *(word.end for word in words)],
-        [*(word.start for word in words), len(activity) * _STEP],
+    gaps: list[tuple[float, float, int | None]] = list(
+        zip(
+            [0.0, *(word.end for word in words)],
+            [*(word.start for word in words), len(activity) * _STEP],
+            [None] * (len(words) + 1),
+        )
     )
+    for index, word in enumerate(words):
+        text = _key(word.text)
+        if text and len(set(text)) == 1 and _character_tokens(text[0])[0] in [[v] for v in vowels]:
+            gaps.append(
+                (
+                    words[index - 1].end if index else 0,
+                    words[index + 1].start if index + 1 < len(words) else len(activity) * _STEP,
+                    index,
+                )
+            )
     candidates = []
-    for left, right in gaps:
+    for left, right, owner in gaps:
         first, last = max(0, round(left / _STEP)), min(len(activity), round(right / _STEP))
         flags = activity[first:last] & (periodicity[first:last] >= 0.5)
         for run_first, run_last in _runs(_bridged(flags, round(0.3 / _STEP)), True):
             if (run_last - run_first) * _STEP < 0.8 or flags[run_first:run_last].mean() < 0.6:
                 continue
             begin, finish = (first + run_first) * _STEP, (first + run_last) * _STEP
+            if owner is not None and not (
+                begin < words[owner].end
+                and words[owner].start < finish
+                and finish - words[owner].end >= 0.3
+            ):
+                continue
             local = vowel_support[round(begin / step) : round(finish / step)]
             if local.numel() and float(local.max()) >= 0.5:
                 context_start = max(left, begin - _MARGIN)
@@ -208,18 +227,28 @@ def recover_vocalizations(
                         finish,
                         context_start,
                         min(right, finish + _MARGIN, context_start + CHUNK_LENGTH),
+                        owner,
                     )
                 )
+    extended_runs = [
+        (begin, finish) for begin, finish, _, _, owner in candidates if owner is not None
+    ]
+    candidates = [
+        item
+        for item in candidates
+        if item[4] is not None
+        or not any(begin <= item[0] and item[1] <= finish for begin, finish in extended_runs)
+    ]
     if not candidates:
         return []
     try:
-        results = recognize([(start, end, None) for _, _, start, end in candidates]).get(
+        results = recognize([(start, end, None) for _, _, start, end, _ in candidates]).get(
             "contexts", []
         )
     except (FileNotFoundError, OSError, RuntimeError, ValueError):
         return []
     recovered: list[AlignedWord] = []
-    for (begin, finish, _, _), result in zip(
+    for (begin, finish, _, _, owner), result in zip(
         candidates, results if isinstance(results, list) else []
     ):
         segments = result.get("segments", [])
@@ -245,6 +274,26 @@ def recover_vocalizations(
                 round(start / step) : round(end / step), vowels.index(tokens[0])
             ]
             if float(support.max()) >= 0.5:
+                if owner is not None:
+                    word = words[owner]
+                    if (
+                        set(recognized) != {text[0]}
+                        or _character_tokens(_key(word.text)[0])[0] != tokens
+                    ):
+                        continue
+                    recovered.append(
+                        replace(
+                            word,
+                            end=max(word.end, end),
+                            letters=_evenly([word.text], word.start, max(word.end, end))[0].letters,
+                            diagnostics=(
+                                *word.diagnostics,
+                                "VocalizationRetimed",
+                                "ApproximateLetterTiming",
+                            ),
+                        )
+                    )
+                    break
                 previous = recovered[-1] if recovered else None
                 if previous is not None and start < previous.end:
                     if previous.text == text[0].upper():

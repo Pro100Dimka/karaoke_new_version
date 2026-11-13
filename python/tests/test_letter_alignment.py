@@ -27,6 +27,66 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize("text", ["A", "А", "OOO"])
+def test_reprocessing_an_existing_vocalization_keeps_its_independently_confirmed_tail(text):
+    import torch
+    from backend.ai_worker.recognition import recover_vocalizations
+    from backend.ai_worker.ctc_tokens import _character_tokens
+
+    token = _character_tokens(text[0])[0][0]
+    scores = torch.full((300, 28), -12.0)
+    scores[:, 0] = 0
+    scores[105, token] = np.log(0.8)
+    activity = np.zeros(600, bool)
+    activity[200:400] = True
+    words = [
+        AlignedWord("before", 0, 1, (), 0.8),
+        AlignedWord(text, 2, 2.25, tuple(2 for _ in text), 0.8),
+        AlignedWord("after", 5, 6, (), 0.8),
+    ]
+    results = recover_vocalizations(
+        words,
+        scores,
+        0.02,
+        activity,
+        activity.astype(float),
+        lambda _: {"contexts": [{"segments": [{"text": text[0] * 3, "start": 2, "end": 3}]}]},
+    )
+    assert len(results) == 1
+    assert (results[0].text, results[0].start, results[0].end) == (text, 2, 4)
+    assert "VocalizationRetimed" in results[0].diagnostics
+    assert "RecoveredVocalization" not in results[0].diagnostics
+    assert words[1].end == 2.25
+
+
+@pytest.mark.parametrize('evidence', ['covered', 'different_vowel', 'spoken_phrase', 'no_pitch', 'next_word'])
+def test_extending_a_known_vocalization_keeps_acoustic_and_neighbour_guards(evidence):
+    import torch
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    scores = torch.full((300, 28), -12.0)
+    scores[:, 0] = 0
+    scores[105, 1] = np.log(0.8)
+    activity = np.zeros(600, bool)
+    activity[200:400] = True
+    periodicity = activity.astype(float) * (0.1 if evidence == "no_pitch" else 1)
+    words = [
+        AlignedWord("before", 0, 1, (), 0.8),
+        AlignedWord("А", 2, 4 if evidence == "covered" else 2.25, (2,), 0.8),
+        AlignedWord("after", 2.5 if evidence == "next_word" else 5, 6, (), 0.8),
+    ]
+    calls = []
+
+    def recognize(contexts):
+        calls.extend(contexts)
+        text = {"different_vowel": "Ооо", "spoken_phrase": "А потім"}.get(evidence, "Ааа")
+        return {"contexts": [{"segments": [{"text": text, "start": 2, "end": 4}]}]}
+
+    assert recover_vocalizations(words, scores, 0.02, activity, periodicity, recognize) == []
+    if evidence in ["covered", "no_pitch", "next_word"]:
+        assert calls == []
+
+
 @pytest.mark.parametrize("first_end,expected", [(16, True), (14.5, False)])
 def test_a_padded_recognized_opening_is_matched_by_overlap_with_the_catalogue_window(
     first_end, expected

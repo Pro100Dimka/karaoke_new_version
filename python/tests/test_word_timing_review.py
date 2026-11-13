@@ -303,6 +303,18 @@ def _isolated_pipeline(
     ]
 
 
+def test_extending_an_existing_vocalization_updates_its_payload_without_duplicate_words(monkeypatch):
+    from dataclasses import replace
+
+    original = [_word('before', 0, 1), _word('А', 1.5, 1.7), _word('after', 3, 3.5)]
+    extended = replace(original[1], end=2.7, diagnostics=("VocalizationRetimed",))
+    monkeypatch.setattr(speech, "recover_vocalizations", lambda *args: [extended])
+    result = _isolated_pipeline(monkeypatch, original, original)
+    assert [word["text"] for word in result] == ["before", "А", "after"]
+    assert (result[1]["start"], result[1]["end"]) == (1.5, 2.7)
+    assert "VocalizationRetimed" in result[1]["diagnostics"]
+
+
 def test_pipeline_preserves_the_neighbor_move_required_by_an_accepted_joint_repair(monkeypatch):
     original = [_word("дорога", 1, 1.1), _word("домой", 1.1, 2.5)]
     candidate = [_word("дорога", 1, 2, 0.99), _word("домой", 2, 2.5, 0.99)]
