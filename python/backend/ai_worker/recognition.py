@@ -254,6 +254,11 @@ def recover_vocalizations(
         segments = result.get("segments", [])
         if not isinstance(segments, list):
             continue
+        segments = [
+            segment for segment in segments
+            if float(segment.get("start", begin)) < finish
+            and float(segment.get("end", finish)) > begin
+        ]
         recognized = "".join(_key(str(segment.get("text", ""))) for segment in segments)
         for segment in segments:
             text = _key(str(segment.get("text", "")))

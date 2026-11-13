@@ -142,7 +142,7 @@ class _GuidancePass:
             ),
             key=lambda match: len(match[1]),
         )
-        timings = local | dict(self.heard)
+        timings = dict(self.heard) | local
         first, last = max(0, window.first - 1), min(len(self.words), window.last + 1)
         options = [[word] for word in result[first:last]]
         alternatives = self._alternatives(window, phrase, timings)

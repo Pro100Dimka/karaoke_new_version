@@ -449,7 +449,7 @@ class _AlignmentPass:
         audible = audible_frames(self.audio, _HOP)
         started = with_voice_onsets(
             guided, self.audio, voiced,
-            independent_timings(self.words, [self.heard, *self.views], guided) | supported,
+            supported | independent_timings(self.words, [self.heard, *self.views], guided),
         )
 
         def sung_ends(values: list[AlignedWord]) -> list[AlignedWord]:
@@ -458,7 +458,7 @@ class _AlignmentPass:
             )
 
         timed = ordered(sung_ends(started))
-        intervals = independent_timings(self.words, [self.heard, *self.views], timed) | supported
+        intervals = supported | independent_timings(self.words, [self.heard, *self.views], timed)
         reviewed = rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
         reviewed |= boundary_conflicts(guided)
         timed, recovered = self._recover_alignment(

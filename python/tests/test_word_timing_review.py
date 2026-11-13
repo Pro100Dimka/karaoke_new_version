@@ -401,3 +401,40 @@ def test_accepted_local_repair_reuses_unchanged_audio_features(monkeypatch):
     candidate = [_word("дорога", 1, 2, 0.99), _word("домой", 2, 2.5, 0.99)]
     result = _isolated_pipeline(monkeypatch, original, candidate)
     assert [(word["start"], word["end"]) for word in result] == [(1, 2), (2, 2.5)]
+
+@pytest.mark.parametrize("tail_start,expected", [(4.1, True), (3.5, False)])
+def test_known_vocalization_ignores_only_recognition_outside_its_phonated_run(tail_start, expected):
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    scores = torch.full((300, 28), -12.0)
+    scores[:, 0] = 0
+    scores[105, 1] = np.log(0.8)
+    activity = _activity((2, 4), total=6)
+    words = [_word("before", 0, 1), _word("А", 2, 2.25), _word("after", 5, 6)]
+    result = recover_vocalizations(
+        words, scores, 0.02, activity, activity.astype(float),
+        lambda _: {"contexts": [{"segments": [
+            {"text": "Ааа", "start": 2.1, "end": 4.2},
+            {"text": "Дякую", "start": tail_start, "end": 4.4},
+        ]}]},
+    )
+    assert bool(result) is expected
+    if expected:
+        assert (result[0].text, result[0].start, result[0].end) == ("А", 2, 4)
+
+
+def test_independent_phrase_timing_prevents_a_prompted_word_from_starting_on_previous_tail():
+    original = [_word("red", 0.4, 0.6), _word("I", 0.6, 0.8, 0.01), _word("sing", 2.1, 2.5)]
+    correct = [original[0], _word("I", 1.7, 1.95, 0.9), original[2]]
+    scores = _emissions(correct, total=3)
+    scores[30:40, 0] = np.log(0.99)
+    scores[30:40, ctc._character_tokens("I")[0][0]] = np.log(0.02)
+    result = word_guidance.with_word_guidance(
+        original, scores, 0.02, [ctc.Window(0, 3, 0, 3)],
+        {0: (0.4, 0.6), 1: (0.6, 1.95), 2: (2.1, 2.5)},
+        _activity((0.4, 0.8), (1.7, 2.5), total=3), 0.6,
+        recognized=[("red", 0.4, 0.6), ("I", 1.7, 1.95), ("sing", 2.1, 2.5)],
+        onsets=[0.4, 1.7, 2.1],
+    )
+    assert result[1].start >= 1.6
+    assert result[0].end <= result[1].start < result[2].start
