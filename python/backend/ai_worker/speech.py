@@ -446,7 +446,10 @@ class _AlignmentPass:
         acoustic = harmonic_evidence(self.audio, _SAMPLE_RATE, _HOP)
         harmonics = acoustic if self.backing is not None else None
         audible = audible_frames(self.audio, _HOP)
-        started = with_voice_onsets(guided, self.audio, voiced)
+        started = with_voice_onsets(
+            guided, self.audio, voiced,
+            independent_timings(self.words, [self.heard, *self.views], guided) | supported,
+        )
 
         def sung_ends(values: list[AlignedWord]) -> list[AlignedWord]:
             return with_sung_ends(

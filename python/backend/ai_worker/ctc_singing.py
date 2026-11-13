@@ -1,5 +1,5 @@
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 import re
 import numpy as np
@@ -166,15 +166,28 @@ def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: floa
 
 
 def with_voice_onsets(
-    words: list[AlignedWord], samples: np.ndarray, voiced: np.ndarray | None = None
+    words: list[AlignedWord],
+    samples: np.ndarray,
+    voiced: np.ndarray | None = None,
+    heard: Mapping[int, tuple[float, float]] | None = None,
 ) -> list[AlignedWord]:
     """Calibrate from measured voice entries; keep uncalibrated starts explicitly uncertain."""
     if voiced is None:
         voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
+    heard = heard or {}
     vocalizations = {
-        index for index, word in enumerate(words)
-        if index and word.score <= _PREFERENCE
+        index
+        for index, word in enumerate(words)
+        if index
+        and (
+            word.score <= _PREFERENCE
+            or (
+                word.score < 0.5
+                and index not in heard
+                and heard.get(index - 1, (0, 0))[1] > word.start + _LARGEST_LAG_SECONDS
+            )
+        )
         and re.fullmatch(r"([aeiouyаеёиоуыэюяіїє])\1{2,}", word.text.casefold())
     }
     if vocalizations:
@@ -184,8 +197,12 @@ def with_voice_onsets(
             word = words[index]
             limit = words[index + 1].start if index + 1 < len(words) else len(samples) / _VOICE_RATE
             entries = [
-                float(onset) for onset in onsets
-                if max(words[index - 1].end, word.start) + _PAUSE_SECONDS < onset < limit - 0.2
+                float(onset)
+                for onset in onsets
+                if max(words[index - 1].end, word.start, heard.get(index - 1, (0, 0))[1])
+                + _PAUSE_SECONDS
+                < onset
+                < limit - 0.2
                 and voiced[round(onset / step) : round((onset + 0.2) / step)].all()
             ]
             if not entries:
@@ -194,7 +211,9 @@ def with_voice_onsets(
             # CTC may force a written OOO into the preceding lyric. Its repeated
             # letters do not independently establish the later wordless entry.
             words[index] = replace(
-                word, start=start, end=max(word.end, start + step),
+                word,
+                start=start,
+                end=max(word.end, start + step),
                 letters=(start,) * len(word.text),
                 diagnostics=(*word.diagnostics, "OnsetRecovered", "ApproximateLetterTiming"),
             )

@@ -288,6 +288,64 @@ def test_missing_vocalization_requires_independent_vowel_and_singing_evidence(
     assert [word.text for word in original] == ["before", "after"]
 
 
+@pytest.mark.parametrize(
+    "vowel,blank,consonant,expected",
+    [
+        (0.23, 0.69, 0.07, True),
+        (0.23, 0.10, 0.65, False),
+        (0.02, 0.97, 0.005, False),
+    ],
+)
+def test_vocalization_confidence_separates_ctc_blank_from_competing_phonemes(
+    vowel, blank, consonant, expected
+):
+    import torch
+    from torchaudio.pipelines import MMS_FA
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    tokens = MMS_FA.get_dict()
+    scores = torch.full((300, len(tokens)), -12.0)
+    scores[:, 0] = 0
+    for token, probability in [(tokens["a"], vowel), (0, blank), (tokens["s"], consonant)]:
+        scores[120, token] = np.log(probability)
+    activity = np.zeros(600, bool)
+    activity[200:400] = True
+    def recognize(_):
+        return {"contexts": [{"segments": [{"text": "А-а-а", "start": 2, "end": 4}]}]}
+
+    result = recover_vocalizations(
+        [AlignedWord("before", 0, 1, (), 0.8), AlignedWord("after", 5, 6, (), 0.8)],
+        scores,
+        0.02,
+        activity,
+        activity.astype(float),
+        recognize,
+    )
+    assert bool(result) is expected
+    if expected:
+        assert result[0].score == pytest.approx(vowel)
+
+
+def test_independent_vowel_recognition_does_not_cut_off_a_continuous_sung_tail():
+    import torch
+    from torchaudio.pipelines import MMS_FA
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    scores = torch.full((300, len(MMS_FA.get_dict())), -12.0)
+    scores[120, MMS_FA.get_dict()["a"]] = np.log(0.8)
+    activity = np.zeros(600, bool)
+    activity[200:400] = True
+    result = recover_vocalizations(
+        [AlignedWord("before", 0, 1, (), 0.8), AlignedWord("after", 5, 6, (), 0.8)],
+        scores,
+        0.02,
+        activity,
+        activity.astype(float),
+        lambda _: {"contexts": [{"segments": [{"text": "А-а-а", "start": 2.3, "end": 3}]}]},
+    )
+    assert [(word.start, word.end) for word in result] == [(2, 4)]
+
+
 def test_missing_vocalization_does_not_duplicate_existing_sung_words():
     import torch
     from backend.ai_worker.recognition import recover_vocalizations
@@ -2672,7 +2730,9 @@ def test_recognized_word_intervals_preserve_a_genuine_fast_cluster(monkeypatch):
     ]
     heard = [(word.text.casefold(), word.start, word.end) for word in words]
     monkeypatch.setattr(speech, "read_mono", lambda *_: _signal([(1, 1.3)], 2))
-    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
+        speech.torch.full((100, 28), -np.log(28)), 0.02, heard
+    ))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
     monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
@@ -2697,7 +2757,9 @@ def test_a_supported_word_run_does_not_cap_a_quiet_long_vowel_at_its_asr_endpoin
     heard = [(word.text, word.start, word.end) for word in words]
     samples = 0.03 * _signal([(1, 1.2), (2, 12), (12.5, 12.8)], 14)
     monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
-    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: ("unused", 0.02, heard))
+    monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
+        speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, heard
+    ))
     monkeypatch.setattr(speech, "align_words", lambda *_: words)
     monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
 
@@ -3378,19 +3440,49 @@ def test_continuous_recognition_run_keeps_bounded_alignment_context():
     assert all(window.end - window.start <= 13.2 for window in windows)
 
 
-@pytest.mark.parametrize("text,score,onsets,expected", [
-    ("OOOOOO", 0.01, [1.5], 1.5),
-    ("OOOOOO", 0.9, [1.5], 0.8),
-    ("OOOOOO", 0.01, [], 0.8),
-    ("mama", 0.01, [1.5], 0.8),
-])
-def test_weak_elongated_vowel_uses_its_fresh_voice_entry_not_the_previous_word(text, score, onsets, expected, monkeypatch):
+@pytest.mark.parametrize(
+    "text,score,onsets,expected",
+    [
+        ("OOOOOO", 0.01, [1.5], 1.5),
+        ("OOOOOO", 0.9, [1.5], 0.8),
+        ("OOOOOO", 0.01, [], 0.8),
+        ("mama", 0.01, [1.5], 0.8),
+    ],
+)
+def test_weak_elongated_vowel_uses_its_fresh_voice_entry_not_the_previous_word(
+    text, score, onsets, expected, monkeypatch
+):
     from backend.ai_worker import ctc_singing
 
     monkeypatch.setattr(ctc_singing, "vocal_onsets", lambda *args: np.array(onsets))
-    words = [AlignedWord("stay", 0, 0.8, (0, 0.1, 0.2, 0.3), 0.9),
-             AlignedWord(text, 0.8, 1.0, tuple(0.8 + i * 0.02 for i in range(len(text))), score)]
+    words = [
+        AlignedWord("stay", 0, 0.8, (0, 0.1, 0.2, 0.3), 0.9),
+        AlignedWord(text, 0.8, 1.0, tuple(0.8 + i * 0.02 for i in range(len(text))), score),
+    ]
     result = with_voice_onsets(words, np.zeros(3 * _RATE), np.ones(300, dtype=bool))
     assert result[1].start == expected
     assert result[1].end > result[1].start
     assert all(result[1].start <= value <= result[1].end for value in result[1].letters)
+
+
+@pytest.mark.parametrize(
+    "score,heard,expected",
+    [
+        (0.2, {0: (0, 1.2)}, 1.5),
+        (0.9, {0: (0, 1.2)}, 0.8),
+        (0.2, {0: (0, 0.9)}, 0.8),
+        (0.2, {0: (0, 1.2), 1: (0.8, 1)}, 0.8),
+    ],
+)
+def test_an_unrecognized_vowel_cannot_steal_an_independently_heard_word_tail(
+    score, heard, expected, monkeypatch
+):
+    from backend.ai_worker import ctc_singing
+
+    monkeypatch.setattr(ctc_singing, "vocal_onsets", lambda *args: np.array([1.5]))
+    words = [
+        AlignedWord("stay", 0, 0.8, (0, 0.1, 0.2, 0.3), 0.9),
+        AlignedWord("AAA", 0.8, 2, (0.8, 0.85, 0.9), score),
+    ]
+    result = with_voice_onsets(words, np.zeros(3 * _RATE), np.ones(300, bool), heard)
+    assert result[1].start == expected

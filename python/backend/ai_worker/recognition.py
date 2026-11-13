@@ -181,6 +181,12 @@ def recover_vocalizations(
     if scores is None or not words or not activity.any():
         return []
     vowels = [token[0] for token in _character_tokens("aeiou")]
+    probabilities = scores.exp()
+    # A CTC blank is an unlabelled frame, not a competing sung consonant.
+    vowel_support = probabilities[:, vowels] / probabilities[:, 1:].sum(
+        dim=1, keepdim=True
+    ).clamp_min(1e-12)
+    vowel_support = vowel_support.masked_fill(probabilities[:, vowels] <= _PREFERENCE, 0)
     gaps = zip(
         [0.0, *(word.end for word in words)],
         [*(word.start for word in words), len(activity) * _STEP],
@@ -193,8 +199,8 @@ def recover_vocalizations(
             if (run_last - run_first) * _STEP < 0.8 or flags[run_first:run_last].mean() < 0.6:
                 continue
             begin, finish = (first + run_first) * _STEP, (first + run_last) * _STEP
-            local = scores[round(begin / step) : round(finish / step), vowels]
-            if local.numel() and float(local.max().exp()) >= 0.5:
+            local = vowel_support[round(begin / step) : round(finish / step)]
+            if local.numel() and float(local.max()) >= 0.5:
                 context_start = max(left, begin - _MARGIN)
                 candidates.append(
                     (
@@ -217,7 +223,10 @@ def recover_vocalizations(
         candidates, results if isinstance(results, list) else []
     ):
         segments = result.get("segments", [])
-        for segment in segments if isinstance(segments, list) else []:
+        if not isinstance(segments, list):
+            continue
+        recognized = "".join(_key(str(segment.get("text", ""))) for segment in segments)
+        for segment in segments:
             text = _key(str(segment.get("text", "")))
             if not text or len(set(text)) != 1:
                 continue
@@ -226,11 +235,16 @@ def recover_vocalizations(
                 continue
             start = max(begin, float(segment["start"]) - _MARGIN)
             end = min(finish, float(segment["end"]) + _MARGIN)
+            if set(recognized) == {text[0]} and start < end:
+                start, end = begin, finish
             local = scores[round(start / step) : round(end / step), tokens[0]]
             if end - start < 0.8 or not local.numel():
                 continue
             confidence = float(local.max().exp())
-            if confidence >= 0.5:
+            support = vowel_support[
+                round(start / step) : round(end / step), vowels.index(tokens[0])
+            ]
+            if float(support.max()) >= 0.5:
                 previous = recovered[-1] if recovered else None
                 if previous is not None and start < previous.end:
                     if previous.text == text[0].upper():
