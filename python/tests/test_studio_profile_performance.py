@@ -11,6 +11,18 @@ from backend.domain_errors import DomainError
 from backend.recordings.studio_audio import _profile
 
 
+def test_center_profile_has_the_same_level_for_mono_and_duplicated_stereo(tmp_path):
+    rate = 8000
+    samples = np.random.default_rng(18).normal(0, 0.05, rate * 2)
+    mono, stereo = tmp_path / "mono.wav", tmp_path / "stereo.wav"
+    sf.write(mono, samples, rate, subtype="FLOAT")
+    sf.write(stereo, np.repeat(samples[:, None], 2, axis=1), rate, subtype="FLOAT")
+    cancel = threading.Event()
+    expected = _profile(mono, cancel, voice_band=True)
+    actual = _profile(stereo, cancel, voice_band=True, center=True)
+    np.testing.assert_allclose(actual, expected, atol=1e-9)
+
+
 @pytest.mark.parametrize("subtype", ["PCM_16", "PCM_24", "FLOAT", "DOUBLE"])
 def test_profile_keeps_original_double_precision_rms(tmp_path, subtype):
     rate = 8000

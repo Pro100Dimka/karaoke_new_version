@@ -125,7 +125,9 @@ def _preserve_pitch_intervals(
         _temporary_wave(preserved, samplerate=dry.samplerate, channels=dry.channels) as output,
     ):
         offset = 0
-        weights = np.clip((np.abs(correction) - 0.005) / 0.045, 0.0, 1.0)
+        # Crossfade at note boundaries, not for the duration of a pitch ramp:
+        # partially mixing phase-shifted voices can cancel a whole syllable.
+        weights = (np.abs(correction) > 0.1).astype(float)
         for original in dry.blocks(blocksize=65536, dtype="float32", always_2d=True):
             _check_cancel(render.cancel)
             shifted = wet.read(len(original), dtype="float32", always_2d=True)
@@ -187,10 +189,8 @@ def _normalize_pitch(render: PitchRender, candidate: Path) -> float:
     )
     render.vocal = target
     render.voice_db = _profile(target, render.cancel)
-    render.gains, render.reliable = render.renderer._balance_curve(
-        render.voice_db,
-        render.backing_db,
-    )
+    render.gains = np.zeros_like(render.voice_db)
+    render.reliable = render.voice_db > max(-80.0, float(np.percentile(render.voice_db, 80)) - 24)
     return gain
 
 

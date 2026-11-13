@@ -12,6 +12,42 @@ from backend.recordings.studio_audio import _check_cancel, _temporary_wave
 from backend.analysis.scoring import parse_playback_adjustments
 
 
+def verified_backing_gain(
+    recording: Path, reference: Path, cancel: threading.Event
+) -> dict[str, float] | None:
+    rows = []
+    with sf.SoundFile(recording) as take, sf.SoundFile(reference) as music:
+        if (
+            take.channels != 2
+            or music.channels != 2
+            or (take.frames != music.frames or take.samplerate != music.samplerate)
+        ):
+            return None
+        for block in take.blocks(blocksize=take.samplerate, always_2d=True):
+            _check_cancel(cancel)
+            backing = music.read(len(block), always_2d=True)
+            actual = (block[:, 0] - block[:, 1]) / 2
+            expected = (backing[:, 0] - backing[:, 1]) / 2
+            power = float(np.mean(expected**2))
+            if power < 1e-10:
+                continue
+            gain = float(np.mean(actual * expected) / power)
+            error = float(np.mean((actual - gain * expected) ** 2))
+            rows.append((gain, error / max(float(np.mean(actual**2)), 1e-20)))
+    if len(rows) < 3 or not np.isfinite(rows).all():
+        return None
+    gains, errors = np.asarray(rows).T
+    gain = float(np.median(gains))
+    if gain <= 0 or np.percentile(errors, 90) > 0.001:
+        return None
+    if np.percentile(abs(gains / gain - 1), 90) > 0.01:
+        return None
+    return {
+        "gain": gain,
+        "p90ResidualDb": 10 * math.log10(max(float(np.percentile(errors, 90)), 1e-20)),
+    }
+
+
 def reference_section(
     adjustments: Sequence[Mapping[str, object]],
     duration: float,

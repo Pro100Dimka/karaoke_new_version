@@ -1,14 +1,7 @@
 from __future__ import annotations
 from backend.recordings.studio_delivery import MasterDelivery
 from backend.recordings.studio_quality import inspect_master
-from backend.recordings.studio_space import apply_reference_space, apply_fallback_space
-from backend.recordings.studio_dynamics import _slow_gain_envelope
-from backend.recordings.studio_voice import (
-    VoicePreparation,
-    apply_mix_tone,
-    control_vocal_peaks,
-    control_vocal_presence,
-)
+from backend.recordings.studio_space import apply_reference_space
 from numpy.typing import NDArray
 from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -18,20 +11,30 @@ import threading
 from tempfile import TemporaryDirectory
 import numpy as np
 import soundfile as sf
-from backend.analysis.scoring import reference_audio_start
+from backend.analysis.scoring import reference_audio_start, parse_playback_adjustments
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_pitch import PitchAnalyzer, apply_reference_pitch
 from backend.recordings.studio_audio import (
     StudioMasterBalance,
     _PROFILE_SECONDS,
-    _MAX_BOOST_DB,
     _profile,
     _write_gain_envelope,
 )
 from dataclasses import dataclass, field
 from backend.recordings.studio_audio import MasterRenderer
-from backend.recordings.studio_reference import scope_reference, mapped_reference_times
-from backend.recordings.studio_calibration import calibrate_mix
+from backend.recordings.studio_reference import (
+    scope_reference,
+    mapped_reference_times,
+    verified_backing_gain,
+)
+from backend.recordings.studio_calibration import (
+    GainPlan,
+    build_gain_plan,
+    validate_gain_plan,
+    vocal_activity,
+)
+from backend.recordings.studio_voice import shape_voice
+from backend.recordings.studio_spectrum import SpectrumPlan, measure_mix_spectrum, plan_presence_eq
 from backend.recordings.studio_mix_audit import audit_mix
 
 
@@ -73,6 +76,9 @@ class MasterRender:
     voice_gain_db: float = field(default=0, init=False)
     reference_origin: float = field(default=0, init=False)
     space_reference: Path = field(init=False)
+    plan: GainPlan = field(init=False)
+    overlap: float = field(default=0.0, init=False)
+    spectral: SpectrumPlan = field(init=False)
 
     def run(self) -> StudioMasterBalance:
         self.info = sf.info(self.performance_mix)
@@ -88,20 +94,16 @@ class MasterRender:
             self.work = Path(directory)
             self._prepare_stems()
             self._scope_reference()
+            self._recover_stems()
             bypass = self._analyze()
             if bypass is not None:
                 return bypass
             self._balance_performance()
             pitch_correction = apply_reference_pitch(self)
             self.processing["pitchCorrection"] = pitch_correction
-            self._finish_voice()
+            self._shape_voice()
             self._write_balanced()
-            self._unmask()
-            if self.reliable.any():
-                self.processing["vocalPresence"] = control_vocal_presence(
-                    self.balanced, self.backing, self.cancel
-                )
-            self._calibrate()
+            self._finish_voice()
             self._deliver()
             self.processing["postMixAudit"] = audit_mix(
                 self.balanced, self.backing, self.target, vocal_gain_db=self.voice_gain_db
@@ -114,12 +116,6 @@ class MasterRender:
             )
             return self._balance_report()
 
-    def _calibrate(self) -> None:
-        self.voice_gain_db = calibrate_mix(
-            self.renderer, self.balanced, self.backing, self.cancel, self.processing
-        )
-        self.processing["voiceOutputGainDb"] = self.voice_gain_db
-
     def _prepare_stems(self) -> None:
         self.backing = self.performance_instrumental
         self.output_channels = self.info.channels
@@ -131,8 +127,8 @@ class MasterRender:
                     "Recording and stems must have matching sample rate and duration",
                 )
         if (
-            self.exact_stems
-            and self.info.channels > 2
+            self.info.channels > 2
+            and self.renderer._repeated_output_channels(self.performance_mix, self.cancel)
             and self.renderer._repeated_output_channels(self.user_vocal, self.cancel)
             and self.renderer._repeated_output_channels(self.backing, self.cancel)
         ):
@@ -147,6 +143,8 @@ class MasterRender:
                 self.cancel,
             )
         self.processing: dict[str, object] = {
+            "pipeline": "single-plan",
+            "gainApplications": 0,
             "voiceShiftMs": 0.0,
             "vocalSource": "dry" if self.process_voice else "existing-effects-preserved",
             "effectsApplied": self.process_voice,
@@ -179,6 +177,32 @@ class MasterRender:
             )
             self.offset_result = alignment.result() if alignment is not None else None
         return None
+
+    def _recover_stems(self) -> None:
+        if self.exact_stems or self.processing.get("referenceScope") not in [
+            "continuous-performed-section",
+            "performed-seek-sections",
+        ]:
+            return
+        if any(
+            a.playback_rate != 1 or a.key_shift != 0
+            for a in parse_playback_adjustments(self.pitch_adjustments)
+        ):
+            return
+        match = verified_backing_gain(self.performance_mix, self.original_instrumental, self.cancel)
+        if match is None:
+            return
+        voice, music = self.work / "recovered-voice.wav", self.work / "recovered-backing.wav"
+        self.renderer._mix(
+            self.performance_mix,
+            self.original_instrumental,
+            f"[1:a]volume={match['gain']:.12f},asplit[b][music];"
+            "[b]volume=-1[n];[0:a][n]amix=inputs=2:duration=first:normalize=0[out]",
+            ["-c:a", "pcm_f32le", str(voice), "-map", "[music]", "-c:a", "pcm_f32le", str(music)],
+            self.cancel,
+        )
+        self.user_vocal, self.backing, self.exact_stems = voice, music, True
+        self.processing["stemRecovery"] = {"method": "verified-project-subtraction", **match}
 
     def _scope_reference(self) -> None:
         self.pitch_adjustments = self.adjustments
@@ -219,111 +243,65 @@ class MasterRender:
             axis = (np.arange(len(levels)) + 0.5) * _PROFILE_SECONDS
             profiles.append(np.interp(positions, axis, levels, left=-120, right=-120))
         self.backing_db, self.reference_db, self.original_db = profiles
-        self.gains, self.reliable = self.renderer._balance_curve(self.voice_db, self.backing_db)
+        self.gains = np.zeros_like(self.voice_db)
+        self.reliable = vocal_activity(self.voice_db)
+
+    def _shape_voice(self) -> None:
+        evidence = measure_mix_spectrum(self.vocal, self.backing, self.cancel)
+        self.overlap = evidence["overlap"]
+        self.plan = build_gain_plan(
+            self.renderer, self.vocal, self.backing, self.overlap, self.cancel
+        )
+        evidence["clarityBands"] = plan_presence_eq(
+            self.vocal, self.backing, self.plan, self.cancel
+        )
+        evidence["bands"].extend(evidence["clarityBands"])
+        self.vocal, evidence = shape_voice(
+            self.renderer,
+            self.vocal,
+            self.backing,
+            self.work / "shaped-voice.wav",
+            self.cancel,
+            plan=evidence,
+        )
+        self.processing["spectralPlan"] = evidence
+        self.spectral = evidence
+        self.overlap = evidence["overlap"]
 
     def _write_balanced(self) -> None:
-        self.balanced = self.work / "balanced-voice.wav"
+        if self.spectral["bands"]:
+            self.plan = build_gain_plan(
+                self.renderer, self.vocal, self.backing, self.overlap, self.cancel
+            )
+        self.balanced = self.work / "planned-voice.wav"
         self.peak_bound = 0.0
-        _write_gain_envelope(self.vocal, self.balanced, self.times, self.gains, self.cancel)
-        self.processing["vocalPeakControl"] = control_vocal_peaks(
-            self.renderer, self.balanced, self.cancel
+        _write_gain_envelope(
+            self.vocal, self.balanced, self.plan.times, self.plan.gains, self.cancel
         )
-
-    def _unmask(self) -> None:
-        active = self._voice_activity()
-        self.processing["maskingActivitySource"] = "performance-vocal-envelope"
-        unmasked = self.work / "unmasked-backing.wav"
-        self.processing["spectralBalance"] = self.renderer._unmask_backing(
-            self.backing,
-            self.balanced,
-            unmasked,
-            active,
-            self.cancel,
+        self.processing["gainPlan"] = self.plan.report
+        self.processing["gainApplications"] = 1
+        self.processing["mixConstraints"] = validate_gain_plan(
+            self.balanced, self.plan, self.cancel
         )
-        self.backing = unmasked
-
-    def _voice_activity(self) -> NDArray[np.bool_]:
-        levels = self.voice_db
-        floor = float(np.percentile(levels, 20))
-        threshold = max(-48.0, floor + 9.0, float(np.percentile(levels, 85)) - 22.0)
-        active = levels > threshold
-        if not np.any(active) and np.any(levels > -90.0):
-            threshold = float(np.percentile(levels, 50))
-            active = levels >= threshold
-        self.processing["maskingActivityThresholdDbfs"] = threshold
-        return active
-
-    def _fallback_balance(self) -> None:
-        self.gains.fill(0.0)
-        self.processing["balanceFallback"] = "insufficient-performance-activity"
+        self.gains = np.interp(self.times, self.plan.times, self.plan.gains)
+        self.reliable = np.interp(self.times, self.plan.times, self.plan.active.astype(float)) > 0.5
 
     def _finish_voice(self) -> None:
-        spatial = self.work / "spatial-voice.wav"
-        reference_effects = apply_reference_space(
+        target = self.work / "spatial-voice.wav"
+        effects = apply_reference_space(
             self.renderer,
             self.reference_vocal,
             self.user_vocal,
-            self.vocal,
-            spatial,
+            self.balanced,
+            target,
             self.cancel,
             full_reference=self.space_reference,
         )
-        self.processing["referenceEffects"] = reference_effects
-        if not spatial.is_file():
-            self.processing["fallbackEffects"] = apply_fallback_space(
-                self.renderer, self.vocal, self.backing, spatial, self.cancel
-            )
-        if spatial.is_file():
-            before_effects = self.voice_db
-            self.vocal = spatial
-            self.processing["toneCohesion"] = apply_mix_tone(
-                self.renderer, self.vocal, self.backing, self.cancel
-            )
-            matched = reference_effects.get("status") == "matched"
-            self.processing["space"] = (
-                "reference-matched" if matched else "unchanged-no-supported-effects"
-            )
-            self.voice_db = _profile(self.vocal, self.cancel)
-            if self.reliable.any():
-                # Keep the bounded performance balance, then compensate the gain
-                # introduced by effects without treating it as a singer's crescendo.
-                positions = np.arange(len(self.voice_db))
-                compensation = np.interp(
-                    positions,
-                    positions[self.reliable],
-                    (before_effects - self.voice_db)[self.reliable],
-                )
-                self.gains = np.clip(
-                    self.gains + _slow_gain_envelope(compensation), -18.0, _MAX_BOOST_DB
-                )
-        self._report_voice(reference_effects)
-
-    def _report_voice(self, reference_effects: dict[str, object]) -> None:
-        if self.reliable.any():
-            self.processing["voiceBalanceTargetDb"] = float(
-                np.median((self.voice_db + self.gains - self.backing_db)[self.reliable])
-            )
-            self.processing["voiceLeveling"] = "performance-phrase-leveling-and-song-balance"
-        else:
-            self._fallback_balance()
-            self.processing["voiceLeveling"] = "bounded-song-level-fallback"
-        self.processing["vocalPresence"] = {"method": "performance-phrase-envelope"}
-        self.processing["voiceOutputGainDb"] = self.voice_gain_db
-        spatial_applied = reference_effects.get("status") == "matched"
-        fallback_effects = self.processing.get("fallbackEffects", {})
-        if isinstance(fallback_effects, dict):
-            spatial_applied = spatial_applied or bool(fallback_effects.get("applied", False))
-        self.processing["spaceAudible"] = None  # Requires a listening/perceptual test.
-        self.processing["effectsApplied"] = bool(spatial_applied)
-        self.processing["adaptive"] = {
-            "referenceTimingTrusted": bool(self.timing_known),
-            "referenceMatchedFraction": float(np.mean(self.reliable)),
-            "equalization": "reference-informed-vocal-filters",
-            "compression": "recording-dynamics-adaptive",
-            "space": reference_effects.get("status", "not-applied"),
-            "backingGain": "unity",
-            "masking": "bounded-dynamic-eq-with-voice-activity",
-        }
+        self.processing["referenceEffects"] = effects
+        self.processing["space"] = effects["status"]
+        if target.is_file():
+            self.balanced = target
+        self.processing["voiceOutputGainDb"] = 0.0
 
     def _balance_report(self) -> StudioMasterBalance:
         output_info = sf.info(self.target)
@@ -388,6 +366,15 @@ class MasterRender:
         self.user_vocal = self.work / "dry-stereo.wav"
         self.backing = self.work / "backing-stereo.wav"
         self.output_channels = 2
+        source = self.work / "source-stereo.wav"
+        self.renderer._mix(
+            self.performance_mix,
+            self.performance_mix,
+            "[0:a]pan=stereo|c0=c0|c1=c1[out]",
+            ["-c:a", "pcm_f32le", str(source)],
+            self.cancel,
+        )
+        self.performance_mix = source
 
     def _prepare_voice(
         self, profile_tasks: list[Future[NDArray[np.float64]]]
@@ -414,19 +401,25 @@ class MasterRender:
                 },
             )
         self.vocal = self.work / "processed-voice.wav"
-        self.processing.update(
-            VoicePreparation(
-                self.renderer,
-                self.user_vocal,
-                self.backing,
-                self.reference_vocal,
-                self.vocal,
-                self.info,
-                self.output_channels,
-                self.cancel,
-            ).run(raw_profile)
-        )
+        self._clean_voice()
         return None
+
+    def _clean_voice(self) -> None:
+        self.renderer._mix(
+            self.user_vocal,
+            self.backing,
+            f"[0:a]highpass=f=60,apad,atrim=end_sample={self.info.frames}[out]",
+            [
+                "-ar",
+                str(self.info.samplerate),
+                "-ac",
+                str(self.output_channels),
+                "-c:a",
+                "pcm_f32le",
+                str(self.vocal),
+            ],
+            self.cancel,
+        )
 
     def _map_reference_time(self) -> None:
         self.times = (np.arange(len(self.voice_db)) + 0.5) * _PROFILE_SECONDS

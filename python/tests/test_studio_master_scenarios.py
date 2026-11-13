@@ -84,6 +84,8 @@ def test_master_scenario(name: str, tmp_path: Path):
     processing = report["processing"]
     assert processing["qualityControl"]["verified"]
     assert processing["delivery"]["truePeakDbtp"] <= -1
-    assert processing["compressionSource"] == "performance-vocal"
+    assert processing["pipeline"] == "single-plan"
+    assert processing["gainApplications"] == 1
+    assert processing["mixConstraints"]["p90ErrorDb"] < 3
     if name == "partial":
-        assert processing["adaptive"]["referenceTimingTrusted"]
+        assert processing["gainPlan"]["activeSeconds"] > 3

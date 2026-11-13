@@ -60,6 +60,36 @@ def test_reference_reverb_estimates_decay(tmp_path: Path, decay):
     assert 0.05 < profile.reverb_gain < 0.5
 
 
+@pytest.mark.parametrize("has_reverb", [False, True])
+def test_sustained_bass_does_not_hide_a_vocal_band_tail(tmp_path, has_reverb):
+    from backend.recordings.studio_space import apply_reference_space
+
+    rate = 8000
+    voice = phrase_signal(rate)
+    time = np.arange(round(0.9 * rate)) / rate
+    impulse = np.random.default_rng(41).normal(size=len(time)) * np.exp(-6.9078 * time / 0.9)
+    impulse /= np.linalg.norm(impulse)
+    wet = voice + 0.3 * fftconvolve(voice, impulse)[: len(voice)] if has_reverb else voice
+    bass = 0.2 * np.sin(2 * np.pi * 120 * np.arange(len(voice)) / rate)
+    reference = tmp_path / "reference.wav"
+    sf.write(reference, np.repeat((wet + bass)[:, None], 2, axis=1), rate, subtype="FLOAT")
+    recorded, output = tmp_path / "recorded.wav", tmp_path / "output.wav"
+    sf.write(recorded, np.repeat(voice[:, None], 2, axis=1), rate, subtype="FLOAT")
+    report = apply_reference_space(
+        object(), reference, recorded, recorded, output, threading.Event()
+    )
+    if has_reverb:
+        assert report["bandTails"]
+        assert all(
+            p["decay_seconds"] == pytest.approx(0.9, rel=0.35) for p in report["bandTails"].values()
+        )
+        actual = sf.read(output)[0]
+        assert np.mean((actual - voice[:, None]) ** 2) > 1e-5
+    else:
+        assert not report["bandTails"]
+        np.testing.assert_array_equal(sf.read(output)[0], sf.read(recorded)[0])
+
+
 def test_matching_does_not_double_existing_room_or_delay():
     profile = SpaceProfile(delay_seconds=0.18, delay_gain=0.2, decay_seconds=0.7, reverb_gain=0.3)
     matched = match_space(profile, profile)
@@ -73,6 +103,45 @@ def test_matching_does_not_add_reverb_to_a_longer_recorded_room():
         SpaceProfile(decay_seconds=1.1, reverb_gain=0.1),
     )
     assert selected.reverb_gain == 0
+
+
+def test_recorded_bass_resonance_does_not_cancel_a_different_reference_tail():
+    from backend.recordings.studio_space import _planned_space
+
+    expected = SpaceProfile(
+        decay_seconds=1.4, reverb_gain=0.23, decay_count=4, tail_band_hz=(350, 1100)
+    )
+    existing = SpaceProfile(
+        decay_seconds=0.55, reverb_gain=0.36, decay_count=4, tail_band_hz=(200, 250)
+    )
+    assert _planned_space(expected, existing).reverb_gain == pytest.approx(0.23)
+
+
+@pytest.mark.parametrize("local_gain", [0.0, 0.2])
+def test_full_reference_supplies_only_a_missing_tail(tmp_path, monkeypatch, local_gain):
+    import backend.recordings.studio_space as module
+
+    raw, local, full, output = [
+        tmp_path / f"{name}.wav" for name in ["raw", "local", "full", "out"]
+    ]
+    samples = np.random.default_rng(31).normal(0, 0.03, 8000 * 4)
+    for path in [raw, local, full]:
+        sf.write(path, samples, 8000, subtype="FLOAT")
+    profiles = {
+        raw: SpaceProfile(),
+        local: SpaceProfile(
+            decay_seconds=0.5, reverb_gain=local_gain, decay_count=4 if local_gain else 1
+        ),
+        full: SpaceProfile(decay_seconds=1.2, reverb_gain=0.3, decay_count=5),
+    }
+    monkeypatch.setattr(module, "analyze_space", lambda path, *a: profiles[path])
+    report = module.apply_reference_space(
+        object(), local, raw, raw, output, threading.Event(), full_reference=full
+    )
+    expected = profiles[local] if local_gain else profiles[full]
+    assert report["applied"]["decay_seconds"] == expected.decay_seconds
+    assert report["applied"]["reverb_gain"] == expected.reverb_gain
+    assert report["reverbEvidenceSource"] == ("performed-section" if local_gain else "full-song")
 
 
 def test_reference_analysis_honors_cancellation(tmp_path: Path):
@@ -140,7 +209,7 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
 
 @pytest.mark.parametrize(
     "reference_db, expected_db, varying_effect",
-    [(-80, -1, False), (-12, -1, False), (-2, -1, False), (6, -1, False), (-2, -1, True)],
+    [(-80, -3, False), (-12, -3, False), (-2, -3, False), (6, -3, False), (-2, -3, True)],
 )
 def test_master_balance_uses_backing_independently_of_reference_level(
     tmp_path: Path, monkeypatch, reference_db, expected_db, varying_effect
@@ -162,10 +231,11 @@ def test_master_balance_uses_backing_independently_of_reference_level(
         def spatial_energy(renderer, reference, recorded, voice, target, cancel, *, full_reference):
             assert full_reference == paths["reference"]
             samples, rate = sf.read(voice)
-            samples[: len(samples) // 2] *= 2
-            samples[len(samples) // 2 :] *= 4
+            wet = np.roll(samples, round(rate * 0.137))
+            wet[: round(rate * 0.137)] = 0
+            samples += wet * 0.1
             sf.write(target, samples, rate, subtype="FLOAT")
-            return {}
+            return {"status": "matched", "dryPreserved": True}
 
         monkeypatch.setattr(
             "backend.recordings.studio_render.apply_reference_space", spatial_energy
@@ -199,10 +269,7 @@ def test_master_balance_uses_backing_independently_of_reference_level(
     vocal = rendered / delivery_gain - backing
     measured = 10 * np.log10(np.mean(vocal**2) / np.mean(backing**2))
     assert measured == pytest.approx(expected_db, abs=1)
-    assert (
-        result.processing["postMixCalibration"]["method"]
-        == "perceptual-and-spectral-backing-balance"
-    )
+    assert result.processing["gainPlan"]["method"] == "single-context-envelope"
     if varying_effect:
         for section in (slice(8000, 16000), slice(32000, 40000)):
             level = 10 * np.log10(np.mean(vocal[section] ** 2) / np.mean(backing[section] ** 2))
@@ -254,14 +321,14 @@ def test_master_preserves_performed_backing_dynamics(tmp_path, monkeypatch):
     ]:
         sf.write(paths[name], samples, rate, subtype="FLOAT")
     initial = paths["music"].read_bytes()
-    calibrate = MasterRender._calibrate
+    deliver = MasterRender._deliver
     observed = []
 
     def capture(render):
-        calibrate(render)
+        deliver(render)
         observed.append(sf.read(render.backing)[0])
 
-    monkeypatch.setattr(MasterRender, "_calibrate", capture)
+    monkeypatch.setattr(MasterRender, "_deliver", capture)
     FfmpegStudioMasterRenderer(ProcessRunner()).render(
         paths["voice"],
         paths["music"],

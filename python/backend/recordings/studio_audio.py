@@ -106,23 +106,34 @@ def _check_cancel(cancel: threading.Event) -> None:
 
 
 def _profile(
-    path: Path, cancel: threading.Event, *, voice_band: bool = False
+    path: Path,
+    cancel: threading.Event,
+    *,
+    voice_band: bool = False,
+    frame_seconds: float = _PROFILE_SECONDS,
+    band_hz: tuple[float, float] = (300.0, 3500.0),
+    center: bool = False,
 ) -> NDArray[np.float64]:
     levels: list[float] = []
     with sf.SoundFile(path) as source:
         for samples in source.blocks(
-            blocksize=round(source.samplerate * _PROFILE_SECONDS), dtype="float64", always_2d=True
+            blocksize=max(1, round(source.samplerate * frame_seconds)),
+            dtype="float64",
+            always_2d=True,
         ):
             _check_cancel(cancel)
             if not np.isfinite(samples).all():
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
+            if center:
+                samples = samples.mean(axis=1, keepdims=True)
             power = float(np.mean(samples * samples))
             if voice_band:
                 window = np.hanning(len(samples))[:, None]
                 spectrum = np.fft.rfft(samples * window, axis=0)
                 hz = np.fft.rfftfreq(len(samples), 1 / source.samplerate)
-                power = 2 * float(np.sum(np.abs(spectrum[(hz >= 300) & (hz <= 3500)]) ** 2))
-                power /= max(1.0, len(samples) * float(np.sum(window**2)) * source.channels)
+                low, high = band_hz
+                power = 2 * float(np.sum(np.abs(spectrum[(hz >= low) & (hz <= high)]) ** 2))
+                power /= max(1.0, len(samples) * float(np.sum(window**2)) * samples.shape[1])
             levels.append(10 * math.log10(max(1e-12, power)))
     if not levels:
         raise DependencyError("StudioMasterSilentTrack", "Recording contains no audio")

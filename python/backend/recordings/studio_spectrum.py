@@ -1,15 +1,22 @@
 from __future__ import annotations
 from pathlib import Path
+from dataclasses import replace
 import threading
+import math
+from typing import TypedDict, NotRequired
 import numpy as np
 from numpy.typing import NDArray
 import soundfile as sf
+from scipy.signal import resample_poly, butter, sosfilt
+from backend.recordings.studio_space_analysis import SpaceProfile, _decay
+from backend.recordings.studio_calibration import GainPlan
 
 from backend.recordings.studio_audio import (
     _PROFILE_SECONDS,
     _VOCAL_TARGET_OFFSET_DB,
     _check_cancel,
     _temporary_wave,
+    _profile,
 )
 
 
@@ -226,3 +233,237 @@ class _SpectralUnmasking:
             self.weight[-self.hop :] = 0
         if pending_frames:
             self.output.write(pending[:pending_frames])
+
+
+class SpectrumPlan(TypedDict):
+    overlap: float
+    bands: list[dict[str, float]]
+    ratioDb: list[float]
+    clarityBands: NotRequired[list[dict[str, float]]]
+
+
+def _paired_octave_rows(
+    voice: Path,
+    backing: Path,
+    cancel: threading.Event,
+    *,
+    gain_plan: GainPlan | None = None,
+    music_center: bool = False,
+) -> list[list[list[float]]]:
+    edges = np.array([150, 300, 600, 1200, 2400, 4800, 9600], dtype=float)
+    with sf.SoundFile(voice) as singer, sf.SoundFile(backing) as music:
+        size = round(singer.samplerate * 0.4)
+        hz = np.fft.rfftfreq(size, 1 / singer.samplerate)
+        selected = [(hz >= low) & (hz < high) for low, high in zip(edges[:-1], edges[1:])]
+        window = np.hanning(size)[:, None]
+        rows = []
+        for vocal in singer.blocks(blocksize=size, always_2d=True):
+            _check_cancel(cancel)
+            accompaniment = music.read(len(vocal), always_2d=True)
+            if len(vocal) < size:
+                continue
+            if gain_plan is not None:
+                time = (singer.tell() - len(vocal) + np.arange(len(vocal))) / singer.samplerate
+                gain = np.interp(time, gain_plan.times, gain_plan.gains)
+                vocal *= np.power(10.0, gain[:, None] / 20)
+            if music_center:
+                accompaniment = accompaniment.mean(axis=1, keepdims=True)
+            power = [
+                np.mean(abs(np.fft.rfft(x * window, axis=0)) ** 2, axis=1)
+                for x in (vocal, accompaniment)
+            ]
+            rows.append([[float(np.sum(p[band])) for band in selected] for p in power])
+    return rows
+
+
+def measure_mix_spectrum(voice: Path, backing: Path, cancel: threading.Event) -> SpectrumPlan:
+    edges = np.array([150, 300, 600, 1200, 2400, 4800, 9600], dtype=float)
+    rows = _paired_octave_rows(voice, backing, cancel)
+    if not rows:
+        return {"overlap": 0.0, "bands": [], "ratioDb": []}
+    values = np.asarray(rows)
+    activity = np.sum(values[:, 0, 1:5], axis=1)
+    active = activity > max(float(np.mean(activity)) * 0.1, 1e-12)
+    if not active.any():
+        return {"overlap": 0.0, "bands": [], "ratioDb": []}
+    energy = np.mean(values[active], axis=0)
+    fractions = energy / np.maximum(np.sum(energy, axis=1, keepdims=True), 1e-20)
+    overlap = float(np.clip(np.sum(np.sqrt(fractions[0] * fractions[1])), 0, 1))
+    ratios = 10 * np.log10(
+        np.maximum(values[active, 0], 1e-20) / np.maximum(values[active, 1], 1e-20)
+    )
+    excess = ratios[:, 1:-1] - (ratios[:, :-2] + ratios[:, 2:]) / 2
+    centers = np.sqrt(edges[:-1] * edges[1:])
+    nyquist = sf.info(voice).samplerate / 2
+    bands = [
+        {
+            "frequencyHz": float(centers[i + 1]),
+            "gainDb": -min(float(np.median(excess[:, i])) * 0.5, 3.0),
+        }
+        for i in range(4)
+        if np.mean(excess[:, i] > 3) >= 0.65
+        and edges[i + 3] <= nyquist
+        and fractions[0, i + 1] > 0.01
+        and fractions[1, i + 1] > 0.01
+    ]
+    return {"overlap": overlap, "bands": bands, "ratioDb": np.median(ratios, axis=0).tolist()}
+
+
+def plan_presence_eq(
+    voice: Path, backing: Path, plan: GainPlan, cancel: threading.Event
+) -> list[dict[str, float]]:
+    presence = plan.report.get("presenceCompensationDb")
+    if not isinstance(presence, (int, float)) or presence < 1:
+        return []
+    rows = _paired_octave_rows(voice, backing, cancel, gain_plan=plan, music_center=True)
+    if not rows:
+        return []
+    values = np.asarray(rows)
+    vocal = np.sum(values[:, 0, 1:5], axis=1)
+    active = vocal > max(float(np.mean(vocal)) * 0.1, 1e-12)
+    if not active.any():
+        return []
+    energy = np.mean(values[active], axis=0)
+    shares = energy / np.maximum(np.sum(energy, axis=1, keepdims=True), 1e-20)
+    prominence = np.median(
+        10
+        * np.log10(
+            np.maximum(values[active, 0, 2:4], 1e-20) / np.maximum(values[active, 1, 2:4], 1e-20)
+        ),
+        axis=0,
+    )
+    weights = np.sqrt(energy[0, 2:4] * energy[1, 2:4])
+    weights *= np.all(shares[:, 2:4] > 0.01, axis=0)
+    if weights.sum() <= 1e-20:
+        return []
+    boosts = np.clip(-prominence, 0, 3)
+    gain = float(np.average(boosts, weights=weights))
+    if gain < 1:
+        return []
+    frequency = float(
+        np.exp(
+            np.average(
+                np.log([math.sqrt(600 * 1200), math.sqrt(1200 * 2400)]), weights=weights * boosts
+            )
+        )
+    )
+    return [{"frequencyHz": frequency, "gainDb": gain}]
+
+
+def _side_spectra(path: Path, cancel: threading.Event) -> tuple[np.ndarray, int, int]:
+    with sf.SoundFile(path) as source:
+        rate = source.samplerate
+        size = max(4096, 2 ** math.ceil(math.log2(rate * 0.25)))
+        powers = np.zeros((2, 3, size // 2 + 1), dtype=complex)
+        if source.channels < 2 or source.frames < rate * 6:
+            return powers, rate, size
+        window = np.hanning(size)[:, None]
+        for index, block in enumerate(source.blocks(blocksize=size, always_2d=True)):
+            _check_cancel(cancel)
+            if len(block) != size:
+                continue
+            mid_side = np.column_stack((block[:, :2].mean(axis=1), (block[:, 0] - block[:, 1]) / 2))
+            mid, side = np.fft.rfft(mid_side * window, axis=0).T
+            group = (index * size // (rate * 3)) % 2
+            powers[group] += np.stack((abs(mid) ** 2, abs(side) ** 2, mid.conj() * side))
+    return powers, rate, size
+
+
+def _causal_side_kernel(powers: np.ndarray, rate: int, size: int) -> np.ndarray:
+    mid, _, cross = powers
+    response = cross / np.maximum(mid.real + mid.real.max() * 0.001, 1e-20)
+    kernel = np.fft.irfft(response, n=size)[: round(rate * 0.08)].copy()
+    kernel[: round(rate * 0.004)] = 0
+    fade = max(1, round(rate * 0.001))
+    kernel[-fade:] *= np.linspace(1, 0, fade)
+    return kernel
+
+
+def measure_stereo_response(
+    path: Path, output_rate: int, cancel: threading.Event
+) -> tuple[np.ndarray, float]:
+    """Keep only causal stereo responses that predict independent reference windows."""
+    powers, rate, size = _side_spectra(path, cancel)
+    frequencies = np.fft.rfftfreq(size, 1 / rate)
+    band = (frequencies >= 150) & (frequencies <= 3500)
+    kernels, scores = [], []
+    for group in range(2):
+        kernel = _causal_side_kernel(powers[group], rate, size)
+        response = np.fft.rfft(kernel, n=size)
+        mid, side, cross = powers[1 - group]
+        selected = band & (mid.real > mid.real.max() * 0.001)
+        if np.count_nonzero(selected) < 64 or side.real[selected].sum() < 1e-12:
+            return np.empty(0), 0.0
+        error = side.real - 2 * (response.conj() * cross).real + abs(response) ** 2 * mid.real
+        score = 1 - float(error[selected].sum() / side.real[selected].sum())
+        kernels.append(kernel)
+        scores.append(score)
+    if min(scores) < 0.1:
+        return np.empty(0), min(scores)
+    kernel = np.mean(kernels, axis=0)
+    if rate != output_rate:
+        divisor = math.gcd(rate, output_rate)
+        kernel = resample_poly(kernel, output_rate // divisor, rate // divisor) * rate / output_rate
+        kernel[: round(output_rate * 0.004)] = 0
+    return kernel, min(scores)
+
+
+def measure_band_tails(path: Path, cancel: threading.Event) -> dict[str, SpaceProfile]:
+    bands = [(400.0, 800.0), (800.0, 1600.0), (1600.0, 3200.0), (3200.0, 6400.0)]
+    with sf.SoundFile(path) as source:
+        bands = [band for band in bands if band[1] < source.samplerate / 2]
+        filters = [
+            butter(4, band, btype="bandpass", fs=source.samplerate, output="sos") for band in bands
+        ]
+        states = [np.zeros((len(sos), 2, min(source.channels, 2))) for sos in filters]
+        step = max(1, round(source.samplerate * 0.02))
+        rows = []
+        for block in source.blocks(blocksize=step * 100, always_2d=True):
+            _check_cancel(cancel)
+            count = len(block) // step
+            if not count:
+                continue
+            powers = []
+            for index, sos in enumerate(filters):
+                samples, states[index] = sosfilt(sos, block[:, :2], axis=0, zi=states[index])
+                frames = samples[: count * step].reshape(count, step, samples.shape[1])
+                powers.append(np.mean(frames**2, axis=(1, 2)))
+            if powers:
+                rows.append(np.stack(powers, axis=1))
+    if not rows:
+        return {}
+    levels = 10 * np.log10(np.maximum(np.concatenate(rows), 1e-12))
+    profiles = {}
+    for index, band in enumerate(bands):
+        decay, gain, count = _decay(levels[:, index])
+        if gain:
+            profiles[f"tail-{int(band[0])}"] = SpaceProfile(
+                decay_seconds=decay,
+                reverb_gain=gain,
+                decay_count=count,
+                tail_band_hz=band,
+            )
+    return profiles
+
+
+def plan_band_space(
+    reference: Path, voice: Path, width: float, cancel: threading.Event
+) -> dict[str, SpaceProfile]:
+    expected = measure_band_tails(reference, cancel)
+    if not expected:
+        return {}
+    existing = measure_band_tails(voice, cancel)
+    total = float(np.mean(10 ** (_profile(voice, cancel) / 10)))
+    selected = {}
+    for name, profile in expected.items():
+        present = existing.get(name, SpaceProfile())
+        if present.decay_seconds > profile.decay_seconds:
+            continue
+        gain = math.sqrt(max(0.0, profile.reverb_gain**2 - present.reverb_gain**2))
+        power = _profile(voice, cancel, voice_band=True, band_hz=profile.tail_band_hz)
+        fraction = min(1.0, float(np.mean(10 ** (power / 10))) / max(total, 1e-20))
+        if gain > 0:
+            selected[name] = replace(
+                profile, reverb_gain=gain * math.sqrt(fraction), stereo_width=width
+            )
+    return selected

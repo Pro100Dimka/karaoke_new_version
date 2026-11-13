@@ -1,21 +1,43 @@
-from pathlib import Path
-import ast
+import threading
+import numpy as np
+import pytest
+import soundfile as sf
+from backend.infrastructure.process_runner import ProcessRunner
+from backend.recordings.studio_master import FfmpegStudioMasterRenderer
+from backend.recordings.studio_render import MasterRender
 
 
-def test_unmask_runs_for_both_vocal_sources():
-    source = Path(__file__).resolve().parents[1] / "backend/recordings/studio_render.py"
-    module = ast.parse(source.read_text(encoding="utf-8"))
-    cls = next(n for n in module.body if isinstance(n, ast.ClassDef) and n.name == "MasterRender")
-    method = next(n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == "_unmask")
-    assert not any(
-        isinstance(n, ast.If)
-        and isinstance(n.test, ast.Attribute)
-        and n.test.attr == "process_voice"
-        for n in ast.walk(method)
+@pytest.mark.parametrize("dry", [False, True])
+def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkeypatch, dry):
+    time = np.arange(8000 * 5) / 8000
+    voice = 0.03 * np.sin(2 * np.pi * 700 * time)
+    music = 0.05 * np.sin(2 * np.pi * 200 * time)
+    paths = [tmp_path / n for n in ["voice.wav", "back.wav", "mix.wav"]]
+    for path, samples in zip(paths, [voice, music, voice + music]):
+        sf.write(path, samples, 8000, subtype="FLOAT")
+    original = paths[1].read_bytes()
+    stems = []
+    deliver = MasterRender._deliver
+
+    def capture(render):
+        assert render.backing == paths[1]
+        stems.append(sf.read(render.balanced)[0])
+        deliver(render)
+
+    monkeypatch.setattr(MasterRender, "_deliver", capture)
+    target = tmp_path / "master.wav"
+    FfmpegStudioMasterRenderer(ProcessRunner()).render(
+        paths[0],
+        paths[1],
+        paths[0],
+        paths[1],
+        target,
+        threading.Event(),
+        performance_mix=paths[2],
+        exact_stems=True,
+        process_voice=dry,
+        adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
-    assert any(
-        isinstance(n, ast.Call)
-        and isinstance(n.func, ast.Attribute)
-        and n.func.attr == "_unmask_backing"
-        for n in ast.walk(method)
-    )
+    actual, _ = sf.read(target)
+    np.testing.assert_allclose(actual, stems[0] + music, atol=2e-6)
+    assert paths[1].read_bytes() == original

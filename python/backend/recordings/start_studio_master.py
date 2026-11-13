@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import logging
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence, Mapping
 from contextlib import ExitStack, contextmanager
 from functools import partial
 
@@ -167,8 +167,9 @@ class StartStudioMaster:
             cpu_threads=settings.cpu_threads,
         )
         try:
+            audio = self._separation_source(recording, workspace, context)
             separated = provider.separate(
-                recording.file_path,
+                audio,
                 workspace / "separation",
                 context.cancel,
                 execution=lease.execution,
@@ -176,6 +177,24 @@ class StartStudioMaster:
             return separated.reference_vocal, separated.instrumental
         finally:
             lease.release()
+
+    def _separation_source(
+        self, recording: Recording, workspace: Path, context: JobContext
+    ) -> Path:
+        source = recording.file_path
+        if recording.channels <= 2 or not self._renderer._repeated_output_channels(
+            source, context.cancel
+        ):
+            return source
+        target = workspace / "original-stereo.wav"
+        self._renderer._mix(
+            source,
+            source,
+            "[0:a]pan=stereo|c0=c0|c1=c1[out]",
+            ["-c:a", "pcm_f32le", str(target)],
+            context.cancel,
+        )
+        return target
 
     def _stems(self, recording: Recording) -> tuple[Path, Path] | None:
         stems = recording_stems(recording.file_path, prefer_dry=True)
@@ -188,10 +207,26 @@ class StartStudioMaster:
         return None
 
     def _recording(self, recording_id: str) -> Recording:
-        with self._uow.create() as transaction:
-            recording = transaction.recordings.get(recording_id)
-        if recording is None:
-            raise NotFoundError("RecordingNotFound", "Recording was not found")
+        seen: set[str] = set()
+        while True:
+            if recording_id in seen:
+                raise DomainError(
+                    "StudioMasterSourceCycle", "Original recording chain is cyclic", 409
+                )
+            seen.add(recording_id)
+            with self._uow.create() as transaction:
+                recording = transaction.recordings.get(recording_id)
+            if recording is None:
+                raise NotFoundError("RecordingNotFound", "Original recording was not found")
+            master = (recording.session_metadata or {}).get("studioMaster")
+            if master is None:
+                break
+            source_id = master.get("sourceRecordingId") if isinstance(master, Mapping) else None
+            if not isinstance(source_id, str) or not source_id:
+                raise DomainError(
+                    "StudioMasterSourceMissing", "Master has no original recording link", 409
+                )
+            recording_id = source_id
         if not recording.file_path.is_file():
             raise NotFoundError("RecordingFileMissing", "Recording file is unavailable")
         if recording.file_status != "Ready":
