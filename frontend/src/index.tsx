@@ -1,4 +1,4 @@
-import { setMotionFrameRate } from '@neo-ui-kit/react';
+import { setDecorationLevel, setMotionFrameRate } from '@neo-ui-kit/react';
 import '@neo-ui-kit/react/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRoot } from 'react-dom/client';
@@ -7,6 +7,7 @@ import App from './pages';
 import './styles.css';
 
 setMotionFrameRate(60);
+setDecorationLevel('light');
 
 const queryClient = new QueryClient({
   defaultOptions: {
