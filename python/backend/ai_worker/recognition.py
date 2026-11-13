@@ -8,19 +8,105 @@ from pathlib import Path
 from types import MappingProxyType
 
 import numpy as np
+import torch
 from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
 from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE
 from backend.ai.domain import WordTiming
 from backend.processing.reporting import rate_reviews
-from backend.ai_worker.timing import _runs
+from backend.ai_worker.timing import _bridged, _runs
+from backend.ai_worker.ctc_tokens import _character_tokens
 from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
 from backend.lyrics.phrases import _line_matches, _lyrics_key, performed_phrases
 
 _MARGIN = 0.6
 _STEP = 0.01
 HeardWord = tuple[str, float, float]
+
+
+def recover_vocalizations(
+    words: Sequence[AlignedWord],
+    scores: torch.Tensor | None,
+    step: float,
+    activity: np.ndarray,
+    periodicity: np.ndarray,
+    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
+) -> list[AlignedWord]:
+    """Recover unwritten held vowels only when independent recognition agrees with CTC and phonation."""
+    if scores is None or not words or not activity.any():
+        return []
+    vowels = [token[0] for token in _character_tokens("aeiou")]
+    gaps = zip(
+        [0.0, *(word.end for word in words)],
+        [*(word.start for word in words), len(activity) * _STEP],
+    )
+    candidates = []
+    for left, right in gaps:
+        first, last = max(0, round(left / _STEP)), min(len(activity), round(right / _STEP))
+        flags = activity[first:last] & (periodicity[first:last] >= 0.5)
+        for run_first, run_last in _runs(_bridged(flags, round(0.3 / _STEP)), True):
+            if (run_last - run_first) * _STEP < 0.8 or flags[run_first:run_last].mean() < 0.6:
+                continue
+            begin, finish = (first + run_first) * _STEP, (first + run_last) * _STEP
+            local = scores[round(begin / step) : round(finish / step), vowels]
+            if local.numel() and float(local.max().exp()) >= 0.5:
+                context_start = max(left, begin - _MARGIN)
+                candidates.append(
+                    (
+                        begin,
+                        finish,
+                        context_start,
+                        min(right, finish + _MARGIN, context_start + CHUNK_LENGTH),
+                    )
+                )
+    if not candidates:
+        return []
+    try:
+        results = recognize([(start, end, None) for _, _, start, end in candidates]).get(
+            "contexts", []
+        )
+    except (FileNotFoundError, OSError, RuntimeError, ValueError):
+        return []
+    recovered: list[AlignedWord] = []
+    for (begin, finish, _, _), result in zip(
+        candidates, results if isinstance(results, list) else []
+    ):
+        segments = result.get("segments", [])
+        for segment in segments if isinstance(segments, list) else []:
+            text = _key(str(segment.get("text", "")))
+            if not text or len(set(text)) != 1:
+                continue
+            tokens = _character_tokens(text[0])[0]
+            if len(tokens) != 1 or tokens[0] not in vowels:
+                continue
+            start = max(begin, float(segment["start"]) - _MARGIN)
+            end = min(finish, float(segment["end"]) + _MARGIN)
+            local = scores[round(start / step) : round(end / step), tokens[0]]
+            if end - start < 0.8 or not local.numel():
+                continue
+            confidence = float(local.max().exp())
+            if confidence >= 0.5:
+                previous = recovered[-1] if recovered else None
+                if previous is not None and start < previous.end:
+                    if previous.text == text[0].upper():
+                        recovered[-1] = replace(
+                            previous,
+                            end=max(previous.end, end),
+                            score=max(previous.score, confidence),
+                        )
+                else:
+                    recovered.append(
+                        AlignedWord(
+                            text[0].upper(),
+                            start,
+                            end,
+                            (start,),
+                            confidence,
+                            ("RecoveredVocalization",),
+                        )
+                    )
+    return recovered
 
 
 def boundary_conflicts(words: Sequence[AlignedWord]) -> set[int]:

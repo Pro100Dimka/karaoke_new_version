@@ -18,6 +18,24 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+def test_recovered_wordless_singing_does_not_discard_confirmed_catalogue_repeats():
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    found = LyricsDiscoveryResult(
+        "keep singing\nkeep singing", "Sidecar", (), repeat_baseline="keep singing"
+    )
+    words = (
+        WordTiming("keep", 0, 0.5, 0.8),
+        WordTiming("singing", 0.5, 1, 0.8),
+        WordTiming("А", 2, 4, 0.8, diagnostics=("RecoveredVocalization",)),
+        WordTiming("keep", 5, 5.5, 0.8),
+        WordTiming("singing", 5.5, 6, 0.8),
+    )
+    assert _verified_repeats(found, words) == found
+
+
 @pytest.mark.parametrize("extra_supported", [False, True])
 def test_extra_recognized_repeat_requires_acoustic_support_without_dropping_quiet_originals(
     extra_supported,

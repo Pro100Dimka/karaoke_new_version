@@ -53,6 +53,7 @@ from backend.ai_worker.recognition import (
     independent_words,
     independent_timings,
     recover_leading_words,
+    recover_vocalizations,
     heard_words,
     heard_timings as _heard_timings,
     rate_review_indices,
@@ -366,7 +367,7 @@ class _AlignmentPass:
         guided, guide, voiced, activity, supported = self._guide_alignment(
             timing_hints, whole, recognize
         )
-        return self._refine_alignment(supported, guided, guide, voiced, activity)
+        return self._refine_alignment(supported, guided, guide, voiced, activity, recognize)
 
     def _guide_alignment(
         self,
@@ -437,6 +438,7 @@ class _AlignmentPass:
         guide: partial[list[AlignedWord]],
         voiced: np.ndarray,
         activity: np.ndarray,
+        recognize: partial[Mapping[str, object]],
     ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
         acoustic = harmonic_evidence(self.audio, _SAMPLE_RATE, _HOP)
         harmonics = acoustic if self.backing is not None else None
@@ -456,7 +458,7 @@ class _AlignmentPass:
             guided, started, timed, reviewed, intervals, guide, activity, voiced, sung_ends
         )
         timed = with_sung_letters(timed, self.scores, self.step, activity, intervals)
-        return alignment_payload(
+        payload = alignment_payload(
             timed,
             independent_timings(self.words, [self.heard, *self.views], timed),
             recovered=recovered,
@@ -464,6 +466,17 @@ class _AlignmentPass:
                 rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
             ),
         )
+        recovered_vowels = recover_vocalizations(
+            timed, self.scores, self.step, activity, acoustic[1], recognize
+        )
+        payload["words"].extend(alignment_payload(recovered_vowels, {})["words"])
+        payload["words"] = [
+            value
+            for _, value in sorted(
+                zip([*timed, *recovered_vowels], payload["words"]), key=lambda pair: pair[0].start
+            )
+        ]
+        return payload
 
     def _recover_alignment(
         self,

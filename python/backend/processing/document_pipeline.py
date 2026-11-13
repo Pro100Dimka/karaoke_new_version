@@ -81,6 +81,7 @@ def _verified_repeats(
     """Keep the catalogue floor and independently supported surplus occurrences."""
     if not discovery.repeat_baseline or discovery.unverified_repeat_lyrics:
         return discovery
+    words = tuple(word for word in words if "RecoveredVocalization" not in word.diagnostics)
     lines = discovery.lyrics.splitlines()
     baseline = Counter(_lyrics_key(line) for line in discovery.repeat_baseline.splitlines())
     keys = [_lyrics_key(line) for line in lines]
@@ -165,7 +166,7 @@ class BuildProcessingDocument:
         self._run_stages(execution, run_align, run_pitch, parallel=parallel)
         reports.extend(pitch_reports)
         document = self._construct(song, prepared, discovery, words, stable, context, reports)
-        warnings = _document_warnings(discovery, words, stable, prepared.music.bpm)
+        warnings = _document_warnings(discovery, words, stable, prepared.music.bpm, document.lyrics)
         return BuiltDocument(replace(document, rhythm=prepared.rhythm), discovery, warnings)
 
     def _align_reusing(
@@ -382,10 +383,11 @@ def _document_warnings(
     words: tuple[WordTiming, ...],
     stable: tuple[PitchPoint, ...],
     bpm: float | None,
+    lyrics: str,
 ) -> tuple[str, ...]:
     warnings = (
         discovery.warnings
-        + alignment_warnings(words, lyrics=discovery.lyrics, bpm=bpm)
+        + alignment_warnings(words, lyrics=lyrics, bpm=bpm)
         + pitch_warnings(stable)
     )
     return warnings

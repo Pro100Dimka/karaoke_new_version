@@ -52,6 +52,8 @@ const groupWords = (
       (/[,;:.!?…]$/.test(previous.text) && gap >= pauseSeconds / 4);
     const orphanPreposition =
       current?.length === 1 &&
+      previous !== undefined &&
+      previous.end - previous.start < 0.8 &&
       ['в', 'у', 'з', 'с', 'к', 'a', 'an', 'the', 'to', 'of', 'in'].includes(
         previous?.text.toLowerCase() ?? '',
       ) &&

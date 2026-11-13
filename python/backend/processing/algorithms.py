@@ -97,15 +97,19 @@ def _phrase_lines(
     for line in lyrics.splitlines():
         count += len(line.split())
         boundaries.add(count)
-    if count != len(words):
+    if count != sum("RecoveredVocalization" not in word.diagnostics for word in words):
         return lyrics
     pauses = [
         (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= pause_seconds
     ]
     lines: list[list[str]] = []
+    written_index = 0
     for index, word in enumerate(words):
+        vocalization = "RecoveredVocalization" in word.diagnostics
         if not lines or (
-            index in boundaries
+            written_index in boundaries
+            or vocalization
+            or "RecoveredVocalization" in words[index - 1].diagnostics
             or len(lines[-1]) >= 8
             or word.start - words[index - 1].end >= pause_seconds
             or any(
@@ -115,12 +119,14 @@ def _phrase_lines(
         ):
             lines.append([])
         lines[-1].append(word.text)
+        written_index += not vocalization
     for index in range(len(lines) - 2, -1, -1):
         if len(lines[index]) == 1 and lines[index][0].casefold() in {
             "в", "у", "з", "с", "к", "a", "an", "the", "to", "of", "in"
         }:
             following = sum(len(line) for line in lines[: index + 1])
-            if words[following].start - words[following - 1].end < 3:
+            previous = words[following - 1]
+            if previous.end - previous.start < 0.8 and words[following].start - previous.end < 3:
                 lines[index + 1].insert(0, lines[index].pop())
     return "\n".join(" ".join(line) for line in lines if line)
 

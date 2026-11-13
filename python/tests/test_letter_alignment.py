@@ -27,6 +27,79 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize(
+    "text,active,periodic,peak,expected",
+    [
+        ("А-а-а", True, 0.9, 0.8, True),
+        ("А-а-а|А-а-а", True, 0.9, 0.8, True),
+        ("Дякую за перегляд", True, 0.9, 0.8, False),
+        ("А-а-а", False, 0.9, 0.8, False),
+        ("А-а-а", True, 0.1, 0.8, False),
+        ("А-а-а", True, 0.9, 0.05, False),
+        ("О-о-о", True, 0.9, 0.8, False),
+    ],
+)
+def test_missing_vocalization_requires_independent_vowel_and_singing_evidence(
+    text, active, periodic, peak, expected
+):
+    import torch
+    from torchaudio.pipelines import MMS_FA
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    activity = np.zeros(600, bool)
+    activity[200:400] = active
+    periodicity = np.full(600, periodic)
+    scores = torch.full((300, len(MMS_FA.get_dict())), -12.0)
+    scores[120, MMS_FA.get_dict()["a"]] = np.log(peak)
+    original = [AlignedWord("before", 0, 1, (), 0.8), AlignedWord("after", 5, 6, (), 0.8)]
+    calls = []
+
+    def recognize(contexts):
+        calls.extend(contexts)
+        parts = text.split("|")
+        return {
+            "contexts": [
+                {
+                    "segments": [
+                        {
+                            "text": part,
+                            "start": 2 + i * 2 / len(parts),
+                            "end": 2 + (i + 1) * 2 / len(parts),
+                        }
+                        for i, part in enumerate(parts)
+                    ]
+                }
+            ]
+        }
+
+    recovered = recover_vocalizations(original, scores, 0.02, activity, periodicity, recognize)
+    assert len(recovered) == int(expected)
+    if expected:
+        assert recovered[0].text == "А"
+        assert (recovered[0].start, recovered[0].end) == pytest.approx((2, 4))
+        assert "RecoveredVocalization" in recovered[0].diagnostics
+        assert calls == [(1.4, 4.6, None)]
+    if not active or periodic < 0.5 or peak < 0.5:
+        assert calls == []
+    assert [word.text for word in original] == ["before", "after"]
+
+
+def test_missing_vocalization_does_not_duplicate_existing_sung_words():
+    import torch
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    def unexpected(_contexts):
+        pytest.fail("Covered singing must not trigger recognition")
+
+    words = [AlignedWord("Ааа", 0, 6, (), 0.8)]
+    assert (
+        recover_vocalizations(
+            words, torch.zeros(300, 28), 0.02, np.ones(600, bool), np.ones(600), unexpected
+        )
+        == []
+    )
+
+
 def test_guided_alignment_retains_the_recovered_voice_entry(monkeypatch):
     from backend.ai_worker import ctc
     import torch

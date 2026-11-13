@@ -67,6 +67,28 @@ def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line
     assert [word.text for word in document.words] == text.split()
 
 
+def test_recovered_vocalization_keeps_notes_and_catalogue_phrase_boundaries():
+    words = (
+        WordTiming("first", 0, 1, 0.8),
+        WordTiming("А", 2, 4, 0.8, (2,), ("RecoveredVocalization",)),
+        WordTiming("next", 5, 6, 0.8),
+        WordTiming("line", 6, 7, 0.8),
+    )
+    pitch = tuple(PitchPoint(i / 100, _A4, 0.99, True) for i in range(200, 400))
+    document = construct_document("t", "a", 8, "first\nnext line", words, pitch, _music())
+    assert document.lyrics == "first\nА\nnext line"
+    assert document.words[1].notes
+    assert [word.text for word in document.words] == [word.text for word in words]
+
+
+def test_held_english_vowel_is_not_attached_as_an_orphan_article():
+    words = (
+        WordTiming("A", 0, 2, 0.8, (0,), ("RecoveredVocalization",)),
+        WordTiming("next", 2.5, 3, 0.8),
+    )
+    assert construct_document("t", "a", 4, "next", words, (), _music()).lyrics == "A\nnext"
+
+
 def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> (
     None
 ):

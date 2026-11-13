@@ -519,3 +519,9 @@ it('keeps an entire phrase through unvoiced consonants and brief articulation ga
     ])[0]?.words,
   ).toEqual(words);
 });
+
+it('keeps a held vowel on its own written line instead of treating it as an article', () => {
+  expect(
+    buildLines([word('A', 0, 2), word('next', 2.5, 3)], 'A\nnext'),
+  ).toHaveLength(2);
+});
