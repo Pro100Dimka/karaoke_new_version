@@ -76,7 +76,7 @@
   opacity: 0;
   transition: opacity 0.4s var(--ad-ease-standard);
 }
-@media (max-width: 40rem) {
+@media (width < 768px) {
   .karaokeIntroCard.ad-card {
     grid-template-columns: minmax(0, 1fr);
   }

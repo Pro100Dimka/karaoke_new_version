@@ -103,7 +103,7 @@
 .processingNotice .ad-dialog-body p {
   white-space: pre-line;
 }
-@media (max-width: 40rem) {
+@media (width < 1024px) {
   .processingJob.ad-card {
     grid-template-columns: auto minmax(0, 1fr);
     gap: var(--ad-space-3);
@@ -113,7 +113,7 @@
     max-width: none;
   }
 }
-@media (max-width: 28rem) {
+@media (width < 768px) {
   .processingJob.ad-card {
     grid-template-columns: minmax(0, 1fr);
   }

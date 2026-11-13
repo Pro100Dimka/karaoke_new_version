@@ -36,6 +36,21 @@ body,
   width: 100%;
 }
 
+.settingsTabs.ad-tabs {
+  overflow: clip;
+}
+
+.settingsTabs.ad-tabs > .ad-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: normal;
+  padding-inline: clamp(0.25rem, 1vw, 1rem);
+}
+
+.settingsBody {
+  min-height: min(18rem, 50dvh);
+}
+
 .settingsBody
   .ad-form-field
   > :is(

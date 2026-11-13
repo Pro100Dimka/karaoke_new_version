@@ -4,6 +4,7 @@ import {
   Dialog,
   IconButton,
   Landscape,
+  Loader,
   MessageBar,
   NeonWaves,
   Planet,
@@ -112,6 +113,13 @@ export const PerformanceAnalysisModal = ({
     (recording) => recording.sourceRecordingId === viewed?.id,
   );
 
+  const preparingPanel = (
+    <Card border padding="sm" className="analysisPreparing">
+      <Loader animation="wave" size="lg" label={tr(ru.recordingPreparing)} />
+      <Typography tone="muted">{tr(ru.recordingPreparing)}</Typography>
+    </Card>
+  );
+
   return (
     <Dialog
       open
@@ -134,6 +142,7 @@ export const PerformanceAnalysisModal = ({
       <Stack gap={3}>
         {!analysis ? (
           <>
+            {viewed?.fileStatus === 'Preparing' && preparingPanel}
             {pending && (
               <>
                 <Typography role="status">
@@ -240,78 +249,84 @@ export const PerformanceAnalysisModal = ({
                 </>
               )}
               <div className="analysisTakes">
-                <Card
-                  border
-                  padding="sm"
-                  level={4}
-                  icon="mic"
-                  title={tr(ru.studioMasterSourceTitle)}
-                  className="analysisOriginal"
-                  actions={
-                    <IconButton
-                      size="sm"
-                      variant="danger"
-                      icon="trash"
-                      label={tr(ru.recordingDelete)}
-                      disabled={viewed.fileStatus === 'Preparing'}
-                      onClick={() => onDelete(viewed)}
-                    />
-                  }
-                >
-                  <RecordingPlayer key={viewed.id} recording={viewed} />
-                </Card>
-                {(master || active) && (
-                  <Card
-                    key={master ? 'master' : 'studio'}
-                    border
-                    padding="sm"
-                    level={4}
-                    icon="sparkle"
-                    title={tr(ru.studioMasterTitle)}
-                    description={tr(
-                      ru[
-                        master
-                          ? 'studioMasterReadyDescription'
-                          : 'studioMasterDescription'
-                      ],
-                    )}
-                    className={master ? 'analysisMaster' : 'analysisStudio'}
-                    actions={
-                      master && (
-                        <img
-                          className="analysisMasterArt"
-                          src={`${performanceArtUrl}#pf-view-4`}
-                          alt=""
+                {viewed.fileStatus === 'Preparing' ? (
+                  preparingPanel
+                ) : (
+                  <>
+                    <Card
+                      border
+                      padding="sm"
+                      level={4}
+                      icon="mic"
+                      title={tr(ru.studioMasterSourceTitle)}
+                      className="analysisOriginal"
+                      actions={
+                        <IconButton
+                          size="sm"
+                          variant="danger"
+                          icon="trash"
+                          label={tr(ru.recordingDelete)}
+                          onClick={() => onDelete(viewed)}
                         />
-                      )
-                    }
-                  >
-                    {master ? (
-                      <RecordingPlayer key={master.id} recording={master} />
-                    ) : mastering ? (
-                      <Stack gap={1}>
-                        <ProgressBar
-                          label={tr(ru.studioMasterTitle)}
-                          value={mastering.progress}
-                        />
-                        <Typography variant="caption" tone="muted">
-                          {tr(ru.studioMasterProgressValue, {
-                            progress: mastering.progress,
-                          })}
-                        </Typography>
-                      </Stack>
-                    ) : (
-                      <Button
-                        variant="primary"
+                      }
+                    >
+                      <RecordingPlayer key={viewed.id} recording={viewed} />
+                    </Card>
+                    {(master || active) && (
+                      <Card
+                        key={master ? 'master' : 'studio'}
+                        border
+                        padding="sm"
+                        level={4}
                         icon="sparkle"
-                        disabled={Boolean(
-                          viewed.fileStatus && viewed.fileStatus !== 'Ready',
+                        title={tr(ru.studioMasterTitle)}
+                        description={tr(
+                          ru[
+                            master
+                              ? 'studioMasterReadyDescription'
+                              : 'studioMasterDescription'
+                          ],
                         )}
-                        onClick={() => onCreateStudioMaster(viewed)}
-                        label={tr(ru.studioMasterCreate)}
-                      />
+                        className={master ? 'analysisMaster' : 'analysisStudio'}
+                        actions={
+                          master && (
+                            <img
+                              className="analysisMasterArt"
+                              src={`${performanceArtUrl}#pf-view-4`}
+                              alt=""
+                            />
+                          )
+                        }
+                      >
+                        {master ? (
+                          <RecordingPlayer key={master.id} recording={master} />
+                        ) : mastering ? (
+                          <Stack gap={1}>
+                            <ProgressBar
+                              label={tr(ru.studioMasterTitle)}
+                              value={mastering.progress}
+                            />
+                            <Typography variant="caption" tone="muted">
+                              {tr(ru.studioMasterProgressValue, {
+                                progress: mastering.progress,
+                              })}
+                            </Typography>
+                          </Stack>
+                        ) : (
+                          <Button
+                            variant="primary"
+                            icon="sparkle"
+                            disabled={Boolean(
+                              viewed.fileStatus &&
+                                viewed.fileStatus !== 'Ready',
+                            )}
+                            onClick={() => onCreateStudioMaster(viewed)}
+                            label={tr(ru.studioMasterCreate)}
+                          />
+                        )}
+                      </Card>
                     )}
-                  </Card>
+                  </>
                 )}
               </div>
             </>

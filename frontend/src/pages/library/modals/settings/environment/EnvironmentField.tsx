@@ -46,7 +46,7 @@ export const EnvironmentField = ({
   const messageKey = messageKeyFor(entry);
   const message =
     entry.errorMessage !== undefined
-      ? (entry.errorMessage ?? tr(ru.settingsApplyFailed))
+      ? tr(entry.errorMessage ?? ru.settingsApplyFailed)
       : messageKey
         ? tr(ru[messageKey])
         : entry.message;

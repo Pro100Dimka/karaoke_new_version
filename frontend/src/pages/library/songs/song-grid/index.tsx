@@ -9,7 +9,7 @@ import {
 import { action, observableRef } from 'mobx';
 import { observer, useLocalObservable } from 'mobx-react-lite';
 import type { ReactNode, RefObject } from 'react';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SongDto } from '../../../../contracts/models';
 
 interface SongGridProps {
@@ -22,8 +22,6 @@ interface SongGridProps {
   loading?: boolean;
   loadMore?(): unknown;
 }
-
-const columns = { base: 1, sm: 2, md: 3, lg: 4 };
 
 export const VirtualGrid = observer(
   ({
@@ -138,14 +136,19 @@ export const VirtualGrid = observer(
               transform: `translateY(${row.start - layout.margin}px)`,
             }}
           >
-            <Grid columns={columns} gap={3}>
+            <Grid columns={12} gap={3}>
               {songs
                 .slice(
                   row.index * layout.columns,
                   (row.index + 1) * layout.columns,
                 )
                 .map((song) => (
-                  <Fragment key={itemKey(song)}>{renderItem(song)}</Fragment>
+                  <Grid
+                    key={itemKey(song)}
+                    span={{ base: 'full', sm: 6, md: 4, lg: 4 }}
+                  >
+                    {renderItem(song)}
+                  </Grid>
                 ))}
             </Grid>
           </div>

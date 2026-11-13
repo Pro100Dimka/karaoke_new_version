@@ -35,7 +35,7 @@
   padding: var(--ad-space-4) clamp(0.75rem, 2vw, 1.5rem)
     clamp(0.75rem, 2vw, 1.5rem);
 }
-@media (max-width: 70rem) {
+@media (width < 1024px) {
   .advancedAboutCard {
     grid-column: 1 / -1;
   }

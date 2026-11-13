@@ -1,13 +1,13 @@
 import { desktopClient as files } from '../../../../services/desktopClient';
 import { pythonClient as catalog } from '../../../../services/pythonClient';
 import { useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Card,
   IconButton,
   MessageBar,
   ProgressBar,
   SegmentedControl,
-  SplitButton,
   TextField,
   Typography,
   tr,
@@ -22,6 +22,7 @@ import performanceArtUrl from '../analysis/performance-art.svg';
 import { RecordingPlayer } from './RecordingPlayer';
 import { recordingStatusLabels } from '../../songs/songMetadataPresentation';
 import { useNearView } from '../../../../shared/hooks/useNearView';
+import { toAppError } from '../../../../shared/errors';
 
 /** The take's name, renamed in place: Enter or the check saves, Escape keeps the old one. */
 const TakeName = ({
@@ -119,6 +120,12 @@ export const RecordingCard = ({
   // drawn only once its card scrolls near the view and the list opens at once.
   const card = useRef<HTMLLIElement>(null);
   const nearView = useNearView(card);
+  const analysis = useQuery({
+    queryKey: ['recording-analysis', selected.id, selected.analysisStatus],
+    queryFn: () => catalog.latestAnalysis(selected.id),
+    enabled: nearView && hasAnalysis && !preparing,
+    staleTime: 60_000,
+  });
   const statuses = recordingStatusLabels(
     selected.fileStatus ?? 'Ready',
     task
@@ -172,6 +179,11 @@ export const RecordingCard = ({
             </>
           )}
           {failure && <MessageBar tone="error">{tr(ru[failure])}</MessageBar>}
+          {analysis.isError && (
+            <MessageBar tone="error">
+              {tr(toAppError(analysis.error).message)}
+            </MessageBar>
+          )}
           {nearView ? (
             <RecordingPlayer key={selected.id} recording={selected} />
           ) : (
@@ -182,6 +194,16 @@ export const RecordingCard = ({
           )}
         </div>
         <div className="recordingActions">
+          {analysis.data && (
+            <Typography
+              as="strong"
+              variant="h3"
+              tone="accent"
+              title={tr(ru.analysisOverall)}
+            >
+              {analysis.data.score}
+            </Typography>
+          )}
           {preparing ? null : task ? (
             <IconButton
               icon="stop"
@@ -190,19 +212,12 @@ export const RecordingCard = ({
               onClick={() => task.jobId && onCancelAnalysis?.(task.jobId)}
             />
           ) : hasAnalysis ? (
-            <SplitButton
+            <IconButton
               size="sm"
               variant="secondary"
               icon="levels"
               label={tr(ru.recordingOpenAnalysis)}
               onClick={() => onAnalyze(selected)}
-              items={[
-                {
-                  id: 'recalculate',
-                  label: tr(ru.recordingReanalyze),
-                  onSelect: () => onAnalyze(selected, true),
-                },
-              ]}
             />
           ) : (
             <IconButton
