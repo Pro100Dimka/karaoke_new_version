@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from collections import Counter
 from dataclasses import replace
+from itertools import groupby
 import threading
 from pathlib import Path
 from types import MappingProxyType
@@ -12,9 +13,9 @@ import torch
 from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
-from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE
+from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE, _evenly
 from backend.ai.domain import WordTiming
-from backend.processing.reporting import rate_reviews
+from backend.processing.reporting import _timing_load, rate_reviews
 from backend.ai_worker.timing import _bridged, _runs
 from backend.ai_worker.ctc_tokens import _character_tokens
 from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
@@ -23,6 +24,97 @@ from backend.lyrics.phrases import _line_matches, _lyrics_key, performed_phrases
 _MARGIN = 0.6
 _STEP = 0.01
 HeardWord = tuple[str, float, float]
+
+
+def with_acoustic_repeats(
+    words: list[AlignedWord],
+    onsets: Sequence[float],
+    acoustic: tuple[np.ndarray, np.ndarray],
+    activity: np.ndarray,
+    levels: np.ndarray,
+    heard: Mapping[int, tuple[float, float]],
+) -> list[AlignedWord]:
+    """Retain every written repeat, recovering short consonant breaks missed by loudness onsets."""
+    harmonic, periodicity = acoustic
+    result = list(words)
+
+    def core(start: float, end: float) -> np.ndarray:
+        first, last = max(0, round(start / _STEP)), min(len(activity), round(end / _STEP))
+        return harmonic[first:last][activity[first:last] & (periodicity[first:last] >= 0.7)]
+
+    for _, grouped in groupby(range(len(words)), key=lambda index: _key(words[index].text)):
+        indices = list(grouped)
+        first, last = indices[0], indices[-1]
+        if (
+            len(indices) < 2
+            or last + 1 == len(words)
+            or _timing_load(words[first].text)[1] != 1
+            or words[first].end - words[first].start < 0.25
+            or any(index in heard or words[index].score > _PREFERENCE for index in indices)
+        ):
+            continue
+        following = words[last + 1]
+        left = max(words[first - 1].end if first else 0, words[first].start - 0.25)
+        entries = [entry for entry in onsets if left <= entry < following.start]
+        if not entries or abs(entries[0] - words[first].start) > 0.25:
+            continue
+        reference = core(
+            entries[0], min(words[first].end, entries[1] if len(entries) > 1 else following.start)
+        )
+        negative = core(following.start, following.end)
+        if min(len(reference), len(negative)) < 10:
+            continue
+        matches: list[tuple[float, float]] = []
+        for start, stop in zip(entries, [*entries[1:], following.start]):
+            features = core(start, stop)
+            if len(features) < 10:
+                continue
+            same = max(0.0, float(np.median(1 - (features @ reference.T).max(axis=1))))
+            other = max(0.0, float(np.median(1 - (features @ negative.T).max(axis=1))))
+            if same > 0.05 or same >= other / 2:
+                continue
+            frame_first, frame_last = round(start / _STEP), round(stop / _STEP)
+            sounding = (
+                activity[frame_first:frame_last]
+                & (periodicity[frame_first:frame_last] >= 0.5)
+                & (
+                    levels[frame_first:frame_last]
+                    >= np.percentile(levels[frame_first:frame_last], 95) - 20
+                )
+            )
+            # Bridge detector flicker, but retain a consonant-sized interruption even
+            # when its energy never falls far enough for a new loudness onset.
+            islands = [(a, b) for a, b in _runs(_bridged(sounding, 2), True) if b - a >= 10]
+            if islands:
+                bounds = [
+                    float(start),
+                    *((frame_first + end) * _STEP for _, end in islands[:-1]),
+                    (frame_first + int(np.flatnonzero(sounding)[-1]) + 1) * _STEP,
+                ]
+                matches.extend(zip(bounds, bounds[1:]))
+        if len(matches) != len(indices):
+            continue
+        for index, (start, end) in zip(indices, matches):
+            word = words[index]
+            flags = tuple(
+                flag
+                for flag in word.diagnostics
+                if flag
+                not in {
+                    "TimingReviewRequired",
+                    "OnsetReviewRequired",
+                    "BoundaryConflict",
+                    "BoundaryClipped",
+                }
+            )
+            result[index] = replace(
+                word,
+                start=start,
+                end=end,
+                letters=_evenly([word.text], start, end)[0].letters,
+                diagnostics=(*flags, "AcousticRepeatRetimed", "ApproximateLetterTiming"),
+            )
+    return result
 
 
 def recover_vocalizations(

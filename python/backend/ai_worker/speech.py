@@ -38,6 +38,7 @@ from backend.ai_worker.runtime import (
 )
 from backend.ai_worker.timing import (
     audible_frames,
+    _levels,
     harmonic_evidence,
     singing_frames,
     vocal_onsets,
@@ -54,6 +55,7 @@ from backend.ai_worker.recognition import (
     independent_timings,
     recover_leading_words,
     recover_vocalizations,
+    with_acoustic_repeats,
     heard_words,
     heard_timings as _heard_timings,
     rate_review_indices,
@@ -458,6 +460,14 @@ class _AlignmentPass:
             guided, started, timed, reviewed, intervals, guide, activity, voiced, sung_ends
         )
         timed = with_sung_letters(timed, self.scores, self.step, activity, intervals)
+        timed = with_acoustic_repeats(
+            timed,
+            vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
+            acoustic,
+            activity,
+            _levels(self.audio, _HOP)[0],
+            intervals,
+        )
         payload = alignment_payload(
             timed,
             independent_timings(self.words, [self.heard, *self.views], timed),

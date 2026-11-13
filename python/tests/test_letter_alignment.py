@@ -27,6 +27,53 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize("text", ["hey", "go", "гей"])
+@pytest.mark.parametrize("evidence", ["three", "recognized", "ambiguous", "vibrato"])
+def test_fast_repeats_split_short_unvoiced_attacks_without_changing_word_count(text, evidence):
+    from backend.ai_worker.recognition import with_acoustic_repeats
+
+    words = [
+        AlignedWord("before", 0, 0.5, (), 0.8),
+        AlignedWord(text, 1, 1.7, (), 0.002),
+        AlignedWord(text, 2.8, 2.9, (), 0.002),
+        AlignedWord(text, 2.9, 3.1, (), 0.002),
+        AlignedWord("after", 3.1, 3.6, (), 0.8),
+    ]
+    harmonic = np.zeros((400, 2))
+    harmonic[:, 1] = 1
+    harmonic[100:170] = harmonic[200:270] = [1, 0]
+    periodicity = np.ones(400)
+    periodicity[130:135] = periodicity[165:200] = 0.2
+    if evidence == "vibrato":
+        periodicity[131:135] = 1
+    if evidence == "ambiguous":
+        harmonic[200:270] = np.sqrt(0.5)
+    activity = np.zeros(400, bool)
+    activity[100:170] = activity[200:270] = activity[300:370] = True
+    levels = np.where(activity, -20.0, -80.0)
+    heard = {2: (2.8, 2.9)} if evidence == "recognized" else {}
+    result = with_acoustic_repeats(
+        words, [1, 2, 3], (harmonic, periodicity), activity, levels, heard
+    )
+    assert len(result) == len(words)
+    assert [word.text for word in result] == [word.text for word in words]
+    assert result[0] == words[0]
+    assert result[-1] == words[-1]
+    if evidence == "three":
+        assert [word.start for word in result[1:4]] == pytest.approx([1, 1.3, 2])
+        assert [word.end for word in result[1:4]] == pytest.approx([1.3, 1.65, 2.7])
+        assert all(word.score == 0.002 for word in result[1:4])
+        assert "ApproximateLetterTiming" in result[2].diagnostics
+        repeated = with_acoustic_repeats(
+            result, [1, 2, 3], (harmonic, periodicity), activity, levels, {}
+        )
+        assert [(word.start, word.end) for word in repeated] == [
+            (word.start, word.end) for word in result
+        ]
+    else:
+        assert result == words
+
+
 @pytest.mark.parametrize(
     "text,active,periodic,peak,expected",
     [
