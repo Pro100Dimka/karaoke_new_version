@@ -114,16 +114,6 @@ export const useShowEngine = ({
     [engine],
   );
   useEffect(() => {
-    engine.advance(
-      performance.now(),
-      position,
-      devAutopilotPitch(notes, position) ?? pitchHz,
-      playing,
-      undefined,
-      pitchFrames === undefined,
-    );
-  }, [engine, notes, position, pitchHz, playing, pitchFrames]);
-  useEffect(() => {
     if (!playing || !pitchFrames) return;
     for (const frame of pitchFrames) {
       if (
@@ -144,6 +134,17 @@ export const useShowEngine = ({
       lastPitch.current = { epoch: frame.epoch, sequence: frame.sequence };
     }
   }, [engine, pitchFrames, playing]);
+  // Captured frames score their own past positions; drawing always ends on the current music clock.
+  useEffect(() => {
+    engine.advance(
+      performance.now(),
+      position,
+      devAutopilotPitch(notes, position) ?? pitchHz,
+      playing,
+      undefined,
+      pitchFrames === undefined,
+    );
+  }, [engine, notes, position, pitchHz, playing, pitchFrames]);
   useEffect(() => exposeForDiagnostics(engine), [engine]);
   return engine;
 };

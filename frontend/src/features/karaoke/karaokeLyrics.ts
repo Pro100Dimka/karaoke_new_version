@@ -49,14 +49,20 @@ const groupWords = (
       current.length >= maxWordsPerLine ||
       gap >= pauseSeconds ||
       (/[,;:.!?…]$/.test(previous.text) && gap >= pauseSeconds / 4);
-    if (startsNewLine) lines.push([word]);
-    else current.push(word);
+    const orphanPreposition =
+      current?.length === 1 &&
+      ['в', 'у', 'з', 'с', 'к', 'a', 'an', 'the', 'to', 'of', 'in'].includes(
+        previous?.text.toLowerCase() ?? '',
+      ) &&
+      gap < lyricSilenceSeconds;
+    if (startsNewLine && !orphanPreposition) lines.push([word]);
+    else if (current) current.push(word);
   }
   return lines;
 };
 
 /**
- * Written rows are upper bounds: a pause of about one beat, or a shorter breath after
+ * Written rows are upper bounds: a half-beat breath, or a shorter breath after
  * punctuation, also begins a phrase. Continuous singing is never split by punctuation alone.
  * Only boundaries between words are used, so held vowels and their notes stay intact.
  * The same phrases feed lyrics and the piano roll; persisted words/timings remain untouched.
@@ -69,10 +75,9 @@ export const buildLines = (
   groupWords(
     words,
     writtenLineSizes(lyrics, words.length),
-    Math.max(
-      0.3,
-      Math.min(0.9, 60 / (bpm && Number.isFinite(bpm) && bpm > 0 ? bpm : 120)),
-    ),
+    bpm && Number.isFinite(bpm) && bpm > 0
+      ? Math.max(0.2, Math.min(0.35, 30 / bpm))
+      : 0.35,
   ).map((group) => ({
     words: group,
     start: group[0]?.start ?? 0,
@@ -284,54 +289,6 @@ const timedLetterProgress = (
   );
 };
 
-/** Keep measured holds on vowels or sonorants, while short consonant clusters share a sweep. */
-const sustainedGroups = (
-  text: string,
-  starts: readonly number[],
-  indices: readonly number[],
-  groups: readonly number[],
-  geometry: LetterGeometry,
-): number[] => {
-  const anchors = new Set(groups);
-  const characters = [...text];
-  for (const [syllable, first] of groups.entries()) {
-    const last = groups[syllable + 1] ?? characters.length;
-    const duration = (starts[last] ?? 1) - (starts[first] ?? 0);
-    const width =
-      glyphProgress(text, groups, syllable, 1, geometry) -
-      glyphProgress(text, groups, syllable, 0, geometry);
-    for (const [sound, index] of indices.entries()) {
-      if (
-        index < first ||
-        index >= last ||
-        !/[aeiouyаеёиоуыэюяіїєймнлрmnrl]/i.test(characters[index] ?? '')
-      )
-        continue;
-      const next = indices[sound + 1] ?? characters.length;
-      const start = starts[index];
-      const end = next === characters.length ? 1 : starts[next];
-      const soundWidth =
-        glyphProgress(text, indices, sound, 1, geometry) -
-        glyphProgress(text, indices, sound, 0, geometry);
-      if (
-        start === undefined ||
-        end === undefined ||
-        start < (starts[first] ?? 0) ||
-        end > (starts[last] ?? 1) ||
-        end <= start ||
-        width <= 0 ||
-        (next < characters.length && end >= 1)
-      )
-        continue;
-      if (end - start > (duration * soundWidth) / width) {
-        anchors.add(index);
-        if (next < last) anchors.add(next);
-      }
-    }
-  }
-  return [...anchors].sort((a, b) => a - b);
-};
-
 /** Reading groups share a continuous fill; saved phonetic anchors and word bounds stay intact. */
 export const syllableProgress = (
   word: EditorWord,
@@ -342,6 +299,13 @@ export const syllableProgress = (
   if (position >= word.end) return 1;
   const characters = [...word.text];
   const indices = spokenIndices(word.text);
+  // Repeated vowel letters describe one held sound, not separate measured syllables.
+  if (
+    /^([aeiouyаеёиоуыэюяіїє])\1{2,}$/iu.test(
+      indices.map((i) => characters[i]).join(''),
+    )
+  )
+    return (position - word.start) / (word.end - word.start);
   const nuclei = indices.flatMap((index, i) =>
     vowels.test(characters[index] ?? '') ? [i] : [],
   );
@@ -380,9 +344,7 @@ export const syllableProgress = (
     word.text,
     (position - word.start) / (word.end - word.start),
     layout,
-    measured
-      ? sustainedGroups(word.text, starts, indices, groups, layout)
-      : [indices[0] ?? 0],
+    measured ? groups : [indices[0] ?? 0],
   );
 };
 

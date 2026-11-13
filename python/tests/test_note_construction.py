@@ -408,3 +408,21 @@ def test_a_continuous_short_glide_is_not_converted_into_distinct_middle_holds() 
         "t", "a", 0.8, "la", [WordTiming("la", 0.0, 0.8, 0.9)], points, _music()
     )
     assert [note.note for note in document.words[0].notes] == [60, 62]
+
+
+def test_phrase_break_does_not_leave_a_preposition_alone():
+    words = [WordTiming("них", 1, 2, 0.9), WordTiming("В", 2, 2.1, 0.9),
+             WordTiming("темряві", 2.7, 3.4, 0.9)]
+    document = construct_document("t", "a", 4, "них\nВ\nтемряві", words, (), _music())
+    assert document.lyrics == "них\nВ темряві"
+    assert [(word.text, word.start, word.end) for word in document.words] == [
+        (word.text, word.start, word.end) for word in words
+    ]
+
+
+@pytest.mark.parametrize("bpm,expected", [(133.33, "call\nthere\nagain"), (90, "call there again")])
+def test_phrases_use_tempo_for_short_breaths_between_replies(bpm, expected):
+    words = [WordTiming("call", 0, 1, 0.9), WordTiming("there", 1.26, 2, 0.9),
+             WordTiming("again", 2.26, 3, 0.9)]
+    document = construct_document("t", "a", 4, "call there again", words, (), MusicMetadata(bpm, None))
+    assert document.lyrics == expected

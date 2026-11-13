@@ -1,3 +1,5 @@
+import { renderHook } from '@testing-library/react';
+import { useShowEngine } from './ShowLayers';
 import { describe, expect, it } from 'vitest';
 import { ShowEngine } from './showEngine';
 
@@ -69,4 +71,31 @@ describe('lyrics rhythm', () => {
     engine.advance(1080, 1, undefined, false);
     expect(engine.state.musicBeat).toBe(0);
   });
+});
+
+it('does not let delayed microphone frames replace the current backing-track beat', () => {
+  const { result } = renderHook(() =>
+    useShowEngine({
+      notes: [],
+      lines: [],
+      rhythm: [[1, 1]],
+      position: 1.016,
+      playing: true,
+      pitchHz: 220,
+      settings: { intensity: 'full', reducedMotion: false },
+      pitchFrames: [
+        {
+          epoch: 1,
+          sequence: 1,
+          positionSeconds: 0.95,
+          durationSeconds: 0.02,
+          pitchHz: 220,
+          confidence: 0.95,
+          audioActive: true,
+        },
+      ],
+    }),
+  );
+  expect(result.current.voiceHistory.at(-1)?.position).toBe(0.95);
+  expect(result.current.state.musicBeat).toBeGreaterThan(0.45);
 });

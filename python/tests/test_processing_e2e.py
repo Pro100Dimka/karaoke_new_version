@@ -770,3 +770,21 @@ def test_unexpected_provider_crash_does_not_leave_the_song_processing(tmp_path: 
             json={"mode": "Fast", "onlineLyrics": False},
         )
         assert again.status_code == 202, again.text
+
+
+@pytest.mark.parametrize("recognized", [2, 3])
+def test_repeat_evidence_counts_recognized_words_without_overweighting_long_misspellings(recognized):
+    from backend.ai.domain import WordTiming
+    from backend.lyrics.discovery import LyricsDiscoveryResult
+    from backend.processing.document_pipeline import _verified_repeats
+
+    baseline = "hear these two extraordinarily carefully"
+    candidate = baseline + "\n" + baseline
+    found = LyricsDiscoveryResult(candidate, "catalogue", (), repeat_baseline=baseline)
+    words = tuple(
+        WordTiming(text, i, i + 0.4, 0.01,
+                   diagnostics=("RecognizedWord",) if i < 5 + recognized else ())
+        for i, text in enumerate(candidate.split())
+    )
+    verified = _verified_repeats(found, words)
+    assert verified.lyrics == (candidate if recognized == 3 else baseline)

@@ -1485,7 +1485,7 @@ def test_heard_repeated_choruses_match_their_temporal_occurrence_when_one_is_mis
 
     windows = _alignment_windows(" ".join(words), [], heard, whole, np.zeros(30 * _RATE))
 
-    assert [(window.first, window.last) for window in windows] == [(0, 3), (3, 9)]
+    assert [(window.first, window.last) for window in windows] == [(0, 3), (3, 6), (6, 9)]
     assert windows[1].start == pytest.approx(10.4)
     assert _heard_timings(words, heard, whole) == {
         index: (whole[index].start, whole[index].end) for index in range(3, 9)
@@ -3065,3 +3065,49 @@ def test_tensorrt_speech_replaces_only_the_opted_in_cuda_encoder(monkeypatch, ta
     assert actual.encoder is (replacement if accelerated else encoder)
     assert actual.decoder is decoder
     assert len(releases) == int(accelerated)
+
+
+def test_exact_recognition_run_is_split_at_sung_phrase_pauses():
+    from backend.ai_worker.speech_windows import _windows
+
+    words = "sing with me now sing with me now".split()
+    heard = [(word, i * 0.3 + (4 if i >= 4 else 0), i * 0.3 + 0.3 + (4 if i >= 4 else 0))
+             for i, word in enumerate(words)]
+    whole = [AlignedWord(word, 5 + i * 0.1, 5.1 + i * 0.1, ())
+             for i, word in enumerate(words)]
+    windows = _windows(words, heard, 8, whole)
+
+    assert [(window.first, window.last) for window in windows] == [(0, 4), (4, 8)]
+    assert windows[0].start == 0
+    assert windows[0].end < heard[4][1]
+    assert windows[1].heard_start == heard[4][1]
+
+
+def test_continuous_recognition_run_keeps_bounded_alignment_context():
+    from backend.ai_worker.speech_windows import _windows
+
+    words = [f"word{i}" for i in range(40)]
+    heard = [(word, i * 0.5, (i + 1) * 0.5) for i, word in enumerate(words)]
+    windows = _windows(words, heard, 20)
+
+    assert len(windows) > 1
+    assert [i for window in windows for i in range(window.first, window.last)] == list(range(40))
+    assert all(window.end - window.start <= 13.2 for window in windows)
+
+
+@pytest.mark.parametrize("text,score,onsets,expected", [
+    ("OOOOOO", 0.01, [1.5], 1.5),
+    ("OOOOOO", 0.9, [1.5], 0.8),
+    ("OOOOOO", 0.01, [], 0.8),
+    ("mama", 0.01, [1.5], 0.8),
+])
+def test_weak_elongated_vowel_uses_its_fresh_voice_entry_not_the_previous_word(text, score, onsets, expected, monkeypatch):
+    from backend.ai_worker import ctc_singing
+
+    monkeypatch.setattr(ctc_singing, "vocal_onsets", lambda *args: np.array(onsets))
+    words = [AlignedWord("stay", 0, 0.8, (0, 0.1, 0.2, 0.3), 0.9),
+             AlignedWord(text, 0.8, 1.0, tuple(0.8 + i * 0.02 for i in range(len(text))), score)]
+    result = with_voice_onsets(words, np.zeros(3 * _RATE), np.ones(300, dtype=bool))
+    assert result[1].start == expected
+    assert result[1].end > result[1].start
+    assert all(result[1].start <= value <= result[1].end for value in result[1].letters)

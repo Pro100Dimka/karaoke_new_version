@@ -1,6 +1,7 @@
 from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import replace
+import re
 import numpy as np
 from backend.ai_worker.timing import (
     _BRIDGED_GAP_SECONDS,
@@ -20,6 +21,7 @@ from backend.ai_worker.ctc_domain import (
     _ONSET_SEARCH_AFTER_SECONDS as _ONSET_SEARCH_AFTER_SECONDS,
     _ONSET_SEARCH_BEFORE_SECONDS as _ONSET_SEARCH_BEFORE_SECONDS,
     _PAUSE_SECONDS as _PAUSE_SECONDS,
+    _PREFERENCE as _PREFERENCE,
     _SILENCE_ENDS_WORD_SECONDS as _SILENCE_ENDS_WORD_SECONDS,
     _SILENT_START_SECONDS as _SILENT_START_SECONDS,
     _VOICE_HOP as _VOICE_HOP,
@@ -170,6 +172,32 @@ def with_voice_onsets(
     if voiced is None:
         voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
+    vocalizations = {
+        index for index, word in enumerate(words)
+        if index and word.score <= _PREFERENCE
+        and re.fullmatch(r"([aeiouyаеёиоуыэюяіїє])\1{2,}", word.text.casefold())
+    }
+    if vocalizations:
+        onsets = vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP)
+        words = list(words)
+        for index in sorted(vocalizations):
+            word = words[index]
+            limit = words[index + 1].start if index + 1 < len(words) else len(samples) / _VOICE_RATE
+            entries = [
+                float(onset) for onset in onsets
+                if max(words[index - 1].end, word.start) + _PAUSE_SECONDS < onset < limit - 0.2
+                and voiced[round(onset / step) : round((onset + 0.2) / step)].all()
+            ]
+            if not entries:
+                continue
+            start = entries[0]
+            # CTC may force a written OOO into the preceding lyric. Its repeated
+            # letters do not independently establish the later wordless entry.
+            words[index] = replace(
+                word, start=start, end=max(word.end, start + step),
+                letters=(start,) * len(word.text),
+                diagnostics=(*word.diagnostics, "OnsetRecovered", "ApproximateLetterTiming"),
+            )
     found = _voice_entries(words, voiced, step)
     if not found and len(samples):
         found = _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))

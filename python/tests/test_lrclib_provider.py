@@ -1099,3 +1099,18 @@ def test_a_longer_other_recording_cannot_replace_the_matching_catalog_version(ca
     assert result.lyrics == text
     assert result.timing_hints == hints
     assert result.source == FakeLyricsProvider.provider_id
+
+
+@pytest.mark.parametrize("language", ["English", "Ukrainian"])
+def test_repeated_parenthetical_backing_replies_do_not_enter_the_lead_lyrics(language):
+    from backend.text_normalization import clean_lyrics
+
+    text = "Main phrase (answer)\n(Continuation)\nNext main (continuation)\nMain phrase (Answer)\n(continuation)"
+    assert clean_lyrics(text, language) == "Main phrase\nNext main\nMain phrase"
+
+
+def test_unmarked_solo_vocalizations_and_an_isolated_parenthetical_aside_remain_lyrics():
+    from backend.text_normalization import clean_lyrics
+
+    text = "(Oh)\n(Oh)\nI sing (again)\nAaaa"
+    assert clean_lyrics(text, "English") == "Oh\nOh\nI sing again\nAaaa"

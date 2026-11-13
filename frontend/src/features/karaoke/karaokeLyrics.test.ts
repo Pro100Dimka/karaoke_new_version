@@ -30,18 +30,23 @@ const line = (start: number, end: number): LyricLine => ({
 
 describe('syllable fill', () => {
   it.each(['тобі', 'тоби'])(
-    'keeps the held final vowel of %s from stretching the preceding stop',
+    'keeps measured syllable entries in %s while sweeping each syllable continuously',
     (text) => {
       const saved = { ...word(text, 0, 1), letters: [0, 0.08, 0.16, 0.26] };
-      expect(syllableProgress(saved, 0.26)).toBeCloseTo(0.75);
-      expect(syllableProgress(saved, 0.63)).toBeCloseTo(0.875);
+      expect(syllableProgress(saved, 0.16)).toBeCloseTo(0.5);
+      expect(syllableProgress(saved, 0.26)).toBeCloseTo(
+        0.5 + (0.5 * 0.1) / 0.84,
+      );
+      expect(syllableProgress(saved, 0.63)).toBeCloseTo(
+        0.5 + (0.5 * 0.47) / 0.84,
+      );
       expect(syllableProgress(saved, 1)).toBe(1);
     },
   );
-  it('retains an acoustically timed held nasal inside a syllable', () => {
+  it('keeps a held nasal inside one continuous syllable sweep', () => {
     const saved = { ...word('дим', 0, 1), letters: [0, 0.1, 0.2] };
-    expect(syllableProgress(saved, 0.2)).toBeCloseTo(2 / 3);
-    expect(syllableProgress(saved, 0.6)).toBeCloseTo(5 / 6);
+    expect(syllableProgress(saved, 0.2)).toBeCloseTo(0.2);
+    expect(syllableProgress(saved, 0.6)).toBeCloseTo(0.6);
   });
   it.each([{ letters: [0, 0.2, 1, 1] }, { letters: [0, 0, 0, 0] }])(
     'keeps unresolved syllables continuous within the word: $letters',
@@ -57,14 +62,14 @@ describe('syllable fill', () => {
       end: 0.84,
       letters: [0, 0.08, 0.08, 0.22, 0.34],
       at: 0.11,
-      expected: (2 + 0.03 / 0.14) / 5,
+      expected: ((3 / 5) * 0.11) / 0.22,
     },
     {
       text: 'слухала',
       end: 0.7,
       letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6],
       at: 0.18,
-      expected: ((2 / 7) * 0.18) / 0.22,
+      expected: ((3 / 7) * 0.18) / 0.36,
     },
     {
       text: 'Так',
@@ -74,7 +79,7 @@ describe('syllable fill', () => {
       expected: 0.5,
     },
   ])(
-    'fills short clusters in $text smoothly while respecting the measured vowel hold',
+    'fills short clusters in $text smoothly within measured syllable boundaries',
     ({ text, end, letters, at, expected }) => {
       const saved = Object.freeze({
         ...word(text, 0, end),
@@ -426,4 +431,57 @@ describe('karaoke lyrics model', () => {
       expect(upcomingLinePhase([], 0, 5)).toEqual({ kind: 'text' });
     });
   });
+});
+
+it('fills an elongated vowel notation as one sung sound instead of six rapid syllables', () => {
+  const saved = {
+    ...word('ОООООО', 0, 6),
+    letters: [0, 0.01, 0.04, 0.06, 0.07, 0.1],
+  };
+  expect(syllableProgress(saved, 3)).toBeCloseTo(0.5);
+  expect(syllableProgress(saved, 5)).toBeCloseTo(5 / 6);
+});
+
+it('keeps a standalone preposition with the next phrase without changing word timing', () => {
+  const words = [
+    word('них', 1, 2),
+    word('В', 2, 2.1),
+    word('темряві', 2.7, 3.4),
+  ];
+  const lines = buildLines(words, 'них\nВ\nтемряві');
+  expect(lines.map((line) => line.words.map((word) => word.text))).toEqual([
+    ['них'],
+    ['В', 'темряві'],
+  ]);
+  expect(lines.flatMap((line) => line.words)).toEqual(words);
+});
+
+it('uses half-beat breaths consistently for separate replies in a faster song', () => {
+  const words = [
+    word('call', 0, 1),
+    word('there', 1.26, 2),
+    word('again', 2.26, 3),
+  ];
+  expect(
+    buildLines(words, 'call there again', 133.33).map(
+      (line) => line.words.length,
+    ),
+  ).toEqual([1, 1, 1]);
+  expect(
+    buildLines(words, 'call there again', 90).map((line) => line.words.length),
+  ).toEqual([3]);
+});
+
+it('does not flash the last half of a syllable when CTC puts its vowel at the word end', () => {
+  const saved = Object.freeze({
+    ...word('me', 0, 0.6),
+    letters: Object.freeze([0, 0.58 / 0.6]),
+  });
+  expect(syllableProgress(saved, 0.3)).toBeCloseTo(0.5);
+  let previous = 0;
+  for (let frame = 1; frame <= 36; frame++) {
+    const progress = syllableProgress(saved, frame / 60);
+    expect(progress - previous).toBeLessThan(0.04);
+    previous = progress;
+  }
 });

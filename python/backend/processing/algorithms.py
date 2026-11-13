@@ -79,7 +79,7 @@ def construct_document(
         duration,
         music.bpm,
         music.key,
-        _phrase_lines(lyrics, words, activity),
+        _phrase_lines(lyrics, words, activity, music.bpm),
         mapped_words,
         activity,
     )
@@ -88,9 +88,10 @@ def construct_document(
 
 
 def _phrase_lines(
-    lyrics: str, words: Sequence[WordTiming], activity: Sequence[tuple[float, float]]
+    lyrics: str, words: Sequence[WordTiming], activity: Sequence[tuple[float, float]], bpm: float | None = None
 ) -> str:
     """Persist readable phrases at written boundaries, breaths, and the eight-word limit."""
+    pause_seconds = max(0.2, min(0.35, 30 / bpm)) if bpm and math.isfinite(bpm) and bpm > 0 else 0.35
     boundaries: set[int] = set()
     count = 0
     for line in lyrics.splitlines():
@@ -99,14 +100,14 @@ def _phrase_lines(
     if count != len(words):
         return lyrics
     pauses = [
-        (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= 0.35
+        (left[1], right[0]) for left, right in pairwise(activity) if right[0] - left[1] >= pause_seconds
     ]
     lines: list[list[str]] = []
     for index, word in enumerate(words):
         if not lines or (
             index in boundaries
             or len(lines[-1]) >= 8
-            or word.start - words[index - 1].end >= 0.35
+            or word.start - words[index - 1].end >= pause_seconds
             or any(
                 words[index - 1].start < start < word.start and end <= word.start + 0.15
                 for start, end in pauses
@@ -114,7 +115,14 @@ def _phrase_lines(
         ):
             lines.append([])
         lines[-1].append(word.text)
-    return "\n".join(" ".join(line) for line in lines)
+    for index in range(len(lines) - 2, -1, -1):
+        if len(lines[index]) == 1 and lines[index][0].casefold() in {
+            "в", "у", "з", "с", "к", "a", "an", "the", "to", "of", "in"
+        }:
+            following = sum(len(line) for line in lines[: index + 1])
+            if words[following].start - words[following - 1].end < 3:
+                lines[index + 1].insert(0, lines[index].pop())
+    return "\n".join(" ".join(line) for line in lines if line)
 
 
 def _word_with_notes(word: WordTiming, pitch: Sequence[PitchPoint], melody: Sequence[Note]) -> Word:

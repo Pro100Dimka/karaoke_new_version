@@ -51,10 +51,27 @@
   inline-size: min(20rem, 70vw);
 }
 /* The Karaoke route's place: KaraokeHost draws Karaoke into it (or into the TV). */
+.pianoRoll {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 0.45s ease,
+    visibility 0s;
+}
 .pianoRoll[hidden] {
   display: block;
+  opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  transition:
+    opacity 0.45s ease,
+    visibility 0s linear 0.45s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pianoRoll,
+  .pianoRoll[hidden] {
+    transition: none;
+  }
 }
 
 .karaokeSlot {
@@ -137,9 +154,24 @@ html[data-tv-screen] body {
   position: absolute;
   inset: 0;
   align-content: center;
+  text-transform: uppercase;
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-current {
+  position: relative;
+  isolation: isolate;
   font-size: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);
+}
+.lyrics.ad-karaoke-lyrics .ad-lyrics-current:not(:empty)::before {
+  position: absolute;
+  z-index: -1;
+  inset: -0.22em -0.4em;
+  content: '';
+  border-radius: 0.38em;
+  border: 1px solid rgb(from var(--ad-primary) r g b / 0.16);
+  background: linear-gradient(135deg, rgb(7 6 14 / 0.82), rgb(7 6 14 / 0.65));
+  box-shadow:
+    0 0.2em 0.7em rgb(0 0 0 / 0.3),
+    inset 0 1px rgb(255 255 255 / 0.06);
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-next {
   font-size: calc(clamp(1rem, 0.7rem + 1.4vw, 1.6rem) * 1.5);

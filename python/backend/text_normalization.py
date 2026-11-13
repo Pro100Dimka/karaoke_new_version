@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 import unicodedata
 
 from num2words import num2words
@@ -102,6 +103,20 @@ def spell_lyric_percentages(text: str, language: str) -> str:
 def clean_lyrics(text: str, language: str) -> str:
     """Normalize found lyrics before recognition matching or alignment, retaining written lines."""
     text = spell_lyric_percentages(_without_chord_rows(text), language)
+    parenthetical = re.compile(r"\(([^()\n]*)\)")
+    replies = Counter(normalize_search(reply) for reply in parenthetical.findall(text))
+    backing = {
+        normalize_search(reply)
+        for line in text.splitlines()
+        if any(character.isalpha() for character in parenthetical.sub("", line))
+        for reply in parenthetical.findall(line)
+        if replies[normalize_search(reply)] > 1
+    }
+    # Repeated replies printed alongside the lead are a simultaneous backing part.
+    # Retain isolated asides and standalone wordless singing without that evidence.
+    text = parenthetical.sub(
+        lambda match: " " if normalize_search(match[1]) in backing else match[0], text
+    )
     text = "".join(
         "" if char in "'’ʼ`" else " " if unicodedata.category(char)[0] in "PS" else char
         for char in text

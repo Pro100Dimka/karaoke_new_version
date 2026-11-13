@@ -66,9 +66,25 @@ def _windows(
         ]
     if not blocks:
         return [Window(0, len(words), 0.0, total)]
+    # A long exact match still contains separate sung occurrences. A single CTC
+    # path can skip the first repeat and crush the last one despite correct ASR.
+    phrases: list[difflib.Match] = []
+    for block in blocks:
+        first = 0
+        for last in range(1, block.size + 1):
+            if (
+                last == block.size
+                or last - first >= _MINIMUM_BLOCK
+                and (
+                    heard[block.b + last][1] - heard[block.b + last - 1][2] >= 0.35
+                    or heard[block.b + last][1] - heard[block.b + first][1] >= 12
+                )
+            ):
+                phrases.append(difflib.Match(block.a + first, block.b + first, last - first))
+                first = last
     windows: list[Window] = []
     text_cursor, audio_cursor = 0, 0.0
-    for block in blocks:
+    for block in phrases:
         start, end = (
             heard[block.b][1] - _MARGIN_SECONDS,
             heard[block.b + block.size - 1][2] + _MARGIN_SECONDS,

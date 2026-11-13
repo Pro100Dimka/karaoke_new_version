@@ -1,4 +1,4 @@
-import { easeOutCubic, rgba } from './fxPalette';
+import { approach, easeOutCubic, rgba } from './fxPalette';
 import { levelProgress, type ShowNote } from './performanceTracker';
 import type { ShowEngine } from './showEngine';
 import type { FxCommand } from './visualDirector';
@@ -110,6 +110,8 @@ export class RollFxRenderer {
   private workerAvailable = false;
   private queued = false;
   private playing = true;
+  private displayedVoice:
+    { pitch: number; at: number; position: number } | undefined;
   private sentVoice: ShowEngine['voiceHistory'][number] | undefined;
   private sentNotes: readonly ShowNote[] | undefined;
   private commands: FxCommand[] = [];
@@ -832,7 +834,32 @@ export class RollFxRenderer {
     const observation = this.engine.voiceHistory.at(-1);
     const x = geometry.x(observation?.position ?? view.position);
     const live = state.live;
-    const midi = pitchHzToMidi(observation?.pitchHz);
+    const measured =
+      observation?.audioActive &&
+      state.playing &&
+      Math.abs(view.position - observation.position) <= 0.5
+        ? pitchHzToMidi(
+            reliablePitchHz(observation.pitchHz, observation.confidence),
+          )
+        : undefined;
+    const previous = this.displayedVoice;
+    const midi =
+      measured !== undefined &&
+      previous &&
+      observation &&
+      observation.position >= previous.position &&
+      observation.position - previous.position < 0.2
+        ? approach(
+            previous.pitch,
+            measured,
+            Math.max(0, now - previous.at) / 1000,
+            0.035,
+          )
+        : measured;
+    this.displayedVoice =
+      midi !== undefined && observation
+        ? { pitch: midi, at: now, position: observation.position }
+        : undefined;
     const boundedMidi = Math.max(
       view.low,
       Math.min(view.high, midi ?? (view.low + view.high) / 2),
@@ -847,12 +874,7 @@ export class RollFxRenderer {
         this.bursts.push({ start: now, strength: 1 });
       this.level = state.level;
     }
-    if (!state.playing) return;
-    if (!observation?.audioActive) return;
-    const certain =
-      reliablePitchHz(observation.pitchHz, observation.confidence) !==
-      undefined;
-    if (!certain || midi === undefined) return;
+    if (midi === undefined) return;
     const markerY = Math.max(
       margin + 10,
       Math.min(margin + this.lane.height - 10, y),

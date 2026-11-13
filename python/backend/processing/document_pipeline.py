@@ -62,9 +62,14 @@ def _repeat_support(lines: list[str], words: tuple[WordTiming, ...]) -> list[flo
     for line in lines:
         last = first + len(line.split())
         span = words[first:last]
-        supported = sum(len(_lyrics_key(word.text)) for word in span if _word_support(word))
+        supported = [word for word in span if _word_support(word)]
+        # A long ASR misspelling must not outweigh several independently heard words.
+        # Keep the same majority and the required confirmed phrase entry.
         evidence.append(
-            supported / max(1, len(_lyrics_key(line))) if span and _word_support(span[0]) else 0.0
+            max(
+                sum(len(_lyrics_key(word.text)) for word in supported) / max(1, len(_lyrics_key(line))),
+                len(supported) / len(span),
+            ) if span and _word_support(span[0]) else 0.0
         )
         first = last
     return evidence
