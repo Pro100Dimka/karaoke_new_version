@@ -485,3 +485,37 @@ it('does not flash the last half of a syllable when CTC puts its vowel at the wo
     previous = progress;
   }
 });
+
+it('does not turn an unsupported catalogue line into singing during measured silence', () => {
+  const words = [
+    word('first', 0, 1),
+    word('phantom', 5, 7),
+    word('last', 10, 11),
+  ];
+  const original = structuredClone(words);
+  const lines = buildLines(words, 'first\nphantom\nlast', 120, [
+    [0, 1],
+    [10, 11],
+  ]);
+  expect(lines.map((line) => line.words.map((word) => word.text))).toEqual([
+    ['first'],
+    ['last'],
+  ]);
+  expect(words).toEqual(original);
+  expect(buildLines(words, 'first\nphantom\nlast', 120)).toHaveLength(3);
+  expect(buildLines(words, 'first\nphantom\nlast', 120, [])).toHaveLength(3);
+});
+
+it('keeps an entire phrase through unvoiced consonants and brief articulation gaps', () => {
+  const words = [
+    word('start', 0, 1),
+    word('quiet', 1, 1.1),
+    word('end', 1.1, 2),
+  ];
+  expect(
+    buildLines(words, 'start quiet end', 120, [
+      [0, 1],
+      [1.1, 2],
+    ])[0]?.words,
+  ).toEqual(words);
+});

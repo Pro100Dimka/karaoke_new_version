@@ -299,7 +299,12 @@ export const KaraokeStage = observer(
     const lines = useMemo(
       () =>
         document
-          ? buildLines(document.words, document.lyrics, document.bpm)
+          ? buildLines(
+              document.words,
+              document.lyrics,
+              document.bpm,
+              document.vocalActivity,
+            )
           : [],
       [document],
     );

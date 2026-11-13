@@ -1,4 +1,5 @@
 import type {
+  EditorDocument,
   EditorNote,
   EditorWord,
 } from '../../application/editor/editorModel';
@@ -71,6 +72,7 @@ export const buildLines = (
   words: readonly EditorWord[],
   lyrics?: string,
   bpm?: number,
+  activity?: EditorDocument['vocalActivity'],
 ): readonly LyricLine[] =>
   groupWords(
     words,
@@ -78,11 +80,17 @@ export const buildLines = (
     bpm && Number.isFinite(bpm) && bpm > 0
       ? Math.max(0.2, Math.min(0.35, 30 / bpm))
       : 0.35,
-  ).map((group) => ({
-    words: group,
-    start: group[0]?.start ?? 0,
-    end: group.at(-1)?.end ?? 0,
-  }));
+  )
+    .map((group) => ({
+      words: group,
+      start: group[0]?.start ?? 0,
+      end: group.at(-1)?.end ?? 0,
+    }))
+    .filter(
+      (line) =>
+        !activity?.length ||
+        activity.some(([start, end]) => start < line.end && end > line.start),
+    );
 
 /** Holds the finished line briefly, then points at the upcoming one; -1 without lyrics. */
 export const currentLineIndex = (
