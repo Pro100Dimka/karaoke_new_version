@@ -27,9 +27,61 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+def test_local_vocal_recognition_preserves_a_phrase_missing_from_the_full_mix(monkeypatch):
+    import torch
+    from backend.ai_worker import word_guidance as guidance
+
+    words = [
+        AlignedWord("stay", 14, 16, (14, 14.2, 14.4, 14.6), 0.8),
+        AlignedWord("here", 16, 17, (16, 16.2, 16.4, 16.6), 0.8),
+    ]
+    monkeypatch.setattr(guidance._GuidancePass, "_alternatives", lambda *args: [])
+    monkeypatch.setattr(guidance, "_boundary_pair", lambda *args: None)
+    result = guidance.with_word_guidance(
+        words,
+        torch.zeros((900, 28)),
+        0.02,
+        [guidance.ctc.Window(0, 2, 0, 18)],
+        {},
+        np.ones(1800, bool),
+        0.6,
+        recognized=[("unrelated", 30, 31)],
+        onsets=[16],
+        alternatives=[[("stay", 14, 15), ("here", 16, 17)]],
+    )
+    assert "RecognizedPhraseEntry" in result[1].diagnostics
+    assert [(w.start, w.end) for w in result] == [(14, 16), (16, 17)]
+
+
+@pytest.mark.parametrize("known_entry,expected", [(None, True), (0, False)])
+def test_an_untimed_phrase_can_be_recognized_after_its_leading_instrumental_gap(
+    known_entry, expected
+):
+    from backend.ai_worker.guidance_phrases import recognized_phrase
+    from backend.ai_worker.ctc import Window
+
+    window = Window(0, 4, 0, 24, known_entry)
+    phrase, timings = recognized_phrase(
+        window,
+        ["we", "sing", "softly", "here"],
+        [("we", 14, 14.5), ("sing", 14.5, 15), ("softly", 16, 16.5), ("here", 17, 18)],
+        0.6,
+    )
+    assert (phrase is not None) is expected
+    assert bool(timings) is expected
+    if expected:
+        assert timings[2] == (16, 16.5)
+
+
 @pytest.mark.parametrize(
     "gap,onsets,expected",
-    [(0.5, [2.1], True), (0.1, [2.1], False), (0.5, [], False), (0.5, [2.8], False)],
+    [
+        (0.5, [2.1], True),
+        (0.5, [2.35], True),
+        (0.1, [2.1], False),
+        (0.5, [], False),
+        (0.5, [2.8], False),
+    ],
 )
 def test_recognized_pause_needs_a_matching_acoustic_entry_to_split_a_reverberant_phrase(
     monkeypatch, gap, onsets, expected

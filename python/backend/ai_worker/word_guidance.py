@@ -65,13 +65,23 @@ def with_word_guidance(
     recognized: Sequence[tuple[str, float, float]] = (),
     onsets: Sequence[float] = (),
     reviewed: frozenset[int] = frozenset(),
+    alternatives: Sequence[Sequence[tuple[str, float, float]]] = (),
 ) -> list[ctc.AlignedWord]:
     if reviewed:
         return _reviewed_words(
             words, scores, frame_seconds, heard, voiced, margin, reviewed, onsets
         )
     pass_ = _GuidancePass(
-        words, scores, frame_seconds, heard, voiced, margin, recognized, onsets, reviewed
+        words,
+        scores,
+        frame_seconds,
+        heard,
+        voiced,
+        margin,
+        recognized,
+        onsets,
+        reviewed,
+        alternatives,
     )
     result = list(words)
     for window in windows:
@@ -116,14 +126,21 @@ class _GuidancePass:
     recognized: Sequence[tuple[str, float, float]]
     onsets: Sequence[float]
     reviewed: frozenset[int]
+    alternatives: Sequence[Sequence[tuple[str, float, float]]] = ()
 
     def apply(self, result: list[ctc.AlignedWord], window: ctc.Window) -> None:
-        phrase, local = recognized_phrase(
-            window,
-            [word.text for word in self.words[window.first : window.last]],
-            self.recognized,
-            self.margin,
-            allow_utterance=window.first - 1 in self.heard and window.last in self.heard,
+        phrase, local = max(
+            (
+                recognized_phrase(
+                    window,
+                    [word.text for word in self.words[window.first : window.last]],
+                    view,
+                    self.margin,
+                    allow_utterance=window.first - 1 in self.heard and window.last in self.heard,
+                )
+                for view in (self.recognized, *self.alternatives)
+            ),
+            key=lambda match: len(match[1]),
         )
         timings = local | dict(self.heard)
         first, last = max(0, window.first - 1), min(len(self.words), window.last + 1)
@@ -163,7 +180,9 @@ class _GuidancePass:
                 and current is not None
                 and current[0] - preceding[1] >= ctc._SILENCE_ENDS_WORD_SECONDS
                 and any(
-                    max(preceding[1], word.start - 0.15) <= onset <= min(current[1], word.start + 0.15)
+                    max(preceding[1], word.start - self.margin)
+                    <= onset
+                    <= min(current[1], word.start + self.margin)
                     for onset in self.onsets
                 )
                 and "RecognizedPhraseEntry" not in word.diagnostics

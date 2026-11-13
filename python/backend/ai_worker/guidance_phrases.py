@@ -54,7 +54,9 @@ def _best_phrase_match(
     matches = [
         (support, first, last)
         for first, (_, start, _) in enumerate(heard)
-        if window.start - margin <= start < min(window.end, window.start + 2 * margin)
+        if window.start - margin <= start < (
+            window.end if window.heard_start is None else min(window.end, window.start + 2 * margin)
+        )
         for last, support in _line_matches(key, keys, first)
         if heard[last - 1][1] < window.end and heard[last - 1][2] <= window.end + margin
     ]

@@ -418,6 +418,7 @@ class _AlignmentPass:
             voiced=voiced,
             margin=_MARGIN_SECONDS,
             recognized=self.heard,
+            alternatives=self.views,
             onsets=vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
         )
         guided = guide(
