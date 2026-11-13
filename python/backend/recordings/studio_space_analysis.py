@@ -334,12 +334,18 @@ def _sample_cepstra(
     positions = np.arange(0, source.frames - block + 1, rate, dtype=np.int64)
     if len(positions) > 128:
         positions = positions[np.linspace(0, len(positions) - 1, 128).astype(int)]
+    previous = np.empty((0, min(source.channels, 2)), dtype="float32")
     for position in positions:
         _check_cancel(cancel)
-        source.seek(int(position))
-        samples = source.read(block, dtype="float32", always_2d=True)[:, :2]
+        if len(previous) == block and source.tell() == position + rate:
+            tail = source.read(rate, dtype="float32", always_2d=True)[:, :2]
+            samples = np.concatenate((previous[rate:], tail))
+        else:
+            source.seek(int(position))
+            samples = source.read(block, dtype="float32", always_2d=True)[:, :2]
         if len(samples) != block:
             continue
+        previous = samples
         energy = float(np.mean(samples.astype(np.float64) ** 2))
         energies.append(energy)
         cepstra.append(_cepstrum(samples, rate))
