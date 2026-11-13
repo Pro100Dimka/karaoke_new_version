@@ -27,6 +27,23 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize("first_end,expected", [(16, True), (14.5, False)])
+def test_a_padded_recognized_opening_is_matched_by_overlap_with_the_catalogue_window(
+    first_end, expected
+):
+    from backend.ai_worker.guidance_phrases import recognized_phrase
+    from backend.ai_worker.ctc import Window
+
+    phrase, timings = recognized_phrase(
+        Window(0, 2, 15.34, 23.61, 15.94),
+        ["sing", "here"],
+        [("sing", 14.6, first_end), ("here", 19.16, 19.92)],
+        0.6,
+    )
+    assert (phrase is not None) is expected
+    assert bool(timings) is expected
+
+
 def test_local_vocal_recognition_preserves_a_phrase_missing_from_the_full_mix(monkeypatch):
     import torch
     from backend.ai_worker import word_guidance as guidance
