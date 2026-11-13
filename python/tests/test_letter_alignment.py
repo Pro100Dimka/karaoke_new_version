@@ -27,6 +27,34 @@ _HOP = 160
 _STEP = _HOP / _RATE
 
 
+@pytest.mark.parametrize(
+    "gap,onsets,expected",
+    [(0.5, [2.1], True), (0.1, [2.1], False), (0.5, [], False), (0.5, [2.8], False)],
+)
+def test_recognized_pause_needs_a_matching_acoustic_entry_to_split_a_reverberant_phrase(
+    monkeypatch, gap, onsets, expected
+):
+    import torch
+    from backend.ai_worker import word_guidance as guidance
+
+    words = [
+        AlignedWord("stay", 1, 2.1, (1, 1.2, 1.4, 1.6), 0.8),
+        AlignedWord("here", 2.1, 3, (2.1, 2.3, 2.5, 2.7), 0.8),
+    ]
+    monkeypatch.setattr(guidance._GuidancePass, "_alternatives", lambda *args: [])
+    monkeypatch.setattr(guidance, "_boundary_pair", lambda *args: None)
+    heard = {0: (1, 2.1 - gap), 1: (2.1, 3)}
+    pass_ = guidance._GuidancePass(
+        words, torch.zeros((160, 28)), 0.02, heard, np.ones(400, bool), 0.6, [], onsets, frozenset()
+    )
+    result = list(words)
+    pass_.apply(result, guidance.ctc.Window(1, 2, 2.1, 3))
+    assert ("RecognizedPhraseEntry" in result[1].diagnostics) is expected
+    assert [(w.start, w.end, w.letters) for w in result] == [
+        (w.start, w.end, w.letters) for w in words
+    ]
+
+
 def test_ctc_window_keeps_exact_frame_edges_after_float_division():
     import torch
     from backend.ai_worker.ctc import Window, _align_window

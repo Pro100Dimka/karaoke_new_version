@@ -155,6 +155,22 @@ class _GuidancePass:
             margin=self.margin,
             boundary=boundary,
         )
+        for index in range(max(1, window.first), window.last):
+            preceding, current = timings.get(index - 1), timings.get(index)
+            word = result[index]
+            if (
+                preceding is not None
+                and current is not None
+                and current[0] - preceding[1] >= ctc._SILENCE_ENDS_WORD_SECONDS
+                and any(
+                    max(preceding[1], word.start - 0.15) <= onset <= min(current[1], word.start + 0.15)
+                    for onset in self.onsets
+                )
+                and "RecognizedPhraseEntry" not in word.diagnostics
+            ):
+                result[index] = replace(
+                    word, diagnostics=(*word.diagnostics, "RecognizedPhraseEntry")
+                )
 
     def _alternatives(
         self,

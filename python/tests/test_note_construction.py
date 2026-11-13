@@ -108,6 +108,17 @@ def test_held_english_vowel_is_not_attached_as_an_orphan_article():
     assert construct_document("t", "a", 4, "next", words, (), _music()).lyrics == "A\nnext"
 
 
+def test_recognized_phrase_entry_keeps_a_pause_hidden_by_reverberation():
+    words = (
+        WordTiming("stay", 0, 2, 0.8),
+        WordTiming("here", 2, 3, 0.8, (), ("RecognizedPhraseEntry",)),
+    )
+    pitch = tuple(PitchPoint(i / 100, _A4, 0.99, True) for i in range(300))
+    document = construct_document("t", "a", 3, "stay here", words, pitch, _music())
+    assert document.lyrics == "stay\nhere"
+    assert [(w.start, w.end) for w in document.words] == [(0, 2), (2, 3)]
+
+
 def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> (
     None
 ):

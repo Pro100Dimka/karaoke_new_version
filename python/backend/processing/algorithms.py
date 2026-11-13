@@ -116,6 +116,7 @@ def _phrase_lines(
             any(previous_index < boundary <= written_index for boundary in boundaries)
             or vocalization
             or "RecoveredVocalization" in previous.diagnostics
+            or "RecognizedPhraseEntry" in word.diagnostics
             or len(lines[-1]) >= 8
             or word.start - previous.end >= pause_seconds
             or any(
