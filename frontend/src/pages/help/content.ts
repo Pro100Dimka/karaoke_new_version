@@ -173,9 +173,21 @@ export const articles: GuideArticle[] = [
     keywords:
       'плейлист список очередь песни порядок плейлисти playlist sequence songs',
     steps: [
-      { title: 'guidePlaylistAddTitle', body: 'guidePlaylistAddBody' },
-      { title: 'guidePlaylistEditTitle', body: 'guidePlaylistEditBody' },
-      { title: 'guidePlaylistPlayTitle', body: 'guidePlaylistPlayBody' },
+      {
+        title: 'guidePlaylistAddTitle',
+        body: 'guidePlaylistAddBody',
+        visual: 'playlist-add',
+      },
+      {
+        title: 'guidePlaylistEditTitle',
+        body: 'guidePlaylistEditBody',
+        visual: 'playlists',
+      },
+      {
+        title: 'guidePlaylistPlayTitle',
+        body: 'guidePlaylistPlayBody',
+        visual: 'playlists',
+      },
     ],
   },
   {
@@ -185,9 +197,17 @@ export const articles: GuideArticle[] = [
     next: 'playlists',
     keywords: 'радио музыка ютуб youtube плейлист фон radio music playlist',
     steps: [
-      { title: 'guideRadioTitle', body: 'guideRadioBody' },
-      { title: 'guideYoutubeTitle', body: 'guideYoutubeBody' },
-      { title: 'guideMusicRoomTitle', body: 'guideMusicRoomBody' },
+      { title: 'guideRadioTitle', body: 'guideRadioBody', visual: 'music' },
+      {
+        title: 'guideYoutubeTitle',
+        body: 'guideYoutubeBody',
+        visual: 'youtube',
+      },
+      {
+        title: 'guideMusicRoomTitle',
+        body: 'guideMusicRoomBody',
+        visual: 'music',
+      },
     ],
   },
   {
@@ -314,7 +334,11 @@ export const articles: GuideArticle[] = [
         body: 'Выделите панель нот, чтобы изменить размер и положение. В меню расположения консоли можно выбрать край экрана или свободное размещение.',
         visual: 'karaoke',
       },
-      { title: 'guideLyricsFillTitle', body: 'guideLyricsFillBody' },
+      {
+        title: 'guideLyricsFillTitle',
+        body: 'guideLyricsFillBody',
+        visual: 'roll',
+      },
     ],
   },
   {
@@ -634,6 +658,7 @@ export const articles: GuideArticle[] = [
       {
         title: 'guideAnimationTitle',
         body: 'guideAnimationBody',
+        visual: 'appearance',
         settings: 'appearance',
       },
     ],
@@ -834,6 +859,7 @@ export const articles: GuideArticle[] = [
       {
         title: 'guideRemoteTitle',
         body: 'В карточке удалённой обработки укажите ключ доступа, полученный от владельца сервера. Выберите «Удалённый ПК через Oracle» в настройках обработки. Если ПК выключен, задание остаётся в очереди.',
+        visual: 'remote',
         settings: 'environment',
       },
     ],
