@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 import threading
 import time
@@ -119,8 +120,23 @@ class SpeechSession:
                 if code:
                     self.close()
                 return result
-            if self._process.poll() is not None:
-                raise DependencyError("AiProviderFailed", "Speech worker exited before replying")
+            exit_code = self._process.poll()
+            if exit_code is not None:
+                self._pipes.stop_input()
+                if not self._pipes.finished.wait(0.05):
+                    continue
+                stdout, stderr = self._pipes.output()
+                # Readers may receive the final reply after poll reports the exit.
+                if stdout.find(b"\n", self._offset) >= 0:
+                    continue
+                logging.getLogger(__name__).error(
+                    "Speech worker exited before replying (exit code %s): %s",
+                    exit_code,
+                    stderr.decode("utf-8", errors="replace")[-3000:],
+                )
+                raise DependencyError(
+                    "AiProviderFailed", "Speech worker exited before replying", exitCode=exit_code
+                )
             cancel.wait(0.05)
 
     def close(self) -> None:
