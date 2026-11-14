@@ -29,31 +29,75 @@ const line = (start: number, end: number): LyricLine => ({
 });
 
 describe('syllable fill', () => {
+  it('gives an opening consonant a visible sweep before holding the vowel', () => {
+    const saved = word('так', 0, 2);
+    expect(syllableProgress(saved, 0.07)).toBeGreaterThan(0);
+    expect(syllableProgress(saved, 0.07)).toBeLessThan(1 / 3);
+    expect(syllableProgress(saved, 0.14)).toBeCloseTo(1 / 3);
+    expect(syllableProgress(saved, 1)).toBeGreaterThan(1 / 3);
+    expect(syllableProgress(saved, 1)).toBeLessThan(2 / 3);
+  });
+  it.each(['так', 'ТВІЙ', 'шаг', 'big'])(
+    'keeps the held part of %s on its vowel instead of its consonants',
+    (text) => {
+      const saved = Object.freeze({
+        ...word(text, 0, 2),
+        letters: Object.freeze([...text].map((_, i) => i / text.length)),
+      });
+      const vowel = [...text].findIndex((c) => /[aeiouyаеёиоуыэюяіїє]/i.test(c));
+      for (const at of [0.3, 1, 1.7]) {
+        expect(syllableProgress(saved, at)).toBeGreaterThan(vowel / text.length);
+        expect(syllableProgress(saved, at)).toBeLessThan((vowel + 1) / text.length);
+      }
+      expect(syllableProgress(saved, 0)).toBe(0);
+      expect(syllableProgress(saved, 2)).toBe(1);
+    },
+  );
+  it.each(['в', 'г', 'ш'])(
+    'passes a consonant-only %s briefly without advancing the next word',
+    (text) => {
+      const saved = word(text, 0, 1);
+      expect(syllableProgress(saved, 0)).toBe(0);
+      expect(syllableProgress(saved, 0.08)).toBeGreaterThan(0);
+      expect(syllableProgress(saved, 0.08)).toBeLessThan(1);
+      expect(syllableProgress(saved, 0.16)).toBe(1);
+      expect(syllableProgress(word('так', 1, 2), 0.5)).toBe(0);
+      expect(saved.end).toBe(1);
+    },
+  );
+  it('keeps measured syllable entries while spending each hold on its vowel', () => {
+    const saved = { ...word('тобі', 0, 1), letters: [0, 0.08, 0.16, 0.26] };
+    expect(syllableProgress(saved, 0.16)).toBeCloseTo(0.5);
+    expect(syllableProgress(saved, 0.2)).toBeLessThan(0.75);
+    expect(syllableProgress(saved, 0.34)).toBeGreaterThan(0.75);
+    expect(syllableProgress(saved, 0.8)).toBeLessThan(1);
+  });
   it.each(['тобі', 'тоби'])(
-    'keeps measured syllable entries in %s while sweeping each syllable continuously',
+    'keeps measured syllable entries in %s and gives the held part to its vowel',
     (text) => {
       const saved = { ...word(text, 0, 1), letters: [0, 0.08, 0.16, 0.26] };
       expect(syllableProgress(saved, 0.16)).toBeCloseTo(0.5);
       expect(syllableProgress(saved, 0.26)).toBeCloseTo(
-        0.5 + (0.5 * 0.1) / 0.84,
+        0.5 + (0.25 * 0.1) / 0.14,
       );
       expect(syllableProgress(saved, 0.63)).toBeCloseTo(
-        0.5 + (0.5 * 0.47) / 0.84,
+        0.75 + (0.25 * 0.33) / 0.7,
       );
       expect(syllableProgress(saved, 1)).toBe(1);
     },
   );
-  it('keeps a held nasal inside one continuous syllable sweep', () => {
+  it('keeps the held vowel active before passing the closing consonant', () => {
     const saved = { ...word('дим', 0, 1), letters: [0, 0.1, 0.2] };
-    expect(syllableProgress(saved, 0.2)).toBeCloseTo(0.2);
-    expect(syllableProgress(saved, 0.6)).toBeCloseTo(0.6);
+    expect(syllableProgress(saved, 0.2)).toBeCloseTo(1 / 3 + (0.06 / 0.72) / 3);
+    expect(syllableProgress(saved, 0.6)).toBeCloseTo(1 / 3 + (0.46 / 0.72) / 3);
+    expect(syllableProgress(saved, 0.94)).toBeGreaterThan(2 / 3);
   });
   it.each([{ letters: [0, 0.2, 1, 1] }, { letters: [0, 0, 0, 0] }])(
     'keeps unresolved syllables continuous within the word: $letters',
     ({ letters }) => {
       const saved = { ...word('мама', 0, 1), letters };
       expect(syllableProgress(saved, 0.5)).toBeCloseTo(0.5);
-      expect(syllableProgress(saved, 0.99)).toBeCloseTo(0.99);
+      expect(syllableProgress(saved, 0.99)).toBeCloseTo(0.75 + (0.25 * 0.35) / 0.36);
     },
   );
   it.each([
@@ -62,14 +106,14 @@ describe('syllable fill', () => {
       end: 0.84,
       letters: [0, 0.08, 0.08, 0.22, 0.34],
       at: 0.11,
-      expected: ((3 / 5) * 0.11) / 0.22,
+      expected: 2 / 5 + ((1 / 5) * 0.022) / 0.132,
     },
     {
       text: 'слухала',
       end: 0.7,
       letters: [0, 0.2, 0.22, 0.36, 0.44, 0.54, 0.6],
       at: 0.18,
-      expected: ((3 / 7) * 0.18) / 0.36,
+      expected: 2 / 7 + ((1 / 7) * 0.036) / 0.216,
     },
     {
       text: 'Так',
@@ -477,9 +521,10 @@ it('does not flash the last half of a syllable when CTC puts its vowel at the wo
     ...word('me', 0, 0.6),
     letters: Object.freeze([0, 0.58 / 0.6]),
   });
-  expect(syllableProgress(saved, 0.3)).toBeCloseTo(0.5);
-  let previous = 0;
-  for (let frame = 1; frame <= 36; frame++) {
+  expect(syllableProgress(saved, 0.14)).toBeCloseTo(0.5);
+  expect(syllableProgress(saved, 0.3)).toBeCloseTo(0.5 + (0.5 * 0.16) / 0.46);
+  let previous = syllableProgress(saved, 0.15);
+  for (let frame = 10; frame <= 36; frame++) {
     const progress = syllableProgress(saved, frame / 60);
     expect(progress - previous).toBeLessThan(0.04);
     previous = progress;

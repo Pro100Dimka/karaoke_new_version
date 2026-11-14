@@ -198,10 +198,15 @@ const glyphProgress = (
   return start + (end - start) * fraction;
 };
 const consonantSeconds = 0.07;
+const consonantSweepSeconds = 0.14;
 const consonantShareLimit = 0.4;
 
 /** Seconds each character takes: consonants are brief, the vowels share the rest, so a held "друууууг" lingers on the vowel. */
-const characterSeconds = (text: string, duration: number): number[] => {
+const characterSeconds = (
+  text: string,
+  duration: number,
+  consonantLimit = consonantSeconds,
+): number[] => {
   const letters = [...text].filter(
     (character) => !silentCharacter.test(character),
   );
@@ -215,7 +220,7 @@ const characterSeconds = (text: string, duration: number): number[] => {
   }
   const consonantCount = letters.length - vowelCount;
   const consonant = Math.min(
-    consonantSeconds,
+    consonantLimit,
     (duration * consonantShareLimit) / consonantCount,
   );
   const vowel = (duration - consonant * consonantCount) / vowelCount;
@@ -299,7 +304,7 @@ const timedLetterProgress = (
   );
 };
 
-/** Reading groups share a continuous fill; saved phonetic anchors and word bounds stay intact. */
+/** Preserve syllable entries, passing consonants briefly and holding the vowel. */
 export const syllableProgress = (
   word: EditorWord,
   position: number,
@@ -319,6 +324,16 @@ export const syllableProgress = (
   const nuclei = indices.flatMap((index, i) =>
     vowels.test(characters[index] ?? '') ? [i] : [],
   );
+  if (!nuclei.length && indices.some((i) => /\p{L}/u.test(characters[i] ?? '')))
+    return letterProgress(
+      {
+        ...word,
+        end: Math.min(word.end, word.start + consonantSweepSeconds * indices.length),
+        letters: undefined,
+      },
+      position,
+      geometry,
+    );
   const groups = [indices[0] ?? 0];
   for (const [i, vowel] of nuclei.entries()) {
     if (i === 0) continue;
@@ -344,17 +359,31 @@ export const syllableProgress = (
       );
     });
   // Missing or collapsed syllable anchors cannot define a separate visual interval.
+  const duration = word.end - word.start;
+  const boundaries = measured ? groups : [indices[0] ?? 0];
+  const phonetic: number[] = [];
+  for (const [group, first] of boundaries.entries()) {
+    const last = boundaries[group + 1];
+    const begin = measured ? (starts[first] ?? 0) : 0;
+    const end = last === undefined ? 1 : (starts[last] ?? 1);
+    const text = characters.slice(first, last).join('');
+    const seconds = characterSeconds(text, (end - begin) * duration, consonantSweepSeconds);
+    let at = begin;
+    for (const [index, local] of spokenIndices(text).entries()) {
+      phonetic[first + local] = at;
+      at += (seconds[index] ?? 0) / duration;
+    }
+  }
   const layout =
     geometry ??
     characters.map(
       (_, i) => [i / characters.length, (i + 1) / characters.length] as const,
     );
   return timedLetterProgress(
-    measured ? starts : [0],
+    phonetic,
     word.text,
     (position - word.start) / (word.end - word.start),
     layout,
-    measured ? groups : [indices[0] ?? 0],
   );
 };
 
