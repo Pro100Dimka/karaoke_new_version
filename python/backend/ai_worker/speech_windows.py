@@ -8,6 +8,7 @@ from backend.lyrics.discovery import performed_phrases
 from backend.ai_worker.ctc import (
     AlignedWord,
     Window,
+    _PREFERENCE,
 )
 from backend.ai_worker.timing import (
     vocal_onsets,
@@ -143,7 +144,7 @@ def _shifted_hints(
     whole: Sequence[AlignedWord],
     heard: Sequence[HeardWord] = (),
 ) -> list[dict[str, object]]:
-    """Correct release offsets and stale line entries against independently recognized phrases."""
+    """Correct stale cues using independent recognition or a well-supported adjacent CTC path."""
     lines = _line_first_words(words, hints)
     differences = [whole[first].start - start for first, start, _ in lines]
     shift = 0.0
@@ -157,7 +158,8 @@ def _shifted_hints(
             shift = middle
     supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
     result: list[dict[str, object]] = []
-    for first, start, text in lines:
+    previous_entry: float | None = None
+    for line_index, (first, start, text) in enumerate(lines):
         entry = start + shift
         interval = supported.get(first)
         phrase_support = {
@@ -165,13 +167,26 @@ def _shifted_hints(
             for index in range(first, first + len(text.split()))
             if index in supported
         }
-        if (
-            interval is not None
-            and len(phrase_support) >= _MINIMUM_BLOCK
-            and not interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS
-        ):
-            entry = interval[0]
+        if interval is not None and len(phrase_support) >= _MINIMUM_BLOCK:
+            if not interval[0] - _MARGIN_SECONDS <= entry <= interval[1] + _MARGIN_SECONDS:
+                entry = interval[0]
+        elif line_index and previous_entry is not None and not phrase_support:
+            previous_first, _, previous_text = lines[line_index - 1]
+            if (
+                previous_first + len(previous_text.split()) == first
+                and abs(whole[previous_first].start - previous_entry) <= _MARGIN_SECONDS
+                and whole[first - 1].end > entry + _MARGIN_SECONDS
+                and whole[first].start > entry + _MARGIN_SECONDS
+                and min(whole[first - 1].score, whole[first].score) > _PREFERENCE
+                and sum(word.score > _PREFERENCE for word in whole[previous_first:first])
+                >= _MINIMUM_BLOCK
+                and sum(
+                    word.score > _PREFERENCE for word in whole[first:first + len(text.split())]
+                ) >= _MINIMUM_BLOCK
+            ):
+                entry = whole[first].start
         result.append({"start": entry, "text": text})
+        previous_entry = entry
     return result
 
 

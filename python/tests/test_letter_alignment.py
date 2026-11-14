@@ -3615,3 +3615,26 @@ def test_an_unrecognized_vowel_cannot_steal_an_independently_heard_word_tail(
     ]
     result = with_voice_onsets(words, np.zeros(3 * _RATE), np.ones(300, bool), heard)
     assert result[1].start == expected
+
+@pytest.mark.parametrize("evidence", ["strong", "weak", "recognized", "unanchored"])
+def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evidence):
+    from backend.ai_worker.speech import _shifted_hints
+
+    lyrics = "we sing now stay here then\nstay with me tonight"
+    words = lyrics.split()
+    starts = [2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5]
+    if evidence == "unanchored":
+        starts = [start + 1 for start in starts]
+    score = 0.01 if evidence == "weak" else 0.8
+    whole = [AlignedWord(text, start, start + 0.5, (), score) for text, start in zip(words, starts)]
+    hints = [
+        {"start": 2.0, "text": "we sing now stay here then"},
+        {"start": 3.5, "text": "stay with me tonight"},
+    ]
+    heard = [
+        (text, 3.5 + index * 0.3, 3.8 + index * 0.3)
+        for index, text in enumerate(words[6:])
+    ] if evidence == "recognized" else []
+    shifted = _shifted_hints(words, hints, whole, heard)
+    assert shifted[0]["start"] == 2
+    assert shifted[1]["start"] == (5 if evidence == "strong" else 3.5)

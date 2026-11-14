@@ -519,3 +519,19 @@ def test_phrases_use_tempo_for_short_breaths_between_replies(bpm, expected):
              WordTiming("again", 2.26, 3, 0.9)]
     document = construct_document("t", "a", 4, "call there again", words, (), MusicMetadata(bpm, None))
     assert document.lyrics == expected
+
+@pytest.mark.parametrize("pause", [0, 0.5])
+def test_a_previously_split_reply_still_supplies_acoustic_evidence_for_its_repetitions(pause):
+    lyrics = "sing with us\nnow\nstay with us now"
+    words = tuple(
+        WordTiming(text, offset + index + (pause if offset == 0 and index == 3 else 0),
+                   offset + index + 1, 0.8)
+        for line, offset in [("sing with us now", 0), ("stay with us now", 5)]
+        for index, text in enumerate(line.split())
+    )
+    document = construct_document("t", "a", 10, lyrics, words, (), _music())
+    expected = "sing with us\nnow\nstay with us\nnow" if pause else lyrics
+    assert document.lyrics == expected
+    assert [(w.text, w.start, w.end) for w in document.words] == [
+        (w.text, w.start, w.end) for w in words
+    ]

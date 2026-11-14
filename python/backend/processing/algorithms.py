@@ -104,12 +104,14 @@ def _phrase_lines(
     contexts: dict[int, tuple[int, tuple[str, ...]]] = {}
     first = 0
     for last in sorted(boundaries):
-        for index in range(first + 1, last):
+        for index in range(max(1, first), last):
+            # A saved row entry still needs its preceding words to identify repeated replies.
+            left = max(first if index > first else 0, index - 2)
             contexts[index] = (
-                min(2, index - first),
+                index - left,
                 tuple(
                     word.text.casefold()
-                    for word in written[max(first, index - 2) : min(last, index + 2)]
+                    for word in written[left : min(last, index + 2)]
                 ),
             )
         first = last
