@@ -3673,3 +3673,22 @@ def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evid
     shifted = _shifted_hints(words, hints, whole, heard)
     assert shifted[0]["start"] == 2
     assert shifted[1]["start"] == (5 if evidence == "strong" else 3.5)
+
+@pytest.mark.parametrize("candidate,expected", [(1.0, 6.0), (10.0, 6.0), (7.0, 7.0)])
+def test_recognized_catalogue_corrections_keep_their_neighbouring_occurrences(
+    monkeypatch, candidate, expected
+):
+    from backend.ai_worker import speech_windows
+
+    lyrics = "we sing now\nyou sing later\nthey sing again"
+    words = lyrics.split()
+    hints = [{"start": start, "text": line} for start, line in zip([2.0, 6.0, 9.0], lyrics.splitlines())]
+    whole = [
+        AlignedWord(word, start + offset * 0.3, start + (offset + 1) * 0.3, (), 0.8)
+        for line, start in zip(lyrics.splitlines(), [2.0, 6.0, 9.0])
+        for offset, word in enumerate(line.split())
+    ]
+    supported = {3 + i: (candidate + i * 0.3, candidate + (i + 1) * 0.3) for i in range(3)}
+    monkeypatch.setattr(speech_windows, "_heard_timings", lambda *a, **k: supported)
+    shifted = speech_windows._shifted_hints(words, hints, whole)
+    assert [line["start"] for line in shifted] == [2.0, expected, 9.0]

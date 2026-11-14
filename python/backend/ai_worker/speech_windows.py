@@ -185,6 +185,13 @@ def _shifted_hints(
                 ) >= _MINIMUM_BLOCK
             ):
                 entry = whole[first].start
+        # A repeated phrase must not borrow the timestamp of a neighbouring occurrence.
+        lower = previous_entry if previous_entry is not None else float("-inf")
+        if line_index:
+            lower = max(lower, lines[line_index - 1][1] + shift)
+        upper = lines[line_index + 1][1] + shift if line_index + 1 < len(lines) else float("inf")
+        if not lower < entry < upper:
+            entry = start + shift
         result.append({"start": entry, "text": text})
         previous_entry = entry
     return result
