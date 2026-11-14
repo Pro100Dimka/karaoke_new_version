@@ -160,6 +160,37 @@ def test_a_repeated_context_keeps_the_position_of_its_confirmed_break(boundary):
     assert document.lyrics == phrase + "\n" + phrase
 
 
+@pytest.mark.parametrize("reason", [
+    "TimingReviewRequired", "AsrCtcBoundaryDisagreement", "ApproximateAlignment",
+])
+@pytest.mark.parametrize("uncertain", [3, 4])
+def test_an_uncertain_boundary_does_not_split_other_occurrences(reason, uncertain):
+    from dataclasses import replace
+
+    words = [
+        WordTiming("we", 0, 0.4, 0.8),
+        WordTiming("stay", 0.4, 0.8, 0.8),
+        WordTiming("together", 0.8, 1.4, 0.8),
+        WordTiming("we", 3, 3.4, 0.8),
+        WordTiming("stay", 3.9, 4.3, 0.8),
+        WordTiming("together", 4.3, 4.9, 0.8),
+    ]
+    words[uncertain] = replace(
+        words[uncertain],
+        confidence=0 if reason == "ApproximateAlignment" else 0.8,
+        diagnostics=(reason,),
+    )
+
+    document = construct_document(
+        "t", "a", 6, "we stay together\nwe stay together", words, (), _music()
+    )
+
+    assert document.lyrics == "we stay together\nwe\nstay together"
+    assert [(word.text, word.start, word.end) for word in document.words] == [
+        (word.text, word.start, word.end) for word in words
+    ]
+
+
 def test_constructed_notes_keep_the_measured_contour_through_codec_and_manual_transposition() -> (
     None
 ):

@@ -118,8 +118,16 @@ def _phrase_lines(
     confirmed_breaks = {
         context
         for index, context in contexts.items()
-        if written[index].start - written[index - 1].end >= pause_seconds
-        or "RecognizedPhraseEntry" in written[index].diagnostics
+        # An uncertain local alignment must not fragment every repeated phrase.
+        if all(
+            {"TimingReviewRequired", "AsrCtcBoundaryDisagreement", "ApproximateAlignment"}
+            .isdisjoint(word.diagnostics)
+            for word in written[index - 1 : index + 1]
+        )
+        and (
+            written[index].start - written[index - 1].end >= pause_seconds
+            or "RecognizedPhraseEntry" in written[index].diagnostics
+        )
     }
     boundaries.update(index for index, context in contexts.items() if context in confirmed_breaks)
     pauses = [
