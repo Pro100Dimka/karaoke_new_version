@@ -112,6 +112,23 @@ def test_breath_protection_preserves_a_quiet_harmonic_word(tmp_path):
     assert rms_db(actual[round(4.1 * 8000):round(4.3 * 8000)]) > rms_db(actual[8000:16000]) - 4
 
 
+def test_presence_accounts_for_attenuation_from_unvoiced_protection(tmp_path, monkeypatch):
+    from backend.recordings import studio_calibration
+
+    def protect(voice, times, desired, active, cancel):
+        return desired - np.where(active, 3.0, 0.0), {
+            "protectedSeconds": float(active.sum() * 0.02)
+        }
+
+    monkeypatch.setattr(studio_calibration, "_protect_unvoiced", protect)
+    _, voice = tone()
+    actual, plan, qc = render_plan(tmp_path, voice, voice)
+
+    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-4.5, abs=0.2)
+    assert plan.report["presenceCompensationDb"] == pytest.approx(3, abs=0.2)
+    assert qc["p90ErrorDb"] < 1
+
+
 def test_breath_protection_does_not_guess_a_gain_without_voiced_neighbors(tmp_path):
     from backend.recordings.studio_calibration import _protect_unvoiced
 

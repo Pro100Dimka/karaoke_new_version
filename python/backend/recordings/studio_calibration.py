@@ -157,11 +157,12 @@ def build_gain_plan(
     baseline = float(np.median(level[active]))
     placement = -6.0 + 3.0 * overlap
     target = _target_levels(times, level, music, meter_times, baseline, placement)
-    presence = _presence_correction(
-        voice, backing, times, target - level, active, placement, cancel
-    )
-    target += presence
     desired, protection = _protect_unvoiced(voice, times, target - level, active, cancel)
+    # Include breath protection's attenuation when measuring the final vocal presence.
+    presence = _presence_correction(
+        voice, backing, times, desired, active, placement, cancel
+    )
+    desired += presence
     target = level + desired
     report["unvoicedProtection"] = protection
     global_gain = float(np.median(desired[active]))
