@@ -1,7 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import {
   Avatar,
-  Badge,
   Beacon,
   Card,
   Icon,
@@ -72,11 +71,7 @@ const noEffects: ParticipantEffects = {
   octave: 0,
 };
 
-/**
- * One participant: who they are, how loud they sing, their volume for you (none on your own card:
- * your microphone goes out at full level), the button that turns your own microphone off (only on
- * your card: nobody mutes another singer) and the effects and actions behind the sliders.
- */
+/** Microphone controls for yourself and volume, mute and effects for the voices you hear. */
 export const RoomPersonCard = observer(
   ({
     participant,
@@ -98,24 +93,32 @@ export const RoomPersonCard = observer(
     const [menuOpen, setMenuOpen] = useState(false);
     const [volume, setVolume] = useState(participant.volume);
     const [effects, setEffects] = useState(noEffects);
-    // Only your own microphone can be turned off here; nobody mutes another singer.
     const [muted, setMuted] = useState(
-      () => participant.self && !(voice?.microphoneEnabled() ?? true),
+      () =>
+        participant.self
+          ? !(voice?.microphoneEnabled() ?? true)
+          : (voice?.participantMuted(participant.id) ?? participant.muted),
     );
     const host = participant.role === 'host';
     useEffect(() => setVolume(participant.volume), [participant.volume]);
     // Re-read after the global mute hotkey switched the microphone from outside this button.
     const externalToggles = useMicrophoneToggles();
     useEffect(() => {
-      if (voice && participant.self) setMuted(!voice.microphoneEnabled());
-    }, [voice, participant.self, externalToggles]);
+      if (voice)
+        setMuted(participant.self
+          ? !voice.microphoneEnabled()
+          : voice.participantMuted(participant.id));
+    }, [voice, participant.id, participant.self, externalToggles]);
 
     const toggleMute = async () => {
       if (!voice) return;
       const next = !muted;
+      const update = participant.self
+        ? voice.setMicrophoneEnabled(!next)
+        : voice.setParticipantMuted(participant.id, next);
       // A refused command (e.g. an AudioService older than the button) leaves the button as it was.
       if (
-        await voice.setMicrophoneEnabled(!next).then(
+        await update.then(
           () => true,
           () => false,
         )
@@ -127,7 +130,9 @@ export const RoomPersonCard = observer(
       setEffects((current) => ({ ...current, [effect]: value }));
       void voice.setParticipantEffect(participant.id, effect, value);
     };
-    const muteLabel = tr(muted ? 'unmuteMicrophone' : 'muteMicrophone');
+    const muteLabel = participant.self
+      ? tr(muted ? 'unmuteMicrophone' : 'muteMicrophone')
+      : `${tr(muted ? 'unmute' : 'mute')}: ${participant.name}`;
     const effectsLabel = tr('participantEffects', { name: participant.name });
 
     return (
@@ -171,18 +176,11 @@ export const RoomPersonCard = observer(
                 label={tr('readinessDisconnected')}
               />
             )}
-            <Stack direction="row" gap={1} align="center">
-              <SpeakingMeter
-                participant={participant}
-                live={participant.connected && !muted}
-                label={tr('liveInputLevel')}
-              />
-              {participant.self && (
-                <Badge tone="info" className="roomPersonYou">
-                  {tr('you')}
-                </Badge>
-              )}
-            </Stack>
+            <SpeakingMeter
+              participant={participant}
+              live={participant.connected && !muted}
+              label={tr('liveInputLevel')}
+            />
           </div>
           {/* Your own microphone uses the saved settings; this card controls other singers' levels. */}
           {!participant.self && (
@@ -204,17 +202,15 @@ export const RoomPersonCard = observer(
             />
           )}
           <Stack gap={1}>
-            {participant.self && (
-              <IconButton
-                round
-                size="sm"
-                variant={muted ? 'danger' : 'secondary'}
-                icon="mic"
-                label={muteLabel}
-                aria-pressed={muted}
-                onClick={() => void toggleMute()}
-              />
-            )}
+            <IconButton
+              round
+              size="sm"
+              variant={muted ? 'danger' : 'secondary'}
+              icon={participant.self ? 'mic' : 'volume'}
+              label={muteLabel}
+              aria-pressed={muted}
+              onClick={() => void toggleMute()}
+            />
             <IconButton
               ref={moreRef}
               round
