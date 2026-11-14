@@ -1483,6 +1483,32 @@ def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_repli
     assert revised[-1].heard_start == pytest.approx(239.78)
 
 
+def test_partial_catalog_uses_independently_recognized_entry_before_weak_global_path():
+    from backend.ai_worker.speech import _alignment_windows
+
+    lyrics = "we wait\nsing with me\nwe wait"
+    starts = [1.0, 1.4, 2.0, 2.2, 2.4, 10.0, 10.4]
+    heard_starts = [1.0, 1.4, 4.0, 4.4, 4.8, 10.0, 10.4]
+    whole = [
+        AlignedWord(text, start, start + 0.3, (), 0.01)
+        for text, start in zip(lyrics.split(), starts, strict=True)
+    ]
+    heard = [
+        (text, start, start + 0.3)
+        for text, start in zip(lyrics.split(), heard_starts, strict=True)
+    ]
+
+    windows = _alignment_windows(
+        lyrics, [{"text": "we wait", "start": 1.0}, {"text": "we wait", "start": 10.0}],
+        heard, whole, np.zeros(12 * 16_000),
+    )
+    chorus = next(window for window in windows if window.first == 2)
+
+    assert chorus.heard_start == 4.0
+    assert 3.4 <= chorus.start <= 4.0
+    assert chorus.last == 5
+
+
 def test_partial_catalog_hints_leave_audio_for_unhinted_choruses_and_the_final_phrase():
     from backend.ai_worker.speech import _alignment_windows
 

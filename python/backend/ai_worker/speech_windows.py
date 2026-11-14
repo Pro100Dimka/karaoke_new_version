@@ -1,6 +1,7 @@
 from __future__ import annotations
 import difflib
 import threading
+from dataclasses import replace
 from collections import Counter
 from collections.abc import Mapping, Sequence
 import numpy as np
@@ -265,7 +266,7 @@ def _alignment_windows(
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
             supported = _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK)
-            return unhinted_windows(
+            windows = unhinted_windows(
                 [
                     phrase_window(
                         window,
@@ -286,6 +287,18 @@ def _alignment_windows(
                 whole,
                 _MARGIN_SECONDS,
             )
+            return [
+                replace(
+                    window,
+                    start=max(window.start, interval[0] - _MARGIN_SECONDS),
+                    heard_start=interval[0],
+                )
+                if window.heard_start is None
+                and (interval := supported.get(window.first)) is not None
+                and window.start <= interval[0] < interval[1] <= window.end
+                else window
+                for window in windows
+            ]
     return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
 
 
