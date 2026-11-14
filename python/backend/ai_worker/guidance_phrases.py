@@ -33,9 +33,18 @@ def recognized_phrase(
     if span is None or (window.heard_start is None and (best is None or best[0] < len(key) * 0.5)):
         return None, {}
     first, last = span
+    start = heard[first][1]
+    if (
+        window.heard_start is not None
+        and start <= window.heard_start < heard[first][2]
+        and start < window.start - margin
+    ):
+        # ASR may attach preceding silence to the first word. Its interval is
+        # spelling evidence, not permission to move a confirmed search entry back.
+        start = window.start
     phrase = replace(
         window,
-        start=min(window.start, heard[first][1]) if best is not None else window.start,
+        start=min(window.start, start) if best is not None else window.start,
         end=min(window.end, heard[last - 1][2] + margin),
         heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
     )

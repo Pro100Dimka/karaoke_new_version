@@ -10,6 +10,18 @@ import torch
 
 from backend.ai_worker import ctc
 from backend.ai_worker.recognition import alignment_payload, guidance_positions
+from backend.ai_worker.word_guidance import recognized_phrase
+
+
+def test_padded_recognition_does_not_expand_search_before_confirmed_entry():
+    window = ctc.Window(0, 3, 9.4, 14, 10)
+    heard = [("sing", 6, 11), ("with", 11, 12), ("me", 12, 13)]
+
+    phrase, intervals = recognized_phrase(window, ["sing", "with", "me"], heard, 0.6)
+
+    assert phrase is not None
+    assert phrase.start == 9.4
+    assert intervals[0] == (6, 11)
 
 
 @pytest.mark.parametrize(
