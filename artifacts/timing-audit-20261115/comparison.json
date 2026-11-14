@@ -1,0 +1,140 @@
+[
+  {
+    "songId": "c2f04f0b-f5d7-4959-a263-48d03f623e63",
+    "name": "Linkin Park - Breaking the Habit",
+    "savedRevision": 2,
+    "savedWords": 337,
+    "alignedWords": 262,
+    "denseBefore": [
+      {
+        "start": 186.59,
+        "end": 187.19
+      },
+      {
+        "start": 186.93,
+        "end": 187.49
+      },
+      {
+        "start": 186.97,
+        "end": 187.55
+      },
+      {
+        "start": 187.19,
+        "end": 187.71
+      },
+      {
+        "start": 187.23,
+        "end": 187.85
+      },
+      {
+        "start": 187.49,
+        "end": 188.09
+      },
+      {
+        "start": 187.55,
+        "end": 188.25
+      },
+      {
+        "start": 188.03,
+        "end": 188.69
+      },
+      {
+        "start": 188.63,
+        "end": 189.27
+      },
+      {
+        "start": 188.91,
+        "end": 189.51
+      },
+      {
+        "start": 189.61,
+        "end": 190.19
+      },
+      {
+        "start": 189.67,
+        "end": 190.27
+      },
+      {
+        "start": 189.77,
+        "end": 190.37
+      },
+      {
+        "start": 189.91,
+        "end": 190.45
+      }
+    ],
+    "denseAfter": []
+  },
+  {
+    "songId": "f06ae791-ac38-464a-abe3-505d799945e8",
+    "name": "MotorRollа - Не дзвонила, не заходила",
+    "savedRevision": 2,
+    "savedWords": 176,
+    "alignedWords": 176,
+    "denseBefore": [
+      {
+        "start": 177.87,
+        "end": 178.37
+      },
+      {
+        "start": 177.91,
+        "end": 178.43
+      }
+    ],
+    "denseAfter": [],
+    "phraseBefore": [
+      {
+        "text": "з",
+        "start": 177.87,
+        "end": 177.91
+      },
+      {
+        "text": "розуму",
+        "start": 177.91,
+        "end": 178.03
+      },
+      {
+        "text": "зводила",
+        "start": 178.03,
+        "end": 178.19
+      },
+      {
+        "text": "Не",
+        "start": 178.19,
+        "end": 178.23
+      },
+      {
+        "text": "любила",
+        "start": 178.23,
+        "end": 178.37
+      }
+    ],
+    "phraseAfter": [
+      {
+        "text": "з",
+        "start": 186.57,
+        "end": 186.65
+      },
+      {
+        "text": "розуму",
+        "start": 186.65,
+        "end": 187.17
+      },
+      {
+        "text": "зводила",
+        "start": 187.17,
+        "end": 188.25
+      },
+      {
+        "text": "Не",
+        "start": 188.25,
+        "end": 188.65
+      },
+      {
+        "text": "любила",
+        "start": 188.65,
+        "end": 189.6
+      }
+    ]
+  }
+]

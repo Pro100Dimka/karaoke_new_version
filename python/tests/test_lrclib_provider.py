@@ -53,7 +53,7 @@ def test_phrase_matching_skips_impossible_character_scores(
 def test_catalog_version_follows_performed_repeats_instead_of_only_duration() -> None:
     verse = ["Первый куплет звучит здесь", "Второй куплет звучит дальше"]
     chorus = "Этот припев звучит опять"
-    wrong = "\n".join([verse[0], *[chorus] * 3, verse[1], chorus])
+    wrong = "\n".join([verse[0], *[chorus] * 3, verse[1], chorus, "Спасибо друзья выключите свет"])
     correct = "\n".join([verse[0], chorus, verse[1], *[chorus] * 3])
     candidates = [
         LyricsCandidate(text, "T", "A", seconds, "catalog")
@@ -79,9 +79,9 @@ def test_small_recognition_errors_do_not_promote_a_longer_other_recording():
     studio = "Silver rain is falling\nI follow the river\nWe find the road home"
     live = studio.replace("road", "way") + "\nThank you everyone turn the lights off"
     heard = studio.replace("road", "way").replace("river", "rivers")
-    correct = LyricsCandidate(studio, "T", "A", 188, "catalog")
-    other = LyricsCandidate(live, "T", "A", 189, "catalog")
-    assert _best_catalog_version([other, correct], {other: 1, correct: 0}, [heard]) == correct
+    correct = LyricsCandidate(studio, "T", "A", 189, "catalog")
+    other = LyricsCandidate(live, "T", "A", 188, "catalog")
+    assert _best_catalog_version([other, correct], {other: 0, correct: 1}, [heard]) == correct
 
 
 def test_motorola_outro_recovers_only_the_sung_tail_without_inventing_the_chorus_prefix() -> None:

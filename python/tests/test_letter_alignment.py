@@ -2534,6 +2534,24 @@ def test_catalog_line_timings_become_alignment_windows() -> None:
     assert windows[0].start == pytest.approx(9.9)
     assert windows[0].end == pytest.approx(14.6)
 
+    shortened = _hint_windows(
+        "первая строка\nвторая строка",
+        [
+            {"start": 10.5, "text": "первая строка первая строка"},
+            {"start": 14.0, "text": "вторая строка"},
+        ],
+        20.0,
+    )
+    assert shortened == windows, "a removed duplicate must not discard its remaining entry"
+    assert not _hint_windows(
+        "первая строка\nвторая строка",
+        [
+            {"start": 10.5, "text": "первая строка совсем другая"},
+            {"start": 14.0, "text": "вторая строка"},
+        ],
+        20.0,
+    ), "an arbitrary matching prefix must not substitute for a catalogue line"
+
 
 def test_catalog_timing_tolerates_extra_words_in_the_preferred_plain_lyrics() -> None:
     from backend.ai_worker.speech import _hint_windows
@@ -3824,6 +3842,13 @@ def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evid
 
         acoustic = [speech_windows.Window(0, len(words), 1.4, 10.1)]
         monkeypatch.setattr(speech_windows, "_phrase_windows", lambda *args: acoustic)
+        # A repeated word can join two occurrences in the global path. Such a
+        # core disagrees with recognition and cannot disprove catalogue timing.
+        repeated = list(whole)
+        repeated[9] = AlignedWord(words[9], starts[9], 8.9, (), score)
+        assert speech_windows._alignment_windows(
+            lyrics, hints, heard, repeated, np.zeros(11 * _RATE)
+        ) != acoustic
         windows = speech_windows._alignment_windows(
             lyrics, hints, heard, whole, np.zeros(11 * _RATE)
         )

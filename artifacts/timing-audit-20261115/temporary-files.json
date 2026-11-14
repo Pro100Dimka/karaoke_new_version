@@ -1,0 +1,1212 @@
+{
+  "root": "E:\\CodexTemp\\lumen-timing-20261115",
+  "bytes": 384943117.0,
+  "reclaimedBytes": 0,
+  "cleanup": "blocked by previous safety review",
+  "files": [
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\ad-voice-running-4f85b43074a6d98a.json",
+      "bytes": 12
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\after-trace.json",
+      "bytes": 22980
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\alignment-final-check.log",
+      "bytes": 1542
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\audit-align.log",
+      "bytes": 996
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\audit-align.py",
+      "bytes": 2109
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\backing.wav",
+      "bytes": 4586444
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\before-trace.json",
+      "bytes": 23766
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\candidate-after.json",
+      "bytes": 43103
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\candidate-trace.json",
+      "bytes": 77851
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\candidate.log",
+      "bytes": 995
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\candidate.py",
+      "bytes": 2119
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\catalog-before-check.log",
+      "bytes": 3994
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\catalog-final-check.log",
+      "bytes": 1282
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\cdp-final.log",
+      "bytes": 19115
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\cdp-start.log",
+      "bytes": 34815
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\editor-after.json",
+      "bytes": 498778
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\editor-before.json",
+      "bytes": 470609
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\editor-final.json",
+      "bytes": 519055
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-after.json",
+      "bytes": 43103
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-align.log",
+      "bytes": 996
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-align.py",
+      "bytes": 788
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-trace.json",
+      "bytes": 77851
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-trace.log",
+      "bytes": 61
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-trace.py",
+      "bytes": 1500
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\inspect-motor-windows.py",
+      "bytes": 2216
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\inspect-windows.py",
+      "bytes": 930
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\linkin-aligned.json",
+      "bytes": 50431
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\linkin-ending.json",
+      "bytes": 8112
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\linkin-ending.log",
+      "bytes": 467
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\linkin-full.json",
+      "bytes": 70339
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\linkin-selected.json",
+      "bytes": 4120
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-aligned.json",
+      "bytes": 33859
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-ending.json",
+      "bytes": 14382
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-ending.log",
+      "bytes": 467
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-final.json",
+      "bytes": 32776
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-local.py",
+      "bytes": 564
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-outro-cores.py",
+      "bytes": 877
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-scores.pt",
+      "bytes": 1281996
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-source-final.json",
+      "bytes": 33951
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\motor-trace.json",
+      "bytes": 108031
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\recognition.json",
+      "bytes": 4994
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\recognition.log",
+      "bytes": 934
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\recognize-linkin.log",
+      "bytes": 962
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\recognize-linkin.py",
+      "bytes": 464
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\repeat-before-check.log",
+      "bytes": 6034
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\saved-after.json",
+      "bytes": 42579
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\saved-trace.json",
+      "bytes": 78233
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\saved-trace.log",
+      "bytes": 60
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\saved-trace.py",
+      "bytes": 1569
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\short-cue-before.log",
+      "bytes": 3443
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace-after.log",
+      "bytes": 975
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace-after.py",
+      "bytes": 1639
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace-alignment.py",
+      "bytes": 1638
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace-motor.log",
+      "bytes": 955
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace-motor.py",
+      "bytes": 1599
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\trace.log",
+      "bytes": 975
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\unhinted-after.json",
+      "bytes": 42579
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\unhinted-trace.json",
+      "bytes": 78233
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\unhinted.log",
+      "bytes": 996
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\unhinted.py",
+      "bytes": 1555
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-linkin-final.log",
+      "bytes": 966
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-linkin-final.py",
+      "bytes": 2050
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-lumen-windows.py",
+      "bytes": 1602
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-motor-source.log",
+      "bytes": 5304
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-motor-source.py",
+      "bytes": 2542
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-motor.log",
+      "bytes": 3584
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\verify-motor.py",
+      "bytes": 2511
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\vocal.wav",
+      "bytes": 4586444
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\write-comparison.py",
+      "bytes": 1358
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\01400924821ad2c21a85ecd076d66fe3cf563d5e5fec744952f7961f4c5a87f3.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\014d31e03bfbf6b2888f0eb73988ffdf578310983fecf7e6d6f2db088e3c0858.json",
+      "bytes": 851
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\029828939a8e911a46faea69b1994fd94583950d7b84e21a8f0e688284bc9f45.pt",
+      "bytes": 1172984
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\040a0902ef2eceb09a4e3b8dd3b1632125a466e085029effb76e55828222d57a.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\099ed4a02fea42b7599d553a7a0b6f1997851e76a8907f88991b23c850588cae.json",
+      "bytes": 1866
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\0b7afef9199b4df31cd6e524f39c330e6ca085022c80c8ed391fad84e2141ac0.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\0c250b2284bcf4d07a47416a26f8cb4ca66d6fe1ca53752b1fdc88304d45b5fa.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\0ed11e8d69efcd4aa889b17081f7c625255626db288828c36f7640e2980941df.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\1131d7d94c2093f7f39f7b85b30b88b8b82172456b22b3cd18b94bf646d0fa02.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\1305d769985f8a7862b381d37afee29ca0f7ffc746047c3360de7c92a990252a.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\14a11259cf5437a0c5bed44e56f51f0175902225a1320e26958b246df00c71f6.json",
+      "bytes": 1456
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\15f3be015484cf6b54a58e4c110baf5b73ff7b8c26a261416360c8d61c58ed02.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\16728e3524cba1051f0c03fb560c01758efc16589720793d4f30218fb349998d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\1757ac4d38dac328361f7efb867456ed4313570956623a4a743af1d34312b65c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\17cf47a59f62d154385b720140cc260a5253f7c10c19b6b877d707109d0299c9.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\17db080ea7c943542c1920097335343df5fb1a22bb78d139127206412b74f90f.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\1b25ceb684e823477cb4b3cdb4e68f15a9492e5457897bedd5e2da82902c8f2f.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\22bf5f720d23b972c0c3c89f33bd819df0f91700a0e7c1c7787b60fc2cd0d39d.json",
+      "bytes": 2415
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\24db650a8d1cc8bd42a63f4e2d42d949d72361851e21d9f6e13a6ce52bb6d726.json",
+      "bytes": 2274
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\2693ef57a24cac8f855a341b538b45f91dd7e5e387d0bcfa0006bc130c9ab7a3.json",
+      "bytes": 1898
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\27a534eaa12f52fd6b06c9968492f3b4a29ffb366d783f5258e716241f24b11f.json",
+      "bytes": 529
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\2807db9539b53dcd1ed587ff1f9a077d396cd58ebea8daaa18fe18ad768eb954.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\28278a1b1ed1fd81d1068c9ab307fee5f22120ece1fe610ca586bab7783839e0.json",
+      "bytes": 1161
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\2c6f5ae5b16597c1d4d01c6c796c1b65b20c7de99237922c0ec761cc46daa48d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\2ccee27c2dd78a73a01361217f0e4287b862d754e81a9b0e2ac34dd83c8d7f93.json",
+      "bytes": 1592
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\2ff242e51c86ad2648e121782c73b92b15ca1aadf00d209c23e2c573de8a9657.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\30273b7131c9afb37bf4bdbc36383eb80b7a2d218257de0c7be1ba83daa3b746.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\30cb1c36e7c1aa59561b7697d0dd22c52d553d5631bf8aa9d966535b526c62d7.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\315a19a81b276f3905cfcbc17758392b39a4280c4032d8cc8e2a0c0b4b3c3e45.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3188e5c3d308b091b229cd3a3a25374304317f559dc35507d3b800f6f5b8cca8.json",
+      "bytes": 2209
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\323bca23b19a21f226e0a3a8dee58f12a45fa11f5d27be8185eedf7e769c91ec.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\32fa082154505f64400f723589911f927c348c019d259414ef02f6606addcff1.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3310cfac61ec12fe843d7b6619ce0979a86b665ee8fa9dcbfebfca2fa3dcab17.json",
+      "bytes": 1132
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\36000c1080d604102aa44ee1360b509fb69253d16af385929af2aca55dc0c220.json",
+      "bytes": 2338
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3869f080e51b201158e3c306fd98f48b42aae5963baea9b0b60b737a2b91502f.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\39c84644cd097914072f410cf8694b0aa400153d2b9f44fb90fb904cb21db5d4.json",
+      "bytes": 5681
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3d403db809f191b1cdee6af5223b3cc64467522c212842ad122a056eaae9a3ca.json",
+      "bytes": 696
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3e3f5e703c407b2d664b3784937d085efc33e8ff563477881caf666316d9ce9b.json",
+      "bytes": 13884
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3ed400035c29aa8d85e807cd4d4627c5126f57f912012b7b2da9653faf4fe405.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\3f2ba47b06ad28adcd5616ea4f82144132c2b731509891466b1c4f1367e4c43a.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\437e668fa5422026513935567de212045cb3f194f6bf9113f93e76e6d059efb6.json",
+      "bytes": 652
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\473123991f56a1c6e6007d12f7224dbad4883c43ed7257726978e52e9c713c6b.json",
+      "bytes": 3111
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\47621f3d0ae7aa7997cc6cac46bd7b0709d53ec2b04f86d29a4b5fafbdd3e547.json",
+      "bytes": 1922
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\4a596f414bd58fcf61c5b09e283a7f602dc8486cbcda349c4c1082d2242cad21.json",
+      "bytes": 1967
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\4d2f6de06e67f6db2a511939e1aaa90dd51137faf9e2d8533e74b11450cf21fa.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5028ed7bd84392eebfb217c59edbcdc5bccbca0a3dca0898125b6bb20ef668c4.json",
+      "bytes": 960
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\505f21166a1dba59772f10c1447790bb01f5f28c5a86b5af7d9795afdd3a169e.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\50e01c3cb619cd969cd0b0fbb060df674be222b802ae5f04e398288fbdb5100c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5203d61fdec1d8d92ee0b96d00bec990f1ff409d13c8d7293b325f6b141438ba.json",
+      "bytes": 1191
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\548ea3af9fa6d02164dff3f463d9730dbb6d074c0d7b01f10eda596534240705.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\58e552662c3096e6efde5ea011da20d9c225572f3e8b4cdcdd8891cc61c645ff.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5d3d147037d2e974b2b7bc5786b57f3f4bc3ca910398e6876a5d3122b89c8185.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5e3722b4332989cc7a08f8e032c5e3dafd4d0012a02f888ae1281d21e52b48d0.json",
+      "bytes": 3142
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5ecd892206a76e5115fec325ef499c3dad719a848f0bee8617ce7727d374dfda.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5ed847268da779a8968cb46926970b2fc666be210e3ec1fc9ee436235f84b6ff.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5f3d2c1cfa42391f6b42719443480bfb9cc407d880ad94ce0cdf3825e2bf5d86.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5fa05698eae6ae64d6601af945f9d3fe6d3690914aabc045b461c46506906d91.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\5fda5c2f5cb07fe81940ab37647e9c4759b30b76ff25f15604f466f3a05f2888.json",
+      "bytes": 1074
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\63959b45af194a70b00c81ef7b6c7b53152fa6ff308744ee57d3d8eb2da81463.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\63a35c092b0fc672c861130229c2106e5286ce563ecd166d0fea6f79a839c7cc.json",
+      "bytes": 1690
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\65f2ee1052a4aa17b03c3004ddeedb3189bc2a6146507932b5a5c08988b211b9.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\665bf8e0971bb9ccf4502360c83fc9408d054729a844b8486db16eabac02ef10.json",
+      "bytes": 1919
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\689ed2e620fdf63e46537a13041d26b077f422ce1209203ef908b4398a4c4bb9.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\6a4deafdaa9358c79f91d2bc85b0391027e816419ab9d315dbd2ee964279690e.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\6a637e6cd8e4dc99084861e8678a7b133285434fb2141bf455e7def9f3abb6d6.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\6a92dcb5ed2ea6f2c09fba58091034510053560aeed74d4e3fe3ab0625c52339.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\6d7f63802b5a111b9552f8d59262be3c9b4ce39aa83f20169ab68dedfd821744.json",
+      "bytes": 1791
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\731037c5da51383474a0480e670ad125598c5821b4b2b1b2c21ff08106e94c0c.json",
+      "bytes": 1162
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\74953e358e2d8e04744ae2eb11de0282384caddc10412238c4b04d56bb0f78c6.json",
+      "bytes": 1679
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7495dc90b7e442eaf6e5a255d33995cb23bee196bd401d35b6014b5cb7631225.json",
+      "bytes": 656
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\74d032163ce467b4bbedb7e433480c9cb2ed4bafff8effd5125a8cb3e1cf0bc6.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\74e92d028e20a043712d667979250d6f32f3b0ef782f103652ca32fb0495daa6.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7692761fbb9ecf955ff1cacf42aeef59f0ae411a98bd4709309c53733ba176e8.json",
+      "bytes": 1680
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\76f54d7ecbc6da2d09360e8ef63cd8f3d38d7eb7e1e8e01295676f00e120f463.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\79357929029d55e870f8e0ea53f7c01153d09a9913f03dfb07d898ed591db9d4.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7d7837449cb5713a36392625a78d5ee47c112e3b80cad87337b26f72eedd107e.json",
+      "bytes": 3577
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7d988e32123cfb57ae457ee6685043cce28a5bf263bbe47bc40afc91a348fac8.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7f86a72eb5a4601c6dac0f440b934c284ff6908ea2dd44553605dbf527242f77.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\7ff687e800d71e5401ee449293cf6708e29a79b6259af9567b73baaa804b6f7a.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\809721180a3c3c176c17c9ffc753534acf5d6c6ba8774094c3d70d44328064dd.json",
+      "bytes": 694
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\8243372765845548fb61baf1f1b7c51d3d4cb38fceca484ecfb8f302b5ef2131.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\853029eb42be5dc1d14fe80c6c5343c21e831cb3aab9a6d44ec7d58e5d0e9172.json",
+      "bytes": 1242
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\89733b63d0ea7b606ea37e03ec314a6e6b5aae6519972066fd35c2b4f1ebc56c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\8bd0ba2ab65a2c07c2aec37fd09ad8f1a80c797f7c1a121cfe6a155b226a8420.json",
+      "bytes": 1183
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\8d77277638fce76f2b21cbd9da8111ceb8e301d669c770ee65c1f7e32a4efee8.json",
+      "bytes": 1071
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\8e5f5c2c4b291ae504e3f3f8cc4614e734455a2236b1bdc96a1b331ccccf9bdd.json",
+      "bytes": 1834
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\8f6a215128141c6f1489bb9a745528174c2228d0e2024c8a7977f643a6faf97c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\915f1b2804142cb4987e4ddf20c72d56b5337525ae3bfc2b166534bfabf94bb6.json",
+      "bytes": 1192
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\9499259bbb92850504811651fa894cff06964bd1fc893482f62fcd755f0529d3.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\94d8e38ea0a1a311bcd3ed9e7e064c856e0da0356b5e134b043394f594a3a46a.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\94f4de2be3e0e10c42f06bb1a7348834a613445139fd302ad1a8f732c207302e.json",
+      "bytes": 1162
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\969942b0a1a422d9e8c71728ad9cfc073e7c23f8a9514edc9a3c34abef730d26.json",
+      "bytes": 1430
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\96e70a5c0a3e01c8d4528597671298736dc6c96f865d59e9665f32cdd1b1b7e2.json",
+      "bytes": 2272
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\9893fba7617626c9a6b15e17f9a62f2a63dbf3070a2076f3356aefd7f2ecc8f9.json",
+      "bytes": 1041
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\9e5f3e54a97addce79157224f69c0ee8ca0c1f4eda6900eb1895400ce4e66185.json",
+      "bytes": 702
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\a5b2eb38cf7058450fab002436b7ae7ecd9b43c610f1ebbe130cd857e141f85e.json",
+      "bytes": 739
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\a612fd6e677273727d863f90a5835d285edb5cd0567f4e0a4529d990f480bd34.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\a639107e00f5188f71354751fea5c424b0f3850a0a5bb186eb42043dd04d70ab.json",
+      "bytes": 517
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ad1e6eb404c146e754dc787dd48fbb4c58c36c4350da7ce69e88fe5a3e44d625.json",
+      "bytes": 2368
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ad40d86383fb78ee2dc6e15c6346b42dbfe198b75176933c8d95af54290efd00.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ad986f0dc0355fe9f1011f7a1aefcc90fe69d12729cffdb124d4a8243490ed57.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b165e415a279b65b1216e866512a8259d1163662bc1f5c8c94b61b7fd422563c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b2949313193b224136a3a40dc6b86fe476b9729b607e93b17e3773eb3dd730c2.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b5c4b10ccc73f62f8cb223745ba98cf499985dc7d18155f65afc20eccba6cd52.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b79dce274212326667a39e5d49e9212eeb7183c9d735ee3c890e8f61cd5f85e1.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b834999e07a32854a9dd74a27bb669bab9e1ff503d91fd27bce1aa076124a64f.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b8f9eecb0475b0ba4a4d26a5c3e3655af8cc41a87aaa8e6a2ad64deb870b6735.json",
+      "bytes": 1585
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\b97be8e7b783498b17d8e7cfe45e697e0f46735bd9b5057921da73b78d6572e8.json",
+      "bytes": 2608
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\bcd6eb33ee9067bfdf4c2f61ea245f9060f6f404c58608062ace94c3a90e3a07.json",
+      "bytes": 2263
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\bdc70370829839f717d2e6ae9dec14ef49a77aa66fde848eb33a691be4c87a29.json",
+      "bytes": 1121
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\bfea28f8e1d91d828ea398597b46c586ea4c46a1c919b85788314f3345ffe3ef.json",
+      "bytes": 1608
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c01d29ac630098dcd01c16e49435e2aab9f9e6583ebe0ae0ef5b273ed3c64bdc.json",
+      "bytes": 1447
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c1eb2f3bc0b322a06fb7329a446620a1074e66c6af2286b4e34c058569e88d8d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c5ed510a2c7026c7aed36b41a42a4da1e8bcdbb859f7582f194c6f33e28cf29b.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c63aaf479aff7447b2ad7b986af2cfe8a2e50b47ad228cdf9726cc6585d773b3.json",
+      "bytes": 2204
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c66b2fbf1ec42ae62dedb94b5a084854bca01ff6f764410b9d4aeee2455f74d6.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\c8f913e6936ca743451a9d25c141bc49a527b24e4f86b09b1dd5e07287d7ad10.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\cf6f1d9176d42e758626e421440a9c1aec3c146619375fc350280374aa723e83.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d078a4369d51ca2319f05d02e767fd89f6d8b1d6335e16c834174e5b2dcedd8c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d11b2d05270264ba95da93d3152c830e2e7e853bb5f0b101f0774a4b95a9b19e.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d41c3e7aefddf434810d3edf7f05e0210f1a97266414737cfbc72ded6b60daf0.json",
+      "bytes": 1648
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d8b75f5a1f4d6e8a013a80912d12cde2c78c17944123be386d5216b89e094842.json",
+      "bytes": 1063
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d8bb31963220cf9c847e659bbe9e8b02db54775dbb1df4ee6a41e5e2a92faaf4.json",
+      "bytes": 32523
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\d8fbefdcc062777e232ef5b433fb286c2bcf30c82dfb3bf97967677efb3c5564.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\da49c246958e156f493b543cf5dc7ead7d4a170c97f140d9ae233d93b9059cd6.json",
+      "bytes": 1239
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\dbe8bdb2103f596ac56ee96a859fc4706122c904053cbb8f2a57245e3ecee650.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\dc9867d649877ab7d3567290144d93f96c2a2267eeef93552b089b0959d75087.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\dd5a7017836c540c596eb382c4d13b139f001ae4c33f8c32e887681732c84c81.json",
+      "bytes": 1538
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\de45e13e93964314ca14dfccdb691afcc67a6bdf4b118193b1ac5c7a911e2f35.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\de8cc842be7f7d0176d792876ab5ebe5894be1ceebfbc5538239ef2de1f33e5f.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\df06523a93613a907fa6b001c4efb6b98f7375e1dda3ea45f6e1ef535324e87e.json",
+      "bytes": 1929
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\df0efd07dfaefc071c0ac393c540cc8ec91d4f3fe5fae7b0bad77b38149b2848.json",
+      "bytes": 2271
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e0b98a2a0f97cfff9490a95fce4de3aab15d2ec786abfd88ea424ff761403ebb.json",
+      "bytes": 1094
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e10104dac8213dca0205b57c35b662e30eae59d6d3446418a510ed23e455d3fc.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e170ce4f7ca39d9be8337841b2b3f1e4607d3e17c03d3febfc54f5d12eb64e33.json",
+      "bytes": 587
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e6c8879147228ad296aef44b2388a23f7fcd48d97ed25f2ea2e4a426d4e8cb1b.json",
+      "bytes": 3981
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e70972f8f23cbca23c8750999e5a0e6055be50de256f120ee00d3c48e0e15a3d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e7fcbf7413eca8b470268c99e50b0a1e8da6a6eb11cadf9c61c3ef6ee08f9e89.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e8cdd1f8495a39883bcf32ceb2fb2470bd8343497cfe4f7c664e43f2dfaf3c05.json",
+      "bytes": 41
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\e93d2234899c9c0b10c3e2bc8b4f326116928e2b04ab95fd6fd0d3edc99abb11.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ea97e04341d38cfbe61301c2ab2f0b102c81930d59a2b05b80e23d2007bb7e6d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\eb2d58c4cc35ce6d0ed1b88042f8f5552f5c380b36b4ad623d0a5c3ae1516c2b.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ec2ff60edc07f914b0f84b5704881be8ce1ac3f4c2723b3a6b91077b8c50bc7b.json",
+      "bytes": 3385
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\efdab9e2eb86758315756a436ff57a5a60edecc0bf6e1d40309544d2a9a2a6b8.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\f255f16952fd8b8862b57489652b0272eabee042340c5105499b09dc9b8f2d6d.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\f32955e40f594c2e5ff4db85b8d03057764b2d658524e4c06830f40f954e2f85.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\f4d3802cba4c63623eada2b552467f5b181a4710556780564d7fc3f7b16fc8f1.json",
+      "bytes": 23406
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\f8c81d4fd8b3fc4e6a9f7318195dd375ca481ec2b0c757659de3f4bb6e89ab27.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\fb3cbd6492f3aac754338862879c45dbd901db37363d01cd621ebedaaec0bbb5.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\fca739c0221a4f8aef5e3cb871e50674b3c0b31cbcc893a1236e9d3393b62f52.json",
+      "bytes": 2600
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\fca860d6514dad5e5c620d48f9e967ec0302d698be599e4cc7af1a97bcc96748.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\fd53cdde4f95255a0ff1d87b9110676013ab5a2e9e767c75e20dc972f2c6f125.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\full-reuse\\ff1fe42c498dda7b60c8eceb8582375ac4ecdf7d38bd455a8817199c39637598.json",
+      "bytes": 916
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\numba\\whisper_ec89e1f37154967cc992ad2cd86170fc3e119e54\\timing.backtrace-57.py313.1.nbc",
+      "bytes": 51111
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\numba\\whisper_ec89e1f37154967cc992ad2cd86170fc3e119e54\\timing.backtrace-57.py313.nbi",
+      "bytes": 1503
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\numba\\whisper_ec89e1f37154967cc992ad2cd86170fc3e119e54\\timing.dtw_cpu-82.py313.1.nbc",
+      "bytes": 82885
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\numba\\whisper_ec89e1f37154967cc992ad2cd86170fc3e119e54\\timing.dtw_cpu-82.py313.nbi",
+      "bytes": 1501
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\.venv\\Lib\\site-packages\\__editable___ad_voice_backend_1_1_10_finder.cpython-313.pyc",
+      "bytes": 7120
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\.venv\\Lib\\site-packages\\ruff\\__init__.cpython-313.pyc",
+      "bytes": 302
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\.venv\\Lib\\site-packages\\ruff\\__main__.cpython-313.pyc",
+      "bytes": 1157
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\.venv\\Lib\\site-packages\\ruff\\_find_ruff.cpython-313.pyc",
+      "bytes": 4735
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\.venv\\Lib\\site-packages\\_distutils_hack\\__init__.cpython-313.pyc",
+      "bytes": 10741
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\backend\\ai_worker\\speech_windows.cpython-313.pyc",
+      "bytes": 20757
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Git\\karaoke_new_version\\python\\tests\\test_letter_alignment.cpython-313.pyc",
+      "bytes": 266330
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\__future__.cpython-313.pyc",
+      "bytes": 4761
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\_colorize.cpython-313.pyc",
+      "bytes": 4141
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\_compression.cpython-313.pyc",
+      "bytes": 7844
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\_weakrefset.cpython-313.pyc",
+      "bytes": 12088
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\argparse.cpython-313.pyc",
+      "bytes": 105344
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\bz2.cpython-313.pyc",
+      "bytes": 15204
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\contextlib.cpython-313.pyc",
+      "bytes": 30533
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\copyreg.cpython-313.pyc",
+      "bytes": 7575
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\enum.cpython-313.pyc",
+      "bytes": 85944
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\fnmatch.cpython-313.pyc",
+      "bytes": 6843
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\functools.cpython-313.pyc",
+      "bytes": 42238
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\gettext.cpython-313.pyc",
+      "bytes": 22600
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\glob.cpython-313.pyc",
+      "bytes": 24834
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\keyword.cpython-313.pyc",
+      "bytes": 1080
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\linecache.cpython-313.pyc",
+      "bytes": 8779
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\locale.cpython-313.pyc",
+      "bytes": 65490
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\lzma.cpython-313.pyc",
+      "bytes": 15757
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\operator.cpython-313.pyc",
+      "bytes": 17404
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\py_compile.cpython-313.pyc",
+      "bytes": 10108
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\reprlib.cpython-313.pyc",
+      "bytes": 11199
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\shutil.cpython-313.pyc",
+      "bytes": 66916
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\signal.cpython-313.pyc",
+      "bytes": 4583
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\subprocess.cpython-313.pyc",
+      "bytes": 83086
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\textwrap.cpython-313.pyc",
+      "bytes": 17991
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\threading.cpython-313.pyc",
+      "bytes": 63371
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\traceback.cpython-313.pyc",
+      "bytes": 71980
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\types.cpython-313.pyc",
+      "bytes": 15812
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\warnings.cpython-313.pyc",
+      "bytes": 29709
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\collections\\__init__.cpython-313.pyc",
+      "bytes": 73507
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\__init__.cpython-313.pyc",
+      "bytes": 6307
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\aliases.cpython-313.pyc",
+      "bytes": 12581
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\cp1251.cpython-313.pyc",
+      "bytes": 3327
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\utf_8_sig.cpython-313.pyc",
+      "bytes": 6952
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\encodings\\utf_8.cpython-313.pyc",
+      "bytes": 2323
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\importlib\\__init__.cpython-313.pyc",
+      "bytes": 4583
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\importlib\\_abc.cpython-313.pyc",
+      "bytes": 1657
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\pathlib\\__init__.cpython-313.pyc",
+      "bytes": 516
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\pathlib\\_abc.cpython-313.pyc",
+      "bytes": 40037
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\pathlib\\_local.cpython-313.pyc",
+      "bytes": 40908
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\re\\__init__.cpython-313.pyc",
+      "bytes": 19407
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\re\\_casefix.cpython-313.pyc",
+      "bytes": 1855
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\re\\_compiler.cpython-313.pyc",
+      "bytes": 26905
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\re\\_constants.cpython-313.pyc",
+      "bytes": 5418
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\re\\_parser.cpython-313.pyc",
+      "bytes": 43603
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\pycache\\Users\\YOJIK\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\sysconfig\\__init__.cpython-313.pyc",
+      "bytes": 25217
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\063d5b121f72851810ee8ab3f3635f96217360c3c470d91134f70a3287633d74.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\09729e5f031a4dc86097f214fb4ca6674887402b302ac90b313c6dbb1332b208.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\13547cc7d429c1cab34e35b04fff1249c812b09121de4c8f871a4e56fc8d3902.json",
+      "bytes": 1797
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\21d813683b4470e34cd2a65b6a92ec6f3ca9bad98ab0509144bdbdc13a63324b.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\4804a9b3a56d680c3e31478e510fc654afe135900d9cf3420259d2606db0865f.json",
+      "bytes": 2372
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\6a45fd876717197be47439b8694d232fb04cf5421154a0f5e3a77e9d8efaa154.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\73de6530bf3baf664c7b420aa9e707fdc13b3600659c6797b0fefbab50054dd5.json",
+      "bytes": 1603
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\74099001be02cd3e58f9447c9e2648fad4fc56c3def16d572b7868475f98f52c.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\7816e10cbb77377ec12d1b62066d733c56303e7ac48356a719b20c9ef807c9ae.json",
+      "bytes": 2107
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\8c2316de52fe12cc98900667600ee5bf495358c6de03930d79c86a7d9dfd31a9.json",
+      "bytes": 2297
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\95325d99b0065773c2230242879f91fdb8d97dbb000836e2ec244c8561c0a99c.json",
+      "bytes": 3074
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\95e8f3124b0030ac1d2781fab51bd9833139f46681f593c6f37f13a6898e5e55.pt",
+      "bytes": 147768
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\b1a18b64313dfd64800a0711dacff6e77f275387035791f9bcd8d3967b5dffc9.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\b78d7b87d2cd882c1e4b3fb3a2131bd96f0e51548abd7415938339e6bf5f6f8b.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\b8c5f9cf7b36d7d55c8928f85bee48541929b442b3eed74bee320d81bcc91a5e.json",
+      "bytes": 386
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\bd16b5dccb6f832ecc7c28423489c643f3becba83c94b1ca69989393e9088b4e.json",
+      "bytes": 644
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\bdd29d4160d817c048cd05507311af202dd8c380ad12d1c841731b525386d4bf.json",
+      "bytes": 2419
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\ca83ff9684fada24cb26e0dac3d3897498ef1e434fa2dd768f31240708025582.json",
+      "bytes": 2342
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\d9af83018220778d03fb46b759d6b5e8e215e46fa9fedc3f8cf702758dc80367.json",
+      "bytes": 1775
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\ea49119034040b515a9cd7fe078cdf759d23efe6c8bfaf914d20a62ced6e44a9.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\f38daf5a1988ca8c7382e66868d3230adf380c60b47eb672c56230678f0f21f4.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\f87f3987b7023c56a451c358265c5c6c066b1dbf92ada45a04b99630546fb679.pt",
+      "bytes": 3842232
+    },
+    {
+      "path": "E:\\CodexTemp\\lumen-timing-20261115\\reuse\\fd8f107b4d32e707b128578091cfa41d1d5e09d6c43b19c3cdee641a2b8d709f.pt",
+      "bytes": 3842232
+    }
+  ]
+}

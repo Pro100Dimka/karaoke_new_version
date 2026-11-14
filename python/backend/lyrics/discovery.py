@@ -323,7 +323,9 @@ class LyricsDiscovery:
         source: str,
         transcripts: Sequence[str] = (),
     ) -> LyricsDiscoveryResult:
-        versions = [item for item in eligible if _same_vocabulary(matched.lyrics, item.lyrics)]
+        versions = [
+            item for item in eligible if transcripts or _same_vocabulary(matched.lyrics, item.lyrics)
+        ]
         distances = {
             item: abs(song.duration - item.duration)
             if song.duration is not None and item.duration is not None
@@ -432,8 +434,25 @@ def _best_catalog_version(
     # A few accidental matches cannot distinguish versions more reliably than the
     # recognizer's own unmatched words. Within that uncertainty, use recording duration.
     uncertainty = sum(len(heard.split()) for heard in transcripts) - best
+    vocabularies = [{_lyrics_key(word) for word in heard.split()} for heard in transcripts]
+    unexplained = dict.fromkeys(candidates, 0)
+    for item in candidates:
+        for line in clean_lyrics(item.lyrics, "Auto").splitlines():
+            words = [_lyrics_key(word) for word in line.split()]
+            if len(words) >= 3:
+                # Missing repeats or one missed adlib do not prove another recording.
+                # Entire lines of unfamiliar words are different evidence.
+                unexplained[item] += sum(
+                    len(words) for vocabulary in vocabularies
+                    if sum(word not in vocabulary for word in words) * 2 > len(words)
+                )
+    supported = [item for item in candidates if best - coverage[item] <= uncertainty]
+    least_unexplained = min(unexplained[item] for item in supported)
     return min(
-        (item for item in candidates if best - coverage[item] <= uncertainty),
+        (
+            item for item in supported
+            if unexplained[item] - least_unexplained <= uncertainty
+        ),
         key=lambda item: (
             distances[item],
             -len(item.lyrics.split()),

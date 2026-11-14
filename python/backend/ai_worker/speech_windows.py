@@ -132,6 +132,14 @@ def _line_first_words(
             ),
             None,
         )
+        if first is None:
+            # Repeat verification may retain fewer copies than a catalogue cue.
+            # Keep its entry only for an exact repeated prefix at the current cursor.
+            for size in range(1, len(line) // 2 + 1):
+                if len(line) % size == 0 and keys[cursor:cursor + size] * (len(line) // size) == line:
+                    first, line = cursor, line[:size]
+                    text = " ".join(text.split()[:size])
+                    break
         if first is None or not line:
             continue
         found.append((first, float(start), text))
@@ -310,9 +318,19 @@ def _alignment_windows(
                     for position, core in enumerate(cores, window.first)
                 )
                 contained = sum(window.start <= core.start < core.end <= window.end for core in cores)
-                if corroborated >= _MINIMUM_BLOCK and contained * 2 < len(cores):
+                conflicting = any(
+                    core.score > _PREFERENCE
+                    and position in supported
+                    and (
+                        core.start < supported[position][0] - _MARGIN_SECONDS
+                        or core.end > supported[position][1] + _MARGIN_SECONDS
+                    )
+                    for position, core in enumerate(cores, window.first)
+                )
+                if corroborated >= _MINIMUM_BLOCK and contained * 2 < len(cores) and not conflicting:
                     # Independent recognition and phonetic cores contradict these catalogue cues.
                     # Reuse acoustic phrase windows instead of squeezing words into stale crops.
+                    # Conflicting cores may instead join different occurrences of a repeat.
                     break
             else:
                 return windows
