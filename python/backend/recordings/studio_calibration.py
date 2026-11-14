@@ -103,7 +103,7 @@ def _presence_correction(
     if not valid.any():
         return 0.0
     prominence = float(np.median((vocal + gains - music)[valid]))
-    return float(np.clip(placement - prominence, 0, -placement))
+    return float(np.clip(placement - prominence, 0, 3.0 - placement))
 
 
 def _voicing_profile(voice: Path, cancel: threading.Event) -> np.ndarray:
@@ -156,7 +156,7 @@ def build_gain_plan(
     if not active.any():
         return GainPlan(times, np.zeros_like(level), active, level, offset, report)
     baseline = float(np.median(level[active]))
-    placement = -6.0 + 3.0 * overlap
+    placement = -3.0 + 3.0 * overlap
     target = _target_levels(times, level, music, meter_times, baseline, placement)
     desired, protection = _protect_unvoiced(voice, times, target - level, active, cancel)
     # Include breath protection's attenuation when measuring the final vocal presence.

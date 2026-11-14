@@ -47,7 +47,7 @@ def test_single_plan_keeps_steady_singing_steady(tmp_path):
 def test_single_plan_is_independent_of_input_gain(tmp_path, scale):
     _, voice = tone()
     actual, _, _ = render_plan(tmp_path, voice * scale, voice)
-    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-4.5, abs=0.2)
+    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-1.5, abs=0.2)
 
 
 def test_short_loud_and_quiet_words_are_leveled_by_one_controller(tmp_path):
@@ -124,7 +124,7 @@ def test_presence_accounts_for_attenuation_from_unvoiced_protection(tmp_path, mo
     _, voice = tone()
     actual, plan, qc = render_plan(tmp_path, voice, voice)
 
-    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-4.5, abs=0.2)
+    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-1.5, abs=0.2)
     assert plan.report["presenceCompensationDb"] == pytest.approx(3, abs=0.2)
     assert qc["p90ErrorDb"] < 1
 
@@ -182,7 +182,7 @@ def test_balance_keeps_vocal_harmonics_audible_above_a_shared_bass_body(tmp_path
     section = actual[8000:-8000]
     axis = np.arange(len(section)) / 8000
     amplitude = 2 * abs(np.mean(section * np.exp(-2j * np.pi * 900 * axis)))
-    assert 20 * np.log10(amplitude / 0.05) == pytest.approx(-4.5, abs=0.5)
+    assert 20 * np.log10(amplitude / 0.05) == pytest.approx(-1.5, abs=0.5)
     assert plan.report["presenceCompensationDb"] > 0
 
 
@@ -195,7 +195,7 @@ def test_center_presence_does_not_raise_voice_over_side_only_music(tmp_path):
     assert plan.report["presenceCompensationDb"] == 0
 
 
-def test_presence_does_not_make_a_bass_heavy_voice_louder_than_the_whole_backing(tmp_path):
+def test_presence_caps_a_bass_heavy_voice_at_three_db_above_the_backing(tmp_path):
     from backend.recordings.studio_delivery import measure_mix_loudness
 
     time, music = tone(frequency=900)
@@ -208,7 +208,7 @@ def test_presence_does_not_make_a_bass_heavy_voice_louder_than_the_whole_backing
         threading.Event(),
     )
     assert plan.report["presenceCompensationDb"] == pytest.approx(4.5)
-    assert np.median(vocal[10:-10] - backing[10:-10]) <= 0.1
+    assert np.median(vocal[10:-10] - backing[10:-10]) <= 3.1
 
 
 def test_antiphase_stereo_is_not_canceled(tmp_path):

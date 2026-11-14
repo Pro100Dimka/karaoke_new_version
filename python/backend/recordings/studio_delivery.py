@@ -86,22 +86,39 @@ class MasterDelivery:
             self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];"
             voice = "[voice]"
         self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
-        # Use the same delivery path for dry and already-processed vocal stems.
-        # Loudness normalization of the entire mix changed the accompaniment level
-        # whenever an existing-effects vocal was selected.
+        measured = self.renderer._mix(
+            self.backing,
+            self.balanced,
+            self.graph + loudnorm_filter(lra=11) + "[out]",
+            ["-f", "null", "-"],
+            self.cancel,
+            quiet=False,
+        )
+        source_levels = parse_loudness(measured.stderr)
+        if source_levels is None:
+            raise DependencyError("StudioMasterInvalidAudio", "Master loudness could not be measured")
+        gain_db = 0.0
+        if math.isfinite(source_levels["input_i"]) and math.isfinite(source_levels["input_tp"]):
+            gain_db = max(
+                0.0, min(-14.0 - source_levels["input_i"], -1.1 - source_levels["input_tp"])
+            )
+        if gain_db > 0:
+            self.graph += f"volume={gain_db:.9f}dB,"
+        # Both vocal sources use one constant mix gain and the same peak protection.
         self.graph += "alimiter=limit=0.891251:attack=5:release=80:level=0:latency=1,anull[out]"
         self._encode()
         levels = self._verify_peaks()
         self.processing["delivery"] = {
-            "method": "peak-limited-unity-backing",
-            "globalGainDb": 0.0,
-            "gainDb": 0.0,
+            "method": "peak-limited-loudness-lift",
+            "globalGainDb": gain_db,
+            "gainDb": gain_db,
+            "targetLufs": -14.0,
             "integratedLufs": levels["input_i"] if math.isfinite(levels["input_i"]) else None,
             "truePeakDbtp": levels["input_tp"],
             "loudnessRangeLu": levels["input_lra"],
             "verified": True,
             "limiterCeilingDbfs": -1.0,
-            "note": "Same final mix for dry and existing-effects stems; limiter only handles peaks",
+            "note": "One fixed gain raises quiet masters within measured true-peak headroom",
         }
 
     def _encode(self) -> None:

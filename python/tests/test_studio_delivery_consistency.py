@@ -1,4 +1,4 @@
-"""Regression: dry and existing-effects stems use the same peak-only delivery."""
+"""Dry and existing-effects stems share loudness gain and peak protection."""
 
 from pathlib import Path
 import ast
@@ -10,7 +10,7 @@ import soundfile as sf
 
 from backend.infrastructure.ffmpeg_audio import loudnorm_filter, parse_loudness
 from backend.infrastructure.process_runner import ProcessRunner
-from backend.recordings.studio_delivery import measure_stem_loudness
+from backend.recordings.studio_delivery import MasterDelivery, measure_stem_loudness
 from backend.recordings.studio_delivery import measure_mix_loudness
 from backend.recordings.studio_master import FfmpegStudioMasterRenderer
 
@@ -33,6 +33,46 @@ def test_delivery_has_no_stem_dependent_master_loudness():
         for node in ast.walk(run)
     )
     assert "alimiter=limit=" in ast.get_source_segment(source.read_text(encoding="utf-8"), run)
+
+
+@pytest.mark.parametrize("rate", [44100, 48000])
+@pytest.mark.parametrize("process_voice", [False, True])
+@pytest.mark.parametrize("case", ["quiet", "peak-limited", "loud"])
+def test_delivery_raises_quiet_mixes_without_changing_balance_or_crushing_peaks(
+    tmp_path, rate, process_voice, case
+):
+    time = np.arange(rate * 3) / rate
+    scale = 10 if case == "loud" else 1
+    voice = scale * 0.02 * np.sin(2 * np.pi * 700 * time)
+    music = scale * 0.04 * np.sin(2 * np.pi * 1100 * time)
+    if case == "peak-limited":
+        music[rate] = 0.7
+    vocal, backing, output = (tmp_path / name for name in ["voice.wav", "music.wav", "out.wav"])
+    sf.write(vocal, voice, rate, subtype="FLOAT")
+    sf.write(backing, music, rate, subtype="FLOAT")
+    before = [path.read_bytes() for path in (vocal, backing)]
+    processing = {}
+    MasterDelivery(
+        FfmpegStudioMasterRenderer(ProcessRunner()), backing, vocal, output,
+        threading.Event(), sf.info(vocal), 1, process_voice, False, None, 0,
+        np.ones(30, dtype=bool), processing, None,
+    ).run()
+    actual, actual_rate = sf.read(output)
+    delivery = processing["delivery"]
+    gain_db = delivery["globalGainDb"]
+    assert actual_rate == rate and actual.shape == voice.shape
+    assert delivery["truePeakDbtp"] <= -1
+    assert gain_db >= 0
+    if case == "quiet":
+        assert gain_db > 6
+        assert delivery["integratedLufs"] == pytest.approx(-14, abs=0.15)
+    elif case == "peak-limited":
+        assert 0 < gain_db < 3
+        assert delivery["integratedLufs"] < -20
+    else:
+        assert gain_db == 0
+    np.testing.assert_allclose(actual, (voice + music) * 10 ** (gain_db / 20), atol=2e-6)
+    assert [path.read_bytes() for path in (vocal, backing)] == before
 
 
 @pytest.mark.parametrize("rate", [8000, 44100, 48000])

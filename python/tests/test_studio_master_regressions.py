@@ -191,7 +191,8 @@ def test_peak_limiter_preserves_timeline_and_tail(tmp_path: Path):
     )
     delivery.run()
     actual, _ = sf.read(output)
-    np.testing.assert_allclose(actual, voice, atol=2e-6)
+    gain = 10 ** (delivery.processing["delivery"]["globalGainDb"] / 20)
+    np.testing.assert_allclose(actual, voice * gain, atol=2e-6)
 
 
 def test_stereo_width_alone_does_not_synthesize_reverb(tmp_path: Path):
