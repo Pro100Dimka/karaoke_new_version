@@ -149,10 +149,11 @@ def test_plan_follows_a_musical_crescendo(tmp_path):
     assert qc["p90ErrorDb"] < 3
 
 
-def test_music_pause_does_not_mute_the_voice(tmp_path):
+@pytest.mark.parametrize("pause_gain", [0, 0.01, 0.001])
+def test_music_pause_does_not_mute_the_voice(tmp_path, pause_gain):
     time, voice = tone()
     music = voice.copy()
-    music[(time > 3) & (time < 5)] = 0
+    music[(time > 3) & (time < 5)] *= pause_gain
     actual, _, _ = render_plan(tmp_path, voice, music)
     assert (
         abs(rms_db(actual[round(3.8 * 8000) : round(4.2 * 8000)]) - rms_db(actual[8000 : 2 * 8000]))

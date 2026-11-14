@@ -70,7 +70,8 @@ def _target_levels(
     baseline: float,
     placement: float,
 ) -> np.ndarray:
-    audible = (music > -70) & (meter_times >= 0)
+    # Near-silent backing must not drag down a continuing vocal phrase.
+    audible = vocal_activity(music) & (music > -70) & (meter_times >= 0)
     if audible.any():
         accompaniment = 10 * np.log10(
             gaussian_filter1d(10 ** (music[audible] / 10), sigma=4, mode="nearest")
