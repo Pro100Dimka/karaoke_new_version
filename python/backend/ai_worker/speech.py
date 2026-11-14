@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
 
@@ -56,7 +56,7 @@ from backend.ai_worker.recognition import (
     recover_leading_words,
     recover_vocalizations,
     with_acoustic_repeats,
-    backing_overlap_indices,
+    with_lead_vocals,
     heard_words,
     heard_timings as _heard_timings,
     rate_review_indices,
@@ -473,15 +473,9 @@ class _AlignmentPass:
             _levels(self.audio, _HOP)[0],
             independent_timings(self.words, [self.heard, *self.views], timed),
         )
-        backing = backing_overlap_indices(
+        timed = with_lead_vocals(
             timed, self.views, activity, acoustic[1], recognize=recognize
         )
-        timed = [
-            replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
-            if index in backing
-            else word
-            for index, word in enumerate(timed)
-        ]
         vowels = recover_vocalizations(
             timed, self.scores, self.step, activity, acoustic[1], recognize
         )
@@ -501,10 +495,15 @@ class _AlignmentPass:
             ),
         )
         payload["words"].extend(alignment_payload(recovered_vowels, {})["words"])
+        entries = [word.start for word in timed]
+        for index in range(len(timed) - 2, -1, -1):
+            if "BackingVocalOverlap" in timed[index].diagnostics:
+                entries[index] = entries[index + 1]
         payload["words"] = [
             value
             for _, value in sorted(
-                zip([*timed, *recovered_vowels], payload["words"]), key=lambda pair: pair[0].start
+                zip([*entries, *(word.start for word in recovered_vowels)], payload["words"]),
+                key=lambda pair: pair[0],
             )
         ]
         return payload

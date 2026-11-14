@@ -13,7 +13,7 @@ import torch
 from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
-from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE, _evenly
+from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE, _evenly, ordered
 from backend.ai.domain import WordTiming
 from backend.processing.reporting import _timing_load, rate_reviews
 from backend.ai_worker.timing import _bridged, _runs
@@ -33,25 +33,37 @@ def backing_overlap_indices(
     periodicity: np.ndarray,
     *,
     recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]] | None = None,
+    lead_entries: dict[int, float] | None = None,
 ) -> frozenset[int]:
-    """Keep proven solo replies, excluding weak simultaneous copies over an independently heard lead."""
+    """Keep solo replies, excluding extra words that obstruct an independently heard lead."""
     known = {_key(word.text) for word in words if "AcousticRepeatRetimed" in word.diagnostics}
-    if len(views) < 2 or not known:
+    if len(views) < 2:
         return frozenset()
     backing = set()
     for index, word in enumerate(words):
-        if (
+        if "AcousticRepeatRetimed" in word.diagnostics:
+            continue
+        phrase = words[index + 1 : index + 5]
+        if len(phrase) < 3:
+            continue
+        # A forced extra token can occupy a lead word and push its onset to the right.
+        # Harmonic activity there belongs to the lead too, not necessarily to the token.
+        displaced = any(
+            key == _key(phrase[0].text)
+            and start + _MARGIN <= phrase[0].start
+            and start < word.start
+            and end >= word.end
+            for view in views
+            for key, start, end in view
+        )
+        if not displaced and (
             _key(word.text) not in known
-            or "AcousticRepeatRetimed" in word.diagnostics
             or word.score > _PREFERENCE
             or word.end - word.start < 0.25
         ):
             continue
         first, last = max(0, round(word.start / _STEP)), min(len(activity), round(word.end / _STEP))
-        if np.count_nonzero(activity[first:last] & (periodicity[first:last] >= 0.7)) >= 10:
-            continue
-        phrase = words[index + 1 : index + 5]
-        if len(phrase) < 3:
+        if not displaced and np.count_nonzero(activity[first:last] & (periodicity[first:last] >= 0.7)) >= 10:
             continue
         window = Window(
             index + 1,
@@ -108,14 +120,52 @@ def backing_overlap_indices(
                 tolerance = _MARGIN
             if lead is None or len(intervals) < 2:
                 break
+            if displaced and not (
+                lead[0] + _MARGIN <= phrase[0].start
+                and lead[0] < word.start
+                and lead[1] >= word.end
+            ):
+                break
             lead_start = lead[0] - tolerance
             overlap = max(0.0, min(word.end, lead[1]) - max(word.start, lead_start))
             if overlap < (word.end - word.start) / 2:
                 break
-            agreed.append(max(word.start, lead_start))
+            agreed.append(lead[0] if displaced else max(word.start, lead_start))
         if len(agreed) == len(views) and max(agreed) - min(agreed) <= _MARGIN:
             backing.add(index)
+            if displaced and lead_entries is not None:
+                lead_entries[index + 1] = float(np.median(agreed))
     return frozenset(backing)
+
+
+def with_lead_vocals(
+    words: list[AlignedWord],
+    views: Sequence[list[HeardWord]],
+    activity: np.ndarray,
+    periodicity: np.ndarray,
+    *,
+    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]] | None = None,
+) -> list[AlignedWord]:
+    entries: dict[int, float] = {}
+    backing = backing_overlap_indices(
+        words, views, activity, periodicity, recognize=recognize, lead_entries=entries
+    )
+    if not backing:
+        return words
+    lead = ordered([
+        replace(
+            word, start=entries[index],
+            letters=_evenly([word.text], entries[index], word.end)[0].letters,
+            diagnostics=(*word.diagnostics, "IndependentLeadEntry", "ApproximateLetterTiming"),
+        ) if index in entries else word
+        for index, word in enumerate(words) if index not in backing
+    ])
+    remaining = iter(lead)
+    return [
+        replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
+        if index in backing else next(remaining)
+        for index, word in enumerate(words)
+    ]
 
 
 def with_acoustic_repeats(
@@ -218,6 +268,7 @@ def recover_vocalizations(
     recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
 ) -> list[AlignedWord]:
     """Recover or extend held vowels only when recognition agrees with CTC and phonation."""
+    words = [word for word in words if "BackingVocalOverlap" not in word.diagnostics]
     if scores is None or not words or not activity.any():
         return []
     vowels = [token[0] for token in _character_tokens("aeiou")]

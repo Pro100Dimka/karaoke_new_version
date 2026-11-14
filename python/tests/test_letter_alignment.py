@@ -87,6 +87,28 @@ def test_extending_a_known_vocalization_keeps_acoustic_and_neighbour_guards(evid
         assert calls == []
 
 
+def test_excluded_backing_does_not_create_a_vowel_gap_inside_the_recovered_lead():
+    import torch
+    from backend.ai_worker.recognition import recover_vocalizations
+
+    words = [
+        AlignedWord("before", 0, 1, (), 0.8),
+        AlignedWord("hey", 2.5, 2.7, (), 0.01, ("BackingVocalOverlap",)),
+        AlignedWord("lead", 1, 3, (), 0.8),
+        AlignedWord("after", 3, 4, (), 0.8),
+    ]
+    scores = torch.full((200, 28), -12.0)
+    scores[:, 0] = 0
+    scores[75, ctc_tokens._character_tokens("a")[0][0]] = np.log(0.8)
+    activity = np.zeros(400, bool)
+    activity[100:250] = True
+
+    def recognize(contexts):
+        pytest.fail("The lead already covers this interval; it is not a wordless gap")
+
+    assert recover_vocalizations(words, scores, 0.02, activity, activity.astype(float), recognize) == []
+
+
 @pytest.mark.parametrize("first_end,expected", [(16, True), (14.5, False)])
 def test_a_padded_recognized_opening_is_matched_by_overlap_with_the_catalogue_window(
     first_end, expected
@@ -345,6 +367,41 @@ def test_backing_overlap_keeps_main_lyrics_and_requires_independent_positive_evi
         assert calls and calls[0][1] <= 7.1
         assert calls[0][0] <= words[3].start
     assert all(word.text == text for word in words[:3])
+
+
+@pytest.mark.parametrize("text", ["hey", "go", "гей"])
+@pytest.mark.parametrize("evidence", ["overlap", "short", "recognized", "solo", "late", "partial", "missing", "disagree", "different_entry"])
+def test_displaced_lead_excludes_only_a_fully_overlapped_unrecognized_word(text, evidence):
+    from backend.ai_worker.recognition import backing_overlap_indices
+
+    end = 4.1 if evidence == "short" else 4.2
+    words = [
+        AlignedWord("before", 2, 3, (), 0.8),
+        AlignedWord(text, 4, end, (), 0.055, ("AcousticRepeatRetimed",) if evidence == "solo" else ()),
+        AlignedWord("we", end, 4.6, (), 0.8),
+        AlignedWord("sing", 4.6, 5, (), 0.8),
+        AlignedWord("on", 5, 5.3, (), 0.8),
+        AlignedWord("forever", 5.3, 6, (), 0.8),
+    ]
+    # The heard lead starts before the disputed token, which has clipped its aligned onset.
+    view = [("we", 3.4, 4.6), ("sing", 4.6, 5), ("on", 5, 5.3), ("forever", 5.3, 6)]
+    views = [list(view), list(view)]
+    if evidence == "recognized":
+        views[0].insert(1, (text, 4, end))
+    if evidence == "late":
+        views = [[("we", 4.05, 4.6), *view[1:]] for _ in views]
+    if evidence == "partial":
+        views = [[("we", 3.4, 4.05), *view[1:]] for _ in views]
+    if evidence == "missing":
+        views[1] = []
+    if evidence == "disagree":
+        views[1][0] = ("we", 4.3, 4.6)
+    if evidence == "different_entry":
+        views[1][0] = ("we", 2, 4.6)
+    # Tonal activity can belong to the lead, so it cannot certify an extra solo word.
+    assert backing_overlap_indices(words, views, np.ones(700, bool), np.ones(700)) == (
+        frozenset({1}) if evidence in ["overlap", "short"] else frozenset()
+    )
 
 
 @pytest.mark.parametrize("text", ["hey", "go", "гей"])
@@ -690,6 +747,37 @@ def test_single_phrase_coverage_matches_exhaustive_paths():
                 )
                 assert phrase_coverage(text, heard) == expected, (text, words)
 
+
+@pytest.mark.parametrize("text", ["hey", "go", "гей"])
+@pytest.mark.parametrize("recognized", [True, False])
+def test_lead_recovery_preserves_solo_replies_and_only_cuts_the_overlapping_neighbour(text, recognized):
+    from backend.ai_worker.recognition import with_lead_vocals
+
+    words = [
+        AlignedWord(text, 1, 1.2, (1, 1.1), 0.8, ("AcousticRepeatRetimed",)),
+        AlignedWord("night", 2, 4, (2, 2.4, 2.8, 3.2, 3.3), 0.8),
+        AlignedWord(text, 4, 4.2, (), 0.055),
+        AlignedWord("we", 4.2, 4.6, (4.2, 4.4), 0.8),
+        AlignedWord("sing", 4.6, 5, (), 0.8),
+        AlignedWord("on", 5, 5.3, (), 0.8),
+        AlignedWord("forever", 5.3, 6, (), 0.8),
+    ]
+    view = [("we", 3.4, 4.6), ("sing", 4.6, 5), ("on", 5, 5.3), ("forever", 5.3, 6)]
+    if recognized:
+        view.insert(0, (text, 4, 4.2))
+    result = with_lead_vocals(words, [view, list(view)], np.ones(700, bool), np.ones(700))
+    assert result[0] == words[0]
+    assert result[4:] == words[4:]
+    assert [w.text for w in result] == [w.text for w in words]
+    if recognized:
+        assert result is words
+    else:
+        assert result[1].end == result[3].start == 3.4
+        assert result[3].end == words[3].end
+        assert "IndependentLeadEntry" in result[3].diagnostics
+        assert "ApproximateLetterTiming" in result[3].diagnostics
+        assert "BackingVocalOverlap" in result[2].diagnostics
+        assert (result[2].start, result[2].end) == (4, 4.2)
 
 @pytest.mark.parametrize("first_complete", [True, False])
 def test_alignment_selects_best_evidence_and_retains_views(monkeypatch, first_complete):
