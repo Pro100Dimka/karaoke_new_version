@@ -23,6 +23,9 @@ class PerformanceAligner {
     /** Adds a stream that is `lateFrames` behind the music in this block (music itself: 0). */
     void add(std::span<const float> samples, std::uint32_t frames, float gain,
              std::uint32_t lateFrames) noexcept;
+    /** Adds one continuous voice, interpolating timing changes across its next block. */
+    void addVoice(std::span<const float> samples, std::uint32_t frames, float gain,
+                  std::uint32_t lateFrames) noexcept;
     /** Reads the aligned block, `leadFrames()` behind the music currently rendered. */
     void read(std::span<float> output, std::uint32_t frames) noexcept;
 
@@ -36,4 +39,10 @@ class PerformanceAligner {
     std::uint32_t leadFrames_{0};
     std::uint32_t capacityFrames_{0};
     std::uint32_t readFrame_{0};
+    std::uint64_t timelineFrame_{0};
+    struct {
+        std::uint64_t endFrame{0}, readFrame{0};
+        std::uint32_t frames{0};
+        bool valid{false};
+    } voice_;
 };

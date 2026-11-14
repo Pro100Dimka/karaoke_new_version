@@ -15,6 +15,8 @@ void PerformanceAligner::prepare(std::uint32_t channels, std::uint32_t leadFrame
 void PerformanceAligner::reset() noexcept {
     std::fill(ring_.begin(), ring_.end(), 0.0F);
     readFrame_ = 0;
+    timelineFrame_ = 0;
+    voice_ = {};
 }
 
 void PerformanceAligner::add(std::span<const float> samples, std::uint32_t frames, float gain,
@@ -33,6 +35,39 @@ void PerformanceAligner::add(std::span<const float> samples, std::uint32_t frame
     }
 }
 
+void PerformanceAligner::addVoice(std::span<const float> samples, std::uint32_t frames, float gain,
+                                  std::uint32_t lateFrames) noexcept {
+    if (capacityFrames_ == 0 || frames == 0 ||
+        samples.size() < static_cast<std::size_t>(frames) * channels_)
+        return;
+    const auto target = timelineFrame_ + leadFrames_ - std::min(lateFrames, leadFrames_);
+    const auto end = target + frames;
+    const auto continuous = voice_.valid && timelineFrame_ == voice_.readFrame + voice_.frames;
+    const auto start = continuous ? std::clamp(voice_.endFrame, timelineFrame_, end) : target;
+    voice_ = {end, timelineFrame_, frames, true};
+    const auto count = static_cast<std::uint32_t>(end - start);
+    if (count == frames) {
+        add(samples, frames, gain, lateFrames);
+        return;
+    }
+    // Moving whole blocks leaves holes or sums adjacent samples. Keep this voice contiguous
+    // and distribute its timing correction across the block, without delaying live audio.
+    auto position = static_cast<std::uint32_t>(start % capacityFrames_);
+    for (std::uint32_t frame = 0; frame < count; ++frame) {
+        const auto sourcePosition = static_cast<double>(frame) * frames / count;
+        const auto index = static_cast<std::uint32_t>(sourcePosition);
+        const auto next = std::min(index + 1U, frames - 1U);
+        const auto fraction = static_cast<float>(sourcePosition - index);
+        for (std::uint32_t channel = 0; channel < channels_; ++channel) {
+            const auto a = samples[static_cast<std::size_t>(index) * channels_ + channel];
+            const auto b = samples[static_cast<std::size_t>(next) * channels_ + channel];
+            ring_[static_cast<std::size_t>(position) * channels_ + channel] +=
+                (a + (b - a) * fraction) * gain;
+        }
+        position = position + 1U == capacityFrames_ ? 0U : position + 1U;
+    }
+}
+
 void PerformanceAligner::read(std::span<float> output, std::uint32_t frames) noexcept {
     if (capacityFrames_ == 0 || output.size() < static_cast<std::size_t>(frames) * channels_)
         return;
@@ -42,4 +77,5 @@ void PerformanceAligner::read(std::span<float> output, std::uint32_t frames) noe
         std::fill_n(source, channels_, 0.0F);
         readFrame_ = readFrame_ + 1U == capacityFrames_ ? 0U : readFrame_ + 1U;
     }
+    timelineFrame_ += frames;
 }

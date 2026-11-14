@@ -697,6 +697,49 @@ void performanceAlignerPlacesVoiceOnTheMusicItWasSungTo() {
     expect(aligned[lead] == 1.5F && std::count_if(aligned.begin(), aligned.end(),
                                                   [](float v) { return v != 0.0F; }) == 1,
            "the late voice lands exactly on its beat, one alignment lead after the music");
+
+    for (const auto rate : {44'100U, 48'000U}) {
+        const auto frames = rate / 100U;
+        FakeBackendSettings settings;
+        settings.runtime.inputSampleRateHz = rate;
+        settings.runtime.outputSampleRateHz = rate;
+        auto backend = std::make_unique<FakeAudioBackend>(settings);
+        auto* fake = backend.get();
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare(RequestedConfiguration{.sampleRateHz = rate});
+        service.session().start();
+        service.realtime().setDspEnabled(false);
+        service.realtime().setMonitoring(false);
+        const auto path = tempRoot / "voice-alignment-jitter.wav";
+        expect(service.handleLine("1|PrepareRecording|id=jitter|tap=performance|backing=true|path=" +
+                                  path.string()).status == ControlStatus::Ok &&
+                   service.handleLine("1|StartRecording").status == ControlStatus::Ok,
+               "a performance recording retains separate voice stems");
+        std::vector<float> capture(frames, 0.125F), render(frames * 2U);
+        for (std::uint32_t index = 0; index < 200; ++index) {
+            const auto capturedAt = MonotonicTicks{1'000'000'000} + index * 10'000'000LL;
+            const auto jitter = index % 40 < 20 ? 200'000LL : -200'000LL;
+            fake->pump(capture, 1, render, 2, index * frames, index * frames,
+                       capturedAt + 20'000'000 + jitter, capturedAt);
+        }
+        expect(service.handleLine("1|StopRecording").status == ControlStatus::Ok,
+               "the jittered performance finalizes normally");
+        for (const auto suffix : {"", ".dry.wav", ".vocal.wav"}) {
+            WavDecoder decoder;
+            const auto format = decoder.open(path.string() + suffix);
+            std::vector<float> recorded(static_cast<std::size_t>(format.totalFrames) * 2U);
+            decoder.read(recorded, static_cast<std::uint32_t>(format.totalFrames));
+            const auto first = recorded.begin() + frames * 10U;
+            const auto last = recorded.end() - frames * 10U;
+            const auto [minimum, maximum] = std::minmax_element(first, last);
+            expect(format.sampleRateHz == rate && std::abs(*minimum - 0.125F) < 0.0001F &&
+                       std::abs(*maximum - 0.125F) < 0.0001F,
+                   "capture/render timestamp jitter must not insert zeros or sum adjacent voice blocks: " +
+                       std::to_string(rate) + suffix + " " + std::to_string(*minimum) + ".." +
+                       std::to_string(*maximum));
+        }
+    }
 }
 
 void recordingLeadInKeepsTheFirstRecordedFrameOnItsSongPosition() {

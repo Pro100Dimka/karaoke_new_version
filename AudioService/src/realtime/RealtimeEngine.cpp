@@ -1035,7 +1035,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
         // Raw capture has no DSP delay. Retain its unity level, independently of monitor gains.
         const auto dspFrames = dspLatencyFrames();
         const auto dryLateFrames = voiceLateFrames > dspFrames ? voiceLateFrames - dspFrames : 0U;
-        dryAligner_.add(rawMic, buffer.frames, 1.0F, dryLateFrames);
+        dryAligner_.addVoice(rawMic, buffer.frames, 1.0F, dryLateFrames);
     }
     if (recording_.backingEnabled()) {
         // RawInput and analysis already copied buffer 5 above. Preserve the exact gained backing
@@ -1051,7 +1051,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
     // correction, whether local monitoring (and its safety limiter) is enabled or not.
     if (performanceActive && microphoneEnabled) {
         recording_.observeVoicePeak(pcmPeak(mic) * gains.microphone);
-        aligner_.add(mic, buffer.frames, gains.microphone, voiceLateFrames);
+        aligner_.addVoice(mic, buffer.frames, gains.microphone, voiceLateFrames);
     }
     auto remote = buffers_.buffer(2, buffer.frames);
     std::fill(remote.begin(), remote.end(), 0.0F);
