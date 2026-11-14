@@ -30,6 +30,7 @@ import { useAppOnScreen } from './useAppOnScreen';
 
 const isKaraoke = (pathname: string): boolean =>
   pathname.startsWith('/karaoke/');
+const backgroundMusicRoutes: readonly string[] = [routes.library, routes.help];
 
 const RouteSurface = observer(
   ({
@@ -68,7 +69,7 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
   // make sound or light: the radio is off and the backdrop rests.
   const onTv = useKaraokeTv()?.active === true;
   const isLibrary = pathname === routes.library;
-  const libraryActive = isLibrary && !onTv;
+  const libraryActive = backgroundMusicRoutes.includes(pathname) && !onTv;
   useEffect(() => {
     if (!isLibrary) store.returnFromKaraoke(null);
   }, [isLibrary]);
