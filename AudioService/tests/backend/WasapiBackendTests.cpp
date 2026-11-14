@@ -405,6 +405,8 @@ struct Callback : IAudioCallback {
     unsigned captureCount{0}, renderCount{0}, lost{0};
     bool comInitialized{false};
     bool holdFirstRender{false};
+    bool captureRequired{true};
+    bool requiresCaptureForRender() const noexcept override { return captureRequired; }
     Event firstRender, continueRender, secondRender, deviceLost, backendEvent;
     unsigned capturesAtFirstRender{0}, capturesAtSecondRender{0};
     void onCapture(GenerationId, const BackendAudioBuffer& buffer) noexcept override {
@@ -601,17 +603,22 @@ void Tests::wasapiSharedFallsBackWhenMinimumExceedsCpuBudget() {
 }
 
 void Tests::wasapiSharedRenderQueuesOnlyOneEnginePeriod() {
-    Fixture fixture;
-    (void)fixture.backend.open(fixture.request(256));
-    fixture.output.client.pad = 20;
-    fixture.backend.start(fixture.callback, GenerationId{1});
-    expect(fixture.output.client.state.attempted.wait(), "shared render event must be serviced");
-    fixture.backend.stop();
-    const auto& render = fixture.output.client.render;
-    expect(render.silent == 256,
-           "shared prefill must queue one engine period, not the whole endpoint buffer");
-    expect(render.submitted == 256 - 20,
-           "shared render must top the queue up to one engine period, not the whole buffer");
+    for (const auto captureRequired : {true, false}) {
+        Fixture fixture;
+        fixture.callback.captureRequired = captureRequired;
+        (void)fixture.backend.open(fixture.request(256));
+        fixture.output.client.pad = 20;
+        fixture.backend.start(fixture.callback, GenerationId{1});
+        expect(fixture.output.client.state.attempted.wait(), "shared render event must be serviced");
+        expect(fixture.backend.snapshot().renderJustInTime == captureRequired,
+               "capture scheduling is only active when the rendered stream needs microphone PCM");
+        fixture.backend.stop();
+        const auto& render = fixture.output.client.render;
+        expect(render.silent == 256,
+               "shared prefill must queue one engine period, not the whole endpoint buffer");
+        expect(render.submitted == 256 - 20,
+               "shared render must top the queue up to one engine period, not the whole buffer");
+    }
 }
 
 void Tests::wasapiSharedReconfigureReleasesOldPeriod() {

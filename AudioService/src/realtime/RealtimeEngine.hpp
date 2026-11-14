@@ -253,6 +253,7 @@ class RealtimeEngine final : public IAudioCallback {
 
     void onCapture(GenerationId generation, const BackendAudioBuffer& buffer) noexcept override;
     void onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept override;
+    [[nodiscard]] bool requiresCaptureForRender() const noexcept override;
     void onBackendEvent(GenerationId generation, BackendEventType event,
                         std::int32_t code) noexcept override;
 

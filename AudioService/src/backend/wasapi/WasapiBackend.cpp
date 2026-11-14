@@ -1240,8 +1240,8 @@ struct WasapiBackend::Impl {
     // (see WasapiPcm::justInTimeRenderAt), serving microphone packets meanwhile. Once no newer
     // packet is expected before the deadline, submit immediately. Returns whether the shared
     // schedule handled this write, including a deadline that requires immediate submission.
-    bool scheduleSharedRender() noexcept {
-        if (mode != WasapiMode::Shared || renderImmediate || !captureDeadline)
+    bool scheduleSharedRender(bool captureRequired) noexcept {
+        if (mode != WasapiMode::Shared || renderImmediate || !captureDeadline || !captureRequired)
             return false;
         const auto periodNs = static_cast<MonotonicTicks>(runtime.outputPeriodFrames) *
                               1'000'000'000LL / runtime.outputSampleRateHz;
@@ -1336,7 +1336,8 @@ struct WasapiBackend::Impl {
         if (pad >= queueFrames)
             return;
         lastDuplexWaitUs = 0;
-        const auto scheduledForEngine = scheduleSharedRender();
+        const auto captureRequired = callback->requiresCaptureForRender();
+        const auto scheduledForEngine = scheduleSharedRender(captureRequired);
         if (!running.load(std::memory_order_acquire) ||
             WaitForSingleObject(stopEvent, 0) == WAIT_OBJECT_0)
             return;
@@ -1347,7 +1348,7 @@ struct WasapiBackend::Impl {
             if (pad >= queueFrames)
                 return;
         }
-        if (captureDeadline && !skipDuplexWait && !scheduledForEngine) {
+        if (captureDeadline && !skipDuplexWait && !scheduledForEngine && captureRequired) {
             // Duplex events can arrive in either order. Give the matching capture event up to
             // one quarter of the shorter negotiated period, then render even if capture stalls.
             // This is an interruptible event wait before acquiring any PCM buffer, not a sleep
@@ -1944,7 +1945,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
         impl_->renderJitDeferredCaptures.load(std::memory_order_relaxed);
     result.audioThreadId = impl_->audioThreadId.load(std::memory_order_relaxed);
     result.renderJitLateEvents = impl_->renderJitLateEvents.load(std::memory_order_relaxed);
-    result.renderJustInTime = impl_->mode == WasapiMode::Shared && !impl_->renderImmediate;
+    result.renderJustInTime = impl_->mode == WasapiMode::Shared && !impl_->renderImmediate &&
+                             impl_->callback && impl_->callback->requiresCaptureForRender();
     const auto& period = impl_->outputSharedPeriod;
     result.sharedClient3Available = period.client3Available;
     result.sharedPeriodLocked = period.locked;

@@ -198,6 +198,23 @@ void invalidNumericControlCannotMutateRuntimeState() {
 
 void previewTransportCommandsDoNotFallThrough() {
     RunningService fixture;
+    for (const auto& [context, captureRequired] : std::array{
+             std::pair{MediaContext::None, true},
+             std::pair{MediaContext::Karaoke, true},
+             std::pair{MediaContext::EditorPreview, true},
+             std::pair{MediaContext::Radio, false},
+             std::pair{MediaContext::RecordingPreview, false}}) {
+        fixture.service.media().activate(MediaContext::None);
+        fixture.service.media().activate(context);
+        for (const auto monitoring : {false, true}) {
+            fixture.service.realtime().setMonitoring(monitoring);
+            expect(fixture.service.realtime().requiresCaptureForRender() ==
+                       (captureRequired || monitoring),
+                   "only playback without live microphone monitoring skips capture scheduling");
+        }
+    }
+    fixture.service.realtime().setMonitoring(false);
+    fixture.service.media().activate(MediaContext::None);
     const auto path = tempRoot / "context-transport.wav";
     makeTestWav(path, 9600);
     const std::array contexts{

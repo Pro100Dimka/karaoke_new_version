@@ -725,6 +725,13 @@ std::uint32_t RealtimeEngine::smoothVoiceLateFrames(MonotonicTicks presentationT
                                                                        VoiceLateSmoothing;
     return static_cast<std::uint32_t>(std::lround(voiceLateFrames_));
 }
+bool RealtimeEngine::requiresCaptureForRender() const noexcept {
+    constexpr std::array playbackContexts{MediaContext::Radio, MediaContext::RecordingPreview};
+    return monitoring() ||
+           std::find(playbackContexts.begin(), playbackContexts.end(), media_.context()) ==
+               playbackContexts.end();
+}
+
 void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer& buffer) noexcept {
     if (generation != generation_.load(std::memory_order_acquire)) {
         staleCallbacks_.fetch_add(1, std::memory_order_relaxed);
