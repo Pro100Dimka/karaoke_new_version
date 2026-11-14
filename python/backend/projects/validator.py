@@ -10,8 +10,8 @@ from backend.projects.ports import AudioFileValidator, ProjectStorage
 from backend.songs.ports import FileHasher
 from backend.version import PROJECT_FORMAT_VERSION
 
-_READY_ARTIFACTS = frozenset({"instrumental", "referenceVocal", "lyricsSync"})
-# Melody is validated as audio when present, but left out of _READY_ARTIFACTS: revisions published
+READY_ARTIFACTS = frozenset({"instrumental", "referenceVocal", "lyricsSync"})
+# Melody is validated as audio when present, but left out of READY_ARTIFACTS: revisions published
 # before this artifact existed must keep validating as ready without it.
 _AUDIO_ARTIFACTS = frozenset({"instrumental", "referenceVocal", "melody"})
 
@@ -75,7 +75,7 @@ class ProjectValidator:
             raise DomainError(
                 "ProjectInvalid", "Project manifest contains duplicate logical artifacts", 400
             )
-        if require_ready and not _READY_ARTIFACTS.issubset(names):
+        if require_ready and not READY_ARTIFACTS.issubset(names):
             raise DomainError("ProjectInvalid", "Ready project is missing required artifacts", 400)
         for artifact in manifest.artifacts:
             _validate_relative_path(artifact)

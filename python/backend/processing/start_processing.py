@@ -50,6 +50,7 @@ class _Admission:
 
     lease: ResourceLease | None = None
     cancel: threading.Event | None = None
+    ready_revision: int | None = None
 
     def execution(self) -> ExecutionContext:
         if self.lease is None:
@@ -149,7 +150,9 @@ class StartProcessing:
     ) -> Job:
         song_id = song.song_id
         source_bytes = self._source_size(song)
-        admission = _Admission()
+        admission = _Admission(
+            ready_revision=song.active_revision if song.status is SongStatus.READY else None
+        )
         self._persistence.set_status(song_id, SongStatus.QUEUED)
 
         # Register the turn in the same order in which workers receive their jobs.
@@ -221,7 +224,9 @@ class StartProcessing:
         self._leave_queue(admission)
         try:
             cancelled = admission.cancel is not None and admission.cancel.is_set()
-            self._settle_unfinished(song_id, cancelled=cancelled)
+            self._settle_unfinished(
+                song_id, cancelled=cancelled, ready_revision=admission.ready_revision
+            )
         finally:
             try:
                 self._operations.release(song_id, SongOperation.PROCESSING)
@@ -229,14 +234,23 @@ class StartProcessing:
                 if admission.lease is not None:
                     admission.lease.release()
 
-    def _settle_unfinished(self, song_id: str, *, cancelled: bool = False) -> None:
-        """A job that ended without publishing or cancelling (a bug in a stage) must not leave the song in Processing."""
+    def _settle_unfinished(
+        self, song_id: str, *, cancelled: bool = False, ready_revision: int | None = None
+    ) -> None:
+        """Settle unfinished jobs while retaining a previously ready, unchanged revision."""
         try:
-            status = self._persistence.load_song(song_id).status
+            song = self._persistence.load_song(song_id)
         except NotFoundError:
             return
-        if status in {SongStatus.QUEUED, SongStatus.PROCESSING}:
-            final_status = SongStatus.CANCELLED if cancelled else SongStatus.FAILED
+        previous_ready = ready_revision is not None and song.active_revision == ready_revision
+        if song.status in {SongStatus.QUEUED, SongStatus.PROCESSING} or (
+            previous_ready
+            and song.status in {SongStatus.CANCELLED, SongStatus.CANCELLING, SongStatus.FAILED}
+        ):
+            final_status = (
+                SongStatus.READY if previous_ready
+                else SongStatus.CANCELLED if cancelled else SongStatus.FAILED
+            )
             self._persistence.set_status_if_present(song_id, final_status)
 
     def _run(

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from backend.domain_errors import DomainError
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.ports import ProjectCatalog
-from backend.projects.validator import ProjectValidator
+from backend.projects.validator import ProjectValidator, READY_ARTIFACTS
 from backend.recovery.domain import RecoveryAction, ReconciliationIssue
 from backend.runtime import Clock
 from backend.songs.domain import Song, SongStatus, SourceState
@@ -83,7 +83,7 @@ class ReconcileLibrary:
             )
             self._mark(song, SongStatus.SOURCE_MISSING)
         try:
-            self._validator.validate(
+            manifest = self._validator.validate(
                 song.song_id,
                 song.active_revision,
                 require_ready=song.status is SongStatus.READY,
@@ -98,6 +98,11 @@ class ReconcileLibrary:
                 )
             )
             self._mark(song, SongStatus.PROJECT_INVALID)
+        else:
+            if song.status in {SongStatus.CANCELLED, SongStatus.FAILED} and READY_ARTIFACTS.issubset(
+                artifact.logical_name for artifact in manifest.artifacts
+            ):
+                self._mark(song, SongStatus.READY)
         return issues
 
     @staticmethod

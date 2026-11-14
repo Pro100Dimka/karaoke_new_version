@@ -71,3 +71,60 @@ def test_processing_admission_always_settles_song_status(tmp_path, monkeypatch, 
         expected = "Cancelled" if outcome == "cancel" else "Failed"
         assert client.get(f"/jobs/{job_id}").json()["state"] == expected
         assert client.get(f"/songs/{song_id}").json()["status"] == expected
+
+@pytest.mark.parametrize("queued", [False, True])
+@pytest.mark.parametrize("outcome", ["cancel", "fail"])
+def test_unsuccessful_reprocessing_keeps_the_previously_ready_revision(
+    tmp_path, monkeypatch, queued, outcome
+):
+    from backend.domain_errors import ConflictError
+
+    source = tmp_path / "ready.wav"
+    write_wav(source)
+    entered, finished = threading.Event(), threading.Event()
+    with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
+        song_id = import_song(client, source)["songId"]
+        path = f"/songs/{song_id}/processing"
+        body = {"mode": "Fast", "onlineLyrics": False}
+        first = client.post(path, json=body)
+        assert wait_for_job(client, first.json()["jobId"])["state"] == "Succeeded"
+        before = client.get(f"/songs/{song_id}").json()
+        document = client.get(f"/songs/{song_id}/editor").json()
+        start = client.app.state.container.songs.start_processing
+        release = SongOperationRegistry.release
+
+        def observed_release(registry, identity, operation):
+            release(registry, identity, operation)
+            if identity == song_id and operation is SongOperation.PROCESSING:
+                finished.set()
+
+        def unavailable(*args, **kwargs):
+            entered.set()
+            code = "ResourceBudgetExceeded" if outcome == "cancel" else "MissingCuda"
+            raise DependencyError(code, "Cannot admit this job")
+
+        def processing(_song, _options, _providers, context, _execution):
+            entered.set()
+            if outcome == "cancel":
+                assert context.cancel.wait(5)
+                raise ConflictError("JobCancelled", "Processing was cancelled")
+            raise DependencyError("AiProcessFailed", "Processing failed")
+
+        monkeypatch.setattr(SongOperationRegistry, "release", observed_release)
+        if queued:
+            monkeypatch.setattr(ProcessingResourceScheduler, "claim", unavailable)
+        else:
+            monkeypatch.setattr(start._pipeline, "run", processing)
+        second = client.post(path, json=body)
+        assert second.status_code == 202, second.text
+        job_id = second.json()["jobId"]
+        assert entered.wait(3)
+        if outcome == "cancel":
+            assert client.post(f"/songs/processing/{job_id}/cancel").status_code == 200
+        assert finished.wait(3)
+        expected = "Cancelled" if outcome == "cancel" else "Failed"
+        assert client.get(f"/jobs/{job_id}").json()["state"] == expected
+        after = client.get(f"/songs/{song_id}").json()
+        assert after["status"] == "Ready"
+        assert after["activeRevision"] == before["activeRevision"]
+        assert client.get(f"/songs/{song_id}/editor").json() == document

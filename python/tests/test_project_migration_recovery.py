@@ -216,3 +216,42 @@ def test_migration_can_retry_after_a_snapshot_was_saved_but_staging_failed(
         retry = client.post(f"/songs/{song_id}/project/migrate")
         assert retry.status_code == 200, retry.text
         assert retry.json()["revision"] == revision + 1
+
+@pytest.mark.parametrize("status", ["Cancelled", "Failed"])
+@pytest.mark.parametrize("project", ["ready", "corrupt", "incomplete", "missing_source"])
+def test_reconciliation_restores_only_a_complete_valid_finished_project(tmp_path, status, project):
+    from dataclasses import replace
+    from backend.songs.domain import SongStatus
+
+    root = tmp_path / "runtime"
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        if project == "incomplete":
+            source = tmp_path / "source.wav"
+            write_wav(source)
+            song = import_song(client, source)
+        else:
+            song = _ready_song(client, tmp_path)
+        song_id = song["songId"]
+        current = client.get(f"/songs/{song_id}").json()
+        revision = current["activeRevision"]
+        revisions = root / "songs" / song_id / "revisions"
+        before = sorted(path.name for path in revisions.iterdir())
+        if project == "corrupt":
+            (revisions / str(revision) / "audio" / "instrumental.flac").write_bytes(b"corrupt")
+        elif project == "missing_source":
+            next((root / "songs" / song_id / "source").glob("original.*")).unlink()
+        with client.app.state.container.database.create() as transaction:
+            stored = transaction.songs.get(song_id)
+            transaction.songs.update(replace(stored, status=SongStatus(status)))
+            transaction.commit()
+        response = client.post("/recovery/reconcile")
+        assert response.status_code == 202, response.text
+        assert wait_for_job(client, response.json()["jobId"])["state"] == "Succeeded"
+        expected = {
+            "ready": "Ready", "corrupt": "ProjectInvalid",
+            "incomplete": status, "missing_source": "SourceMissing",
+        }[project]
+        after = client.get(f"/songs/{song_id}").json()
+        assert after["status"] == expected
+        assert after["activeRevision"] == revision
+        assert sorted(path.name for path in revisions.iterdir()) == before
