@@ -3275,6 +3275,27 @@ def test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_o
     assert words[8]["end"] <= words[9]["start"]
 
 
+@pytest.mark.parametrize("evidence", ["confirmed_entry", "no_onset", "unsupported_core", "acoustic_candidate", "outside_recognition"])
+def test_local_spelling_interpolation_cannot_erase_an_acoustically_confirmed_entry(monkeypatch, evidence):
+    import torch
+    from backend.ai_worker import word_guidance
+    from backend.ai_worker.ctc import Window
+
+    original = AlignedWord("we", 2, 2.12, (2, 2.08), 0 if evidence == "unsupported_core" else 0.02)
+    candidate = AlignedWord("we", 1, 1.7, (1, 1.35), 0.1 if evidence == "acoustic_candidate" else 0)
+    window = Window(0, 1, 1, 3, 2)
+    monkeypatch.setattr(word_guidance, "recognized_phrase", lambda *args, **kwargs: (window, {0: (1, 1.7)}))
+    monkeypatch.setattr(word_guidance._GuidancePass, "_alternatives", lambda *args: [(0, candidate, (1, 1.7))])
+    guidance = word_guidance._GuidancePass(
+        [original], torch.zeros(150, 28), 0.02,
+        {0: (3, 4) if evidence == "outside_recognition" else (1, 2.3)},
+        np.ones(300, bool), 0.6, [], [] if evidence == "no_onset" else [2], frozenset(),
+    )
+    result = [original]
+    guidance.apply(result, window)
+    assert result == ([original] if evidence == "confirmed_entry" else [candidate])
+
+
 def test_a_mostly_unrecognized_word_uses_its_speech_span_instead_of_false_character_precision():
     from backend.ai_worker.word_guidance import _character_intervals
 

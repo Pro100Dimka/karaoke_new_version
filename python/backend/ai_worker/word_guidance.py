@@ -147,6 +147,15 @@ class _GuidancePass:
         options = [[word] for word in result[first:last]]
         alternatives = self._alternatives(window, phrase, timings)
         for index, candidate, interval in alternatives:
+            known = self.heard.get(index)
+            if (
+                candidate.score <= 0
+                and self.words[index].score > 0
+                and known is not None
+                and _crosses_confirmed_entry(self.words[index], candidate, known, self.onsets)
+            ):
+                # A fuzzy spelling split cannot replace a measured entry with interpolation.
+                continue
             options[index - first].append(candidate)
             timings[index] = interval
         boundary = _boundary_pair(
