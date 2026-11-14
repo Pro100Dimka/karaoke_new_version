@@ -18,8 +18,9 @@ from tests.helpers import import_song, wait_for_job
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
 
 
+@pytest.mark.parametrize("backing_start,lead_start", [(4, 4.8), (4.2, 4)])
 def test_processing_keeps_solo_replies_but_excludes_overlapping_backing_from_the_project(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, backing_start, lead_start
 ):
     from backend.ai.domain import PitchPoint, WordTiming
 
@@ -32,8 +33,8 @@ def test_processing_keeps_solo_replies_but_excludes_overlapping_backing_from_the
         (1, 1.5),
         (2, 2.5),
         (3, 4),
-        (4, 4.8),
-        (4.8, 5.3),
+        (backing_start, 4.8),
+        (lead_start, 5.3),
         (5.3, 5.7),
         (5.7, 6),
         (6, 6.5),

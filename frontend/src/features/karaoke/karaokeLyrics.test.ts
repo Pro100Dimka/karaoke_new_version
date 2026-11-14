@@ -29,6 +29,44 @@ const line = (start: number, end: number): LyricLine => ({
 });
 
 describe('syllable fill', () => {
+  it('holds a sung number through its word interval instead of rushing through its digits', () => {
+    const saved = word('100', 0, 2);
+    expect(syllableProgress(saved, 0.16)).toBeLessThan(0.5);
+    expect(syllableProgress(saved, 1)).toBeCloseTo(0.5);
+    expect(syllableProgress(saved, 1.9)).toBeLessThan(1);
+    expect(syllableProgress(saved, 2)).toBe(1);
+  });
+  it('holds the vowel inside its actual glyph when adjacent consonants are wider', () => {
+    const saved = word('Твій', 0, 2);
+    const geometry = [[0, 0.3], [0.3, 0.6], [0.6, 0.7], [0.7, 1]] as const;
+    for (const at of [0.4, 1, 1.6]) {
+      expect(syllableProgress(saved, at, geometry)).toBeGreaterThan(0.6);
+      expect(syllableProgress(saved, at, geometry)).toBeLessThan(0.7);
+    }
+  });
+  it.each([
+    { text: 'так', duration: 0.08 },
+    { text: 'ТВІЙ', duration: 2 },
+    { text: '«льоту!»', duration: 0.84 },
+    { text: 'ш', duration: 1 },
+    { text: '100', duration: 1.5 },
+    { text: 'ААА', duration: 3 },
+  ])('keeps $text continuous and bounded at its own tempo', ({ text, duration }) => {
+    const saved = Object.freeze({ ...word(text, 5, 5 + duration) });
+    let previous = 0;
+    for (let frame = 0; frame <= Math.ceil(duration * 60); frame++) {
+      const at = Math.min(saved.end, saved.start + frame / 60);
+      const progress = syllableProgress(saved, at);
+      expect(Number.isFinite(progress)).toBe(true);
+      expect(progress).toBeGreaterThanOrEqual(previous - 1e-9);
+      expect(progress).toBeGreaterThanOrEqual(0);
+      expect(progress).toBeLessThanOrEqual(1);
+      previous = progress;
+    }
+    expect(syllableProgress(saved, saved.end)).toBe(1);
+    expect(saved.start).toBe(5);
+    expect(saved.end).toBe(5 + duration);
+  });
   it('gives an opening consonant a visible sweep before holding the vowel', () => {
     const saved = word('так', 0, 2);
     expect(syllableProgress(saved, 0.07)).toBeGreaterThan(0);
