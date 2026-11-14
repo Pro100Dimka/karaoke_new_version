@@ -471,9 +471,11 @@ class _AlignmentPass:
             acoustic,
             activity,
             _levels(self.audio, _HOP)[0],
-            intervals,
+            independent_timings(self.words, [self.heard, *self.views], timed),
         )
-        backing = backing_overlap_indices(timed, self.views, activity, acoustic[1])
+        backing = backing_overlap_indices(
+            timed, self.views, activity, acoustic[1], recognize=recognize
+        )
         timed = [
             replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
             if index in backing

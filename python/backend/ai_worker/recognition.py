@@ -31,6 +31,8 @@ def backing_overlap_indices(
     views: Sequence[list[HeardWord]],
     activity: np.ndarray,
     periodicity: np.ndarray,
+    *,
+    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]] | None = None,
 ) -> frozenset[int]:
     """Keep proven solo replies, excluding weak simultaneous copies over an independently heard lead."""
     known = {_key(word.text) for word in words if "AcousticRepeatRetimed" in word.diagnostics}
@@ -58,21 +60,59 @@ def backing_overlap_indices(
             phrase[-1].end + _MARGIN,
             phrase[0].start,
         )
+        texts = [item.text for item in phrase]
+        matches = [(view, recognized_phrase(window, texts, view, _MARGIN)[1]) for view in views]
+        supported = [
+            intervals for _, intervals in matches if index + 1 in intervals and len(intervals) >= 2
+        ]
+        if not supported:
+            continue
+        context_end = min(
+            window.end,
+            max(end for intervals in supported for _, end in intervals.values()) + _MARGIN,
+        )
+        context_start = max(
+            0.0, context_end - CHUNK_LENGTH,
+            words[max(0, index - len(phrase))].start - _MARGIN,
+        )
         agreed = []
-        for view in views:
+        replaced_view = False
+        for view, intervals in matches:
+            tolerance = 0.0
             if any(
                 key == _key(word.text) and start < word.end and end > word.start
                 for key, start, end in view
             ):
                 break
-            _, intervals = recognized_phrase(window, [item.text for item in phrase], view, _MARGIN)
             lead = intervals.get(index + 1)
+            if (lead is None or len(intervals) < 2) and recognize is not None and not replaced_view:
+                try:
+                    results = recognize([(context_start, context_end, None)]).get(
+                        "contexts", []
+                    )
+                except (FileNotFoundError, OSError, RuntimeError, ValueError):
+                    break
+                local = heard_words(results[0]) if (
+                    isinstance(results, list) and results and isinstance(results[0], dict)
+                ) else []
+                replaced_view = True
+                if any(
+                    key == _key(word.text) and start < word.end and end > word.start
+                    for key, start, end in local
+                ):
+                    break
+                _, intervals = recognized_phrase(
+                    window, texts, local, _MARGIN
+                )
+                lead = intervals.get(index + 1)
+                tolerance = _MARGIN
             if lead is None or len(intervals) < 2:
                 break
-            overlap = max(0.0, min(word.end, lead[1]) - max(word.start, lead[0]))
+            lead_start = lead[0] - tolerance
+            overlap = max(0.0, min(word.end, lead[1]) - max(word.start, lead_start))
             if overlap < (word.end - word.start) / 2:
                 break
-            agreed.append(lead[0])
+            agreed.append(max(word.start, lead_start))
         if len(agreed) == len(views) and max(agreed) - min(agreed) <= _MARGIN:
             backing.add(index)
     return frozenset(backing)
@@ -106,9 +146,9 @@ def with_acoustic_repeats(
         ):
             continue
         following = words[last + 1]
-        left = max(words[first - 1].end if first else 0, words[first].start - 0.25)
+        left = max(words[first - 1].end if first else 0, words[first].start - _MARGIN)
         entries = [entry for entry in onsets if left <= entry < following.start]
-        if not entries or abs(entries[0] - words[first].start) > 0.25:
+        if not entries or abs(entries[0] - words[first].start) > _MARGIN:
             continue
         reference = core(
             entries[0], min(words[first].end, entries[1] if len(entries) > 1 else following.start)

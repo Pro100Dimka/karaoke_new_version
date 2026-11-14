@@ -267,7 +267,8 @@ def test_joint_review_does_not_shorten_an_unflagged_neighbors_confirmed_end(monk
 
 
 def _isolated_pipeline(
-    monkeypatch, original, candidate, *, heard=None, activity=None, refine_onsets=False
+    monkeypatch, original, candidate, *, heard=None, activity=None, refine_onsets=False,
+    contextual=None,
 ):
     """Isolate the final repair commit, after the local acoustic selector has chosen a pair."""
     heard = heard or [(word.text.casefold(), word.start, word.end) for word in candidate]
@@ -282,7 +283,10 @@ def _isolated_pipeline(
     monkeypatch.setattr(
         speech, "_alignment_windows", lambda *_: [ctc.Window(0, len(original), 0, 4)]
     )
-    monkeypatch.setattr(speech, "contextual_guidance", lambda _w, windows, *_: (windows, timings))
+    monkeypatch.setattr(
+        speech, "contextual_guidance",
+        lambda _w, windows, *_: (windows, timings if contextual is None else contextual),
+    )
     monkeypatch.setattr(speech, "singing_frames", lambda *_: activity)
     monkeypatch.setattr(speech, "voiced_frames", lambda *_: activity)
     monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
@@ -438,3 +442,20 @@ def test_independent_phrase_timing_prevents_a_prompted_word_from_starting_on_pre
     )
     assert result[1].start >= 1.6
     assert result[0].end <= result[1].start < result[2].start
+
+
+def test_prompted_word_spans_do_not_disable_independent_acoustic_repeat_validation(monkeypatch):
+    original = [_word("hey", 1, 1.3), _word("sing", 2, 2.8)]
+    observed = []
+
+    def repeats(words, *args):
+        observed.append(args[-1])
+        return words
+
+    monkeypatch.setattr(speech, "with_acoustic_repeats", repeats)
+    _isolated_pipeline(
+        monkeypatch, original, original, heard=[("sing", 2, 2.8)],
+        contextual={0: (0.6, 1.4), 1: (2, 2.8)},
+    )
+    assert observed and 0 not in observed[0]
+    assert 1 in observed[0]

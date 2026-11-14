@@ -270,6 +270,12 @@ def test_word_guidance_recovers_a_supported_body_before_tail_refinement(spelling
         "sequential",
         "disagree",
         "unknown_reply",
+        "missing_view",
+        "both_views_missing",
+        "local_reply",
+        "padded_local",
+        "long_tail",
+        "local_late",
     ],
 )
 def test_backing_overlap_keeps_main_lyrics_and_requires_independent_positive_evidence(
@@ -293,7 +299,7 @@ def test_backing_overlap_keeps_main_lyrics_and_requires_independent_positive_evi
         AlignedWord("we", 4.8, 5.3, (), 0.8),
         AlignedWord("sing", 5.3, 5.7, (), 0.8),
         AlignedWord("on", 5.7, 6, (), 0.8),
-        AlignedWord("forever", 6, 6.5, (), 0.8),
+        AlignedWord("forever", 6, 10 if evidence == "long_tail" else 6.5, (), 0.8),
     ]
     views = [
         [("we", start, 5.3), ("sing", 5.3, 5.7), ("on", 5.7, 6), ("forever", 6, 6.5)]
@@ -305,22 +311,51 @@ def test_backing_overlap_keeps_main_lyrics_and_requires_independent_positive_evi
         views[1][0] = ("we", 4.9, 5.3)
     if evidence == "recognized_word":
         views[0].insert(0, (text, 4, 4.3))
+    local = list(views[-1])
+    needs_local = evidence in [
+        "missing_view", "both_views_missing", "local_reply", "padded_local", "long_tail", "local_late"
+    ]
+    if needs_local:
+        views[0] = []
+    if evidence == "both_views_missing":
+        views[1] = []
+    if evidence == "local_reply":
+        local.insert(0, (text, 4, 4.3))
+    if evidence == "padded_local":
+        local[0] = ("we", 3.4, 5.3)
+    if evidence == "local_late":
+        local[0] = ("we", 4.7, 5.3)
+    calls = []
+
+    def recognize(contexts):
+        calls.extend(contexts)
+        return {"contexts": [{"segments": [{"words": [
+            {"word": word, "start": start, "end": end} for word, start, end in local
+        ]}]}]}
+
+    options = {"recognize": recognize} if needs_local else {}
     periodicity = np.ones(700)
     periodicity[400:480] = 0.9 if evidence == "clear_voice" else 0.2
-    assert backing_overlap_indices(words, views, np.ones(700, bool), periodicity) == (
-        frozenset({4}) if evidence == "overlap" else frozenset()
+    assert backing_overlap_indices(words, views, np.ones(700, bool), periodicity, **options) == (
+        frozenset({4}) if evidence in ["overlap", "missing_view", "padded_local", "long_tail", "local_late"] else frozenset()
     )
+    assert len(calls) <= 1
+    assert all(prompt is None for _, _, prompt in calls)
+    if evidence == "long_tail":
+        assert calls and calls[0][1] <= 7.1
+        assert calls[0][0] <= words[3].start
     assert all(word.text == text for word in words[:3])
 
 
 @pytest.mark.parametrize("text", ["hey", "go", "гей"])
 @pytest.mark.parametrize("evidence", ["three", "recognized", "ambiguous", "vibrato"])
-def test_fast_repeats_split_short_unvoiced_attacks_without_changing_word_count(text, evidence):
+@pytest.mark.parametrize("onset_offset", [0, 0.4])
+def test_fast_repeats_split_short_unvoiced_attacks_without_changing_word_count(text, evidence, onset_offset):
     from backend.ai_worker.recognition import with_acoustic_repeats
 
     words = [
         AlignedWord("before", 0, 0.5, (), 0.8),
-        AlignedWord(text, 1, 1.7, (), 0.002),
+        AlignedWord(text, 1 - onset_offset, 1.7, (), 0.002),
         AlignedWord(text, 2.8, 2.9, (), 0.002),
         AlignedWord(text, 2.9, 3.1, (), 0.002),
         AlignedWord("after", 3.1, 3.6, (), 0.8),
