@@ -137,6 +137,15 @@ def align_guided(
             window,
             recovery_bounds=(result[-1].end if result else 0.0, recovery_end),
         )
+        if result and not _follows_word(guided, result, voiced):
+            bounded = replace(window, start=max(window.start, result[-1].end))
+            if bounded.start < bounded.end:
+                retry = _align_window(
+                    scores, frame_seconds, chunk, bounded,
+                    recovery_bounds=(result[-1].end, recovery_end),
+                )
+                if _follows_word(retry, result, voiced):
+                    guided = retry
         candidates = _guided_candidates(
             guided, reference, result, whole, window, following, entry, voiced
         )

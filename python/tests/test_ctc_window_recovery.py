@@ -9,7 +9,44 @@ import pytest
 import torch
 
 from backend.ai_worker import ctc
-from backend.ai_worker.recognition import alignment_payload
+from backend.ai_worker.recognition import alignment_payload, guidance_positions
+
+
+@pytest.mark.parametrize(
+    ("span", "expected"),
+    [((9.5, 11.0), 10.0), ((9.5, 9.9), 9.5), ((10.1, 11.0), 10.1)],
+)
+def test_search_entry_inside_padded_recognition_does_not_truncate_previous_phrase(span, expected):
+    timings = {1: span}
+
+    positions = guidance_positions(timings, [ctc.Window(1, 2, 9.4, 12.0, 10.0)])
+
+    assert positions[1] == expected
+    assert timings[1] == span
+
+
+def test_guided_crop_retries_after_supported_previous_letters_instead_of_late_repeat(monkeypatch):
+    previous = ctc.AlignedWord("він", 1.0, 1.8, (1.0, 1.4, 1.7), 0.9)
+    stolen = ctc.AlignedWord("твій", 1.5, 2.2, (1.5, 1.6, 1.8, 2.0), 0.9)
+    recovered = ctc.AlignedWord("твій", 1.9, 2.6, (1.9, 2.0, 2.2, 2.4), 0.9)
+    late = ctc.AlignedWord("твій", 8.0, 8.8, (8.0, 8.2, 8.4, 8.6), 0.8)
+    starts = []
+
+    def crop(_scores, _step, chunk, window, **_options):
+        if chunk == ["він"]:
+            return [previous]
+        starts.append(window.start)
+        return [stolen if window.start < previous.end else recovered]
+
+    monkeypatch.setattr(ctc, "_align_window", crop)
+    result = ctc.align_guided(
+        torch.zeros(500, 28), 0.02, ["він", "твій"],
+        [ctc.Window(0, 1, 1, 1.8), ctc.Window(1, 2, 1.5, 3)],
+        whole=[previous, late],
+    )
+
+    assert starts == [1.5, previous.end]
+    assert result == [previous, recovered]
 
 
 def _emissions(words: Sequence[str]) -> torch.Tensor:

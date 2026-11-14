@@ -430,7 +430,7 @@ class _AlignmentPass:
                 positions,
                 voiced,
                 whole,
-                anchors={index: interval[0] for index, interval in supported.items()},
+                anchors={index: positions[index] for index in supported},
             )
         )
         return guided, guide, voiced

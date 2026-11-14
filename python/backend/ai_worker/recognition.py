@@ -770,9 +770,16 @@ def alignment_payload(
 def guidance_positions(
     timings: Mapping[int, tuple[float, float]], windows: Sequence[Window]
 ) -> dict[int, float]:
-    return {
-        window.first: window.heard_start for window in windows if window.heard_start is not None
-    } | {index: times[0] for index, times in timings.items()}
+    positions = {index: times[0] for index, times in timings.items()}
+    for window in windows:
+        span = timings.get(window.first)
+        if window.heard_start is not None and (
+            span is None or span[0] <= window.heard_start < span[1]
+        ):
+            # A padded ASR span may include the previous phrase. Keep the line's
+            # entry for searching without changing the recognized word interval.
+            positions[window.first] = window.heard_start
+    return positions
 
 
 def unhinted_windows(
