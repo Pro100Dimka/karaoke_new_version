@@ -28,12 +28,13 @@ describe('applyVoiceChain', () => {
       audioClient,
     );
     expect(audioClient.setMixer).toHaveBeenCalledWith('mic', 0.68);
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith('delay.mix', 0.12);
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith('echo.amount', 0.12);
     expect(audioClient.setDspParameter).toHaveBeenCalledWith(
       'reverb.mix',
       0.42,
     );
-    expect(audioClient.setDspParameter).toHaveBeenCalledWith('delay.ms', 40);
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith('delay.mix', expect.closeTo(0.044));
+    expect(audioClient.setDspParameter).toHaveBeenCalledWith('delay.ms', 320);
     expect(audioClient.setDspParameter).toHaveBeenCalledWith(
       'autotune.amount',
       0.5,
@@ -49,11 +50,19 @@ describe('applyVoiceChain', () => {
     await applyVoiceChain(
       {
         voiceGain: 1,
-        karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
+        karaokeEffects: { echo: 0, reverb: 0, delay: 0, autoTune: 0 },
         noiseSuppression: 0,
       },
       audioClient,
     );
     expect(audioClient.setDspEnabled).toHaveBeenCalledWith(false);
+  });
+
+  it.each(['echo', 'delay'] as const)('enables %s with every other effect off', async (effect) => {
+    await applyVoiceChain(
+      { voiceGain: 1, karaokeEffects: { echo: 0, reverb: 0, delay: 0, autoTune: 0, [effect]: 0.5 }, noiseSuppression: 0 },
+      audioClient,
+    );
+    expect(audioClient.setDspEnabled).toHaveBeenCalledWith(true);
   });
 });

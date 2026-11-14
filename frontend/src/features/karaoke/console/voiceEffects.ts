@@ -12,21 +12,18 @@ interface VoiceEffect {
   step: number;
   initial: number;
   accent?: 'secondary';
-  /** Delay time alone is inaudible, so only the other effects decide whether the DSP chain is needed. */
-  audible: boolean;
 }
 
 export const voiceEffects: readonly VoiceEffect[] = [
   {
     id: 'echo',
     label: 'effectEcho',
-    parameter: 'delay.mix',
+    parameter: 'echo.amount',
     parameterScale: 1,
     min: 0,
     max: 1,
     step: 0.01,
     initial: 0,
-    audible: true,
   },
   {
     id: 'reverb',
@@ -38,18 +35,16 @@ export const voiceEffects: readonly VoiceEffect[] = [
     step: 0.01,
     initial: 0,
     accent: 'secondary',
-    audible: true,
   },
   {
     id: 'delay',
     label: 'effectDelay',
-    parameter: 'delay.ms',
-    parameterScale: 500,
+    parameter: 'delay.mix',
+    parameterScale: 0.55,
     min: 0,
     max: 1,
     step: 0.01,
     initial: 0,
-    audible: false,
   },
   {
     id: 'autoTune',
@@ -61,14 +56,14 @@ export const voiceEffects: readonly VoiceEffect[] = [
     step: 0.01,
     initial: 0,
     accent: 'secondary',
-    audible: true,
   },
 ];
 
-/** Constant DSP settings sent when the chain is switched on: without them the noise gate and the tails of reverb and echo stay too weak to hear. */
+/** Fixed decay and repeat timing; the knobs control each effect's amount. */
 export const effectBaseParameters: Readonly<Record<string, number>> = {
   'reverb.decay': 0.7,
   'delay.feedback': 0.35,
+  'delay.ms': 320,
 };
 
 export type VoiceEffectValues = Record<VoiceEffectId, number>;
@@ -77,7 +72,7 @@ export const anyEffectActive = (
   noise: number,
 ): boolean =>
   noise > 0 ||
-  voiceEffects.some((effect) => effect.audible && values[effect.id] !== 0);
+  voiceEffects.some((effect) => values[effect.id] !== 0);
 
 export interface EffectPreset {
   id: string;

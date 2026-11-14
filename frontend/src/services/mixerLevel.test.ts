@@ -23,3 +23,10 @@ it('allows microphone makeup gain above unity while retaining exact mute and oth
   expect(mixerGain('music', 2)).toBe(1);
   expect(mixerGain('remote', 2)).toBe(1);
 });
+
+it('passes master boost through to native audio and caps it at 150 percent', () => {
+  expect(mixerGain('master', 1.25)).toBe(1.25);
+  expect(mixerGain('master', 1.5)).toBe(1.5);
+  expect(mixerGain('master', 2)).toBe(1.5);
+  expect(mixerGain('master', 0)).toBe(0);
+});

@@ -162,7 +162,7 @@ export const defaultPreferences = (): Preferences => ({
   masterGain: 1,
   karaokeSpeed: 1,
   karaokeKeyShift: 0,
-  karaokeEffects: { echo: 0, reverb: 0, delay: 0.24, autoTune: 0 },
+  karaokeEffects: { echo: 0, reverb: 0, delay: 0, autoTune: 0 },
   pianoRollLayout: null,
   keyboardLighting: {
     enabled: false,
@@ -187,7 +187,7 @@ const oneOf = <T extends string>(
 ): T => allowed.find((item) => item === value) ?? fallback;
 
 /** The master control may boost the whole mix up to 150 %; channel gains stay within 0-100 %. */
-const masterGainMax = 1.5;
+export const masterGainMax = 1.5;
 
 const gain = (value: unknown, fallback: number, max = 1): number =>
   typeof value === 'number' && value >= 0 && value <= max ? value : fallback;

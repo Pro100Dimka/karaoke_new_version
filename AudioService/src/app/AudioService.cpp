@@ -458,6 +458,7 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "InputPitchEpoch: " << pitchEpoch_ << '\n'
         << "InputPitchHistory: " << pitchFrames.str() << '\n';
     if (playbackOnly) return out.str();
+    const auto radio = media_.snapshot(MediaSlot::Radio);
     const auto rt = realtime_.snapshot();
     const auto micGap = realtime_.micGapTimeline();
     const auto backend = session_.backendSnapshot();
@@ -749,7 +750,13 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "RoomClockObservationFrames: " << network_.roomTimelineFrame(observedAt, 0) << '\n'
         << "MusicBufferFill: " << music.bufferFillFrames << '\n'
         << "MusicUnderruns: " << music.underruns << '\n'
-        << "RadioState: " << playbackStateText(media_.snapshot(MediaSlot::Radio).state) << '\n'
+        << "RadioState: " << playbackStateText(radio.state) << '\n'
+        << "RadioBufferFill: " << radio.bufferFillFrames << '\n'
+        << "RadioUnderruns: " << radio.underruns << '\n'
+        << "RecordingPreviewBufferFill: "
+        << preview.bufferFillFrames << '\n'
+        << "RecordingPreviewUnderruns: "
+        << preview.underruns << '\n'
         << "RecordingState: " << static_cast<int>(recording_.state()) << '\n'
         << "RecordingQueueFill: " << recording_.queueFillFrames() << '\n'
         << "InputPeak: " << sig.peak << '\n'

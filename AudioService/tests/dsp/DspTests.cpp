@@ -91,6 +91,8 @@ void roomVoiceEffectAmountsDriveWetProcessing() {
     echo.setEnabled(true);
     expect(echo.setParameter("echo.amount", 0.8F),
            "the room echo amount configures a complete audible effect");
+    expect(echo.setParameter("delay.mix", 0.0F), "delay can stay off beside active echo");
+    expect(echo.setParameter("delay.ms", 320.0F), "delay timing is independent from echo");
     std::vector<float> block(256, 0.0F);
     block.front() = 1.0F;
     echo.process(block, 256);
@@ -101,6 +103,23 @@ void roomVoiceEffectAmountsDriveWetProcessing() {
         tailPeak = std::max(tailPeak, *std::max_element(block.begin(), block.end()));
     }
     expect(tailPeak > 0.1F, "room echo produces an audible delayed tail");
+
+    DspChain delay;
+    delay.prepare(48000, 256, 1);
+    delay.setEnabled(true);
+    expect(delay.setParameter("delay.mix", 0.5F), "delay amount is accepted");
+    expect(delay.setParameter("delay.ms", 320.0F), "delay time is accepted");
+    expect(delay.setParameter("echo.amount", 0.0F), "echo can stay off beside active delay");
+    std::fill(block.begin(), block.end(), 0.0F);
+    block.front() = 1.0F;
+    delay.process(block, 256);
+    tailPeak = 0.0F;
+    for (int index = 0; index < 64; ++index) {
+        std::fill(block.begin(), block.end(), 0.0F);
+        delay.process(block, 256);
+        tailPeak = std::max(tailPeak, *std::max_element(block.begin(), block.end()));
+    }
+    expect(tailPeak > 0.1F, "delay produces its tail with echo disabled");
 
     DspChain noise;
     noise.prepare(48000, 256, 1);

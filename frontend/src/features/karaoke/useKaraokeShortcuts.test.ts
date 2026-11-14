@@ -78,6 +78,13 @@ it('changes key, tempo, notes, text and hearing yourself, and leaves with Escape
   expect(exit).toHaveBeenCalledOnce();
 });
 
+it('allows master boost from the keyboard and retains its upper limit', () => {
+  const session = makeSession({ gains: { master: 1.48 } });
+  mount(session);
+  press('ArrowUp');
+  expect(session.changeGain).toHaveBeenCalledWith('master', 1.5);
+});
+
 it('obeys room rights and leaves keys to a focused field or slider', () => {
   const session = makeSession({ interactive: false, practiceLocked: true });
   mount(session);

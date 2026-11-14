@@ -5,6 +5,18 @@ import { afterEach } from 'vitest';
 // Vitest runs without globals, so Testing Library's automatic cleanup is not registered.
 afterEach(cleanup);
 
+if (typeof window !== 'undefined' && !window.matchMedia)
+  window.matchMedia = (media) => ({
+    media,
+    matches: false,
+    onchange: null,
+    addListener() {},
+    removeListener() {},
+    addEventListener() {},
+    removeEventListener() {},
+    dispatchEvent: () => false,
+  });
+
 // jsdom omits native pointer capture and SVG path measurement used by window dragging and motion.
 if (
   typeof HTMLElement !== 'undefined' &&

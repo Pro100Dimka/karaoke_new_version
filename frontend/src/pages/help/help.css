@@ -139,7 +139,6 @@
   padding: 36px 40px;
   scroll-behavior: auto;
   scrollbar-width: thin;
-  user-select: text;
 }
 .helpContent {
   width: min(100%, 960px);

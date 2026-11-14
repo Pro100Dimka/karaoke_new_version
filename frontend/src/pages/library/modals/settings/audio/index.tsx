@@ -1,16 +1,12 @@
-import { Form, Button, Dialog, Grid, MessageBar, tr } from '@neo-ui-kit/react';
+import { Button, Dialog, Grid, MessageBar, tr } from '@neo-ui-kit/react';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { store } from '../../../../../providers/store';
-import { parsePreferences } from '../../../../../shared/preferences/preferences';
 import { useAudioSettings } from './useAudioSettings';
 import { useInputMonitoring } from './useInputMonitoring';
-import useSettingsForm from '../form';
 import { AsioSetupCard } from './AsioSetupCard';
-import FormCards from '../form-cards';
 import AudioDiagnostics from './diagnostics';
-import { blocks } from './rows';
+import { AudioFields } from './rows';
 
 const AudioPanel = observer(() => {
   const audio = useAudioSettings(true);
@@ -18,85 +14,8 @@ const AudioPanel = observer(() => {
     audio.audio.audioAvailable &&
       audio.audio.capabilities.microphone === 'ready',
   );
-  const form = useSettingsForm(
-    {
-      audio: {
-        ...store.audio,
-        configuration: {
-          ...audio.audio.values,
-          bufferFrames:
-            audio.audio.values.backend === 'WASAPI Shared'
-              ? audio.audio.values.periodFrames
-              : audio.audio.values.bufferFrames,
-        },
-        voice: { ...store.audio.voice, monitoring: monitoring.testingInput },
-      },
-      audioStatus: {
-        ...audio.audio,
-        canToggle: monitoring.canToggle,
-        ready: audio.ready,
-      },
-    },
-    (path, value) => {
-      const backend = (
-        ['ASIO', 'WASAPI Shared', 'WASAPI Exclusive'] as const
-      ).find((item) => item === value);
-      if (path === 'audio.voice.monitoring' && typeof value === 'boolean') {
-        monitoring.setTestingInput(value);
-      } else if (path === 'audio.configuration.backend' && backend) {
-        audio.audio.onAudioCommit('backend', backend);
-      } else if (
-        path === 'audio.configuration.lowLatencyInput' &&
-        typeof value === 'boolean'
-      ) {
-        audio.audio.onAudioCommit('lowLatencyInput', value);
-      } else if (
-        path === 'audio.releaseAsioInBackground' &&
-        typeof value === 'boolean'
-      ) {
-        audio.audio.onReleaseAsioInBackgroundChange(value);
-      } else if (path === 'audio.voice.gain' && typeof value === 'number') {
-        const parsed = parsePreferences({
-          ...store.preferences,
-          voiceGain: value,
-        });
-        store.updatePreferences({ voiceGain: parsed.voiceGain });
-      } else if (
-        path === 'audio.voice.effects.noiseSuppression' &&
-        typeof value === 'number'
-      ) {
-        const parsed = parsePreferences({
-          ...store.preferences,
-          noiseSuppression: value,
-        });
-        store.updatePreferences({ noiseSuppression: parsed.noiseSuppression });
-      } else {
-        const numberKey = (
-          [
-            'sampleRate',
-            'bufferFrames',
-            'periodFrames',
-            'inputPeriodFrames',
-          ] as const
-        ).find((key) => path === `audio.configuration.${key}`);
-        const deviceKey = (['inputDeviceId', 'outputDeviceId'] as const).find(
-          (key) => path === `audio.configuration.${key}`,
-        );
-        if (numberKey && typeof value === 'number')
-          audio.audio.onAudioCommit(
-            numberKey === 'bufferFrames' &&
-              audio.audio.values.backend === 'WASAPI Shared'
-              ? 'periodFrames'
-              : numberKey,
-            value,
-          );
-        else if (deviceKey && typeof value === 'string')
-          audio.audio.onAudioCommit(deviceKey, value);
-      }
-    },
-  );
   const [diagnostics, setDiagnostics] = useState(false);
-  const status = form.values.audioStatus;
+  const status = { ...audio.audio, ready: audio.ready };
   const drivers = status.devices.filter((device) => device.backend === 'ASIO');
   const selected =
     drivers.find((device) => device.id === status.values.outputDeviceId) ??
@@ -112,15 +31,13 @@ const AudioPanel = observer(() => {
     busy: 'microphoneBusy',
   };
   return (
-    <Form form={form}>
-      <FormCards
-        blocks={blocks(
-          form.values,
-          () => setDiagnostics(true),
-          monitoring.inputLevel,
-        )}
-        level={4}
-      >
+    <>
+      <Grid columns={12} gap={3} style={{ height: '100%' }}>
+        <AudioFields
+          status={status}
+          monitoring={monitoring}
+          showDiagnostics={() => setDiagnostics(true)}
+        />
         {status.ready && !status.audioAvailable && (
           <Grid span="full">
             <MessageBar tone="error">
@@ -166,7 +83,7 @@ const AudioPanel = observer(() => {
               />
             </Grid>
           )}
-      </FormCards>
+      </Grid>
       <Dialog
         open={diagnostics}
         onOpenChange={setDiagnostics}
@@ -174,9 +91,9 @@ const AudioPanel = observer(() => {
         cancelLabel={false}
         confirmLabel={false}
       >
-        {diagnostics && <AudioDiagnostics />}
+        {diagnostics && <AudioDiagnostics status={status} />}
       </Dialog>
-    </Form>
+    </>
   );
 });
 export default AudioPanel;

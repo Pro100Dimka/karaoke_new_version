@@ -2,8 +2,6 @@ import type {
   AnalysisDto,
   AiProcessingSettingsDto,
   EnvironmentSettingDto,
-  ConfigurationValidationDto,
-  KaggleActionDto,
   AudioCapabilities,
   AudioConfigurationCapabilities,
   BackendDiagnosticsDto,
@@ -215,9 +213,7 @@ export interface PythonClient {
     value: string,
   ): Promise<EnvironmentSettingDto>;
   verifyEnvironmentSetting(key: string): Promise<EnvironmentSettingDto>;
-  verifyKaggleSettings(): Promise<ConfigurationValidationDto>;
-  loginKaggle(): Promise<KaggleActionDto>;
-  deployKaggle(restore?: boolean): Promise<KaggleActionDto>;
+
   cancelJob(jobId: string): Promise<void>;
   listJobs(): Promise<readonly ProcessingJobDto[]>;
   diagnostics(): Promise<BackendDiagnosticsDto>;

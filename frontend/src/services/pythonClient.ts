@@ -4,8 +4,6 @@ import type {
   AppError,
   BackendDiagnosticsDto,
   EnvironmentSettingDto,
-  ConfigurationValidationDto,
-  KaggleActionDto,
   HistoryPageDto,
   ProcessingJobDto,
   SongDto,
@@ -517,24 +515,6 @@ export const pythonClient: PythonClient = {
     return request<EnvironmentSettingDto>(
       'POST',
       `/settings/environment/${encodeURIComponent(key)}/verify`,
-    );
-  },
-
-  async verifyKaggleSettings(): Promise<ConfigurationValidationDto> {
-    return request<ConfigurationValidationDto>(
-      'POST',
-      '/settings/kaggle/verify',
-    );
-  },
-
-  async loginKaggle(): Promise<KaggleActionDto> {
-    return request<KaggleActionDto>('POST', '/settings/kaggle/login');
-  },
-
-  async deployKaggle(restore = false): Promise<KaggleActionDto> {
-    return request<KaggleActionDto>(
-      'POST',
-      `/settings/kaggle/deploy${restore ? '?restore=true' : ''}`,
     );
   },
 

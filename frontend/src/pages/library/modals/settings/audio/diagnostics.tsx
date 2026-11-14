@@ -1,17 +1,13 @@
-import {
-  useFormContext,
-  Header,
-  Select,
-  Stack,
-  Typography,
-  tr,
-} from '@neo-ui-kit/react';
-import type { SettingsFormValues } from '../../../../../utils/contracts';
+import { Header, Select, Stack, Typography, tr } from '@neo-ui-kit/react';
+import type { useAudioSettings } from './useAudioSettings';
 import { AcousticCalibration } from './AcousticCalibration';
 
-export default function AudioDiagnostics() {
-  const form = useFormContext<SettingsFormValues>();
-  const { runtime, audioAvailable } = form.values.audioStatus;
+export default function AudioDiagnostics({
+  status,
+}: {
+  status: ReturnType<typeof useAudioSettings>['audio'];
+}) {
+  const { runtime, audioAvailable } = status;
   const usb = audioAvailable ? runtime.usbLatency : undefined;
   const parts = audioAvailable ? runtime.latencyParts : undefined;
   const timing = audioAvailable ? runtime.latencyTiming : undefined;
@@ -118,13 +114,13 @@ export default function AudioDiagnostics() {
         </Typography>
       )}
       {runtime.backend === 'WASAPI Shared' &&
-        form.values.audioStatus.options.inputPeriods.length > 0 && (
+        status.options.inputPeriods.length > 0 && (
           <Select
             label={tr('audioInputPeriod')}
-            value={form.values.audio.configuration.inputPeriodFrames ?? 0}
-            options={form.values.audioStatus.options.inputPeriods}
+            value={status.values.inputPeriodFrames ?? 0}
+            options={status.options.inputPeriods}
             onValueChange={(value) =>
-              form.setValue('audio.configuration.inputPeriodFrames', value)
+              status.onAudioCommit('inputPeriodFrames', value)
             }
           />
         )}

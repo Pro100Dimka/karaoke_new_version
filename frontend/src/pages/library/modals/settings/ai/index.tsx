@@ -1,4 +1,13 @@
-import { Button, Form, Grid, MessageBar, tr } from '@neo-ui-kit/react';
+import {
+  Button,
+  Card,
+  Grid,
+  IconButton,
+  MessageBar,
+  Select,
+  TextField,
+  tr,
+} from '@neo-ui-kit/react';
 import {
   useIsMutating,
   useMutation,
@@ -9,10 +18,8 @@ import { processingSettingsQuery } from '../../../../../components/api-service';
 import { useNotify } from '../../../../../providers/notifications';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
-import useSettingsForm from '../form';
-import FormCards from '../form-cards';
 import Models from './models';
-import { blocks, LibraryArchive } from './rows';
+import { LibraryArchive } from './rows';
 
 const AIPanel = () => {
   const notify = useNotify();
@@ -45,27 +52,6 @@ const AIPanel = () => {
       await client.invalidateQueries({ queryKey: ['processing-settings'] });
     },
   });
-  const form = useSettingsForm(
-    {
-      ai: {
-        backend: processing.data?.processingBackend ?? 'Local',
-        transferToLibraryPath: storageRoot.data ?? '',
-        savingBackend: savingBackend || !processing.data,
-        error: processing.error?.message ?? storageRoot.error?.message ?? '',
-      },
-    },
-    (path, value) => {
-      if (path !== 'ai.backend') return;
-      const backend = (['Local', 'Oracle'] as const).find(
-        (item) => item === value,
-      );
-      if (
-        backend &&
-        !client.isMutating({ mutationKey: ['processing-settings'] })
-      )
-        saveBackend.mutate(backend);
-    },
-  );
   const choosingFolder = useIsMutating({ mutationKey: ['storage-root'] }) > 0;
   const onError = (error: unknown) =>
     notify(error instanceof Error ? error.message : String(error), 'error');
@@ -85,43 +71,89 @@ const AIPanel = () => {
     onError,
   });
   return (
-    <Form form={form}>
-      <FormCards
-        blocks={blocks(
-          form.values,
-          () => {
-            if (!client.isMutating({ mutationKey: ['storage-root'] }))
-              folder.mutate();
-          },
-          choosingFolder || Boolean(desktopClient.fixedStorageRoot),
-        )}
-      >
-        <LibraryArchive />
-        {form.values.ai.error && (
-          <Grid span="full">
-            <MessageBar
-              tone="error"
-              action={
-                <Button
-                  label={tr('retry')}
-                  onClick={() => {
-                    void client.invalidateQueries({
-                      queryKey: ['processing-settings'],
-                    });
-                    void client.invalidateQueries({
-                      queryKey: ['storage-root'],
-                    });
-                  }}
-                />
-              }
-            >
-              {form.values.ai.error}
-            </MessageBar>
+    <Grid columns={12} gap={3} style={{ height: '100%' }}>
+      <Grid span="full">
+        <Card
+          border
+          title={tr('processing')}
+          icon="chip"
+          style={{ height: '100%', background: 'transparent' }}
+        >
+          <Grid columns={12} gap={3} align="center" className="ad-form-fields">
+            <Grid span={{ base: 'full', sm: 6 }} className="ad-form-field">
+              <Select
+                label={tr('aiProcessingBackend')}
+                value={processing.data?.processingBackend ?? 'Local'}
+                disabled={savingBackend || !processing.data}
+                options={(
+                  [
+                    { value: 'Local', label: 'aiBackendLocal' },
+                    { value: 'Oracle', label: 'aiBackendOracle' },
+                  ] as const
+                ).map(({ value, label }) => ({ value, label: tr(label) }))}
+                onValueChange={(backend) => {
+                  const selected = (['Local', 'Oracle'] as const).find(
+                    (value) => value === backend,
+                  );
+                  if (
+                    selected &&
+                    !client.isMutating({ mutationKey: ['processing-settings'] })
+                  )
+                    saveBackend.mutate(selected);
+                }}
+              />
+            </Grid>
+            <Grid span={{ base: 'full', sm: 6 }} className="ad-form-field">
+              <TextField
+                label={tr('transferToLibraryPath')}
+                value={storageRoot.data ?? ''}
+                disabled
+                endAdornment={
+                  <IconButton
+                    size="xs"
+                    icon="folder"
+                    label={tr('selectFolder')}
+                    disabled={
+                      choosingFolder || Boolean(desktopClient.fixedStorageRoot)
+                    }
+                    onClick={() => {
+                      if (!client.isMutating({ mutationKey: ['storage-root'] }))
+                        folder.mutate();
+                    }}
+                  />
+                }
+              />
+            </Grid>
           </Grid>
-        )}
-        {form.values.ai.backend === 'Local' && <Models />}
-      </FormCards>
-    </Form>
+        </Card>
+      </Grid>
+      <LibraryArchive />
+      {(processing.error?.message ?? storageRoot.error?.message) && (
+        <Grid span="full">
+          <MessageBar
+            tone="error"
+            action={
+              <Button
+                label={tr('retry')}
+                onClick={() => {
+                  void client.invalidateQueries({
+                    queryKey: ['processing-settings'],
+                  });
+                  void client.invalidateQueries({
+                    queryKey: ['storage-root'],
+                  });
+                }}
+              />
+            }
+          >
+            {processing.error?.message ?? storageRoot.error?.message}
+          </MessageBar>
+        </Grid>
+      )}
+      {(processing.data?.processingBackend ?? 'Local') === 'Local' && (
+        <Models />
+      )}
+    </Grid>
   );
 };
 export default AIPanel;

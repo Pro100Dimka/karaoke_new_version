@@ -9,44 +9,9 @@ import {
   nullable,
   type InferOutput,
 } from 'valibot';
-import type {
-  CardProps,
-  FormFieldDefinition,
-  IconButtonProps,
-} from '@neo-ui-kit/react';
-import type { PropsWithChildren } from 'react';
-import type { store } from '../providers/store';
-import type { useAudioSettings } from '../pages/library/modals/settings/audio/useAudioSettings';
+import type { IconButtonProps } from '@neo-ui-kit/react';
 
-export type SettingsFormValues = Pick<
-  typeof store,
-  'profile' | 'interface' | 'radio' | 'application' | 'integrations' | 'audio'
-> & {
-  keyboardLighting: { show: boolean };
-  ai: {
-    backend: 'Local' | 'Kaggle' | 'Oracle';
-    transferToLibraryPath: string;
-    savingBackend: boolean;
-    error: string;
-  };
-  profile: typeof store.profile & { canChangePhoto: boolean };
-  audioStatus: ReturnType<typeof useAudioSettings>['audio'] & {
-    canToggle: boolean;
-    ready: boolean;
-  };
-};
-export type FormCardProps = CardProps & {
-  fields?: FormFieldDefinition<SettingsFormValues>[];
-};
-export type FormBlock = Omit<FormCardProps, 'title'> & {
-  span: FormFieldDefinition<SettingsFormValues>['span'];
-  show?: boolean;
-};
 export type FormButtonProps = IconButtonProps & { caption?: string };
-export type FormCardsProps = PropsWithChildren<{
-  blocks: Record<string, FormBlock>;
-  level?: FormCardProps['level'];
-}>;
 
 export const modelSchema = object({
   modelId: pipe(string(), minLength(1)),

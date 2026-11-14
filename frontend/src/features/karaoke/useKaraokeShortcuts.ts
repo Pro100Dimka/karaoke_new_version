@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { keyBelongsToControl } from '../../shared/ui/keyOwnership';
+import { masterGainMax } from '../../shared/preferences/preferences';
 import { maxPlaybackRate, minPlaybackRate } from './console/PracticeParameters';
 import type { useKaraokeSession } from './useKaraokeSession';
 
@@ -70,7 +71,7 @@ export const useKaraokeShortcuts = (
         ArrowUp: () =>
           void s.changeGain(
             'master',
-            Math.min(1, percent(s.gains.master + levelStep)),
+            Math.min(masterGainMax, percent(s.gains.master + levelStep)),
           ),
         ArrowDown: () =>
           void s.changeGain(

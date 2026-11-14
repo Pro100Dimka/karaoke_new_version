@@ -62,7 +62,7 @@ body,
   min-height: min(18rem, 50dvh);
 }
 
-.settingsBody form .ad-grid > .ad-grid-item {
+.settingsBody > .ad-grid .ad-grid-item {
   animation-duration: 160ms;
   animation-delay: 0s;
 }
@@ -115,7 +115,6 @@ body,
 input,
 textarea,
 [contenteditable='true'],
-pre,
-code {
+[contenteditable='plaintext-only'] {
   user-select: text;
 }

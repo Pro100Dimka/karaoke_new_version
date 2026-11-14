@@ -10,6 +10,7 @@ void DspChain::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
     gate_.prepare(sampleRateHz, maxFrames, channels);
     noise_.prepare(sampleRateHz, maxFrames, channels);
     reverb_.prepare(sampleRateHz, maxFrames, channels);
+    echo_.prepare(sampleRateHz, maxFrames, channels);
     delay_.prepare(sampleRateHz, maxFrames, channels);
     pitch_.setShortDelay(minimizePitchDelay);
     pitch_.prepare(sampleRateHz, maxFrames, channels);
@@ -21,6 +22,7 @@ void DspChain::reset() noexcept {
     gate_.reset();
     noise_.reset();
     reverb_.reset();
+    echo_.reset();
     delay_.reset();
     pitch_.reset();
 }
@@ -35,14 +37,15 @@ void DspChain::process(std::span<float> samples, std::uint32_t frames) noexcept 
     // Tune the dry voice. Pitch-shifting reverb and delay tails produces metallic crackle.
     pitch_.process(samples, frames);
     reverb_.process(samples, frames);
+    echo_.process(samples, frames);
     delay_.process(samples, frames);
 }
 bool DspChain::setParameter(std::string_view name, float value) noexcept {
     if (name == "echo.amount") {
         const auto amount = std::clamp(value, 0.0F, 1.0F);
-        delay_.setMix(amount * 0.55F);
-        delay_.setFeedback(amount * 0.75F);
-        delay_.setDelayMs(110.0F);
+        echo_.setMix(amount * 0.55F);
+        echo_.setFeedback(amount * 0.75F);
+        echo_.setDelayMs(110.0F);
     } else if (name == "noise.amount") {
         const auto amount = std::clamp(value, 0.0F, 1.0F);
         noise_.setThreshold(amount > 0.0F ? 0.02F : 0.0F);
@@ -88,5 +91,5 @@ bool DspChain::setParameter(std::string_view name, float value) noexcept {
 std::uint32_t DspChain::latencyFrames() const noexcept {
     return highPass_.latencyFrames() + equalizer_.latencyFrames() + compressor_.latencyFrames() +
            gate_.latencyFrames() + noise_.latencyFrames() + reverb_.latencyFrames() +
-           delay_.latencyFrames() + pitch_.latencyFrames();
+           echo_.latencyFrames() + delay_.latencyFrames() + pitch_.latencyFrames();
 }

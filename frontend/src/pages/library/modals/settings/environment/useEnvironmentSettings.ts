@@ -1,33 +1,143 @@
 import { tr, useLocale } from '@neo-ui-kit/react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { useNotify } from '../../../../../providers/notifications';
 import { pythonClient } from '../../../../../services/pythonClient';
-import { environmentStoreFor } from './environmentStore';
-import { valuesOf, isSecret, saveDelayMilliseconds } from './environmentModel';
+import type { EnvironmentSettingDto } from '../../../../../contracts/models';
+import {
+  valuesOf,
+  isSecret,
+  saveDelayMilliseconds,
+  type DisplayEntry,
+} from './environmentModel';
 import { toAppError } from '../../../../../shared/errors';
-import { ask } from '../../../../../providers/dialog';
 
+const queryKey = ['environment-settings'] as const;
+const mutationKey = ['environment-setting'] as const;
+type Write = { key: string; value?: string };
 const errorText = (error: unknown, fallback: string) => {
   const failure = toAppError(error);
   return failure.code === 'Unknown' && !(error instanceof Error)
     ? fallback
     : tr(failure.message);
 };
+const readable = (entry: EnvironmentSettingDto): DisplayEntry =>
+  isSecret(entry) ? { ...entry, value: '' } : entry;
 
-/** Drafts belong to this view; submitted writes and verification survive its closure. */
+/** The query owns the server snapshot; only unsent edits belong to the view. */
 export const useEnvironmentSettings = () => {
-  const store = environmentStoreFor(pythonClient);
-  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
   useLocale();
+  const client = useQueryClient();
   const notify = useNotify();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const pending = useRef(
     new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>(),
   );
+  const writes = useMutationState({
+    filters: { mutationKey, status: 'pending' },
+    select: (mutation) => mutation.state.variables as Write,
+  });
+  const query = useQuery({
+    queryKey,
+    queryFn: async ({ signal }) => {
+      const entries = await pythonClient.listEnvironmentSettings();
+      signal.throwIfAborted();
+      return entries.filter((entry) => entry.group !== 'kaggle').map(readable);
+    },
+    enabled: writes.length === 0,
+    staleTime: Infinity,
+    refetchOnMount: 'always',
+  });
   const reportError = (error: unknown) =>
     notify(errorText(error, tr('settingsApplyFailed')), 'error');
-  const reportErrorRef = useRef(reportError);
-  reportErrorRef.current = reportError;
+  const update = (key: string, change: (entry: DisplayEntry) => DisplayEntry) =>
+    client.setQueryData<DisplayEntry[]>(queryKey, (entries) =>
+      entries?.map((entry) => (entry.key === key ? change(entry) : entry)),
+    );
+  const submit = (variables: Write): Promise<DisplayEntry> => {
+    const before = client
+      .getQueryData<DisplayEntry[]>(queryKey)
+      ?.find((entry) => entry.key === variables.key);
+    const isWrite = variables.value !== undefined;
+    const current = () =>
+      client
+        .getQueryData<DisplayEntry[]>(queryKey)
+        ?.find((entry) => entry.key === variables.key);
+    return client
+      .getMutationCache()
+      .build<DisplayEntry, unknown, Write, unknown>(client, {
+        mutationKey,
+        gcTime: 0,
+        scope: isWrite
+          ? { id: `environment-setting:${variables.key}` }
+          : undefined,
+        onMutate: () => client.cancelQueries({ queryKey }),
+        mutationFn: async ({ key, value }) => {
+          const result =
+            value !== undefined
+              ? await pythonClient.updateEnvironmentSetting(key, value)
+              : await pythonClient.verifyEnvironmentSetting(key);
+          return {
+            ...readable(result),
+            ...(!isWrite && { value: before?.value ?? '' }),
+          };
+        },
+        onSuccess: (stored, { key }) => {
+          if (!isWrite && current() !== before) return;
+          update(key, () => stored);
+        },
+        onError: (error, { key, value }) => {
+          if (!isWrite && current() !== before) return;
+          update(key, (entry) => ({
+            ...entry,
+            value:
+              !isSecret(entry) && value !== undefined ? value : entry.value,
+            state: 'invalid',
+            errorMessage: toAppError(error).message,
+          }));
+        },
+      })
+      .execute(variables)
+      .then(async (stored) => {
+        // Verification runs outside the write scope so the next save can proceed.
+        if (isWrite && stored.configured && stored.state !== 'invalid')
+          await submit({ key: variables.key });
+        return stored;
+      });
+  };
+  const actions = useRef({ submit, reportError });
+  actions.current = { submit, reportError };
+  const verified = useRef(false);
+  useEffect(() => {
+    if (!query.data || query.isFetching || verified.current) return;
+    verified.current = true;
+    for (const entry of query.data) {
+      const active = client.getMutationCache().find({
+        mutationKey,
+        status: 'pending',
+        predicate: (mutation) =>
+          (mutation.state.variables as Write).key === entry.key,
+      });
+      if (entry.configured && !active)
+        void actions.current.submit({ key: entry.key }).catch(() => undefined);
+    }
+  }, [client, query.data, query.isFetching]);
+  useEffect(() => {
+    const timers = pending.current;
+    return () => {
+      for (const [key, { value, timer }] of timers) {
+        clearTimeout(timer);
+        void actions.current
+          .submit({ key, value })
+          .catch(actions.current.reportError);
+      }
+      timers.clear();
+    };
+  }, []);
   const discard = (key: string) => {
     clearTimeout(pending.current.get(key)?.timer);
     pending.current.delete(key);
@@ -37,138 +147,93 @@ export const useEnvironmentSettings = () => {
       return next;
     });
   };
-  const flush = () => {
-    const writes = [...pending.current];
-    pending.current.clear();
-    setDrafts((current) => {
-      const next = { ...current };
-      for (const [key] of writes) delete next[key];
-      return next;
-    });
-    return Promise.all(
-      writes.map(([key, { value, timer }]) => {
-        clearTimeout(timer);
-        return store.save(key, value);
-      }),
-    );
+  const save = async (key: string, value: string) => {
+    discard(key);
+    try {
+      await submit({ key, value });
+    } catch (error) {
+      reportError(error);
+    }
   };
-  useEffect(() => {
-    const writes = pending.current;
-    return () => {
-      for (const [key, { value, timer }] of writes) {
-        clearTimeout(timer);
-        void store
-          .save(key, value)
-          .catch((error) => reportErrorRef.current(error));
-      }
-      writes.clear();
-    };
-  }, [store]);
   const change = (key: string, value: string) => {
     discard(key);
-    const entry = snapshot.entries?.find((entry) => entry.key === key);
-    if (entry && isSecret(entry) && !value.trim()) {
-      store.cancelPending(key);
-      return;
-    }
+    const entry = query.data?.find((entry) => entry.key === key);
+    if (!entry || (isSecret(entry) && !value.trim())) return;
     setDrafts((current) => ({ ...current, [key]: value }));
     const timer = setTimeout(() => {
-      pending.current.delete(key);
-      void store
-        .save(key, value)
-        .catch((error) => reportErrorRef.current(error));
-      setDrafts((current) => {
-        const next = { ...current };
-        delete next[key];
-        return next;
-      });
+      void save(key, value);
     }, saveDelayMilliseconds);
     pending.current.set(key, { value, timer });
   };
   const entries =
-    snapshot.entries?.map((entry) => {
-      const value = drafts[entry.key];
-      return value === undefined
-        ? entry
-        : {
-            ...entry,
-            value,
-            state: value.trim() ? ('unverified' as const) : ('empty' as const),
-            errorMessage: undefined,
-          };
+    query.data?.map((entry) => {
+      const draft = drafts[entry.key];
+      const writing = [...writes]
+        .reverse()
+        .find((write) => write.key === entry.key);
+      const value = draft ?? writing?.value ?? entry.value;
+      return {
+        ...entry,
+        value,
+        state:
+          draft !== undefined
+            ? draft.trim()
+              ? 'unverified'
+              : 'empty'
+            : writing
+              ? 'checking'
+              : entry.state,
+        errorMessage:
+          draft !== undefined || writing ? undefined : entry.errorMessage,
+      } satisfies DisplayEntry;
     }) ?? null;
-
-  useEffect(() => {
-    void store.load();
-  }, [store]);
-
-  const save = async (key: string, value: string) => {
-    discard(key);
-    try {
-      await store.save(key, value);
-    } catch (error) {
-      reportError(error);
-    }
-  };
-  const runKaggleAction = async (
-    action: Parameters<typeof store.runKaggleAction>[0],
-  ) => {
-    try {
-      await flush();
-      notify(await store.runKaggleAction(action), 'success');
-    } catch (error) {
-      if (toAppError(error).code === 'KaggleNotebookStalled') {
-        const choice = await ask({
-          title: tr('kaggleRestoreTitle'),
-          body: tr('kaggleRestoreBody'),
-          tone: 'warning',
-          actions: [
-            {
-              id: 'restore',
-              label: tr('kaggleRestoreTitle'),
-              appearance: 'primary',
-            },
-            {
-              id: 'cancel',
-              label: tr('cancel'),
-              appearance: 'secondary',
-            },
-          ],
-        });
-        if (choice !== 'restore') return;
-        try {
-          notify(await store.runKaggleAction('deploy', true), 'success');
-        } catch (failure) {
-          reportError(failure);
-        }
-        return;
-      }
-      reportError(error);
-    }
-  };
-
   return {
     entries,
-    loadError: snapshot.loadError
-      ? errorText(snapshot.loadError, tr('actionFailed'))
-      : null,
-    retry: () => void store.load(),
+    loadError: query.error ? errorText(query.error, tr('actionFailed')) : null,
+    retry: () => void query.refetch(),
     json: valuesOf(entries ?? []),
     change,
     save,
     applyJson: async (source: string) => {
-      await flush();
-      await store.applyJson(source);
-    },
-    kaggle: {
-      kaggleAction: snapshot.kaggleAction,
-      kaggleStartedAt: snapshot.kaggleStartedAt,
-      runKaggleAction,
-      verifyKaggle: store.verifyKaggle,
+      const parsed: unknown = JSON.parse(source);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+        throw new Error('JSON must contain an object');
+      const changes = Object.entries(parsed).map(([key, value]) => {
+        const entry = query.data?.find((entry) => entry.key === key);
+        if (!entry || isSecret(entry) || typeof value !== 'string')
+          throw new Error(`Unsupported ENV value: ${key}`);
+        return { key, value };
+      });
+      const queued = [...pending.current].map(([key, { value, timer }]) => {
+        clearTimeout(timer);
+        return { key, value };
+      });
+      pending.current.clear();
+      setDrafts({});
+      const combined = new Map(
+        [...queued, ...changes].map((write) => [write.key, write]),
+      );
+      const results = await Promise.allSettled(
+        [...combined.values()]
+          .filter(({ key, value }) => {
+            const entry = query.data?.find((entry) => entry.key === key);
+            return (
+              entry?.value !== value ||
+              entry?.state === 'invalid' ||
+              queued.some((write) => write.key === key) ||
+              writes.some(
+                (write) => write.key === key && write.value !== undefined,
+              )
+            );
+          })
+          .map((write) => submit(write)),
+      );
+      const failures = results.flatMap((result) =>
+        result.status === 'rejected'
+          ? [errorText(result.reason, tr('settingsApplyFailed'))]
+          : [],
+      );
+      if (failures.length) throw new Error(failures.join('\n'));
     },
   };
 };
-
-export type KaggleSettings = ReturnType<
-  typeof useEnvironmentSettings
->['kaggle'];

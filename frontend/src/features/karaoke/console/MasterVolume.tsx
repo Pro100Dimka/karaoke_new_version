@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { Icon, RotaryKnob, tr, useLocale } from '@neo-ui-kit/react';
 import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
+import { masterGainMax } from '../../../shared/preferences/preferences';
 
 const diameter = 52;
 
@@ -19,7 +20,7 @@ export const MasterVolume = memo(
           style={fixedKnobWidth(diameter)}
           label={tr('masterVolume')}
           min={0}
-          max={1}
+          max={masterGainMax}
           step={0.01}
           displayScale={100}
           resetValue={1}

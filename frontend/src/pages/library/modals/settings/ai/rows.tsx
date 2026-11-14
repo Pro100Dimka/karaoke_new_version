@@ -1,7 +1,7 @@
 import {
   Button,
+  Card,
   FilePicker,
-  IconButton,
   Stack,
   Grid,
   ProgressBar,
@@ -19,56 +19,6 @@ import {
 } from '../../../../../providers/notifications';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
-import FormCard from '../form-cards/card';
-import type {
-  FormBlock,
-  SettingsFormValues,
-} from '../../../../../utils/contracts';
-
-export const blocks = (
-  values: Pick<SettingsFormValues, 'ai'>,
-  chooseFolder: () => void,
-  choosingFolder: boolean,
-) =>
-  ({
-    processing: {
-      span: { base: 'full' },
-      icon: 'chip',
-      fields: [
-        {
-          name: 'ai.backend',
-          kind: 'select',
-          label: tr('aiProcessingBackend'),
-          span: { base: 'full', sm: 6 },
-          props: {
-            disabled: values.ai.savingBackend,
-            options: [
-              { value: 'Local', label: tr('aiBackendLocal') },
-              { value: 'Oracle', label: tr('aiBackendOracle') },
-            ],
-          },
-        },
-        {
-          name: 'ai.transferToLibraryPath',
-          label: tr('transferToLibraryPath'),
-          span: { base: 'full', sm: 6 },
-          props: {
-            disabled: true,
-            endAdornment: (
-              <IconButton
-                size="xs"
-                icon="folder"
-                label={tr('selectFolder')}
-                disabled={choosingFolder}
-                onClick={chooseFolder}
-              />
-            ),
-          },
-        },
-      ],
-    },
-  }) satisfies Record<string, FormBlock>;
-
 export const LibraryArchive = () => {
   const client = useQueryClient();
   const notify = useNotify();
@@ -100,7 +50,9 @@ export const LibraryArchive = () => {
   return (
     <>
       <Grid span="full">
-        <FormCard
+        <Card
+          border
+          style={{ height: '100%', background: 'transparent' }}
           title={tr('importExport')}
           icon="chip"
           description={tr('libraryArchiveHint')}
@@ -125,7 +77,7 @@ export const LibraryArchive = () => {
               }}
             />
           </Stack>
-        </FormCard>
+        </Card>
       </Grid>
       {transferring && (
         <ProgressBar

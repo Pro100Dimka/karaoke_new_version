@@ -350,15 +350,6 @@ export interface EnvironmentSettingDto {
   message: string;
 }
 
-export interface ConfigurationValidationDto {
-  state: 'valid' | 'invalid';
-  message: string;
-}
-
-export interface KaggleActionDto extends ConfigurationValidationDto {
-  url?: string;
-}
-
 export interface HistoryEventDto {
   id: string;
   kind: string;

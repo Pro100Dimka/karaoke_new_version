@@ -1,19 +1,25 @@
 import {
   Button,
+  Card,
+  Grid,
   IconButton,
   LevelMeter,
+  RotaryKnob,
+  Select,
   Stack,
   StatusIndicator,
+  Switch,
   Tooltip,
   tr,
   Typography,
 } from '@neo-ui-kit/react';
+import type { AudioBackendName } from '../../../../../contracts/models';
 import type { IObservableValue } from 'mobx';
 import { observer } from 'mobx-react-lite';
-import type {
-  FormBlock,
-  SettingsFormValues,
-} from '../../../../../utils/contracts';
+import { store } from '../../../../../providers/store';
+import { parsePreferences } from '../../../../../shared/preferences/preferences';
+import type { useAudioSettings } from './useAudioSettings';
+import type { useInputMonitoring } from './useInputMonitoring';
 import FormButton from '../form-button';
 
 const InputLevelMeter = observer(
@@ -25,7 +31,6 @@ const InputLevelMeter = observer(
     />
   ),
 );
-
 const rotaryProps = {
   size: 'sm',
   showLabel: true,
@@ -33,223 +38,287 @@ const rotaryProps = {
   step: 0.01,
   displayScale: 100,
 } as const;
-
-export const blocks = (
-  values: Pick<SettingsFormValues, 'audio' | 'audioStatus'>,
-  showDiagnostics: () => void,
-  inputLevel: IObservableValue<number>,
-) => {
-  const status = values.audioStatus;
-  const runtime = status.runtime;
-  const usb =
-    runtime.latencyEstimateSource === 'device-timeline'
-      ? (runtime.usbLatency?.inputMs ?? 0) + (runtime.usbLatency?.outputMs ?? 0)
-      : 0;
-  const latency =
-    status.audioAvailable && runtime.estimatedLatencyMs !== null
-      ? runtime.estimatedLatencyMs + usb
-      : null;
-  return {
-    estimatedLatencyTitle: {
-      span: { base: 'full', md: 6, lg: 5 },
-      icon: 'timer',
-      actions: (
-        <Tooltip content={tr('audioLatencyHint')}>
-          <IconButton
-            icon="info"
-            size="sm"
-            variant="ghost"
-            label={tr('audioLatencyHint')}
-            onClick={showDiagnostics}
-          />
-        </Tooltip>
-      ),
-      fields: [
-        {
-          name: 'audio.latency',
-          kind: 'custom',
-          render: () => (
-            <Stack gap={3}>
-              <InputLevelMeter
-                level={inputLevel}
-                active={values.audio.voice.monitoring}
-              />
-              <Stack direction="row" gap={3} align="center" wrap>
-                <Typography
-                  variant="h3"
-                  as="strong"
-                  text={
-                    latency === null
-                      ? '—'
-                      : tr('approximateMillisecondsValue', {
-                          value: Math.round(latency),
-                        })
+export const AudioFields = observer(
+  ({
+    status,
+    monitoring,
+    showDiagnostics,
+  }: {
+    status: ReturnType<typeof useAudioSettings>['audio'] & { ready: boolean };
+    monitoring: ReturnType<typeof useInputMonitoring>;
+    showDiagnostics(): void;
+  }) => {
+    const { runtime, values, onAudioCommit } = status;
+    const usb =
+      runtime.latencyEstimateSource === 'device-timeline'
+        ? (runtime.usbLatency?.inputMs ?? 0) +
+          (runtime.usbLatency?.outputMs ?? 0)
+        : 0;
+    const latency =
+      status.audioAvailable && runtime.estimatedLatencyMs !== null
+        ? runtime.estimatedLatencyMs + usb
+        : null;
+    return (
+      <>
+        <Grid span={{ base: 'full', md: 6, lg: 5 }}>
+          <Card
+            border
+            level={4}
+            title={tr('estimatedLatencyTitle')}
+            icon="timer"
+            style={{ height: '100%', background: 'transparent' }}
+            actions={
+              <Tooltip content={tr('audioLatencyHint')}>
+                <IconButton
+                  icon="info"
+                  size="sm"
+                  variant="ghost"
+                  label={tr('audioLatencyHint')}
+                  onClick={showDiagnostics}
+                />
+              </Tooltip>
+            }
+          >
+            <Grid
+              columns={12}
+              gap={3}
+              align="center"
+              className="ad-form-fields"
+            >
+              <Grid span="full" className="ad-form-field" data-custom="">
+                <Stack gap={3}>
+                  <InputLevelMeter
+                    level={monitoring.inputLevel}
+                    active={monitoring.testingInput}
+                  />
+                  <Stack direction="row" gap={3} align="center" wrap>
+                    <Typography
+                      variant="h3"
+                      as="strong"
+                      text={
+                        latency === null
+                          ? '-'
+                          : tr('approximateMillisecondsValue', {
+                              value: Math.round(latency),
+                            })
+                      }
+                    />
+                    <StatusIndicator
+                      status={status.audioAvailable ? 'warning' : 'offline'}
+                      label={tr(
+                        status.audioAvailable
+                          ? 'latencyIncomplete'
+                          : 'audioNoData',
+                      )}
+                    />
+                  </Stack>
+                </Stack>
+              </Grid>
+              <Grid span={{ base: 'full', sm: 4 }} className="ad-form-field">
+                <Select<AudioBackendName>
+                  label={tr('audioBackend')}
+                  value={values.backend}
+                  disabled={!status.ready}
+                  options={[
+                    { value: 'ASIO', label: 'ASIO' },
+                    {
+                      value:
+                        values.backend === 'ASIO'
+                          ? 'WASAPI Shared'
+                          : values.backend,
+                      label: 'Windows',
+                    },
+                  ]}
+                  onValueChange={(value) => onAudioCommit('backend', value)}
+                />
+              </Grid>
+              {(
+                [
+                  {
+                    key: 'sampleRate',
+                    label: 'sampleRate',
+                    options: status.options.sampleRates,
+                  },
+                  {
+                    key: 'bufferFrames',
+                    label: 'audioBuffer',
+                    options: status.options.periods,
+                  },
+                ] as const
+              ).map(({ key, label, options }) => (
+                <Grid
+                  key={key}
+                  span={{ base: 'full', sm: 4 }}
+                  className="ad-form-field"
+                >
+                  <Select
+                    label={tr(label)}
+                    value={
+                      key === 'bufferFrames' &&
+                      values.backend === 'WASAPI Shared'
+                        ? values.periodFrames
+                        : values[key]
+                    }
+                    disabled={
+                      key === 'bufferFrames' &&
+                      values.backend === 'WASAPI Exclusive'
+                    }
+                    options={options}
+                    onValueChange={(value) =>
+                      onAudioCommit(
+                        key === 'bufferFrames' &&
+                          values.backend === 'WASAPI Shared'
+                          ? 'periodFrames'
+                          : key,
+                        value,
+                      )
+                    }
+                  />
+                </Grid>
+              ))}
+              <Grid span="full" className="ad-form-field" data-custom="">
+                <Button
+                  size="sm"
+                  icon="sliders"
+                  disabled={!status.audioAvailable || values.backend !== 'ASIO'}
+                  label={tr('audioConfigureDevices')}
+                  onClick={status.onOpenAsioControlPanel}
+                />
+              </Grid>
+            </Grid>
+          </Card>
+        </Grid>
+        <Grid span={{ base: 'full', md: 6, lg: 4 }}>
+          <Card
+            border
+            level={4}
+            title={tr('audioLevels')}
+            icon="levels"
+            style={{ height: '100%', background: 'transparent' }}
+          >
+            <Grid
+              columns={12}
+              gap={3}
+              align="center"
+              className="ad-form-fields"
+            >
+              <Grid span={5} className="ad-form-field">
+                <RotaryKnob
+                  {...rotaryProps}
+                  max={4}
+                  resetValue={1}
+                  label={tr('microphoneKnob')}
+                  value={store.preferences.voiceGain}
+                  onValueChange={(voiceGain) =>
+                    store.updatePreferences({
+                      voiceGain: parsePreferences({
+                        ...store.preferences,
+                        voiceGain,
+                      }).voiceGain,
+                    })
                   }
                 />
-                <StatusIndicator
-                  status={status.audioAvailable ? 'warning' : 'offline'}
-                  label={
-                    status.audioAvailable
-                      ? tr('latencyIncomplete')
-                      : tr('audioNoData')
+              </Grid>
+              <Grid span={2} className="ad-form-field" data-custom="">
+                <FormButton
+                  icon="mic"
+                  label={tr('inputMonitoring')}
+                  caption={tr('monitoring')}
+                  disabled={!monitoring.canToggle}
+                  aria-pressed={monitoring.testingInput}
+                  variant={monitoring.testingInput ? 'primary' : 'secondary'}
+                  onClick={() =>
+                    monitoring.setTestingInput(!monitoring.testingInput)
                   }
                 />
-              </Stack>
-            </Stack>
-          ),
-        },
-        {
-          name: 'audio.configuration.backend',
-          kind: 'select',
-          label: tr('audioBackend'),
-          span: { base: 'full', sm: 4 },
-          props: {
-            options: [
-              { value: 'ASIO', label: 'ASIO' },
-              {
-                value:
-                  values.audio.configuration.backend === 'ASIO'
-                    ? 'WASAPI Shared'
-                    : values.audio.configuration.backend,
-                label: 'Windows',
-              },
-            ],
-            disabled: !status.ready,
-          },
-        },
-        ...Object.entries({
-          sampleRate: {
-            label: 'sampleRate',
-            values: [0, 44100, 48000, 96000, 192000],
-            unit: 'kilohertzValue',
-            scale: 1000,
-          },
-          bufferFrames: {
-            label: 'audioBuffer',
-            values: [0, 32, 64, 128, 256, 512, 1024],
-            unit: 'framesValue',
-            scale: 1,
-          },
-        }).map(([name, { label }]) => ({
-          name: `audio.configuration.${name}`,
-          kind: 'select' as const,
-          label: tr(label),
-          span: { base: 'full', sm: 4 } as const,
-          props: {
-            disabled:
-              name === 'bufferFrames' &&
-              values.audio.configuration.backend === 'WASAPI Exclusive',
-            options:
-              name === 'sampleRate'
-                ? status.options.sampleRates
-                : status.options.periods,
-          },
-        })),
-        {
-          name: 'audio.configureDevices',
-          kind: 'custom',
-          render: () => (
-            <Button
-              size="sm"
-              icon="sliders"
-              disabled={
-                !status.audioAvailable ||
-                values.audio.configuration.backend !== 'ASIO'
-              }
-              label={tr('audioConfigureDevices')}
-              onClick={status.onOpenAsioControlPanel}
-            />
-          ),
-        },
-      ],
-    },
-    audioLevels: {
-      span: { base: 'full', md: 6, lg: 4 },
-      icon: 'levels',
-      fields: [
-        {
-          name: 'audio.voice.gain',
-          kind: 'rotary',
-          label: tr('microphoneKnob'),
-          span: 5,
-          props: { ...rotaryProps, max: 4, resetValue: 1 },
-        },
-        {
-          name: 'audio.voice.monitoring',
-          kind: 'custom',
-          span: 2,
-          render: (field) => (
-            <FormButton
-              icon="mic"
-              label={tr('inputMonitoring')}
-              caption={tr('monitoring')}
-              disabled={!status.canToggle}
-              aria-pressed={Boolean(field.value)}
-              variant={field.value ? 'primary' : 'secondary'}
-              onClick={() => field.onValueChange(!field.value)}
-            />
-          ),
-        },
-        {
-          name: 'audio.voice.effects.noiseSuppression',
-          kind: 'rotary',
-          label: tr('noiseKnob'),
-          span: 5,
-          props: { ...rotaryProps, max: 1, resetValue: 0 },
-        },
-      ],
-    },
-    audioDevicesAndMonitoring: {
-      span: { base: 'full', lg: 3 },
-      icon: 'headphones',
-      fields: [
-        ...Object.entries({
-          inputDeviceId: { label: 'audioInputDevice', span: 'full' },
-          outputDeviceId: {
-            label: 'audioOutputDevice',
-            span: { base: 'full', sm: 10 },
-          },
-        } as const).map(([name, { label, span }]) => ({
-          name: `audio.configuration.${name}`,
-          kind: 'select' as const,
-          label: tr(label),
-          span,
-          props: status.deviceOptions(
-            name === 'inputDeviceId' ? 'input' : 'output',
-            values.audio.configuration[
-              name as 'inputDeviceId' | 'outputDeviceId'
-            ] ?? '',
-          ),
-        })),
-        {
-          name: 'audio.playTestSound',
-          kind: 'custom',
-          span: { base: 'full', sm: 2 },
-          render: () => (
-            <Stack justify="center">
-              <FormButton
-                size="md"
-                icon="play"
-                label={tr('audioTestSound')}
-                onClick={() => void status.onPlayTestSound()}
-                disabled={!status.audioAvailable}
-              />
-            </Stack>
-          ),
-        },
-        ...Object.entries({
-          'audio.releaseAsioInBackground': {
-            label: 'releaseAsioInBackground',
-            backend: 'ASIO',
-          },
-        }).map(([name, { label, backend }]) => ({
-          name,
-          kind: 'switch' as const,
-          label: tr(label),
-          showWhen: (values: SettingsFormValues) =>
-            values.audio.configuration.backend === backend,
-        })),
-      ],
-    },
-  } satisfies Record<string, FormBlock>;
-};
+              </Grid>
+              <Grid span={5} className="ad-form-field">
+                <RotaryKnob
+                  {...rotaryProps}
+                  max={1}
+                  resetValue={0}
+                  label={tr('noiseKnob')}
+                  value={store.preferences.noiseSuppression}
+                  onValueChange={(noiseSuppression) =>
+                    store.updatePreferences({
+                      noiseSuppression: parsePreferences({
+                        ...store.preferences,
+                        noiseSuppression,
+                      }).noiseSuppression,
+                    })
+                  }
+                />
+              </Grid>
+            </Grid>
+          </Card>
+        </Grid>
+        <Grid span={{ base: 'full', lg: 3 }}>
+          <Card
+            border
+            level={4}
+            title={tr('audioDevicesAndMonitoring')}
+            icon="headphones"
+            style={{ height: '100%', background: 'transparent' }}
+          >
+            <Grid
+              columns={12}
+              gap={3}
+              align="center"
+              className="ad-form-fields"
+            >
+              {(
+                [
+                  {
+                    key: 'inputDeviceId',
+                    label: 'audioInputDevice',
+                    direction: 'input',
+                    span: 'full',
+                  },
+                  {
+                    key: 'outputDeviceId',
+                    label: 'audioOutputDevice',
+                    direction: 'output',
+                    span: { base: 'full', sm: 10 },
+                  },
+                ] as const
+              ).map(({ key, label, direction, span }) => (
+                <Grid key={key} span={span} className="ad-form-field">
+                  <Select
+                    label={tr(label)}
+                    {...status.deviceOptions(direction, values[key] ?? '')}
+                    value={values[key] ?? ''}
+                    onValueChange={(value) => onAudioCommit(key, value)}
+                  />
+                </Grid>
+              ))}
+              <Grid
+                span={{ base: 'full', sm: 2 }}
+                className="ad-form-field"
+                data-custom=""
+              >
+                <Stack justify="center">
+                  <FormButton
+                    size="md"
+                    icon="play"
+                    label={tr('audioTestSound')}
+                    onClick={() => void status.onPlayTestSound()}
+                    disabled={!status.audioAvailable}
+                  />
+                </Stack>
+              </Grid>
+              {values.backend === 'ASIO' && (
+                <Grid span="full" className="ad-form-field">
+                  <Switch
+                    label={tr('releaseAsioInBackground')}
+                    checked={store.preferences.releaseAsioInBackground}
+                    onValueChange={status.onReleaseAsioInBackgroundChange}
+                  />
+                </Grid>
+              )}
+            </Grid>
+          </Card>
+        </Grid>
+      </>
+    );
+  },
+);

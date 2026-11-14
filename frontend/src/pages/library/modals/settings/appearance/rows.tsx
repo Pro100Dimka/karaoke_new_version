@@ -1,178 +1,340 @@
-import { FilePicker, themes, tr } from '@neo-ui-kit/react';
+import {
+  Card,
+  Checkbox,
+  FilePicker,
+  Grid,
+  RotaryKnob,
+  Select,
+  Slider,
+  Switch,
+  TextField,
+  ThemePicker,
+  themes,
+  tr,
+} from '@neo-ui-kit/react';
+import { observer } from 'mobx-react-lite';
+import { store } from '../../../../../providers/store';
 import { appThemes } from '../../../../../providers/theme/variants';
 import { fonts, radioStations } from '../../../../../utils/consts';
-import type {
-  FormBlock,
-  SettingsFormValues,
-} from '../../../../../utils/contracts';
+import {
+  parsePreferences,
+  type Preferences,
+} from '../../../../../shared/preferences/preferences';
+import {
+  setRadioStation,
+  setRadioVolume,
+  toggleRadio,
+} from '../../../../../providers/radio';
+import type { useKeyboardLighting } from './keyboardlighting/useKeyboardLighting';
 
-export const blocks = (
-  values: Pick<
-    SettingsFormValues,
-    | 'profile'
-    | 'interface'
-    | 'application'
-    | 'integrations'
-    | 'radio'
-    | 'keyboardLighting'
-  >,
-) => {
-  const canControlRadio = values.radio.canControl;
-  const fontOptions = Object.entries(fonts).map(([value, [label, font]]) => ({
-    value,
-    font,
-    label: tr(label),
-  }));
-  return {
-    theme: {
-      span: { base: 'full', md: 3, lg: 4 },
-      icon: 'palette',
-      fields: [
-        {
-          name: 'interface.theme',
-          kind: 'theme',
-          label: tr('theme'),
-          props: {
-            options: Object.entries(appThemes).map(
-              ([value, { preview, library }]) => ({
-                value,
-                label: tr(value),
-                ...preview,
-                color: themes[library][0],
-              }),
-            ),
+export const AppearanceFields = observer(
+  ({
+    photo,
+    canChangePhoto,
+    changePhoto,
+    lighting,
+  }: {
+    photo: string;
+    canChangePhoto: boolean;
+    changePhoto(file: File): Promise<void>;
+    lighting: ReturnType<typeof useKeyboardLighting>;
+  }) => {
+    const p = store.preferences;
+    const radio = store.radio;
+    const update = <K extends keyof Preferences>(key: K, value: unknown) => {
+      const parsed = parsePreferences({ ...store.preferences, [key]: value });
+      store.updatePreferences({
+        [key]: parsed[key],
+        ...(key === 'reducedMotion' ? { animationQualitySelected: true } : {}),
+      });
+    };
+    const updateLighting = <K extends keyof Preferences['keyboardLighting']>(
+      key: K,
+      value: Preferences['keyboardLighting'][K],
+    ) => {
+      lighting.update(
+        parsePreferences({
+          ...store.preferences,
+          keyboardLighting: {
+            ...store.preferences.keyboardLighting,
+            [key]: value,
           },
-        },
-      ],
-    },
-    profile: {
-      span: { base: 'full', lg: 6 },
-      icon: 'profile',
-      fields: [
-        {
-          name: 'profile.photo',
-          kind: 'custom',
-          span: { base: 'full', sm: 3, lg: 4 },
-          render: (field) => (
-            <FilePicker
-              variant="avatar"
-              accept="image/*"
-              disabled={!values.profile.canChangePhoto}
-              src={values.profile.photo}
-              name={values.profile.displayName}
-              onFiles={field.onValueChange}
-            />
-          ),
-        },
-        {
-          name: 'profile.displayName',
-          label: tr('displayName'),
-          span: { base: 'full', sm: 9, lg: 8 },
-        },
-      ],
-    },
-    radio: {
-      span: { base: 'full', lg: 6 },
-      icon: 'radio',
-      fields: [
-        {
-          name: 'radio.volume',
-          kind: 'rotary',
-          span: { base: 'full', sm: 3 },
-          props: {
-            size: 'xs',
-            showLabel: true,
-            suffix: '%',
-            disabled: !canControlRadio,
-          },
-        },
-        {
-          name: 'radio.stationId',
-          label: tr('radioStation'),
-          kind: 'select',
-          props: { options: radioStations, disabled: !canControlRadio },
-          span: { base: 'full', sm: 6 },
-        },
-        {
-          name: 'radio.enabled',
-          kind: 'switch',
-          span: { base: 'full', md: 3 },
-          props: {
-            disabled: !canControlRadio,
-            'aria-label': tr('radio'),
-          },
-        },
-      ],
-    },
-    keyboardLighting: {
-      show: values.keyboardLighting.show,
-      span: { base: 'full' },
-      icon: 'bulb',
-      fields: [
-        {
-          name: 'integrations.keyboardLighting.enabled',
-          kind: 'switch',
-          label: tr('enabled'),
-          span: { base: 'full', sm: 3 },
-        },
-        {
-          name: 'integrations.keyboardLighting.mode',
-          kind: 'select',
-          label: tr('lightingMode'),
-          span: { base: 'full', sm: 3 },
-          props: {
-            options: [
-              { value: 'theme', label: tr('lightingThemeMode') },
-              { value: 'music', label: tr('lightingMusicMode') },
-            ],
-          },
-        },
-        ...Object.entries({
-          brightness: 'lightingBrightness',
-          sensitivity: 'lightingSensitivity',
-        }).map(([name, label]) => ({
-          name: `integrations.keyboardLighting.${name}`,
-          kind: 'slider' as const,
-          label: tr(label),
-          span: { base: 'full', sm: 3 } as const,
-          props: { min: 0, max: 100 },
-        })),
-      ],
-    },
-    interfaceSettings: {
-      span: { base: 'full' },
-      icon: 'sliders',
-      fields: [
-        ...['headingFont', 'textFont'].map((name) => ({
-          name: `interface.${name}`,
-          kind: 'select' as const,
-          label: tr(name),
-          span: { base: 'full', sm: 4 } as const,
-          props: { options: fontOptions },
-        })),
-        {
-          name: 'interface.language',
-          kind: 'select',
-          label: tr('language'),
-          span: { base: 'full', sm: 4 },
-          props: {
-            options: ['uk', 'ru', 'en'].map((value) => ({
-              value,
-              label: tr(`language.${value}`),
-            })),
-          },
-        },
-        ...Object.entries({
-          'interface.reducedMotion': 'reduceAnimations',
-          'integrations.discordPresence': 'discordPresence',
-          'application.autoUpdate': 'autoUpdate',
-        }).map(([name, label]) => ({
-          name,
-          kind: 'checkbox' as const,
-          label: tr(label),
-          span: { base: 'full', sm: 4 } as const,
-        })),
-      ],
-    },
-  } satisfies Record<string, FormBlock>;
-};
+        }).keyboardLighting,
+      );
+    };
+    const fontOptions = Object.entries(fonts).map(([value, [label, font]]) => ({
+      value,
+      font,
+      label: tr(label),
+    }));
+    return (
+      <Grid columns={12} gap={3}>
+        <Grid span={{ base: 'full', md: 3, lg: 4 }}>
+          <Card
+            border
+            title={tr('theme')}
+            icon="palette"
+            style={{ height: '100%', background: 'transparent' }}
+          >
+            <Grid
+              columns={12}
+              gap={3}
+              align="center"
+              className="ad-form-fields"
+            >
+              <Grid span="full" className="ad-form-field">
+                <ThemePicker
+                  label={tr('theme')}
+                  value={p.theme}
+                  onValueChange={(value) => update('theme', value)}
+                  options={Object.entries(appThemes).map(
+                    ([value, { preview, library }]) => ({
+                      value,
+                      label: tr(value),
+                      ...preview,
+                      color: themes[library][0],
+                    }),
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </Card>
+        </Grid>
+        <Grid span={{ base: 'full', md: 9, lg: 8 }}>
+          <Grid columns={12} gap={3} style={{ height: '100%' }}>
+            <Grid span={{ base: 'full', lg: 6 }}>
+              <Card
+                border
+                title={tr('profile')}
+                icon="profile"
+                style={{ height: '100%', background: 'transparent' }}
+              >
+                <Grid
+                  columns={12}
+                  gap={3}
+                  align="center"
+                  className="ad-form-fields"
+                >
+                  <Grid
+                    span={{ base: 'full', sm: 3, lg: 4 }}
+                    className="ad-form-field"
+                    data-custom=""
+                  >
+                    <FilePicker
+                      variant="avatar"
+                      accept="image/*"
+                      disabled={!canChangePhoto}
+                      src={photo}
+                      name={p.displayName}
+                      onFiles={(files) => {
+                        if (files[0]) void changePhoto(files[0]);
+                      }}
+                    />
+                  </Grid>
+                  <Grid
+                    span={{ base: 'full', sm: 9, lg: 8 }}
+                    className="ad-form-field"
+                  >
+                    <TextField
+                      label={tr('displayName')}
+                      value={p.displayName}
+                      onValueChange={(value) =>
+                        update('displayName', value.slice(0, 48))
+                      }
+                    />
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
+            <Grid span={{ base: 'full', lg: 6 }}>
+              <Card
+                border
+                title={tr('radio')}
+                icon="radio"
+                style={{ height: '100%', background: 'transparent' }}
+              >
+                <Grid
+                  columns={12}
+                  gap={3}
+                  align="center"
+                  className="ad-form-fields"
+                >
+                  <Grid
+                    span={{ base: 'full', sm: 3 }}
+                    className="ad-form-field"
+                  >
+                    <RotaryKnob
+                      size="xs"
+                      showLabel
+                      suffix="%"
+                      disabled={!radio.canControl}
+                      value={radio.volume}
+                      onValueChange={setRadioVolume}
+                    />
+                  </Grid>
+                  <Grid
+                    span={{ base: 'full', sm: 6 }}
+                    className="ad-form-field"
+                  >
+                    <Select
+                      label={tr('radioStation')}
+                      value={radio.stationId}
+                      options={[...radioStations]}
+                      disabled={!radio.canControl}
+                      onValueChange={setRadioStation}
+                    />
+                  </Grid>
+                  <Grid
+                    span={{ base: 'full', md: 3 }}
+                    className="ad-form-field"
+                  >
+                    <Switch
+                      aria-label={tr('radio')}
+                      checked={radio.enabled}
+                      disabled={!radio.canControl}
+                      onValueChange={(value) => {
+                        if (value !== radio.enabled) toggleRadio();
+                      }}
+                    />
+                  </Grid>
+                </Grid>
+              </Card>
+            </Grid>
+            {lighting.capabilities?.available && (
+              <Grid span="full">
+                <Card
+                  border
+                  title={tr('keyboardLighting')}
+                  icon="bulb"
+                  style={{ height: '100%', background: 'transparent' }}
+                >
+                  <Grid
+                    columns={12}
+                    gap={3}
+                    align="center"
+                    className="ad-form-fields"
+                  >
+                    <Grid
+                      span={{ base: 'full', sm: 3 }}
+                      className="ad-form-field"
+                    >
+                      <Switch
+                        label={tr('enabled')}
+                        checked={p.keyboardLighting.enabled}
+                        onValueChange={(value) =>
+                          updateLighting('enabled', value)
+                        }
+                      />
+                    </Grid>
+                    <Grid
+                      span={{ base: 'full', sm: 3 }}
+                      className="ad-form-field"
+                    >
+                      <Select
+                        label={tr('lightingMode')}
+                        value={p.keyboardLighting.mode}
+                        options={(
+                          [
+                            { value: 'theme', label: 'lightingThemeMode' },
+                            { value: 'music', label: 'lightingMusicMode' },
+                          ] as const
+                        ).map(({ value, label }) => ({
+                          value,
+                          label: tr(label),
+                        }))}
+                        onValueChange={(value) => updateLighting('mode', value)}
+                      />
+                    </Grid>
+                    {(
+                      [
+                        { key: 'brightness', label: 'lightingBrightness' },
+                        { key: 'sensitivity', label: 'lightingSensitivity' },
+                      ] as const
+                    ).map(({ key, label }) => (
+                      <Grid
+                        key={key}
+                        span={{ base: 'full', sm: 3 }}
+                        className="ad-form-field"
+                      >
+                        <Slider
+                          label={tr(label)}
+                          min={0}
+                          max={100}
+                          value={p.keyboardLighting[key]}
+                          onValueChange={(value) => updateLighting(key, value)}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Card>
+              </Grid>
+            )}
+            <Grid span="full">
+              <Card
+                border
+                title={tr('interfaceSettings')}
+                icon="sliders"
+                style={{ height: '100%', background: 'transparent' }}
+              >
+                <Grid
+                  columns={12}
+                  gap={3}
+                  align="center"
+                  className="ad-form-fields"
+                >
+                  {(['headingFont', 'textFont'] as const).map((key) => (
+                    <Grid
+                      key={key}
+                      span={{ base: 'full', sm: 4 }}
+                      className="ad-form-field"
+                    >
+                      <Select
+                        label={tr(key)}
+                        value={p[key]}
+                        options={fontOptions}
+                        onValueChange={(value) => update(key, value)}
+                      />
+                    </Grid>
+                  ))}
+                  <Grid
+                    span={{ base: 'full', sm: 4 }}
+                    className="ad-form-field"
+                  >
+                    <Select
+                      label={tr('language')}
+                      value={p.language}
+                      options={(['uk', 'ru', 'en'] as const).map((value) => ({
+                        value,
+                        label: tr(`language.${value}`),
+                      }))}
+                      onValueChange={(value) => update('language', value)}
+                    />
+                  </Grid>
+                  {(
+                    [
+                      { key: 'reducedMotion', label: 'reduceAnimations' },
+                      { key: 'discordPresence', label: 'discordPresence' },
+                      { key: 'autoUpdate', label: 'autoUpdate' },
+                    ] as const
+                  ).map(({ key, label }) => (
+                    <Grid
+                      key={key}
+                      span={{ base: 'full', sm: 4 }}
+                      className="ad-form-field"
+                    >
+                      <Checkbox
+                        label={tr(label)}
+                        checked={p[key]}
+                        onValueChange={(value) => update(key, value)}
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+              </Card>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Grid>
+    );
+  },
+);

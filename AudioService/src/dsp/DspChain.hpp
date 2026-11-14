@@ -27,6 +27,7 @@ class DspChain {
     GateProcessor gate_;
     NoiseProcessor noise_;
     ReverbProcessor reverb_;
+    DelayProcessor echo_;
     DelayProcessor delay_;
     PitchShiftProcessor pitch_;
 };

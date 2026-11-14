@@ -1,4 +1,4 @@
-import type { AudioServiceClient, PythonClient } from '../../contracts/clients';
+import type { AudioServiceClient } from '../../contracts/clients';
 
 export type SettingsAudioPort = Pick<
   AudioServiceClient,
@@ -19,15 +19,4 @@ export type SettingsAudioPort = Pick<
   | 'measureAcousticLatency'
   | 'diagnosticsDump'
   | 'health'
->;
-
-export type SettingsBackendPort = Pick<
-  PythonClient,
-  | 'listEnvironmentSettings'
-  | 'updateEnvironmentSetting'
-  | 'verifyEnvironmentSetting'
-  | 'verifyKaggleSettings'
-  | 'loginKaggle'
-  | 'deployKaggle'
-  | 'getAiProcessingSettings'
 >;
