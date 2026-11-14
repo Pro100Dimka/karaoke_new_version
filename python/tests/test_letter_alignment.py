@@ -3787,7 +3787,7 @@ def test_an_unrecognized_vowel_cannot_steal_an_independently_heard_word_tail(
     assert result[1].start == expected
 
 @pytest.mark.parametrize("evidence", ["strong", "weak", "recognized", "unanchored"])
-def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evidence):
+def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evidence, monkeypatch):
     from backend.ai_worker.speech import _shifted_hints
 
     lyrics = "we sing now stay here then\nstay with me tonight"
@@ -3808,6 +3808,28 @@ def test_a_stale_catalogue_entry_cannot_cut_off_a_supported_previous_phrase(evid
     shifted = _shifted_hints(words, hints, whole, heard)
     assert shifted[0]["start"] == 2
     assert shifted[1]["start"] == (5 if evidence == "strong" else 3.5)
+    if evidence == "strong":
+        from backend.ai_worker import speech_windows
+
+        # A recognized suffix must also protect its phrase from the next stale cue.
+        lyrics += "\nwe start again"
+        words = lyrics.split()
+        starts += [8.0, 8.5, 9.0]
+        whole = [
+            AlignedWord(text, start, start + 0.5, (), score)
+            for text, start in zip(words, starts)
+        ]
+        hints.append({"start": 5.0, "text": "we start again"})
+        heard = [(words[index], starts[index], starts[index] + 0.5) for index in range(7, 10)]
+
+        acoustic = [speech_windows.Window(0, len(words), 1.4, 10.1)]
+        monkeypatch.setattr(speech_windows, "_phrase_windows", lambda *args: acoustic)
+        windows = speech_windows._alignment_windows(
+            lyrics, hints, heard, whole, np.zeros(11 * _RATE)
+        )
+
+        assert windows == acoustic
+        assert windows[0].end >= whole[-1].end
 
 @pytest.mark.parametrize("candidate,expected", [(1.0, 6.0), (10.0, 6.0), (7.0, 7.0)])
 def test_recognized_catalogue_corrections_keep_their_neighbouring_occurrences(

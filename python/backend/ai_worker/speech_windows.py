@@ -287,7 +287,7 @@ def _alignment_windows(
                 whole,
                 _MARGIN_SECONDS,
             )
-            return [
+            windows = [
                 replace(
                     window,
                     start=max(window.start, interval[0] - _MARGIN_SECONDS),
@@ -299,6 +299,23 @@ def _alignment_windows(
                 else window
                 for window in windows
             ]
+            for window in windows:
+                cores = whole[window.first : window.last]
+                corroborated = sum(
+                    core.score > _PREFERENCE
+                    and position in supported
+                    and supported[position][0] - _MARGIN_SECONDS
+                    <= core.start
+                    <= supported[position][1] + _MARGIN_SECONDS
+                    for position, core in enumerate(cores, window.first)
+                )
+                contained = sum(window.start <= core.start < core.end <= window.end for core in cores)
+                if corroborated >= _MINIMUM_BLOCK and contained * 2 < len(cores):
+                    # Independent recognition and phonetic cores contradict these catalogue cues.
+                    # Reuse acoustic phrase windows instead of squeezing words into stale crops.
+                    break
+            else:
+                return windows
     return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
 
 
