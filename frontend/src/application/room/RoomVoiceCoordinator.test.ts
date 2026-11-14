@@ -92,8 +92,8 @@ const setup = () => {
   };
 };
 
-it('re-registers voice once after reconnect and applies server clock and deadline', async () => {
-  const { voice, audio } = setup();
+it('re-registers voice once after reconnect and keeps personal controls scoped to that session', async () => {
+  const { voice, audio, invalidate } = setup();
   const before = snapshot('reconnecting');
   const after = { ...snapshot(), serverClockOffsetMilliseconds: 50 };
   await voice.synchronize(before, after);
@@ -107,6 +107,21 @@ it('re-registers voice once after reconnect and applies server clock and deadlin
   expect(audio.synchronizeRoomClock).toHaveBeenLastCalledWith(50);
   expect(audio.setRoomPlayoutDelay).toHaveBeenLastCalledWith(84);
   expect(audio.addRemoteParticipant).toHaveBeenCalledOnce();
+  audio.setMicrophoneEnabled.mockClear();
+  await voice.setParticipantMuted('remote', true);
+  expect(audio.setParticipantMuted).toHaveBeenLastCalledWith('remote', true);
+  await voice.setParticipantMuted('remote', false);
+  expect(audio.setParticipantMuted).toHaveBeenLastCalledWith('remote', false);
+  expect(audio.setMicrophoneEnabled).not.toHaveBeenCalled();
+  await voice.setParticipantEffect('remote', 'reverb', 0.3);
+  expect(audio.setParticipantEffect).toHaveBeenLastCalledWith('remote', 'reverb', 0.3);
+  invalidate();
+  audio.setParticipantMuted.mockClear();
+  audio.setParticipantEffect.mockClear();
+  await voice.setParticipantMuted('remote', true);
+  await voice.setParticipantEffect('remote', 'reverb', 0.5);
+  expect(audio.setParticipantMuted).not.toHaveBeenCalled();
+  expect(audio.setParticipantEffect).not.toHaveBeenCalled();
 });
 
 it('reconnects a voice transport that disappeared with the native process', async () => {

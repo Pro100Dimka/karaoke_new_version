@@ -278,7 +278,15 @@ it('does not carry a muted personal mix into a newly joined room', async () => {
   const { audioClient } = await import('./audioClient');
 
   await audioClient.joinVoiceSession('old-room', 'self');
-  await audioClient.setParticipantVolume('host', 0);
+  const microphoneEnabled = audioClient.microphoneEnabled();
+  await audioClient.setParticipantVolume('host', 0.42);
+  await audioClient.setParticipantMuted('host', true);
+  expect(setRoomVoiceParticipantGain).toHaveBeenLastCalledWith('host', 0);
+  expect(audioClient.participantMuted('host')).toBe(true);
+  expect(audioClient.microphoneEnabled()).toBe(microphoneEnabled);
+  await audioClient.setParticipantMuted('host', false);
+  expect(setRoomVoiceParticipantGain).toHaveBeenLastCalledWith('host', 0.42);
+  expect(audioClient.participantMuted('host')).toBe(false);
   await audioClient.setParticipantMuted('host', true);
   await audioClient.leaveVoiceSession();
   setRoomVoiceParticipantGain.mockClear();
