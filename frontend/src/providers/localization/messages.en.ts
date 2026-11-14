@@ -2,6 +2,49 @@
 // Keep translation keys consistent across languages.
 
 export const en = {
+  guidePlaylistsTitle: 'Karaoke playlists',
+  guidePlaylistAddTitle: 'Choose your songs',
+  guidePlaylistAddBody:
+    'Select songs using the library checkboxes and click Add to playlist. Choose a saved playlist or New playlist, enter a name and click Create and add. A playlist can contain up to 200 songs.',
+  guidePlaylistEditTitle: 'Set the singing order',
+  guidePlaylistEditBody:
+    'Open Playlists in the library. Choose a list, rename it, move songs with the arrows or remove them with the cross button. Click Save. Deleting a playlist keeps its songs in the library.',
+  guidePlaylistPlayTitle: 'Sing in sequence',
+  guidePlaylistPlayBody:
+    'Click Sing playlist: songs play in order and recordings are saved separately. Stop ends the playlist. Prepare or remove unavailable songs before starting. In a room, stop the current performance first; playback follows the room control permissions.',
+  guideMusicTitle: 'Library music: radio and YouTube',
+  guideRadioTitle: 'Open the music player',
+  guideRadioBody:
+    'Click the radio button in the library. Choose a station on the Radio tab. The player buttons switch stations and pause music; the slider adjusts your listening volume.',
+  guideYoutubeTitle: 'Play your YouTube playlist',
+  guideYoutubeBody:
+    'Switch to YouTube, paste a public or unlisted playlist link and click Play this playlist. The URL must include list=. Tracks play in sequence, then the playlist repeats. Use the arrows to switch tracks.',
+  guideMusicRoomTitle: 'Use the room music controls',
+  guideMusicRoomBody:
+    'In a room, the host chooses the music source, or participants can choose it when collaborative control is enabled. If controls are disabled, ask the host to change the source. Each participant adjusts their own listening volume.',
+  guideRoomVoiceTitle: 'Participant sound and effects',
+  guideRoomMuteTitle: 'Mute a participant for yourself',
+  guideRoomMuteBody:
+    'Click the speaker button on another participant card to mute their voice for yourself. Click again to restore the selected volume. Other participants still hear them. The card volume knob adjusts that voice for your listening.',
+  guideRoomMicTitle: 'Control your microphone',
+  guideRoomMicBody:
+    'The microphone button on your card turns your voice transmission off and on. It does not mute other microphones. Adjust how you hear your own voice through local monitoring.',
+  guideRoomEffectsTitle: 'Open the card effects',
+  guideRoomEffectsBody:
+    'Click the sliders button on a participant card. On your card, it changes your voice effects shared with the karaoke console and settings. On another card, effects change how that participant sounds to you.',
+  guideAnimationTitle: 'Lighten decorative animation',
+  guideAnimationBody:
+    'Enable Lighten animations if the interface stutters. This reduces decorative glows and effects while keeping the main animations. On first launch, the initial setting is chosen based on interface smoothness; your later choice is saved. Fonts and profile settings are also here.',
+  guideRetryTitle: 'Retry or send an error report',
+  guideRetryBody:
+    'Open the song error in the library or processing queue. If Retry processing is available, it adds the song to the queue again. Send error report sends the developer error details, diagnostics and recent application logs. Audio and recordings are not sent.',
+  guideRemoteTitle: 'Connect the remote processing PC',
+  guideStorageTitle: 'Understand the storage format',
+  guideStorageBody:
+    'New projects and recordings use FLAC for lossless compression. Older recordings may have a different file extension. Export the library to transfer it in full: copying a single audio file does not transfer lyrics, notes or song settings.',
+  guideLyricsFillTitle: 'Read the highlighting and notes',
+  guideLyricsFillBody:
+    'Stage lyrics appear in uppercase. Highlighting follows the vocal through each word, holding the vowel longer on sustained sounds. In the notes panel, the circle shows microphone pitch and moving notes guide the melody. Select an input and enable the microphone to use the circle.',
   errorProcessingNotConfigured:
     'Enter the processing access key in ENV settings.',
   errorProcessingAccessDenied: 'The processing access key was rejected.',

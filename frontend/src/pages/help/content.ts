@@ -166,6 +166,31 @@ export const articles: GuideArticle[] = [
     ],
   },
   {
+    id: 'playlists',
+    section: 'library',
+    title: 'guidePlaylistsTitle',
+    next: 'sing',
+    keywords:
+      'плейлист список очередь песни порядок плейлисти playlist sequence songs',
+    steps: [
+      { title: 'guidePlaylistAddTitle', body: 'guidePlaylistAddBody' },
+      { title: 'guidePlaylistEditTitle', body: 'guidePlaylistEditBody' },
+      { title: 'guidePlaylistPlayTitle', body: 'guidePlaylistPlayBody' },
+    ],
+  },
+  {
+    id: 'library-music',
+    section: 'library',
+    title: 'guideMusicTitle',
+    next: 'playlists',
+    keywords: 'радио музыка ютуб youtube плейлист фон radio music playlist',
+    steps: [
+      { title: 'guideRadioTitle', body: 'guideRadioBody' },
+      { title: 'guideYoutubeTitle', body: 'guideYoutubeBody' },
+      { title: 'guideMusicRoomTitle', body: 'guideMusicRoomBody' },
+    ],
+  },
+  {
     id: 'takes',
     section: 'library',
     title: 'Записи исполнения',
@@ -289,6 +314,7 @@ export const articles: GuideArticle[] = [
         body: 'Выделите панель нот, чтобы изменить размер и положение. В меню расположения консоли можно выбрать край экрана или свободное размещение.',
         visual: 'karaoke',
       },
+      { title: 'guideLyricsFillTitle', body: 'guideLyricsFillBody' },
     ],
   },
   {
@@ -384,6 +410,7 @@ export const articles: GuideArticle[] = [
         body: 'Кнопка папки у исполнения показывает его файл в проводнике. Скопируйте нужную запись в выбранную папку. Для сохранения всей библиотеки используйте экспорт архива.',
         visual: 'takes-file',
       },
+      { title: 'guideStorageTitle', body: 'guideStorageBody' },
     ],
   },
   {
@@ -540,7 +567,7 @@ export const articles: GuideArticle[] = [
     id: 'together',
     section: 'online',
     title: 'Совместное пение',
-    next: 'reconnect',
+    next: 'participant-sound',
     keywords:
       'вместе дуэт друзья не слышу друга совместное пение співати разом duet sing together friends',
     steps: [
@@ -555,6 +582,19 @@ export const articles: GuideArticle[] = [
         body: 'Запускайте, ставьте на паузу и перематывайте через элементы комнаты. Голоса других участников приходят через сервер; качество соединения влияет на их слышимость.',
         visual: 'room',
       },
+    ],
+  },
+  {
+    id: 'participant-sound',
+    section: 'online',
+    title: 'guideRoomVoiceTitle',
+    next: 'reconnect',
+    keywords:
+      'участник звук выключить микрофон громкость эффекты участник mute microphone participant volume effects',
+    steps: [
+      { title: 'guideRoomMuteTitle', body: 'guideRoomMuteBody' },
+      { title: 'guideRoomMicTitle', body: 'guideRoomMicBody' },
+      { title: 'guideRoomEffectsTitle', body: 'guideRoomEffectsBody' },
     ],
   },
   {
@@ -592,9 +632,9 @@ export const articles: GuideArticle[] = [
         settings: 'appearance',
       },
       {
-        title: 'Подберите удобный вид',
-        body: 'Настройте шрифты и анимацию под свой экран. Здесь же находятся профиль и параметры оформления.',
-        visual: 'appearance',
+        title: 'guideAnimationTitle',
+        body: 'guideAnimationBody',
+        settings: 'appearance',
       },
     ],
   },
@@ -769,6 +809,7 @@ export const articles: GuideArticle[] = [
           'Закройте тяжёлые приложения и повторите задачу после освобождения памяти. Ненужную задачу отменяйте в программе; не удаляйте её рабочие файлы вручную.',
         ],
       },
+      { title: 'guideRetryTitle', body: 'guideRetryBody' },
     ],
   },
   {
@@ -791,9 +832,8 @@ export const articles: GuideArticle[] = [
         visual: 'environment',
       },
       {
-        title: 'Подключите Kaggle',
+        title: 'guideRemoteTitle',
         body: 'В карточке удалённой обработки укажите ключ доступа, полученный от владельца сервера. Выберите «Удалённый ПК через Oracle» в настройках обработки. Если ПК выключен, задание остаётся в очереди.',
-        visual: 'kaggle',
         settings: 'environment',
       },
     ],
