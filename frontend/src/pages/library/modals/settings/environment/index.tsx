@@ -12,9 +12,9 @@ import { groupEntries } from './environmentPresentation';
 import './secrets.css';
 import { useEnvironmentSettings } from './useEnvironmentSettings';
 
-/** Kaggle and the room server share the first row; the wider groups follow full width. */
+/** Processing and the room server share the first row. */
 const userRows: readonly (readonly EnvironmentGroup[])[] = [
-  ['kaggle', 'room'],
+  ['processing', 'room'],
   ['recognition'],
 ];
 /**
@@ -47,7 +47,6 @@ export const SecretsSettings = () => {
       key={group}
       group={group}
       entries={groupEntries(entries, group)}
-      kaggle={environment.kaggle}
       onChange={environment.change}
       onSave={(key, value) => void environment.save(key, value)}
     />

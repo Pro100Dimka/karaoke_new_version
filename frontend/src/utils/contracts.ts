@@ -24,7 +24,7 @@ export type SettingsFormValues = Pick<
 > & {
   keyboardLighting: { show: boolean };
   ai: {
-    backend: 'Local' | 'Kaggle';
+    backend: 'Local' | 'Kaggle' | 'Oracle';
     transferToLibraryPath: string;
     savingBackend: boolean;
     error: string;

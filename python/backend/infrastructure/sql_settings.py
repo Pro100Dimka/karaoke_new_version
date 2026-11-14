@@ -25,7 +25,10 @@ def _to_domain(row: SettingsRow) -> BackendSettings:
         selected_pitch_provider=_optional_str(payload.get("selectedPitchProvider")),
         selected_alignment_provider=_optional_str(payload.get("selectedAlignmentProvider")),
         processing_backend=ProcessingBackend(
-            str(payload.get("processingBackend", ProcessingBackend.LOCAL.value))
+            {"Kaggle": "Oracle"}.get(
+                str(payload.get("processingBackend")),
+                str(payload.get("processingBackend", "Local")),
+            )
         ),
         kaggle_url=_optional_str(payload.get("kaggleUrl")),
         kaggle_token=_optional_str(payload.get("kaggleToken")),

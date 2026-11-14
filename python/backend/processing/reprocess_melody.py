@@ -69,7 +69,7 @@ class ReprocessMelody:
             provider,
             self._pipeline.resource_size(inputs),
             ComputeMode.CPU
-            if provider_backend(provider) is ProcessingBackend.KAGGLE
+            if provider_backend(provider) is not ProcessingBackend.LOCAL
             else settings.compute_mode,
             cpu_threads=settings.cpu_threads,
             additional_providers=(alignment,) if alignment else (),

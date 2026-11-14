@@ -9,8 +9,22 @@ from backend.ai.domain import AiProviderDescriptor, PitchPoint, SeparatedAudio, 
 from backend.lyrics.ports import LyricLineTiming
 from backend.songs.domain import Language
 from backend.processing.compute_policy import ExecutionContext
+from backend.processing.domain import CompletedProcessingProject, ProcessingOptions
+from backend.songs.domain import Song
 
 TranscriptionSource = Callable[[threading.Event], Iterable[tuple[Path, float]]]
+
+
+@runtime_checkable
+class SongProcessingProvider(Protocol):
+    def process_song(
+        self,
+        song: Song,
+        options: ProcessingOptions,
+        workdir: Path,
+        cancel: threading.Event,
+        progress: Callable[[str, float, float], None],
+    ) -> CompletedProcessingProject: ...
 
 
 @runtime_checkable

@@ -10,10 +10,10 @@ export const formatElapsed = (seconds: number): string =>
   `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 export const groupUi = {
-  kaggle: {
+  processing: {
     icon: 'cloud-gpu',
-    title: 'environmentGroupKaggle',
-    hint: 'environmentGroupKaggleHint',
+    title: 'environmentGroupProcessing',
+    hint: 'environmentGroupProcessingHint',
   },
   recognition: {
     icon: 'music',
@@ -47,7 +47,10 @@ export const fieldUi: Readonly<
     }
   >
 > = {
-  KAGGLE_API_TOKEN: { label: 'environmentFieldKaggleToken', span: 12 },
+  AD_VOICE_PROCESSING_TOKEN: {
+    label: 'environmentFieldProcessingToken',
+    span: 12,
+  },
   AD_VOICE_AUDD_TOKEN: {
     label: 'environmentFieldAuddToken',
     span: 12,
@@ -86,10 +89,7 @@ const stateMessage: Partial<Record<DisplayState, string>> = {
 };
 /** Why a value is invalid, in the interface language (the backend's own text is English). */
 const invalidMessage = (entry: DisplayEntry): string => {
-  if (
-    entry.key === 'AD_VOICE_AUDD_TOKEN' ||
-    entry.key === 'AD_VOICE_YOUTUBE_API_KEY'
-  )
+  if (['AD_VOICE_AUDD_TOKEN', 'AD_VOICE_YOUTUBE_API_KEY'].includes(entry.key))
     return 'environmentRejectedKey';
   if (entry.key.startsWith('AD_VOICE_ROOM_SERVER') && entry.kind !== 'file')
     return entry.kind === 'port'

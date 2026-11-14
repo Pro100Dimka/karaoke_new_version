@@ -639,14 +639,73 @@ def test_repeated_word_refinement_preserves_phase_hints_and_detected_lyric_langu
 
 class _RemoteTimingProvider(_RealignmentProvider):
     def __init__(self):
-        super().__init__("kaggle-p100", required_resources={"remote": True})
+        super().__init__("oracle-pc", required_resources={"remote": True})
         self._descriptor = replace(
             self._descriptor, capabilities=frozenset({AiCapability.ALIGNMENT, AiCapability.PITCH})
         )
 
 
+def test_oracle_full_processing_publishes_one_completed_project(tmp_path, monkeypatch):
+    import shutil
+
+    from backend.bootstrap.config import BackendConfig
+    from backend.infrastructure.local_projects import LocalProjectStorage
+    from backend.infrastructure.oracle_ai_provider import OracleAiProvider
+
+    root = tmp_path / "runtime"
+    source = tmp_path / "song.wav"
+    write_wav(source)
+    with app_client(root, ai_providers=(FakeAiProvider(),)) as client:
+        song = import_song(client, source)
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        template_job = wait_for_job(client, started.json()["jobId"])
+        assert template_job["state"] == "Succeeded"
+
+    storage = LocalProjectStorage(BackendConfig.load(root).roots)
+    manifest = storage.load_manifest(song["songId"], 2)
+    remote = OracleAiProvider(tmp_path / "remote", storage)
+    calls = []
+
+    def completed(action, options, files, cancel, output, progress):
+        calls.append(action)
+        assert action == "process-song"
+        assert options["source"] == "source.wav"
+        assert options["onlineLyrics"] is False
+        assert files["source.wav"].read_bytes() == source.read_bytes()
+        assert set(files) <= {"source.wav", "lyricsSync.json", "lyricsBaseline.json"}
+        assert set(options["previousProvenance"]) <= {
+            "lyricsSource", "lyricsSourceText", "lyricsTimingHints", "warnings"
+        }
+        for logical, filename in {
+            "instrumental": "instrumental.flac", "referenceVocal": "vocals.flac",
+            "melody": "melody.flac", "lyricsSync": "lyrics.json",
+        }.items():
+            shutil.copyfile(storage.artifact_path(song["songId"], 2, logical), output / filename)
+        progress("ForcedAlignment", 1.0, 0.9)
+        return {"report": template_job["report"], "provenance": dict(manifest.provenance)}
+
+    monkeypatch.setattr(remote, "_invoke", completed)
+    with app_client(root, ai_providers=(remote,)) as client:
+        assert client.patch("/settings", json={"processingBackend": "Oracle"}).status_code == 200
+        started = client.post(
+            f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
+        )
+        assert started.status_code == 202, started.text
+        job = wait_for_job(client, started.json()["jobId"])
+        assert job["state"] == "Succeeded", job
+        assert job["report"]["processingBackend"] == "Oracle"
+        assert set(job["report"]["providers"].values()) == {"oracle-pc"}
+        assert job["report"]["revision"] == 3
+        assert calls == ["process-song"]
+        assert storage.read_text_artifact(song["songId"], 3, "lyricsSync") == (
+            storage.read_text_artifact(song["songId"], 2, "lyricsSync")
+        )
+
+
 @pytest.mark.parametrize("operation", ["melody", "lyrics"])
-def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path, operation):
+def test_existing_project_reprocess_routes_oracle_without_local_models(tmp_path, operation):
     root = tmp_path / "runtime"
     source = tmp_path / "song.wav"
     write_wav(source)
@@ -663,9 +722,8 @@ def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path,
         changed = client.patch(
             "/settings",
             json={
-                "processingBackend": "Kaggle",
+                "processingBackend": "Oracle",
                 "computeMode": "CUDA",
-                "kaggleToken": "test-token",
                 "selectedPitchProvider": "unavailable-local",
                 "selectedAlignmentProvider": "unavailable-local",
             },
@@ -675,10 +733,10 @@ def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path,
         assert started.status_code == 202, started.text
         job = wait_for_job(client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
-        assert job["report"]["processingBackend"] == "Kaggle"
-        expected = {"pitch": "kaggle-p100"}
+        assert job["report"]["processingBackend"] == "Oracle"
+        expected = {"pitch": "oracle-pc"}
         if operation == "lyrics":
-            expected["alignment"] = "kaggle-p100"
+            expected["alignment"] = "oracle-pc"
         assert job["report"]["providers"] == expected
         assert not {item["stage"] for item in job["report"]["stages"]} & {
             "StemSeparation",
@@ -690,11 +748,7 @@ def test_existing_project_reprocess_routes_kaggle_without_local_models(tmp_path,
 def test_existing_project_remote_reprocess_propagates_stale_worker_protocol(
     tmp_path, monkeypatch, operation
 ):
-    import httpx
-
-    import backend.infrastructure.kaggle_ai_provider as remote_module
-    from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
-    from backend.settings.domain import BackendSettings, ProcessingBackend
+    from backend.infrastructure.oracle_ai_provider import OracleAiProvider
 
     root = tmp_path / "runtime"
     source = tmp_path / "song.wav"
@@ -705,41 +759,21 @@ def test_existing_project_remote_reprocess_propagates_stale_worker_protocol(
             f"/songs/{song['songId']}/processing", json={"mode": "Fast", "onlineLyrics": False}
         )
         assert wait_for_job(client, started.json()["jobId"])["state"] == "Succeeded"
-    probes = []
 
-    class StaleWorker:
-        def __init__(self, *_args, **_kwargs):
-            pass
+    remote = OracleAiProvider(tmp_path / "remote")
 
-        def predict(self, *, api_name):
-            probes.append(api_name)
-            return {"protocolVersion": 4}
+    def stale(*args, **kwargs):
+        raise DependencyError("ProcessingVersionMismatch", "Processing server must be updated")
 
-    monkeypatch.setattr(remote_module, "Client", StaleWorker)
-    remote = KaggleAiProvider(
-        lambda: BackendSettings(
-            2,
-            processing_backend=ProcessingBackend.KAGGLE,
-            kaggle_url="https://stub.gradio.live",
-            kaggle_token="test-token",
-        ),
-        discovery_transport=httpx.MockTransport(lambda _request: httpx.Response(404)),
-    )
-    monkeypatch.setattr(remote, "_handle_file", str)
+    monkeypatch.setattr(remote, "_invoke", stale)
     with app_client(root, ai_providers=(remote,)) as client:
-        assert (
-            client.patch(
-                "/settings", json={"processingBackend": "Kaggle", "kaggleToken": "test-token"}
-            ).status_code
-            == 200
-        )
+        assert client.patch("/settings", json={"processingBackend": "Oracle"}).status_code == 200
         started = client.post(f"/songs/{song['songId']}/processing/{operation}")
         assert started.status_code == 202, started.text
         job = wait_for_job(client, started.json()["jobId"])
         assert job["state"] == "Failed", job
-        assert job["error"]["code"] == "KaggleProtocolMismatch"
-        assert job["report"]["processingBackend"] == "Kaggle"
-        assert probes == ["/health"]
+        assert job["error"]["code"] == "ProcessingVersionMismatch"
+        assert job["report"]["processingBackend"] == "Oracle"
 
 
 def test_existing_project_can_realign_words_without_original_and_preserve_rollback(

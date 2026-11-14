@@ -12,7 +12,7 @@ from backend.processing.audio_pipeline import (
     SeparationOperation,
 )
 from backend.ai.domain import SeparatedAudio
-from backend.ai.ports import SpeechReuseProvider, StreamingTranscriber
+from backend.ai.ports import SongProcessingProvider, SpeechReuseProvider, StreamingTranscriber
 from backend.lyrics.discovery import PreparedLyrics
 from backend.processing.document_pipeline import BuildProcessingDocument, BuiltDocument
 from backend.processing.domain import (
@@ -72,6 +72,8 @@ class PipelineOrchestrator:
         reports: list[StageReport] = []
         with ExitStack() as resources:
             resources.callback(self._workspaces.cleanup, workspace)
+            if isinstance(providers.separation, SongProcessingProvider):
+                return self._remote(song, options, providers, workspace, context)
             seen: set[int] = set()
             for provider in (providers.asr, providers.alignment):
                 if id(provider) not in seen and isinstance(provider, SpeechReuseProvider):
@@ -99,6 +101,46 @@ class PipelineOrchestrator:
             prepared = replace(prepared, instrumental=instrumental, reference_vocal=reference)
             revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
+
+    def _remote(
+        self,
+        song: Song,
+        options: ProcessingOptions,
+        providers: ProcessingProviders,
+        workspace: Path,
+        context: JobContext,
+    ) -> ProcessingReport:
+        provider = providers.separation
+        assert isinstance(provider, SongProcessingProvider)
+        context.ensure_not_cancelled()
+        result = provider.process_song(song, options, workspace, context.cancel, context.progress)
+        context.ensure_not_cancelled()
+        reports = list(result.report.stages)
+        revision = self._stages.run(
+            "ProjectValidationPublication",
+            CancellationPolicy.FINISH_BEFORE_CANCEL,
+            reports,
+            context,
+            lambda: self._publisher.publish_generated(
+                song.song_id,
+                song.active_revision,
+                result.instrumental,
+                result.reference_vocal,
+                result.melody,
+                result.document,
+                result.provenance,
+                self._ids.new(),
+            ),
+            progress=1.0,
+        )
+        return replace(
+            result.report,
+            song_id=song.song_id,
+            revision=revision,
+            stages=tuple(reports),
+            providers={name: "oracle-pc" for name in ("separation", "asr", "alignment", "pitch")},
+            processing_backend="Oracle",
+        )
 
     def _prepare(
         self,

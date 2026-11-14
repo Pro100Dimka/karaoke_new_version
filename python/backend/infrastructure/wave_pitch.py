@@ -120,7 +120,7 @@ class VocalPitchExtractor:
         pitch = self._preflight.resolve(settings, AiCapability.PITCH)
         mode = (
             ComputeMode.CPU
-            if provider_backend(separation) is ProcessingBackend.KAGGLE
+            if provider_backend(separation) is not ProcessingBackend.LOCAL
             else settings.compute_mode
         )
         lease = self._resources.claim_provider(

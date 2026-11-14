@@ -63,6 +63,25 @@ describe('song metadata mapping', () => {
 });
 
 describe('processing job mapping', () => {
+  it.each([
+    [{ processingBackend: 'Oracle' }, 'Oracle'],
+    [{ providers: { separation: 'oracle-pc' } }, 'Oracle'],
+    [{ processingBackend: 'Kaggle' }, 'Kaggle'],
+  ] as const)('maps remote processing reports without losing history: %j', (report, expected) => {
+    const job = mapJob({
+      jobId: 'job-remote',
+      type: 'SongProcessing',
+      state: 'Succeeded',
+      entityId: 'song-1',
+      stage: 'Completed',
+      stageProgress: 1,
+      overallProgress: 1,
+      error: null,
+      report,
+    } satisfies BackendJob);
+    expect(job.processingBackend).toBe(expected);
+  });
+
   it('keeps processing timestamps used to show elapsed time', () => {
     const job = mapJob({
       jobId: 'job-1',
@@ -74,7 +93,7 @@ describe('processing job mapping', () => {
       overallProgress: 1,
       error: null,
       report: {
-        processingBackend: 'Kaggle',
+        processingBackend: 'Oracle',
         songTitle: 'Saved song',
         songArtist: 'Saved artist',
       },
@@ -85,7 +104,7 @@ describe('processing job mapping', () => {
     expect(job).toMatchObject({
       startedAt: '2026-09-25T12:00:00Z',
       finishedAt: '2026-09-25T12:03:17Z',
-      processingBackend: 'Kaggle',
+      processingBackend: 'Oracle',
       songTitle: 'Saved song',
       songArtist: 'Saved artist',
     });

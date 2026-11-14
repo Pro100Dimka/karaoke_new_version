@@ -2,6 +2,24 @@
 // Keep translation keys consistent across languages.
 
 export const en = {
+  errorProcessingNotConfigured:
+    'Enter the processing access key in ENV settings.',
+  errorProcessingAccessDenied: 'The processing access key was rejected.',
+  errorProcessingFreeLimit:
+    'The free transfer allowance or queue limit has been reached. Try later; no paid service will be used.',
+  errorProcessingFileTooLarge: 'One processing transfer cannot exceed 256 MiB.',
+  errorProcessingStorageFull:
+    'The relay has no space within its storage limit. Try later.',
+  errorProcessingUnavailable:
+    'The processing server is unavailable. Check your connection and try again.',
+  errorProcessingTimeout:
+    'The processing PC did not return a result within two hours. Try again when it is online.',
+  aiBackendOracle: 'Processing PC via Oracle',
+  processingBackendOracle: 'Remote PC',
+  environmentGroupProcessing: 'Remote processing',
+  environmentGroupProcessingHint:
+    'Songs are processed on the owner’s PC through the shared server. Tasks wait while the PC is offline. Free transfer and storage limits apply.',
+  environmentFieldProcessingToken: 'Processing access key',
   audioTestSound: 'Test sound',
   'karaoke.pauseVideo': 'Pause background video',
   friends: 'Friends',

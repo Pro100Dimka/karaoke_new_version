@@ -4,7 +4,6 @@ import importlib.util
 import os
 import shlex
 import sys
-import threading
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -12,19 +11,14 @@ from backend.ai.catalog import ALIGNMENT_MODEL, CATALOG, SPEECH_MODEL
 from backend.ai.domain import AiCapability, AiProviderDescriptor, RequiredModel
 from backend.ai.ports import AiProvider
 from backend.bootstrap.config import BackendConfig
-from backend.domain_errors import DependencyError
 from backend.infrastructure.command_ai_provider import CommandAiProvider
-from backend.infrastructure.kaggle_ai_provider import KaggleAiProvider
-from backend.infrastructure.kaggle_notebook_automation import (
-    KaggleNotebookAutomation,
-    installation_notebook_slug,
-)
+from backend.infrastructure.oracle_ai_provider import OracleAiProvider
+from backend.infrastructure.local_projects import LocalProjectStorage
 from backend.infrastructure.process_runner import ProcessRunner
 from backend.lyrics.ports import OnlineLyricsProvider
 from backend.models.commands import DeclareModel
 from backend.lyrics.retry import CancelAwareWaiter, RetryingLyricsProvider, RetryPolicy
-from backend.settings.domain import BackendSettings, room_server_url
-from backend.settings.environment import default_environment_store
+from backend.settings.domain import BackendSettings
 
 
 def configured_ai_providers(
@@ -52,31 +46,7 @@ def configured_ai_providers(
         local = (_command_provider("local-torch", "1", worker, required, config, processes),)
     return (
         *local,
-        # Kaggle is opt-in: only the explicit Settings deploy action may launch it.
-        KaggleAiProvider(settings),
-    )
-
-
-def _start_kaggle_notebook(
-    config: BackendConfig,
-    settings: Callable[[], BackendSettings],
-    cancel: threading.Event,
-) -> None:
-    current = settings()
-    if not current.kaggle_token:
-        raise DependencyError("KaggleNotConfigured", "Kaggle notebook token is not configured")
-    environment = {entry.key: entry.value for entry in default_environment_store().read()}
-    account_token = environment["KAGGLE_API_TOKEN"].strip()
-    if not account_token:
-        raise DependencyError(
-            "KaggleAuthenticationRequired", "Kaggle account token is not configured"
-        )
-    host = environment["AD_VOICE_ROOM_SERVER_HOST"].strip()
-    port = environment["AD_VOICE_ROOM_SERVER_PORT"].strip()
-    KaggleNotebookAutomation(account_token=account_token, cancel=cancel).deploy(
-        current.kaggle_token,
-        room_server_url(host, port),
-        installation_notebook_slug(config.roots.app),
+        OracleAiProvider(config.roots.temp, LocalProjectStorage(config.roots)),
     )
 
 

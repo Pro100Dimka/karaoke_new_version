@@ -159,10 +159,14 @@ const jobStates = new Map<string, ProcessingJobDto['state']>([
 const processingBackend = (
   job: BackendJob,
 ): ProcessingJobDto['processingBackend'] => {
-  const reported = job.report?.processingBackend;
-  if (reported === 'Kaggle' || reported === 'Local') return reported;
+  const reported = (['Local', 'Kaggle', 'Oracle'] as const).find(
+    (backend) => backend === job.report?.processingBackend,
+  );
+  if (reported) return reported;
   const providers = job.report?.providers;
   const providerValues = isObject(providers) ? Object.values(providers) : [];
+  if (providerValues.some((value) => String(value).includes('oracle-pc')))
+    return 'Oracle';
   if (
     providerValues.some((value) =>
       String(value).toLowerCase().includes('kaggle'),

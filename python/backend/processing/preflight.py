@@ -8,8 +8,6 @@ from backend.ai.provider_resolver import ResolveAiProvider
 from backend.settings.domain import BackendSettings
 from backend.settings.domain import ProcessingBackend
 
-_KAGGLE_PROVIDER = "kaggle-p100"
-
 
 @dataclass(frozen=True, slots=True)
 class ProcessingProviders:
@@ -45,8 +43,8 @@ class ProcessingPreflight:
             AiCapability.PITCH: settings.selected_pitch_provider,
         }
         provider_id = (
-            _KAGGLE_PROVIDER
-            if settings.processing_backend is ProcessingBackend.KAGGLE
+            "oracle-pc"
+            if settings.processing_backend is not ProcessingBackend.LOCAL
             else preferred[capability]
         )
         return self._resolver.execute(capability, provider_id)
@@ -54,7 +52,7 @@ class ProcessingPreflight:
 
 def provider_backend(provider: AiProvider) -> ProcessingBackend:
     return (
-        ProcessingBackend.KAGGLE
+        ProcessingBackend.ORACLE
         if provider.descriptor.required_resources.get("remote")
         else ProcessingBackend.LOCAL
     )

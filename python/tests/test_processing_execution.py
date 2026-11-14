@@ -309,7 +309,7 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
         cpu_threads=2,
         selected_pitch_provider="unavailable-local",
         selected_alignment_provider="unavailable-local",
-        processing_backend=ProcessingBackend.KAGGLE,
+        processing_backend=ProcessingBackend.ORACLE,
     )
     settings = Mock()
     settings.return_value = current
@@ -318,7 +318,7 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
     persistence.load_song.return_value = Mock(status=SongStatus.READY, song_id="song-1")
     pipeline = Mock()
     pipeline.resource_size.return_value = 42
-    remote = FakeAiProvider("kaggle-p100", required_resources={"remote": True})
+    remote = FakeAiProvider("oracle-pc", required_resources={"remote": True})
     resolver = Mock()
     resolver.execute.return_value = remote
     resources, jobs = Mock(), Mock()
@@ -326,9 +326,9 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
 
     action.execute("song-1", idempotency_key=None, correlation_id=None, realign_lyrics=realign)
 
-    expected = [call(AiCapability.PITCH, "kaggle-p100")]
+    expected = [call(AiCapability.PITCH, "oracle-pc")]
     if realign:
-        expected.append(call(AiCapability.ALIGNMENT, "kaggle-p100"))
+        expected.append(call(AiCapability.ALIGNMENT, "oracle-pc"))
     assert resolver.execute.call_args_list == expected
     resources.claim_provider.assert_called_once_with(
         remote,
@@ -337,7 +337,7 @@ def test_reprocess_uses_remote_backend_for_only_required_capabilities_and_initia
         cpu_threads=2,
         additional_providers=(remote,) if realign else (),
     )
-    assert jobs.start.call_args.kwargs["initial_report"]["processingBackend"] == "Kaggle"
+    assert jobs.start.call_args.kwargs["initial_report"]["processingBackend"] == "Oracle"
 
 
 @pytest.mark.parametrize("mode,device", [("CPU", ComputeDevice.CPU), ("CUDA", ComputeDevice.CUDA)])

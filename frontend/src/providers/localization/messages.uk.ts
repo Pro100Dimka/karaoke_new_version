@@ -3,6 +3,25 @@
 import type { en } from './messages.en';
 
 export const uk = {
+  errorProcessingNotConfigured:
+    'Укажіть ключ доступу до обробки в налаштуваннях ENV.',
+  errorProcessingAccessDenied: 'Сервер відхилив ключ доступу до обробки.',
+  errorProcessingFreeLimit:
+    'Досягнуто безплатного ліміту передавання або розміру черги. Спробуйте пізніше, платний сервіс не підключатиметься.',
+  errorProcessingFileTooLarge:
+    'Розмір одного передавання не може перевищувати 256 MiB.',
+  errorProcessingStorageFull:
+    'На сервері немає місця в межах ліміту зберігання. Спробуйте пізніше.',
+  errorProcessingUnavailable:
+    'Сервер обробки недоступний. Перевірте з’єднання та повторіть спробу.',
+  errorProcessingTimeout:
+    'ПК обробки не повернув результат за дві години. Повторіть спробу, коли він буде в мережі.',
+  aiBackendOracle: 'Віддалений ПК через Oracle',
+  processingBackendOracle: 'Віддалений ПК',
+  environmentGroupProcessing: 'Віддалена обробка',
+  environmentGroupProcessingHint:
+    'Пісні обробляє ПК власника через спільний сервер. Поки ПК вимкнений, завдання чекають у черзі. Діють безплатні ліміти передавання та зберігання.',
+  environmentFieldProcessingToken: 'Ключ доступу до обробки',
   audioTestSound: 'Перевірити звук',
   'karaoke.pauseVideo': 'Пауза фонового відео',
   friends: 'Друзі',

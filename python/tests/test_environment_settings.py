@@ -124,19 +124,40 @@ def test_environment_store_reads_secret_values_for_internal_use(tmp_path: Path) 
     assert token.value == "private-token"
 
 
-def test_kaggle_account_token_is_managed_as_a_user_environment_setting(
+def test_processing_token_is_managed_as_a_user_environment_setting(
     tmp_path: Path,
 ) -> None:
     project = tmp_path / "project.env"
     store = EnvironmentSettingsStore(project, tmp_path / "python.env")
 
-    saved = store.save("KAGGLE_API_TOKEN", "personal-kaggle-token")
+    saved = store.save("AD_VOICE_PROCESSING_TOKEN", "client-processing-token-1234567890123456")
     listed = {entry.key: entry for entry in store.read()}
 
-    assert saved.group == "kaggle"
+    assert saved.group == "processing"
     assert saved.kind == "secret"
-    assert listed["KAGGLE_API_TOKEN"].value == "personal-kaggle-token"
-    assert dotenv_values(project)["KAGGLE_API_TOKEN"] == "personal-kaggle-token"
+    assert listed["AD_VOICE_PROCESSING_TOKEN"].value == "client-processing-token-1234567890123456"
+    assert dotenv_values(project)["AD_VOICE_PROCESSING_TOKEN"] == "client-processing-token-1234567890123456"
+
+
+@pytest.mark.parametrize(
+    "status,payload,state",
+    [(200, {"protocolVersion": 1, "workerOnline": True}, "valid"),
+     (200, {"protocolVersion": 1, "workerOnline": False}, "unverified"),
+     (200, {"protocolVersion": 2, "workerOnline": True}, "invalid"),
+     (403, {}, "invalid")],
+)
+def test_processing_token_verification_uses_relay_health(tmp_path, status, payload, state):
+    def health(request):
+        assert str(request.url) == "https://relay.example/processing/health"
+        assert request.headers["X-Processing-Key"] == "client-key-" * 4
+        return httpx.Response(status, json=payload)
+
+    store = EnvironmentSettingsStore(
+        tmp_path / "project.env", tmp_path / "python.env", httpx.MockTransport(health),
+        default_values={"AD_VOICE_ROOM_SERVER_HOST": "relay.example"},
+    )
+    store.save("AD_VOICE_PROCESSING_TOKEN", "client-key-" * 4)
+    assert store.verify("AD_VOICE_PROCESSING_TOKEN").state == state
 
 
 def test_default_store_uses_the_configured_writable_frontend_environment(

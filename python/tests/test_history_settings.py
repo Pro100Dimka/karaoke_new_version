@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from concurrent.futures import ThreadPoolExecutor
-from threading import Event, Lock
-
 import pytest
 from pathlib import Path
 
@@ -91,233 +88,69 @@ def test_settings_reject_invalid_cpu_budget(client) -> None:
     assert response.json()["code"] == "ValidationError"
 
 
-def test_kaggle_settings_store_the_secret_without_returning_it(client) -> None:
-    updated = client.patch(
-        "/settings",
-        json={
-            "processingBackend": "Kaggle",
-            "kaggleUrl": "https://example.gradio.live",
-            "kaggleToken": "private-token",
-        },
-    )
-    fetched = client.get("/settings")
-
-    assert updated.status_code == 200, updated.text
-    assert fetched.json()["processingBackend"] == "Kaggle"
-    assert fetched.json()["kaggleUrl"] == "https://example.gradio.live"
-    assert fetched.json()["kaggleConfigured"] is True
-    assert "kaggleToken" not in fetched.json()
-    assert "private-token" not in fetched.text
+@pytest.mark.parametrize("backend", ["Oracle", "Kaggle"])
+def test_remote_settings_select_oracle_without_notebook_credentials(client, backend):
+    response = client.patch("/settings", json={"processingBackend": backend})
+    assert response.status_code == 200, response.text
+    assert response.json()["processingBackend"] == "Oracle"
+    assert client.get("/settings").json()["processingBackend"] == "Oracle"
 
 
-@pytest.mark.parametrize(
-    ("url", "status"),
-    [
-        ("http://127.0.0.1:7860", 200),
-        ("http://127.0.0.1.example.invalid", 422),
-        ("http://127.0.0.1@remote.example.invalid", 422),
-        ("http://127.0.0.10", 422),
-    ],
-)
-def test_kaggle_settings_http_exception_requires_exact_loopback(client, url, status) -> None:
-    response = client.patch(
-        "/settings",
-        json={
-            "processingBackend": "Kaggle",
-            "kaggleUrl": url,
-            "kaggleToken": "private-token",
-        },
-    )
-    assert response.status_code == status, response.text
-    if status == 422:
-        assert response.json()["code"] == "KaggleUrlInvalid"
-        assert client.get("/settings").json()["kaggleUrl"] is None
+def test_stored_kaggle_selection_is_migrated_to_oracle():
+    from backend.infrastructure.orm import SettingsRow
+    from backend.infrastructure.sql_settings import _to_domain
+    from backend.settings.domain import ProcessingBackend
+
+    row = SettingsRow(settings_schema_version=2, payload_json='{"processingBackend":"Kaggle"}')
+    assert _to_domain(row).processing_backend is ProcessingBackend.ORACLE
 
 
-def test_kaggle_mode_requires_only_the_stable_token(client, monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
-    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))
-    monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(tmp_path / "frontend.env"))
-    missing = client.patch("/settings", json={"processingBackend": "Kaggle"})
-    token_only = client.patch(
-        "/settings",
-        json={"processingBackend": "Kaggle", "kaggleToken": "private-token"},
-    )
-    insecure = client.patch(
-        "/settings",
-        json={
-            "processingBackend": "Kaggle",
-            "kaggleUrl": "http://example.test",
-            "kaggleToken": "private-token",
-        },
-    )
-
-    assert missing.status_code == 422
-    assert missing.json()["code"] == "KaggleAuthenticationRequired"
-    assert token_only.status_code == 200
-    assert token_only.json()["kaggleConfigured"] is True
-    assert insecure.status_code == 422
-    assert insecure.json()["code"] == "KaggleUrlInvalid"
-
-
-def test_account_token_is_enough_to_select_kaggle_before_the_first_song(
-    client, monkeypatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
-    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))
-    monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(tmp_path / "frontend.env"))
-    saved = client.patch(
-        "/settings/environment/KAGGLE_API_TOKEN",
-        json={"value": "personal-kaggle-token"},
-    )
+def test_processing_access_key_is_write_only_and_separate_from_worker_key(client):
+    token = "client-test-token-" * 3
+    saved = client.patch("/settings/environment/AD_VOICE_PROCESSING_TOKEN", json={"value": token})
     assert saved.status_code == 200
-
-    selected = client.patch("/settings", json={"processingBackend": "Kaggle"})
-
-    assert selected.status_code == 200, selected.text
-    assert selected.json()["processingBackend"] == "Kaggle"
-    assert selected.json()["kaggleConfigured"] is True
-    assert "kaggleToken" not in selected.json()
+    assert saved.json()["configured"] is True
+    assert saved.json()["value"] == ""
+    listed = client.get("/settings/environment")
+    assert token not in listed.text
+    assert all(item["key"] != "AD_VOICE_PROCESSING_WORKER_TOKEN" for item in listed.json())
 
 
-def test_kaggle_account_token_is_migrated_and_kept_separate_from_notebook_token(
-    client, monkeypatch, tmp_path: Path
-) -> None:
-    deployed: dict[str, str] = {}
-    notebook_tokens: list[str] = []
-
-    project = tmp_path / "project.env"
-    python = tmp_path / "python.env"
-    frontend = tmp_path / "frontend.env"
-    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(project))
-    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(python))
-    monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(frontend))
-    configured = client.patch(
-        "/settings",
-        json={"processingBackend": "Kaggle", "kaggleToken": "personal-kaggle-token"},
-    )
-    assert configured.status_code == 200, configured.text
-
-    def login(self) -> str:
-        deployed["login_account_token"] = self._account_token
-        return "Authenticated"
-
-    def deploy(self, token: str, discovery_url: str, notebook_slug: str, **kwargs):
-        from backend.infrastructure.kaggle_notebook_automation import KaggleDeployment
-
-        deployed.update(
-            token=token,
-            discovery_url=discovery_url,
-            deploy_account_token=self._account_token,
-            notebook_slug=notebook_slug,
-        )
-        notebook_tokens.append(token)
-        return KaggleDeployment(
-            url="https://www.kaggle.com/code/singer/ad-voice-gpu",
-            message="Notebook started",
-        )
-
-    monkeypatch.setattr("backend.api.settings_routes.KaggleNotebookAutomation.login", login)
-    monkeypatch.setattr("backend.api.settings_routes.KaggleNotebookAutomation.deploy", deploy)
+@pytest.mark.parametrize("online,state", [(True, "valid"), (False, "unverified")])
+def test_processing_verification_reports_worker_availability(client, monkeypatch, online, state):
     monkeypatch.setattr(
-        "backend.api.settings_routes.KaggleAiProvider.validate_configuration",
-        lambda self: deployed.update(notebook_ready="yes"),
+        "backend.api.settings_routes.OracleAiProvider.validate_configuration",
+        lambda self: {"protocolVersion": 1, "workerOnline": online},
     )
-
-    login = client.post("/settings/kaggle/login")
-    launched = client.post("/settings/kaggle/deploy")
-    relaunched = client.post("/settings/kaggle/deploy")
-
-    assert login.json() == {"state": "valid", "message": "Authenticated", "url": None}
-    assert launched.json() == {
-        "state": "valid",
-        "message": "Notebook started",
-        "url": "https://www.kaggle.com/code/singer/ad-voice-gpu",
-    }
-    assert relaunched.status_code == 200
-    assert deployed["login_account_token"] == "personal-kaggle-token"
-    assert deployed["deploy_account_token"] == "personal-kaggle-token"
-    assert len(deployed["token"]) >= 32
-    assert deployed["token"] != "personal-kaggle-token"
-    assert notebook_tokens == [deployed["token"], deployed["token"]]
-    assert deployed["notebook_slug"].startswith("ad-voice-gpu-")
-    assert len(deployed["notebook_slug"]) > len("ad-voice-gpu-")
-    assert deployed["notebook_ready"] == "yes"
-    assert deployed["discovery_url"] == "https://130.61.169.61:443"
-    settings = client.get("/settings").json()
-    assert settings["kaggleConfigured"] is True
-    assert settings["kaggleUrl"] == "https://www.kaggle.com/code/singer/ad-voice-gpu"
-    assert "kaggleToken" not in settings
-    assert project.read_text(encoding="utf-8").strip() == (
-        "KAGGLE_API_TOKEN='personal-kaggle-token'"
-    )
+    response = client.post("/settings/processing/verify")
+    assert response.status_code == 200
+    assert response.json()["state"] == state
 
 
-def test_parallel_kaggle_deploy_requests_share_one_server_operation(
-    client, monkeypatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv("AD_VOICE_PROJECT_ENV_FILE", str(tmp_path / "project.env"))
-    monkeypatch.setenv("AD_VOICE_ENV_FILE", str(tmp_path / "python.env"))
-    monkeypatch.setenv("AD_VOICE_FRONTEND_ENV_FILE", str(tmp_path / "frontend.env"))
-    configured = client.patch(
-        "/settings",
-        json={"processingBackend": "Kaggle", "kaggleToken": "personal-kaggle-token"},
-    )
-    assert configured.status_code == 200
-    entered = Event()
-    release = Event()
-    second_deploy_started = Event()
-    calls: list[str] = []
-    calls_lock = Lock()
+def test_processing_verification_preserves_connection_error(client, monkeypatch):
+    from backend.domain_errors import DependencyError
 
-    def deploy(self, token: str, discovery_url: str, notebook_slug: str, **kwargs):
-        from backend.infrastructure.kaggle_notebook_automation import KaggleDeployment
+    def unavailable(self):
+        raise DependencyError("ProcessingAccessDenied", "Access key rejected")
 
-        with calls_lock:
-            calls.append(token)
-            if len(calls) > 1:
-                second_deploy_started.set()
-        entered.set()
-        assert release.wait(2)
-        return KaggleDeployment(
-            url="https://www.kaggle.com/code/singer/ad-voice-gpu",
-            message="Notebook started",
-        )
-
-    monkeypatch.setattr("backend.api.settings_routes.KaggleNotebookAutomation.deploy", deploy)
     monkeypatch.setattr(
-        "backend.api.settings_routes.KaggleAiProvider.validate_configuration",
-        lambda self: None,
+        "backend.api.settings_routes.OracleAiProvider.validate_configuration", unavailable
     )
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        first = executor.submit(client.post, "/settings/kaggle/deploy")
-        assert entered.wait(1)
-        second = executor.submit(client.post, "/settings/kaggle/deploy")
-        shared_operation = not second_deploy_started.wait(0.1)
-        release.set()
-        responses = [first.result(), second.result()]
-
-    assert shared_operation
-    assert [response.status_code for response in responses] == [200, 200]
-    assert len(calls) == 1
-    assert responses[0].json() == responses[1].json()
+    response = client.post("/settings/processing/verify")
+    assert response.json() == {"state": "invalid", "message": "Access key rejected"}
 
 
-def test_switching_from_kaggle_to_local_stops_the_running_notebook(client, monkeypatch) -> None:
-    stopped: list[str] = []
-    configured = client.patch(
-        "/settings",
-        json={"processingBackend": "Kaggle", "kaggleToken": "private-token"},
-    )
-    assert configured.status_code == 200
-    monkeypatch.setattr(
-        "backend.api.settings_routes.KaggleAiProvider.shutdown",
-        lambda self: stopped.append("stopped"),
-    )
+@pytest.mark.parametrize("action", ["login", "deploy", "verify"])
+def test_removed_notebook_actions_are_not_available(client, action):
+    assert client.post(f"/settings/kaggle/{action}").status_code == 404
 
+
+def test_switching_from_oracle_to_local_does_not_stop_shared_worker(client, monkeypatch):
+    def unexpected(*args, **kwargs):
+        pytest.fail("Switching one client must not contact the shared worker")
+
+    monkeypatch.setattr("backend.infrastructure.processing_transport.ProcessingTransport.request", unexpected)
+    assert client.patch("/settings", json={"processingBackend": "Oracle"}).status_code == 200
     response = client.patch("/settings", json={"processingBackend": "Local"})
-
     assert response.status_code == 200
     assert response.json()["processingBackend"] == "Local"
-    assert stopped == ["stopped"]

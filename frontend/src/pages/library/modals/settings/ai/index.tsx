@@ -36,7 +36,7 @@ const AIPanel = () => {
   const saveBackend = useMutation({
     mutationKey: ['processing-settings'],
     onMutate: () => client.cancelQueries({ queryKey: ['processing-settings'] }),
-    mutationFn: (processingBackend: 'Local' | 'Kaggle') =>
+    mutationFn: (processingBackend: 'Local' | 'Oracle') =>
       pythonClient.updateAiProcessingSettings({ processingBackend }),
     onSuccess: (settings) =>
       client.setQueryData(['processing-settings'], settings),
@@ -56,7 +56,7 @@ const AIPanel = () => {
     },
     (path, value) => {
       if (path !== 'ai.backend') return;
-      const backend = (['Local', 'Kaggle'] as const).find(
+      const backend = (['Local', 'Oracle'] as const).find(
         (item) => item === value,
       );
       if (

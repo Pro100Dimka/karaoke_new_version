@@ -12,6 +12,7 @@ from backend.processing.policies import cpu_threads_with_headroom
 class ProcessingBackend(StrEnum):
     LOCAL = "Local"
     KAGGLE = "Kaggle"
+    ORACLE = "Oracle"
 
 
 def room_server_url(host: str = "130.61.169.61", port: str | None = None) -> str:

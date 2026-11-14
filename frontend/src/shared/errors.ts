@@ -72,6 +72,13 @@ export const toAppError = (value: unknown): AppError => {
 
 /** UI branches on the stable error code, never on message text. */
 const knownCodes = {
+  ProcessingNotConfigured: 'errorProcessingNotConfigured',
+  ProcessingAccessDenied: 'errorProcessingAccessDenied',
+  ProcessingFreeLimitReached: 'errorProcessingFreeLimit',
+  ProcessingFileTooLarge: 'errorProcessingFileTooLarge',
+  ProcessingStorageFull: 'errorProcessingStorageFull',
+  ProcessingUnavailable: 'errorProcessingUnavailable',
+  ProcessingTimeout: 'errorProcessingTimeout',
   DuplicateSong: 'errorDuplicateSong',
   InvalidMedia: 'errorInvalidMedia',
   UnsupportedMedia: 'errorUnsupportedMedia',

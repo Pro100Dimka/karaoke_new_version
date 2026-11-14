@@ -5,6 +5,9 @@ from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
 from typing import Mapping
+from pathlib import Path
+
+from backend.lyrics.domain import LyricsDocument
 
 
 class ProcessingMode(StrEnum):
@@ -115,3 +118,13 @@ class ProcessingReport:
     algorithm_version: str
     timing_operation: str | None = None
     processing_backend: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CompletedProcessingProject:
+    instrumental: Path
+    reference_vocal: Path
+    melody: Path
+    document: LyricsDocument
+    provenance: Mapping[str, object]
+    report: ProcessingReport

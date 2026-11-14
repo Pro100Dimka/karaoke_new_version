@@ -44,7 +44,7 @@ export const blocks = (
             disabled: values.ai.savingBackend,
             options: [
               { value: 'Local', label: tr('aiBackendLocal') },
-              { value: 'Kaggle', label: tr('aiBackendKaggle') },
+              { value: 'Oracle', label: tr('aiBackendOracle') },
             ],
           },
         },

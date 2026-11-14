@@ -122,9 +122,11 @@ export const ProcessingJobCard = ({
               title={tr('processingVia')}
             >
               {tr(
-                job.processingBackend === 'Kaggle'
-                  ? 'processingBackendKaggle'
-                  : 'processingBackendLocal',
+                {
+                  Local: 'processingBackendLocal',
+                  Kaggle: 'processingBackendKaggle',
+                  Oracle: 'processingBackendOracle',
+                }[job.processingBackend],
               )}
             </Typography>
           )}

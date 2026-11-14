@@ -117,7 +117,7 @@ class StartProcessing:
             providers = self._preflight.execute(settings)
             compute_mode = (
                 ComputeMode.CPU
-                if settings.processing_backend is ProcessingBackend.KAGGLE
+                if settings.processing_backend is not ProcessingBackend.LOCAL
                 else settings.compute_mode
             )
             job = self._start_job(

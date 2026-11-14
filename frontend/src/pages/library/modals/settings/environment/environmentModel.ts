@@ -5,7 +5,10 @@ export type DisplayEntry = Omit<EnvironmentSettingDto, 'state'> & {
   state: DisplayState;
   errorMessage?: string | null;
 };
-export type EnvironmentGroup = Exclude<DisplayEntry['group'], 'runtime'>;
+export type EnvironmentGroup = Exclude<
+  DisplayEntry['group'],
+  'runtime' | 'kaggle'
+>;
 
 export const saveDelayMilliseconds = 450;
 /** Secrets are write-only: the backend never returns them, so a saved one shows as `configured` with no value. */

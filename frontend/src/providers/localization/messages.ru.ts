@@ -3,6 +3,25 @@
 import type { en } from './messages.en';
 
 export const ru = {
+  errorProcessingNotConfigured:
+    'Укажите ключ доступа к обработке в настройках ENV.',
+  errorProcessingAccessDenied: 'Сервер отклонил ключ доступа к обработке.',
+  errorProcessingFreeLimit:
+    'Достигнут бесплатный лимит передачи или размер очереди. Попробуйте позже, платный сервис подключаться не будет.',
+  errorProcessingFileTooLarge:
+    'Размер одной передачи не может превышать 256 MiB.',
+  errorProcessingStorageFull:
+    'На сервере нет места в пределах лимита хранения. Попробуйте позже.',
+  errorProcessingUnavailable:
+    'Сервер обработки недоступен. Проверьте подключение и повторите попытку.',
+  errorProcessingTimeout:
+    'ПК обработки не вернул результат за два часа. Повторите попытку, когда он будет в сети.',
+  aiBackendOracle: 'Удалённый ПК через Oracle',
+  processingBackendOracle: 'Удалённый ПК',
+  environmentGroupProcessing: 'Удалённая обработка',
+  environmentGroupProcessingHint:
+    'Песни обрабатывает ПК владельца через общий сервер. Пока ПК выключен, задания ждут в очереди. Действуют бесплатные лимиты передачи и хранения.',
+  environmentFieldProcessingToken: 'Ключ доступа к обработке',
   audioTestSound: 'Проверить звук',
   'karaoke.pauseVideo': 'Пауза фонового видео',
   friends: 'Друзья',

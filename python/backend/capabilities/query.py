@@ -51,15 +51,13 @@ class GetCapabilities:
     def _available(self, capability: AiCapability) -> bool:
         with self._uow.create() as transaction:
             settings = transaction.settings.get()
-            remote = settings.processing_backend is ProcessingBackend.KAGGLE
+            remote = settings.processing_backend is not ProcessingBackend.LOCAL
             candidates = [
                 descriptor
                 for descriptor in self._providers.descriptors()
                 if capability in descriptor.capabilities
                 and bool(descriptor.required_resources.get("remote")) is remote
             ]
-            if remote and (not settings.kaggle_url or not settings.kaggle_token):
-                return False
             return any(
                 not transaction.models.missing(descriptor.required_models)
                 for descriptor in candidates

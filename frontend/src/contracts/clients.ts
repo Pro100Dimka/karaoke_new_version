@@ -205,7 +205,7 @@ export interface PythonClient {
   ): Promise<RecordingDto>;
   getAiProcessingSettings(): Promise<AiProcessingSettingsDto>;
   updateAiProcessingSettings(value: {
-    processingBackend: 'Local' | 'Kaggle';
+    processingBackend: 'Local' | 'Kaggle' | 'Oracle';
     kaggleUrl?: string;
     kaggleToken?: string;
   }): Promise<AiProcessingSettingsDto>;

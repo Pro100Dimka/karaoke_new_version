@@ -9,9 +9,20 @@ from urllib.parse import urlparse
 
 import httpx
 from dotenv import dotenv_values, set_key
+from backend.settings.domain import room_server_url
 
 EnvironmentState = Literal["empty", "valid", "invalid", "unverified"]
 EnvironmentKind = Literal["text", "secret", "file", "url", "port"]
+
+
+def room_processing_url(values: dict[str, str]) -> str:
+    return (
+        room_server_url(
+            values.get("AD_VOICE_ROOM_SERVER_HOST", "130.61.169.61"),
+            values.get("AD_VOICE_ROOM_SERVER_PORT") or None,
+        )
+        + "/processing"
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,7 +45,7 @@ class EnvironmentEntry:
 
 
 _definitions = (
-    EnvironmentDefinition("KAGGLE_API_TOKEN", "kaggle", "secret", "project"),
+    EnvironmentDefinition("AD_VOICE_PROCESSING_TOKEN", "processing", "secret", "project"),
     EnvironmentDefinition("AD_VOICE_AUDD_TOKEN", "recognition", "secret", "python"),
     EnvironmentDefinition("AD_VOICE_YOUTUBE_API_KEY", "recognition", "secret", "python"),
     EnvironmentDefinition("AD_VOICE_ROOM_SERVER_HOST", "room", "text", "frontend"),
@@ -131,6 +142,18 @@ class EnvironmentSettingsStore:
         value: str,
         values: dict[str, str],
     ) -> tuple[EnvironmentState, str]:
+        if definition.key == "AD_VOICE_PROCESSING_TOKEN":
+            url = room_processing_url(values)
+            with httpx.Client(transport=self._transport, timeout=10) as client:
+                response = client.get(url + "/health", headers={"X-Processing-Key": value})
+            if not response.is_success:
+                return "invalid", "Processing server rejected the access key or is unavailable"
+            health = response.json()
+            if health.get("protocolVersion") != 1:
+                return "invalid", "Processing server must be updated"
+            if not health.get("workerOnline"):
+                return "unverified", "Processing PC is offline; tasks remain queued"
+            return "valid", "Processing PC is online"
         if definition.key == "AD_VOICE_AUDD_TOKEN":
             with httpx.Client(transport=self._transport, timeout=8) as client:
                 response = client.post("https://api.audd.io/", data={"api_token": value})

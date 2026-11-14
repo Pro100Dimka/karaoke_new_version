@@ -81,7 +81,7 @@ export interface ProcessingJobDto {
   createdAt?: string;
   startedAt?: string;
   finishedAt?: string;
-  processingBackend?: 'Local' | 'Kaggle';
+  processingBackend?: 'Local' | 'Kaggle' | 'Oracle';
   timingOperation?: 'lyrics' | 'melody';
   error?: AppError;
 }
@@ -334,14 +334,15 @@ export interface AppError {
   correlationId?: string;
 }
 export interface AiProcessingSettingsDto {
-  processingBackend: 'Local' | 'Kaggle';
+  processingBackend: 'Local' | 'Kaggle' | 'Oracle';
   kaggleUrl?: string;
   kaggleConfigured: boolean;
 }
 
 export interface EnvironmentSettingDto {
   key: string;
-  group: 'kaggle' | 'recognition' | 'room' | 'deployment' | 'runtime';
+  group:
+    'processing' | 'kaggle' | 'recognition' | 'room' | 'deployment' | 'runtime';
   kind: 'text' | 'secret' | 'file' | 'url' | 'port';
   value: string;
   configured: boolean;
