@@ -25,9 +25,18 @@ def _recording_directory(root: Path, recording_id: str) -> Path:
     return ensure_within(root / validate_recording_id(recording_id), root)
 
 
-def _empty_native_wav(path: Path) -> bool:
-    # Accept only an empty native WAV, with no active writer holding it open.
+def _empty_native_wav(path: Path, *, silent: bool = False) -> bool:
+    # Inspect only stopped captures; optional silence detection reads the local dry microphone.
     with _open_stopped_recording(path) if os.name == "nt" else path.open("rb") as stream:
+        if silent:
+            try:
+                with sf.SoundFile(stream) as audio:
+                    return all(
+                        (abs(block) <= 0.0001).all()
+                        for block in audio.blocks(blocksize=65536, dtype="float32")
+                    )
+            except RuntimeError:
+                return False
         header = stream.read(45)
     if not header:
         return True
@@ -54,7 +63,7 @@ class LocalRecordingStorage:
         target.parent.mkdir(parents=True, exist_ok=True)
         return target
 
-    def discard_empty_target(self, recording_id: str) -> bool:
+    def discard_empty_target(self, recording_id: str, *, discard_silent: bool = False) -> bool:
         directory = self._root / validate_recording_id(recording_id)
         if directory.resolve() != directory:
             raise DomainError("InvalidRecording", "Recording target cannot be an alias", 400)
@@ -69,18 +78,29 @@ class LocalRecordingStorage:
             vocal = directory / "recording.wav.vocal.wav"
             dry = directory / "recording.wav.dry.wav"
             incomplete_dry = directory / "recording.wav.dry-incomplete.wav"
+            silent = (
+                discard_silent
+                and dry.is_file()
+                and dry.resolve() == dry
+                and _empty_native_wav(dry, silent=True)
+            )
             children = tuple(directory.iterdir())
             if any(
                 child not in {target, backing, vocal, dry, incomplete_dry, descriptor}
                 for child in children
-            ) or any(
-                file.exists() and (file.resolve() != file or not _empty_native_wav(file))
-                for file in (target, backing, vocal, dry, incomplete_dry)
             ):
                 raise ConflictError(
                     "RecordingNotEmpty",
                     "Unregistered recording contains data; keep it for recovery",
                 )
+            for file in (target, backing, vocal, dry, incomplete_dry):
+                if not file.exists():
+                    continue
+                if file.resolve() != file or (not silent and not _empty_native_wav(file)):
+                    raise ConflictError("RecordingNotEmpty", "Recording contains audio; keep it")
+                if silent:
+                    with _open_stopped_recording(file) if os.name == "nt" else file.open("rb"):
+                        pass
             target.unlink(missing_ok=True)
             backing.unlink(missing_ok=True)
             vocal.unlink(missing_ok=True)

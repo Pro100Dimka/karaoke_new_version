@@ -271,6 +271,8 @@ export const useKaraokeSession = (
   const onAudioSnapshot = useCallback(
     (snapshot: PlaybackSnapshot) => {
       if (stateRef.current.kind === 'playing') {
+        if (!room)
+          recordingCoordinator.observeMicrophoneActivity(snapshot.pitchFrames);
         runInAction(() => {
           playback.pitchHz = snapshot.pitchHz;
           playback.pitchFrames = snapshot.pitchFrames;
@@ -284,7 +286,7 @@ export const useKaraokeSession = (
         monitoringWarningShown.current = false;
       }
     },
-    [notify, locale, playback],
+    [notify, locale, playback, room],
   );
   const onLost = useCallback(() => {
     if (['playing', 'paused'].includes(stateRef.current.kind)) {

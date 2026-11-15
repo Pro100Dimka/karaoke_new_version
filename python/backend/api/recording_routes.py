@@ -152,9 +152,11 @@ def update_recording(
 
 
 @router.delete("/{recording_id}", status_code=204)
-def delete_recording(recording_id: str, app: ContainerDep) -> Response:
+def delete_recording(
+    recording_id: str, app: ContainerDep, discard_silent: bool = False
+) -> Response:
     app.system.jobs.run_when_idle(
-        lambda: app.recordings.delete.execute(recording_id),
+        lambda: app.recordings.delete.execute(recording_id, discard_silent=discard_silent),
         busy_error=ConflictError(
             "LibraryInUse", "Wait for background jobs before deleting recordings"
         ),

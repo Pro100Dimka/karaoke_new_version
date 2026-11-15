@@ -16,12 +16,16 @@ class DeleteRecording:
         self._storage = storage
         self._journal = journal
 
-    def execute(self, recording_id: str) -> None:
+    def execute(self, recording_id: str, *, discard_silent: bool = False) -> None:
         recording = self._load(recording_id)
         if recording is None:
-            if self._storage.discard_empty_target(recording_id):
+            if self._storage.discard_empty_target(recording_id, discard_silent=discard_silent):
                 return
             raise NotFoundError("RecordingNotFound", "Recording was not found")
+        if discard_silent:
+            raise ConflictError(
+                "RecordingAlreadyRegistered", "Keep an already registered recording"
+            )
         if recording.file_status == "Preparing":
             raise ConflictError(
                 "RecordingPreparing", "Wait for recording preparation before deletion"

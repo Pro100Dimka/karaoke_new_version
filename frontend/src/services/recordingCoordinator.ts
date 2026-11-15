@@ -4,7 +4,7 @@ import type {
 } from '../application/karaoke/KaraokePorts';
 import { command } from './audioSession';
 import { desktopBridge } from './desktopBridge';
-import type { KaraokeNoteScore, SongDto } from '../contracts/models';
+import type { KaraokeNoteScore, PitchFrame, SongDto } from '../contracts/models';
 
 interface RecordingTarget {
   recordingId: string;
@@ -71,6 +71,7 @@ let active: {
   pausedMilliseconds: number;
   playbackAdjustments: TimedPlaybackAdjustment[];
   karaokeNoteScore: KaraokeNoteScore;
+  microphoneActive: boolean | null;
   finalizedPath?: string;
   nativeResult?: NativeRecordingResult;
 } | null = null;
@@ -118,13 +119,18 @@ const python = async <T>(request: PythonBridgeRequest): Promise<T> => {
   return response.body as T;
 };
 
-const discardTarget = async (target: RecordingTarget): Promise<void> => {
+const discardTarget = async (
+  target: RecordingTarget,
+  discardSilent = false,
+): Promise<boolean> => {
   const response = await desktopBridge().pythonRequest({
     method: 'DELETE',
-    path: `/recordings/${encodeURIComponent(target.recordingId)}`,
+    path: `/recordings/${encodeURIComponent(target.recordingId)}${discardSilent ? '?discard_silent=true' : ''}`,
   });
+  if (discardSilent && response.status === 409) return false;
   if (!response.ok && response.status !== 404)
     throw new Error('Empty recording cleanup failed');
+  return true;
 };
 
 /** Seconds of audio in the take so far: wall time since the start without the paused stretches. */
@@ -175,6 +181,16 @@ const stop = async (): Promise<RecordingStatus> => {
   );
   if (current.nativeResult.durationFrames === 0) {
     await discardTarget(current.target);
+    active = null;
+    return { recording: false };
+  }
+  if (
+    current.microphoneActive === false &&
+    current.nativeResult.overrunCount === 0 &&
+    current.nativeResult.gapMetadataDropped === 0 &&
+    current.nativeResult.gaps.length === 0 &&
+    (await discardTarget(current.target, true))
+  ) {
     active = null;
     return { recording: false };
   }
@@ -304,6 +320,7 @@ export const recordingCoordinator = {
           pausedAt: null,
           pausedMilliseconds: 0,
           playbackAdjustments: [{ elapsedSeconds: 0, ...adjustment }],
+          microphoneActive: null,
           karaokeNoteScore: {
             hitNotes: 0,
             totalNotes: 0,
@@ -412,6 +429,27 @@ export const recordingCoordinator = {
       playbackRate: last?.playbackRate ?? 1,
       keyShift: last?.keyShift ?? 0,
     });
+  },
+
+  observeMicrophoneActivity(frames: readonly PitchFrame[] | undefined) {
+    if (
+      !active ||
+      active.interrupted ||
+      active.finalizedPath ||
+      active.startedAt === null ||
+      active.pausedAt !== null ||
+      !frames?.length ||
+      active.microphoneActive === true
+    )
+      return;
+    if (
+      frames.some(
+        (frame) => frame.audioActive === true || (frame.pitchHz ?? 0) > 0,
+      )
+    )
+      active.microphoneActive = true;
+    else if (frames.every((frame) => frame.audioActive === false))
+      active.microphoneActive = false;
   },
 
   updateKaraokeNoteScore(score: KaraokeNoteScore) {

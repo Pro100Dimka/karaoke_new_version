@@ -310,37 +310,48 @@ describe('recording lifecycle', () => {
     });
   });
 
-  it('discards a zero-frame take without inventing duration or registering an empty performance', async () => {
-    const {
-      recordingCoordinator: coordinator,
-      audioRequest,
-      pythonRequest,
-      inspectWave,
-    } = await setup();
-    inspectWave.mockResolvedValue({
-      durationSeconds: 0,
-      sampleRate: 44100,
-      channels: 1,
-    });
-    audioRequest.mockImplementation(async (request) => ({
-      status: 0,
-      text:
-        request.command === 'GetRecordingState'
-          ? JSON.stringify({ ...native, durationFrames: 0 })
-          : responseText(request.command),
-    }));
-    await coordinator.start(song);
-    await expect(coordinator.stop()).resolves.toEqual({ recording: false });
-    expect(pythonRequest).toHaveBeenCalledWith({
-      method: 'DELETE',
-      path: '/recordings/take',
-    });
-    expect(
-      pythonRequest.mock.calls.filter(
-        ([request]) => request.path === '/recordings',
-      ),
-    ).toHaveLength(0);
-    expect(coordinator.hasPendingTake()).toBe(false);
+  it('discards zero-frame and confirmed silent-microphone takes without registering them', async () => {
+    for (const durationFrames of [0, native.durationFrames]) {
+      const {
+        recordingCoordinator: coordinator,
+        audioRequest,
+        pythonRequest,
+      } = await setup();
+      audioRequest.mockImplementation(async (request) => ({
+        status: 0,
+        text:
+          request.command === 'GetRecordingState'
+            ? JSON.stringify({
+                ...native,
+                durationFrames,
+                overrunCount: 0,
+                gapMetadataDropped: 0,
+                gaps: [],
+              })
+            : responseText(request.command),
+      }));
+      await coordinator.start(song);
+      coordinator.observeMicrophoneActivity([
+        {
+          sequence: 1,
+          epoch: 1,
+          positionSeconds: 0.5,
+          durationSeconds: 0.01,
+          audioActive: false,
+        },
+      ]);
+      await expect(coordinator.stop()).resolves.toEqual({ recording: false });
+      expect(pythonRequest).toHaveBeenCalledWith({
+        method: 'DELETE',
+        path: `/recordings/take${durationFrames ? '?discard_silent=true' : ''}`,
+      });
+      expect(
+        pythonRequest.mock.calls.filter(
+          ([request]) => request.path === '/recordings',
+        ),
+      ).toHaveLength(0);
+      expect(coordinator.hasPendingTake()).toBe(false);
+    }
   });
 
   it.each([
