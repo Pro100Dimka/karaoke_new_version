@@ -553,6 +553,13 @@ def test_delete_recording_removes_owned_file_and_metadata(tmp_path: Path) -> Non
         path = Path(recording["filePath"])
         assert path.is_file()
 
+        refused = client.delete(
+            f"/recordings/{recording['recordingId']}", params={"discard_silent": True}
+        )
+        assert refused.status_code == 409, refused.text
+        assert path.is_file()
+        assert client.get(f"/recordings/{recording['recordingId']}").status_code == 200
+
         response = client.delete(f"/recordings/{recording['recordingId']}")
 
         assert response.status_code == 204

@@ -1,0 +1,428 @@
+[check] Focused checks only, not a full verification. Run the full affected suite before completion.
+[backend] import time: self [us] | cumulative | imported package
+[backend] import time:        87 |         87 | winreg
+[backend] import time:       126 |        126 |   _io
+[backend] import time:        20 |         20 |   marshal
+[backend] import time:       134 |        134 |   nt
+[backend] import time:       375 |        653 | _frozen_importlib_external
+[backend] import time:       380 |        380 |   time
+[backend] import time:       138 |        518 | zipimport
+[backend] import time:        36 |         36 |     _codecs
+[backend] import time:       361 |        396 |   codecs
+[backend] import time:       839 |        839 |   encodings.aliases
+[backend] import time:      1312 |       2547 | encodings
+[backend] import time:       485 |        485 | encodings.utf_8
+[backend] import time:       534 |        534 | encodings.cp1251
+[backend] import time:        39 |         39 | _signal
+[backend] import time:        22 |         22 |     _abc
+[backend] import time:       125 |        147 |   abc
+[backend] import time:        91 |        238 | io
+[backend] import time:        36 |         36 |       _stat
+[backend] import time:        57 |         93 |     stat
+[backend] import time:       527 |        527 |     _collections_abc
+[backend] import time:        53 |         53 |       genericpath
+[backend] import time:        49 |         49 |       _winapi
+[backend] import time:       122 |        223 |     ntpath
+[backend] import time:       360 |       1201 |   os
+[backend] import time:        50 |         50 |   _sitebuiltins
+[backend] import time:        34 |         34 |   errno
+[backend] import time:       505 |        505 |   encodings.utf_8_sig
+[backend] import time:       408 |        408 |     __future__
+[backend] import time:       522 |        522 |       importlib
+[backend] import time:        50 |        571 |     importlib.machinery
+[backend] import time:       638 |        638 |       importlib._abc
+[backend] import time:       613 |        613 |       types
+[backend] import time:       113 |       1363 |     importlib.util
+[backend] import time:        75 |         75 |     itertools
+[backend] import time:       545 |        545 |             keyword
+[backend] import time:        53 |         53 |               _operator
+[backend] import time:       626 |        679 |             operator
+[backend] import time:       530 |        530 |             reprlib
+[backend] import time:       214 |        214 |             _collections
+[backend] import time:       886 |       2852 |           collections
+[backend] import time:        37 |         37 |           _functools
+[backend] import time:       748 |       3635 |         functools
+[backend] import time:       910 |        910 |           contextlib
+[backend] import time:      1290 |       1290 |             enum
+[backend] import time:        50 |         50 |               _sre
+[backend] import time:       731 |        731 |                 re._constants
+[backend] import time:       560 |       1291 |               re._parser
+[backend] import time:       449 |        449 |               re._casefix
+[backend] import time:       709 |       2497 |             re._compiler
+[backend] import time:       454 |        454 |             copyreg
+[backend] import time:      1138 |       5377 |           re
+[backend] import time:       164 |        164 |               posix
+[backend] import time:       115 |        115 |               posix
+[backend] import time:       108 |        386 |             posixpath
+[backend] import time:       530 |        916 |           fnmatch
+[backend] import time:      1068 |       8270 |         glob
+[backend] import time:       780 |      12685 |       pathlib._abc
+[backend] import time:       675 |        675 |         warnings
+[backend] import time:       173 |        173 |         pwd
+[backend] import time:       120 |        120 |         grp
+[backend] import time:       727 |       1693 |       pathlib._local
+[backend] import time:       549 |      14926 |     pathlib
+[backend] import time:       892 |      18233 |   __editable___ad_voice_backend_1_1_10_finder
+[backend] import time:       743 |        743 |   _distutils_hack
+[backend] import time:       193 |        193 |   sitecustomize
+[backend] import time:      1270 |      22226 | site
+[backend] import time:        98 |         98 | runpy
+[backend] import time:       561 |        561 |     _pytest._version
+[backend] import time:       672 |       1233 |   _pytest
+[backend] import time:       501 |        501 |         _ast
+[backend] import time:      1235 |       1736 |       ast
+[backend] import time:       645 |        645 |             _weakrefset
+[backend] import time:      1075 |       1719 |           weakref
+[backend] import time:       900 |       2619 |         copy
+[backend] import time:        42 |         42 |               _opcode
+[backend] import time:       613 |        613 |               _opcode_metadata
+[backend] import time:       586 |       1240 |             opcode
+[backend] import time:      1028 |       2268 |           dis
+[backend] import time:       563 |        563 |           linecache
+[backend] import time:       519 |        519 |             token
+[backend] import time:        35 |         35 |             _tokenize
+[backend] import time:       914 |       1467 |           tokenize
+[backend] import time:        34 |         34 |             _typing
+[backend] import time:      1997 |       2030 |           typing
+[backend] import time:      1689 |       8016 |         inspect
+[backend] import time:      1314 |      11948 |       dataclasses
+[backend] import time:      1200 |       1200 |         textwrap
+[backend] import time:       571 |        571 |         _colorize
+[backend] import time:       980 |       2750 |       traceback
+[backend] import time:       798 |        798 |           pluggy._result
+[backend] import time:      1088 |       1885 |         pluggy._hooks
+[backend] import time:       711 |        711 |           pluggy._tracing
+[backend] import time:       567 |        567 |             pluggy._warnings
+[backend] import time:       553 |       1119 |           pluggy._callers
+[backend] import time:       838 |       2667 |         pluggy._manager
+[backend] import time:       489 |        489 |         pluggy._version
+[backend] import time:       634 |       5675 |       pluggy
+[backend] import time:        40 |         40 |           _bisect
+[backend] import time:       567 |        607 |         bisect
+[backend] import time:       603 |       1209 |       _pytest._code.source
+[backend] import time:        59 |         59 |             zlib
+[backend] import time:       448 |        448 |               _compression
+[backend] import time:       590 |        590 |               _bz2
+[backend] import time:       506 |       1543 |             bz2
+[backend] import time:       326 |        326 |               _lzma
+[backend] import time:       607 |        932 |             lzma
+[backend] import time:       771 |       3304 |           shutil
+[backend] import time:       597 |        597 |           pygments
+[backend] import time:       421 |        421 |               pygments.formatters._mapping
+[backend] import time:       546 |        546 |               pygments.plugin
+[backend] import time:       921 |        921 |                   html.entities
+[backend] import time:       577 |       1497 |                 html
+[backend] import time:       874 |       2371 |               pygments.util
+[backend] import time:       526 |       3863 |             pygments.formatters
+[backend] import time:       426 |        426 |                 pygments.styles._mapping
+[backend] import time:       385 |        810 |               pygments.styles
+[backend] import time:       383 |       1193 |             pygments.formatter
+[backend] import time:       580 |        580 |             pygments.token
+[backend] import time:       589 |        589 |             pygments.console
+[backend] import time:       506 |       6729 |           pygments.formatters.terminal
+[backend] import time:       631 |        631 |             pygments.filter
+[backend] import time:       845 |        845 |             pygments.filters
+[backend] import time:       633 |        633 |             pygments.regexopt
+[backend] import time:       870 |       2978 |           pygments.lexer
+[backend] import time:      1566 |       1566 |               pygments.lexers._mapping
+[backend] import time:       621 |        621 |               pygments.modeline
+[backend] import time:       629 |       2816 |             pygments.lexers
+[backend] import time:       525 |       3340 |           pygments.lexers.diff
+[backend] import time:       482 |        482 |             pygments.unistring
+[backend] import time:       791 |       1273 |           pygments.lexers.python
+[backend] import time:       449 |        449 |                 _pytest._py
+[backend] import time:       611 |       1060 |               _pytest._py.error
+[backend] import time:        39 |         39 |                 atexit
+[backend] import time:      2015 |       2015 |                   _uuid
+[backend] import time:       632 |       2646 |                 uuid
+[backend] import time:       770 |       3454 |               _pytest._py.path
+[backend] import time:       504 |       5016 |             py
+[backend] import time:       578 |       5594 |           _pytest.compat
+[backend] import time:       317 |        317 |             unicodedata
+[backend] import time:       471 |        787 |           _pytest._io.wcwidth
+[backend] import time:       598 |      25196 |         _pytest._io.terminalwriter
+[backend] import time:       446 |      25641 |       _pytest._io
+[backend] import time:       568 |        568 |         pprint
+[backend] import time:       463 |       1030 |       _pytest._io.saferepr
+[backend] import time:       794 |        794 |         _pytest.warning_types
+[backend] import time:       423 |       1216 |       _pytest.deprecated
+[backend] import time:       815 |        815 |         _pytest.outcomes
+[backend] import time:       994 |       1809 |       _pytest.pathlib
+[backend] import time:      2995 |      56005 |     _pytest._code.code
+[backend] import time:       531 |      56535 |   _pytest._code
+[backend] import time:        57 |         57 |                 math
+[backend] import time:        27 |         27 |                 _random
+[backend] import time:       665 |        748 |               random
+[backend] import time:       979 |       1727 |             tempfile
+[backend] import time:       693 |        693 |             importlib.resources.abc
+[backend] import time:       755 |       3174 |           importlib.resources._common
+[backend] import time:       538 |        538 |           importlib.resources._functional
+[backend] import time:       535 |       4246 |         importlib.resources
+[backend] import time:       615 |       4861 |       importlib.abc
+[backend] import time:        50 |         50 |         _struct
+[backend] import time:       483 |        533 |       struct
+[backend] import time:       472 |        472 |         _pytest._io.pprint
+[backend] import time:       718 |        718 |             gettext
+[backend] import time:       967 |       1685 |           argparse
+[backend] import time:        41 |         41 |                   _json
+[backend] import time:       443 |        483 |                 json.scanner
+[backend] import time:       597 |       1080 |               json.decoder
+[backend] import time:       741 |        741 |               json.encoder
+[backend] import time:       476 |       2296 |             json
+[backend] import time:       731 |        731 |             email
+[backend] import time:        78 |         78 |               binascii
+[backend] import time:      1166 |       1166 |               threading
+[backend] import time:       615 |        615 |                 zipfile._path.glob
+[backend] import time:       868 |       1483 |               zipfile._path
+[backend] import time:      1210 |       3935 |             zipfile
+[backend] import time:       728 |        728 |             importlib.metadata._meta
+[backend] import time:       556 |        556 |             importlib.metadata._collections
+[backend] import time:       427 |        427 |             importlib.metadata._functools
+[backend] import time:       373 |        373 |             importlib.metadata._itertools
+[backend] import time:      1017 |      10062 |           importlib.metadata
+[backend] import time:       563 |        563 |           shlex
+[backend] import time:       544 |        544 |           _pytest.config.compat
+[backend] import time:       410 |        410 |           _pytest.config.exceptions
+[backend] import time:       378 |        378 |                 iniconfig.exceptions
+[backend] import time:       590 |        968 |               iniconfig._parse
+[backend] import time:       797 |       1765 |             iniconfig
+[backend] import time:       414 |       2178 |           _pytest.config.findpaths
+[backend] import time:       542 |        542 |           _pytest.config.argparsing
+[backend] import time:       544 |        544 |           _pytest.hookspec
+[backend] import time:       582 |        582 |           _pytest.stash
+[backend] import time:      1347 |      18453 |         _pytest.config
+[backend] import time:       563 |      19488 |       _pytest.assertion.util
+[backend] import time:      1184 |       1184 |               _pytest.mark.expression
+[backend] import time:      1016 |       1016 |                 _pytest.raises
+[backend] import time:       778 |        778 |                 _pytest.scope
+[backend] import time:      1865 |       3658 |               _pytest.mark.structures
+[backend] import time:       732 |       5573 |             _pytest.mark
+[backend] import time:        16 |       5589 |           _pytest.mark.structures
+[backend] import time:       614 |       6203 |         _pytest.nodes
+[backend] import time:       643 |        643 |           _pytest.reports
+[backend] import time:       680 |        680 |             bdb
+[backend] import time:        79 |         79 |                 _datetime
+[backend] import time:       399 |        477 |               datetime
+[backend] import time:      1166 |       1643 |             _pytest.timing
+[backend] import time:       827 |       3149 |           _pytest.runner
+[backend] import time:      1473 |       5264 |         _pytest.main
+[backend] import time:      2245 |      13710 |       _pytest.fixtures
+[backend] import time:       785 |      39374 |     _pytest.assertion.rewrite
+[backend] import time:       512 |        512 |     _pytest.assertion.truncate
+[backend] import time:       986 |      40871 |   _pytest.assertion
+[backend] import time:       758 |        758 |   _pytest.cacheprovider
+[backend] import time:      1043 |       1043 |   _pytest.capture
+[backend] import time:       426 |        426 |         unittest.util
+[backend] import time:       529 |        955 |       unittest.result
+[backend] import time:        49 |         49 |             _heapq
+[backend] import time:       754 |        803 |           heapq
+[backend] import time:      1086 |       1889 |         difflib
+[backend] import time:       764 |       2653 |       unittest.case
+[backend] import time:       816 |        816 |       unittest.suite
+[backend] import time:       834 |        834 |       unittest.loader
+[backend] import time:       707 |        707 |             signal
+[backend] import time:       587 |       1294 |           unittest.signals
+[backend] import time:       550 |       1843 |         unittest.runner
+[backend] import time:       634 |       2477 |       unittest.main
+[backend] import time:       523 |       8256 |     unittest
+[backend] import time:       595 |       8850 |   _pytest.debugging
+[backend] import time:      1182 |       1182 |       _wmi
+[backend] import time:       871 |       2052 |     platform
+[backend] import time:      2099 |       2099 |     _pytest.python
+[backend] import time:       566 |        566 |           numbers
+[backend] import time:       574 |       1139 |         _decimal
+[backend] import time:       488 |       1627 |       decimal
+[backend] import time:       637 |       2264 |     _pytest.python_api
+[backend] import time:       752 |       7165 |   _pytest.doctest
+[backend] import time:       438 |        438 |   _pytest.freeze_support
+[backend] import time:        43 |         43 |         _locale
+[backend] import time:       858 |        901 |       locale
+[backend] import time:       175 |        175 |       fcntl
+[backend] import time:        31 |         31 |       msvcrt
+[backend] import time:       700 |       1806 |     subprocess
+[backend] import time:       522 |        522 |     _pytest.monkeypatch
+[backend] import time:        55 |         55 |       gc
+[backend] import time:      1110 |       1110 |       _pytest.tmpdir
+[backend] import time:      1601 |       2765 |     _pytest.pytester
+[backend] import time:      1456 |       1456 |     _pytest.terminal
+[backend] import time:       700 |       7247 |   _pytest.legacypath
+[backend] import time:        30 |         30 |         _string
+[backend] import time:       668 |        698 |       string
+[backend] import time:      1460 |       2158 |     logging
+[backend] import time:      1135 |       3293 |   _pytest.logging
+[backend] import time:       601 |        601 |   _pytest.recwarn
+[backend] import time:       779 |     128808 | pytest
+[backend] import time:       469 |        469 | _pytest.helpconfig
+[backend] import time:       675 |        675 | _pytest.unittest
+[backend] import time:      1111 |       1111 | _pytest.skipping
+[backend] import time:       478 |        478 | _pytest.pastebin
+[backend] import time:       436 |        436 |       xml
+[backend] import time:       510 |        945 |     xml.etree
+[backend] import time:       553 |        553 |     xml.etree.ElementPath
+[backend] import time:       425 |        425 |       pyexpat
+[backend] import time:       474 |        898 |     _elementtree
+[backend] import time:      1278 |       3674 |   xml.etree.ElementTree
+[backend] import time:       753 |       4427 | _pytest.junitxml
+[backend] import time:       809 |        809 | _pytest.setuponly
+[backend] import time:       697 |        697 | _pytest.setupplan
+[backend] import time:       934 |        934 | _pytest.stepwise
+[backend] import time:       513 |        513 |   _pytest.tracemalloc
+[backend] import time:       740 |       1252 | _pytest.unraisableexception
+[backend] import time:       709 |        709 | _pytest.threadexception
+[backend] import time:       508 |        508 | _pytest.warnings
+[backend] import time:       522 |        522 | _pytest.faulthandler
+[backend] import time:       484 |        484 | _pytest._argcomplete
+[backend] import time:       394 |        394 |       tomllib._types
+[backend] import time:       799 |       1192 |     tomllib._re
+[backend] import time:       747 |       1939 |   tomllib._parser
+[backend] import time:       540 |       2479 | tomllib
+[backend] import time:       127 |        127 |   _csv
+[backend] import time:      1463 |       1589 | csv
+[backend] import time:       856 |        856 | anyio._lazyimport
+[backend] import time:      1813 |       1813 |   _socket
+[backend] import time:       568 |        568 |     select
+[backend] import time:      1223 |       1790 |   selectors
+[backend] import time:      1244 |       4846 | socket
+[backend] import time:        71 |         71 |   _contextvars
+[backend] import time:       595 |        666 | contextvars
+[backend] import time:       891 |        891 | anyio._core._exceptions
+[backend] import time:       230 |        230 | sniffio
+[backend] import time:       101 |        101 | array
+[backend] import time:       542 |        542 |       concurrent
+[backend] import time:       726 |        726 |       concurrent.futures._base
+[backend] import time:       568 |       1835 |     concurrent.futures
+[backend] import time:      1958 |       1958 |       _ssl
+[backend] import time:      1060 |       1060 |       base64
+[backend] import time:      2050 |       5067 |     ssl
+[backend] import time:       898 |        898 |     asyncio.constants
+[backend] import time:       611 |        611 |     asyncio.coroutines
+[backend] import time:       449 |        449 |       asyncio.format_helpers
+[backend] import time:       541 |        541 |         asyncio.base_futures
+[backend] import time:       609 |        609 |         asyncio.exceptions
+[backend] import time:       524 |        524 |         asyncio.base_tasks
+[backend] import time:       534 |       2208 |       _asyncio
+[backend] import time:       778 |       3434 |     asyncio.events
+[backend] import time:       537 |        537 |     asyncio.futures
+[backend] import time:       571 |        571 |     asyncio.protocols
+[backend] import time:       702 |        702 |       asyncio.transports
+[backend] import time:       470 |        470 |       asyncio.log
+[backend] import time:       869 |       2040 |     asyncio.sslproto
+[backend] import time:       503 |        503 |         asyncio.mixins
+[backend] import time:       723 |       1225 |       asyncio.locks
+[backend] import time:       670 |        670 |         asyncio.queues
+[backend] import time:       730 |        730 |         asyncio.timeouts
+[backend] import time:       775 |       2173 |       asyncio.tasks
+[backend] import time:       525 |       3923 |     asyncio.staggered
+[backend] import time:       481 |        481 |     asyncio.trsock
+[backend] import time:      1117 |      20509 |   asyncio.base_events
+[backend] import time:       531 |        531 |   asyncio.runners
+[backend] import time:       579 |        579 |   asyncio.streams
+[backend] import time:      1000 |       1000 |   asyncio.subprocess
+[backend] import time:       779 |        779 |   asyncio.taskgroups
+[backend] import time:       552 |        552 |   asyncio.threads
+[backend] import time:       849 |        849 |     _overlapped
+[backend] import time:       721 |        721 |     asyncio.base_subprocess
+[backend] import time:      1102 |       1102 |     asyncio.proactor_events
+[backend] import time:       842 |        842 |     asyncio.selector_events
+[backend] import time:       715 |        715 |     asyncio.windows_utils
+[backend] import time:       929 |       5155 |   asyncio.windows_events
+[backend] import time:       724 |      29826 | asyncio
+[backend] import time:       418 |        418 |   _queue
+[backend] import time:       657 |       1075 | queue
+[backend] import time:      1135 |       1135 | anyio.lowlevel
+[backend] import time:       816 |        816 |   anyio.abc
+[backend] import time:      1897 |       2712 | anyio._core._tasks
+[backend] import time:       598 |        598 | anyio._core._testing
+[backend] import time:      1717 |       1717 |   ipaddress
+[backend] import time:      1951 |       1951 |     typing_extensions
+[backend] import time:       734 |       2685 |   anyio._core._typedattr
+[backend] import time:       722 |        722 |   anyio.abc._resources
+[backend] import time:       547 |        547 |     anyio.streams
+[backend] import time:      1205 |       1752 |   anyio.streams.stapled
+[backend] import time:      2120 |       2120 |   anyio.streams.tls
+[backend] import time:      4659 |      13653 | anyio._core._sockets
+[backend] import time:      1587 |       1587 |   anyio.streams.memory
+[backend] import time:       654 |       2240 | anyio._core._streams
+[backend] import time:       234 |        234 |   trio
+[backend] import time:        24 |        257 | trio.from_thread
+[backend] import time:       557 |        557 | pytest_asyncio._version
+[backend] import time:      1602 |       1602 | pytest_asyncio.plugin
+[backend] import time:       454 |        454 |       colorama.ansi
+[backend] import time:      1490 |       1490 |             sysconfig
+[backend] import time:       838 |        838 |             _ctypes
+[backend] import time:       930 |        930 |             ctypes._endian
+[backend] import time:      1278 |       4535 |           ctypes
+[backend] import time:       814 |        814 |           ctypes.wintypes
+[backend] import time:       518 |       5867 |         colorama.win32
+[backend] import time:       512 |       6378 |       colorama.winterm
+[backend] import time:       649 |       7480 |     colorama.ansitowin32
+[backend] import time:       578 |       8058 |   colorama.initialise
+[backend] import time:       680 |       8738 | colorama
+[backend] import time:       268 |        268 | readline
+[backend] import time:        64 |         64 | faulthandler
+[backend] import time:       776 |        776 |   cmd
+[backend] import time:       720 |        720 |     codeop
+[backend] import time:       867 |       1586 |   code
+[backend] import time:      1122 |       3483 | pdb
+[backend] import time:       553 |        553 |   importlib.metadata._text
+[backend] import time:       904 |       1456 | importlib.metadata._adapters
+[backend] ============================= test session starts =============================
+[backend] platform win32 -- Python 3.13.15, pytest-8.4.2, pluggy-1.6.0 -- D:\Git\karaoke_new_version\python\.venv\Scripts\python.exe
+[backend] cachedir: .pytest_cache
+[backend] rootdir: D:\Git\karaoke_new_version\python
+[backend] configfile: pyproject.toml
+[backend] plugins: anyio-4.15.1, asyncio-0.26.0
+[backend] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+[backend] collecting ... collected 12 items
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[missing] PASSED [  8%]
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[empty] PASSED [ 16%]
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[recovery] PASSED [ 25%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[audio] PASSED [ 33%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[unfinished] FAILED [ 41%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file] PASSED [ 50%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_rejects_path_components PASSED [ 58%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[../escape] PASSED [ 66%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[..\\escape] PASSED [ 75%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[C:\\outside] PASSED [ 83%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[.] PASSED [ 91%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[] PASSED [100%]
+[backend] ================================== FAILURES ===================================
+[backend] ___ test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[unfinished] ___
+[backend] tmp_path = WindowsPath('E:/CodexTempinterface-regressions-20261115pytest-data/test_empty_cleanup_preserves_n1')
+[backend] content = 'unfinished'
+[backend]     @pytest.mark.parametrize("content", ["audio", "unfinished", "extra_file"])
+[backend]     def test_empty_cleanup_preserves_nonempty_or_unrecognized_takes(
+[backend]         tmp_path: Path, content: str
+[backend]     ) -> None:
+[backend]         with app_client(tmp_path / "runtime") as client:
+[backend]             target = client.post("/recordings/target").json()
+[backend]             path = Path(target["filePath"])
+[backend]             write_wav(path, seconds=1 if content == "audio" else 0)
+[backend]             if content == "unfinished":
+[backend]                 with path.open("ab") as stream:
+[backend]                     stream.write(b"unfinalized PCM")
+[backend]             if content == "extra_file":
+[backend]                 (path.parent / "unexpected.bin").write_bytes(b"unrecognized data")
+[backend]             write_wav(Path(str(path) + ".dry.wav"), frequency=440 if content == "audio" else 0)
+[backend]             original = path.read_bytes()
+[backend]             for discard_silent in (False, True):
+[backend]                 response = client.delete(
+[backend]                     f"/recordings/{target['recordingId']}", params={"discard_silent": discard_silent}
+[backend]                 )
+[backend] >               assert response.status_code == 409, response.text
+[backend] E               AssertionError:
+[backend] E               assert 204 == 409
+[backend] E                +  where 204 = <Response [204 No Content]>.status_code
+[backend] tests\test_recording_empty_cleanup.py:50: AssertionError
+[backend] ============================== warnings summary ===============================
+[backend] .venv\Lib\site-packages\fastapi\testclient.py:1
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+[backend]     from starlette.testclient import TestClient as TestClient  # noqa
+[backend] .venv\Lib\site-packages\starlette\testclient.py:53
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+[backend]     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+[backend] -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[backend] =========================== short test summary info ===========================
+[backend] FAILED tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[unfinished]
+[backend] ================== 1 failed, 11 passed, 2 warnings in 12.21s ==================
+[backend] failed (1): D:\Git\karaoke_new_version\python\.venv\Scripts\python.exe -m pytest -q tests/test_recording_empty_cleanup.py

@@ -1,0 +1,12 @@
+{
+  "baseline": "887ff07a19775714e6bb4efec5dd40d4ef545bc7",
+  "baselineCount": 52,
+  "currentCount": 57,
+  "newViolations": [
+    "src\\features\\playlists\\PlaylistDialog.test.tsx:28 direct browser storage (use shared/storage/localStore)",
+    "src\\pages\\library\\modals\\processing\\index.tsx:353 non-null assertion",
+    "src\\pages\\library\\modals\\processing\\useProcessingQueue.test.tsx:43 direct browser storage (use shared/storage/localStore)",
+    "src\\pages\\library\\modals\\processing\\useProcessingQueue.test.tsx:48 direct browser storage (use shared/storage/localStore)"
+  ],
+  "newViolationsInOwnedFiles": []
+}

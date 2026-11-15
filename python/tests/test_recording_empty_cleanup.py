@@ -9,16 +9,23 @@ from tests.conftest import app_client, write_wav
 @pytest.mark.parametrize("content", ["missing", "empty", "recovery"])
 def test_delete_discards_an_empty_unregistered_target(tmp_path: Path, content: str) -> None:
     with app_client(tmp_path / "runtime") as client:
-        target = client.post("/recordings/target").json()
-        path = Path(target["filePath"])
-        if content != "missing":
-            write_wav(path, seconds=0)
-        if content == "recovery":
-            (path.parent / "recording-recovery.json").write_text("{}")
-        response = client.delete(f"/recordings/{target['recordingId']}")
-        assert response.status_code == 204, response.text
-        assert not path.parent.exists()
-        assert client.get("/recordings").json()["total"] == 0
+        for discard_silent in (False, True):
+            target = client.post("/recordings/target").json()
+            path = Path(target["filePath"])
+            if content != "missing":
+                write_wav(path, seconds=1 if discard_silent else 0)
+            if discard_silent and content != "missing":
+                write_wav(Path(str(path) + ".backing.wav"))
+                write_wav(Path(str(path) + ".vocal.wav"), frequency=0)
+                write_wav(Path(str(path) + ".dry.wav"), frequency=0)
+            if content == "recovery":
+                (path.parent / "recording-recovery.json").write_text("{}")
+            response = client.delete(
+                f"/recordings/{target['recordingId']}", params={"discard_silent": discard_silent}
+            )
+            assert response.status_code == 204, response.text
+            assert not path.parent.exists()
+            assert client.get("/recordings").json()["total"] == 0
 
 
 @pytest.mark.parametrize("content", ["audio", "unfinished", "extra_file"])
@@ -34,10 +41,14 @@ def test_empty_cleanup_preserves_nonempty_or_unrecognized_takes(
                 stream.write(b"unfinalized PCM")
         if content == "extra_file":
             (path.parent / "unexpected.bin").write_bytes(b"unrecognized data")
+        write_wav(Path(str(path) + ".dry.wav"), frequency=440 if content == "audio" else 0)
         original = path.read_bytes()
-        response = client.delete(f"/recordings/{target['recordingId']}")
-        assert response.status_code == 409, response.text
-        assert path.read_bytes() == original
+        for discard_silent in (False, True):
+            response = client.delete(
+                f"/recordings/{target['recordingId']}", params={"discard_silent": discard_silent}
+            )
+            assert response.status_code == 409, response.text
+            assert path.read_bytes() == original
 
 
 def test_empty_cleanup_rejects_path_components(tmp_path: Path) -> None:

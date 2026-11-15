@@ -1,0 +1,39 @@
+[check] Focused checks only, not a full verification. Run the full affected suite before completion.
+[backend] ============================= test session starts =============================
+[backend] platform win32 -- Python 3.13.15, pytest-8.4.2, pluggy-1.6.0 -- D:\Git\karaoke_new_version\python\.venv\Scripts\python.exe
+[backend] cachedir: .pytest_cache
+[backend] rootdir: D:\Git\karaoke_new_version\python
+[backend] configfile: pyproject.toml
+[backend] plugins: anyio-4.15.1, asyncio-0.26.0
+[backend] asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+[backend] collecting ... collected 19 items
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[missing] PASSED [  5%]
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[empty] PASSED [ 10%]
+[backend] tests/test_recording_empty_cleanup.py::test_delete_discards_an_empty_unregistered_target[recovery] PASSED [ 15%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[audio] PASSED [ 21%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[unfinished] PASSED [ 26%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_preserves_nonempty_or_unrecognized_takes[extra_file] PASSED [ 31%]
+[backend] tests/test_recording_empty_cleanup.py::test_empty_cleanup_rejects_path_components PASSED [ 36%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[../escape] PASSED [ 42%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[..\\escape] PASSED [ 47%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[C:\\outside] PASSED [ 52%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[.] PASSED [ 57%]
+[backend] tests/test_recording_empty_cleanup.py::test_registration_rejects_recording_ids_that_can_escape_storage[] PASSED [ 63%]
+[backend] tests/test_recording_startup_recovery.py::test_startup_recovers_finalized_orphan_recording_descriptor PASSED [ 68%]
+[backend] tests/test_recording_startup_recovery.py::test_recording_api_reports_actual_file_size PASSED [ 73%]
+[backend] tests/test_recordings_analysis.py::test_recording_registration_is_idempotent_and_paginated PASSED [ 78%]
+[backend] tests/test_recordings_analysis.py::test_delete_recording_removes_owned_file_and_metadata PASSED [ 84%]
+[backend] tests/test_transaction_recovery.py::test_recording_delete_recovers_interrupted_publication[before_move] PASSED [ 89%]
+[backend] tests/test_transaction_recovery.py::test_recording_delete_recovers_interrupted_publication[after_move] PASSED [ 94%]
+[backend] tests/test_transaction_recovery.py::test_recording_delete_recovers_interrupted_publication[after_commit] PASSED [100%]
+[backend] ============================== warnings summary ===============================
+[backend] .venv\Lib\site-packages\fastapi\testclient.py:1
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+[backend]     from starlette.testclient import TestClient as TestClient  # noqa
+[backend] .venv\Lib\site-packages\starlette\testclient.py:53
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+[backend]     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+[backend] -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[backend] ======================= 19 passed, 2 warnings in 25.47s =======================
+[backend] done in 28.3 s
+[build] all steps done in 28.3 s

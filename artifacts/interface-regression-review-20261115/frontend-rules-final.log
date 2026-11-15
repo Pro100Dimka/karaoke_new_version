@@ -1,0 +1,58 @@
+Rule check failed:
+- src\app\TitleBar.tsx:112 manual button role
+- src\application\room\RoomSessionController.test.ts:55 non-null assertion
+- src\application\room\RoomVoiceCoordinator.test.ts:112 non-null assertion
+- src\features\karaoke\karaokeLyrics.ts:439 non-null assertion
+- src\features\karaoke\show\gl\canvasLightRenderer.ts:50 non-null assertion
+- src\features\karaoke\show\performanceTracker.ts:273 non-null assertion
+- src\features\karaoke\show\rollFxRenderer.test.ts:48 non-null assertion
+- src\features\karaoke\show\rollFxRenderer.test.ts:50 non-null assertion
+- src\features\karaoke\show\rollFxRenderer.test.ts:80 non-null assertion
+- src\features\karaoke\show\rollFxRenderer.test.ts:81 non-null assertion
+- src\features\karaoke\show\rollFxWorker.ts:49 non-null assertion
+- src\features\karaoke\show\showEngine.ts:157 non-null assertion
+- src\features\karaoke\show\showEngine.ts:203 non-null assertion
+- src\features\playlists\PlaylistDialog.test.tsx:28 direct browser storage (use shared/storage/localStore)
+- src\pages\help\index.tsx:222 hardcoded DOM id
+- src\pages\help\index.tsx:271 hardcoded DOM id
+- src\pages\help\index.tsx:386 hardcoded DOM id
+- src\pages\library\hero\filters&actions\useLibraryView.ts:39 direct browser storage (use shared/storage/localStore)
+- src\pages\library\hero\filters&actions\useLibraryView.ts:53 direct browser storage (use shared/storage/localStore)
+- src\pages\library\modals\friends\index.tsx:40 nbsp spacing
+- src\pages\library\modals\processing\index.tsx:353 non-null assertion
+- src\pages\library\modals\processing\useProcessingQueue.test.tsx:43 direct browser storage (use shared/storage/localStore)
+- src\pages\library\modals\processing\useProcessingQueue.test.tsx:48 direct browser storage (use shared/storage/localStore)
+- src\pages\library\songs\index.tsx:62 direct browser storage (use shared/storage/localStore)
+- src\pages\library\songs\index.tsx:75 direct browser storage (use shared/storage/localStore)
+- src\services\pythonClient.test.ts:537 non-null assertion
+- electron\AppLogUploader.ts:85 non-null assertion
+- electron\AppLogUploader.ts:203 non-null assertion
+- electron\AutoUpdate.test.ts:76 non-null assertion
+- electron\AutoUpdate.test.ts:101 non-null assertion
+- electron\AutoUpdate.test.ts:124 non-null assertion
+- electron\AutoUpdate.test.ts:168 non-null assertion
+- electron\AutoUpdate.test.ts:180 non-null assertion
+- electron\AutoUpdate.test.ts:234 non-null assertion
+- electron\DesktopShellFeatures.test.ts:151 non-null assertion
+- electron\DesktopShellFeatures.test.ts:206 non-null assertion
+- electron\DesktopShellFeatures.test.ts:207 non-null assertion
+- src\features\karaoke\show\show.css:106 !important outside the theme kit
+- src\application\room\RoomProjectCoordinator.ts has 556 lines (limit 500)
+- src\application\room\RoomVoiceCoordinator.polling.test.ts has 712 lines (limit 500)
+- src\features\karaoke\karaokeLyrics.test.ts has 578 lines (limit 500)
+- src\features\karaoke\show\performanceTracker.ts has 650 lines (limit 500)
+- src\features\karaoke\show\rollFxRenderer.ts has 932 lines (limit 500)
+- src\features\karaoke\show\stageFxRenderer.ts has 561 lines (limit 500)
+- src\features\karaoke\useKaraokeSession.recording.test.tsx has 697 lines (limit 500)
+- src\features\karaoke\useKaraokeSession.ts has 616 lines (limit 500)
+- src\pages\help\content.ts has 935 lines (limit 500)
+- src\providers\localization\messages.en.ts has 1758 lines (limit 500)
+- src\providers\localization\messages.ru.ts has 1772 lines (limit 500)
+- src\providers\localization\messages.uk.ts has 1771 lines (limit 500)
+- src\services\audioClient.test.ts has 1776 lines (limit 500)
+- src\services\audioClient.ts has 503 lines (limit 500)
+- src\services\audioClient.voiceLifecycle.test.ts has 907 lines (limit 500)
+- src\services\audioSession.ts has 512 lines (limit 500)
+- src\services\pythonClient.test.ts has 770 lines (limit 500)
+- src\services\pythonClient.ts has 557 lines (limit 500)
+- src\pages\help\help.css has 622 lines (limit 500)

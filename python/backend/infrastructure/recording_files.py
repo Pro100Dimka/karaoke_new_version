@@ -25,7 +25,7 @@ def _recording_directory(root: Path, recording_id: str) -> Path:
     return ensure_within(root / validate_recording_id(recording_id), root)
 
 
-def _empty_native_wav(path: Path, *, silent: bool = False) -> bool:
+def _empty_native_wav(path: Path, *, silent: bool = False, allow_audio: bool = False) -> bool:
     # Inspect only stopped captures; optional silence detection reads the local dry microphone.
     with _open_stopped_recording(path) if os.name == "nt" else path.open("rb") as stream:
         if silent:
@@ -37,18 +37,23 @@ def _empty_native_wav(path: Path, *, silent: bool = False) -> bool:
                     )
             except RuntimeError:
                 return False
-        header = stream.read(45)
+        header = stream.read(44 if allow_audio else 45)
+        size = stream.seek(0, os.SEEK_END)
     if not header:
         return True
+    if len(header) != 44:
+        return False
+    data_bytes = struct.unpack_from("<I", header, 40)[0]
     return (
-        len(header) == 44
-        and header[:4] == b"RIFF"
+        header[:4] == b"RIFF"
         and header[8:16] == b"WAVEfmt "
         and header[16:20] == struct.pack("<I", 16)
         and header[36:40] == b"data"
         and struct.unpack_from("<H", header, 20)[0] in {1, 3}
-        and struct.unpack_from("<I", header, 4)[0] in {0, 36}
-        and header[40:44] == bytes(4)
+        and struct.unpack_from("<I", header, 4)[0]
+        in ({0, 36} if data_bytes == 0 else {36 + data_bytes})
+        and size == 44 + data_bytes
+        and (allow_audio or data_bytes == 0)
     )
 
 
@@ -89,24 +94,15 @@ class LocalRecordingStorage:
                 child not in {target, backing, vocal, dry, incomplete_dry, descriptor}
                 for child in children
             ):
-                raise ConflictError(
-                    "RecordingNotEmpty",
-                    "Unregistered recording contains data; keep it for recovery",
-                )
-            for file in (target, backing, vocal, dry, incomplete_dry):
-                if not file.exists():
-                    continue
-                if file.resolve() != file or (not silent and not _empty_native_wav(file)):
-                    raise ConflictError("RecordingNotEmpty", "Recording contains audio; keep it")
-                if silent:
-                    with _open_stopped_recording(file) if os.name == "nt" else file.open("rb"):
-                        pass
-            target.unlink(missing_ok=True)
-            backing.unlink(missing_ok=True)
-            vocal.unlink(missing_ok=True)
-            dry.unlink(missing_ok=True)
-            incomplete_dry.unlink(missing_ok=True)
-            descriptor.unlink(missing_ok=True)
+                raise ConflictError("RecordingNotEmpty", "Unrecognized capture files; keep them")
+            if any(
+                file != descriptor
+                and (file.resolve() != file or not _empty_native_wav(file, allow_audio=silent))
+                for file in children
+            ):
+                raise ConflictError("RecordingNotEmpty", "Recording contains audio; keep it")
+            for file in children:
+                file.unlink()
             directory.rmdir()
             return True
         except OSError as exc:
