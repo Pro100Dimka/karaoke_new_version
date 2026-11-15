@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import contextmanager
+from collections import OrderedDict
 from pathlib import Path
 from typing import Iterator, Mapping, Sequence
 
@@ -39,6 +40,9 @@ class CommandAiProvider:
         self._timeout = timeout_seconds
         self._recognitions: dict[_RecognitionKey, dict[str, JsonValue]] = {}
         self._recognition_lock = threading.Lock()
+        self._pitch_results: OrderedDict[tuple[str, ExecutionContext], tuple[PitchPoint, ...]] = (
+            OrderedDict()
+        )
         self._budget = resource_budget
         self._alignment_workspaces: dict[threading.Event, Path] = {}
         self._speech_sessions: dict[threading.Event, tuple[SpeechSession, ComputeDevice]] = {}
@@ -298,11 +302,30 @@ class CommandAiProvider:
     def pitch(
         self, vocal: Path, cancel: threading.Event, *, execution: ExecutionContext
     ) -> Sequence[PitchPoint]:
+        if cancel.is_set():
+            raise ConflictError("JobCancelled", "Local processing was cancelled")
+        key = (sha256_file(vocal), execution) if vocal.is_file() else None
+        if key is not None:
+            with self._recognition_lock:
+                cached = self._pitch_results.get(key)
+                if cached is not None and not cancel.is_set():
+                    self._pitch_results.move_to_end(key)
+                    return cached
         payload = self._invoke("pitch", ["--input", str(vocal)], cancel, execution=execution)
         values = payload.get("points")
         if not isinstance(values, list):
             raise DependencyError("AiProviderInvalidOutput", "Pitch response is malformed")
-        return tuple(_pitch(value) for value in values)
+        points = tuple(_pitch(value) for value in values)
+        if key is not None and len(points) <= 100_000 and not cancel.is_set():
+            with self._recognition_lock:
+                self._pitch_results[key] = points
+                self._pitch_results.move_to_end(key)
+                while (
+                    len(self._pitch_results) > 8
+                    or sum(map(len, self._pitch_results.values())) > 100_000
+                ):
+                    self._pitch_results.popitem(last=False)
+        return points
 
     def _invoke(
         self,

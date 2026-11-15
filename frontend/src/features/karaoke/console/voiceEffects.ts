@@ -1,5 +1,9 @@
 export type VoiceEffectId = 'echo' | 'reverb' | 'delay' | 'autoTune';
 
+/** Keep stored DSP amounts and presets intact while spreading audible changes over the knob. */
+export const effectFromKnob = (position: number): number => position ** 3;
+export const effectToKnob = (amount: number): number => Math.cbrt(amount);
+
 interface VoiceEffect {
   id: VoiceEffectId;
   label: string;
@@ -71,8 +75,7 @@ export const anyEffectActive = (
   values: VoiceEffectValues,
   noise: number,
 ): boolean =>
-  noise > 0 ||
-  voiceEffects.some((effect) => values[effect.id] !== 0);
+  noise > 0 || voiceEffects.some((effect) => values[effect.id] !== 0);
 
 export interface EffectPreset {
   id: string;

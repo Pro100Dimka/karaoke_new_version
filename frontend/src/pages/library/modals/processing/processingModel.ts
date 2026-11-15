@@ -1,4 +1,5 @@
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
+import { compareAddedSongs } from '../../songs/librarySelectors';
 
 type JobState = ProcessingJobDto['state'];
 
@@ -51,9 +52,10 @@ export const orderProcessingJobs = (
       job.id,
       {
         queued: Number(isInQueue(job)),
-        created: Date.parse(
-          songs.get(job.songId)?.createdAt ?? job.createdAt ?? '',
-        ) || Infinity,
+        song: songs.get(job.songId),
+        created:
+          Date.parse(songs.get(job.songId)?.createdAt ?? job.createdAt ?? '') ||
+          0,
       },
     ]),
   );
@@ -62,8 +64,9 @@ export const orderProcessingJobs = (
     const right = keys.get(b.id)!;
     return (
       right.queued - left.queued ||
-      left.created - right.created ||
-      a.id.localeCompare(b.id)
+      (left.song && right.song
+        ? compareAddedSongs(left.song, right.song, 'desc')
+        : right.created - left.created || a.id.localeCompare(b.id))
     );
   });
 };

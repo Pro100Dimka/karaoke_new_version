@@ -11,10 +11,14 @@ import type { useRoomLibrary } from './useRoomLibrary';
 export const curtainMilliseconds = 400;
 
 import { tr, useLocale } from '@neo-ui-kit/react';
-import type { SongDto } from '../../../contracts/models';
+import type { ProcessingJobDto, SongDto } from '../../../contracts/models';
+import { version } from '../../../../package.json';
 import { ask } from '../../../providers/dialog';
 import { useNotify } from '../../../providers/notifications';
 import { pythonClient as catalog } from '../../../services/pythonClient';
+import { audioClient } from '../../../services/audioClient';
+import { desktopClient } from '../../../services/desktopClient';
+import { toAppError, errorstring } from '../../../shared/errors';
 import { useGuardedAction } from './useGuardedAction';
 
 /** Confirmation shared by the card and song settings. */
@@ -23,6 +27,72 @@ export const useSongActions = (onDeleted?: () => void) => {
   const notify = useNotify();
   useLocale();
   const guarded = useGuardedAction();
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
+  const pending = useRef({ retry: false, report: false });
+
+  const retryProcessing = async (songId: string) => {
+    if (pending.current.retry) return false;
+    pending.current.retry = true;
+    setRetrying(songId);
+    try {
+      await catalog.processSong(songId);
+      await Promise.all([
+        refreshSongs(client),
+        client.invalidateQueries({ queryKey: ['jobs'] }),
+      ]);
+      notify(tr('processingRetryStarted'), 'success');
+      return true;
+    } catch (failure) {
+      const error = toAppError(failure);
+      notify(
+        tr(errorstring(error) ?? 'processingRetryFailed') +
+          ': ' +
+          error.message,
+        'error',
+      );
+      return false;
+    } finally {
+      pending.current.retry = false;
+      setRetrying(null);
+    }
+  };
+
+  const reportProcessingError = async (
+    songId: string,
+    job?: ProcessingJobDto,
+  ) => {
+    if (pending.current.report) return;
+    pending.current.report = true;
+    setReporting(true);
+    try {
+      const [backend, audio] = await Promise.allSettled([
+        catalog.diagnostics(),
+        audioClient.diagnosticsDump(),
+      ]);
+      const id = await desktopClient.sendErrorReport(
+        JSON.stringify(
+          {
+            version,
+            generatedAt: new Date().toISOString(),
+            songId,
+            processingJob: job ?? null,
+            backend:
+              backend.status === 'fulfilled' ? backend.value : 'unavailable',
+            audio: audio.status === 'fulfilled' ? audio.value : 'unavailable',
+          },
+          null,
+          2,
+        ),
+      );
+      notify(tr('processingReportSent', { id }), 'success');
+    } catch {
+      notify(tr('processingReportFailed'), 'error');
+    } finally {
+      pending.current.report = false;
+      setReporting(false);
+    }
+  };
 
   const confirmDelete = async (song: SongDto) => {
     let count = 0;
@@ -48,7 +118,13 @@ export const useSongActions = (onDeleted?: () => void) => {
     });
   };
 
-  return { confirmDelete };
+  return {
+    confirmDelete,
+    retryProcessing,
+    retrying,
+    reportProcessingError,
+    reporting,
+  };
 };
 
 export const useSongPlayback = ({

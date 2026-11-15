@@ -7,7 +7,11 @@ import {
   tr,
   useLocale,
 } from '@neo-ui-kit/react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +26,8 @@ import {
 } from '../../../../shared/errors';
 import { formatBytes } from '../../../../shared/utils/format';
 import { useGuardedAction } from '../../songs/useGuardedAction';
+import { useSongActions } from '../../songs/useSongActions';
+import { ProcessingErrorDialog } from './ProcessingError';
 import './processing.css';
 import { ProcessingJobCard } from './ProcessingJobCard';
 import {
@@ -40,6 +46,7 @@ interface Notice {
   onConfirm?(): void;
 }
 type Disk = { free: number; used: number } | null;
+const emptyImports: readonly SongDto[] = [];
 const clearGroups = {
   completed: [
     'Completed',
@@ -101,13 +108,22 @@ export const ProcessingModal = observer(
     const { data } = useInfiniteQuery({
       ...songsQuery(store.application.services.pythonEpoch),
       enabled: open,
-      refetchOnMount: false,
+    });
+    const { data: imports = emptyImports } = useQuery<readonly SongDto[]>({
+      queryKey: ['song-imports'],
+      enabled: false,
     });
     const songs = useMemo(
-      () => data?.pages.flatMap((page) => page.items) ?? [],
-      [data],
+      () => [...imports, ...(data?.pages.flatMap((page) => page.items) ?? [])],
+      [data, imports],
     );
     const guarded = useGuardedAction();
+    const { retryProcessing, retrying, reportProcessingError, reporting } =
+      useSongActions();
+    const [failure, setFailure] = useState<ProcessingJobDto>();
+    const retry = async (job: ProcessingJobDto) => {
+      if (await retryProcessing(job.songId)) setFailure(undefined);
+    };
     const onCancel = (jobId: string) =>
       guarded(async () => {
         await catalog.cancelProcessing(jobId);
@@ -149,6 +165,10 @@ export const ProcessingModal = observer(
 
     const songOf = (job: ProcessingJobDto) => songsById.get(job.songId);
     const details = (job: ProcessingJobDto) => {
+      if (['failed', 'interrupted'].includes(job.state)) {
+        setFailure(job);
+        return;
+      }
       const song = songOf(job);
       setNotice({
         title: tr('processingJobDetails'),
@@ -264,6 +284,11 @@ export const ProcessingModal = observer(
                         onStop: () => stop(job),
                         onDetails: () => details(job),
                         onRemove: () => remove(job),
+                        onReport: () =>
+                          void reportProcessingError(job.songId, job),
+                        onRetry: () => void retry(job),
+                        reporting,
+                        retrying: Boolean(retrying),
                         motionPaused,
                         onToggleMotion: () =>
                           setMotionPaused((value) => !value),
@@ -311,6 +336,28 @@ export const ProcessingModal = observer(
             </SplitButton>
           </footer>
         </div>
+        <ProcessingErrorDialog
+          open={Boolean(failure)}
+          title={
+            failure ? processingTitle(failure, songOf(failure)) : undefined
+          }
+          job={failure}
+          onClose={() => setFailure(undefined)}
+          onReport={() => {
+            if (failure) void reportProcessingError(failure.songId, failure);
+          }}
+          onRetry={
+            failure &&
+            songOf(failure) &&
+            !['queued', 'processing', 'importing'].includes(
+              songOf(failure)!.status,
+            )
+              ? () => void retry(failure)
+              : undefined
+          }
+          retrying={Boolean(retrying)}
+          reporting={reporting}
+        />
         <Dialog
           open={Boolean(notice)}
           onOpenChange={(next) => {

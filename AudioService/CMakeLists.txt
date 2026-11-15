@@ -41,6 +41,7 @@ option(AUDIOSERVICE_BUILD_RELEASE_GATES "Build long release repetition gates" OF
 option(AUDIOSERVICE_ENABLE_ASIO "Build native ASIO backend on Windows" ON)
 option(AUDIOSERVICE_ENABLE_MSVC_ANALYSIS "Enable MSVC code analysis" OFF)
 
+set(AUDIOSERVICE_DSP_SOURCES src/dsp/BasicProcessors.cpp src/dsp/DspChain.cpp)
 set(AUDIOSERVICE_CORE_SOURCES
     src/network/VoicePacketTrace.cpp
     src/realtime/RealtimeInstrumentation.cpp
@@ -57,8 +58,7 @@ set(AUDIOSERVICE_CORE_SOURCES
     src/clock/ClockSynchronizer.cpp
     src/diagnostics/LatencyRegistry.cpp
     src/diagnostics/TraceBuffer.cpp
-    src/dsp/BasicProcessors.cpp
-    src/dsp/DspChain.cpp
+    ${AUDIOSERVICE_DSP_SOURCES}
     src/graph/Mixer.cpp
     src/ipc/ControlProtocol.cpp
     src/media/MediaController.cpp
@@ -137,7 +137,7 @@ find_package(Threads REQUIRED)
 target_link_libraries(audioservice_core PRIVATE Threads::Threads)
 target_link_libraries(audioservice_core PRIVATE opus)
 
-add_library(native_voice_relay_core src/relay/NativeVoiceRelay.cpp)
+add_library(native_voice_relay_core src/relay/NativeVoiceRelay.cpp ${AUDIOSERVICE_DSP_SOURCES})
 target_include_directories(native_voice_relay_core PUBLIC src)
 audioservice_apply_warnings(native_voice_relay_core)
 

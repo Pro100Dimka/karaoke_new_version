@@ -74,11 +74,7 @@ class PipelineOrchestrator:
             resources.callback(self._workspaces.cleanup, workspace)
             if isinstance(providers.separation, SongProcessingProvider):
                 return self._remote(song, options, providers, workspace, context)
-            seen: set[int] = set()
-            for provider in (providers.asr, providers.alignment):
-                if id(provider) not in seen and isinstance(provider, SpeechReuseProvider):
-                    seen.add(id(provider))
-                    resources.enter_context(provider.reuse_speech(context.cancel, execution))
+            self._reuse_speech(resources, providers, context, execution)
             prepared, lyrics = self._prepare(
                 song, options, providers, workspace, context, reports, execution
             )
@@ -101,6 +97,19 @@ class PipelineOrchestrator:
             prepared = replace(prepared, instrumental=instrumental, reference_vocal=reference)
             revision = self._publish(song, prepared, melody, built, providers, context, reports)
             return self._report(song, revision, prepared, built, providers, reports)
+
+    @staticmethod
+    def _reuse_speech(
+        resources: ExitStack,
+        providers: ProcessingProviders,
+        context: JobContext,
+        execution: ExecutionContext,
+    ) -> None:
+        seen: set[int] = set()
+        for provider in (providers.asr, providers.alignment):
+            if id(provider) not in seen and isinstance(provider, SpeechReuseProvider):
+                seen.add(id(provider))
+                resources.enter_context(provider.reuse_speech(context.cancel, execution))
 
     def _remote(
         self,

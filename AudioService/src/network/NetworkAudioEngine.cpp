@@ -77,7 +77,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         float delay;
         bool noiseSuppression;
         float octave;
-        StableLatenessHistory routeHistory;
+        StableLatenessHistory routeHistory, returnHistory, arrivalHistory;
         bool directRoute;
         std::uint64_t directEndpointIdentity;
         std::uint64_t lastRoutePacketMicros;
@@ -96,7 +96,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
                                         slot.delay.load(std::memory_order_relaxed),
                                         slot.noiseSuppression.load(std::memory_order_relaxed),
                                         slot.octave.load(std::memory_order_relaxed),
-                                        slot.stableLateness, slot.directRoute, slot.directEndpointIdentity,
+                                        slot.stableLateness, slot.returnHistory, slot.arrivalHistory,
+                                        slot.directRoute, slot.directEndpointIdentity,
                                         slot.lastRoutePacketMicros});
             }
         }
@@ -160,6 +161,7 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         sentProbeMicros_[index].store(0, std::memory_order_relaxed);
     }
     remoteScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
+    queueFrameTimes_.assign(std::max(queueFrames, MaxBlockFrames), 0);
     localScratch_.assign(static_cast<std::size_t>(MaxBlockFrames) * channels_, 0.0F);
     // Local monitoring and solo karaoke never send network voice. Creating Opus here made an
     // otherwise valid system device format (for example 44.1 kHz) prevent the entire audio session
@@ -180,13 +182,14 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.effects.reset();
         slot.level.store(0.0F, std::memory_order_relaxed);
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
+        slot.expiredPlayoutFrames.store(0, std::memory_order_relaxed);
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.lateAudioCuts.store(0, std::memory_order_relaxed);
         slot.lateNonzeroVoiceCuts.store(0, std::memory_order_relaxed);
         slot.lateEmptyMixPackets.store(0, std::memory_order_relaxed);
         slot.lateOtherAudioCuts.store(0, std::memory_order_relaxed);
         slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
-        slot.queue.prepare(queueFrames, channels_, true);
+        slot.queue.prepare(queueFrames, channels_, true, true);
         slot.voice.prepare(sampleRateHz_);
         slot.decoder.reset();
         slot.pcmLossConcealer.reset();
@@ -199,6 +202,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         slot.lateness.reset();
         slot.readyLateness.reset();
         slot.stableLateness.reset();
+        slot.returnHistory.reset();
+        slot.arrivalHistory.reset();
         slot.directRoute = false;
         slot.directEndpointIdentity = 0;
         slot.lastRoutePacketMicros = 0;
@@ -238,6 +243,8 @@ void NetworkAudioEngine::prepare(std::uint32_t sampleRateHz, std::uint32_t chann
         if (!slot)
             continue;
         slot->stableLateness = participant.routeHistory;
+        slot->returnHistory = participant.returnHistory;
+        slot->arrivalHistory = participant.arrivalHistory;
         slot->directRoute = participant.directRoute;
         slot->directEndpointIdentity = participant.directEndpointIdentity;
         slot->lastRoutePacketMicros = participant.lastRoutePacketMicros;
@@ -500,10 +507,11 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.noiseSuppression.store(false, std::memory_order_relaxed);
         slot.octave.store(0.0F, std::memory_order_relaxed);
         slot.effects = std::make_unique<DspChain>();
-        slot.effects->prepare(sampleRateHz_, MaxBlockFrames, channels_);
+        slot.effects->prepare(sampleRateHz_, MaxBlockFrames, channels_, true);
         slot.effects->setEnabled(true);
         slot.level.store(0.0F, std::memory_order_relaxed);
         slot.decodeUnderruns.store(0, std::memory_order_relaxed);
+        slot.expiredPlayoutFrames.store(0, std::memory_order_relaxed);
         slot.queueOverruns.store(0, std::memory_order_relaxed);
         slot.alignmentErrorFrames.store(0, std::memory_order_relaxed);
         slot.lateAudioCuts.store(0, std::memory_order_relaxed);
@@ -530,6 +538,8 @@ bool NetworkAudioEngine::addRemoteParticipant(std::string participantId) {
         slot.lateness.reset();
         slot.readyLateness.reset();
         slot.stableLateness.reset();
+        slot.returnHistory.reset();
+        slot.arrivalHistory.reset();
         slot.lastRoutePacketMicros = 0;
         {
             std::lock_guard peerLock(directPeersMutex_);
@@ -590,6 +600,8 @@ void NetworkAudioEngine::resetStreamReports(RemoteSlot& slot) noexcept {
 void NetworkAudioEngine::resetRouteHistory(RemoteSlot& slot) noexcept {
     slot.readyLateness.reset();
     slot.stableLateness.reset();
+    slot.returnHistory.reset();
+    slot.arrivalHistory.reset();
     slot.lastRoutePacketMicros = 0;
     // Old encoded packets must not bootstrap a replacement endpoint after a control change.
     std::lock_guard jitterLock(slot.jitterMutex);
@@ -618,6 +630,8 @@ void NetworkAudioEngine::retireRemoteSlot(RemoteSlot& slot) noexcept {
     slot.lateness.reset();
     slot.readyLateness.reset();
     slot.stableLateness.reset();
+    slot.returnHistory.reset();
+    slot.arrivalHistory.reset();
     slot.directRoute = false;
     slot.directEndpointIdentity = 0;
     slot.lastRoutePacketMicros = 0;
@@ -661,37 +675,20 @@ bool NetworkAudioEngine::setRemoteEffect(std::string_view participantId, std::st
     auto* slot = slotForId(participantId);
     if (slot == nullptr)
         return false;
-    if (effect == "reverb") {
-        value = std::clamp(value, 0.0F, 1.0F);
-        slot->reverb.store(value, std::memory_order_relaxed);
-        return slot->effects->setParameter("reverb.mix", value);
-    }
-    if (effect == "echo") {
-        value = std::clamp(value, 0.0F, 0.95F);
-        slot->echo.store(value, std::memory_order_relaxed);
-        return slot->effects->setParameter("echo.amount", value);
-    }
-    if (effect == "delay") {
-        value = std::clamp(value, 0.0F, 1.0F);
-        slot->delay.store(value, std::memory_order_relaxed);
-        return slot->effects->setParameter("delay.mix", value) &&
-               slot->effects->setParameter("delay.ms", 25.0F + value * 475.0F);
-    }
-    if (effect == "noiseSuppression") {
-        const auto enabled = value >= 0.5F;
-        slot->noiseSuppression.store(enabled, std::memory_order_relaxed);
-        return slot->effects->setParameter("noise.amount", enabled ? 1.0F : 0.0F);
-    }
-    if (effect == "octave") {
-        value = std::clamp(std::round(value), -1.0F, 1.0F);
-        slot->octave.store(value, std::memory_order_relaxed);
-        return slot->effects->setParameter("pitch.semitones", value * 12.0F);
-    }
-    if (effect == "autoTune") {
-        value = std::clamp(value, 0.0F, 1.0F);
-        return slot->effects->setParameter("autotune.amount", value);
-    }
-    return false;
+    const auto normalized = slot->effects->setVoiceEffect(effect, value);
+    if (!normalized)
+        return false;
+    using Field = std::pair<std::string_view, std::atomic<float> RemoteSlot::*>;
+    constexpr std::array fields{
+        Field{"reverb", &RemoteSlot::reverb}, Field{"echo", &RemoteSlot::echo},
+        Field{"delay", &RemoteSlot::delay}, Field{"octave", &RemoteSlot::octave},
+    };
+    const auto field = std::ranges::find(fields, effect, &Field::first);
+    if (field != fields.end())
+        (slot->*(field->second)).store(*normalized, std::memory_order_relaxed);
+    if (effect == "noiseSuppression")
+        slot->noiseSuppression.store(*normalized >= 0.5F, std::memory_order_relaxed);
+    return true;
 }
 
 bool NetworkAudioEngine::setDirectPeer(std::string participantId, std::string host,
@@ -928,16 +925,29 @@ std::uint32_t NetworkAudioEngine::renderRemote(GenerationId generation, std::spa
             renderEvent.missingBeforeFrames = slot.playoutConcealer.missingFrames();
         }
         const auto queueEpochBefore = slot.queue.epoch();
+        // Admission cannot foresee a delayed output callback. Check the queued samples' actual
+        // presentation positions again here instead of replaying an old queue after that stall.
+        const auto expired = sharedTimeline_.load(std::memory_order_acquire) &&
+                                     roomPlayoutDelayFrames_.load(std::memory_order_acquire) != 0 &&
+                                     timelineFrame > 0
+                                 ? slot.queue.discardBefore(static_cast<MonotonicTicks>(timelineFrame - 1U))
+                                 : 0U;
+        slot.expiredPlayoutFrames.fetch_add(expired, std::memory_order_relaxed);
+        if (expired >= packetFrames_)
+            slot.effects->reset();
         auto read =
             slot.queue.pop(std::span<float>{remoteScratch_.data(), transportSampleCount}, frames,
                            std::span{remoteFrameTags_}.first(frames), fullTrace ? &transfer : nullptr);
         const auto queueEpoch = slot.queue.epoch();
         const auto resetContinuity =
             slot.resetPlayoutConcealer.exchange(false, std::memory_order_acq_rel);
-        const auto continuityReset = slot.playoutQueueEpoch != queueEpoch || resetContinuity;
-        if (continuityReset) {
+        const auto queueReset = slot.playoutQueueEpoch != queueEpoch || resetContinuity;
+        const auto continuityReset = queueReset || expired != 0;
+        if (queueReset) {
             slot.playoutConcealer.reset();
             slot.playoutQueueEpoch = queueEpoch;
+        } else if (expired != 0) {
+            slot.playoutConcealer.discontinue();
         }
         if (queueEpochBefore != queueEpoch)
             read = 0; // a concurrent stream reset cannot seed continuity with the old PCM
@@ -1200,6 +1210,8 @@ void NetworkAudioEngine::sendMain() noexcept {
             transportSamples.resize(
                 static_cast<std::size_t>(VoiceTransportPacketFrames) * channels_, 0.0F);
         ++packetIndex;
+        for (auto& sample : transportSamples)
+            sample = softLimitSample(sample);
         // Exact selected, processed, gain-normalized and converted microphone PCM entering
         // the codec. RecordingEngine only enqueues here; its existing worker writes the files.
         if (recording_ != nullptr)
@@ -1494,11 +1506,15 @@ void NetworkAudioEngine::receiveMain() noexcept {
                 signedMediaTimelineDistance(mediaTimestampFrame, arrivalTransportFrame);
             slot->lateness.note(lateness);
             if (serverStage) {
-                if (const auto returnRoute = returnRouteLatenessFrames(lateness, *serverStage))
+                if (const auto returnRoute = returnRouteLatenessFrames(lateness, *serverStage)) {
                     slot->returnRoute.note(*returnRoute);
+                    slot->returnHistory.note(*returnRoute);
+                }
                 // A mix without another singer's voice says nothing about their arrival.
-                if (serverStage->ingressFrames != 0)
+                if (serverStage->ingressFrames != 0) {
                     slot->arrivalRoute.note(serverStage->ingressFrames);
+                    slot->arrivalHistory.note(serverStage->ingressFrames);
+                }
             }
         }
         // Payload stays encoded here; decode happens at pop time below so a detected gap can go
@@ -1739,11 +1755,19 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
             auto frames = deviceFramesForVoicePacket(slot->playoutPacketIndex++, sampleRateHz_);
             auto samples = retimeInterleavedLinear(decoded, channels_, frames);
             std::size_t sampleOffset = 0;
+            std::uint64_t queuePresentationFrame = 0;
             const auto pushTraced = [&](std::span<const float> pcmSamples, std::uint32_t count,
                                         std::uint8_t tag) {
                 PcmRingBuffer::Transfer transfer;
+                const auto timed = queuePresentationFrame != 0;
+                if (timed)
+                    for (std::uint32_t frame = 0; frame < count; ++frame)
+                        queueFrameTimes_[frame] = static_cast<MonotonicTicks>(
+                            queuePresentationFrame + sampleOffset / channels_ + frame);
                 const auto queued = slot->queue.push(pcmSamples, count, tag,
-                                                     fullTrace ? &transfer : nullptr);
+                                                     fullTrace ? &transfer : nullptr,
+                                                     timed ? std::span<const MonotonicTicks>{queueFrameTimes_}.first(count)
+                                                           : std::span<const MonotonicTicks>{});
                 if (fullTrace) {
                     admission.queueAccepted = queued;
                     admission.queue = {transfer.epoch, transfer.firstFrame, transfer.frames};
@@ -1838,8 +1862,8 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                             room_audio_contract::ReturnCalibrationPackets) {
                         // The relay's collection wait follows the current deadline; advertising
                         // that wait as route latency would exclude otherwise eligible singers.
-                        requested = needFrames(participant.arrivalRoute.continuityFrames() +
-                                               participant.returnRoute.continuityFrames());
+                        requested = needFrames(participant.arrivalHistory.targetFrames() +
+                                               participant.returnHistory.targetFrames());
                     }
                     localDesired = std::max(localDesired, requested);
                 }
@@ -1919,6 +1943,10 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                 recordDecision("BEYOND_CEILING");
                 continue;
             }
+            if (sharedPacket)
+                queuePresentationFrame = scaleFramePosition(
+                    packet.timestampFrame & ~SharedAudioTimelineFlag,
+                    VoiceTransportSampleRateHz, sampleRateHz_) + targetFrames;
             if (!slot->timelineInitialized &&
                 (outcome == JitterPopOutcome::Delivered || sharedPacket)) {
                 const auto remoteTimestamp = packet.timestampFrame & ~SharedAudioTimelineFlag;
@@ -1950,7 +1978,9 @@ void NetworkAudioEngine::drainRemotePackets(GenerationId workGeneration,
                         std::min(deviceAlignment.silenceFrames, queueFrames_ / 2U);
                     std::vector<float> silence(static_cast<std::size_t>(silenceFrames) * channels_,
                                                0.0F);
+                    queuePresentationFrame -= sharedPacket ? silenceFrames : 0U;
                     (void)pushTraced(silence, silenceFrames, 0);
+                    queuePresentationFrame += sharedPacket ? silenceFrames : 0U;
                     if (fullTrace) {
                         auto padding = admission;
                         padding.reason = VoicePacketTrace::ReceiveReason::Queued;
@@ -2168,6 +2198,7 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
         participant.level = slot.level.load(std::memory_order_relaxed);
         participant.queueFillFrames = slot.queue.availableFrames();
         participant.decodeUnderruns = slot.decodeUnderruns.load(std::memory_order_relaxed);
+        participant.expiredPlayoutFrames = slot.expiredPlayoutFrames.load(std::memory_order_relaxed);
         participant.queueOverruns = slot.queueOverruns.load(std::memory_order_relaxed);
         out.receiveQueueOverruns += participant.queueOverruns;
         out.receiveQueueFillFrames += participant.queueFillFrames;
@@ -2249,11 +2280,11 @@ NetworkDiagnostics NetworkAudioEngine::diagnostics() const {
             return static_cast<std::uint32_t>(
                 scaleFramePosition(transportFrames, VoiceTransportSampleRateHz, sampleRateHz_));
         };
-        participant.returnRequirementFrames = deviceFrames(slot.returnRoute.continuityFrames());
+        participant.returnRequirementFrames = deviceFrames(slot.returnHistory.targetFrames());
         participant.returnP95Frames = deviceFrames(slot.returnRoute.followFrames());
         participant.returnP50Frames = deviceFrames(slot.returnRoute.medianFrames());
         participant.returnSamples = slot.returnRoute.samples();
-        participant.arrivalRequirementFrames = deviceFrames(slot.arrivalRoute.continuityFrames());
+        participant.arrivalRequirementFrames = deviceFrames(slot.arrivalHistory.targetFrames());
         participant.arrivalSamples = slot.arrivalRoute.samples();
         participant.returnStages = slot.returnStages.snapshot();
         const auto lastPacketMicros = slot.lastPacketMicros.load(std::memory_order_relaxed);

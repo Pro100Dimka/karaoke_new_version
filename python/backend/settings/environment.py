@@ -143,17 +143,7 @@ class EnvironmentSettingsStore:
         values: dict[str, str],
     ) -> tuple[EnvironmentState, str]:
         if definition.key == "AD_VOICE_PROCESSING_TOKEN":
-            url = room_processing_url(values)
-            with httpx.Client(transport=self._transport, timeout=10) as client:
-                response = client.get(url + "/health", headers={"X-Processing-Key": value})
-            if not response.is_success:
-                return "invalid", "Processing server rejected the access key or is unavailable"
-            health = response.json()
-            if health.get("protocolVersion") != 1:
-                return "invalid", "Processing server must be updated"
-            if not health.get("workerOnline"):
-                return "unverified", "Processing PC is offline; tasks remain queued"
-            return "valid", "Processing PC is online"
+            return self._verify_processing(value, values)
         if definition.key == "AD_VOICE_AUDD_TOKEN":
             with httpx.Client(transport=self._transport, timeout=8) as client:
                 response = client.post("https://api.audd.io/", data={"api_token": value})
@@ -178,6 +168,21 @@ class EnvironmentSettingsStore:
                 return "valid", "Room Server is available"
             return "invalid", "Room Server did not pass its health check"
         return "valid", entry_message(definition)
+
+    def _verify_processing(
+        self, value: str, values: dict[str, str]
+    ) -> tuple[EnvironmentState, str]:
+        url = room_processing_url(values)
+        with httpx.Client(transport=self._transport, timeout=10) as client:
+            response = client.get(url + "/health", headers={"X-Processing-Key": value})
+        if not response.is_success:
+            return "invalid", "Processing server rejected the access key or is unavailable"
+        health = response.json()
+        if health.get("protocolVersion") != 1:
+            return "invalid", "Processing server must be updated"
+        if not health.get("workerOnline"):
+            return "unverified", "Processing PC is offline; tasks remain queued"
+        return "valid", "Processing PC is online"
 
     def _values(self) -> dict[str, str]:
         result: dict[str, str] = {}

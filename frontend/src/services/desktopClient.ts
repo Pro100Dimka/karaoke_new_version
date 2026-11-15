@@ -18,6 +18,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   revealInExplorer: unavailable,
   openExternal: unavailable,
   copyText: unavailable,
+  sendErrorReport: requireBridge,
   pythonRequest: requireBridge,
   roomRequest: requireBridge,
   uploadRoomProject: requireBridge,
@@ -29,6 +30,7 @@ export const desktopClient: DesktopClient = window.desktop ?? {
   leaveRoomVoice: requireBridge,
   roomVoiceLevels: async () => ({}),
   setRoomVoiceParticipantGain: unavailable,
+  setRoomVoiceParticipantEffect: requireBridge,
   keyboardLightingCapabilities: async () => ({
     available: false,
     deviceCount: 0,

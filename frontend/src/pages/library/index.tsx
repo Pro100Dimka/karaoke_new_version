@@ -7,7 +7,13 @@ import {
   useRouter,
 } from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
-import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { store } from '../../providers/store';
 import { useKaraokeTv } from '../../features/karaoke/tv/karaokeTv';
@@ -29,7 +35,11 @@ const LibraryPage = observer(() => {
   const tv = useKaraokeTv();
   const { view, setQuery, setViewFilters } = useLibraryView();
   const roomLibrary = useRoomLibrary({ setQuery, setViewFilters });
-  const { playSong, launching } = useSongPlayback({ roomLibrary, navigate, tv });
+  const { playSong, launching } = useSongPlayback({
+    roomLibrary,
+    navigate,
+    tv,
+  });
   const [revealing, setRevealing] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const reveal = useCallback(() => setRevealing(true), []);
@@ -78,8 +88,11 @@ const LibraryPage = observer(() => {
     return stop;
   }, [revealed, motion, qualitySelected]);
 
-  const [processing, setProcessing] = useState<{ focusSongId?: string } | null>(null);
+  const [processing, setProcessing] = useState<{ focusSongId?: string } | null>(
+    null,
+  );
   const [roomOpen, setRoomOpen] = useState(false);
+  const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [invitationCode, setInvitationCode] = useState<string>();
 
   const openProcessing = useCallback(
@@ -102,12 +115,19 @@ const LibraryPage = observer(() => {
       as="main"
       className="libraryPage"
       ref={pageRef}
-      style={{ height: '100%', minHeight: 0, overflowX: 'hidden', overflowY: 'auto' }}
+      style={{
+        height: '100%',
+        minHeight: 0,
+        overflowX: 'hidden',
+        overflowY: 'auto',
+      }}
       onDragOver={desktop.onDragOver}
       onDragLeave={desktop.onDragLeave}
       onDrop={desktop.onDrop}
     >
-      {desktop.dragging && <div className="dropOverlay">{tr('dropToImport')}</div>}
+      {desktop.dragging && (
+        <div className="dropOverlay">{tr('dropToImport')}</div>
+      )}
 
       <Stack
         as="section"
@@ -128,6 +148,8 @@ const LibraryPage = observer(() => {
           roomLibrary={roomLibrary}
           openProcessing={openProcessing}
           onOpenRoom={() => setRoomOpen(true)}
+          onOpenPlaylists={() => setPlaylistsOpen(true)}
+          playlistsDisabled={Boolean(tv?.active)}
         />
         <LibrarySongs
           onReady={reveal}
@@ -136,6 +158,8 @@ const LibraryPage = observer(() => {
           onPlay={playSong}
           onOpenProcessing={openProcessing}
           songSelection={roomLibrary.songSelection}
+          playlistsOpen={playlistsOpen}
+          onClosePlaylists={() => setPlaylistsOpen(false)}
         />
       </Stack>
 

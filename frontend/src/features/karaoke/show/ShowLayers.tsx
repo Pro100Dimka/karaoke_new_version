@@ -67,6 +67,8 @@ const devAutopilotPitch = (
 };
 
 interface ShowInput {
+  ignoreSilence?: boolean;
+  performanceId?: number;
   notes: readonly ShowNote[];
   lines: readonly LyricLine[];
   position: number;
@@ -80,6 +82,8 @@ interface ShowInput {
 
 /** The karaoke screen's show: fed with the drawn position, the voice and the backing track; renders nothing itself. */
 export const useShowEngine = ({
+  ignoreSilence = false,
+  performanceId,
   notes,
   lines,
   position,
@@ -93,18 +97,43 @@ export const useShowEngine = ({
   const engine = useMemo(() => new ShowEngine(), []);
   const lastPitch = useRef({ epoch: -1, sequence: 0 });
   const loadedLines = useRef<readonly LyricLine[] | undefined>(undefined);
+  const loadedPerformance = useRef<number | undefined>(undefined);
+  const currentPitchFrames = useRef(pitchFrames);
+  currentPitchFrames.current = pitchFrames;
   useEffect(() => {
-    const resetPerformance = loadedLines.current !== lines;
+    const newPerformance =
+      loadedPerformance.current !== undefined &&
+      loadedPerformance.current !== performanceId;
+    const resetPerformance =
+      loadedLines.current !== lines ||
+      loadedPerformance.current !== performanceId;
     engine.load(
       notes,
       phrasesOf(lines, notes),
       resetPerformance,
       vocalActivity,
       rhythm,
+      ignoreSilence,
     );
     loadedLines.current = lines;
-    if (resetPerformance) lastPitch.current = { epoch: -1, sequence: 0 };
-  }, [engine, notes, lines, vocalActivity, rhythm]);
+    loadedPerformance.current = performanceId;
+    if (resetPerformance) {
+      const frame = newPerformance
+        ? currentPitchFrames.current?.at(-1)
+        : undefined;
+      lastPitch.current = frame
+        ? { epoch: frame.epoch, sequence: frame.sequence }
+        : { epoch: -1, sequence: 0 };
+    }
+  }, [
+    engine,
+    notes,
+    lines,
+    vocalActivity,
+    rhythm,
+    ignoreSilence,
+    performanceId,
+  ]);
   useEffect(() => engine.configure(settings), [engine, settings]);
   useEffect(
     () =>

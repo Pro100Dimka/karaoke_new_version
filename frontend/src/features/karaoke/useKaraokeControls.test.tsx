@@ -251,7 +251,7 @@ describe('useKaraokeControls', () => {
 
     await act(() => result.current.seek(42));
 
-    expect(roomClient.roomControl).toHaveBeenCalledWith('ROOM', 'Seek', 42);
+    expect(roomClient.roomControl).toHaveBeenCalledWith('ROOM', 'Seek', 42, false);
     expect(audioClient.seek).not.toHaveBeenCalled();
   });
 

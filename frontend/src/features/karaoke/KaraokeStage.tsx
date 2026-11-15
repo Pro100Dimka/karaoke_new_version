@@ -60,10 +60,10 @@ const pianoPanelSize = { width: 920, height: 220 };
 
 const PianoRoll = observer(
   ({
-    document,
+    notes,
+    previewReady,
     position,
     vocalRange,
-    keyShift,
     pitchHz,
     pitchFrame,
     capturedPitch,
@@ -71,10 +71,10 @@ const PianoRoll = observer(
     hitNoteIds,
     playing,
   }: {
-    document: EditorDocument;
+    notes: EditorDocument['notes'];
+    previewReady: boolean;
     position: number;
     vocalRange: VocalRange;
-    keyShift: number;
     pitchHz?: number;
     pitchFrame?: PitchFrame;
     capturedPitch: boolean;
@@ -84,19 +84,11 @@ const PianoRoll = observer(
   }) => {
     useLocale();
     const [span, setSpan] = useState(windowSeconds);
-    const notes = useMemo(
-      () =>
-        document.notes.map((note) => ({
-          ...note,
-          pitch: note.pitch + keyShift,
-        })),
-      [document.notes, keyShift],
-    );
     const range = useMemo(
       () => pitchRange(notes, vocalRange),
       [notes, vocalRange],
     );
-    const hidden = !notes.some(
+    const hidden = !previewReady || !notes.some(
       (note) =>
         note.end >= position - span * rollLead &&
         note.start <= position + span * (1 - rollLead),
@@ -238,9 +230,10 @@ const Lyrics = ({
 }) => {
   useLocale();
   const [current, next] = shown;
-  // Preview on "1"; saved word times keep the text unfilled until singing starts.
+  // Preview from "3"; saved word times keep the text unfilled until singing starts.
   const { countdown } = phase;
-  const textVisible = phase.kind === 'text' || countdown === 1;
+  const textVisible =
+    phase.kind === 'text' || (countdown !== undefined && countdown <= 3);
   const id = useId();
   useLyricFill(
     id,
@@ -260,16 +253,21 @@ const Lyrics = ({
           <span key={countdown}>{countdown}</span>
         </p>
       )}
-      <KaraokeLyrics
-        id={id}
-        className="lyrics"
-        data-reduced-motion={reducedMotion || undefined}
-        style={{ opacity: phase.opacity ?? 1 }}
-        current={textVisible ? (current?.words ?? noWords) : noWords}
-        next={textVisible ? (next?.words ?? noWords) : noWords}
-        currentKey={current?.start}
-        nextKey={next?.start}
-      />
+      <div
+        className="lyricsPanel"
+        hidden={!textVisible}
+        style={{ opacity: phase.kind === 'countdown' ? 1 : (phase.opacity ?? 1) }}
+      >
+        <KaraokeLyrics
+          id={id}
+          className="lyrics"
+          data-reduced-motion={reducedMotion || undefined}
+          current={textVisible ? (current?.words ?? noWords) : noWords}
+          next={textVisible ? (next?.words ?? noWords) : noWords}
+          currentKey={current?.start}
+          nextKey={next?.start}
+        />
+      </div>
     </>
   );
 };
@@ -317,14 +315,15 @@ export const KaraokeStage = observer(
         : undefined;
     const shown = [current, preview];
     const phase = upcomingLinePhase(lines, lineIndex, position);
-    const showNotes = useMemo(
-      () =>
-        (document?.notes ?? []).map((note) => ({
+    const showNotes = useMemo(() => {
+      const words = new Set(lines.flatMap((line) => line.words.map((word) => word.id)));
+      return (document?.notes ?? [])
+        .filter((note) => words.has(note.wordId))
+        .map((note) => ({
           ...note,
           pitch: note.pitch + keyShift,
-        })),
-      [document, keyShift],
-    );
+        }));
+    }, [document, keyShift, lines]);
     const showSettings = useMemo(
       () => ({
         intensity: preferences.reducedMotion
@@ -335,6 +334,8 @@ export const KaraokeStage = observer(
       [preferences.reducedMotion, reducedMotion],
     );
     const show = useShowEngine({
+      ignoreSilence: Boolean(store.online.room),
+      performanceId: store.online.room?.performanceId,
       vocalActivity: document?.vocalActivity,
       rhythm: document?.rhythm,
       notes: showNotes,
@@ -365,10 +366,10 @@ export const KaraokeStage = observer(
         {showPiano && (
           <PianoRoll
             playing={playing}
-            document={document}
+            notes={showNotes}
+            previewReady={!showLyrics || phase.kind !== 'empty'}
             position={position}
             vocalRange={vocalRange}
-            keyShift={keyShift}
             pitchHz={pitchHz}
             pitchFrame={pitchFrames?.at(-1)}
             capturedPitch={pitchFrames !== undefined}

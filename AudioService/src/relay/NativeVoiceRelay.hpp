@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <limits>
 #include <set>
@@ -14,6 +15,8 @@
 #include <vector>
 
 #include "network/RoomAudioContract.hpp"
+#include "network/PcmVoiceCodec.hpp"
+#include "dsp/DspChain.hpp"
 
 struct RelayEndpoint {
     std::string host;
@@ -59,6 +62,8 @@ struct RelayRecipientMetrics {
     std::uint64_t recipientNonzeroPackets{0};
     std::int32_t recipientPeak{0};
     RelayDeadlineSlack ingressSlack{}; // this participant as a singer
+    std::uint32_t effectLatencyFrames{0};
+    std::uint64_t concealedSourceFrames{0};
 };
 
 /** Native real-time room mixer. Control-plane mutations happen before/around packet processing;
@@ -81,6 +86,8 @@ class NativeVoiceRelay {
                                  std::span<const std::string_view> participants);
     void setRecipientSourceGain(std::string_view room, std::string_view recipient,
                                 std::string_view source, float gain);
+    bool setRecipientSourceEffect(std::string_view room, std::string_view recipient,
+                                  std::string_view source, std::string_view effect, float value);
     /**
      * The room's fixed deadline and the return reserve the room timing policy chose: each position
      * closes that long before its deadline so the mix still reaches the slowest live listener.
@@ -130,6 +137,7 @@ class NativeVoiceRelay {
     };
     struct Pending {
         std::map<std::uint32_t, std::vector<std::int16_t>> inputs;
+        std::map<std::uint32_t, std::array<float, room_audio_contract::VoicePacketFrames>> playout;
         // How late each input reached the relay after its position (transport frames).
         std::map<std::uint32_t, std::uint32_t> ingressFrames;
         std::set<std::uint32_t> sentRecipients;
@@ -137,12 +145,23 @@ class NativeVoiceRelay {
         double partialDeadlineMonotonic{std::numeric_limits<double>::infinity()};
         double readyMonotonic{std::numeric_limits<double>::infinity()};
     };
+    struct SourcePlayout {
+        PcmPlayoutConcealer continuity;
+        std::uint64_t nextFrame{0};
+    };
+    struct VoiceEffects {
+        DspChain dsp;
+        std::set<std::string> active;
+        std::uint64_t nextFrame{0};
+    };
     struct Room {
         std::map<std::uint32_t, std::uint64_t> members; // wire key -> session token
         std::set<std::uint32_t> eligible;
+        std::map<std::uint32_t, SourcePlayout> sourcePlayout;
         std::map<Position, Pending> pending;
         std::set<Position> mixed;
         std::map<std::pair<std::uint32_t, std::uint32_t>, float> gains;
+        std::map<std::pair<std::uint32_t, std::uint32_t>, std::unique_ptr<VoiceEffects>> effects;
         std::unordered_map<std::uint32_t, std::uint32_t> sequences;
         std::unordered_map<std::uint32_t, RelayRecipientMetrics> recipientMetrics;
         std::set<std::uint32_t> started;

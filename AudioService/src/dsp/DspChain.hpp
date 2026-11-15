@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <span>
+#include <optional>
 #include <string_view>
 
 class DspChain {
@@ -17,6 +18,7 @@ class DspChain {
         enabled_.store(enabled, std::memory_order_relaxed);
     }
     [[nodiscard]] bool setParameter(std::string_view name, float value) noexcept;
+    [[nodiscard]] std::optional<float> setVoiceEffect(std::string_view name, float value) noexcept;
     [[nodiscard]] std::uint32_t latencyFrames() const noexcept;
 
   private:

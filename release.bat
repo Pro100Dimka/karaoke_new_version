@@ -69,6 +69,12 @@ set /p PYTHON_BASE=<"%CACHE%\python-base.txt"
 if not defined PYTHON_BASE goto :fail
 for /f "delims=" %%F in ('where ffmpeg.exe') do if not defined FFMPEG_EXE set "FFMPEG_EXE=%%F"
 for /f "delims=" %%F in ('where ffprobe.exe') do if not defined FFPROBE_EXE set "FFPROBE_EXE=%%F"
+for /f "delims=" %%N in ('node.exe -p "process.execPath"') do set "NODE_EXE=%%N"
+for %%N in ("%NODE_EXE%") do set "NODE_LICENSE=%%~dpNLICENSE"
+if not exist "%NODE_LICENSE%" (
+  echo [error] The Node.js runtime license is missing.
+  goto :fail
+)
 
 rem Nothing the installer is built from changed: keep the installer that already exists.
 for /f "delims=" %%H in ('node.exe "%ROOT%scripts\release-inputs.mjs" "%RELEASE_ENV%" "%PYTHON_BASE%" "%FFMPEG_EXE%" "%FFPROBE_EXE%"') do set "INPUTS=%%H"
@@ -125,16 +131,14 @@ if errorlevel 8 goto :fail
 copy /y "%PYTHON%\.env.example" "%RESOURCES%\python-app\.env.example" >nul || goto :fail
 if "%PRIVATE_RELEASE%"=="1" echo [private] Bundling explicitly selected service environment. Do not publish this installer.
 copy /y "%RELEASE_ENV%" "%RESOURCES%\python-app\.env" >nul || goto :fail
-robocopy "%ROOT%kaggle" "%RESOURCES%\kaggle" ad_voice_p100.ipynb ad_voice_server.py README.md /NFL /NDL /NJH /NJS >nul
-if errorlevel 8 goto :fail
-"%PYTHON_EXE%" -B "%ROOT%kaggle\build_notebook.py" "%RESOURCES%\kaggle\ad_voice_p100.ipynb"
-if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\audio-service" >nul 2>&1
 cmake.exe --install "%AUDIO_RELEASE_BUILD%" --config Release --component AudioServiceRuntime --prefix "%RESOURCES%\audio-service"
 if errorlevel 1 goto :fail
 mkdir "%RESOURCES%\tools" "%RESOURCES%\theme-icons" >nul 2>&1
 copy /y "%FFMPEG_EXE%" "%RESOURCES%\tools\ffmpeg.exe" >nul || goto :fail
 copy /y "%FFPROBE_EXE%" "%RESOURCES%\tools\ffprobe.exe" >nul || goto :fail
+copy /y "%NODE_EXE%" "%RESOURCES%\tools\node.exe" >nul || goto :fail
+copy /y "%NODE_LICENSE%" "%RESOURCES%\tools\node-LICENSE.txt" >nul || goto :fail
 robocopy "%FRONTEND%\src\assets\theme-icons" "%RESOURCES%\theme-icons" *.png /NFL /NDL /NJH /NJS >nul
 if errorlevel 8 goto :fail
 if exist "%FRONTEND%\media" robocopy "%FRONTEND%\media" "%RESOURCES%\media" /MIR /MT:%COPY_THREADS% /NFL /NDL /NJH /NJS >nul

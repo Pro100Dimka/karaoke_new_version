@@ -66,6 +66,7 @@ struct RemoteParticipantDiagnostics {
     float level{0.0F};
     std::uint32_t queueFillFrames{0};
     std::uint64_t decodeUnderruns{0};
+    std::uint64_t expiredPlayoutFrames{0};
     std::uint64_t queueOverruns{0};
     JitterBufferSnapshot jitter{};
     NetworkTimingSnapshot timing{};
@@ -273,6 +274,7 @@ class NetworkAudioEngine {
         std::atomic<float> level{0.0F};
         std::unique_ptr<DspChain> effects;
         std::atomic<std::uint64_t> decodeUnderruns{0};
+        std::atomic<std::uint64_t> expiredPlayoutFrames{0};
         std::atomic<std::uint64_t> queueOverruns{0};
         std::atomic<std::int32_t> alignmentErrorFrames{0};
         std::atomic<std::uint64_t> lateAudioCuts{0};
@@ -318,6 +320,8 @@ class NetworkAudioEngine {
         // latest voice it carries reached the relay (its singers' arrival); same thread rules.
         VoiceLatenessTracker returnRoute;
         VoiceLatenessTracker arrivalRoute;
+        StableLatenessHistory returnHistory;
+        StableLatenessHistory arrivalHistory;
         std::uint32_t remoteStreamEpoch{0};
         RecentAudioSequenceWindow receivedSequences;
         std::atomic<std::uint64_t> lastPacketMicros{0};
@@ -417,6 +421,7 @@ class NetworkAudioEngine {
     std::vector<DirectPeer> directPeers_;
     std::vector<float> remoteScratch_;
     std::array<std::uint8_t, MaxBlockFrames> remoteFrameTags_{};
+    std::vector<MonotonicTicks> queueFrameTimes_; // receive-owned, prepared for the largest push
     // Device/render layouts may expose up to eight channels, while a room participant is one
     // centred voice. These preallocated samples fold the device layout to mono without allocating
     // in the realtime capture callback.

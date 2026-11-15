@@ -53,9 +53,20 @@ def test_delivery_raises_quiet_mixes_without_changing_balance_or_crushing_peaks(
     before = [path.read_bytes() for path in (vocal, backing)]
     processing = {}
     MasterDelivery(
-        FfmpegStudioMasterRenderer(ProcessRunner()), backing, vocal, output,
-        threading.Event(), sf.info(vocal), 1, process_voice, False, None, 0,
-        np.ones(30, dtype=bool), processing, None,
+        FfmpegStudioMasterRenderer(ProcessRunner()),
+        backing,
+        vocal,
+        output,
+        threading.Event(),
+        sf.info(vocal),
+        1,
+        process_voice,
+        False,
+        None,
+        0,
+        np.ones(30, dtype=bool),
+        processing,
+        None,
     ).run()
     actual, actual_rate = sf.read(output)
     delivery = processing["delivery"]

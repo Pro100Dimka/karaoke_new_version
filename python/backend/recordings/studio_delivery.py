@@ -80,11 +80,8 @@ class MasterDelivery:
     graph: str = field(init=False)
 
     def run(self) -> None:
-        voice = "[1:a]"
-        self.graph = ""
-        if self.voice_gain_db:
-            self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];"
-            voice = "[voice]"
+        voice = "[voice]" if self.voice_gain_db else "[1:a]"
+        self.graph = f"[1:a]volume={self.voice_gain_db:.9f}dB[voice];" if self.voice_gain_db else ""
         self.graph += f"[0:a]{voice}amix=inputs=2:duration=first:dropout_transition=0:normalize=0,"
         measured = self.renderer._mix(
             self.backing,
@@ -96,7 +93,9 @@ class MasterDelivery:
         )
         source_levels = parse_loudness(measured.stderr)
         if source_levels is None:
-            raise DependencyError("StudioMasterInvalidAudio", "Master loudness could not be measured")
+            raise DependencyError(
+                "StudioMasterInvalidAudio", "Master loudness could not be measured"
+            )
         gain_db = 0.0
         if math.isfinite(source_levels["input_i"]) and math.isfinite(source_levels["input_tp"]):
             gain_db = max(

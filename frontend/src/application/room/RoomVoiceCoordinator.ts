@@ -35,6 +35,7 @@ type VoicePort = Pick<
   | 'microphoneEnabled'
   | 'setMicrophoneEnabled'
   | 'participantMuted'
+  | 'participantVolume'
   | 'setParticipantMuted'
   | 'setParticipantVolume'
   | 'setParticipantEffect'
@@ -81,6 +82,9 @@ export class RoomVoiceCoordinator {
   }
   participantMuted(id: string): boolean {
     return this.audio.participantMuted(id);
+  }
+  participantVolume(id: string): number {
+    return this.audio.participantVolume(id);
   }
   monitoringEnabled(): boolean {
     return this.audio.monitoringEnabled();

@@ -65,6 +65,21 @@ const requestRoom = async (
 };
 
 export const roomClient: RoomClient = {
+  async publishPerformance(
+    code,
+    performanceId,
+    accuracy,
+    sungSeconds,
+    finished = false,
+  ) {
+    await request('POST', `/rooms/${roomPath(code)}/performance`, {
+      participantId,
+      performanceId,
+      accuracy,
+      sungSeconds,
+      finished,
+    });
+  },
   async createRoom(displayName) {
     return requestRoom('POST', '/rooms', {
       participantId,
@@ -169,6 +184,21 @@ export const roomClient: RoomClient = {
     });
   },
 
+  async startPlaylist(code, name, songs) {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/playlist`, {
+      participantId,
+      name,
+      songs,
+    });
+  },
+
+  async advancePlaylist(code, performanceId) {
+    return requestRoom('POST', `/rooms/${roomPath(code)}/playlist/next`, {
+      participantId,
+      performanceId,
+    });
+  },
+
   async setRoomReadiness(code, readiness, progress) {
     return requestRoom('POST', `/rooms/${roomPath(code)}/readiness`, {
       participantId,
@@ -177,11 +207,12 @@ export const roomClient: RoomClient = {
     });
   },
 
-  async roomControl(code, command, positionSeconds) {
+  async roomControl(code, command, positionSeconds, continuePlaylist) {
     return requestRoom('POST', `/rooms/${roomPath(code)}/control`, {
       participantId,
       command,
       positionSeconds,
+      ...(continuePlaylist ? { continuePlaylist } : {}),
     });
   },
 
@@ -267,6 +298,7 @@ export const roomClient: RoomClient = {
           album: song.album,
           genre: song.genre,
           durationSeconds: song.durationSeconds,
+          sourceHash: song.sourceHash,
         })),
     });
   },

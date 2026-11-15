@@ -13,6 +13,7 @@ from backend.room.domain import (
     PlaybackState,
     ReadinessState,
     Room,
+    RoomPlaylist,
     RoomSong,
 )
 from backend.room.timing_policy import ROOM_TIMING, RoomTiming, TimingSource
@@ -93,10 +94,25 @@ def _encode_room(room: Room) -> str:
             "roomTimingSource": room.room_timing_source.value,
             "singingTiming": room.singing_timing,
             "autoStartPending": room.auto_start_pending,
+            "performanceId": room.performance_id,
+            "playlist": _encode_playlist(room.playlist),
+            "lastPerformanceId": room.last_performance_id,
+            "lastPerformanceAccuracy": room.last_performance_accuracy,
             "sharedSongs": [_encode_song(song) for song in room.shared_songs],
             "participants": [_encode_participant(item) for item in room.participants.values()],
         },
     )
+
+
+def _encode_playlist(playlist: RoomPlaylist | None) -> dict[str, object] | None:
+    if playlist is None:
+        return None
+    return {
+        "name": playlist.name,
+        "songs": playlist.songs,
+        "index": playlist.index,
+        "finishedParticipants": playlist.finished_participants,
+    }
 
 
 def _encode_song(song: RoomSong) -> dict[str, object]:
@@ -109,6 +125,7 @@ def _encode_song(song: RoomSong) -> dict[str, object]:
         "album": song.album,
         "genre": song.genre,
         "durationSeconds": song.duration_seconds,
+        "sourceHash": song.source_hash,
     }
 
 
@@ -124,6 +141,9 @@ def _encode_participant(item: Participant) -> dict[str, object]:
         "voiceTimingReady": item.voice_timing_ready,
         "voiceRouteCalibrated": item.voice_route_calibrated,
         "voiceRoute": item.voice_route,
+        "performanceAccuracy": item.performance_accuracy,
+        "performanceSungSeconds": item.performance_sung_seconds,
+        "performanceFinished": item.performance_finished,
         "returnRequirementMs": item.return_requirement_ms,
         "arrivalRequirementMs": item.arrival_requirement_ms,
     }
@@ -143,6 +163,7 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
             str(song["album"]) if song.get("album") is not None else None,
             str(song["genre"]) if song.get("genre") is not None else None,
             float(song["durationSeconds"]),
+            str(song["sourceHash"]) if song.get("sourceHash") is not None else None,
         )
         for song in encoded
         if isinstance(song, dict)
@@ -181,11 +202,32 @@ def _decode_room(payload: str) -> Room:
         room_return_reserve_ms=float(
             raw.get("roomReturnReserveMs", ROOM_TIMING.return_requirement.fallback_ms)
         ),
-        room_timing_source=TimingSource(
-            raw.get("roomTimingSource", TimingSource.RETURN_CALIBRATING.value)
-        ),
+        room_timing_source=_decode_timing_source(raw),
         singing_timing=_decode_timing(raw.get("singingTiming")),
         auto_start_pending=bool(raw.get("autoStartPending", False)),
+        performance_id=int(raw.get("performanceId", 0)),
+        playlist=_decode_playlist(raw.get("playlist")),
+        last_performance_id=_optional_int(raw.get("lastPerformanceId")),
+        last_performance_accuracy=_optional_float(raw.get("lastPerformanceAccuracy")),
+    )
+
+
+def _decode_timing_source(raw: dict[str, str]) -> TimingSource:
+    return TimingSource(raw.get("roomTimingSource", TimingSource.RETURN_CALIBRATING.value))
+
+
+def _optional_int(value: str | int | float | None) -> int | None:
+    return int(value) if value is not None else None
+
+
+def _decode_playlist(raw: object) -> RoomPlaylist | None:
+    if not isinstance(raw, dict):
+        return None
+    return RoomPlaylist(
+        str(raw["name"]),
+        tuple((str(song[0]), int(song[1])) for song in raw["songs"]),
+        int(raw["index"]),
+        tuple(str(item) for item in raw.get("finishedParticipants", [])),
     )
 
 
@@ -216,6 +258,9 @@ def _decode_participants(raw: dict[str, object]) -> dict[str, Participant]:
             _optional_float(item.get("arrivalRequirementMs")),
             bool(item.get("voiceRouteCalibrated", item.get("voiceTimingReady", False))),
             str(item.get("voiceRoute", "relay")),
+            _optional_float(item.get("performanceAccuracy")),
+            float(item.get("performanceSungSeconds", 0)),
+            bool(item.get("performanceFinished", False)),
         )
         for item in encoded
         if isinstance(item, dict)

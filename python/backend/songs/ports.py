@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -57,6 +58,15 @@ class SongRepository(Protocol):
     def add(self, song: Song) -> None: ...
 
     def update(self, song: Song) -> None: ...
+
+    def update_status(
+        self,
+        song_id: str,
+        status: SongStatus,
+        updated_at: datetime,
+        *,
+        from_statuses: Sequence[SongStatus],
+    ) -> None: ...
 
     def delete(self, song_id: str) -> None: ...
 

@@ -15,7 +15,8 @@ import {
 import { observer } from 'mobx-react-lite';
 import { store } from '../../../../../providers/store';
 import { appThemes } from '../../../../../providers/theme/variants';
-import { fonts, radioStations } from '../../../../../utils/consts';
+import { fonts } from '../../../../../utils/consts';
+import { radioStations, youtubeSource } from '../../../../../app/radioStations';
 import {
   parsePreferences,
   type Preferences,
@@ -180,7 +181,22 @@ export const AppearanceFields = observer(
                     <Select
                       label={tr('radioStation')}
                       value={radio.stationId}
-                      options={[...radioStations]}
+                      options={[
+                        ...radioStations.map(({ id, name }) => ({
+                          value: id,
+                          label: name,
+                        })),
+                        ...(youtubeSource(radio.stationId)
+                          ? [
+                              {
+                                value: radio.stationId,
+                                label:
+                                  radio.youtubeTrack?.playlistTitle ??
+                                  'YouTube',
+                              },
+                            ]
+                          : []),
+                      ]}
                       disabled={!radio.canControl}
                       onValueChange={setRadioStation}
                     />

@@ -70,15 +70,17 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
   const onTv = useKaraokeTv()?.active === true;
   const isLibrary = pathname === routes.library;
   const libraryActive = backgroundMusicRoutes.includes(pathname) && !onTv;
+  const showFloatingControls = backgroundMusicRoutes.includes(pathname);
+  const radioActive = showFloatingControls && !onTv;
   useEffect(() => {
     if (!isLibrary) store.returnFromKaraoke(null);
   }, [isLibrary]);
   const notify = useNotify();
   useEffect(() => {
     runInAction(() => {
-      store.radio.libraryActive = libraryActive;
+      store.radio.libraryActive = radioActive;
     });
-  }, [libraryActive]);
+  }, [radioActive]);
   useEffect(() => subscribeRadio(notify), [notify]);
   const reducedMotion = useReducedMotion();
   const { localProcessing } = store.application;
@@ -130,7 +132,7 @@ const Shell = observer(({ children }: { children?: ReactNode }) => {
       >
         {children}
       </RouteSurface>
-      {isLibrary && <FloatingControls />}
+      {showFloatingControls && <FloatingControls />}
       {isLibrary && onTv && <TvRemote />}
       <AppCloseFlow />
       <StartupRecovery />

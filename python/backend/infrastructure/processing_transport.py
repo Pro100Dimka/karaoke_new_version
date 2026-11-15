@@ -1,24 +1,24 @@
 from __future__ import annotations
 
-import json
 import shutil
 import threading
 import time
 import zipfile
 from pathlib import Path
 from collections.abc import Callable, Mapping
-from typing import Any
+from typing import BinaryIO
 
 import httpx
 
 from backend.domain_errors import ConflictError, DependencyError
+from backend.serialization import JsonValue, dumps, loads_object
 
 MAX_FILE = 256 * 1024 * 1024
 
 
 def write_bundle(path: Path, payload: Mapping[str, object], files: Mapping[str, Path]) -> None:
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_STORED) as archive:
-        archive.writestr("payload.json", json.dumps(payload, ensure_ascii=False))
+        archive.writestr("payload.json", dumps(payload))
         for name, source in files.items():
             if Path(name).name != name or name == "payload.json":
                 raise ValueError("Invalid processing artifact name")
@@ -27,7 +27,7 @@ def write_bundle(path: Path, payload: Mapping[str, object], files: Mapping[str, 
         raise DependencyError("ProcessingFileTooLarge", "Processing transfer exceeds 256 MiB")
 
 
-def read_bundle(path: Path, directory: Path) -> dict[str, Any]:
+def read_bundle(path: Path, directory: Path) -> dict[str, JsonValue]:
     with zipfile.ZipFile(path) as archive:
         entries = archive.infolist()
         names = [entry.filename for entry in entries]
@@ -40,9 +40,7 @@ def read_bundle(path: Path, directory: Path) -> dict[str, Any]:
             or archive.getinfo("payload.json").file_size > 4 * 1024 * 1024
         ):
             raise ValueError("Invalid processing bundle")
-        payload = json.loads(archive.read("payload.json"))
-        if not isinstance(payload, dict):
-            raise ValueError("Invalid processing response")
+        payload: dict[str, JsonValue] = loads_object(archive.read("payload.json").decode("utf-8"))
         for entry in entries:
             if entry.filename != "payload.json":
                 with (
@@ -63,8 +61,18 @@ class ProcessingTransport:
     def close(self) -> None:
         self.client.close()
 
-    def request(self, method: str, route: str, **kwargs: Any) -> httpx.Response:
-        response = self.client.request(method, self.url + route, **kwargs)
+    def request(
+        self,
+        method: str,
+        route: str,
+        *,
+        headers: Mapping[str, str] | None = None,
+        content: BinaryIO | None = None,
+        json: Mapping[str, object] | None = None,
+    ) -> httpx.Response:
+        response = self.client.request(
+            method, self.url + route, headers=headers, content=content, json=json
+        )
         self.check(response)
         return response
 
@@ -109,26 +117,12 @@ class ProcessingTransport:
     ) -> None:
         if cancel.is_set():
             raise ConflictError("JobCancelled", "Processing was cancelled")
-        with source.open("rb") as content:
-            ticket = self.request(
-                "POST",
-                "/jobs",
-                content=content,
-                headers={"Content-Length": str(source.stat().st_size)},
-            ).json()
-        route = "/jobs/" + ticket["jobId"]
-        headers = {"X-Job-Key": ticket["jobKey"]}
+        route, headers = self._submit(source)
         deadline = time.monotonic() + 2 * 3600
         try:
             while not cancel.is_set():
                 state = self.request("GET", route, headers=headers).json()
-                update = state.get("progress")
-                if progress is not None and isinstance(update, dict):
-                    progress(
-                        str(update["stage"]),
-                        float(update["stageProgress"]),
-                        min(0.98, float(update["overallProgress"])),
-                    )
+                _publish_progress(state.get("progress"), progress)
                 if state["state"] == "done":
                     self.download(route + "/result", result, headers)
                     return
@@ -147,3 +141,22 @@ class ProcessingTransport:
                 self.request("DELETE", route, headers=headers)
             except (httpx.HTTPError, DependencyError):
                 pass
+
+    def _submit(self, source: Path) -> tuple[str, dict[str, str]]:
+        with source.open("rb") as content:
+            ticket = self.request(
+                "POST",
+                "/jobs",
+                content=content,
+                headers={"Content-Length": str(source.stat().st_size)},
+            ).json()
+        return "/jobs/" + ticket["jobId"], {"X-Job-Key": ticket["jobKey"]}
+
+
+def _publish_progress(update: object, progress: Callable[[str, float, float], None] | None) -> None:
+    if progress is not None and isinstance(update, dict):
+        progress(
+            str(update["stage"]),
+            float(update["stageProgress"]),
+            min(0.98, float(update["overallProgress"])),
+        )

@@ -76,6 +76,7 @@ class RelayState:
         # Per-listener source gains keep personal volume/mute choices inside that listener's
         # server-produced mix-minus. They never alter the source heard by anyone else.
         self._recipient_source_gains: dict[tuple[str, int, int], float] = {}
+        self._recipient_source_effects: dict[tuple[str, str, str, str], float] = {}
         self._level_push: dict[str, object] = {"listener": None, "last": {}, "published": {}}
 
     def _init_positions(self) -> None:
@@ -232,6 +233,12 @@ class RelayState:
             item for item in self._recipient_source_gains if item[0] == room_id and key in item[1:]
         ]:
             self._recipient_source_gains.pop(gain_key, None)
+        for effect_key in [
+            item
+            for item in self._recipient_source_effects
+            if item[0] == room_id and participant_id in item[1:3]
+        ]:
+            self._recipient_source_effects.pop(effect_key, None)
         if not members:
             self._drop_room_locked(room_id)
 
@@ -256,6 +263,8 @@ class RelayState:
         )
         for gain_key in [item for item in self._recipient_source_gains if item[0] == room_id]:
             self._recipient_source_gains.pop(gain_key, None)
+        for effect_key in [item for item in self._recipient_source_effects if item[0] == room_id]:
+            self._recipient_source_effects.pop(effect_key, None)
         _drop_room_keys(
             room_id,
             self._voice_activation_position,

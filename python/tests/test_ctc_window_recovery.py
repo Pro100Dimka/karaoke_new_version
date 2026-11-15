@@ -52,7 +52,9 @@ def test_guided_crop_retries_after_supported_previous_letters_instead_of_late_re
 
     monkeypatch.setattr(ctc, "_align_window", crop)
     result = ctc.align_guided(
-        torch.zeros(500, 28), 0.02, ["він", "твій"],
+        torch.zeros(500, 28),
+        0.02,
+        ["він", "твій"],
         [ctc.Window(0, 1, 1, 1.8), ctc.Window(1, 2, 1.5, 3)],
         whole=[previous, late],
     )

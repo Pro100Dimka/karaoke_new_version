@@ -176,14 +176,16 @@ def test_accelerator_startup_cache_is_invalidated_when_the_model_catalog_changes
     assert "`.ad-voice-accelerator-${acceleratorVersion}`" in source
 
 
-def test_installer_contains_the_complete_kaggle_automation_runtime() -> None:
+def test_installer_contains_the_oracle_processing_runtime_without_kaggle() -> None:
     requirements = (ROOT / "python" / "requirements.lock").read_text(encoding="utf-8")
     release = (ROOT / "release.bat").read_text(encoding="utf-8")
     verification = (ROOT / "installer" / "verify_runtime.py").read_text(encoding="utf-8")
 
-    assert "kaggle==2.2.4" in requirements
-    assert "ad_voice_p100.ipynb ad_voice_server.py" in release
-    assert '"kaggle.api.kaggle_api_extended"' in verification
+    assert "kaggle==" not in requirements
+    assert "gradio_client==" not in requirements
+    assert "ad_voice_p100.ipynb ad_voice_server.py" not in release
+    assert '"backend.infrastructure.oracle_ai_provider"' in verification
+    assert '"backend.remote_worker"' in verification
 
 
 def test_installer_repairs_fresh_clone_prerequisites() -> None:
@@ -217,6 +219,12 @@ def test_release_prunes_build_only_python_artifacts_without_removing_runtime_fil
     (bytecode / "module.cpython-313.pyc").write_bytes(b"cache")
     (dev_package / "__init__.py").write_text("", encoding="utf-8")
     (site_packages / "pytest-1.0.dist-info").mkdir()
+    retired = [tmp_path / "kaggle"]
+    for package in ("gradio_client", "kaggle", "kagglesdk"):
+        retired.extend((site_packages / package, site_packages / f"{package}-1.0.dist-info"))
+    for directory in retired:
+        directory.mkdir()
+        (directory / "obsolete.py").write_text("", encoding="utf-8")
 
     subprocess.run(
         [sys.executable, str(ROOT / "installer" / "prune_runtime.py"), str(tmp_path)],
@@ -231,3 +239,4 @@ def test_release_prunes_build_only_python_artifacts_without_removing_runtime_fil
     assert not bytecode.exists()
     assert not dev_package.exists()
     assert not (site_packages / "pytest-1.0.dist-info").exists()
+    assert all(not directory.exists() for directory in retired)

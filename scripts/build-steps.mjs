@@ -172,7 +172,7 @@ const pythonLane = async () => {
   if (mode === "install")
     await run(
       '-c "import yt_dlp; import fastapi, sqlalchemy, uvicorn, torch, demucs, whisper, faster_whisper, ' +
-        'torchcrepe, gradio_client; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"',
+        'torchcrepe; import backend; from backend.infrastructure.youtube_clip import YoutubeClipDownloader"',
     );
 };
 

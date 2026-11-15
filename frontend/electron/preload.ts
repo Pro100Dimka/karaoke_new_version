@@ -1,3 +1,4 @@
+import type { RoomVoiceEffect } from './ipcChannels';
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import { ipcChannels, roomParticipantArgument } from './ipcChannels';
 
@@ -136,6 +137,8 @@ const desktopApi = {
 
   copyText: (value: string): Promise<void> =>
     ipcRenderer.invoke(ipcChannels.copyText, value),
+  sendErrorReport: (text: string): Promise<string> =>
+    ipcRenderer.invoke(ipcChannels.sendErrorReport, text),
 
   pythonRequest: (request: unknown): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.pythonRequest, request),
@@ -160,6 +163,9 @@ const desktopApi = {
       participantId,
       gain,
     }),
+
+  setRoomVoiceParticipantEffect: (participantId: string, effect: RoomVoiceEffect, value: number): Promise<void> =>
+    ipcRenderer.invoke(ipcChannels.setRoomVoiceParticipantEffect, {participantId, effect, value}),
 
   keyboardLightingCapabilities: (): Promise<unknown> =>
     ipcRenderer.invoke(ipcChannels.keyboardLightingCapabilities),

@@ -57,7 +57,9 @@ def test_profile_does_not_mask_invalid_audio(tmp_path):
 
 
 @pytest.mark.parametrize("seconds,channels", [(8.4, 1), (8.4, 2), (131.4, 6)])
-def test_overlapping_reference_windows_decode_each_frame_once(tmp_path, monkeypatch, seconds, channels):
+def test_overlapping_reference_windows_decode_each_frame_once(
+    tmp_path, monkeypatch, seconds, channels
+):
     from backend.recordings.studio_space_analysis import _sample_cepstra, _cepstrum
 
     rate = 8000
@@ -68,7 +70,7 @@ def test_overlapping_reference_windows_decode_each_frame_once(tmp_path, monkeypa
     starts = np.arange(0, len(audio) - 2 * rate + 1, rate)
     if len(starts) > 128:
         starts = starts[np.linspace(0, len(starts) - 1, 128).astype(int)]
-    expected = [_cepstrum(decoded[start:start + 2 * rate, :2], rate) for start in starts]
+    expected = [_cepstrum(decoded[start : start + 2 * rate, :2], rate) for start in starts]
     original_read = sf.SoundFile.read
     frames = []
 
@@ -83,3 +85,56 @@ def test_overlapping_reference_windows_decode_each_frame_once(tmp_path, monkeypa
     np.testing.assert_array_equal(positions, starts / rate)
     np.testing.assert_array_equal(actual, expected)
     assert sum(frames) <= len(audio)
+
+
+@pytest.mark.parametrize(
+    "channels,center,band,seconds",
+    [(1, False, False, 0.02), (2, False, True, 0.1), (2, True, True, 0.1)],
+)
+def test_batched_profile_keeps_the_partial_final_frame(channels, center, band, seconds, tmp_path):
+    rate = 8000
+    size = round(rate * seconds)
+    samples = np.random.default_rng(14).normal(0, 0.05, (size * 35 + size // 3, channels))
+    path = tmp_path / "partial.wav"
+    sf.write(path, samples, rate, subtype="DOUBLE")
+    expected = []
+    for start in range(0, len(samples), size):
+        block = samples[start : start + size]
+        if center:
+            block = block.mean(axis=1, keepdims=True)
+        power = float(np.mean(block**2))
+        if band:
+            window = np.hanning(len(block))[:, None]
+            hz = np.fft.rfftfreq(len(block), 1 / rate)
+            spectrum = np.fft.rfft(block * window, axis=0)
+            power = 2 * np.sum(abs(spectrum[(hz >= 300) & (hz <= 3500)]) ** 2)
+            power /= max(1, len(block) * np.sum(window**2) * block.shape[1])
+        expected.append(10 * np.log10(max(power, 1e-12)))
+    np.testing.assert_allclose(
+        _profile(path, threading.Event(), frame_seconds=seconds, center=center, voice_band=band),
+        expected,
+        atol=1e-10,
+        rtol=0,
+    )
+
+
+@pytest.mark.parametrize("channels", [1, 2])
+def test_cached_convolution_preserves_block_boundaries_and_the_final_partial_block(
+    tmp_path, monkeypatch, channels
+):
+    from scipy.signal import fftconvolve
+    from backend.recordings.studio_space import SpaceProfile, _SpatialBuses
+
+    rng = np.random.default_rng(73)
+    samples = rng.normal(0, 0.04, (32768 * 2 + 119, channels)).astype("float32")
+    impulse = rng.normal(0, 0.001, (4097, channels)).astype("float32")
+    voice = tmp_path / "voice.wav"
+    sf.write(voice, samples, 8000, subtype="FLOAT")
+    profile = SpaceProfile(reverb_gain=0.1)
+    buses = _SpatialBuses(voice, tmp_path / "out.wav", threading.Event(), {"reverb": profile})
+    monkeypatch.setattr(buses, "_impulse", lambda *args: impulse)
+    buses._convolve("reverb", profile)
+    actual, rate = sf.read(buses.paths["reverb"], dtype="float32", always_2d=True)
+    expected = fftconvolve(samples, impulse, axes=0)[: len(samples)]
+    assert rate == 8000 and actual.shape == samples.shape
+    np.testing.assert_allclose(actual, expected, atol=2e-7, rtol=0)

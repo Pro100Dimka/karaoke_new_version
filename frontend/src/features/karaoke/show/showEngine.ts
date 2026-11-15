@@ -74,6 +74,7 @@ export class ShowEngine {
     resetPerformance = true,
     vocalActivity?: readonly (readonly [number, number])[],
     rhythm: readonly (readonly [number, number])[] = [],
+    ignoreSilence = false,
   ): void {
     this.rhythm = rhythm.filter(([time, strength], index) => {
       let peak = strength;
@@ -97,7 +98,13 @@ export class ShowEngine {
       }
       return strength >= peak * 0.6;
     });
-    this.tracker.load(notes, phrases, resetPerformance, vocalActivity);
+    this.tracker.load(
+      notes,
+      phrases,
+      resetPerformance,
+      vocalActivity,
+      ignoreSilence,
+    );
     if (!resetPerformance) return;
     this.voiceHistory.length = 0;
     this.state = { ...this.state, musicBeat: 0 };

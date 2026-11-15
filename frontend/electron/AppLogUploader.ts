@@ -2,7 +2,11 @@ import { StringDecoder } from 'node:string_decoder';
 import { format } from 'node:util';
 import { readFileSync, writeFileSync, renameSync, rmSync } from 'node:fs';
 import { roomParticipantId } from './RoomIdentity';
-import { roomServerRequest } from './RoomServerTransport';
+import {
+  roomServerRequest,
+  serverLogUploadsDisabled,
+} from './RoomServerTransport';
+import { randomUUID } from 'node:crypto';
 
 interface AppLogEntry {
   timestamp: string;
@@ -47,6 +51,7 @@ export const sendAppLogs = async (entries: AppLogEntry[]): Promise<void> => {
 /** Bounded, best-effort upload of text logs from this application profile. */
 export class AppLogUploader {
   private readonly queue: AppLogEntry[] = [];
+  private readonly recent: AppLogEntry[] = [];
   private readonly lines = new Map<
     string,
     { decoder: StringDecoder; pending: string }
@@ -195,6 +200,34 @@ export class AppLogUploader {
       level: level.slice(0, 16),
       message: redact(message).slice(0, maximumMessage),
     });
+    this.recent.push(this.queue[this.queue.length - 1]!);
+    if (this.recent.length > 60) this.recent.shift();
+  }
+
+  /** Explicit reports keep recent service logs even after the periodic upload consumed them. */
+  async sendReport(text: string): Promise<string> {
+    if (serverLogUploadsDisabled())
+      throw new Error('Server log uploads are disabled');
+    if (!text.trim() || text.length > 128_000)
+      throw new TypeError('Invalid error report size');
+    const id = randomUUID();
+    const report = redact(text);
+    const timestamp = new Date().toISOString();
+    const parts = Math.ceil(report.length / 3_000);
+    const entries = Array.from({ length: parts }, (_, index) => ({
+      timestamp,
+      source: 'error-report',
+      level: 'error',
+      message: `${id} (${index + 1}/${parts})\n${report.slice(index * 3_000, (index + 1) * 3_000)}`,
+    }));
+    const logs = this.recent.map((entry) => ({
+      ...entry,
+      message: `${id}\n${entry.message}`.slice(0, maximumMessage),
+    }));
+    const batch = [...entries, ...logs];
+    for (let offset = 0; offset < batch.length; offset += 20)
+      await this.send(batch.slice(offset, offset + 20));
+    return id;
   }
 
   /** Child stdout/stderr may split both lines and UTF-8 characters at arbitrary byte offsets. */

@@ -53,6 +53,8 @@ test -f "$stage/AudioService/src/network/RoomAudioContract.hpp"
 g++ -std=c++20 -O3 -DNDEBUG -pthread -I "$stage/AudioService/src" \
     "$stage/AudioService/src/relay/NativeVoiceRelay.cpp" \
     "$stage/AudioService/src/relay/NativeVoiceRelayMain.cpp" \
+    "$stage/AudioService/src/dsp/DspChain.cpp" \
+    "$stage/AudioService/src/dsp/BasicProcessors.cpp" \
     -o "$stage/NativeVoiceRelay"
 test -x "$stage/NativeVoiceRelay"
 (

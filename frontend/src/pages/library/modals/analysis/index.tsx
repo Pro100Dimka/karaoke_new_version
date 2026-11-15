@@ -103,6 +103,10 @@ export const PerformanceAnalysisModal = ({
     ) ?? list[0];
   if (!viewed && analysis) return null;
   const active = viewed?.id === analysis?.recordingId;
+  const roomPerformance = viewed?.roomPerformance;
+  const overallScore = roomPerformance
+    ? roomPerformance.overallScore
+    : analysis?.score;
   const practice = analysis ? weakestMetric(analysis) : null;
   const mastering =
     studioMaster?.recordingId === viewed?.id ? studioMaster : null;
@@ -191,7 +195,11 @@ export const PerformanceAnalysisModal = ({
                     <Landscape className="analysisLandscape">
                       <div className="analysisVerdict">
                         <Typography variant="eyebrow" tone="accent">
-                          {tr(gradeLabel(analysis.score))}
+                          {tr(
+                            overallScore === undefined
+                              ? 'roomPerformanceUnavailable'
+                              : gradeLabel(overallScore),
+                          )}
                         </Typography>
                         <Stack direction="row" gap={2} align="baseline">
                           <Typography
@@ -199,12 +207,31 @@ export const PerformanceAnalysisModal = ({
                             variant="display"
                             data-role="analysis-score"
                           >
-                            {analysis.score}
+                            {overallScore ?? '···'}
                           </Typography>
                           <Typography variant="caption" tone="muted">
-                            {tr('analysisOverall')}
+                            {tr(
+                              roomPerformance
+                                ? 'roomPerformanceOverall'
+                                : 'analysisOverall',
+                            )}
                           </Typography>
                         </Stack>
+                        {roomPerformance && (
+                          <>
+                            <Stack direction="row" gap={2} align="baseline">
+                              <Typography variant="caption" tone="muted">
+                                {tr('roomPerformancePersonal')}
+                              </Typography>
+                              <Typography as="strong" variant="h3">
+                                {analysis.score}
+                              </Typography>
+                            </Stack>
+                            <Typography variant="caption" tone="muted">
+                              {tr('roomPerformanceDuetHint')}
+                            </Typography>
+                          </>
+                        )}
                         <Typography variant="label">
                           {tr('analysisRecommendation')}
                         </Typography>

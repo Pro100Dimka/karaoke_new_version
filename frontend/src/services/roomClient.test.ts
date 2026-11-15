@@ -171,15 +171,41 @@ describe('roomClient', () => {
   it('sends the authoritative seek position with a room control', async () => {
     await roomClient.roomControl('ROOM-1', 'Seek', 42.5);
 
-    expect(roomRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
+    const request = roomRequest.mock.calls[0]?.[0];
+    expect(request).toMatchObject({
+      method: 'POST',
+      path: '/rooms/room-1/control',
+    });
+    expect(JSON.parse(JSON.stringify(request.body))).toEqual({
+      participantId,
+      command: 'Seek',
+      positionSeconds: 42.5,
+    });
+  });
+
+  it.each(['Pause', 'Stop'] as const)(
+    'keeps %s compatible with the deployed strict control schema',
+    async (command) => {
+      await roomClient.roomControl('ROOM-1', command, undefined, false);
+
+      const request = roomRequest.mock.calls[0]?.[0];
+      expect(request).toMatchObject({
+        method: 'POST',
         path: '/rooms/room-1/control',
-        body: expect.objectContaining({
-          command: 'Seek',
-          positionSeconds: 42.5,
-        }),
-      }),
-    );
+      });
+      expect(JSON.parse(JSON.stringify(request.body))).toEqual({
+        participantId,
+        command,
+      });
+    },
+  );
+
+  it('sends an explicit playlist continuation when the performance ends naturally', async () => {
+    await roomClient.roomControl('ROOM-1', 'Stop', undefined, true);
+
+    expect(
+      JSON.parse(JSON.stringify(roomRequest.mock.calls[0]?.[0].body)),
+    ).toEqual({ participantId, command: 'Stop', continuePlaylist: true });
   });
 
   it('clears the selected room song when the host leaves karaoke', async () => {

@@ -7,7 +7,7 @@ import socket
 import time
 from typing import Callable
 
-from backend.domain_errors import ConflictError
+from backend.domain_errors import ConflictError, DependencyError
 from backend.infrastructure.job_executor import ServiceLoop
 from backend.infrastructure.voice_relay_ingress import RelayIngress
 from backend.infrastructure.voice_relay_metrics import (
@@ -153,6 +153,12 @@ class VoiceRelay(RelayIngress):
                 self._direct_participants.add(participant_id)
             if self._control_command is not None:
                 self._control_command(f"EXPECT\t{room_id}\t{participant_id}\t{token}")
+                for identity, value in self._recipient_source_effects.items():
+                    room, recipient, source, effect = identity
+                    if room == room_id and participant_id in (recipient, source):
+                        self._control_command(
+                            f"EFFECT\t{room}\t{recipient}\t{source}\t{effect}\t{value}"
+                        )
             return token
 
     def set_recipient_source_gain(
@@ -175,13 +181,34 @@ class VoiceRelay(RelayIngress):
             if source_key == recipient_key:
                 return False
             key = (room_id, recipient_key, source_key)
-            bounded = max(0.0, min(2.0, float(gain)))
+            bounded = max(0.0, min(4.0, float(gain)))
             if bounded == 1.0:
                 self._recipient_source_gains.pop(key, None)
             else:
                 self._recipient_source_gains[key] = bounded
             if self._control_command is not None:
                 self._control_command(f"GAIN\t{room_id}\t{recipient_id}\t{source_id}\t{bounded}")
+            return True
+
+    def set_recipient_source_effect(
+        self, room_id: str, recipient_id: str, token: int, source_id: str, effect: str, value: float
+    ) -> bool:
+        """Apply a personal source effect before the native server builds this listener's mix."""
+        with self._lock:
+            if not self._owns_locked(room_id, recipient_id, token) or source_id == recipient_id:
+                return False
+            if self._control_command is None:
+                raise DependencyError(
+                    "RoomVoiceEffectsUnavailable", "Native voice effects are unavailable"
+                )
+            self._control_command(
+                f"EFFECT\t{room_id}\t{recipient_id}\t{source_id}\t{effect}\t{float(value)}"
+            )
+            key = (room_id, recipient_id, source_id, effect)
+            if value == 0:
+                self._recipient_source_effects.pop(key, None)
+            else:
+                self._recipient_source_effects[key] = float(value)
             return True
 
     def register_local_port(

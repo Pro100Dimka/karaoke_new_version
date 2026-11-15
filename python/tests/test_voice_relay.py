@@ -629,7 +629,7 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
     relay.set_room_playout_delay("room-1", 80.0)
     relay.set_room_playout_delay("room-1", 80.0, singing_started_at=1_000.0)
     relay.set_room_playout_delay("room-1", 80.0)
-    assert relay.set_recipient_source_gain("room-1", "alice", token, "bob", 0.25)
+    assert relay.set_recipient_source_gain("room-1", "alice", token, "bob", 4.0)
     relay.forget("bob")
 
     assert commands == [
@@ -639,9 +639,26 @@ def test_control_plane_mirrors_room_state_to_the_native_voice_relay() -> None:
         "DEADLINE\troom-1\t80.0\t10.0\t-1.0",
         "DEADLINE\troom-1\t80.0\t10.0\t1000.0",
         "DEADLINE\troom-1\t80.0\t10.0\t-1.0",
-        "GAIN\troom-1\talice\tbob\t0.25",
+        "GAIN\troom-1\talice\tbob\t4.0",
         "FORGET\tbob",
     ]
+
+
+def test_personal_effects_follow_session_rotation_and_leave() -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    token = relay.expect("room", "alice")
+    relay.expect("room", "bob")
+    assert not relay.set_recipient_source_effect("room", "alice", token + 1, "bob", "echo", 0.5)
+    assert not relay.set_recipient_source_effect("room", "alice", token, "alice", "echo", 0.5)
+    assert relay.set_recipient_source_effect("room", "alice", token, "bob", "echo", 0.5)
+    commands.clear()
+    relay.expect("room", "bob")
+    assert commands[-1] == "EFFECT\troom\talice\tbob\techo\t0.5"
+    relay.forget("bob")
+    commands.clear()
+    relay.expect("room", "bob")
+    assert len(commands) == 1
 
 
 def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> None:
@@ -657,6 +674,8 @@ def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> N
             "complete_positions": 39,
             "partial_positions": 3,
             "missing_contributions": 2,
+            "effect_latency_frames": 600,
+            "concealed_source_frames": 960,
         }
     )
 
@@ -667,6 +686,8 @@ def test_control_plane_exposes_the_native_timeline_with_recipient_cadence() -> N
     assert metrics["complete_positions"] == 39
     assert metrics["partial_positions"] == 3
     assert metrics["missing_contributions"] == 2
+    assert metrics["effect_latency_frames"] == 600
+    assert metrics["concealed_source_frames"] == 960
 
 
 def test_control_plane_reads_participant_levels_from_the_native_data_plane() -> None:

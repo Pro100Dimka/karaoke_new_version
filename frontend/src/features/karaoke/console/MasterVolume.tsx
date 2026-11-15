@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Icon, RotaryKnob, tr, useLocale } from '@neo-ui-kit/react';
 import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
 import { masterGainMax } from '../../../shared/preferences/preferences';
+import { volumeFromKnob, volumeToKnob } from '../../../shared/utils/mixerLevel';
 
 const diameter = 52;
 
@@ -20,12 +21,14 @@ export const MasterVolume = memo(
           style={fixedKnobWidth(diameter)}
           label={tr('masterVolume')}
           min={0}
-          max={masterGainMax}
+          max={1}
           step={0.01}
           displayScale={100}
-          resetValue={1}
-          value={value}
-          onValueChange={onChange}
+          resetValue={volumeToKnob(1, masterGainMax)}
+          value={volumeToKnob(value, masterGainMax)}
+          onValueChange={(position) =>
+            onChange(volumeFromKnob(position, masterGainMax))
+          }
         />
       </div>
     );

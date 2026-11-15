@@ -11,6 +11,7 @@ import {
   getRoomRuntime,
   roomSession,
   useRoomMembership,
+  useRoomLibraryCommands,
 } from '../../providers/application';
 import { ask } from '../../providers/dialog';
 import { useNotify } from '../../providers/notifications';
@@ -30,6 +31,8 @@ import './room-dock.css';
 import { RoomHeadCard } from './RoomHeadCard';
 import { RoomLinkCard } from './RoomLinkCard';
 import { RoomPersonCard } from './RoomPersonCard';
+import { PlaylistDialog } from '../playlists/PlaylistDialog';
+import { canControlRoom } from '../../application/room/roomModel';
 
 // The room panel's window starts at the size of the in-app dock.
 const roomPanelSize = { width: 555, height: 660 };
@@ -37,6 +40,8 @@ const roomPanelSize = { width: 555, height: 660 };
 export const RoomDock = () => {
   const { room } = store.online;
   const membership = useRoomMembership();
+  const roomLibrary = useRoomLibraryCommands();
+  const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const runtime = getRoomRuntime();
   const { pathname } = useRouter();
   const notify = useNotify();
@@ -345,6 +350,40 @@ export const RoomDock = () => {
           ))}
         </ul>
         <RoomLinkCard />
+        <Button icon="list" onClick={() => setPlaylistsOpen(true)}>
+          {room.playlist
+            ? `${room.playlist.name} · ${room.playlist.index + 1}/${room.playlist.songs.length}`
+            : tr('playlists')}
+        </Button>
+        {playlistsOpen && (
+          <PlaylistDialog
+            songs={[
+              ...new Map(
+                (room.sharedSongs ?? []).map((song) => [
+                  song.songId,
+                  {
+                    id: song.songId,
+                    title: song.title,
+                    artist: song.artist,
+                    status: 'ready' as const,
+                    activeRevision: song.revision,
+                  },
+                ]),
+              ).values(),
+            ]}
+            onClose={() => setPlaylistsOpen(false)}
+            disabled={!canControlRoom(room) || Boolean(room.songId)}
+            onPlay={async (playlist, songs) => {
+              await roomLibrary?.startPlaylist(
+                playlist.name,
+                songs.map((song) => ({
+                  songId: song.id,
+                  revision: song.activeRevision,
+                })),
+              );
+            }}
+          />
+        )}
       </aside>
     </DetachedPanel>
   );

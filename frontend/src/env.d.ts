@@ -71,6 +71,7 @@ interface DesktopApi {
   revealInExplorer(path: string): Promise<void>;
   openExternal(url: string): Promise<void>;
   copyText(value: string): Promise<void>;
+  sendErrorReport(text: string): Promise<string>;
   pythonRequest(request: PythonBridgeRequest): Promise<PythonBridgeResponse>;
   /** Same shape as pythonRequest, but reaches the shared room/voice server instead of the local Python backend. */
   roomRequest(request: PythonBridgeRequest): Promise<PythonBridgeResponse>;
@@ -83,6 +84,7 @@ interface DesktopApi {
     participantId: string,
     gain: number,
   ): Promise<void>;
+  setRoomVoiceParticipantEffect(participantId: string, effect: import('./contracts/models').RoomVoiceEffect, value: number): Promise<void>;
   keyboardLightingCapabilities(): Promise<KeyboardLightingCapabilities>;
   setKeyboardLighting(request: KeyboardLightingRequest): Promise<void>;
   uploadRoomProject(

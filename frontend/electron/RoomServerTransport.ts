@@ -1,3 +1,4 @@
+import type { RoomVoiceEffect } from './ipcChannels';
 import { sendAudioRequest } from './AudioServiceTransport';
 import { withRoomKey } from './RoomIdentity';
 import { createHash } from 'node:crypto';
@@ -50,12 +51,15 @@ export const setServerLogUploadsDisabled = (disabled: boolean): void => {
   profileServerLogsDisabled = disabled;
 };
 
+export const serverLogUploadsDisabled = (): boolean =>
+  profileServerLogsDisabled ||
+  process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined;
+
 export const roomServerRequest = async (
   request: RoomServerRequest,
 ): Promise<RoomServerResponse> => {
   if (
-    (profileServerLogsDisabled ||
-      process.env.AD_VOICE_DISABLE_SERVER_LOGS !== undefined) &&
+    serverLogUploadsDisabled() &&
     request.method.toUpperCase() === 'POST' &&
     (/^\/app-logs(?:\?|$)/.test(request.path) ||
       /^\/rooms\/[^/?]+\/diagnostics(?:\?|$)/.test(request.path))
@@ -123,7 +127,7 @@ let voiceGeneration = 0;
 let transitionTail = Promise.resolve();
 let pendingTransitions = 0;
 const maximumPendingTransitions = 32;
-const pendingGains = new Map<
+const pendingControls = new Map<
   string,
   {
     session: ActiveVoiceSession;
@@ -281,15 +285,23 @@ export const roomVoiceLevels = async (): Promise<Record<string, number>> => {
   return { ...latestVoiceLevels };
 };
 
-export const setRoomVoiceParticipantGain = (
-  sourceParticipantId: string,
-  gain: number,
+export const setRoomVoiceParticipantGain = (participantId: string, gain: number): Promise<void> =>
+  setRoomVoiceParticipantControl(participantId, 'gain', gain);
+
+export const setRoomVoiceParticipantEffect = (participantId: string, effect: RoomVoiceEffect, value: number): Promise<void> =>
+  setRoomVoiceParticipantControl(participantId, effect, value);
+
+const setRoomVoiceParticipantControl = (
+  sourceParticipantId: string, control: 'gain' | RoomVoiceEffect, value: number,
 ): Promise<void> => {
   const session = activeVoice;
   if (!session)
     return Promise.reject(new Error('Room voice session is not active'));
-  const bounded = Math.max(0, Math.min(2, gain));
-  const existing = pendingGains.get(sourceParticipantId);
+  const kind = control === 'gain' ? 'gain' : 'effect';
+  const [minimum, maximum] = ({ gain: [0, 2], effect: [-1, 1] } as const)[kind];
+  const bounded = Math.max(minimum, Math.min(maximum, value));
+  const key = `${sourceParticipantId}:${control}`;
+  const existing = pendingControls.get(key);
   if (existing?.session === session) {
     existing.latest = bounded;
     existing.revision += 1;
@@ -301,7 +313,7 @@ export const setRoomVoiceParticipantGain = (
     revision: 0,
     promise: Promise.resolve(),
   };
-  pendingGains.set(sourceParticipantId, pending);
+  pendingControls.set(key, pending);
   pending.promise = (async () => {
     try {
       while (
@@ -312,13 +324,13 @@ export const setRoomVoiceParticipantGain = (
         const revision = pending.revision;
         const response = await roomServerRequest({
           method: 'POST',
-          path: '/voice/participant-gain',
+          path: `/voice/participant-${kind}`,
           body: {
             roomId: session.roomId,
             participantId: session.participantId,
             sourceParticipantId,
             voiceToken: session.voiceToken,
-            gain: next,
+            ...(kind === 'gain' ? {gain: next} : {effect: control, value: next}),
           },
         });
         if (activeVoice !== session || voiceGeneration !== session.generation)
@@ -329,8 +341,8 @@ export const setRoomVoiceParticipantGain = (
         }
       }
     } finally {
-      if (pendingGains.get(sourceParticipantId) === pending)
-        pendingGains.delete(sourceParticipantId);
+      if (pendingControls.get(key) === pending)
+        pendingControls.delete(key);
     }
   })();
   return pending.promise;

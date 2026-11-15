@@ -4,6 +4,18 @@ import { defaultAudioRequest, parsePreferences } from './preferences';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('parsePreferences', () => {
+  it('restores playlist order and removes duplicate and invalid song identifiers', () => {
+    expect(
+      parsePreferences({
+        karaokePlaylists: [
+          null,
+          {},
+          { id: 'p', name: 'Songs', songIds: ['b', 'a', 'b', 5] },
+        ],
+      }).karaokePlaylists,
+    ).toEqual([{ id: 'p', name: 'Songs', songIds: ['b', 'a'] }]);
+    expect(parsePreferences({}).karaokePlaylists).toEqual([]);
+  });
   it('ignores an unsupported installer language', () => {
     vi.stubGlobal('desktop', { initialLanguage: 'de' });
     expect(parsePreferences({}).language).toBe('ru');

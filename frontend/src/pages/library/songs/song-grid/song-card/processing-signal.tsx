@@ -35,6 +35,7 @@ export const ProcessingSignal = ({
           style={{
             height: '2rem',
             minWidth: 0,
+            overflow: 'hidden',
             cursor: 'default',
             filter: 'none',
           }}

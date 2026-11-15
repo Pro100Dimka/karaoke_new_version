@@ -62,6 +62,13 @@ class PcmPlayoutConcealer {
         lastOutput_ = recoveryFrom_ = 0.0F;
     }
 
+    // A deadline trim discards old PCM, then joins the current waveform at its own position.
+    // With no current PCM this remains silent instead of replaying expired history.
+    void discontinue() noexcept {
+        missingFrames_ = std::max(1U, missingFrames_);
+        periodFrames_ = recoveryFrames_ = 0;
+    }
+
     // Receive-side concealment commits only a real packet admitted to its output queue.
     void remember(std::span<const float> samples, std::uint32_t stride = 1) noexcept {
         if (stride == 0)

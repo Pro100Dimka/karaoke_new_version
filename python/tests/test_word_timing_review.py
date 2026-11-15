@@ -269,7 +269,13 @@ def test_joint_review_does_not_shorten_an_unflagged_neighbors_confirmed_end(monk
 
 
 def _isolated_pipeline(
-    monkeypatch, original, candidate, *, heard=None, activity=None, refine_onsets=False,
+    monkeypatch,
+    original,
+    candidate,
+    *,
+    heard=None,
+    activity=None,
+    refine_onsets=False,
     contextual=None,
 ):
     """Isolate the final repair commit, after the local acoustic selector has chosen a pair."""
@@ -286,7 +292,8 @@ def _isolated_pipeline(
         speech_alignment, "_alignment_windows", lambda *_: [ctc.Window(0, len(original), 0, 4)]
     )
     monkeypatch.setattr(
-        speech_alignment, "contextual_guidance",
+        speech_alignment,
+        "contextual_guidance",
         lambda _w, windows, *_: (windows, timings if contextual is None else contextual),
     )
     monkeypatch.setattr(speech_alignment, "singing_frames", lambda *_: activity)
@@ -309,10 +316,12 @@ def _isolated_pipeline(
     ]
 
 
-def test_extending_an_existing_vocalization_updates_its_payload_without_duplicate_words(monkeypatch):
+def test_extending_an_existing_vocalization_updates_its_payload_without_duplicate_words(
+    monkeypatch,
+):
     from dataclasses import replace
 
-    original = [_word('before', 0, 1), _word('А', 1.5, 1.7), _word('after', 3, 3.5)]
+    original = [_word("before", 0, 1), _word("А", 1.5, 1.7), _word("after", 3, 3.5)]
     extended = replace(original[1], end=2.7, diagnostics=("VocalizationRetimed",))
     monkeypatch.setattr(speech_alignment, "recover_vocalizations", lambda *args: [extended])
     result = _isolated_pipeline(monkeypatch, original, original)
@@ -363,8 +372,12 @@ def test_unchanged_local_review_keeps_timings_without_repeating_audio_postproces
 
     def measured_align(*args, **kwargs):
         with (
-            patch.object(speech_alignment, "with_voice_onsets", wraps=speech_alignment.with_voice_onsets) as onsets,
-            patch.object(speech_alignment, "with_sung_ends", wraps=speech_alignment.with_sung_ends) as ends,
+            patch.object(
+                speech_alignment, "with_voice_onsets", wraps=speech_alignment.with_voice_onsets
+            ) as onsets,
+            patch.object(
+                speech_alignment, "with_sung_ends", wraps=speech_alignment.with_sung_ends
+            ) as ends,
         ):
             result = align(*args, **kwargs)
             assert onsets.call_count == ends.call_count == 1
@@ -408,6 +421,7 @@ def test_accepted_local_repair_reuses_unchanged_audio_features(monkeypatch):
     result = _isolated_pipeline(monkeypatch, original, candidate)
     assert [(word["start"], word["end"]) for word in result] == [(1, 2), (2, 2.5)]
 
+
 @pytest.mark.parametrize("tail_start,expected", [(4.1, True), (3.5, False)])
 def test_known_vocalization_ignores_only_recognition_outside_its_phonated_run(tail_start, expected):
     from backend.ai_worker.recognition import recover_vocalizations
@@ -418,11 +432,21 @@ def test_known_vocalization_ignores_only_recognition_outside_its_phonated_run(ta
     activity = _activity((2, 4), total=6)
     words = [_word("before", 0, 1), _word("А", 2, 2.25), _word("after", 5, 6)]
     result = recover_vocalizations(
-        words, scores, 0.02, activity, activity.astype(float),
-        lambda _: {"contexts": [{"segments": [
-            {"text": "Ааа", "start": 2.1, "end": 4.2},
-            {"text": "Дякую", "start": tail_start, "end": 4.4},
-        ]}]},
+        words,
+        scores,
+        0.02,
+        activity,
+        activity.astype(float),
+        lambda _: {
+            "contexts": [
+                {
+                    "segments": [
+                        {"text": "Ааа", "start": 2.1, "end": 4.2},
+                        {"text": "Дякую", "start": tail_start, "end": 4.4},
+                    ]
+                }
+            ]
+        },
     )
     assert bool(result) is expected
     if expected:
@@ -436,9 +460,13 @@ def test_independent_phrase_timing_prevents_a_prompted_word_from_starting_on_pre
     scores[30:40, 0] = np.log(0.99)
     scores[30:40, ctc._character_tokens("I")[0][0]] = np.log(0.02)
     result = word_guidance.with_word_guidance(
-        original, scores, 0.02, [ctc.Window(0, 3, 0, 3)],
+        original,
+        scores,
+        0.02,
+        [ctc.Window(0, 3, 0, 3)],
         {0: (0.4, 0.6), 1: (0.6, 1.95), 2: (2.1, 2.5)},
-        _activity((0.4, 0.8), (1.7, 2.5), total=3), 0.6,
+        _activity((0.4, 0.8), (1.7, 2.5), total=3),
+        0.6,
         recognized=[("red", 0.4, 0.6), ("I", 1.7, 1.95), ("sing", 2.1, 2.5)],
         onsets=[0.4, 1.7, 2.1],
     )
@@ -456,7 +484,10 @@ def test_prompted_word_spans_do_not_disable_independent_acoustic_repeat_validati
 
     monkeypatch.setattr(speech_alignment, "with_acoustic_repeats", repeats)
     _isolated_pipeline(
-        monkeypatch, original, original, heard=[("sing", 2, 2.8)],
+        monkeypatch,
+        original,
+        original,
+        heard=[("sing", 2, 2.8)],
         contextual={0: (0.6, 1.4), 1: (2, 2.8)},
     )
     assert observed and 0 not in observed[0]

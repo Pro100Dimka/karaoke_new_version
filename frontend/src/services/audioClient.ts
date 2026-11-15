@@ -18,7 +18,7 @@ import {
 } from './audioProtocol';
 import { createAudioPlayers } from './audioPlayers';
 import type { MediaCheckpoint } from './audioReconfiguration';
-import { mixerGain } from './mixerLevel';
+import { mixerGain } from '../shared/utils/mixerLevel';
 import {
   audioClock,
   audioState,

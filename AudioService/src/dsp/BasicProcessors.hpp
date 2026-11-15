@@ -6,7 +6,21 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <cmath>
 #include <vector>
+
+// Continuous value and slope through the limiting knee, with no lookahead or audio queue.
+[[nodiscard]] inline float softLimitSample(float value, float limit = 1.0F,
+                                           float kneeFraction = 0.95F) noexcept {
+    const auto magnitude = std::abs(value);
+    const auto knee = limit * kneeFraction;
+    if (magnitude <= knee)
+        return value;
+    if (magnitude >= 2.0F * limit - knee)
+        return std::copysign(limit, value);
+    const auto excess = magnitude - knee;
+    return std::copysign(magnitude - excess * excess / (4.0F * (limit - knee)), value);
+}
 
 class HighPassProcessor final : public IAudioProcessor {
   public:

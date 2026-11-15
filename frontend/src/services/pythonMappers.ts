@@ -8,6 +8,7 @@ import type {
 
 export interface BackendSong {
   songId: string;
+  sourceHash?: string | null;
   title: string;
   artist: string;
   album: string | null;
@@ -64,6 +65,11 @@ export interface RecordingPage {
   offset: number;
 }
 export interface BackendRecording {
+  roomPerformance?: {
+    roomId: string;
+    performanceId: number;
+    overallScore?: number | null;
+  } | null;
   recordingId: string;
   filePath: string;
   duration: number;
@@ -127,6 +133,7 @@ export const coverState = (value: string): SongDto['coverState'] =>
 
 export const mapSong = (song: BackendSong): SongDto => ({
   id: song.songId,
+  sourceHash: song.sourceHash ?? undefined,
   title: song.title,
   artist: song.artist,
   album: song.album ?? undefined,
@@ -215,6 +222,12 @@ export const mapJob = (
 };
 
 export const mapRecording = (recording: BackendRecording): RecordingDto => ({
+  roomPerformance: recording.roomPerformance
+    ? {
+        ...recording.roomPerformance,
+        overallScore: recording.roomPerformance.overallScore ?? undefined,
+      }
+    : undefined,
   id: recording.recordingId,
   filePath: recording.filePath,
   songId: recording.songId ?? '',

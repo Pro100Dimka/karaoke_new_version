@@ -46,6 +46,30 @@ export const ru = {
   guideLyricsFillTitle: 'Как читать подсветку и ноты',
   guideLyricsFillBody:
     'Текст на сцене отображается заглавными буквами. Подсветка движется по слову вместе с вокалом; на протяжных звуках дольше выделяется гласная. В панели нот кружок показывает высоту звука с микрофона, а движущиеся ноты служат ориентиром по мелодии. Для работы кружка выберите вход и включите микрофон.',
+  playlists: 'Плейлисты',
+  playlistSaved: 'Сохранённые плейлисты',
+  playlistNew: 'Новый плейлист',
+  playlistName: 'Название плейлиста',
+  playlistHint:
+    'Песни звучат по порядку. Каждая запись сохраняется. «Стоп» завершает плейлист.',
+  playlistOrder: 'Порядок песен',
+  playlistUnavailable: 'Песня недоступна',
+  playlistMoveUp: 'Выше',
+  playlistMoveDown: 'Ниже',
+  playlistRemove: 'Убрать из плейлиста',
+  playlistEmpty:
+    'Выберите песни чекбоксами в библиотеке и нажмите «Добавить в плейлист».',
+  playlistAddTo: 'Добавить в плейлист',
+  playlistDestination: 'Плейлист для выбранных песен',
+  playlistCreateAndAdd: 'Создать и добавить',
+  playlistAdded: 'Добавлено песен в плейлист: {count}',
+  playlistLimit: 'В плейлисте может быть не больше 200 песен.',
+  playlistUnavailableHint:
+    'Перед запуском восстановите или уберите недоступные песни.',
+  playlistRoomBusy:
+    'Перед запуском плейлиста остановите текущее исполнение в комнате.',
+  playlistPlay: 'Петь плейлист',
+
   errorProcessingNotConfigured:
     'Укажите ключ доступа к обработке в настройках ENV.',
   errorProcessingAccessDenied: 'Сервер отклонил ключ доступа к обработке.',
@@ -1497,7 +1521,7 @@ export const ru = {
   asioSetupFailed: 'Не удалось запустить установку: {reason}',
   processingSongUnavailable: 'Песня удалена из библиотеки',
   processingFailedHelp:
-    'Обработка не завершена. Причину можно посмотреть в сведениях о задаче. Чтобы добавить песню заново, удалите её из библиотеки.',
+    'Обработка не завершена. Можно повторить попытку или отправить отчёт. Если подробная причина отсутствует, она не была сохранена в задаче.',
   environmentGroupKaggle: 'Kaggle GPU',
   environmentGroupRecognition: 'Распознавание музыки',
   environmentGroupRoom: 'Сервер комнат',
@@ -1541,6 +1565,25 @@ export const ru = {
   kaggleDeployProgressTitle: 'Kaggle запускает GPU-ноутбук',
   kaggleDeployProgressTiming:
     'Прошло {elapsed} · обычно первый запуск занимает 3–10 минут',
+  processingRetry: 'Повторить обработку',
+  processingRetryStarted: 'Песня снова добавлена в очередь обработки',
+  processingRetryFailed: 'Не удалось повторить обработку',
+  processingSendReport: 'Отправить отчёт об ошибке',
+  processingReportSending: 'Отправляем отчёт…',
+  processingReportSent: 'Отчёт отправлен на сервер. Номер: {id}',
+  processingReportFailed:
+    'Не удалось отправить отчёт. Проверьте подключение и разрешение отправки логов, затем попробуйте ещё раз.',
+  processingReportHint:
+    'На сервер разработчика отправятся сведения об ошибке, диагностике и последние логи программы. Аудио и записи не отправляются.',
+  processingErrorCode: 'Код ошибки',
+  processingErrorDetails: 'Технические подробности',
+  processingInterruptedHelp:
+    'Обработка была прервана до завершения. Можно повторить её или отправить отчёт.',
+  roomPerformanceOverall: 'Общая оценка',
+  roomPerformancePersonal: 'Личная оценка',
+  roomPerformanceDuetHint:
+    'Тишина не оценивается. Учитывается только спетая часть.',
+  roomPerformanceUnavailable: 'Общая оценка пока недоступна',
   processingQueue: 'Очередь обработки',
   processingLoadFailed: 'Не удалось загрузить очередь обработки.',
   processingEmpty: 'Нет задач обработки.',
@@ -1705,4 +1748,27 @@ export const ru = {
   editorFollow: 'Следовать за курсором',
   editorZoomReset: 'Исходный масштаб',
   editorDeleteNotes: 'Удалить выбранные ноты',
+  radioControls: 'Управление музыкой',
+  radioPlayer: 'Музыка в библиотеке',
+  radioSource: 'Источник музыки',
+  radioLoading: 'Загрузка',
+  radioPlaying: 'Играет',
+  radioPaused: 'Пауза',
+  radioPlaylistUrl: 'Ссылка на YouTube-плейлист',
+  radioPlaylistHint:
+    'Открытый плейлист или доступ по ссылке. Треки идут по порядку, затем плейлист повторяется.',
+  radioPlaylistInvalid: 'Вставь ссылку на YouTube-плейлист с list= в адресе.',
+  radioUsePlaylist: 'Играть этот плейлист',
+  radioPlaylistSource: 'Твой плейлист',
+  radioLiveStream: 'Прямой эфир',
+  radioPlayback: 'Управление воспроизведением',
+  radioPreviousTrack: 'Предыдущий трек',
+  radioNextTrack: 'Следующий трек',
+  radioPreviousStation: 'Предыдущая станция',
+  radioNextStation: 'Следующая станция',
+  radioPause: 'Поставить музыку на паузу',
+  radioPlay: 'Включить музыку',
+  radioUnavailable: 'Станция недоступна. Попробуй другую.',
+  radioYoutubeUnavailable:
+    'Не удалось включить трек. Проверь доступ к плейлисту или выбери следующий трек.',
 } satisfies Record<keyof typeof en, string>;

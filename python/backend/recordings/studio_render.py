@@ -224,11 +224,7 @@ class MasterRender:
             ]
 
     def _balance_performance(self) -> None:
-        # Vocal dynamics use the full voice, not the changing spectrum of vowels.
-        self.voice_db, self.backing_db, self.reference_db, self.original_db = (
-            _profile(path, self.cancel)
-            for path in (self.vocal, self.backing, self.reference_vocal, self.original_instrumental)
-        )
+        # _analyze already measured these unchanged stems with the same broadband detector.
         self.processing.update(
             balanceSource="performance-and-backing",
             levelingBand="broadband",
@@ -288,15 +284,17 @@ class MasterRender:
 
     def _finish_voice(self) -> None:
         target = self.work / "spatial-voice.wav"
-        effects = apply_reference_space(
-            self.renderer,
-            self.reference_vocal,
-            self.user_vocal,
-            self.balanced,
-            target,
-            self.cancel,
-            full_reference=self.space_reference,
-        )
+        effects: dict[str, object] = {"status": "existing-effects-preserved", "dryPreserved": True}
+        if self.process_voice:
+            effects = apply_reference_space(
+                self.renderer,
+                self.reference_vocal,
+                self.user_vocal,
+                self.balanced,
+                target,
+                self.cancel,
+                full_reference=self.space_reference,
+            )
         self.processing["referenceEffects"] = effects
         self.processing["space"] = effects["status"]
         if target.is_file():

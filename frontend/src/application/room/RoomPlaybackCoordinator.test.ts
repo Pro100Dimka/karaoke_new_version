@@ -29,8 +29,11 @@ const setup = () => {
       playbackState: 'playing',
     })),
     clearRoomSong: vi.fn(async () => room()),
+    advancePlaylist: vi.fn(async () => room()),
     updateSharedState: vi.fn(async () => room()),
     setRoomReadiness: vi.fn(async () => room()),
+    publishPerformance: vi.fn(async () => undefined),
+    getRoom: vi.fn(async (): Promise<RoomStateDto> => room()),
   };
   const audio = {
     joinVoiceSession: vi.fn(async () => undefined),
@@ -40,6 +43,94 @@ const setup = () => {
   const session = new RoomSessionController(transport, audio, 'self');
   return { transport, session };
 };
+
+it('keeps the playlist only for a natural server stop', async () => {
+  const { transport, session } = setup();
+  session.setSnapshot(room());
+  const playback = new RoomPlaybackCoordinator(session.getScope()!, transport);
+  await playback.control('Stop', undefined, true);
+  expect(transport.roomControl).toHaveBeenLastCalledWith(
+    'A',
+    'Stop',
+    undefined,
+    true,
+  );
+  await playback.control('Stop');
+  expect(transport.roomControl).toHaveBeenLastCalledWith(
+    'A',
+    'Stop',
+    undefined,
+    false,
+  );
+});
+
+it('acknowledges the saved take and applies the server playlist selection', async () => {
+  const { transport, session } = setup();
+  session.setSnapshot({
+    ...room(),
+    performanceId: 7,
+    songId: 'one',
+    playlist: {
+      name: 'Set',
+      index: 0,
+      songs: [
+        { songId: 'one', revision: 1 },
+        { songId: 'two', revision: 1 },
+      ],
+    },
+  });
+  transport.advancePlaylist.mockResolvedValue({
+    ...room(),
+    performanceId: 8,
+    songId: 'two',
+  });
+  const playback = new RoomPlaybackCoordinator(session.getScope()!, transport);
+  await playback.advancePlaylist(7);
+  expect(transport.advancePlaylist).toHaveBeenCalledWith('A', 7);
+  expect(session.getScope()?.getRoom()?.songId).toBe('two');
+});
+
+it('publishes the analysis composite in the background and obtains a canonical saved result', async () => {
+  const { transport, session } = setup();
+  session.setSnapshot({ ...room(), songId: 'song', performanceId: 7 });
+  const playback = new RoomPlaybackCoordinator(session.getScope()!, transport);
+  const score = {
+    hitNotes: 1,
+    totalNotes: 1,
+    assessedPitchSeconds: 2,
+    pitchAccuracyPercent: 90,
+    rhythmAccuracyPercent: 60,
+    noteStabilityPercent: 30,
+  };
+  await playback.publishPerformance(7, score);
+  await playback.publishPerformance(7, score);
+  expect(transport.publishPerformance).toHaveBeenCalledOnce();
+  expect(transport.publishPerformance).toHaveBeenLastCalledWith(
+    'A',
+    7,
+    60,
+    2,
+    false,
+  );
+  transport.getRoom.mockResolvedValue({
+    ...room(),
+    performanceId: 7,
+    lastPerformanceId: 7,
+    lastPerformanceAccuracy: 84,
+  });
+  expect(await playback.finalPerformance()).toEqual({
+    roomId: 'A',
+    performanceId: 7,
+    overallScore: 84,
+  });
+  expect(transport.publishPerformance).toHaveBeenLastCalledWith(
+    'A',
+    7,
+    60,
+    2,
+    true,
+  );
+});
 
 it('coalesces duplicate starts within one room generation', async () => {
   const { transport, session } = setup();

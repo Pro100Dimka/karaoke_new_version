@@ -14,6 +14,7 @@ import threading
 import time
 from pathlib import Path
 from collections.abc import Mapping
+from functools import partial
 
 import httpx
 import soundfile as sf
@@ -23,14 +24,20 @@ from backend.ai.catalog import CATALOG
 from backend.cpu_info import logical_cpu_count
 from backend.domain_errors import DomainError
 from backend.infrastructure.instance_lock import BackendInstanceLock
+from backend.infrastructure.job_executor import run_in_background, job_failure
+from backend.infrastructure.runtime_probe import SystemRuntimeProbe
 from backend.infrastructure.processing_transport import (
     ProcessingTransport,
     read_bundle,
     write_bundle,
 )
-from backend.infrastructure.process_runner import ProcessRunner
+from backend.infrastructure.process_runner import ProcessRunner, ProcessResult
 from backend.processing.policies import cpu_threads_with_headroom
 from backend.serialization import dumps, loads_object
+
+# The full application container is needed only in the disposable song subprocess.
+if __name__ == "__main__" and len(sys.argv) == 4 and sys.argv[1] == "--process-song":
+    from backend.processing.worker_song import process_song_task
 
 logger = logging.getLogger(__name__)
 _identifier = re.compile(r"^[a-f0-9]{32}$")
@@ -40,54 +47,18 @@ def execute(
     payload: Mapping[str, object], incoming: Path, sessions: Path, cancel: threading.Event
 ) -> tuple[dict[str, object], dict[str, Path]]:
     action = payload.get("action")
-    session_id = payload.get("session")
-    if (
-        payload.get("protocolVersion") != 1
-        or not isinstance(session_id, str)
-        or not _identifier.fullmatch(session_id)
-    ):
-        raise ValueError("Invalid processing protocol or session")
+    session_id = _session_id(payload)
     directory = incoming / "complete" if action == "process-song" else sessions / session_id
     if action == "process-song":
-        directory.mkdir(exist_ok=False)
-        (incoming / "task.json").write_text(dumps(payload), encoding="utf-8")
-        result = ProcessRunner().run(
-            [
-                sys.executable,
-                "-B",
-                "-m",
-                "backend.remote_worker",
-                "--process-song",
-                str(incoming),
-                str(directory),
-            ],
-            timeout_seconds=90 * 60,
-            cancel=cancel,
-        )
-        if result.exit_code:
-            logger.error(
-                "Song processing failed: %s",
-                result.stderr.decode("utf-8", errors="replace")[-3000:],
-            )
-            raise RuntimeError("Song processing failed")
-        response = loads_object((directory / "output.json").read_text(encoding="utf-8"))
-        completed_files = {
-            name: directory / name
-            for name in ["instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"]
-            if (directory / name).is_file()
-        }
-        return response, completed_files
-    vocal, backing = directory / "vocals.wav", directory / "instrumental.wav"
+        return _complete_song(payload, incoming, directory, cancel)
+    vocal = directory / "vocals.wav"
     if action in ["separate", "prepare"]:
         directory.mkdir(exist_ok=False)
     elif not vocal.is_file():
         return {"protocolVersion": 1, "sessionExpired": True}, {}
     os.utime(directory, None)
     if action == "prepare":
-        for name in ["vocals.wav", "instrumental.wav"]:
-            source = incoming / name
-            if source.is_file():
-                shutil.move(source, directory / name)
+        _prepare_vocals(incoming, directory)
         if not vocal.is_file():
             raise ValueError("No vocal supplied")
         return {"protocolVersion": 1}, {}
@@ -96,7 +67,76 @@ def execute(
     language = payload.get("language", "Auto")
     if language not in ["Auto", "Ukrainian", "Russian", "English"]:
         raise ValueError("Unsupported processing language")
-    arguments = {
+    arguments = _worker_arguments(action, payload, incoming, directory, language)
+    recognition = directory / ("recognition-" + str(language) + ".json")
+    input_data = _alignment_input(action, payload, directory, arguments, recognition)
+    result = _run_model(action, arguments, cancel, input_data)
+    output = loads_object(result.stdout.decode("utf-8"))
+    files: dict[str, Path] = {}
+    if action == "transcribe" and not payload.get("startSeconds", 0):
+        recognition.write_bytes(result.stdout)
+    if action == "separate":
+        output = {"rhythm": output.get("rhythm", [])}
+        files = _separated_files(directory)
+    return {"protocolVersion": 1, **output}, files
+
+
+def _prepare_vocals(incoming: Path, directory: Path) -> None:
+    for name in ["vocals.wav", "instrumental.wav"]:
+        source = incoming / name
+        if source.is_file():
+            shutil.move(source, directory / name)
+
+
+def _session_id(payload: Mapping[str, object]) -> str:
+    session_id = payload.get("session")
+    if (
+        payload.get("protocolVersion") != 1
+        or not isinstance(session_id, str)
+        or not _identifier.fullmatch(session_id)
+    ):
+        raise ValueError("Invalid processing protocol or session")
+    return session_id
+
+
+def _complete_song(
+    payload: Mapping[str, object], incoming: Path, directory: Path, cancel: threading.Event
+) -> tuple[dict[str, object], dict[str, Path]]:
+    directory.mkdir(exist_ok=False)
+    (incoming / "task.json").write_text(dumps(payload), encoding="utf-8")
+    result = ProcessRunner().run(
+        [
+            sys.executable,
+            "-B",
+            "-m",
+            "backend.remote_worker",
+            "--process-song",
+            str(incoming),
+            str(directory),
+        ],
+        timeout_seconds=90 * 60,
+        cancel=cancel,
+    )
+    if result.exit_code:
+        logger.error(
+            "Song processing failed: %s",
+            result.stderr.decode("utf-8", errors="replace")[-3000:],
+        )
+        raise RuntimeError("Song processing failed")
+    response = loads_object((directory / "output.json").read_text(encoding="utf-8"))
+    completed_files = {
+        name: directory / name
+        for name in ["instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"]
+        if (directory / name).is_file()
+    }
+    return response, completed_files
+
+
+def _worker_arguments(
+    action: str, payload: Mapping[str, object], incoming: Path, directory: Path, language: object
+) -> list[str]:
+    vocal = directory / "vocals.wav"
+    return {
         "separate": ["--input", str(incoming / "input.wav"), "--output", str(directory)],
         "transcribe": [
             "--input",
@@ -118,7 +158,16 @@ def execute(
         ],
         "pitch": ["--input", str(vocal)],
     }[action]
-    recognition = directory / ("recognition-" + str(language) + ".json")
+
+
+def _alignment_input(
+    action: str,
+    payload: Mapping[str, object],
+    directory: Path,
+    arguments: list[str],
+    recognition: Path,
+) -> bytes | None:
+    backing = directory / "instrumental.wav"
     input_data = None
     if action == "align":
         scope = payload.get("scope", "")
@@ -138,6 +187,12 @@ def execute(
         if recognition.is_file():
             arguments.append("--recognition-stdin")
             input_data = recognition.read_bytes()
+    return input_data
+
+
+def _run_model(
+    action: str, arguments: list[str], cancel: threading.Event, input_data: bytes | None
+) -> ProcessResult:
     result = ProcessRunner().run(
         [sys.executable, "-B", "-m", "backend.ai_worker", action, *arguments],
         timeout_seconds=3600,
@@ -151,19 +206,90 @@ def execute(
             result.stderr.decode("utf-8", errors="replace")[-2000:],
         )
         raise RuntimeError("Model processing failed")
-    output = loads_object(result.stdout.decode("utf-8"))
+    return result
+
+
+def _separated_files(directory: Path) -> dict[str, Path]:
     files: dict[str, Path] = {}
-    if action == "transcribe" and not payload.get("startSeconds", 0):
-        recognition.write_bytes(result.stdout)
-    if action == "separate":
-        # Transfer the same lossless 16-bit stems as the existing remote pipeline.
-        output = {"rhythm": output.get("rhythm", [])}
-        for name in ["vocals", "instrumental"]:
-            samples, rate = sf.read(directory / (name + ".wav"), dtype="int16", always_2d=True)
-            target = directory / (name + ".flac")
-            sf.write(target, samples, rate, format="FLAC", subtype="PCM_16")
-            files[target.name] = target
-    return {"protocolVersion": 1, **output}, files
+    # Transfer the same lossless 16-bit stems as the existing remote pipeline.
+    for name in ["vocals", "instrumental"]:
+        samples, rate = sf.read(directory / (name + ".wav"), dtype="int16", always_2d=True)
+        target = directory / (name + ".flac")
+        sf.write(target, samples, rate, format="FLAC", subtype="PCM_16")
+        files[target.name] = target
+    return files
+
+
+def _heartbeat(
+    transport: ProcessingTransport,
+    route: str,
+    headers: Mapping[str, str],
+    root: Path,
+    job_id: str,
+    stop: threading.Event,
+    cancel: threading.Event,
+    finished: threading.Event,
+) -> None:
+    while not finished.is_set():
+        if stop.is_set() or (root / "stop.request").exists():
+            cancel.set()
+            return
+        try:
+            progress_path = root / "temp" / ("progress-" + job_id + ".json")
+            try:
+                progress = loads_object(progress_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                progress = None
+            state = transport.request(
+                "POST", route + "/heartbeat", headers=headers, json=progress
+            ).json()
+            if state["state"] != "running":
+                cancel.set()
+                return
+        except (httpx.HTTPError, DomainError):
+            cancel.set()
+            return
+        finished.wait(5)
+
+
+def _job_failed(
+    transport: ProcessingTransport, route: str, headers: Mapping[str, str], job_id: str
+) -> None:
+    logger.exception("Processing job %s failed", job_id)
+    try:
+        transport.request("POST", route + "/failed", headers=headers)
+    except (httpx.HTTPError, DomainError):
+        pass
+
+
+def _transfer_job(
+    transport: ProcessingTransport,
+    route: str,
+    headers: Mapping[str, str],
+    root: Path,
+    job_id: str,
+    cancel: threading.Event,
+) -> None:
+    with tempfile.TemporaryDirectory(prefix="job-", dir=root / "temp") as temporary:
+        incoming = Path(temporary)
+        request = incoming / "request.zip"
+        transport.download(route + "/input", request, headers)
+        payload = read_bundle(request, incoming)
+        payload["progressPath"] = str(root / "temp" / ("progress-" + job_id + ".json"))
+        if shutil.disk_usage(root).free < 4 * 1024**3:
+            raise RuntimeError("Processing PC has insufficient free storage")
+        output, files = execute(payload, incoming, root / "sessions", cancel)
+        if cancel.is_set():
+            return
+        response = incoming / "result.zip"
+        write_bundle(response, output, files)
+        with response.open("rb") as content:
+            transport.request(
+                "PUT",
+                route + "/result",
+                content=content,
+                headers={**headers, "Content-Length": str(response.stat().st_size)},
+            )
 
 
 def run_job(
@@ -176,251 +302,20 @@ def run_job(
     headers = {"X-Job-Key": ticket["jobKey"]}
     cancel, finished = threading.Event(), threading.Event()
 
-    def heartbeat() -> None:
-        while not finished.is_set():
-            if stop.is_set() or (root / "stop.request").exists():
-                cancel.set()
-                return
-            try:
-                progress_path = root / "temp" / ("progress-" + job_id + ".json")
-                try:
-                    progress = loads_object(progress_path.read_text(encoding="utf-8"))
-                except (OSError, ValueError):
-                    progress = None
-                state = transport.request(
-                    "POST", route + "/heartbeat", headers=headers, json=progress
-                ).json()
-                if state["state"] != "running":
-                    cancel.set()
-                    return
-            except (httpx.HTTPError, DomainError):
-                cancel.set()
-                return
-            finished.wait(5)
-
-    monitor = threading.Thread(target=heartbeat, daemon=True)
-    monitor.start()
+    monitor = run_in_background(
+        "processing-heartbeat",
+        partial(_heartbeat, transport, route, headers, root, job_id, stop, cancel, finished),
+    )
     try:
-        with tempfile.TemporaryDirectory(prefix="job-", dir=root / "temp") as temporary:
-            incoming = Path(temporary)
-            request = incoming / "request.zip"
-            transport.download(route + "/input", request, headers)
-            payload = read_bundle(request, incoming)
-            payload["progressPath"] = str(root / "temp" / ("progress-" + job_id + ".json"))
-            if shutil.disk_usage(root).free < 4 * 1024**3:
-                raise RuntimeError("Processing PC has insufficient free storage")
-            output, files = execute(payload, incoming, root / "sessions", cancel)
-            if cancel.is_set():
-                return
-            response = incoming / "result.zip"
-            write_bundle(response, output, files)
-            with response.open("rb") as content:
-                transport.request(
-                    "PUT",
-                    route + "/result",
-                    content=content,
-                    headers={**headers, "Content-Length": str(response.stat().st_size)},
-                )
-    except Exception:
-        logger.exception("Processing job %s failed", job_id)
-        try:
-            transport.request("POST", route + "/failed", headers=headers)
-        except (httpx.HTTPError, DomainError):
-            pass
+        with job_failure(partial(_job_failed, transport, route, headers, job_id), suppress=True):
+            _transfer_job(transport, route, headers, root, job_id, cancel)
     finally:
         finished.set()
         monitor.join(timeout=65)
         (root / "temp" / ("progress-" + job_id + ".json")).unlink(missing_ok=True)
 
 
-def process_song_task(incoming: Path, directory: Path) -> None:
-    """Use the same complete local processing pipeline in an isolated disposable library."""
-    from dataclasses import replace
-    from backend.api.policy import ApiPolicy
-    from backend.bootstrap.build import build_container
-    from backend.bootstrap.config import BackendConfig
-    from backend.infrastructure.atomic_files import atomic_write_text
-    from backend.infrastructure.hashing import sha256_file
-    from backend.infrastructure.local_projects import LocalProjectStorage
-    from backend.infrastructure.lrclib_provider import LrclibLyricsProvider
-    from backend.infrastructure.pisni_provider import PisniLyricsProvider
-    from backend.infrastructure.tekst_pesenok_provider import TekstPesenokLyricsProvider
-    from backend.lyrics.codec import decode_document
-    from backend.packages.policy import PackagePolicy
-    from backend.processing.domain import JobState, ProcessingMode
-    from backend.processing.policies import ResourceBudget
-    from backend.projects.domain import ArtifactCategory, ProjectArtifact, ProjectRevision
-    from backend.projects.fingerprint import manifest_fingerprint
-    from backend.projects.manifest_codec import encode_manifest
-    from backend.songs.domain import Language
-    from backend.songs.import_song import ImportSongRequest
-    from backend.songs.recognition import RecognizedSong
-    from backend.storage.domain import StorageRoots
-    from datetime import datetime, timezone
-    import uuid
-
-    class SourceRecognition:
-        def recognize(self, source: Path) -> RecognizedSong | None:
-            return None
-
-    payload = loads_object((incoming / "task.json").read_text(encoding="utf-8"))
-    source_name, metadata = payload["source"], payload["song"]
-    if (
-        not isinstance(source_name, str)
-        or Path(source_name).name != source_name
-        or not source_name.startswith("source.")
-    ):
-        raise ValueError("Invalid song source")
-    if not isinstance(metadata, dict):
-        raise ValueError("Invalid song metadata")
-    roots = replace(
-        StorageRoots.under(directory / "runtime"), models=Path(os.environ["AD_VOICE_MODELS"])
-    )
-    config = BackendConfig(
-        roots, ResourceBudget(max_background_jobs=1), PackagePolicy(), ApiPolicy()
-    )
-    app = build_container(
-        config,
-        lyrics_providers=(
-            LrclibLyricsProvider(),
-            PisniLyricsProvider(),
-            TekstPesenokLyricsProvider(),
-        ),
-        recognition_provider=SourceRecognition(),
-    )
-    response: dict[str, object]
-    try:
-        song = app.songs.import_song.execute(
-            ImportSongRequest(
-                incoming / source_name,
-                title=str(metadata["title"]),
-                artist=str(metadata["artist"]),
-                language=Language(metadata["language"]),
-            )
-        )
-        if isinstance(metadata.get("embeddedLyrics"), str):
-            song = replace(song, embedded_lyrics=metadata["embeddedLyrics"])
-            with app.database.create() as transaction:
-                transaction.songs.update(song)
-                transaction.commit()
-        projects = LocalProjectStorage(roots)
-        previous = payload.get("previousProvenance")
-        if isinstance(previous, dict) and (incoming / "lyricsBaseline.json").is_file():
-            # Seed the previous text as another immutable revision, preserving manual-edit guards.
-            manifest = projects.load_manifest(song.song_id, 1)
-            artifacts = list(manifest.artifacts)
-            files = {}
-            for name in ["lyricsSync", "lyricsBaseline"]:
-                source = incoming / (name + ".json")
-                if source.is_file():
-                    decode_document(source.read_text(encoding="utf-8"))
-                    artifacts.append(
-                        ProjectArtifact(
-                            name,
-                            Path(name + ".json"),
-                            ArtifactCategory.PORTABLE,
-                            sha256_file(source),
-                        )
-                    )
-                    files[Path(name + ".json")] = source
-            manifest = replace(
-                manifest, revision=2, artifacts=tuple(artifacts), provenance=previous
-            )
-            working = projects.stage_revision(
-                song.song_id,
-                2,
-                files,
-                {
-                    Path("source.ref"): str(song.source_path),
-                    Path("manifest.json"): encode_manifest(manifest),
-                },
-            )
-            projects.publish_revision(song.song_id, 2, working)
-            song = replace(song, active_revision=2)
-            with app.database.create() as transaction:
-                transaction.songs.update(song)
-                transaction.projects.add(
-                    ProjectRevision(
-                        song.song_id,
-                        2,
-                        manifest_fingerprint(manifest),
-                        manifest.project_format_version,
-                        uuid.uuid4().hex,
-                        datetime.now(timezone.utc),
-                    )
-                )
-                transaction.commit()
-        job = app.songs.start_processing.execute(
-            song.song_id,
-            ProcessingMode(payload["mode"]),
-            online_lyrics=bool(payload["onlineLyrics"]),
-            idempotency_key=None,
-            correlation_id=None,
-        )
-        last_progress: dict[str, object] | None = None
-        while True:
-            job = app.system.jobs.get(job.job_id)
-            progress = {
-                "stage": job.stage or "DecodeNormalize",
-                "stageProgress": job.stage_progress,
-                "overallProgress": job.overall_progress,
-            }
-            if progress != last_progress:
-                atomic_write_text(Path(payload["progressPath"]), dumps(progress))
-                last_progress = progress
-            if job.terminal:
-                break
-            time.sleep(0.5)
-        if job.state is not JobState.SUCCEEDED:
-            response = {
-                "protocolVersion": 1,
-                "error": dict(
-                    job.error or {"code": "ProcessingFailed", "message": "Song processing failed"}
-                ),
-            }
-        else:
-            song = app.songs.get_song.execute(song.song_id)
-            manifest = projects.load_manifest(song.song_id, song.active_revision)
-            outputs = {
-                "instrumental.flac": "instrumental",
-                "vocals.flac": "referenceVocal",
-                "melody.flac": "melody",
-                "lyrics.json": "lyricsSync",
-            }
-            for name, logical_name in outputs.items():
-                shutil.copyfile(
-                    projects.artifact_path(song.song_id, song.active_revision, logical_name),
-                    directory / name,
-                )
-            response = {
-                "protocolVersion": 1,
-                "report": dict(job.report or {}),
-                "provenance": dict(manifest.provenance),
-            }
-    except DomainError as error:
-        response = {"protocolVersion": 1, "error": {"code": error.code, "message": error.message}}
-    finally:
-        app.shutdown()
-    (directory / "output.json").write_text(dumps(response), encoding="utf-8")
-    shutil.rmtree(directory / "runtime")
-
-
-def main() -> None:
-    settings = dotenv_values(
-        Path(__file__).parents[2] / "local-secrets" / "env" / "processing-worker.env"
-    )
-    root = Path(
-        os.environ.get("AD_VOICE_PROCESSING_WORKER_DATA")
-        or settings.get("AD_VOICE_PROCESSING_WORKER_DATA")
-        or "E:/ADVoiceData/ProcessingWorker"
-    )
-    if not Path("E:/").is_dir() or root.drive.upper() != "E:":
-        raise RuntimeError("The processing worker requires its data and caches on E:")
-    for name in ["temp", "sessions", "cache"]:
-        (root / name).mkdir(parents=True, exist_ok=True)
-    if sys.argv[1:] == ["--stop"]:
-        (root / "stop.request").touch()
-        return
+def _configure_worker(root: Path, settings: Mapping[str, str | None]) -> str | None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
@@ -448,10 +343,60 @@ def main() -> None:
         XDG_CACHE_HOME=str(root / "cache"),
         OMP_NUM_THREADS=str(cpu_threads_with_headroom(logical_cpu_count())),
     )
-    import torch
-
-    if not torch.cuda.is_available():
+    facts = SystemRuntimeProbe(ProcessRunner()).inspect()
+    if not facts.cuda_available:
         raise RuntimeError("CUDA is unavailable on the processing PC")
+    return facts.gpu_name
+
+
+def _clean_sessions(root: Path) -> None:
+    cutoff = time.time() - 24 * 3600
+    directories = sorted((root / "sessions").iterdir(), key=lambda p: p.stat().st_mtime)
+    sizes = {
+        directory: sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
+        for directory in directories
+        if directory.is_dir()
+    }
+    total = sum(sizes.values())
+    for directory, size in sizes.items():
+        if directory.stat().st_mtime < cutoff or total > 6 * 1024**3:
+            shutil.rmtree(directory)
+            total -= size
+
+
+def _poll_jobs(transport: ProcessingTransport, root: Path, stop: threading.Event) -> None:
+    while not stop.is_set():
+        if (root / "stop.request").exists():
+            break
+        _clean_sessions(root)
+        try:
+            ticket = transport.request("POST", "/worker/claim").json().get("job")
+            if ticket:
+                logger.info("Starting processing job %s", ticket["jobId"])
+                run_job(transport, ticket, root, stop)
+                continue
+        except (httpx.HTTPError, DomainError):
+            logger.warning("Processing relay unavailable; retrying in 15 seconds")
+        stop.wait(15)
+
+
+def main() -> None:
+    settings = dotenv_values(
+        Path(__file__).parents[2] / "local-secrets" / "env" / "processing-worker.env"
+    )
+    root = Path(
+        os.environ.get("AD_VOICE_PROCESSING_WORKER_DATA")
+        or settings.get("AD_VOICE_PROCESSING_WORKER_DATA")
+        or "E:/ADVoiceData/ProcessingWorker"
+    )
+    if not Path("E:/").is_dir() or root.drive.upper() != "E:":
+        raise RuntimeError("The processing worker requires its data and caches on E:")
+    for name in ["temp", "sessions", "cache"]:
+        (root / name).mkdir(parents=True, exist_ok=True)
+    if sys.argv[1:] == ["--stop"]:
+        (root / "stop.request").touch()
+        return
+    gpu_name = _configure_worker(root, settings)
     lock = BackendInstanceLock(root / "worker.lock")
     lock.acquire()
     (root / "stop.request").unlink(missing_ok=True)
@@ -463,32 +408,9 @@ def main() -> None:
     if not url.startswith("https://") or len(token) < 32:
         raise RuntimeError("Configure the worker URL and its private access key")
     transport = ProcessingTransport(url, token)
-    logger.info("Processing worker ready: %s", torch.cuda.get_device_name(0))
+    logger.info("Processing worker ready: %s", gpu_name)
     try:
-        while not stop.is_set():
-            if (root / "stop.request").exists():
-                break
-            cutoff = time.time() - 24 * 3600
-            directories = sorted((root / "sessions").iterdir(), key=lambda p: p.stat().st_mtime)
-            sizes = {
-                directory: sum(p.stat().st_size for p in directory.rglob("*") if p.is_file())
-                for directory in directories
-                if directory.is_dir()
-            }
-            total = sum(sizes.values())
-            for directory, size in sizes.items():
-                if directory.stat().st_mtime < cutoff or total > 6 * 1024**3:
-                    shutil.rmtree(directory)
-                    total -= size
-            try:
-                ticket = transport.request("POST", "/worker/claim").json().get("job")
-                if ticket:
-                    logger.info("Starting processing job %s", ticket["jobId"])
-                    run_job(transport, ticket, root, stop)
-                    continue
-            except (httpx.HTTPError, DomainError):
-                logger.warning("Processing relay unavailable; retrying in 15 seconds")
-            stop.wait(15)
+        _poll_jobs(transport, root, stop)
     finally:
         transport.close()
         lock.release()

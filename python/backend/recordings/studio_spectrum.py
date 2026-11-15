@@ -289,10 +289,13 @@ def measure_mix_spectrum(voice: Path, backing: Path, cancel: threading.Event) ->
     energy = np.mean(values[active], axis=0)
     fractions = energy / np.maximum(np.sum(energy, axis=1, keepdims=True), 1e-20)
     overlap = float(np.clip(np.sum(np.sqrt(fractions[0] * fractions[1])), 0, 1))
-    ratios = 10 * np.log10(
-        np.maximum(values[active, 0], 1e-20) / np.maximum(values[active, 1], 1e-20)
+    vocal_db = 10 * np.log10(np.maximum(values[active, 0], 1e-20))
+    ratios = vocal_db - 10 * np.log10(np.maximum(values[active, 1], 1e-20))
+    # A dip in the accompaniment alone is not a resonance in the singer's voice.
+    excess = np.minimum(
+        ratios[:, 1:-1] - (ratios[:, :-2] + ratios[:, 2:]) / 2,
+        vocal_db[:, 1:-1] - (vocal_db[:, :-2] + vocal_db[:, 2:]) / 2,
     )
-    excess = ratios[:, 1:-1] - (ratios[:, :-2] + ratios[:, 2:]) / 2
     centers = np.sqrt(edges[:-1] * edges[1:])
     nyquist = sf.info(voice).samplerate / 2
     bands = [
@@ -444,6 +447,19 @@ def measure_band_tails(path: Path, cancel: threading.Event) -> dict[str, SpacePr
                 tail_band_hz=band,
             )
     return profiles
+
+
+def plan_reference_band_space(
+    expected: SpaceProfile, reference: Path, voice: Path, cancel: threading.Event
+) -> dict[str, SpaceProfile]:
+    if expected.reverb_gain:
+        return {}
+    return {
+        name: replace(profile, reverb_gain=profile.reverb_gain * 0.5)
+        for name, profile in plan_band_space(
+            reference, voice, expected.stereo_width, cancel
+        ).items()
+    }
 
 
 def plan_band_space(

@@ -1,6 +1,6 @@
 import type { RoomStateDto, SongDto } from '../../contracts/models';
 import { routes } from '../../shared/routes';
-import { roomProjectNeedsDownload } from './roomModel';
+import { localRoomSong } from './roomModel';
 
 type RoomKaraokeNavigation =
   | { kind: 'stay' }
@@ -19,11 +19,11 @@ export const roomKaraokeNavigation = (
   }
   if (completedProjectKey === `${room.songId}:${room.revision}`)
     return { kind: 'stay' };
-  const localSongId = importedLocalSongId ?? room.songId;
-  if (roomProjectNeedsDownload(room, library, importedLocalSongId)) {
+  const localSong = localRoomSong(room, library, importedLocalSongId);
+  if (!localSong) {
     return { kind: 'download', songId: room.songId, revision: room.revision };
   }
-  if (pathname === routes.karaoke(localSongId)) return { kind: 'stay' };
+  if (pathname === routes.karaoke(localSong.id)) return { kind: 'stay' };
   const projectReadyPhases = new Set<
     RoomStateDto['participants'][number]['readiness']
   >(['preparing', 'audio', 'ready']);
@@ -31,5 +31,9 @@ export const roomKaraokeNavigation = (
     .filter((person) => person.connected)
     .every((person) => projectReadyPhases.has(person.readiness));
   if (!everyConnectedParticipantHasProject) return { kind: 'stay' };
-  return { kind: 'open', songId: localSongId, revision: room.revision };
+  return {
+    kind: 'open',
+    songId: localSong.id,
+    revision: localSong.activeRevision,
+  };
 };

@@ -62,6 +62,9 @@ class Participant:
     arrival_requirement_ms: float | None = None
     voice_route_calibrated: bool = False
     voice_route: str = "relay"
+    performance_accuracy: float | None = None
+    performance_sung_seconds: float = 0.0
+    performance_finished: bool = False
 
     @property
     def eligibility_reason(self) -> EligibilityReason:
@@ -82,6 +85,15 @@ class RoomSong:
     album: str | None
     genre: str | None
     duration_seconds: float
+    source_hash: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RoomPlaylist:
+    name: str
+    songs: tuple[tuple[str, int], ...]
+    index: int = 0
+    finished_participants: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +128,10 @@ class Room:
     room_timing_source: TimingSource = TimingSource.AWAITING_ROUTES
     singing_timing: RoomTiming | None = None
     auto_start_pending: bool = False
+    performance_id: int = 0
+    last_performance_id: int | None = None
+    last_performance_accuracy: float | None = None
+    playlist: RoomPlaylist | None = None
 
     def with_timing(self, timing: RoomTiming) -> Room:
         return replace(

@@ -10,6 +10,29 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+it('sends explicit error reports with redacted recent logs after periodic flushing', async () => {
+  const send = vi.fn().mockResolvedValue(undefined);
+  const logs = new AppLogUploader(send);
+  logs.add('python', 'error', 'Authorization: Bearer private-token');
+  await logs.flush();
+  send.mockClear();
+  const id = await logs.sendReport('Failure details '.repeat(600));
+  const entries = send.mock.calls.flatMap(([batch]) => batch);
+  expect(
+    entries.filter((entry) => entry.source === 'error-report').length,
+  ).toBeGreaterThan(1);
+  expect(entries.every((entry) => entry.message.includes(id))).toBe(true);
+  expect(entries.some((entry) => entry.source === 'python')).toBe(true);
+  expect(JSON.stringify(entries)).not.toContain('private-token');
+});
+
+it('does not claim an explicit report was sent when uploading fails', async () => {
+  const logs = new AppLogUploader(
+    vi.fn().mockRejectedValue(new Error('offline')),
+  );
+  await expect(logs.sendReport('Failed song')).rejects.toThrow('offline');
+});
+
 it('drains more than two batches on shutdown', async () => {
   const send = vi.fn().mockResolvedValue(undefined);
   const logs = new AppLogUploader(send);
@@ -50,6 +73,7 @@ const transport = vi.hoisted(() => ({
 }));
 vi.mock('./RoomServerTransport', () => ({
   roomServerRequest: transport.request,
+  serverLogUploadsDisabled: () => false,
 }));
 vi.mock('./RoomIdentity', () => ({
   roomParticipantId: transport.participantId,

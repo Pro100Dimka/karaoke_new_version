@@ -21,6 +21,10 @@ import { parsePreferences } from '../../../../../shared/preferences/preferences'
 import type { useAudioSettings } from './useAudioSettings';
 import type { useInputMonitoring } from './useInputMonitoring';
 import FormButton from '../form-button';
+import {
+  effectFromKnob,
+  effectToKnob,
+} from '../../../../../features/karaoke/console/voiceEffects';
 
 const InputLevelMeter = observer(
   ({ level, active }: { level: IObservableValue<number>; active: boolean }) => (
@@ -206,6 +210,7 @@ export const AudioFields = observer(
                 <RotaryKnob
                   {...rotaryProps}
                   max={4}
+                  displayScale={25}
                   resetValue={1}
                   label={tr('microphoneKnob')}
                   value={store.preferences.voiceGain}
@@ -238,12 +243,12 @@ export const AudioFields = observer(
                   max={1}
                   resetValue={0}
                   label={tr('noiseKnob')}
-                  value={store.preferences.noiseSuppression}
+                  value={effectToKnob(store.preferences.noiseSuppression)}
                   onValueChange={(noiseSuppression) =>
                     store.updatePreferences({
                       noiseSuppression: parsePreferences({
                         ...store.preferences,
-                        noiseSuppression,
+                        noiseSuppression: effectFromKnob(noiseSuppression),
                       }).noiseSuppression,
                     })
                   }

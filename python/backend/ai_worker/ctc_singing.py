@@ -6,6 +6,7 @@ import numpy as np
 from backend.ai_worker.timing import (
     _BRIDGED_GAP_SECONDS,
     _bridged,
+    _first_long_silence as _first_long_silence,
     _runs,
     audible_frames,
     continued_frames,
@@ -60,6 +61,7 @@ def with_sung_ends(
         letters = word.letters
         if silence is not None:
             end = max(silence, word.start + 0.001)
+        if end < word.end:
             letters = _clamped_letters(word.letters, 0.0, word.start, end, text=word.text)
         flags = dict.fromkeys(word.diagnostics)
         if letters != word.letters:
@@ -136,7 +138,6 @@ def _sung_end(
     periodic_core = bool(len(core)) and float(np.median(core)) >= 0.5
     # A periodic vowel or sonorant can release straight into a breath without
     # an amplitude gap. Phrase activity alone cannot authorize that new noise.
-    # Keep brief pitch dropouts, and never shorten the confirmed phonetic core.
     voiced_ending = periodic_core and _voiced_release(word, periodicity, step)
     frame = min(int(word.end / step), len(continued) - 1)
     while (
@@ -147,22 +148,10 @@ def _sung_end(
         and frame * step < limit
     ):
         frame += 1
-    return max(word.end, min(frame * step, limit))
-
-
-def _first_long_silence(voiced: np.ndarray, start: float, end: float, step: float) -> float | None:
-    """Where the first pause of at least _SILENCE_ENDS_WORD_SECONDS after the word's sound begins starts."""
-    first, last = int(start / step), min(len(voiced), int(end / step))
-    sounding = np.flatnonzero(voiced[first:last])
-    if not len(sounding):
-        return None
-    needed = round(_SILENCE_ENDS_WORD_SECONDS / step)
-    run = 0
-    for frame in range(first + int(sounding[0]), last):
-        run = 0 if voiced[frame] else run + 1
-        if run >= needed:
-            return (frame - run + 1) * step
-    return None
+    end = max(word.end, min(frame * step, limit))
+    active = continued[: len(continuation)] & continuation[: len(continued)]
+    release = _first_long_silence(active, word.start, end, step, trailing=True)
+    return release if release is not None else end
 
 
 def with_voice_onsets(

@@ -113,6 +113,7 @@ void NativeVoiceRelay::forget(std::string_view participant) {
     auto room = rooms_.find(found->second.room);
     if (room != rooms_.end()) {
         room->second.members.erase(key);
+        room->second.sourcePlayout.erase(key);
         room->second.started.erase(key);
         room->second.excluded.erase(key);
         room->second.recoveryPackets.erase(key);
@@ -120,6 +121,7 @@ void NativeVoiceRelay::forget(std::string_view participant) {
         for (auto& [position, pending] : room->second.pending) {
             (void)position;
             pending.inputs.erase(key);
+            pending.playout.erase(key);
         }
         for (auto gain = room->second.gains.begin(); gain != room->second.gains.end();) {
             if (gain->first.first == key || gain->first.second == key)
@@ -127,6 +129,10 @@ void NativeVoiceRelay::forget(std::string_view participant) {
             else
                 ++gain;
         }
+        std::erase_if(room->second.effects, [key](const auto& entry) {
+            const std::array owners{entry.first.first, entry.first.second};
+            return std::ranges::find(owners, key) != owners.end();
+        });
     }
     participants_.erase(found);
 }
@@ -143,7 +149,38 @@ void NativeVoiceRelay::setRecipientSourceGain(std::string_view room,
                                                std::string_view recipient,
                                                std::string_view source, float gain) {
     rooms_[std::string(room)].gains.insert_or_assign(
-        {participantKey(recipient), participantKey(source)}, std::clamp(gain, 0.0F, 2.0F));
+        {participantKey(recipient), participantKey(source)}, std::clamp(gain, 0.0F, 4.0F));
+}
+
+bool NativeVoiceRelay::setRecipientSourceEffect(std::string_view room, std::string_view recipient,
+                                                std::string_view source, std::string_view effect,
+                                                float value) {
+    const auto foundRoom = rooms_.find(std::string(room));
+    if (foundRoom == rooms_.end() || recipient == source || !std::isfinite(value))
+        return false;
+    auto& state = foundRoom->second;
+    const auto pair = std::pair{participantKey(recipient), participantKey(source)};
+    if (!state.members.contains(pair.first))
+        return false;
+    auto& effects = state.effects[pair];
+    if (!effects) {
+        effects = std::make_unique<VoiceEffects>();
+        effects->dsp.prepare(VoiceProtocolSampleRateHz, SharedRoomPacketFrames, 1, true);
+        effects->dsp.setEnabled(true);
+    }
+    const auto normalized = effects->dsp.setVoiceEffect(effect, value);
+    if (!normalized) {
+        if (effects->active.empty())
+            state.effects.erase(pair);
+        return false;
+    }
+    if (*normalized == 0.0F)
+        effects->active.erase(std::string(effect));
+    else
+        effects->active.insert(std::string(effect));
+    if (effects->active.empty())
+        state.effects.erase(pair);
+    return true;
 }
 
 void NativeVoiceRelay::setRoomPlayoutDelay(std::string_view room, double milliseconds,
@@ -205,6 +242,11 @@ void NativeVoiceRelay::setGeneration(std::string_view room, std::uint32_t genera
 }
 
 void NativeVoiceRelay::resetTimeline(Room& room, bool newGeneration) {
+    for (auto& [pair, effects] : room.effects) {
+        (void)pair;
+        effects->dsp.reset();
+        effects->nextFrame = 0;
+    }
     if (newGeneration) {
         room.generation = room.generation == std::numeric_limits<std::uint32_t>::max()
                               ? 1U
@@ -212,6 +254,7 @@ void NativeVoiceRelay::resetTimeline(Room& room, bool newGeneration) {
         room.sequences.clear();
     }
     room.pending.clear();
+    room.sourcePlayout.clear();
     room.mixed.clear();
     room.recipientMetrics.clear();
     room.latestInputEnd = 0;
@@ -501,23 +544,62 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         metrics.pipelinePosition = position.timestamp & ~SharedAudioTimelineFlag;
         metrics.pipelineGeneration = room.generation;
         ++metrics.packets;
+        metrics.effectLatencyFrames = 0;
         std::array<double, SharedRoomPacketFrames> summed{};
-        for (const auto& [sourceKey, voice] : pending.inputs) {
-            if (sourceKey == recipientKey || !audible.contains(sourceKey))
+        for (const auto sourceKey : room.eligible) {
+            if (sourceKey == recipientKey)
                 continue;
+            const auto input = pending.inputs.find(sourceKey);
+            const auto received = audible.contains(sourceKey) && input != pending.inputs.end();
+            auto [prepared, created] = pending.playout.try_emplace(sourceKey);
+            auto& voice = prepared->second;
+            if (created) {
+                auto& source = room.sourcePlayout[sourceKey];
+                const auto mediaFrame = position.timestamp & ~SharedAudioTimelineFlag;
+                if (source.nextFrame != mediaFrame)
+                    source.continuity.reset();
+                if (received)
+                    for (std::size_t frame = 0; frame < position.frames; ++frame)
+                        voice[frame] = static_cast<float>(input->second[frame]) / 32'768.0F;
+                // Continue only a bounded waveform at this position. Late packets never seed it.
+                source.continuity.process(std::span{voice}.first(position.frames),
+                                          received ? position.frames : 0U,
+                                          VoiceProtocolSampleRateHz);
+                source.nextFrame = mediaFrame + position.frames;
+            }
+            if (!received && std::ranges::any_of(voice, [](float sample) { return sample != 0.0F; }))
+                metrics.concealedSourceFrames += position.frames;
             const auto gain = [&] {
                 const auto found = room.gains.find({recipientKey, sourceKey});
                 return found == room.gains.end() ? 1.0F : found->second;
             }();
+            const auto effect = room.effects.find({recipientKey, sourceKey});
+            if (effect == room.effects.end()) {
+                for (std::size_t frame = 0; frame < position.frames; ++frame)
+                    summed[frame] += static_cast<double>(voice[frame]) * 32'768.0 * gain;
+                continue;
+            }
+            auto& chain = *effect->second;
+            const auto mediaFrame = position.timestamp & ~SharedAudioTimelineFlag;
+            if (chain.nextFrame != mediaFrame)
+                chain.dsp.reset();
+            chain.nextFrame = mediaFrame + position.frames;
+            std::array<float, SharedRoomPacketFrames> processed{};
             for (std::size_t frame = 0; frame < position.frames; ++frame)
-                summed[frame] += static_cast<double>(voice[frame]) * gain;
+                processed[frame] = voice[frame];
+            chain.dsp.process(std::span{processed}.first(position.frames), position.frames);
+            metrics.effectLatencyFrames = std::max(metrics.effectLatencyFrames, chain.dsp.latencyFrames());
+            for (std::size_t frame = 0; frame < position.frames; ++frame)
+                summed[frame] += static_cast<double>(processed[frame]) * 32'768.0 * gain;
         }
         // Preserve cancellation and sub-LSB contributions before quantizing the final mix.
         std::vector<std::int16_t> mix(position.frames);
         std::int32_t recipientPeak = 0;
         for (std::size_t frame = 0; frame < mix.size(); ++frame) {
             mix[frame] = static_cast<std::int16_t>(
-                std::lround(std::clamp(summed[frame], -32'768.0, 32'767.0)));
+                std::lround(std::clamp(static_cast<double>(softLimitSample(
+                    static_cast<float>(summed[frame] / 32'768.0))) * 32'768.0,
+                    -32'768.0, 32'767.0)));
             recipientPeak =
                 std::max(recipientPeak, std::abs(static_cast<std::int32_t>(mix[frame])));
         }

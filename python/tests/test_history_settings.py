@@ -149,7 +149,9 @@ def test_switching_from_oracle_to_local_does_not_stop_shared_worker(client, monk
     def unexpected(*args, **kwargs):
         pytest.fail("Switching one client must not contact the shared worker")
 
-    monkeypatch.setattr("backend.infrastructure.processing_transport.ProcessingTransport.request", unexpected)
+    monkeypatch.setattr(
+        "backend.infrastructure.processing_transport.ProcessingTransport.request", unexpected
+    )
     assert client.patch("/settings", json={"processingBackend": "Oracle"}).status_code == 200
     response = client.patch("/settings", json={"processingBackend": "Local"})
     assert response.status_code == 200

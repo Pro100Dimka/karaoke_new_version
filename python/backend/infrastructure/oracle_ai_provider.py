@@ -144,25 +144,7 @@ class OracleAiProvider:
         cancel: threading.Event,
         progress: Callable[[str, float, float], None],
     ) -> CompletedProcessingProject:
-        if song.source_path is None:
-            raise DependencyError("SourceMissing", "Song source is missing")
-        source_name = "source" + song.source_path.suffix.lower()
-        files = {source_name: song.source_path}
-        previous: Mapping[str, object] | None = None
-        if self._projects is not None:
-            manifest = self._projects.load_manifest(song.song_id, song.active_revision)
-            previous = {
-                key: value
-                for key, value in manifest.provenance.items()
-                if key in ["lyricsSource", "lyricsSourceText", "lyricsTimingHints", "warnings"]
-            }
-            for name in ["lyricsSync", "lyricsBaseline"]:
-                if any(item.logical_name == name for item in manifest.artifacts):
-                    files[name + ".json"] = self._projects.artifact_path(
-                        song.song_id,
-                        song.active_revision,
-                        name,
-                    )
+        source_name, files, previous = self._source_files(song)
         progress("DecodeNormalize", 0.0, 0.0)
         result = self._invoke(
             "process-song",
@@ -184,6 +166,61 @@ class OracleAiProvider:
             workdir,
             progress,
         )
+        return self._completed_project(song, result, workdir)
+
+    def _source_files(self, song: Song) -> tuple[str, dict[str, Path], Mapping[str, object] | None]:
+        if song.source_path is None:
+            raise DependencyError("SourceMissing", "Song source is missing")
+        source_name = "source" + song.source_path.suffix.lower()
+        files = {source_name: song.source_path}
+        previous: Mapping[str, object] | None = None
+        if self._projects is not None:
+            manifest = self._projects.load_manifest(song.song_id, song.active_revision)
+            previous = {
+                key: value
+                for key, value in manifest.provenance.items()
+                if key in ["lyricsSource", "lyricsSourceText", "lyricsTimingHints", "warnings"]
+            }
+            for name in ["lyricsSync", "lyricsBaseline"]:
+                if any(item.logical_name == name for item in manifest.artifacts):
+                    files[name + ".json"] = self._projects.artifact_path(
+                        song.song_id,
+                        song.active_revision,
+                        name,
+                    )
+        return source_name, files, previous
+
+    @staticmethod
+    def _processing_report(raw_report: dict[str, JsonValue], song: Song) -> ProcessingReport:
+        stages = raw_report["stages"]
+        warnings = raw_report["warnings"]
+        if not isinstance(stages, list) or not isinstance(warnings, list):
+            raise ValueError("Invalid processing report")
+        reports = []
+        for item in stages:
+            if not isinstance(item, dict):
+                raise ValueError("Invalid processing stage")
+            reports.append(
+                StageReport(
+                    str(item["stage"]),
+                    _number(item, "durationSeconds"),
+                    CancellationPolicy(str(item["cancellationPolicy"])),
+                )
+            )
+        return ProcessingReport(
+            song.song_id,
+            song.active_revision,
+            tuple(reports),
+            {},
+            bool(raw_report.get("cacheUsed")),
+            tuple(str(value) for value in warnings),
+            str(raw_report["algorithmVersion"]),
+            processing_backend="Oracle",
+        )
+
+    def _completed_project(
+        self, song: Song, result: dict[str, JsonValue], workdir: Path
+    ) -> CompletedProcessingProject:
         failure = result.get("error")
         if isinstance(failure, dict):
             raise DependencyError(
@@ -196,31 +233,7 @@ class OracleAiProvider:
                 "AiProviderInvalidOutput", "Completed processing project is invalid"
             )
         try:
-            stages = raw_report["stages"]
-            warnings = raw_report["warnings"]
-            if not isinstance(stages, list) or not isinstance(warnings, list):
-                raise ValueError("Invalid processing report")
-            reports = []
-            for item in stages:
-                if not isinstance(item, dict):
-                    raise ValueError("Invalid processing stage")
-                reports.append(
-                    StageReport(
-                        str(item["stage"]),
-                        _number(item, "durationSeconds"),
-                        CancellationPolicy(str(item["cancellationPolicy"])),
-                    )
-                )
-            report = ProcessingReport(
-                song.song_id,
-                song.active_revision,
-                tuple(reports),
-                {},
-                bool(raw_report.get("cacheUsed")),
-                tuple(str(value) for value in warnings),
-                str(raw_report["algorithmVersion"]),
-                processing_backend="Oracle",
-            )
+            report = self._processing_report(raw_report, song)
             document = decode_document((workdir / "lyrics.json").read_text(encoding="utf-8"))
             return CompletedProcessingProject(
                 workdir / "instrumental.flac",

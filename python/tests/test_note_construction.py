@@ -68,7 +68,9 @@ def test_processing_persists_phrase_breaks_at_breaths_and_preserves_catalog_line
 
 
 @pytest.mark.parametrize("lead_start,backing_start,backing_end", [(2.1, 2, 2.1), (2, 2.2, 2.3)])
-def test_backing_overlaps_are_not_published_as_main_words_or_notes(lead_start, backing_start, backing_end):
+def test_backing_overlaps_are_not_published_as_main_words_or_notes(
+    lead_start, backing_start, backing_end
+):
     words = (
         WordTiming("we", 0, 1, 0.8),
         WordTiming("sing", 1, 2, 0.8),
@@ -143,9 +145,9 @@ def test_a_confirmed_phrase_break_is_consistent_across_repeated_lyric_contexts(p
     ]
 
 
-@pytest.mark.parametrize('boundary', [1, 2])
+@pytest.mark.parametrize("boundary", [1, 2])
 def test_a_repeated_context_keeps_the_position_of_its_confirmed_break(boundary):
-    texts = ['sing', 'with', 'me']
+    texts = ["sing", "with", "me"]
     words = tuple(
         WordTiming(
             text,
@@ -161,9 +163,14 @@ def test_a_repeated_context_keeps_the_position_of_its_confirmed_break(boundary):
     assert document.lyrics == phrase + "\n" + phrase
 
 
-@pytest.mark.parametrize("reason", [
-    "TimingReviewRequired", "AsrCtcBoundaryDisagreement", "ApproximateAlignment",
-])
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "TimingReviewRequired",
+        "AsrCtcBoundaryDisagreement",
+        "ApproximateAlignment",
+    ],
+)
 @pytest.mark.parametrize("uncertain", [3, 4])
 def test_an_uncertain_boundary_does_not_split_other_occurrences(reason, uncertain):
     from dataclasses import replace
@@ -278,12 +285,15 @@ def test_notes_stay_inside_the_word_whatever_the_gaps(gap: float) -> None:
         assert 0.0 <= note.start < note.end <= 0.05 + gap
 
 
-def test_a_brief_wobble_does_not_split_off_its_own_note() -> None:
+@pytest.mark.parametrize("isolated", [False, True])
+def test_a_brief_wobble_does_not_split_off_its_own_note(isolated) -> None:
     # A4 held for 200 ms with a single 10 ms blip up to C5 in the middle -- measurement noise, not a real
     # note change -- must read back as one held A4, not three fragments.
     times = [round(i * 0.01, 2) for i in range(20)]
     points = [PitchPoint(t, _C5 if t == 0.10 else _A4, 0.9) for t in times]
-    words = [WordTiming("laaa", 0.0, 0.2, 0.9)]
+    if isolated:
+        points += [PitchPoint(0.4, _C5, 0.99, True)]
+    words = [WordTiming("laaa", 0.0, 0.5 if isolated else 0.2, 0.9)]
     document = construct_document("t", "a", 1.0, "laaa", words, points, _music())
     notes = document.words[0].notes
     assert len(notes) == 1
@@ -369,11 +379,12 @@ def test_vibrato_around_a_semitone_boundary_stays_one_note() -> None:
     assert len(document.words[0].notes) == 1
 
 
-def test_a_point_on_the_last_instant_of_a_word_never_yields_an_empty_note() -> None:
+@pytest.mark.parametrize("end", [0.2, 0.20000000000000004])
+def test_a_point_on_the_last_instant_of_a_word_never_yields_an_empty_note(end) -> None:
     points = _pitch([0.0, 0.05, 0.1], _A4) + _pitch([0.2], _C5)
-    words = [WordTiming("la", 0.0, 0.2, 0.9)]
+    words = [WordTiming("la", 0.0, end, 0.9)]
     document = construct_document("t", "a", 1.0, "la", words, points, _music())
-    assert all(note.end > note.start for note in document.words[0].notes)
+    assert all(note.end - note.start > 1e-8 for note in document.words[0].notes)
 
 
 def test_unobserved_pitch_gap_and_word_tail_do_not_become_a_required_held_note() -> None:
@@ -536,8 +547,11 @@ def test_a_continuous_short_glide_is_not_converted_into_distinct_middle_holds() 
 
 
 def test_phrase_break_does_not_leave_a_preposition_alone():
-    words = [WordTiming("них", 1, 2, 0.9), WordTiming("В", 2, 2.1, 0.9),
-             WordTiming("темряві", 2.7, 3.4, 0.9)]
+    words = [
+        WordTiming("них", 1, 2, 0.9),
+        WordTiming("В", 2, 2.1, 0.9),
+        WordTiming("темряві", 2.7, 3.4, 0.9),
+    ]
     document = construct_document("t", "a", 4, "них\nВ\nтемряві", words, (), _music())
     assert document.lyrics == "них\nВ темряві"
     assert [(word.text, word.start, word.end) for word in document.words] == [
@@ -547,17 +561,27 @@ def test_phrase_break_does_not_leave_a_preposition_alone():
 
 @pytest.mark.parametrize("bpm,expected", [(133.33, "call\nthere\nagain"), (90, "call there again")])
 def test_phrases_use_tempo_for_short_breaths_between_replies(bpm, expected):
-    words = [WordTiming("call", 0, 1, 0.9), WordTiming("there", 1.26, 2, 0.9),
-             WordTiming("again", 2.26, 3, 0.9)]
-    document = construct_document("t", "a", 4, "call there again", words, (), MusicMetadata(bpm, None))
+    words = [
+        WordTiming("call", 0, 1, 0.9),
+        WordTiming("there", 1.26, 2, 0.9),
+        WordTiming("again", 2.26, 3, 0.9),
+    ]
+    document = construct_document(
+        "t", "a", 4, "call there again", words, (), MusicMetadata(bpm, None)
+    )
     assert document.lyrics == expected
+
 
 @pytest.mark.parametrize("pause", [0, 0.5])
 def test_a_previously_split_reply_still_supplies_acoustic_evidence_for_its_repetitions(pause):
     lyrics = "sing with us\nnow\nstay with us now"
     words = tuple(
-        WordTiming(text, offset + index + (pause if offset == 0 and index == 3 else 0),
-                   offset + index + 1, 0.8)
+        WordTiming(
+            text,
+            offset + index + (pause if offset == 0 and index == 3 else 0),
+            offset + index + 1,
+            0.8,
+        )
         for line, offset in [("sing with us now", 0), ("stay with us now", 5)]
         for index, text in enumerate(line.split())
     )

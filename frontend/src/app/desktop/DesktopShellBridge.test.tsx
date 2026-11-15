@@ -30,6 +30,7 @@ const state = vi.hoisted(() => ({
     toggle: vi.fn(),
     setStation: vi.fn(),
     setVolume: vi.fn(),
+    next: vi.fn(),
   },
   room: null as null | { code: string; participants: unknown[] },
   micEnabled: true,
@@ -43,6 +44,7 @@ vi.mock('../../providers/radio', () => ({
   toggleRadio: () => state.radio.toggle(),
   setRadioStation: state.radio.setStation,
   setRadioVolume: state.radio.setVolume,
+  changeRadioStation: state.radio.next,
 }));
 vi.mock('../../providers/notifications', () => ({
   useNotify: () => state.notify,
@@ -152,7 +154,7 @@ describe('DesktopShellBridge', () => {
     send({ type: 'toggleRadio' });
     expect(state.radio.toggle).toHaveBeenCalledOnce();
     send({ type: 'nextStation' });
-    expect(state.radio.setStation).toHaveBeenCalledWith('secret-agent');
+    expect(state.radio.next).toHaveBeenCalledOnce();
     const toggles = microphoneToggled.get();
     await act(async () => {
       state.listener?.({ type: 'toggleMicrophone' });

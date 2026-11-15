@@ -7,6 +7,7 @@ from backend.room.commands import (
     AuthorizeMediaControl,
     ClearRoomSong,
     SelectRoomSong,
+    SetRoomPlaylist,
     SetCollaborativeControl,
     SetParticipantReadiness,
     StartRoomSyncCheck,
@@ -25,6 +26,7 @@ from backend.room.membership_commands import (
 )
 from backend.room.timing import SetParticipantTiming
 from backend.room.ports import RoomRepository
+from backend.room.performance import PublishRoomPerformance
 from backend.room.queries import GetRoom
 from backend.room.serialization import RoomLocks
 from backend.runtime import Clock, IdGenerator
@@ -50,6 +52,8 @@ class RoomCases:
     transfer_host: TransferRoomHost
     remove_participant: RemoveRoomParticipant
     close: CloseRoom
+    publish_performance: PublishRoomPerformance
+    playlist: SetRoomPlaylist
 
 
 def build_room_cases(
@@ -78,4 +82,6 @@ def build_room_cases(
         TransferRoomHost(rooms, locks=locks),
         RemoveRoomParticipant(rooms, locks=locks),
         CloseRoom(rooms, locks=locks),
+        PublishRoomPerformance(rooms, locks=locks),
+        SetRoomPlaylist(rooms, clock, locks=locks),
     )

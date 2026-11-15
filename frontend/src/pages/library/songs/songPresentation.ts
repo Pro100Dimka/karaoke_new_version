@@ -8,6 +8,7 @@ export type SongActionId =
   | 'settings'
   | 'folder'
   | 'viewError'
+  | 'retry'
   | 'delete';
 
 interface SongStatusPresentation {
@@ -47,7 +48,7 @@ export const songStatusPresentation = {
     label: 'failed',
     tone: 'error',
     primaryAction: null,
-    actions: ['viewError', 'settings', 'folder', 'delete'],
+    actions: ['viewError', 'retry', 'settings', 'folder', 'delete'],
   },
   importing: {
     label: 'importing',
@@ -59,6 +60,6 @@ export const songStatusPresentation = {
     label: 'projectInvalid',
     tone: 'error',
     primaryAction: null,
-    actions: ['viewError', 'folder', 'delete'],
+    actions: ['viewError', 'retry', 'folder', 'delete'],
   },
 } satisfies Record<SongStatus, SongStatusPresentation>;

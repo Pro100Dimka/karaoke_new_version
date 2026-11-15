@@ -48,10 +48,31 @@ def test_progress_cannot_overwrite_cancellation(tmp_path, monkeypatch):
         assert wait_for_job(client, job.job_id)["state"] == "Cancelled"
 
 
-def test_terminal_job_rejects_late_progress_updates(tmp_path):
+def test_terminal_job_survives_event_overflow_and_rejects_late_progress(tmp_path, monkeypatch):
+    finish_work, settled = threading.Event(), threading.Event()
     with app_client(tmp_path) as client:
         manager = client.app.state.container.system.jobs
-        job = manager.start(JobType.SONG_PROCESSING, lambda context: None)
+        manager._events._capacity = 1
+
+        def work(context):
+            assert finish_work.wait(3)
+
+        job = manager.start(JobType.SONG_PROCESSING, work, on_finally=settled.set)
+        get = client.get
+        reads = 0
+
+        def finish_after_snapshot(url, *args, **kwargs):
+            nonlocal reads
+            response = get(url, *args, **kwargs)
+            reads += 1
+            if reads == 2:
+                finish_work.set()
+                assert settled.wait(3)
+                for _ in range(2):
+                    manager._events.publish("library.changed", {"songIds": ["song"]})
+            return response
+
+        monkeypatch.setattr(client, "get", finish_after_snapshot)
         assert wait_for_job(client, job.job_id)["state"] == "Succeeded"
         completed = manager.get(job.job_id)
         manager._progress(job.job_id, "Late stage", 0.1, 0.1)

@@ -1,7 +1,11 @@
 import { observer } from 'mobx-react-lite';
 import { store } from '../../providers/store';
 import { RotaryKnob, tr, useLocale } from '@neo-ui-kit/react';
-import { voiceEffects } from '../karaoke/console/voiceEffects';
+import {
+  effectFromKnob,
+  effectToKnob,
+  voiceEffects,
+} from '../karaoke/console/voiceEffects';
 
 /**
  * The singer's own voice effects in the room panel: the same stored values the karaoke console and
@@ -23,12 +27,12 @@ export const SelfVoiceEffects = observer(() => {
           step={effect.step}
           displayScale={100}
           resetValue={effect.initial}
-          value={preferences.karaokeEffects[effect.id]}
+          value={effectToKnob(preferences.karaokeEffects[effect.id])}
           onValueChange={(value) =>
             updatePreferences({
               karaokeEffects: {
                 ...preferences.karaokeEffects,
-                [effect.id]: value,
+                [effect.id]: effectFromKnob(value),
               },
             })
           }
@@ -43,9 +47,9 @@ export const SelfVoiceEffects = observer(() => {
         step={0.01}
         displayScale={100}
         resetValue={0}
-        value={preferences.noiseSuppression}
+        value={effectToKnob(preferences.noiseSuppression)}
         onValueChange={(value) =>
-          updatePreferences({ noiseSuppression: value })
+          updatePreferences({ noiseSuppression: effectFromKnob(value) })
         }
       />
     </>

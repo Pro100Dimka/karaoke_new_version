@@ -44,6 +44,84 @@ const sing = (
 };
 
 describe('performance tracker', () => {
+  it('excludes a silent verse in room mode while retaining the sung verse', () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(4);
+    tracker.load(notes, phrases, true, [[0, 2]], true);
+    sing(tracker, 0, 2.1, (position) =>
+      position >= 1 && position < 2 ? hz(60) : undefined,
+    );
+    expect(tracker.noteScore).toMatchObject({
+      ignoreSilence: true,
+      totalNotes: 2,
+      hitNotes: 2,
+    });
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(100);
+    expect(tracker.noteScore.rhythmAccuracyPercent).toBeCloseTo(100);
+  });
+
+  it('has no assessed performance when a room singer stays silent', () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(4);
+    tracker.load(notes, phrases, true, undefined, true);
+    const events = sing(tracker, 0, 2.1, () => undefined);
+    expect(tracker.noteScore).toMatchObject({
+      totalNotes: 0,
+      expectedPitchSeconds: 0,
+      assessedPitchSeconds: 0,
+    });
+    expect(
+      events.filter((event) => event.kind === 'noteCompleted'),
+    ).toHaveLength(0);
+  });
+
+  it('still judges wrong notes in room mode', () => {
+    const tracker = new PerformanceTracker();
+    const { notes, phrases } = song(4);
+    tracker.load(notes, phrases, true, undefined, true);
+    sing(tracker, 0, 2.1, (position) =>
+      position >= 1 && position < 2 ? hz(64) : undefined,
+    );
+    expect(tracker.noteScore).toMatchObject({
+      totalNotes: 2,
+      hitNotes: 0,
+      pitchAccuracyPercent: 0,
+    });
+    expect(tracker.noteScore.assessedPitchSeconds).toBeGreaterThan(0.8);
+  });
+
+  it('scores each duet singer on their own verse and their shared chorus', () => {
+    const { notes, phrases } = song(6);
+    for (const ownVerse of [0, 1]) {
+      const tracker = new PerformanceTracker();
+      tracker.load(notes, phrases, true, undefined, true);
+      sing(tracker, 0, 3.1, (position) =>
+        (position >= ownVerse && position < ownVerse + 1) ||
+        (position >= 2 && position < 3)
+          ? hz(60)
+          : undefined,
+      );
+      expect(tracker.noteScore).toMatchObject({ totalNotes: 4, hitNotes: 4 });
+      expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(100);
+    }
+  });
+
+  it('does not penalize the silent portion of a note handed to another singer', () => {
+    const tracker = new PerformanceTracker();
+    tracker.load(
+      [{ id: 'held', start: 0, end: 1, pitch: 60 }],
+      [],
+      true,
+      undefined,
+      true,
+    );
+    sing(tracker, 0, 1.1, (position) =>
+      position >= 0.5 && position < 1 ? hz(60) : undefined,
+    );
+    expect(tracker.noteScore.hitNotes).toBe(1);
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(100);
+  });
+
   it('retains hit snapshots until a note qualifies and resets them on a seek', () => {
     const tracker = new PerformanceTracker();
     tracker.load([{ id: 'held', start: 0, end: 2, pitch: 60 }], []);
@@ -134,6 +212,14 @@ describe('performance tracker', () => {
     for (let i = 0; i < 20; i++)
       tracker.update((i + 0.5) * 0.05, hz(i === 10 ? 63 : 60), 0.05);
     expect(tracker.noteScore.noteStabilityPercent).toBeCloseTo(95);
+  });
+  it('accepts moderate pitch movement as stable without accepting distant wrong notes', () => {
+    const tracker = new PerformanceTracker();
+    tracker.load([{ id: 'held', start: 0, end: 1, pitch: 60 }], []);
+    for (let i = 0; i < 20; i++)
+      tracker.update((i + 0.5) * 0.05, hz(60 + (i % 2 ? 0.75 : -0.75)), 0.05);
+    expect(tracker.noteScore.noteStabilityPercent).toBeCloseTo(100);
+    expect(tracker.noteScore.pitchAccuracyPercent).toBeCloseTo(100);
   });
   it.each([false, true])(
     'grades consonant activity independently of pitch (missing onset: %s)',

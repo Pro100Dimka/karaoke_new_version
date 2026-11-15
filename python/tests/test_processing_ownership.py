@@ -72,6 +72,7 @@ def test_processing_admission_always_settles_song_status(tmp_path, monkeypatch, 
         assert client.get(f"/jobs/{job_id}").json()["state"] == expected
         assert client.get(f"/songs/{song_id}").json()["status"] == expected
 
+
 @pytest.mark.parametrize("queued", [False, True])
 @pytest.mark.parametrize("outcome", ["cancel", "fail"])
 def test_unsuccessful_reprocessing_keeps_the_previously_ready_revision(
@@ -92,6 +93,41 @@ def test_unsuccessful_reprocessing_keeps_the_previously_ready_revision(
         document = client.get(f"/songs/{song_id}/editor").json()
         start = client.app.state.container.songs.start_processing
         release = SongOperationRegistry.release
+
+        if queued and outcome == "cancel":
+            from functools import partial
+            from sqlalchemy import event
+            from backend.processing.domain import JobState
+            from backend.songs.domain import SongStatus
+
+            start._persistence.set_status(song_id, SongStatus.QUEUED)
+            database = client.app.state.container.database
+            engine = database.engine
+            pending_restore = True
+
+            def restore_between_read_and_write(prefix, _connection, _cursor, statement, *_args):
+                nonlocal pending_restore
+                if pending_restore and statement.startswith(prefix):
+                    assert database._catalog_lock._is_owned(), (
+                        "Cancellation must lock before writing"
+                    )
+                    pending_restore = False
+                    start._persistence.set_status_if_present(song_id, SongStatus.READY)
+
+            listeners = {
+                "after_cursor_execute": partial(restore_between_read_and_write, "SELECT songs."),
+                "before_cursor_execute": partial(restore_between_read_and_write, "UPDATE songs "),
+            }
+            for phase, listener in listeners.items():
+                event.listen(engine, phase, listener)
+            try:
+                client.app.state.container.songs.cancel_processing._update_song(
+                    song_id, JobState.CANCELLED
+                )
+            finally:
+                for phase, listener in listeners.items():
+                    event.remove(engine, phase, listener)
+            assert client.get(f"/songs/{song_id}").json()["status"] == "Ready"
 
         def observed_release(registry, identity, operation):
             release(registry, identity, operation)

@@ -52,10 +52,10 @@ const byMetadata = (target) => {
   at("python", "backend"),
   at("python", ".env.example"),
   releaseEnv,
-  at("kaggle"),
   at("installer"),
   at("release.bat"),
   at("scripts", "sign-release.bat"),
+  path.join(path.dirname(process.execPath), "LICENSE"),
   ...(process.env.AD_VOICE_SIGN_CERT ? [process.env.AD_VOICE_SIGN_CERT] : []),
 ].forEach(byContent);
 // Signing configuration changes the deliverable even when the application bytes are unchanged.
@@ -69,5 +69,6 @@ for (const name of ["AD_VOICE_SIGN_CERT", "AD_VOICE_SIGN_THUMBPRINT", "AD_VOICE_
   at("frontend", "media"),
   ffmpeg,
   ffprobe,
+  process.execPath,
 ].forEach(byMetadata);
 console.log(hash.digest("hex"));

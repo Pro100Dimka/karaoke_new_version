@@ -1,4 +1,11 @@
-import { Button, Card, Stack, StatusIndicator, tr } from '@neo-ui-kit/react';
+import {
+  Button,
+  Card,
+  Stack,
+  StatusIndicator,
+  tr,
+  useRouter,
+} from '@neo-ui-kit/react';
 import { observer } from 'mobx-react-lite';
 import {
   useCallback,
@@ -27,6 +34,13 @@ import { SelectionToolbar } from './SelectionToolbar';
 import type { useRoomLibrary } from './useRoomLibrary';
 import { useLibraryCatalog } from './useLibraryCatalog';
 import { curtainMilliseconds } from './useSongActions';
+import {
+  AddToPlaylistDialog,
+  PlaylistDialog,
+} from '../../../features/playlists/PlaylistDialog';
+import { useRoomLibraryCommands } from '../../../providers/application';
+import { routes } from '../../../shared/routes';
+import { canControlRoom } from '../../../application/room/roomModel';
 
 const activeJobStatuses = new Set<SongDto['status']>(['queued', 'processing']);
 
@@ -70,6 +84,8 @@ const useRememberedScroll = (
 };
 
 interface LibrarySongsProps {
+  playlistsOpen: boolean;
+  onClosePlaylists(): void;
   onReady(): void;
   view: { query: string; filters: LibraryViewFilters };
   onOpenProcessing(songId: string): void;
@@ -86,6 +102,8 @@ const LibrarySongs = observer(
     onPlay,
     onOpenProcessing,
     songSelection,
+    playlistsOpen,
+    onClosePlaylists,
   }: LibrarySongsProps) => {
     const { query, filters: viewFilters } = view;
     const [recordingsSong, setRecordingsSong] = useState<SongDto | null>(null);
@@ -98,6 +116,7 @@ const LibrarySongs = observer(
     );
     const [settingsSong, setSettingsSong] = useState<SongDto | null>(null);
     const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+    const [addingToPlaylist, setAddingToPlaylist] = useState(false);
     const toggleSelected = useCallback((id: string) => {
       setSelected((current) => {
         const next = new Set(current);
@@ -107,8 +126,17 @@ const LibrarySongs = observer(
       });
     }, []);
     const selecting = selected.size > 0;
-    const { catalog, summary, client, localSongs, songs, visibleSongs, completeCatalog } =
-      useLibraryCatalog(query, viewFilters, selecting);
+    const { navigate } = useRouter();
+    const roomLibrary = useRoomLibraryCommands();
+    const {
+      catalog,
+      summary,
+      client,
+      localSongs,
+      songs,
+      visibleSongs,
+      completeCatalog,
+    } = useLibraryCatalog(query, viewFilters, selecting || playlistsOpen);
 
     const entrance = store.playback.returned;
     const [returning, setReturning] = useState(
@@ -163,7 +191,7 @@ const LibrarySongs = observer(
                   disabled:
                     deleting ||
                     catalog.isPlaceholderData ||
-                    activeJobStatuses.has(song.status),
+                    song.status === 'importing',
                   toggle: toggleSelected,
                 }
               : undefined
@@ -240,10 +268,11 @@ const LibrarySongs = observer(
       return () => cancelAnimationFrame(frame);
     }, [isLoadingCatalog, onReady]);
     const isCatalogLoadFailed = !catalog.data && catalog.isError;
-    const emptyStateKind =
-      (completeCatalog ? songs.length === 0 : summary.data?.total === 0)
-        ? 'firstRun'
-        : 'noResults';
+    const emptyStateKind = (
+      completeCatalog ? songs.length === 0 : summary.data?.total === 0
+    )
+      ? 'firstRun'
+      : 'noResults';
 
     const content = (() => {
       if (isLoadingCatalog) {
@@ -289,6 +318,12 @@ const LibrarySongs = observer(
                 deleting={deleting}
                 onSelect={setSelected}
                 onDelete={() => void deleteSelected()}
+                canDeleteSelected={localSongs.some(
+                  (song) =>
+                    selected.has(song.id) &&
+                    !activeJobStatuses.has(song.status),
+                )}
+                onAddToPlaylist={() => setAddingToPlaylist(true)}
               />
             )}
             <VirtualGrid
@@ -320,6 +355,44 @@ const LibrarySongs = observer(
 
     return (
       <>
+        {addingToPlaylist && (
+          <AddToPlaylistDialog
+            songIds={[...selected]}
+            onClose={() => setAddingToPlaylist(false)}
+            onAdded={() => setSelected(new Set())}
+          />
+        )}
+        {playlistsOpen && (
+          <PlaylistDialog
+            songs={songs}
+            onClose={onClosePlaylists}
+            disabled={
+              localProcessing ||
+              catalog.isFetching ||
+              Boolean(
+                store.online.room &&
+                (!canControlRoom(store.online.room) ||
+                  store.online.room.songId),
+              )
+            }
+            onPlay={async (playlist, ordered) => {
+              if (store.online.room) {
+                await roomLibrary?.startPlaylist(
+                  playlist.name,
+                  ordered.map((song) => ({
+                    songId: song.id,
+                    revision: song.activeRevision,
+                  })),
+                );
+              } else {
+                const first = playlist.songIds[0];
+                if (!first) return;
+                store.startPlaylist(playlist.name, playlist.songIds);
+                navigate(routes.karaoke(first));
+              }
+            }}
+          />
+        )}
         <RecordingsModal
           requestedSong={recordingsSong}
           onRequestHandled={clearRecordingsRequest}

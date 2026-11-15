@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { loadEnvFile } from 'node:process';
 import { configuredStorageRoot, projectRoot, themeIconPath } from './AppPaths';
 import { AppLogUploader, sendAppLogs } from './AppLogUploader';
+import { requireString } from './RequestValidation';
 import { BackendEndpoint } from './BackendEndpoint';
 import { streamBackendEvents } from './BackendEvents';
 import { registerDesktopIpc } from './DesktopIpc';
@@ -95,6 +96,9 @@ const appLogs = new AppLogUploader(
   path.join(app.getPath('userData'), 'pending-app-logs.json'),
 );
 appLogs.captureConsole(console);
+trustedIpc.handle(ipcChannels.sendErrorReport, (_event, text: unknown) =>
+  appLogs.sendReport(requireString(text, 'report')),
+);
 const services = new ManagedServices(backendEndpoint, (source, level, data) =>
   appLogs.write(source, level, data),
 );

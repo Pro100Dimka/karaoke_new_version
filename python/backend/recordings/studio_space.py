@@ -7,14 +7,15 @@ import shutil
 import threading
 import numpy as np
 import soundfile as sf
-from scipy.signal import lfilter, oaconvolve
+from scipy.signal import lfilter
+from scipy.fft import rfft, irfft, next_fast_len
 from backend.domain_errors import DependencyError
 from backend.recordings.studio_audio import (
     MasterRenderer,
     _check_cancel,
     _temporary_wave,
 )
-from backend.recordings.studio_spectrum import measure_stereo_response, plan_band_space
+from backend.recordings.studio_spectrum import measure_stereo_response, plan_reference_band_space
 from backend.recordings.studio_field import (
     DiffuseFieldPlan,
     plan_diffuse_field,
@@ -52,7 +53,7 @@ def _planned_space(expected: SpaceProfile, existing: SpaceProfile) -> SpaceProfi
         echo_regions=expected.echo_regions,
         duration=expected.duration,
         decay_seconds=expected.decay_seconds if reverb else 0.0,
-        reverb_gain=reverb,
+        reverb_gain=reverb * 0.5,
         stereo_width=expected.stereo_width,
         tail_band_hz=expected.tail_band_hz,
     )
@@ -72,9 +73,7 @@ def apply_reference_space(
     expected, tail_source = _reference_tail(expected, full_reference, reference, cancel)
     selected = _planned_space(expected, existing)
     response, field = _side_plan(reference, recorded, voice, cancel)
-    bands = {}
-    if not expected.reverb_gain:
-        bands = plan_band_space(full_reference or reference, voice, expected.stereo_width, cancel)
+    bands = plan_reference_band_space(expected, full_reference or reference, voice, cancel)
     wet = _render_separate_buses(
         renderer,
         voice,
@@ -357,8 +356,9 @@ class _SpatialBuses:
         return np.asarray(sf.read(self.impulses[name], dtype="float32", always_2d=True)[0])
 
     def _convolve(self, name: str, profile: SpaceProfile) -> None:
-        stereo = name in self.responses
         impulse = self._impulse(name, profile)
+        fft_size = next_fast_len(32768 + len(impulse) - 1, real=True)
+        response = rfft(impulse, n=fft_size, axis=0)
         overlap = np.zeros((len(impulse) - 1, self.info.channels), dtype="float32")
         wet_peak = dry_peak = 0.0
         wet_energy = dry_energy = 0.0
@@ -373,8 +373,10 @@ class _SpatialBuses:
         ):
             for block in source.blocks(blocksize=32768, dtype="float32", always_2d=True):
                 _check_cancel(self.cancel)
-                signal = block.mean(axis=1, keepdims=True) if stereo else block
-                wet = oaconvolve(signal, impulse, mode="full", axes=0).astype("float32")
+                signal = block.mean(axis=1, keepdims=True) if name in self.responses else block
+                wet = irfft(rfft(signal, n=fft_size, axis=0) * response, n=fft_size, axis=0)[
+                    : len(block) + len(impulse) - 1
+                ].astype("float32")
                 wet[: len(overlap)] += overlap
                 overlap = wet[len(block) :].copy()
                 wet = wet[: len(block)]

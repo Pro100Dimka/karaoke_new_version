@@ -44,6 +44,7 @@ type RuntimePorts = {
     | 'microphoneEnabled'
     | 'setMicrophoneEnabled'
     | 'participantMuted'
+    | 'participantVolume'
     | 'setParticipantMuted'
     | 'setParticipantVolume'
     | 'setParticipantEffect'

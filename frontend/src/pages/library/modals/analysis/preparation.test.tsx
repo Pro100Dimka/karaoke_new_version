@@ -39,6 +39,47 @@ vi.mock('../recordings/RecordingPlayer', () => ({
 }));
 afterEach(cleanup);
 
+it.each([84, undefined])(
+  'shows the room result %s as the main score and the personal result separately',
+  (overallScore) => {
+    const recording: RecordingDto = {
+      id: 'duet-take',
+      songId: 'song',
+      filePath: '',
+      displayName: '',
+      createdAt: '',
+      durationSeconds: 30,
+      sizeBytes: 0,
+      analyzed: true,
+      fileStatus: 'Ready',
+      roomPerformance: { roomId: 'room', performanceId: 7, overallScore },
+    };
+    render(
+      <PerformanceAnalysisModal
+        analysis={{
+          recordingId: 'duet-take',
+          score: 75,
+          pitch: 70,
+          rhythm: 80,
+          stability: 75,
+          summary: '',
+        }}
+        recordings={[recording]}
+        onDelete={vi.fn()}
+        onCreateStudioMaster={vi.fn()}
+        studioMaster={null}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText(overallScore === undefined ? '···' : '84'),
+    ).toBeTruthy();
+    expect(screen.getByText('roomPerformanceOverall')).toBeTruthy();
+    expect(screen.getByText('roomPerformancePersonal')).toBeTruthy();
+    expect(screen.getByText('75')).toBeTruthy();
+  },
+);
+
 it('replaces both playback cards with preparation status until the original is ready', () => {
   const recording: RecordingDto = {
     id: 'take',

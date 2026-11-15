@@ -1,7 +1,12 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audioClient } from '../services/audioClient';
-import { subscribeRadio, toggleRadio } from './radio';
+import {
+  changeRadioStation,
+  setYoutubePlaylist,
+  subscribeRadio,
+  toggleRadio,
+} from './radio';
 import { store } from './store';
 import { runInAction } from 'mobx';
 import { useEffect, useLayoutEffect } from 'react';
@@ -13,8 +18,12 @@ const appState = vi.hoisted(() => ({
   publishSharedState: vi.fn(async () => undefined),
   updatePreferences: vi.fn(),
   audioEpoch: 0,
+  resolveYoutube: vi.fn(),
 }));
 
+vi.mock('../services/youtubeRadio', () => ({
+  resolveYoutubeRadio: appState.resolveYoutube,
+}));
 vi.mock('../services/audioClient', () => ({
   audioClient: {
     loadRadio: vi.fn(async () => undefined),
@@ -22,6 +31,7 @@ vi.mock('../services/audioClient', () => ({
     pauseRadio: vi.fn(async () => undefined),
     stopRadio: vi.fn(async () => undefined),
     setRadioGain: vi.fn(async () => undefined),
+    diagnosticsDump: vi.fn(async () => ({ RadioState: '3' })),
   },
 }));
 
@@ -45,23 +55,177 @@ const RadioConnection = ({ libraryActive }: { libraryActive: boolean }) => {
 };
 
 describe('RadioConnection', () => {
+  it('can skip an unavailable playlist item without retrying the same failed position', async () => {
+    appState.resolveYoutube.mockImplementation(
+      async (playlistId: string, index: number) => {
+        if (index === 2) throw new Error('unavailable track');
+        return {
+          playlistId,
+          playlistTitle: 'Playlist',
+          index,
+          count: 3,
+          id: 'QUsg4kgvwBo',
+          title: `Track ${index}`,
+          artist: 'Artist',
+          url: `https://audio.example/track-${index}`,
+        };
+      },
+    );
+    runInAction(() => {
+      store.updatePreferences({
+        radioStation: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+      });
+      store.radio.enabled = true;
+    });
+    render(<RadioConnection libraryActive />);
+    await waitFor(() =>
+      expect(audioClient.loadRadio).toHaveBeenCalledWith(
+        'https://audio.example/track-1',
+      ),
+    );
+    act(() => changeRadioStation());
+    await waitFor(() => expect(store.radio.error).toBe(true));
+    act(() => changeRadioStation());
+    await waitFor(() =>
+      expect(audioClient.loadRadio).toHaveBeenCalledWith(
+        'https://audio.example/track-3',
+      ),
+    );
+  });
+  it('retains a YouTube playlist and track position as the selected source', () => {
+    store.updatePreferences({
+      radioStation: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:7',
+    });
+    expect(store.radio.stationId).toBe(
+      'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:7',
+    );
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(audioClient.playRadio).mockResolvedValue(undefined);
     vi.mocked(audioClient.loadRadio).mockResolvedValue(undefined);
     appState.room = null;
     appState.audioEpoch = 0;
+    vi.mocked(audioClient.diagnosticsDump).mockResolvedValue({
+      RadioState: '3',
+    });
+    appState.resolveYoutube.mockImplementation(
+      async (playlistId: string, index: number) => ({
+        playlistId,
+        playlistTitle: 'My playlist',
+        index,
+        count: 2,
+        id: 'QUsg4kgvwBo',
+        title: `Track ${index}`,
+        artist: 'Artist',
+        url: `https://audio.example/track-${index}`,
+      }),
+    );
     runInAction(() => {
       store.online.room = null;
       store.radio.enabled = false;
       store.radio.libraryActive = false;
       store.radio.preparedKey = '';
       store.radio.prepareRequest = 0;
+      store.radio.youtubeTrack = null;
+      store.radio.youtubeResolvedAt = 0;
       store.updatePreferences({
         radioStation: 'groove-salad',
         radioVolume: 35,
       });
     });
+  });
+
+  it('plays playlist tracks through the radio slot, advances at EOF and repeats the playlist', async () => {
+    vi.useFakeTimers();
+    try {
+      runInAction(() => {
+        store.updatePreferences({
+          radioStation: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+        });
+        store.radio.enabled = true;
+      });
+      const view = render(<RadioConnection libraryActive />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(audioClient.loadRadio).toHaveBeenCalledWith(
+        'https://audio.example/track-1',
+      );
+      vi.mocked(audioClient.diagnosticsDump).mockResolvedValueOnce({
+        RadioState: '6',
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(750);
+      });
+      expect(audioClient.loadRadio).toHaveBeenCalledWith(
+        'https://audio.example/track-2',
+      );
+      vi.mocked(audioClient.diagnosticsDump).mockResolvedValueOnce({
+        RadioState: '6',
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(750);
+      });
+      expect(store.radio.stationId).toBe(
+        'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+      );
+      expect(appState.resolveYoutube).toHaveBeenCalledTimes(3);
+      view.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('waits for the shared source and leaves automatic track changes to the host', async () => {
+    appState.room = {
+      code: 'ROOM',
+      role: 'participant',
+      collaborativeControl: true,
+      radioEnabled: true,
+      radioStationId: 'groove-salad',
+      libraryQuery: '',
+      libraryStatus: 'all',
+      librarySort: 'recent',
+    };
+    const view = render(<RadioConnection libraryActive />);
+    await waitFor(() => expect(audioClient.loadRadio).toHaveBeenCalledTimes(1));
+    act(() => {
+      setYoutubePlaylist(
+        'https://youtube.com/playlist?list=PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y',
+      );
+    });
+    expect(appState.publishSharedState).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        radioEnabled: true,
+        radioStationId: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+      }),
+    );
+    expect(audioClient.loadRadio).toHaveBeenCalledTimes(1);
+    expect(appState.resolveYoutube).not.toHaveBeenCalled();
+    appState.room = {
+      ...appState.room,
+      radioStationId: 'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+    };
+    view.rerender(<RadioConnection libraryActive />);
+    await waitFor(() =>
+      expect(audioClient.loadRadio).toHaveBeenCalledWith(
+        'https://audio.example/track-1',
+      ),
+    );
+    vi.mocked(audioClient.diagnosticsDump).mockResolvedValue({
+      RadioState: '6',
+    });
+    vi.useFakeTimers();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(audioClient.diagnosticsDump).not.toHaveBeenCalled();
+    expect(store.radio.stationId).toBe(
+      'youtube:PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y:1',
+    );
+    view.unmount();
+    vi.useRealTimers();
   });
 
   it.each([false, true])(

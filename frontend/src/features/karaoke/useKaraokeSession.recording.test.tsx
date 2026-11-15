@@ -8,6 +8,7 @@ import { usePositionPolling } from './usePositionPolling';
 import { useAudioRecovery } from './useAudioRecovery';
 import { useSynchronizedRoomPlayback } from './useSynchronizedRoomPlayback';
 import type { RoomStateDto } from '../../contracts/models';
+import { store } from '../../providers/store';
 
 const dialogs = vi.hoisted(() => ({ ask: vi.fn() }));
 const roomState = vi.hoisted(() => ({ room: null as RoomStateDto | null }));
@@ -679,6 +680,19 @@ describe('karaoke recording ownership', () => {
     });
     await finishing;
     expect(result.current.recordingId).toBe('take');
+    expect(store.cancelPlaylist).toHaveBeenCalledOnce();
+  });
+
+  it('saves at natural EOF without cancelling the remaining playlist', async () => {
+    const { result } = await startSession();
+    await waitFor(() => expect(result.current.recording).toBe('recording'));
+    act(() => {
+      vi.mocked(usePositionPolling).mock.calls.at(-1)?.[0].onFinished();
+    });
+    await waitFor(() => expect(result.current.state.kind).toBe('finished'));
+    expect(recordingCoordinator.stop).toHaveBeenCalledOnce();
+    expect(result.current.recordingId).toBe('take');
+    expect(store.cancelPlaylist).not.toHaveBeenCalled();
   });
 
   it('does not record after its route unmounts while disk preflight is pending', async () => {
@@ -699,6 +713,7 @@ describe('karaoke recording ownership', () => {
 
 vi.mock('../../providers/store', () => ({
   store: {
+    cancelPlaylist: vi.fn(),
     get online() {
       return { room: roomState.room };
     },

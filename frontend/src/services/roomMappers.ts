@@ -1,8 +1,14 @@
-import type { ParticipantDto, RoomStateDto } from '../contracts/models';
+import type {
+  ParticipantDto,
+  RoomStateDto,
+  RoomPlaylist,
+} from '../contracts/models';
 import { readText, writeText } from '../shared/storage/localStore';
 import { sharedStateOf } from '../application/room/roomModel';
 
 interface BackendRoomParticipant {
+  performanceAccuracy?: number | null;
+  performanceSungSeconds?: number;
   participantId: string;
   displayName: string;
   role: string;
@@ -15,6 +21,11 @@ interface BackendRoomParticipant {
 }
 
 export interface BackendRoom {
+  playlist?: RoomPlaylist | null;
+  lastPerformanceId?: number | null;
+  lastPerformanceAccuracy?: number | null;
+  performanceId?: number;
+  performanceAccuracy?: number | null;
   roomId: string;
   hostId: string;
   songId: string | null;
@@ -47,6 +58,7 @@ export interface BackendRoom {
     album: string | null;
     genre: string | null;
     durationSeconds: number;
+    sourceHash?: string | null;
   }>;
   transferProgress?: number;
 }
@@ -94,13 +106,20 @@ export const mapRoom = (
   room: BackendRoom,
   timing?: RoomRequestTiming,
 ): RoomStateDto => ({
+  playlist: room.playlist ?? undefined,
   code: room.roomId,
+  performanceId: room.performanceId,
+  performanceAccuracy: room.performanceAccuracy ?? undefined,
+  lastPerformanceId: room.lastPerformanceId ?? undefined,
+  lastPerformanceAccuracy: room.lastPerformanceAccuracy ?? undefined,
   hostId: room.hostId,
   songId: room.songId ?? undefined,
   revision: room.revision ?? undefined,
   role: room.hostId === participantId ? 'host' : 'participant',
   participants: room.participants.map((participant) => ({
     id: participant.participantId,
+    performanceAccuracy: participant.performanceAccuracy ?? undefined,
+    performanceSungSeconds: participant.performanceSungSeconds ?? 0,
     name: participant.displayName,
     role: participant.role.toLowerCase() === 'host' ? 'host' : 'participant',
     self: participant.participantId === participantId,
@@ -146,5 +165,6 @@ export const mapRoom = (
     album: song.album ?? undefined,
     genre: song.genre ?? undefined,
     durationSeconds: song.durationSeconds,
+    sourceHash: song.sourceHash ?? undefined,
   })),
 });

@@ -72,26 +72,41 @@ export const diffParticipants = (
   };
 };
 
-type LibraryEntry = { id: string; status: string; activeRevision: number };
+type LibraryEntry = {
+  id: string;
+  status: string;
+  activeRevision: number;
+  sourceHash?: string;
+};
+
+/** Match the imported audio bytes across independently created local song ids and revisions. */
+export const localRoomSong = <T extends LibraryEntry>(
+  room: RoomStateDto,
+  library: readonly T[],
+  importedLocalSongId?: string,
+): T | undefined => {
+  const hash = room.sharedSongs?.find(
+    (song) => song.songId === room.songId && song.revision === room.revision,
+  )?.sourceHash;
+  return library.find((song) => {
+    if (song.status !== 'ready') return false;
+    if (hash && /^[a-f0-9]{64}$/.test(hash)) return song.sourceHash === hash;
+    return (
+      [importedLocalSongId, room.songId].includes(song.id) &&
+      song.activeRevision === room.revision
+    );
+  });
+};
 
 /**
- * Whether this participant must fetch the selected project before it can play: it holds no ready
- * copy of the exact revision, neither under the room's id nor as a copy fetched in an earlier room.
- * A song once transferred is never downloaded again. Readiness and navigation both use this, so a
- * participant never reports ready and then starts a download (which let the host enter karaoke
- * while a guest was still downloading).
+ * Readiness and navigation share the same content comparison. Older peers without a source hash
+ * retain the existing id/revision lookup, including remembered room imports.
  */
 export const roomProjectNeedsDownload = (
   room: RoomStateDto,
   library: readonly LibraryEntry[],
   importedLocalSongId?: string,
-): boolean =>
-  !library.some(
-    (song) =>
-      (song.id === importedLocalSongId || song.id === room.songId) &&
-      song.status === 'ready' &&
-      song.activeRevision === room.revision,
-  );
+): boolean => !localRoomSong(room, library, importedLocalSongId);
 
 export const localReadiness = (
   room: RoomStateDto,

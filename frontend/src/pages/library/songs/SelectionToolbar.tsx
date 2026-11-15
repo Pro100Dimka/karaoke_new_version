@@ -8,6 +8,8 @@ interface Props {
   deleting: boolean;
   onSelect(ids: ReadonlySet<string>): void;
   onDelete(): void;
+  onAddToPlaylist(): void;
+  canDeleteSelected: boolean;
 }
 
 /** Batch-selection controls belong to the song list, not the library page. */
@@ -18,6 +20,8 @@ export const SelectionToolbar = ({
   deleting,
   onSelect,
   onDelete,
+  onAddToPlaylist,
+  canDeleteSelected,
 }: Props) => (
   <Stack direction="row" gap={2} wrap style={{ marginBottom: 16 }}>
     <Button
@@ -35,9 +39,7 @@ export const SelectionToolbar = ({
             songs
               .filter(
                 ({ roomOwnerId, status }) =>
-                  !roomOwnerId &&
-                  status !== 'queued' &&
-                  status !== 'processing',
+                  !roomOwnerId && status !== 'importing',
               )
               .map(({ id }) => id),
           ),
@@ -47,11 +49,18 @@ export const SelectionToolbar = ({
       {tr('selectVisibleSongs')}
     </Button>
     <Button
-      icon="trash"
+      icon="list"
       disabled={disabled || deleting || selected.size === 0}
+      onClick={onAddToPlaylist}
+    >
+      {tr('playlistAddTo')}
+    </Button>
+    <Button
+      icon="trash"
+      disabled={disabled || deleting || !canDeleteSelected}
       onClick={onDelete}
     >
-      {tr('deleteSelected ({count})', { count: selected.size })}
+      {tr('deleteSelectedSongs', { count: selected.size })}
     </Button>
   </Stack>
 );

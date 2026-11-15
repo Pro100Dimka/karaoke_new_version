@@ -205,6 +205,7 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
             client,
             song,
             session_metadata={
+                "roomPerformance": {"roomId": "duet-room", "performanceId": 7, "overallScore": 84},
                 "karaokeNoteScore": {
                     "version": 3,
                     "expectedPitchSeconds": 10,
@@ -215,7 +216,7 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
                     "meanSemitoneDeviation": 0.42,
                     "rhythmAccuracyPercent": 72,
                     "noteStabilityPercent": 88,
-                }
+                },
             },
         )
         results = client.get(f"/recordings/{recording['recordingId']}/analyses").json()
@@ -224,6 +225,11 @@ def test_completed_live_analysis_is_available_without_any_ai_work(
         assert results[0]["pitchAccuracyPercent"] == 61.25
         assert results[0]["rhythmAccuracyPercent"] == 72
         assert results[0]["noteStabilityPercent"] == 88
+        assert client.get(f"/recordings/{recording['recordingId']}").json()["roomPerformance"] == {
+            "roomId": "duet-room",
+            "performanceId": 7,
+            "overallScore": 84,
+        }
         assert (
             client.get(f"/recordings/{recording['recordingId']}").json()["analysisStatus"]
             == "Succeeded"

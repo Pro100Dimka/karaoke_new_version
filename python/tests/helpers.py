@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import queue
 import time
+import logging
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -53,11 +54,23 @@ def wait_for_job(client: TestClient, job_id: str, timeout: float = 10.0) -> dict
             try:
                 event = subscriber.get(timeout=remaining)
             except queue.Empty as exc:
-                raise AssertionError(f"Job {job_id} did not finish before timeout") from exc
-            if event.event_type != "job.changed" or event.data.get("jobId") != job_id:
+                latest = client.get(f"/jobs/{job_id}").json()
+                raise AssertionError(
+                    f"Job {job_id} did not finish before timeout: {latest}"
+                ) from exc
+            if event.event_type not in {"job.changed", "resync"}:
+                continue
+            if event.event_type == "job.changed" and event.data.get("jobId") != job_id:
                 continue
             current = client.get(f"/jobs/{job_id}")
             payload = current.json()
+            if event.event_type == "resync":
+                logging.getLogger(__name__).info(
+                    "Reloaded job %s after resync: state=%s entity=%s",
+                    job_id,
+                    payload["state"],
+                    payload.get("entityId"),
+                )
             if payload["state"] in TERMINAL_STATES:
                 return payload
 

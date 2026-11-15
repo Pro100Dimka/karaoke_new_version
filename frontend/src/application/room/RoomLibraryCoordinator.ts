@@ -4,7 +4,10 @@ import type { RoomSessionScope } from './RoomSessionController';
 
 type LibraryPort = Pick<
   RoomClient,
-  'selectRoomSong' | 'setCollaborativeControl' | 'updateSharedState'
+  | 'selectRoomSong'
+  | 'setCollaborativeControl'
+  | 'updateSharedState'
+  | 'startPlaylist'
 >;
 
 /** Applies library intents only to the room generation that initiated them. */
@@ -38,6 +41,15 @@ export class RoomLibraryCoordinator {
     const epoch = ++this.selectionEpoch;
     return this.commit(
       this.room.selectRoomSong(this.scope.code, songId, revision),
+      () => epoch === this.selectionEpoch,
+    );
+  }
+
+  startPlaylist(name: string, songs: { songId: string; revision: number }[]) {
+    if (!this.scope.isCurrent()) return Promise.resolve(undefined);
+    const epoch = ++this.selectionEpoch;
+    return this.commit(
+      this.room.startPlaylist(this.scope.code, name, songs),
       () => epoch === this.selectionEpoch,
     );
   }

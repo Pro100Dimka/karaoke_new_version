@@ -160,7 +160,9 @@ const assessedNoteDuration = (
   note: ShowNote,
   progress: NoteProgress | undefined,
   duration = scorableNoteDuration(note),
+  ignoreSilence = false,
 ): number => {
+  if (ignoreSilence) return progress?.evaluated ?? 0;
   return Math.max(duration * 0.25, duration - (progress?.uncertain ?? 0));
 };
 
@@ -168,7 +170,7 @@ const stableSeconds = (progress: NoteProgress, mean: number): number =>
   progress.deviations.reduce(
     (seconds, [deviation, duration]) =>
       seconds +
-      (Math.abs(deviation - mean) <= karaokePitchToleranceSemitones / 2
+      (Math.abs(deviation - mean) <= karaokePitchToleranceSemitones
         ? duration
         : 0),
     0,
@@ -178,10 +180,11 @@ const scoreNote = (
   note: ShowNote,
   progress: NoteProgress,
   scorableDuration = scorableNoteDuration(note),
+  ignoreSilence = false,
 ): NoteScore => {
   const duration = Math.max(
     0.001,
-    assessedNoteDuration(note, progress, scorableDuration),
+    assessedNoteDuration(note, progress, scorableDuration, ignoreSilence),
   );
   const voicedCoverage = Math.min(
     1,
@@ -213,6 +216,7 @@ const finaleGrade = (energy: number, recentScore: number): FinaleGrade => {
  * it never touches audio and never decides what is drawn.
  */
 export class PerformanceTracker {
+  private ignoreSilence = false;
   private notes: readonly ShowNote[] = [];
   private noteBlocks: {
     start: number;
@@ -255,7 +259,9 @@ export class PerformanceTracker {
     phrases: readonly ShowPhrase[],
     resetPerformance = true,
     vocalActivity?: readonly (readonly [number, number])[],
+    ignoreSilence = false,
   ): void {
+    this.ignoreSilence = ignoreSilence;
     this.cachedScore = undefined;
     this.cachedHitNotes = undefined;
     this.vocalActivity = vocalActivity;
@@ -290,7 +296,12 @@ export class PerformanceTracker {
           progress.matched > 0 &&
           noteHitReached(
             progress.matched,
-            assessedNoteDuration(note, progress, this.durations.get(note)),
+            assessedNoteDuration(
+              note,
+              progress,
+              this.durations.get(note),
+              this.ignoreSilence,
+            ),
           )
           ? [id]
           : [];
@@ -309,6 +320,7 @@ export class PerformanceTracker {
       voiced > 0 ? sum((progress) => progress.deviationSum) / voiced : 0;
     return (this.cachedScore = {
       version: 3,
+      ...(this.ignoreSilence ? { ignoreSilence: true } : {}),
       expectedPitchSeconds: evaluated + sum((progress) => progress.uncertain),
       assessedPitchSeconds: evaluated,
       pitchAccuracyPercent:
@@ -320,7 +332,12 @@ export class PerformanceTracker {
       hitNotes: seen.filter(({ note, progress }) =>
         noteHitReached(
           progress.matched,
-          assessedNoteDuration(note, progress, this.durations.get(note)),
+          assessedNoteDuration(
+            note,
+            progress,
+            this.durations.get(note),
+            this.ignoreSilence,
+          ),
         ),
       ).length,
       totalNotes: seen.length,
@@ -388,7 +405,10 @@ export class PerformanceTracker {
         active,
         Math.max(active.start, Math.min(active.end, position)),
       );
-      const measuredPitch = reliablePitchHz(pitchHz, confidence);
+      const measuredPitch =
+        this.ignoreSilence && !audioActive
+          ? undefined
+          : reliablePitchHz(pitchHz, confidence);
       const liveMidi =
         target === undefined ? undefined : pitchHzToMidi(measuredPitch);
       const progress = this.progress.get(active.id) ?? emptyProgress();
@@ -398,9 +418,9 @@ export class PerformanceTracker {
           : liveMidi - target;
       const quality = deviation === undefined ? 0 : sampleQuality(deviation);
       if (target !== undefined) {
-        if (!audioActive || liveMidi !== undefined)
+        if ((!this.ignoreSilence && !audioActive) || liveMidi !== undefined)
           progress.evaluated += overlap;
-        else progress.uncertain += overlap;
+        else if (audioActive) progress.uncertain += overlap;
         requiredVoice += overlap;
       } else uncertain += overlap;
       if (deviation !== undefined) {
@@ -419,13 +439,23 @@ export class PerformanceTracker {
         progress.matched > 0 &&
         noteHitReached(
           progress.matched,
-          assessedNoteDuration(active, progress, this.durations.get(active)),
+          assessedNoteDuration(
+            active,
+            progress,
+            this.durations.get(active),
+            this.ignoreSilence,
+          ),
         )
       )
         this.cachedHitNotes = undefined;
       const duration = Math.max(
         0.001,
-        assessedNoteDuration(active, progress, this.durations.get(active)),
+        assessedNoteDuration(
+          active,
+          progress,
+          this.durations.get(active),
+          this.ignoreSilence,
+        ),
       );
       this.live = {
         note: active,
@@ -453,8 +483,10 @@ export class PerformanceTracker {
       );
     requiredVoice = Math.min(assessable, requiredVoice);
     const sung = audioActive ? assessable : 0;
-    this.rhythmUnion += Math.max(requiredVoice, sung);
-    this.rhythmIntersection += Math.min(requiredVoice, sung);
+    if (!this.ignoreSilence || audioActive) {
+      this.rhythmUnion += Math.max(requiredVoice, sung);
+      this.rhythmIntersection += Math.min(requiredVoice, sung);
+    }
 
     for (
       let note = this.notes[this.nextNote];
@@ -464,10 +496,14 @@ export class PerformanceTracker {
       this.nextNote += 1;
       // A note already under way where playback (re)started was never fully heard, so it is not judged.
       if (note.start < this.seekOrigin) continue;
+      const progress = this.progress.get(note.id) ?? emptyProgress();
+      if (this.ignoreSilence && progress.voiced + progress.uncertain === 0)
+        continue;
       const score = scoreNote(
         note,
-        this.progress.get(note.id) ?? emptyProgress(),
+        progress,
         this.durations.get(note),
+        this.ignoreSilence,
       );
       this.finishNote(note, score.finalScore, position);
       events.push({ kind: 'noteCompleted', note, score });
@@ -555,7 +591,9 @@ export class PerformanceTracker {
   private measuredNotes(): { note: ShowNote; progress: NoteProgress }[] {
     return [...this.progress].flatMap(([id, progress]) => {
       const note = this.noteById.get(id);
-      return note && (this.durations.get(note) ?? 0) > 0
+      return note &&
+        (this.durations.get(note) ?? 0) > 0 &&
+        (!this.ignoreSilence || progress.voiced + progress.uncertain > 0)
         ? [{ note, progress }]
         : [];
     });

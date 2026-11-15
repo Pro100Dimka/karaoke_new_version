@@ -1,3 +1,4 @@
+import { useNotify } from '../../providers/notifications';
 import { observer } from 'mobx-react-lite';
 import {
   Avatar,
@@ -91,8 +92,11 @@ export const RoomPersonCard = observer(
     const photo = usePersonPhoto(person?.accountId, person?.avatarVersion ?? 0);
     const moreRef = useRef<HTMLButtonElement>(null);
     const [menuOpen, setMenuOpen] = useState(false);
-    const [volume, setVolume] = useState(participant.volume);
+    const [volume, setVolume] = useState(
+      () => voice?.participantVolume(participant.id) ?? participant.volume,
+    );
     const [effects, setEffects] = useState(noEffects);
+    const notify = useNotify();
     const [muted, setMuted] = useState(
       () =>
         participant.self
@@ -100,7 +104,11 @@ export const RoomPersonCard = observer(
           : (voice?.participantMuted(participant.id) ?? participant.muted),
     );
     const host = participant.role === 'host';
-    useEffect(() => setVolume(participant.volume), [participant.volume]);
+    useEffect(
+      () =>
+        setVolume(voice?.participantVolume(participant.id) ?? participant.volume),
+      [voice, participant.id, participant.volume],
+    );
     // Re-read after the global mute hotkey switched the microphone from outside this button.
     const externalToggles = useMicrophoneToggles();
     useEffect(() => {
@@ -127,8 +135,9 @@ export const RoomPersonCard = observer(
     };
     const updateEffect = (effect: ParticipantEffect, value: number) => {
       if (!voice) return;
-      setEffects((current) => ({ ...current, [effect]: value }));
-      void voice.setParticipantEffect(participant.id, effect, value);
+      void voice.setParticipantEffect(participant.id, effect, value)
+        .then(() => setEffects((current) => ({ ...current, [effect]: value })))
+        .catch((error: unknown) => notify(error instanceof Error ? error.message : String(error), 'error'));
     };
     const muteLabel = participant.self
       ? tr(muted ? 'unmuteMicrophone' : 'muteMicrophone')
@@ -189,10 +198,10 @@ export const RoomPersonCard = observer(
               style={fixedKnobWidth(personKnobDiameter)}
               className="roomPersonKnob"
               min={0}
-              max={2}
+              max={4}
               step={0.01}
               resetValue={1}
-              displayScale={100}
+              displayScale={25}
               label={tr('participantVolume', { name: participant.name })}
               value={volume}
               onValueChange={setVolume}

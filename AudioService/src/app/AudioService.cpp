@@ -983,6 +983,8 @@ std::string AudioService::diagnostics(bool playbackOnly) {
             << participant.reportedLossPermille << '\n'
             << "RemoteDecodeUnderruns." << participant.participantId << ": "
             << participant.decodeUnderruns << '\n'
+             << "RemoteExpiredPlayoutFrames." << participant.participantId << ": "
+             << participant.expiredPlayoutFrames << '\n'
             << "RemoteQueueFillFrames." << participant.participantId << ": "
             << participant.queueFillFrames << '\n'
             << "RemoteLatenessTargetFrames." << participant.participantId << ": "

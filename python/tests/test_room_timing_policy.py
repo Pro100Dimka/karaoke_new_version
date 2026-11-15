@@ -106,7 +106,7 @@ def test_song_packet_aligns_and_admits_the_observed_106_ms_route() -> None:
     assert eligibility(route) is EligibilityReason.ELIGIBLE
     assert singing.playout_delay_ms == 107.5
     assert close_of(singing) >= route.arrival_requirement_ms
-    assert timing(route, song_selected=False).playout_delay_ms == 250.0
+    assert timing(route, song_selected=False).playout_delay_ms == 107.5
 
 
 def test_run015_routes_do_not_add_forty_ms_after_the_measured_budget() -> None:
@@ -125,7 +125,7 @@ def test_conversation_and_measured_song_cover_the_observed_spike() -> None:
     conversation = timing(spike, song_selected=False)
     singing = timing(spike, song_selected=True)
 
-    assert conversation.playout_delay_ms == 250.0
+    assert conversation.playout_delay_ms == 175.0
     assert close_of(conversation) >= spike.arrival_requirement_ms
     assert eligibility(spike) is EligibilityReason.ELIGIBLE
     assert singing.source is TimingSource.MEASURED
@@ -154,24 +154,27 @@ def test_singing_does_not_preallocate_the_ceiling_for_a_future_route_spike() -> 
     assert close_of(selected) >= later.arrival_requirement_ms
 
 
-def test_idle_conversation_holds_a_250_ms_deadline_as_routes_change() -> None:
+def test_idle_conversation_uses_measured_deadlines_as_routes_change() -> None:
     fast = Route(45.0, return_requirement_ms=12.0, arrival_requirement_ms=20.0)
     slower = Route(85.0, return_requirement_ms=25.0, arrival_requirement_ms=30.0)
 
-    assert timing(fast, song_selected=False).playout_delay_ms == 250.0
-    assert timing(slower, song_selected=False).playout_delay_ms == 250.0
+    assert timing(fast, song_selected=False).playout_delay_ms == 45.0
+    assert timing(slower, song_selected=False).playout_delay_ms == 85.0
 
 
-def test_idle_conversation_reserves_the_observed_return_spike_before_it_happens() -> None:
+def test_idle_conversation_reserves_only_the_measured_return_route() -> None:
     ordinary = Route(50.0, return_requirement_ms=20.0, arrival_requirement_ms=30.0)
     observed_spike = Route(102.0, return_requirement_ms=58.5, arrival_requirement_ms=42.5)
 
     before = timing(ordinary, song_selected=False)
     during = timing(observed_spike, song_selected=False)
 
-    assert before.return_reserve_ms == 60.0
+    assert before.return_reserve_ms == 22.5
     assert during.return_reserve_ms == 60.0
-    assert close_of(before) == close_of(during) == 190.0
+    assert before.playout_delay_ms == 52.5
+    assert during.playout_delay_ms == 102.5
+    assert close_of(before) >= ordinary.arrival_requirement_ms
+    assert close_of(during) >= observed_spike.arrival_requirement_ms
 
 
 def test_a_fast_route_does_not_reserve_the_legacy_ten_milliseconds() -> None:
@@ -259,7 +262,7 @@ def test_idle_conversation_keeps_a_shared_mode_singer_audible_without_stretching
     assert close_of(conversation) >= 55.0
     assert conversation.playout_delay_ms <= 250.0
     assert singing.playout_delay_ms <= ROOM_TIMING.maximum_room_delay_ms
-    assert singing.playout_delay_ms < conversation.playout_delay_ms
+    assert singing.playout_delay_ms == conversation.playout_delay_ms
 
 
 def test_idle_conversation_keeps_collection_time_when_all_routes_are_live_eligible() -> None:
@@ -315,7 +318,7 @@ def test_the_safe_deadline_names_why_it_was_kept(routes, song_selected, source) 
     expected = {
         TimingSource.NO_PARTICIPANTS: ROOM_TIMING.minimum_room_delay_ms,
         TimingSource.AWAITING_ROUTES: ROOM_TIMING.maximum_room_delay_ms,
-        TimingSource.IDLE_CONVERSATION: ROOM_TIMING.maximum_idle_delay_ms,
+        TimingSource.IDLE_CONVERSATION: 120.0,
         TimingSource.NO_ELIGIBLE_ROUTE: ROOM_TIMING.maximum_room_delay_ms,
     }[source]
     assert selected.playout_delay_ms == expected

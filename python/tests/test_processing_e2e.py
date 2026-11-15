@@ -677,11 +677,16 @@ def test_oracle_full_processing_publishes_one_completed_project(tmp_path, monkey
         assert files["source.wav"].read_bytes() == source.read_bytes()
         assert set(files) <= {"source.wav", "lyricsSync.json", "lyricsBaseline.json"}
         assert set(options["previousProvenance"]) <= {
-            "lyricsSource", "lyricsSourceText", "lyricsTimingHints", "warnings"
+            "lyricsSource",
+            "lyricsSourceText",
+            "lyricsTimingHints",
+            "warnings",
         }
         for logical, filename in {
-            "instrumental": "instrumental.flac", "referenceVocal": "vocals.flac",
-            "melody": "melody.flac", "lyricsSync": "lyrics.json",
+            "instrumental": "instrumental.flac",
+            "referenceVocal": "vocals.flac",
+            "melody": "melody.flac",
+            "lyricsSync": "lyrics.json",
         }.items():
             shutil.copyfile(storage.artifact_path(song["songId"], 2, logical), output / filename)
         progress("ForcedAlignment", 1.0, 0.9)
@@ -880,7 +885,9 @@ def test_unexpected_provider_crash_does_not_leave_the_song_processing(tmp_path: 
 
 
 @pytest.mark.parametrize("recognized", [2, 3])
-def test_repeat_evidence_counts_recognized_words_without_overweighting_long_misspellings(recognized):
+def test_repeat_evidence_counts_recognized_words_without_overweighting_long_misspellings(
+    recognized,
+):
     from backend.ai.domain import WordTiming
     from backend.lyrics.discovery import LyricsDiscoveryResult
     from backend.processing.document_pipeline import _verified_repeats
@@ -889,8 +896,9 @@ def test_repeat_evidence_counts_recognized_words_without_overweighting_long_miss
     candidate = baseline + "\n" + baseline
     found = LyricsDiscoveryResult(candidate, "catalogue", (), repeat_baseline=baseline)
     words = tuple(
-        WordTiming(text, i, i + 0.4, 0.01,
-                   diagnostics=("RecognizedWord",) if i < 5 + recognized else ())
+        WordTiming(
+            text, i, i + 0.4, 0.01, diagnostics=("RecognizedWord",) if i < 5 + recognized else ()
+        )
         for i, text in enumerate(candidate.split())
     )
     verified = _verified_repeats(found, words)

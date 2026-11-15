@@ -219,6 +219,12 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
         relay.setRecipientSourceGain(values[1], values[2], values[3], gain);
         return true;
     }
+    if (values[0] == "EFFECT" && values.size() == 6) {
+        float value = 0.0F;
+        if (!number(values[5], value))
+            return false;
+        return relay.setRecipientSourceEffect(values[1], values[2], values[3], values[4], value);
+    }
     return values[0] == "PING";
 }
 
@@ -331,6 +337,8 @@ int main(int argc, char** argv) {
                           << ",\"recipient_nonzero_packets\":"
                           << metrics.recipientNonzeroPackets
                           << ",\"recipient_peak\":" << metrics.recipientPeak
+                          << ",\"effect_latency_frames\":" << metrics.effectLatencyFrames
+                          << ",\"concealed_source_frames\":" << metrics.concealedSourceFrames
                           << ",\"ingress_slack_packets\":" << metrics.ingressSlack.packets
                           << ",\"ingress_slack_negative_packets\":"
                           << metrics.ingressSlack.negativePackets

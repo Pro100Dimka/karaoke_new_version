@@ -9,6 +9,7 @@ import {
   type ParticipantEffect,
 } from './participantEffects';
 import { SelfVoiceEffects } from './SelfVoiceEffects';
+import { effectFromKnob, effectToKnob } from '../karaoke/console/voiceEffects';
 
 export type ParticipantEffects = Record<ParticipantEffect, number>;
 
@@ -66,8 +67,17 @@ export const RoomPersonMenu = ({
               displayScale={effect.displayFactor}
               suffix={effect.valueSuffix}
               resetValue={0}
-              value={effects[effect.id]}
-              onValueChange={(value) => onEffect(effect.id, value)}
+              value={
+                effect.step < 1
+                  ? effectToKnob(effects[effect.id])
+                  : effects[effect.id]
+              }
+              onValueChange={(value) =>
+                onEffect(
+                  effect.id,
+                  effect.step < 1 ? effectFromKnob(value) : value,
+                )
+              }
             />
           ))
         )}

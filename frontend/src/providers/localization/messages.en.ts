@@ -45,6 +45,30 @@ export const en = {
   guideLyricsFillTitle: 'Read the highlighting and notes',
   guideLyricsFillBody:
     'Stage lyrics appear in uppercase. Highlighting follows the vocal through each word, holding the vowel longer on sustained sounds. In the notes panel, the circle shows microphone pitch and moving notes guide the melody. Select an input and enable the microphone to use the circle.',
+  playlists: 'Playlists',
+  playlistSaved: 'Saved playlists',
+  playlistNew: 'New playlist',
+  playlistName: 'Playlist name',
+  playlistHint:
+    'Songs play in order. Each recording is saved. Stop ends the playlist.',
+  playlistOrder: 'Playback order',
+  playlistUnavailable: 'Unavailable song',
+  playlistMoveUp: 'Move up',
+  playlistMoveDown: 'Move down',
+  playlistRemove: 'Remove from playlist',
+  playlistEmpty:
+    'Select songs using the library checkboxes, then choose Add to playlist.',
+  playlistAddTo: 'Add to playlist',
+  playlistDestination: 'Playlist for selected songs',
+  playlistCreateAndAdd: 'Create and add',
+  playlistAdded: 'Songs added to playlist: {count}',
+  playlistLimit: 'A playlist can contain up to 200 songs.',
+  playlistUnavailableHint:
+    'Restore or remove unavailable songs before starting.',
+  playlistRoomBusy:
+    'Stop the current room performance before starting a playlist.',
+  playlistPlay: 'Play playlist',
+
   errorProcessingNotConfigured:
     'Enter the processing access key in ENV settings.',
   errorProcessingAccessDenied: 'The processing access key was rejected.',
@@ -1480,7 +1504,7 @@ export const en = {
   asioSetupFailed: 'Could not start setup: {reason}',
   processingSongUnavailable: 'Song removed from library',
   processingFailedHelp:
-    'Processing did not finish. Open job details to inspect the cause. Delete the song from the library before adding it again.',
+    'Processing did not finish. You can retry or send a report. If no detailed cause is shown, it was not saved with the job.',
   environmentGroupKaggle: 'Kaggle GPU',
   environmentGroupRecognition: 'Music recognition',
   environmentGroupRoom: 'Room Server',
@@ -1525,6 +1549,25 @@ export const en = {
   kaggleDeployProgressTitle: 'Kaggle is starting the GPU notebook',
   kaggleDeployProgressTiming:
     'Elapsed {elapsed} · the first start usually takes 3–10 minutes',
+  processingRetry: 'Retry processing',
+  processingRetryStarted: 'The song has been queued for processing again',
+  processingRetryFailed: 'Could not retry processing',
+  processingSendReport: 'Send error report',
+  processingReportSending: 'Sending report…',
+  processingReportSent: 'Report sent to the server. Reference: {id}',
+  processingReportFailed:
+    'Could not send the report. Check your connection and permission to upload logs, then try again.',
+  processingReportHint:
+    'Error details, diagnostics and recent application logs will be sent to the developer’s server. Audio and recordings are not sent.',
+  processingErrorCode: 'Error code',
+  processingErrorDetails: 'Technical details',
+  processingInterruptedHelp:
+    'Processing was interrupted before completion. You can retry it or send a report.',
+  roomPerformanceOverall: 'Group score',
+  roomPerformancePersonal: 'Personal score',
+  roomPerformanceDuetHint:
+    'Only the parts you sing count. Silence is not scored.',
+  roomPerformanceUnavailable: 'Group score is currently unavailable',
   processingQueue: 'Processing queue',
   processingLoadFailed: 'Could not load the processing queue.',
   processingEmpty: 'No processing jobs.',
@@ -1690,4 +1733,28 @@ export const en = {
   editorFollow: 'Follow the playhead',
   editorZoomReset: 'Original zoom',
   editorDeleteNotes: 'Delete selected notes',
+  radioControls: 'Music controls',
+  radioPlayer: 'Library music',
+  radioSource: 'Music source',
+  radioLoading: 'Loading',
+  radioPlaying: 'Playing',
+  radioPaused: 'Paused',
+  radioPlaylistUrl: 'YouTube playlist link',
+  radioPlaylistHint:
+    'Public or unlisted playlists. Tracks play in order and repeat at the end.',
+  radioPlaylistInvalid:
+    'Paste a YouTube playlist link with list= in the address.',
+  radioUsePlaylist: 'Play this playlist',
+  radioPlaylistSource: 'Your playlist',
+  radioLiveStream: 'Live stream',
+  radioPlayback: 'Playback controls',
+  radioPreviousTrack: 'Previous track',
+  radioNextTrack: 'Next track',
+  radioPreviousStation: 'Previous station',
+  radioNextStation: 'Next station',
+  radioPause: 'Pause music',
+  radioPlay: 'Play music',
+  radioUnavailable: 'This station is unavailable. Try another one.',
+  radioYoutubeUnavailable:
+    'Could not play this track. Check playlist access or try the next track.',
 } as const;

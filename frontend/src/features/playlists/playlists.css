@@ -1,0 +1,68 @@
+.playlistEditor {
+  display: grid;
+  gap: 16px;
+}
+.playlistToolbar,
+.playlistFooter,
+.playlistSongActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.playlistToolbar > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.playlistHint {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+.playlistEditor h3 {
+  margin: 0 0 12px;
+}
+.playlistSongs {
+  padding: 0;
+  margin: 12px 0 0;
+  list-style: none;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.playlistSong {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgb(127 127 127 / 15%);
+}
+.playlistSong[data-unavailable] {
+  opacity: 0.55;
+}
+.playlistNumber {
+  opacity: 0.5;
+  min-width: 1.4em;
+  font-variant-numeric: tabular-nums;
+}
+.playlistSongTitle {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.playlistSongTitle strong,
+.playlistSongTitle small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.playlistSongTitle small {
+  opacity: 0.65;
+}
+.playlistFooter {
+  justify-content: flex-end;
+}
+@media (max-width: 680px) {
+  .playlistToolbar {
+    flex-wrap: wrap;
+  }
+}

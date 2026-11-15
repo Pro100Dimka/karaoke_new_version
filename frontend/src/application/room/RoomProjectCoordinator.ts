@@ -12,7 +12,7 @@ import type { RoomStateDto, SongDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 import { createLatestSnapshotQueue } from './latestSnapshotQueue';
 import { roomProjectKey, selectedRoomProjectUpload } from './roomLibrary';
-import { localReadiness } from './roomModel';
+import { localReadiness, localRoomSong } from './roomModel';
 import {
   downloadAvailableRoomProject,
   isProjectConflict,
@@ -260,7 +260,10 @@ export class RoomProjectCoordinator {
         const songs = library.songs;
         if (this.library !== library || !this.scope.isCurrent()) return;
         const key = songs
-          .map((song) => `${song.id}:${song.activeRevision}`)
+          .map(
+            (song) =>
+              `${song.id}:${song.activeRevision}:${song.sourceHash ?? ''}`,
+          )
           .sort()
           .join('|');
         if (key !== library.lastKey) {
@@ -288,6 +291,19 @@ export class RoomProjectCoordinator {
           this.ports.participantId,
         );
         if (!song) return;
+        const needsArchive = selected?.participants.some(
+          (person) =>
+            person.connected &&
+            person.id !== this.ports.participantId &&
+            !['preparing', 'audio', 'ready'].includes(person.readiness) &&
+            !selected.sharedSongs?.some(
+              (item) =>
+                item.ownerParticipantId === person.id &&
+                song.sourceHash &&
+                item.sourceHash === song.sourceHash,
+            ),
+        );
+        if (!needsArchive) return;
         const transferId = crypto.randomUUID();
         try {
           const path = await this.ports.python.exportProject(
@@ -432,15 +448,30 @@ export class RoomProjectCoordinator {
           ...details,
         });
     };
-    progress(10, {
-      transferId: active.id,
-      transferBytes: 0,
-      transferTotalBytes: 0,
-      transferError: false,
-    });
     active.promise = (async () => {
       let archive: string | undefined;
       try {
+        const library = await this.ports.python.listSongs();
+        if (!isCurrent()) return;
+        const selected = this.scope.getRoom();
+        if (
+          selected?.songId === songId &&
+          selected.revision === revision &&
+          localRoomSong(
+            selected,
+            library,
+            this.ports.copies.get(songId, revision),
+          )
+        ) {
+          this.transfer = { type: 'idle' };
+          return library;
+        }
+        progress(10, {
+          transferId: active.id,
+          transferBytes: 0,
+          transferTotalBytes: 0,
+          transferError: false,
+        });
         const downloading = await this.ports.room.setRoomReadiness(
           this.scope.code,
           'Downloading',
@@ -514,10 +545,10 @@ export class RoomProjectCoordinator {
             transferProgress: 95,
           }),
         );
-        const library = await this.ports.python.listSongs();
+        const refreshedLibrary = await this.ports.python.listSongs();
         if (!isCurrent()) return;
         this.transfer = { type: 'idle' };
-        return library;
+        return refreshedLibrary;
       } catch (error) {
         if (!isCurrent()) return;
         const failed = await this.ports.room

@@ -154,8 +154,7 @@ def test_a_silent_prefix_review_does_not_override_an_independent_contradiction()
     words, scores, activity = _case()
 
     assert (
-        _guide(words, scores, activity, reviewed=frozenset({0}), heard={0: (0.18, 1.46)})
-        == words
+        _guide(words, scores, activity, reviewed=frozenset({0}), heard={0: (0.18, 1.46)}) == words
     )
 
 
@@ -200,9 +199,13 @@ def _committed_review(monkeypatch, original, recovered, onset=1.0):
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (torch.zeros(1, 28), _STEP, []))
     monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
     monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
-    monkeypatch.setattr(speech_alignment, "recover_leading_words", lambda _text, _words, heard, _asr: heard)
+    monkeypatch.setattr(
+        speech_alignment, "recover_leading_words", lambda _text, _words, heard, _asr: heard
+    )
     monkeypatch.setattr(speech_alignment, "_alignment_windows", lambda *_: [])
-    monkeypatch.setattr(speech_alignment, "contextual_guidance", lambda _words, windows, *_: (windows, {}))
+    monkeypatch.setattr(
+        speech_alignment, "contextual_guidance", lambda _words, windows, *_: (windows, {})
+    )
     monkeypatch.setattr(speech_alignment, "singing_frames", lambda *_: activity)
     monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: activity)
     monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)

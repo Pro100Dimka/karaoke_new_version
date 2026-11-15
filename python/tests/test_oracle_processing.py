@@ -10,7 +10,11 @@ import httpx
 import pytest
 
 from backend.domain_errors import DomainError
-from backend.infrastructure.processing_transport import ProcessingTransport, read_bundle, write_bundle
+from backend.infrastructure.processing_transport import (
+    ProcessingTransport,
+    read_bundle,
+    write_bundle,
+)
 
 
 @pytest.fixture
@@ -46,7 +50,9 @@ def test_relay_separates_credentials_and_returns_result_only_after_completion(re
     worker_route = "/processing/worker/jobs/" + ticket["jobId"]
     assert client.post("/processing/worker/claim", headers=worker_headers).json()["job"] is None
     progress = {"stage": "ForcedAlignment", "stageProgress": 0.5, "overallProgress": 0.6}
-    assert client.post(worker_route + "/heartbeat", headers=worker, json=progress).status_code == 200
+    assert (
+        client.post(worker_route + "/heartbeat", headers=worker, json=progress).status_code == 200
+    )
     assert client.get(route, headers=owner).json()["progress"] == progress
     assert client.put(worker_route + "/result", content=b"ready", headers=worker).status_code == 204
     assert client.get(route + "/result", headers=owner).content == b"ready"
@@ -70,12 +76,59 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
     from types import SimpleNamespace
 
     from backend.remote_worker import execute
+    from backend.processing import worker_song
+    from backend.processing.domain import JobState
+    from backend.serialization import loads_object
 
     incoming, sessions = tmp_path / "incoming", tmp_path / "sessions"
     incoming.mkdir()
     sessions.mkdir()
     cancel = threading.Event()
-    payload = {"protocolVersion": 1, "action": "process-song", "session": "a" * 32}
+    payload = {
+        "protocolVersion": 1,
+        "action": "process-song",
+        "session": "a" * 32,
+        "source": "source.mp3",
+        "song": {"title": "Song", "artist": "Singer", "language": "Auto"},
+        "mode": "Auto",
+        "onlineLyrics": False,
+        "progressPath": str(tmp_path / "progress.json"),
+    }
+    (incoming / "source.mp3").write_bytes(b"source")
+    monkeypatch.setenv("AD_VOICE_MODELS", str(tmp_path / "models"))
+    shutdown = []
+
+    def build_app(roots):
+        runtime = roots.app
+        runtime.mkdir(parents=True, exist_ok=True)
+        source = runtime / "artifact.flac"
+        source.write_bytes(b"ready")
+        song = SimpleNamespace(song_id="song", active_revision=1)
+        job = SimpleNamespace(
+            job_id="job",
+            terminal=True,
+            state=JobState.SUCCEEDED,
+            stage="Complete",
+            stage_progress=1,
+            overall_progress=1,
+            report={},
+        )
+        projects = SimpleNamespace(
+            load_manifest=lambda *args: SimpleNamespace(provenance={}),
+            artifact_path=lambda *args: source,
+        )
+        monkeypatch.setattr(worker_song, "LocalProjectStorage", lambda roots: projects)
+        return SimpleNamespace(
+            songs=SimpleNamespace(
+                import_song=SimpleNamespace(execute=lambda request: song),
+                start_processing=SimpleNamespace(execute=lambda *args, **kwargs: job),
+                get_song=SimpleNamespace(execute=lambda song_id: song),
+            ),
+            system=SimpleNamespace(jobs=SimpleNamespace(get=lambda job_id: job)),
+            shutdown=lambda: shutdown.append(True),
+        )
+
+    monkeypatch.setattr(worker_song, "_build_app", build_app)
 
     def run(self, command, *, timeout_seconds, cancel):
         assert command[1:5] == ["-B", "-m", "backend.remote_worker", "--process-song"]
@@ -86,9 +139,8 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
 
             raise ConflictError("JobCancelled", "Cancelled")
         output = Path(command[-1])
-        (output / "output.json").write_text('{"protocolVersion":1}', encoding="utf-8")
-        for name in ["instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"]:
-            (output / name).write_bytes(b"ready")
+        worker_song.process_song_task(incoming, output)
+        assert not (output / "runtime").exists()
         return SimpleNamespace(exit_code=0)
 
     cancellation = cancel
@@ -99,16 +151,22 @@ def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatc
         assert error.value.code == "JobCancelled"
     else:
         response, files = execute(payload, incoming, sessions, cancel)
-        assert response == {"protocolVersion": 1}
+        assert response == {"protocolVersion": 1, "report": {}, "provenance": {}}
         assert set(files) == {"instrumental.flac", "vocals.flac", "melody.flac", "lyrics.json"}
         assert all(path.parent == incoming / "complete" for path in files.values())
+        assert shutdown == [True]
+        assert loads_object((tmp_path / "progress.json").read_text())["overallProgress"] == 1
     assert not list(sessions.iterdir())
 
 
 @pytest.mark.parametrize(
     "status,code",
-    [(403, "ProcessingAccessDenied"), (413, "ProcessingFileTooLarge"),
-     (429, "ProcessingFreeLimitReached"), (507, "ProcessingStorageFull")],
+    [
+        (403, "ProcessingAccessDenied"),
+        (413, "ProcessingFileTooLarge"),
+        (429, "ProcessingFreeLimitReached"),
+        (507, "ProcessingStorageFull"),
+    ],
 )
 def test_processing_limits_preserve_actionable_errors(status, code):
     with pytest.raises(DomainError) as error:
@@ -134,10 +192,13 @@ def test_transport_uploads_once_downloads_only_completed_result_and_cleans_job(t
             return httpx.Response(204)
         if request.url.path.endswith("/result"):
             return httpx.Response(200, content=b"completed project")
-        return httpx.Response(200, json={
-            "state": "running" if cancelled else "done",
-            "progress": {"stage": "ForcedAlignment", "stageProgress": 1, "overallProgress": 1},
-        })
+        return httpx.Response(
+            200,
+            json={
+                "state": "running" if cancelled else "done",
+                "progress": {"stage": "ForcedAlignment", "stageProgress": 1, "overallProgress": 1},
+            },
+        )
 
     def progress(*update):
         updates.append(update)
@@ -159,7 +220,8 @@ def test_transport_uploads_once_downloads_only_completed_result_and_cleans_job(t
             transport.invoke(source, result, cancel, progress=progress)
             assert result.read_bytes() == b"completed project"
         assert requests == [
-            ("POST", "/processing/jobs"), ("GET", "/processing/jobs/job"),
+            ("POST", "/processing/jobs"),
+            ("GET", "/processing/jobs/job"),
             *([] if cancelled else [("GET", "/processing/jobs/job/result")]),
             ("DELETE", "/processing/jobs/job"),
         ]

@@ -12,7 +12,8 @@ import { desktopClient } from '../../services/desktopClient';
 import { routes } from '../../shared/routes';
 import { useRoomVoice } from '../../providers/application';
 import { useNotify } from '../../providers/notifications';
-import { toggleRadio, setRadioStation } from '../../providers/radio';
+import { toggleRadio, changeRadioStation } from '../../providers/radio';
+import { youtubeSource } from '../radioStations';
 import { radioStations } from '../radioStations';
 import {
   libraryCommands,
@@ -81,9 +82,13 @@ export const DesktopShellBridge = observer(() => {
   const stationEntry = radioStations.find(
     (item) => item.id === radio.stationId,
   );
-  const station = stationEntry?.name;
+  const isYoutube = Boolean(youtubeSource(radio.stationId));
+  const station = isYoutube
+    ? (radio.youtubeTrack?.playlistTitle ?? 'YouTube')
+    : stationEntry?.name;
   const streamUrl = stationEntry?.url;
-  const track = useRadioTrack();
+  const stationTrack = useRadioTrack();
+  const track = isYoutube ? radio.youtubeTrack : stationTrack;
   const status = useMemo(
     () => ({
       language,
@@ -101,7 +106,9 @@ export const DesktopShellBridge = observer(() => {
         enabled: radio.enabled,
         station,
         streamUrl,
-        ...(track ? { track } : {}),
+        ...(track
+          ? { track: { title: track.title, artist: track.artist } }
+          : {}),
       },
       ...(room && muted !== undefined ? { microphoneMuted: muted } : {}),
       discordPresence: preferences.discordPresence,
@@ -132,13 +139,13 @@ export const DesktopShellBridge = observer(() => {
   }, [status]);
 
   // Commands read the latest values through a ref: the subscription stays put while they change.
-  const latest = useRef({ screen, radio, voice, navigate, notify });
-  latest.current = { screen, radio, voice, navigate, notify };
+  const latest = useRef({ screen, voice, navigate, notify });
+  latest.current = { screen, voice, navigate, notify };
   useEffect(
     () =>
       desktopClient.onShellCommand((command) => {
         if (!isCommand(command)) return;
-        const { screen, radio, voice, navigate, notify } = latest.current;
+        const { screen, voice, navigate, notify } = latest.current;
         // Library work never pulls a singer out of a song: it waits until they are back in the Library.
         const forLibrary = (next: LibraryCommand) => {
           libraryCommands.push(next);
@@ -168,11 +175,7 @@ export const DesktopShellBridge = observer(() => {
             toggleRadio();
             break;
           case 'nextStation': {
-            const index = radioStations.findIndex(
-              (item) => item.id === radio.stationId,
-            );
-            const next = radioStations[(index + 1) % radioStations.length];
-            if (next) setRadioStation(next.id);
+            changeRadioStation();
             break;
           }
           case 'addSong':

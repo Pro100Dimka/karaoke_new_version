@@ -222,7 +222,23 @@ it('coalesces byte progress and ignores an old readiness response after import b
 
 it('cancels an in-flight project upload when the session stops', async () => {
   const { coordinator, services, setRoom, getRoom } = setup();
-  setRoom({ ...getRoom(), songId: 'song', revision: 1 });
+  setRoom({
+    ...getRoom(),
+    songId: 'song',
+    revision: 1,
+    participants: [
+      {
+        id: 'guest',
+        name: 'Guest',
+        role: 'participant',
+        self: false,
+        connected: true,
+        muted: false,
+        volume: 1,
+        readiness: 'missing',
+      },
+    ],
+  });
   services.python.listSongs.mockResolvedValue([
     { id: 'song', activeRevision: 1, status: 'ready' } as SongDto,
   ]);

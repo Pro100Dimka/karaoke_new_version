@@ -1,4 +1,4 @@
-"""Remove build and development artifacts from the staged offline Python runtime."""
+"""Remove unused and build artifacts from the staged offline runtime."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import sys
 
 BUILD_ONLY_SUFFIXES = {".h", ".hpp", ".lib", ".pyc", ".pyo"}
 DEVELOPMENT_PACKAGES = ("_pytest", "pytest", "mypy", "mypyc", "ruff", "pip", "wheel")
+RETIRED_PACKAGES = ("gradio_client", "kaggle", "kagglesdk")
 
 
 def _size(path: Path) -> int:
@@ -34,14 +35,14 @@ def main() -> None:
     if not site_packages.is_dir():
         raise SystemExit(f"Bundled site-packages does not exist: {site_packages}")
 
-    removed = 0
+    removed = _remove(resources / "kaggle")
     for bytecode in tuple(site_packages.rglob("__pycache__")):
         removed += _remove(bytecode)
     for path in tuple(site_packages.rglob("*")):
         if path.is_file() and path.suffix.lower() in BUILD_ONLY_SUFFIXES:
             removed += _remove(path)
 
-    for package in DEVELOPMENT_PACKAGES:
+    for package in (*DEVELOPMENT_PACKAGES, *RETIRED_PACKAGES):
         removed += _remove(site_packages / package)
         for metadata in site_packages.glob(f"{package}-*.dist-info"):
             removed += _remove(metadata)
@@ -56,7 +57,7 @@ def main() -> None:
         except OSError:
             pass
 
-    print(f"Pruned {removed / (1024 * 1024):.1f} MiB of build-only Python artifacts")
+    print(f"Pruned {removed / (1024 * 1024):.1f} MiB of unused runtime artifacts")
 
 
 if __name__ == "__main__":

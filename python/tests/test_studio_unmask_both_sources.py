@@ -26,7 +26,7 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
 
     monkeypatch.setattr(MasterRender, "_deliver", capture)
     target = tmp_path / "master.wav"
-    FfmpegStudioMasterRenderer(ProcessRunner()).render(
+    result = FfmpegStudioMasterRenderer(ProcessRunner()).render(
         paths[0],
         paths[1],
         paths[0],
@@ -39,5 +39,7 @@ def test_final_mix_contains_one_voice_and_one_unchanged_backing(tmp_path, monkey
         adjustments=[{"elapsedSeconds": 0, "sourceSeconds": 0, "playbackRate": 1, "keyShift": 0}],
     )
     actual, _ = sf.read(target)
-    np.testing.assert_allclose(actual, stems[0] + music, atol=2e-6)
+    gain = 10 ** (result.processing["delivery"]["globalGainDb"] / 20)
+    assert gain > 1
+    np.testing.assert_allclose(actual, (stems[0] + music) * gain, atol=2e-6)
     assert paths[1].read_bytes() == original

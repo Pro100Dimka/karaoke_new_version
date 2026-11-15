@@ -1,5 +1,6 @@
 import {
   Card,
+  Button,
   IconButton,
   Menu,
   MessageBar,
@@ -13,7 +14,7 @@ import {
 } from '@neo-ui-kit/react';
 import { useRef, useState } from 'react';
 import type { ProcessingJobDto, SongDto } from '../../../../contracts/models';
-import { errorstring } from '../../../../shared/errors';
+import { processingErrorText } from './ProcessingError';
 import {
   isActive,
   phaseOf,
@@ -31,6 +32,10 @@ interface JobActions {
   onStop(): void;
   onDetails(): void;
   onRemove(): void;
+  onReport(): void;
+  onRetry(): void;
+  reporting: boolean;
+  retrying: boolean;
   motionPaused: boolean;
   onToggleMotion(): void;
 }
@@ -52,7 +57,12 @@ export const ProcessingJobCard = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const active = isActive(job);
   const duration = processingDuration(job);
-  const phase = job.state === 'completed' ? phases.length : phaseOf(job);
+  const phase =
+    song?.status === 'importing'
+      ? 0
+      : job.state === 'completed'
+        ? phases.length
+        : phaseOf(job);
   const menu: MenuItemData[] = [
     {
       id: 'details',
@@ -60,7 +70,7 @@ export const ProcessingJobCard = ({
       icon: 'info',
       onSelect: actions.onDetails,
     },
-    ...(song
+    ...(song && song.status !== 'importing'
       ? [
           {
             id: 'folder',
@@ -113,7 +123,11 @@ export const ProcessingJobCard = ({
         >
           <StatusIndicator
             status={stateTone[job.state]}
-            label={tr(stateLabel[job.state])}
+            label={tr(
+              song?.status === 'importing'
+                ? 'importing'
+                : stateLabel[job.state],
+            )}
           />
           {job.processingBackend && (
             <Typography
@@ -146,15 +160,50 @@ export const ProcessingJobCard = ({
           current={phase ?? -1}
           aria-label={tr('processingDetailsStage')}
         />
-        {(job.state === 'failed' || job.state === 'interrupted') && (
-          <MessageBar tone="error">
-            {tr(
-              (job.error && errorstring(job.error)) || 'processingFailedHelp',
-            )}
-          </MessageBar>
+        {['failed', 'interrupted'].includes(job.state) && (
+          <>
+            <MessageBar
+              tone="error"
+              style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+            >
+              {processingErrorText(job)}
+            </MessageBar>
+            <Stack direction="row" gap={2} wrap>
+              <Button
+                size="sm"
+                icon="warning"
+                variant="ghost"
+                onClick={actions.onDetails}
+              >
+                {tr('viewError')}
+              </Button>
+              <Button
+                size="sm"
+                icon="upload"
+                disabled={actions.reporting}
+                onClick={actions.onReport}
+              >
+                {tr(
+                  actions.reporting
+                    ? 'processingReportSending'
+                    : 'processingSendReport',
+                )}
+              </Button>
+            </Stack>
+          </>
         )}
       </div>
       <div className="processingJobActions">
+        {['failed', 'interrupted'].includes(job.state) &&
+          song &&
+          !['queued', 'processing', 'importing'].includes(song.status) && (
+            <IconButton
+              icon="refresh"
+              label={tr('processingRetry')}
+              disabled={actions.retrying}
+              onClick={actions.onRetry}
+            />
+          )}
         {job.state === 'completed' && song && (
           <IconButton
             icon="play"

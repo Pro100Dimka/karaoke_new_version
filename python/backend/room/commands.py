@@ -10,9 +10,11 @@ from backend.domain_errors import ConflictError, NotFoundError
 from backend.room.serialization import RoomLocks, serialized_by_room
 from backend.room.domain import (
     ConnectionState,
+    Participant,
     PlaybackState,
     ReadinessState,
     Room,
+    RoomPlaylist,
     RoomSong,
     room_timing,
 )
@@ -26,6 +28,7 @@ from backend.room.access import (
     playback_position,
 )
 from backend.room.ports import RoomRepository
+from backend.room.performance import complete_performance, reset_performance
 from backend.room.timing_policy import ROOM_TIMING, RoomTiming
 from backend.runtime import Clock
 
@@ -47,43 +50,51 @@ class SelectRoomSong:
         self._clock = clock
 
     @serialized_by_room
-    def execute(self, room_id: str, actor_id: str, song_id: str, revision: int) -> Room:
+    def execute(
+        self,
+        room_id: str,
+        actor_id: str,
+        song_id: str,
+        revision: int,
+        playlist: RoomPlaylist | None = None,
+    ) -> Room:
         room = controller_room(self._rooms, room_id, actor_id)
-        owners = {
-            song.owner_participant_id
-            for song in room.shared_songs
-            if song.song_id == song_id and song.revision == revision
-        }
-        # Older clients can select before their first library publication. In that
-        # compatibility case the controller is the only known holder. Once the
-        # revision is advertised, its actual owner is authoritative.
-        ready_participants = owners or {actor_id}
-        participants = {
-            key: replace(
-                value,
-                readiness_state=(
-                    ReadinessState.PREPARING
-                    if key in ready_participants
-                    else ReadinessState.MISSING_SONG
-                ),
-                transfer_progress=100 if key in ready_participants else 0,
-            )
-            for key, value in room.participants.items()
-        }
         updated = replace(
             room,
             song_id=song_id,
+            playlist=playlist,
             revision=revision,
             auto_start_pending=True,
-            participants=participants,
+            participants=_prepare_participants(room, actor_id, song_id, revision),
             playback_state=PlaybackState.STOPPED,
             playback_started_at=None,
             playback_position_seconds=0.0,
             singing_timing=None,
         )
-        updated = updated.with_timing(room_timing(updated))
+        updated = reset_performance(updated).with_timing(room_timing(updated))
         self._rooms.save(updated)
         return updated
+
+
+def _prepare_participants(
+    room: Room, actor_id: str, song_id: str, revision: int
+) -> dict[str, Participant]:
+    ready = {
+        song.owner_participant_id
+        for song in room.shared_songs
+        if song.song_id == song_id and song.revision == revision
+    } or {actor_id}
+    # Before the first library publication, only the controller is a known holder.
+    return {
+        key: replace(
+            value,
+            readiness_state=ReadinessState.PREPARING
+            if key in ready
+            else ReadinessState.MISSING_SONG,
+            transfer_progress=100 if key in ready else 0,
+        )
+        for key, value in room.participants.items()
+    }
 
 
 class ClearRoomSong:
@@ -101,6 +112,7 @@ class ClearRoomSong:
         updated = replace(
             room,
             song_id=None,
+            playlist=None,
             auto_start_pending=False,
             revision=None,
             participants=participants,
@@ -109,9 +121,64 @@ class ClearRoomSong:
             playback_position_seconds=0.0,
             singing_timing=None,
         )
-        updated = updated.with_timing(room_timing(updated))
+        updated = reset_performance(updated).with_timing(room_timing(updated))
         self._rooms.save(updated)
         return updated
+
+
+class SetRoomPlaylist:
+    def __init__(self, rooms: RoomRepository, clock: Clock, *, locks: RoomLocks) -> None:
+        self._rooms = rooms
+        self.room_locks = locks
+        self._select = SelectRoomSong(rooms, clock, locks=locks)
+        self._clear = ClearRoomSong(rooms, locks=locks)
+
+    @serialized_by_room
+    def execute(
+        self,
+        room_id: str,
+        actor_id: str,
+        name: str,
+        songs: tuple[tuple[str, int], ...],
+    ) -> Room:
+        room = controller_room(self._rooms, room_id, actor_id)
+        if room.song_id is not None:
+            raise ConflictError("RoomSongActive", "Stop the current performance first")
+        available = {(song.song_id, song.revision) for song in room.shared_songs}
+        if not songs or len(set(songs)) != len(songs) or not set(songs) <= available:
+            raise ConflictError("PlaylistSongsUnavailable", "Playlist contains unavailable songs")
+        return self._select.execute(room_id, actor_id, *songs[0], RoomPlaylist(name, songs))
+
+    @serialized_by_room
+    def advance(self, room_id: str, actor_id: str, performance_id: int) -> Room:
+        room = member_room(self._rooms, room_id, actor_id)
+        playlist = room.playlist
+        if playlist is None or room.performance_id != performance_id:
+            return room
+        if room.playback_state is not PlaybackState.STOPPED:
+            raise ConflictError("RoomSongActive", "Finish the current performance first")
+        finished = set(playlist.finished_participants) | {actor_id}
+        playlist = replace(playlist, finished_participants=tuple(sorted(finished)))
+        room = replace(room, playlist=playlist)
+        self._rooms.save(room)
+        if any(
+            p.connection_state is ConnectionState.CONNECTED and key not in finished
+            for key, p in room.participants.items()
+        ):
+            return room
+        index = playlist.index + 1
+        if index >= len(playlist.songs):
+            return self._clear.execute(room_id, room.host_id)
+        song_id, revision = playlist.songs[index]
+        if not any(s.song_id == song_id and s.revision == revision for s in room.shared_songs):
+            raise ConflictError("PlaylistSongsUnavailable", "Next playlist song is unavailable")
+        return self._select.execute(
+            room_id,
+            room.host_id,
+            song_id,
+            revision,
+            replace(playlist, index=index, finished_participants=()),
+        )
 
 
 class SetParticipantReadiness:
@@ -160,11 +227,14 @@ class AuthorizeMediaControl:
         actor_id: str,
         command: MediaControlCommand,
         position_seconds: float | None = None,
+        continue_playlist: bool = False,
     ) -> Room:
         room = controller_room(self._rooms, room_id, actor_id)
         if command is MediaControlCommand.START and not all_ready(room):
             raise ConflictError("RoomNotReady", "Required participants are not ready")
         room = _apply_media_control(room, command, position_seconds, self._clock)
+        if command is MediaControlCommand.STOP and not continue_playlist:
+            room = replace(room, playlist=None)
         self._rooms.save(room)
         return room
 
@@ -207,6 +277,8 @@ def _apply_media_control(
 ) -> Room:
     state = room.playback_state
     if command is MediaControlCommand.START:
+        if state is not PlaybackState.PAUSED:
+            room = reset_performance(room)
         position = room.playback_position_seconds if state is PlaybackState.PAUSED else 0.0
         started_room = replace(
             room,
@@ -235,7 +307,7 @@ def _apply_media_control(
             singing_timing=None,
             auto_start_pending=False,
         )
-        return stopped.with_timing(room_timing(stopped))
+        return complete_performance(stopped.with_timing(room_timing(stopped)))
     position = max(0.0, position_seconds or 0.0)
     started = clock.now() if state is PlaybackState.PLAYING else None
     return replace(room, playback_position_seconds=position, playback_started_at=started)

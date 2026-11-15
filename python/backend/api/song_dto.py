@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 
 from pydantic import Field
 
@@ -13,6 +14,7 @@ from backend.songs.domain import Language, Song, SongStatus
 
 class SongDto(ApiModel):
     song_id: str
+    source_hash: str | None = None
     title: str
     artist: str
     album: str | None
@@ -117,6 +119,9 @@ class CompatibilityDto(ApiModel):
 def song_dto(song: Song) -> SongDto:
     return SongDto(
         song_id=song.song_id,
+        source_hash=(
+            song.source_identity if re.fullmatch(r"[a-f0-9]{64}", song.source_identity) else None
+        ),
         title=song.title,
         artist=song.artist,
         album=song.album,

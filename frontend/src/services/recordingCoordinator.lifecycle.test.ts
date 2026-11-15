@@ -61,6 +61,56 @@ describe('recording lifecycle', () => {
   beforeEach(() => vi.resetModules());
   afterEach(() => Reflect.deleteProperty(window, 'desktop'));
 
+  it('stops capture before waiting for the final room result and saves that result with the take', async () => {
+    const { recordingCoordinator, audioRequest, pythonRequest } = await setup();
+    await recordingCoordinator.start(song, {
+      sourceSeconds: 0,
+      playbackRate: 1,
+      keyShift: 0,
+    });
+    let resolve!: (value: {
+      roomId: string;
+      performanceId: number;
+      overallScore: number;
+    }) => void;
+    const result = new Promise<{
+      roomId: string;
+      performanceId: number;
+      overallScore: number;
+    }>((done) => {
+      resolve = done;
+    });
+    const onCaptured = vi.fn(async () => undefined);
+    const stopping = recordingCoordinator.stop(result, onCaptured);
+    await vi.waitFor(() =>
+      expect(audioRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ command: 'StopRecording' }),
+      ),
+    );
+    expect(
+      pythonRequest.mock.calls.some(
+        ([request]) => request.path === '/recordings',
+      ),
+    ).toBe(false);
+    await vi.waitFor(() => expect(onCaptured).toHaveBeenCalledOnce());
+    resolve({ roomId: 'duet', performanceId: 7, overallScore: 84 });
+    await stopping;
+    expect(pythonRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/recordings',
+        body: expect.objectContaining({
+          sessionMetadata: expect.objectContaining({
+            roomPerformance: {
+              roomId: 'duet',
+              performanceId: 7,
+              overallScore: 84,
+            },
+          }),
+        }),
+      }),
+    );
+  });
+
   it.each([false, true])(
     'keeps one recording target across a mode change, already paused=%s',
     async (paused) => {

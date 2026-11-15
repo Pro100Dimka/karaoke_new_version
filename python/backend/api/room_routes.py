@@ -3,15 +3,23 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Literal, Protocol
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import Field
 
 from backend.api.base_dto import ApiModel
 from backend.api.dependencies import container
 from backend.bootstrap.room_wiring import RoomCases
 from backend.room.commands import MediaControlCommand
-from backend.room.domain import HostDisconnectPolicy, Participant, ReadinessState, Room, RoomSong
+from backend.room.domain import (
+    HostDisconnectPolicy,
+    Participant,
+    ReadinessState,
+    Room,
+    RoomPlaylist,
+    RoomSong,
+)
 from backend.room.identifiers import normalize_room_id
+from backend.room.performance import group_performance_accuracy
 
 router = APIRouter(prefix="/rooms")
 
@@ -57,6 +65,26 @@ class ReadinessDto(ApiModel):
     progress: int | None = Field(default=None, ge=0, le=100)
 
 
+class PlaylistSongDto(ApiModel):
+    song_id: str = Field(min_length=1, max_length=128)
+    revision: int = Field(ge=1)
+
+
+class PlaylistDto(ApiModel):
+    name: str = Field(min_length=1, max_length=100)
+    songs: list[PlaylistSongDto] = Field(min_length=1, max_length=200)
+    index: int = Field(default=0, ge=0)
+
+
+class StartPlaylistDto(ActorDto):
+    name: str = Field(min_length=1, max_length=100)
+    songs: list[PlaylistSongDto] = Field(min_length=1, max_length=200)
+
+
+class AdvancePlaylistDto(ActorDto):
+    performance_id: int = Field(ge=0)
+
+
 class TimingDto(ActorDto):
     voice_latency_ms: float = Field(ge=0, le=500)
     voice_route: Literal["relay", "direct"] = "relay"
@@ -69,6 +97,7 @@ class TimingDto(ActorDto):
 class ControlDto(ActorDto):
     command: MediaControlCommand
     position_seconds: float | None = Field(default=None, ge=0)
+    continue_playlist: bool = False
 
 
 class SharedRoomStateDto(ActorDto):
@@ -93,6 +122,7 @@ class RoomSongDto(ApiModel):
     album: str | None = Field(default=None, max_length=300)
     genre: str | None = Field(default=None, max_length=300)
     duration_seconds: float = Field(ge=0)
+    source_hash: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class PublishLibraryDto(ActorDto):
@@ -112,9 +142,13 @@ class RoomParticipantDto(ApiModel):
     eligibility_reason: str
     return_requirement_ms: float | None = None
     arrival_requirement_ms: float | None = None
+    performance_accuracy: float | None = None
+
+    performance_sung_seconds: float = 0
 
 
 class RoomDto(ApiModel):
+    playlist: PlaylistDto | None = None
     room_id: str
     host_id: str
     song_id: str | None
@@ -142,6 +176,53 @@ class RoomDto(ApiModel):
     room_playout_delay_ms: float = Field(ge=0, le=250)
     room_return_reserve_ms: float = Field(ge=0, le=250)
     room_timing_source: str
+    performance_id: int = 0
+    performance_accuracy: float | None = None
+    last_performance_id: int | None = None
+    last_performance_accuracy: float | None = None
+
+
+class RoomPerformanceDto(ActorDto):
+    finished: bool = False
+    performance_id: int = Field(ge=0)
+    accuracy: float = Field(ge=0, le=100, allow_inf_nan=False, strict=True)
+    sung_seconds: float = Field(ge=0, le=86400, allow_inf_nan=False, strict=True)
+
+
+@router.post("/{room_id}/performance", status_code=204)
+def publish_performance(room_id: str, body: RoomPerformanceDto, app: ContainerDep) -> Response:
+    app.rooms.publish_performance.execute(
+        normalize_room_id(room_id),
+        body.participant_id,
+        body.performance_id,
+        body.accuracy,
+        body.sung_seconds,
+        body.finished,
+    )
+    return Response(status_code=204)
+
+
+@router.post("/{room_id}/playlist", response_model=RoomDto)
+def start_playlist(room_id: str, body: StartPlaylistDto, app: ContainerDep) -> RoomDto:
+    return _room(
+        app.rooms.playlist.execute(
+            normalize_room_id(room_id),
+            body.participant_id,
+            body.name,
+            tuple((song.song_id, song.revision) for song in body.songs),
+        )
+    )
+
+
+@router.post("/{room_id}/playlist/next", response_model=RoomDto)
+def advance_playlist(room_id: str, body: AdvancePlaylistDto, app: ContainerDep) -> RoomDto:
+    return _room(
+        app.rooms.playlist.advance(
+            normalize_room_id(room_id),
+            body.participant_id,
+            body.performance_id,
+        )
+    )
 
 
 @router.post("", response_model=RoomDto, status_code=201)
@@ -249,6 +330,7 @@ def control(room_id: str, body: ControlDto, app: ContainerDep) -> RoomDto:
             body.participant_id,
             body.command,
             body.position_seconds,
+            body.continue_playlist,
         )
     )
 
@@ -292,6 +374,7 @@ def publish_library(room_id: str, body: PublishLibraryDto, app: ContainerDep) ->
             song.album,
             song.genre,
             song.duration_seconds,
+            song.source_hash,
         )
         for song in body.songs
     )
@@ -314,12 +397,32 @@ def _room_participant(item: Participant) -> RoomParticipantDto:
         eligibility_reason=item.eligibility_reason.value,
         return_requirement_ms=item.return_requirement_ms,
         arrival_requirement_ms=item.arrival_requirement_ms,
+        performance_accuracy=item.performance_accuracy,
+        performance_sung_seconds=item.performance_sung_seconds,
+    )
+
+
+def _room_playlist(playlist: RoomPlaylist | None) -> PlaylistDto | None:
+    if playlist is None:
+        return None
+    return PlaylistDto(
+        name=playlist.name,
+        index=playlist.index,
+        songs=[
+            PlaylistSongDto(song_id=song_id, revision=revision)
+            for song_id, revision in playlist.songs
+        ],
     )
 
 
 def _room(room: Room) -> RoomDto:
     return RoomDto(
+        playlist=_room_playlist(room.playlist),
         room_id=room.room_id,
+        performance_id=room.performance_id,
+        performance_accuracy=group_performance_accuracy(room),
+        last_performance_id=room.last_performance_id,
+        last_performance_accuracy=room.last_performance_accuracy,
         host_id=room.host_id,
         song_id=room.song_id,
         revision=room.revision,
@@ -345,14 +448,18 @@ def _room(room: Room) -> RoomDto:
         room_playout_delay_ms=room.room_playout_delay_ms,
         room_return_reserve_ms=room.room_return_reserve_ms,
         room_timing_source=room.room_timing_source.value,
-        transfer_progress=min(
-            (
-                item.transfer_progress
-                for item in room.participants.values()
-                if item.connection_state.value == "Connected"
-            ),
-            default=100,
+        transfer_progress=_transfer_progress(room),
+    )
+
+
+def _transfer_progress(room: Room) -> int:
+    return min(
+        (
+            item.transfer_progress
+            for item in room.participants.values()
+            if item.connection_state.value == "Connected"
         ),
+        default=100,
     )
 
 
@@ -377,4 +484,5 @@ def _room_song(song: RoomSong) -> RoomSongDto:
         album=song.album,
         genre=song.genre,
         duration_seconds=song.duration_seconds,
+        source_hash=song.source_hash,
     )

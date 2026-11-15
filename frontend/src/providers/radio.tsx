@@ -7,7 +7,12 @@ import { RoomLibraryCoordinator } from '../application/room/RoomLibraryCoordinat
 import { roomSession } from './application';
 import { roomClient } from '../services/roomClient';
 import type { NotificationIntent } from './notifications';
-import { radioStations } from '../app/radioStations';
+import {
+  radioStations,
+  youtubeSource,
+  youtubeSourceFromUrl,
+} from '../app/radioStations';
+import { resolveYoutubeRadio } from '../services/youtubeRadio';
 
 const publishRadio = async (enabled: boolean, stationId: string) => {
   const room = store.online.room;
@@ -25,8 +30,10 @@ export const toggleRadio = () => {
   const enabled = !radio.enabled;
   if (
     enabled &&
-    radio.preparedKey !==
-      `${store.application.services.audioEpoch}:${radio.stationId}`
+    (radio.preparedKey !==
+      `${store.application.services.audioEpoch}:${radio.stationId}` ||
+      (youtubeSource(radio.stationId) &&
+        Date.now() - radio.youtubeResolvedAt > 300_000))
   )
     runInAction(() => {
       radio.prepareRequest++;
@@ -37,10 +44,47 @@ export const toggleRadio = () => {
       radio.enabled = enabled;
     });
 };
-export const setRadioStation = (id: string) => {
+export const setRadioStation = (id: string, enabled = store.radio.enabled) => {
   if (!store.radio.canControl) return;
   store.updatePreferences({ radioStation: id });
-  if (store.online.room) void publishRadio(store.radio.enabled, id);
+  if (store.online.room) void publishRadio(enabled, id);
+  else
+    runInAction(() => {
+      store.radio.enabled = enabled;
+    });
+};
+export const setYoutubePlaylist = (url: string) => {
+  const source = youtubeSourceFromUrl(url);
+  if (!source || !store.radio.canControl) return false;
+  runInAction(() => {
+    const reload = store.radio.stationId === source;
+    store.updatePreferences({ radioYoutubePlaylist: url.trim() });
+    setRadioStation(source, true);
+    if (reload) store.radio.prepareRequest++;
+  });
+  return true;
+};
+export const changeRadioStation = (direction: 1 | -1 = 1) => {
+  const source = youtubeSource(store.radio.stationId);
+  if (source) {
+    const track = store.radio.youtubeTrack;
+    const count = track?.playlistId === source.playlistId ? track.count : 0;
+    let index =
+      (track?.playlistId === source.playlistId ? track.index : source.index) +
+      direction;
+    if (index < 1) index = count || 1;
+    if (count && index > count) index = 1;
+    setRadioStation(`youtube:${source.playlistId}:${index}`);
+    return;
+  }
+  const index = radioStations.findIndex(
+    (item) => item.id === store.radio.stationId,
+  );
+  const next =
+    radioStations[
+      (index + direction + radioStations.length) % radioStations.length
+    ];
+  if (next) setRadioStation(next.id);
 };
 export const setRadioVolume = (volume: number) =>
   store.updatePreferences({ radioVolume: volume });
@@ -90,10 +134,17 @@ export const subscribeRadio = (
       const request = ++preparing;
       runInAction(() => {
         store.radio.preparedKey = '';
+        store.radio.error = false;
+        store.radio.loading = active;
+        store.radio.youtubeTrack = null;
       });
       playing = false;
       const station = radioStations.find((item) => item.id === stationId);
-      if (!active || !station) {
+      const youtube = youtubeSource(stationId);
+      if (!active || (!station && !youtube)) {
+        runInAction(() => {
+          store.radio.loading = false;
+        });
         void observeOperation(
           'errors.radioStop',
           audioClient.stopRadio(),
@@ -102,20 +153,45 @@ export const subscribeRadio = (
       }
       void (async () => {
         try {
+          await audioClient.stopRadio();
+          if (request !== preparing) return;
           await audioClient.setRadioGain(store.radio.volume / 100);
           if (request !== preparing) return;
-          await audioClient.loadRadio(station.url);
+          let url = station?.url;
+          if (youtube) {
+            const track = await resolveYoutubeRadio(
+              youtube.playlistId,
+              youtube.index,
+            );
+            if (request !== preparing) return;
+            runInAction(() => {
+              store.radio.youtubeTrack = track;
+              store.radio.youtubeResolvedAt = Date.now();
+            });
+            url = track.url;
+          }
+          if (!url) return;
+          await audioClient.loadRadio(url);
           if (request === preparing)
             runInAction(() => {
               store.radio.preparedKey = `${epoch}:${stationId}`;
+              store.radio.loading = false;
             });
         } catch {
-          if (request !== preparing || !store.radio.enabled) return;
+          if (request !== preparing) return;
+          runInAction(() => {
+            store.radio.loading = false;
+            store.radio.error = true;
+          });
+          if (!store.radio.enabled) return;
           if (!store.online.room)
             runInAction(() => {
               store.radio.enabled = false;
             });
-          notify('Radio unavailable', 'error');
+          notify(
+            youtube ? 'radioYoutubeUnavailable' : 'radioUnavailable',
+            'error',
+          );
         }
       })();
     },
@@ -148,11 +224,15 @@ export const subscribeRadio = (
       void audioClient.playRadio().catch(() => {
         if (request !== playRequest) return;
         playing = false;
+        runInAction(() => {
+          store.radio.preparedKey = '';
+          store.radio.error = true;
+        });
         if (!store.online.room)
           runInAction(() => {
             store.radio.enabled = false;
           });
-        notify('Radio unavailable', 'error');
+        notify('radioUnavailable', 'error');
       });
     },
     { fireImmediately: true },
@@ -168,15 +248,51 @@ export const subscribeRadio = (
     },
     { fireImmediately: true },
   );
+  let trackEndTimer: ReturnType<typeof setInterval> | undefined;
+  const stopPlaylist = reaction(
+    () =>
+      Boolean(
+        youtubeSource(store.radio.stationId) &&
+        store.radio.libraryActive &&
+        store.radio.enabled &&
+        store.radio.preparedKey ===
+          `${store.application.services.audioEpoch}:${store.radio.stationId}` &&
+        (!store.online.room || store.online.room.role === 'host'),
+      ),
+    (active) => {
+      clearInterval(trackEndTimer);
+      if (!active) return;
+      const generation = preparing;
+      let pending = false;
+      trackEndTimer = setInterval(() => {
+        if (pending) return;
+        pending = true;
+        void audioClient
+          .diagnosticsDump()
+          .then((values) => {
+            if (generation === preparing && values.RadioState === '6')
+              changeRadioStation();
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            pending = false;
+          });
+      }, 750);
+    },
+    { fireImmediately: true },
+  );
   return () => {
     stopRoom();
     stopPrepare();
     stopPlay();
     stopVolume();
+    stopPlaylist();
+    clearInterval(trackEndTimer);
     preparing++;
     playRequest++;
     runInAction(() => {
       store.radio.preparedKey = '';
+      store.radio.loading = false;
     });
     void observeOperation('errors.radioStop', audioClient.stopRadio()).catch(
       () => undefined,

@@ -32,18 +32,6 @@ _STEP = 0.01
 HeardWord = tuple[str, float, float]
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 def boundary_conflicts(words: Sequence[AlignedWord]) -> set[int]:
     return {index for index, word in enumerate(words) if "BoundaryConflict" in word.diagnostics} | {
         index + offset
@@ -168,9 +156,6 @@ def serialize(segments: Iterable[Segment], offset: float = 0.0) -> dict[str, obj
         for segment in segments
     ]
     return {"text": "".join(str(item["text"]) for item in serialized), "segments": serialized}
-
-
-
 
 
 def heard_timings(

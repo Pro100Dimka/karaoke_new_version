@@ -351,7 +351,8 @@ def test_presence_eq_restores_words_without_turning_up_the_bass(
 ):
     rate = 8000
     time = np.arange(rate * 8) / rate
-    body = 0.08 if masked else 0.015
+    # Strong masking still needs selective EQ after the requested broadband vocal lift.
+    body = 0.12 if masked else 0.015
     voice = body * np.sin(2 * np.pi * body_frequency * time)
     voice += 0.035 * np.sin(2 * np.pi * 900 * time) + 0.02 * np.sin(2 * np.pi * 1800 * time)
     music = 0.05 * np.sin(2 * np.pi * 900 * time) + 0.03 * np.sin(2 * np.pi * 1800 * time)
@@ -603,3 +604,90 @@ def test_scratch_wave_is_complete_and_sample_exact_before_next_stage(tmp_path: P
     np.testing.assert_array_equal(actual, samples)
     assert sf.info(target).subtype == "FLOAT"
     target.unlink()
+
+
+@pytest.mark.parametrize("error,corrects", [(0.2, False), (0.8, True), (2.0, True)])
+def test_natural_pitch_policy_leaves_small_deviations_and_limits_real_corrections(error, corrects):
+    from types import SimpleNamespace
+    from backend.ai.domain import PitchPoint
+    from backend.recordings.studio_pitch import _pitch_curve
+
+    times = np.arange(400) * 0.01
+    actual = [PitchPoint(t, 440 * 2 ** (error / 12), 1, True) for t in times]
+    reference = [PitchPoint(t, 440, 1, True) for t in times]
+    render = SimpleNamespace(
+        info=SimpleNamespace(duration=4),
+        adjustments=[],
+        pitch_adjustments=[],
+        offset_result=(0, 1),
+        reference_origin=0,
+    )
+    _, correction, _, _, _ = _pitch_curve(render, actual, reference)
+    assert np.max(abs(correction)) <= 0.35
+    if corrects:
+        assert np.max(abs(correction)) > 0.1
+        assert np.mean(abs(correction)) < error * 0.4
+    else:
+        np.testing.assert_array_equal(correction, 0)
+
+
+@pytest.mark.parametrize("dropouts", [False, True])
+def test_pitch_quality_rejects_local_level_holes_but_allows_a_fixed_gain(tmp_path, dropouts):
+    from types import SimpleNamespace
+    from backend.recordings.studio_pitch import _pitch_dynamics_quality
+
+    rate = 8000
+    axis = np.arange(rate * 4) / rate
+    dry = 0.05 * np.sin(2 * np.pi * 220 * axis)
+    wet = dry * 1.2
+    if dropouts:
+        wet[(axis > 1) & (axis < 2)] *= 0.1
+    source, candidate = tmp_path / "dry.wav", tmp_path / "wet.wav"
+    sf.write(source, dry, rate, subtype="FLOAT")
+    sf.write(candidate, wet, rate, subtype="FLOAT")
+    report = _pitch_dynamics_quality(
+        SimpleNamespace(vocal=source, cancel=threading.Event()), candidate
+    )
+    assert report["accepted"] is (not dropouts)
+
+
+def test_added_reverb_is_gentler_without_reducing_direct_voice():
+    from backend.recordings.studio_space import _planned_space
+    from backend.recordings.studio_space_analysis import SpaceProfile
+
+    plan = _planned_space(
+        SpaceProfile(reverb_gain=0.5, decay_count=4, decay_seconds=1), SpaceProfile()
+    )
+    assert plan.reverb_gain == 0.25
+    assert plan.decay_seconds == 1
+
+
+@pytest.mark.parametrize("dry", [False, True])
+def test_reference_space_is_added_only_to_a_dry_voice(tmp_path, monkeypatch, dry):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    import backend.recordings.studio_render as module
+
+    balanced = tmp_path / "balanced.wav"
+    target = tmp_path / "spatial-voice.wav"
+    balanced.write_bytes(b"balanced voice")
+    apply = Mock(return_value={"status": "matched"})
+    monkeypatch.setattr(module, "apply_reference_space", apply)
+    render = SimpleNamespace(
+        process_voice=dry,
+        work=tmp_path,
+        renderer=object(),
+        reference_vocal=balanced,
+        user_vocal=balanced,
+        balanced=balanced,
+        cancel=threading.Event(),
+        space_reference=balanced,
+        processing={},
+    )
+    MasterRender._finish_voice(render)
+    assert apply.call_count == int(dry)
+    assert render.balanced == balanced
+    assert balanced.read_bytes() == b"balanced voice"
+    assert render.processing["space"] == ("matched" if dry else "existing-effects-preserved")
+    assert render.processing["voiceOutputGainDb"] == 0
+    assert not target.exists()

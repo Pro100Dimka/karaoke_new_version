@@ -19,6 +19,10 @@ import { formatTime } from '../../../../shared/utils/format';
 import { useRecordingPeaks } from '../../../../shared/hooks/useWaveformPeaks';
 import { useRecordingPlayback } from './useRecordingPlayback';
 import { fixedKnobWidth } from '../../../../shared/ui/knobWidth';
+import {
+  volumeFromKnob,
+  volumeToKnob,
+} from '../../../../shared/utils/mixerLevel';
 import './recording-player.css';
 
 /** Player of one take: play/pause, seekable waveform, time and a persistent volume knob. */
@@ -76,8 +80,9 @@ const RecordingVolume = () => {
       step={0.01}
       displayScale={100}
       resetValue={1}
-      value={volume}
-      onValueChange={(value) => {
+      value={volumeToKnob(volume)}
+      onValueChange={(position) => {
+        const value = volumeFromKnob(position);
         void observeOperation(
           'errors.previewVolume',
           preview.setPreviewVolume(value),

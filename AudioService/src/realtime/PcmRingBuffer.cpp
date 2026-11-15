@@ -167,6 +167,25 @@ std::uint32_t PcmRingBuffer::discardAvailable(std::uint32_t frames) noexcept {
     return count;
 }
 
+std::uint32_t PcmRingBuffer::discardBefore(MonotonicTicks firstAllowedTime) noexcept {
+    if (!enter())
+        return 0;
+    const auto read = readFrame_.load(std::memory_order_relaxed);
+    const auto available = availableFrames();
+    std::uint32_t expired = 0;
+    if (!frameTimes_.empty()) {
+        while (expired < available) {
+            const auto time = frameTimes_[(read + expired) % capacityFrames_];
+            if (time == 0 || time >= firstAllowedTime)
+                break;
+            ++expired;
+        }
+    }
+    (void)discardAvailable(expired);
+    leave();
+    return expired;
+}
+
 std::uint32_t PcmRingBuffer::pop(std::span<float> output, std::uint32_t frames,
                                  std::span<std::uint8_t> frameTags, Transfer* transfer,
                                  std::span<MonotonicTicks> frameTimes) noexcept {

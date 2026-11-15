@@ -495,7 +495,7 @@ def test_actual_worker_cancellation_uses_the_job_cancelled_contract(tmp_path, ca
 
 
 @pytest.mark.parametrize("finish", ["success", "cancel", "timeout", "failure"])
-def test_speech_session_reuses_process_and_reaps_interrupted_requests(finish):
+def test_speech_session_reuses_process_and_reaps_interrupted_requests(finish, caplog):
     import json
     from backend.infrastructure.speech_session import SpeechSession
 
@@ -506,8 +506,13 @@ for line in sys.stdin.buffer:
     action = item['arguments'][0]
     if action == 'wait':
         threading.Event().wait(30)
+    if action == 'crash':
+        print('intentional speech worker exit', file=sys.stderr, flush=True)
+        sys.exit(23)
     result = json.dumps({'pid': os.getpid(), 'input': item['input'], 'env': item['environment']})
     print(json.dumps({'code': int(action == 'fail'), 'stdout': result, 'stderr': ''}), flush=True)
+    if action == 'exit':
+        sys.exit(0)
 """
     session = SpeechSession([sys.executable, "-u", "-c", script])
     cancel = threading.Event()
@@ -526,9 +531,14 @@ for line in sys.stdin.buffer:
         first = json.loads(call().stdout)
         if finish == "success":
             assert json.loads(call().stdout) == first
+            assert json.loads(call("exit").stdout) == first
         elif finish == "failure":
             assert call("fail").exit_code == 1
             assert json.loads(call().stdout)["pid"] != first["pid"]
+            with pytest.raises(DomainError) as error:
+                call("crash")
+            assert error.value.code == "AiProviderFailed"
+            assert "intentional speech worker exit" in caplog.text
         else:
             if finish == "cancel":
                 timer = threading.Timer(0.1, cancel.set)
@@ -652,3 +662,49 @@ def test_pitch_reuse_keeps_three_analyses_in_one_worker(monkeypatch, device):
     ]
     assert all(kw["cancel"] is cancel for _, kw in sessions[0].calls)
     assert _validate(["pitch", "--input", "voice.wav"], {}, "")[0][0] == "pitch"
+
+
+def test_pitch_cache_reuses_unchanged_content_and_invalidates_changed_audio(tmp_path, monkeypatch):
+    provider = _provider(
+        b'{"points":[{"time":0.1,"frequency":440,"confidence":1,"audioActive":true}]}'
+    )
+    audio = tmp_path / "voice.wav"
+    audio.write_bytes(b"first")
+    calls = []
+    original = provider._runner.run
+    monkeypatch.setattr(
+        provider._runner, "run", lambda *a, **k: calls.append(a) or original(*a, **k)
+    )
+    first = provider.pitch(audio, threading.Event(), execution=EXECUTION)
+    duplicate = tmp_path / "same.wav"
+    duplicate.write_bytes(b"first")
+    assert provider.pitch(duplicate, threading.Event(), execution=EXECUTION) == first
+    assert len(calls) == 1
+    audio.write_bytes(b"second")
+    provider.pitch(audio, threading.Event(), execution=EXECUTION)
+    assert len(calls) == 2
+    provider.pitch(audio, threading.Event(), execution=ExecutionContext(ComputeDevice.CPU, 2))
+    assert len(calls) == 3
+    cancel = threading.Event()
+    cancel.set()
+    with pytest.raises(DomainError) as error:
+        provider.pitch(audio, cancel, execution=EXECUTION)
+    assert error.value.code == "JobCancelled"
+    assert len(calls) == 3
+
+
+def test_pitch_cache_evicts_old_audio_instead_of_growing_indefinitely(tmp_path, monkeypatch):
+    provider = _provider(b'{"points":[]}')
+    audio = tmp_path / "voice.wav"
+    original = provider._runner.run
+    calls = []
+    monkeypatch.setattr(
+        provider._runner, "run", lambda *a, **k: calls.append(a) or original(*a, **k)
+    )
+    for index in range(9):
+        audio.write_bytes(str(index).encode())
+        provider.pitch(audio, threading.Event(), execution=EXECUTION)
+    assert len(calls) == 9
+    audio.write_bytes(b"0")
+    provider.pitch(audio, threading.Event(), execution=EXECUTION)
+    assert len(calls) == 10

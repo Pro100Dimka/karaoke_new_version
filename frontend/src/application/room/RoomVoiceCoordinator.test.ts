@@ -75,6 +75,7 @@ const setup = () => {
     microphoneEnabled: vi.fn(() => true),
     setMicrophoneEnabled: vi.fn(async () => undefined),
     participantMuted: vi.fn(() => false),
+    participantVolume: vi.fn(() => 1),
     setParticipantMuted: vi.fn(async () => undefined),
     setParticipantVolume: vi.fn(async () => undefined),
     setParticipantEffect: vi.fn(async () => undefined),
@@ -91,6 +92,13 @@ const setup = () => {
     },
   };
 };
+
+it('reads the retained audio gain rather than the default room snapshot volume', () => {
+  const { voice, audio } = setup();
+  audio.participantVolume.mockReturnValue(0.37);
+  expect(voice.participantVolume('remote')).toBe(0.37);
+  expect(audio.participantVolume).toHaveBeenCalledWith('remote');
+});
 
 it('re-registers voice once after reconnect and keeps personal controls scoped to that session', async () => {
   const { voice, audio, invalidate } = setup();

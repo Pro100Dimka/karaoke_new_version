@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated, Mapping
 
 from fastapi import APIRouter, Depends, Header, Query, Response
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from backend.analysis.domain import AnalysisResult
 from backend.domain_errors import ConflictError
@@ -42,7 +42,14 @@ class RegisterRecordingDto(ApiModel):
     session_metadata: dict[str, object] = Field(default_factory=dict)
 
 
+class RoomPerformanceDto(ApiModel):
+    room_id: str = Field(min_length=1, max_length=128)
+    performance_id: int = Field(ge=0)
+    overall_score: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+
+
 class RecordingDto(ApiModel):
+    room_performance: RoomPerformanceDto | None = None
     recording_id: str
     file_path: str
     duration: float
@@ -214,7 +221,18 @@ def _recording(app: ApplicationContainer, recording: Recording) -> RecordingDto:
         analysis_status=analysis_status,
         source_recording_id=source_recording_id,
         size_bytes=size_bytes,
+        room_performance=_room_performance(recording),
     )
+
+
+def _room_performance(recording: Recording) -> RoomPerformanceDto | None:
+    raw = (recording.session_metadata or {}).get("roomPerformance")
+    if raw is None:
+        return None
+    try:
+        return RoomPerformanceDto.model_validate(raw)
+    except ValidationError:
+        return None
 
 
 def _analysis(result: AnalysisResult) -> AnalysisDto:

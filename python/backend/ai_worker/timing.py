@@ -6,6 +6,8 @@ from faster_whisper.vad import get_vad_model
 from scipy.ndimage import median_filter, uniform_filter1d
 from scipy.spatial.distance import cdist
 
+from backend.ai_worker.ctc_domain import _SILENCE_ENDS_WORD_SECONDS
+
 _ACTIVITY_DB = 30.0
 _ABSOLUTE_FLOOR_DB = -65.0
 _BRIDGED_GAP_SECONDS = 0.12
@@ -177,6 +179,28 @@ def continued_frames(
     result = active.copy()
     result[first:stop] &= matching
     return _bridged(result, round(_BRIDGED_GAP_SECONDS / step))
+
+
+def _first_long_silence(
+    voiced: np.ndarray, start: float, end: float, step: float, *, trailing: bool = False
+) -> float | None:
+    """Locate a word-ending pause, preserving internal gaps when checking a trailing release."""
+    first, last = int(start / step), min(len(voiced), int(end / step))
+    sounding = np.flatnonzero(voiced[first:last])
+    if not len(sounding):
+        return None
+    if trailing:
+        # A terminal release may be shorter than an internal breath. Require
+        # silence through the end, so an internal closure cannot cut a vowel.
+        release = (first + int(sounding[-1]) + 1) * step
+        return release if end - release >= _BRIDGED_GAP_SECONDS else None
+    needed = round(_SILENCE_ENDS_WORD_SECONDS / step)
+    run = 0
+    for frame in range(first + int(sounding[0]), last):
+        run = 0 if voiced[frame] else run + 1
+        if run >= needed:
+            return (frame - run + 1) * step
+    return None
 
 
 def vocal_onsets(samples: np.ndarray, sample_rate: int, hop: int) -> np.ndarray:

@@ -96,7 +96,13 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
         : undefined;
       const current = tvRef.current;
       if (!current) {
-        setEnding((previous) => previous ?? { songId, takeId });
+        const next = store.advancePlaylist(songId);
+        if (next) {
+          store.prepareKaraoke(next, 'AutoStart');
+          navigate(routes.karaoke(next));
+          return;
+        }
+        setEnding({ songId, takeId });
         return;
       }
       const [next, ...rest] = current.queue;
@@ -116,7 +122,7 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
   );
 
   useEffect(() => {
-    if (!ending) return;
+    if (!ending || room?.playlist) return;
     const timer = window.setTimeout(
       () => {
         store.returnFromKaraoke({
@@ -134,6 +140,7 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
   }, [ending, navigate, room]);
 
   const leave = useCallback(() => {
+    store.cancelPlaylist();
     if (tvRef.current) endTv();
     else navigate(routes.library);
   }, [endTv, navigate]);
@@ -160,9 +167,9 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
     else endTv();
   }, [endTv]);
 
-  // A room plays together on everyone's own screen: the TV is not for rooms. Leaving the Library
-  // (the editor, a room's song) ends the TV session too: only one screen plays at a time.
+  // A room uses everyone's own screen. Leaving the Library also ends the TV session.
   useEffect(() => {
+    if (room) store.cancelPlaylist();
     if (tvRef.current && (room || pathname !== routes.library)) endTv();
   }, [room, pathname, endTv]);
 
@@ -192,7 +199,7 @@ export const KaraokeHost = observer(({ children }: { children: ReactNode }) => {
     <KaraokeTvContext.Provider value={value}>
       <KaraokeSlotContext.Provider value={setSlot}>
         {children}
-        {ending && (
+        {ending && !room?.playlist && (
           <div className="sceneCurtain" data-phase="closing" aria-hidden />
         )}
         {shown && (

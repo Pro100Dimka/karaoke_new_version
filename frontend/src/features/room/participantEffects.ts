@@ -1,5 +1,5 @@
-export type ParticipantEffect =
-  'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';
+import type { RoomVoiceEffect } from '../../contracts/models';
+export type ParticipantEffect = RoomVoiceEffect;
 
 /** What the host can shape of another participant's voice, as heard in this room. */
 export const participantEffectKnobs = [

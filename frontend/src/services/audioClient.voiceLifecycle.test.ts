@@ -244,20 +244,42 @@ it('restores the server mix slot after every room voice session recreation', asy
   expectServerMixRestored();
 });
 
-it('restores personal participant gain after reconnect without recreating a nonexistent client slot', async () => {
+it('restores personal participant gain and effects after reconnect without recreating a nonexistent client slot', async () => {
   const joinRoomVoice = vi.fn(async () => undefined);
   const setRoomVoiceParticipantGain = vi.fn(async () => undefined);
+  const setRoomVoiceParticipantEffect = vi.fn(async () => undefined);
   const requests = installBridge(undefined, {
     joinRoomVoice,
     setRoomVoiceParticipantGain,
+    setRoomVoiceParticipantEffect,
   });
   const { audioClient } = await import('./audioClient');
   await audioClient.joinVoiceSession('room', 'self');
-  await audioClient.setParticipantVolume('friend', 0.42);
+  await audioClient.setParticipantVolume('friend', 4);
+  const effects = [
+    ['reverb', 0.35],
+    ['echo', 0.2],
+    ['delay', 0.1],
+    ['noiseSuppression', 1],
+    ['octave', -1],
+    ['autoTune', 0.4],
+  ] as const;
+  for (const [effect, value] of effects)
+    await audioClient.setParticipantEffect('friend', effect, value);
+  expect(requests.some((request) => request.command === 'SetRemoteEffect')).toBe(false);
   requests.length = 0;
   setRoomVoiceParticipantGain.mockClear();
+  setRoomVoiceParticipantEffect.mockClear();
   await audioClient.reconnectVoiceSession();
-  expect(setRoomVoiceParticipantGain).toHaveBeenCalledWith('friend', 0.42);
+  expect(setRoomVoiceParticipantGain).toHaveBeenCalledExactlyOnceWith('friend', 4);
+  expect(setRoomVoiceParticipantEffect).toHaveBeenCalledTimes(effects.length);
+  for (const [effect, value] of effects)
+    expect(setRoomVoiceParticipantEffect).toHaveBeenCalledWith(
+      'friend',
+      effect,
+      value,
+    );
+  expect(requests.some((request) => request.command === 'SetRemoteEffect')).toBe(false);
   expect(
     requests.filter((request) => request.command === 'AddRemoteParticipant'),
   ).toEqual([

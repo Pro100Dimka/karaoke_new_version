@@ -99,27 +99,7 @@ class SpeechSession:
             stdout, stderr = self._pipes.output()
             end = stdout.find(b"\n", self._offset)
             if end >= 0:
-                reply = loads_object(stdout[self._offset : end].decode("utf-8"))
-                self._offset = end + 1
-                code, output, diagnostic = (
-                    reply.get("code"),
-                    reply.get("stdout"),
-                    reply.get("stderr"),
-                )
-                if (
-                    not isinstance(code, int)
-                    or not isinstance(output, str)
-                    or not isinstance(diagnostic, str)
-                ):
-                    raise DependencyError(
-                        "AiProviderInvalidOutput", "Speech worker response is malformed"
-                    )
-                result = ProcessResult(
-                    code, output.encode("utf-8"), stderr + diagnostic.encode("utf-8")
-                )
-                if code:
-                    self.close()
-                return result
+                return self._reply(stdout, stderr, end)
             exit_code = self._process.poll()
             if exit_code is not None:
                 self._pipes.stop_input()
@@ -138,6 +118,25 @@ class SpeechSession:
                     "AiProviderFailed", "Speech worker exited before replying", exitCode=exit_code
                 )
             cancel.wait(0.05)
+
+    def _reply(self, stdout: bytes, stderr: bytes, end: int) -> ProcessResult:
+        reply = loads_object(stdout[self._offset : end].decode("utf-8"))
+        self._offset = end + 1
+        code, output, diagnostic = (
+            reply.get("code"),
+            reply.get("stdout"),
+            reply.get("stderr"),
+        )
+        if (
+            not isinstance(code, int)
+            or not isinstance(output, str)
+            or not isinstance(diagnostic, str)
+        ):
+            raise DependencyError("AiProviderInvalidOutput", "Speech worker response is malformed")
+        result = ProcessResult(code, output.encode("utf-8"), stderr + diagnostic.encode("utf-8"))
+        if code:
+            self.close()
+        return result
 
     def close(self) -> None:
         if self._job:

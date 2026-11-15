@@ -1,6 +1,7 @@
 #include "dsp/DspChain.hpp"
 
 #include <algorithm>
+#include <cmath>
 
 void DspChain::prepare(std::uint32_t sampleRateHz, std::uint32_t maxFrames,
                        std::uint32_t channels, bool minimizePitchDelay) {
@@ -88,6 +89,33 @@ bool DspChain::setParameter(std::string_view name, float value) noexcept {
         return false;
     return true;
 }
+std::optional<float> DspChain::setVoiceEffect(std::string_view name, float value) noexcept {
+    struct Binding {
+        std::string_view name, parameter;
+        float minimum, maximum, scale;
+        bool rounded;
+    };
+    constexpr std::array bindings{
+        Binding{"reverb", "reverb.mix", 0.0F, 1.0F, 1.0F, false},
+        Binding{"echo", "echo.amount", 0.0F, 0.95F, 1.0F, false},
+        Binding{"delay", "delay.mix", 0.0F, 1.0F, 1.0F, false},
+        Binding{"noiseSuppression", "noise.amount", 0.0F, 1.0F, 1.0F, true},
+        Binding{"octave", "pitch.semitones", -1.0F, 1.0F, 12.0F, true},
+        Binding{"autoTune", "autotune.amount", 0.0F, 1.0F, 1.0F, false},
+    };
+    const auto binding = std::ranges::find(bindings, name, &Binding::name);
+    if (binding == bindings.end() || !std::isfinite(value))
+        return std::nullopt;
+    value = std::clamp(value, binding->minimum, binding->maximum);
+    if (binding->rounded)
+        value = std::round(value);
+    if (!setParameter(binding->parameter, value * binding->scale))
+        return std::nullopt;
+    if (name == "delay" && !setParameter("delay.ms", 25.0F + value * 475.0F))
+        return std::nullopt;
+    return value;
+}
+
 std::uint32_t DspChain::latencyFrames() const noexcept {
     return highPass_.latencyFrames() + equalizer_.latencyFrames() + compressor_.latencyFrames() +
            gate_.latencyFrames() + noise_.latencyFrames() + reverb_.latencyFrames() +

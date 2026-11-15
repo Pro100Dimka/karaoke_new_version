@@ -1,5 +1,6 @@
 import type {
   AnalysisDto,
+  RoomVoiceEffect,
   AiProcessingSettingsDto,
   EnvironmentSettingDto,
   AudioCapabilities,
@@ -241,6 +242,13 @@ export interface RecordingAnalysisProgress extends StudioMasterProgress {
 
 /** Talks to the shared room/voice server (a fixed public deployment), not the user's local Python backend. */
 export interface RoomClient {
+  publishPerformance(
+    code: string,
+    performanceId: number,
+    accuracy: number,
+    sungSeconds: number,
+    finished?: boolean,
+  ): Promise<void>;
   createRoom(displayName: string): Promise<RoomStateDto>;
   joinRoom(code: string, displayName: string): Promise<RoomStateDto>;
   getRoom(code: string): Promise<RoomStateDto>;
@@ -265,6 +273,12 @@ export interface RoomClient {
     revision: number,
   ): Promise<RoomStateDto>;
   clearRoomSong(code: string): Promise<RoomStateDto>;
+  startPlaylist(
+    code: string,
+    name: string,
+    songs: { songId: string; revision: number }[],
+  ): Promise<RoomStateDto>;
+  advancePlaylist(code: string, performanceId: number): Promise<RoomStateDto>;
   setRoomReadiness(
     code: string,
     readiness: RoomReadiness,
@@ -287,6 +301,7 @@ export interface RoomClient {
     code: string,
     command: RoomCommand,
     positionSeconds?: number,
+    continuePlaylist?: boolean,
   ): Promise<RoomStateDto>;
   startSyncCheck(code: string): Promise<RoomStateDto>;
   updateSharedState(
@@ -407,11 +422,11 @@ export interface AudioServiceClient {
   /** Silences one participant for this listener only. */
   setParticipantMuted(participantId: string, muted: boolean): Promise<void>;
   participantMuted(participantId: string): boolean;
+  participantVolume(participantId: string): number;
   setParticipantVolume(participantId: string, gain: number): Promise<void>;
   setParticipantEffect(
     participantId: string,
-    effect:
-      'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune',
+    effect: RoomVoiceEffect,
     value: number,
   ): Promise<void>;
   roomLevels(): Promise<{

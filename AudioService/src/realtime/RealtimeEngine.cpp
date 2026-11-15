@@ -909,12 +909,7 @@ void RealtimeEngine::onRender(GenerationId generation, const BackendAudioBuffer&
                          ++channel) {
                         const auto index = static_cast<std::size_t>(frame) * buffer.channels + channel;
                         const auto value = mic[index] * gains.microphone * monitorStartupGain_;
-                        const auto magnitude = std::abs(value);
-                        const auto limited = magnitude <= limit * 0.5F ? magnitude
-                            : magnitude >= limit * 1.5F ? limit
-                            : magnitude - (magnitude - limit * 0.5F) *
-                                              (magnitude - limit * 0.5F) / (2.0F * limit);
-                        output[index] += std::copysign(limited, value);
+                        output[index] += softLimitSample(value, limit, 0.5F);
                     }
                 }
             }

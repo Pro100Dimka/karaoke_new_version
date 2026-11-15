@@ -97,9 +97,9 @@ void roomRelayClosesEachPositionByTheMeasuredReturnReserve() {
     legacy.setRoomPlayoutDelay("room", 12.5); // the fixed 10 ms reserve, before measurement
     const auto legacyOutput = bobSixMillisecondsLate(legacy);
     const auto* legacyMix = mixFor(legacyOutput.atBob, Alice);
-    expect(legacyMix != nullptr && firstSample(*legacyMix) == 0,
-           "with the fixed 10 ms reserve the position closed 2.5 ms after it, so Bob's voice "
-           "6 ms later was lost although Alice's fast return route did not need the time");
+    expect(legacyMix != nullptr && firstSample(*legacyMix) == 2,
+           "the fixed reserve rejects Bob's late current voice and continues only his old waveform; "
+           "the measured return route still admits the authentic current voice below");
 
     NativeVoiceRelay measured;
     measured.setRoomPlayoutDelay("room", 12.5, 3.0); // fast measured return routes

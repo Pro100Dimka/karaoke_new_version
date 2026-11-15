@@ -92,36 +92,264 @@ body:has(.titleBarFullscreen) dialog.ad-dialog > header {
 }
 .floatingControls {
   position: fixed;
-  right: 1vw;
-  bottom: 1vh;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
   z-index: var(--ad-z-floating);
   display: flex;
-  gap: var(--ad-space-3);
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--ad-primary) 30%, transparent);
+  border-radius: 2rem;
+  background: var(--ad-surface-dialog);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 0.5rem 2rem rgb(0 0 0 / 0.2);
+}
+.floatingControls .ad-icon-button {
+  min-width: 2.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
-/* What the radio plays, above its volume: title, then artist. */
-.radioTrack {
-  display: grid;
-  gap: 0.125rem;
-  max-inline-size: 18rem;
-  margin: 0 0 var(--ad-space-2);
-  line-height: 1.3;
+.radioLauncher {
+  position: relative;
 }
-.radioTrack strong,
-.radioTrack span {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.radioLauncher[data-playing='true']::after {
+  position: absolute;
+  right: 0.15rem;
+  top: 0.15rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--ad-primary);
+  box-shadow: 0 0 0.6rem var(--ad-primary);
+  content: '';
+  pointer-events: none;
 }
-.radioTrack span {
-  font-size: var(--ad-font-size-caption);
-  opacity: 0.72;
+.radioPopover.ad-popover {
+  translate: -4rem 0;
+  width: min(26rem, calc(100vw - 6rem));
+  max-height: calc(100dvh - var(--title) - 2rem);
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--ad-primary) 40%, transparent);
+  border-radius: 1.125rem;
+  background: var(--ad-surface-dialog);
+  box-shadow:
+    0 1rem 3rem rgb(0 0 0 / 0.3),
+    0 0 1.5rem color-mix(in srgb, var(--ad-primary) 10%, transparent);
 }
+.radioPlayerHeader,
+.radioStatus,
+.radioTransport,
 .radioVolume {
   display: flex;
   align-items: center;
-  gap: var(--ad-space-3);
-  min-width: 14rem;
+}
+.radioPlayerHeader {
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.radioPlayerEyebrow {
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: var(--ad-text);
+}
+.radioPlayerDeck {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  margin-bottom: 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--ad-primary) 20%, transparent);
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--ad-primary) 5%, transparent);
+}
+.radioStatus {
+  gap: 0.375rem;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+.radioStatus i {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+.radioStatus[data-playing='true'] {
+  color: var(--ad-primary);
+  opacity: 1;
+}
+.radioSourceControls {
+  margin-top: 0.625rem;
+}
+.radioSourceControls > * {
+  width: 100%;
+}
+.radioStationGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-height: clamp(8rem, calc(100dvh - 22rem), 15rem);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 0.15rem;
+}
+.radioPopover,
+.radioStationGrid {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ad-primary)
+    color-mix(in srgb, var(--ad-primary) 8%, transparent);
+}
+.radioPopover::-webkit-scrollbar,
+.radioStationGrid::-webkit-scrollbar {
+  width: 6px;
+}
+.radioPopover::-webkit-scrollbar-thumb,
+.radioStationGrid::-webkit-scrollbar-thumb {
+  border-radius: 1rem;
+  background: var(--ad-primary);
+}
+.radioPopover::-webkit-scrollbar-button,
+.radioStationGrid::-webkit-scrollbar-button {
+  display: none;
+}
+.radioStationChoice.ad-button {
+  justify-content: start;
+  min-width: 0;
+  min-height: 3rem;
+  height: auto;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--ad-text) 12%, transparent);
+  border-radius: 0.75rem;
+  text-align: left;
+}
+.radioStationChoice .ad-button-label {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.radioStationName {
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: normal;
+}
+.radioStationGenre {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.65rem;
+  opacity: 0.65;
+}
+.radioStationChoice.ad-button[aria-pressed='true'] {
+  border-color: var(--ad-primary);
+  color: var(--ad-primary);
+  background: color-mix(in srgb, var(--ad-primary) 12%, transparent);
+  box-shadow: inset 0 0 1rem
+    color-mix(in srgb, var(--ad-primary) 8%, transparent);
+}
+.radioPlaylistForm {
+  display: grid;
+  gap: 0.625rem;
+}
+.radioPlaylistForm > button {
+  width: 100%;
+}
+.radioHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  opacity: 0.65;
+}
+.radioNowPlaying {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.radioArtwork {
+  display: grid;
+  flex: 0 0 2rem;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--ad-primary) 35%, transparent);
+  border-radius: 0.625rem;
+  color: var(--ad-primary);
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--ad-primary) 23%, transparent),
+    color-mix(in srgb, var(--ad-primary) 5%, transparent)
+  );
+}
+.radioNowPlayingText {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  line-height: 1.3;
+}
+.radioNowPlayingText > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.radioNowPlayingText > strong {
+  font-size: 0.75rem;
+}
+.radioNowPlayingText > span {
+  font-size: 0.72rem;
+  opacity: 0.65;
+}
+.radioNowPlayingText .radioNowPlayingSource {
+  color: var(--ad-primary);
+  font-weight: 600;
+  opacity: 1;
+}
+.radioTransport {
+  justify-content: center;
+  gap: 0.15rem;
+}
+.radioTransport .ad-icon-button {
+  min-width: 1.5rem;
+  width: 1.5rem;
+  height: 1.75rem;
+}
+.radioTransport .ad-icon-button[data-variant='primary'] {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+.radioNext svg {
+  transform: rotate(180deg);
+}
+.radioVolume {
+  grid-column: 1 / -1;
+  gap: 0.5rem;
+  min-width: 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+.radioVolume > .ad-slider-field {
+  flex: 1;
+  min-width: 0;
+}
+.radioVolume output {
+  min-width: 2.75rem;
+  text-align: right;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+.radioError {
+  grid-column: 1 / -1;
+  margin: 0.75rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--ad-danger, #df6b6b);
 }
 .bootstrapState {
   display: grid;

@@ -112,26 +112,38 @@ def _voicing_profile(voice: Path, cancel: threading.Event) -> np.ndarray:
         size = max(1, round(source.samplerate * 0.04))
         transform = 2 ** int(np.ceil(np.log2(2 * size)))
         hz = np.fft.rfftfreq(transform, 1 / source.samplerate)
-        for block in source.blocks(blocksize=size, always_2d=True):
+        for block in source.blocks(blocksize=size * 32, always_2d=True):
             _check_cancel(cancel)
-            power = np.sum(abs(np.fft.rfft(block, n=transform, axis=0)) ** 2, axis=1)
-            power[(hz < 150) | (hz > 3500)] = 0
-            correlation = np.fft.irfft(power, n=transform)
-            low, high = max(1, round(source.samplerate / 500)), round(source.samplerate / 70)
-            peak = float(np.max(correlation[low:high])) / max(float(correlation[0]), 1e-20)
-            confidence.append(peak)
+            complete = len(block) // size * size
+            for frames in (
+                block[:complete].reshape(-1, size, source.channels),
+                block[complete:][None, :, :],
+            ):
+                if not frames.size:
+                    continue
+                power = np.sum(abs(np.fft.rfft(frames, n=transform, axis=1)) ** 2, axis=2)
+                power[:, (hz < 150) | (hz > 3500)] = 0
+                correlation = np.fft.irfft(power, n=transform, axis=1)
+                low, high = max(1, round(source.samplerate / 500)), round(source.samplerate / 70)
+                peak = np.max(correlation[:, low:high], axis=1) / np.maximum(
+                    correlation[:, 0], 1e-20
+                )
+                confidence.extend(peak.tolist())
     return np.asarray(confidence)
 
 
 def _protect_unvoiced(
-    voice: Path, times: np.ndarray, desired: np.ndarray, active: np.ndarray,
+    voice: Path,
+    times: np.ndarray,
+    desired: np.ndarray,
+    active: np.ndarray,
     cancel: threading.Event,
 ) -> tuple[np.ndarray, dict[str, object]]:
     profile = _voicing_profile(voice, cancel)
     confidence = np.interp(times, (np.arange(len(profile)) + 0.5) * 0.04, profile)
-    voiced = minimum_filter1d(
-        (active & (confidence >= 0.65)).astype(float), size=7, mode="constant"
-    ) > 0
+    voiced = (
+        minimum_filter1d((active & (confidence >= 0.65)).astype(float), size=7, mode="constant") > 0
+    )
     reduction = np.zeros_like(desired)
     if voiced.any():
         body_gain = minimum_filter1d(np.where(voiced, desired, np.inf), size=21)
@@ -158,33 +170,42 @@ def build_gain_plan(
     baseline = float(np.median(level[active]))
     placement = -3.0 + 3.0 * overlap
     target = _target_levels(times, level, music, meter_times, baseline, placement)
+    # Support softer words before breath protection, without flattening the whole performance.
+    soft_word_lift = np.clip((baseline - level) * 0.25, 0.0, 1.5)
+    target += soft_word_lift
     desired, protection = _protect_unvoiced(voice, times, target - level, active, cancel)
     # Include breath protection's attenuation when measuring the final vocal presence.
-    presence = _presence_correction(
-        voice, backing, times, desired, active, placement, cancel
-    )
-    desired += presence
-    target = level + desired
+    presence = _presence_correction(voice, backing, times, desired, active, placement, cancel)
+    desired += presence + 1.5
     report["unvoicedProtection"] = protection
     global_gain = float(np.median(desired[active]))
-    gains = gaussian_filter1d(
-        np.interp(times, times[active], desired[active]), sigma=1, mode="nearest"
-    )
-    gate = gaussian_filter1d(
-        maximum_filter1d(active.astype(float), size=9), sigma=1, mode="nearest"
-    )
-    gains = gate * gains + (1 - gate) * min(global_gain, 0)
+    gains = _smoothed_gains(times, desired, active, global_gain)
     report.update(
         globalGainDb=global_gain,
         placementLu=placement,
         presenceCompensationDb=presence,
+        vocalLiftDb=1.5,
+        softWordLiftMaxDb=float(np.max(soft_word_lift[active])),
         presenceBandHz=[600, 3500],
         overlap=overlap,
         dynamicRangeDb=float(np.ptp(np.percentile(desired[active], [10, 90]))),
         gainMinDb=float(np.min(gains)),
         gainMaxDb=float(np.max(gains)),
     )
-    return GainPlan(times, gains, active, target, offset, report)
+    return GainPlan(times, gains, active, level + desired, offset, report)
+
+
+def _smoothed_gains(
+    times: np.ndarray, desired: np.ndarray, active: np.ndarray, global_gain: float
+) -> np.ndarray:
+    gains = gaussian_filter1d(
+        np.interp(times, times[active], desired[active]), sigma=0.05 / _STEP, mode="nearest"
+    )
+    gate = gaussian_filter1d(
+        maximum_filter1d(active.astype(float), size=9), sigma=1, mode="nearest"
+    )
+    result: NDArray[np.float64] = gate * gains + (1 - gate) * min(global_gain, 0)
+    return result
 
 
 def validate_gain_plan(voice: Path, plan: GainPlan, cancel: threading.Event) -> dict[str, object]:

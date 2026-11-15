@@ -24,6 +24,24 @@ class SectionResult:
 
 
 @dataclass(frozen=True, slots=True)
+class PlaybackAdjustment:
+    elapsed_seconds: float
+    source_seconds: float
+    playback_rate: float
+    key_shift: float
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreSummary:
+    pitch_accuracy_percent: float
+    mean_semitone_deviation: float
+    rhythm_accuracy_percent: float
+    note_stability_percent: float
+    sections: Sequence[SectionResult]
+    problem_regions: Sequence[dict[str, float]]
+
+
+@dataclass(frozen=True, slots=True)
 class AnalysisResult:
     analysis_id: str
     recording_id: str

@@ -492,7 +492,7 @@ def test_personal_participant_gain_requires_the_listeners_voice_token() -> None:
             "roomId": room_id,
             "participantId": "host",
             "sourceParticipantId": "guest",
-            "gain": 0.25,
+            "gain": 4.0,
         }
 
         rejected = client.post(
@@ -504,6 +504,66 @@ def test_personal_participant_gain_requires_the_listeners_voice_token() -> None:
 
         assert rejected.status_code == 403
         assert accepted.status_code == 204
+
+
+@pytest.mark.parametrize(
+    "effect,value",
+    [
+        ("reverb", 0.5),
+        ("echo", 0.4),
+        ("delay", 0.3),
+        ("noiseSuppression", 1),
+        ("octave", -1),
+        ("autoTune", 0.8),
+    ],
+)
+def test_personal_effect_is_authenticated_and_reaches_the_native_mixer(
+    monkeypatch, effect, value
+) -> None:
+    commands: list[str] = []
+    relay = VoiceRelay(control_command=commands.append)
+    monkeypatch.setattr("backend.api.room_server_app._voice_relays", lambda *_: (None, relay))
+    with TestClient(create_room_server_app(relay_port=0)) as client:
+        room_id = client.post(
+            "/rooms", json={"participantId": "host", "displayName": "Host"}
+        ).json()["roomId"]
+        client.post(
+            f"/rooms/{room_id}/join", json={"participantId": "guest", "displayName": "Guest"}
+        )
+        token = client.post(
+            "/voice/join", json={"roomId": room_id, "participantId": "host"}
+        ).json()["voiceToken"]
+        body = {
+            "roomId": room_id,
+            "participantId": "host",
+            "sourceParticipantId": "guest",
+            "effect": effect,
+            "value": value,
+        }
+        assert (
+            client.post(
+                "/voice/participant-effect", json={**body, "voiceToken": "0000000000000001"}
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post("/voice/participant-effect", json={**body, "voiceToken": token}).status_code
+            == 204
+        )
+        assert commands[-1] == f"EFFECT\t{room_id}\thost\tguest\t{effect}\t{float(value)}"
+        assert (
+            client.post(
+                "/voice/participant-effect",
+                json={**body, "voiceToken": token, "sourceParticipantId": "host"},
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                "/voice/participant-effect", json={**body, "voiceToken": token, "effect": "unknown"}
+            ).status_code
+            == 422
+        )
 
 
 def test_room_publishes_each_participants_start_latency_for_song_scheduling() -> None:

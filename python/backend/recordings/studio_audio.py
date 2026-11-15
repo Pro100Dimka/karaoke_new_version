@@ -6,7 +6,6 @@ from backend.infrastructure.process_runner import ProcessResult
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-import math
 import threading
 import numpy as np
 from numpy.typing import NDArray
@@ -116,8 +115,9 @@ def _profile(
 ) -> NDArray[np.float64]:
     levels: list[float] = []
     with sf.SoundFile(path) as source:
+        frame_size = max(1, round(source.samplerate * frame_seconds))
         for samples in source.blocks(
-            blocksize=max(1, round(source.samplerate * frame_seconds)),
+            blocksize=frame_size * 32,
             dtype="float64",
             always_2d=True,
         ):
@@ -126,18 +126,36 @@ def _profile(
                 raise DependencyError("StudioMasterInvalidAudio", "Audio contains invalid samples")
             if center:
                 samples = samples.mean(axis=1, keepdims=True)
-            power = float(np.mean(samples * samples))
-            if voice_band:
-                window = np.hanning(len(samples))[:, None]
-                spectrum = np.fft.rfft(samples * window, axis=0)
-                hz = np.fft.rfftfreq(len(samples), 1 / source.samplerate)
-                low, high = band_hz
-                power = 2 * float(np.sum(np.abs(spectrum[(hz >= low) & (hz <= high)]) ** 2))
-                power /= max(1.0, len(samples) * float(np.sum(window**2)) * samples.shape[1])
-            levels.append(10 * math.log10(max(1e-12, power)))
+            complete = len(samples) // frame_size * frame_size
+            # Keep the final partial window's own length and taper unchanged.
+            for frames in (
+                samples[:complete].reshape(-1, frame_size, samples.shape[1]),
+                samples[complete:][None, :, :],
+            ):
+                if not frames.size:
+                    continue
+                power = np.mean(frames * frames, axis=(1, 2))
+                if voice_band:
+                    power = _band_power(frames, source.samplerate, band_hz)
+                levels.extend((10 * np.log10(np.maximum(1e-12, power))).tolist())
     if not levels:
         raise DependencyError("StudioMasterSilentTrack", "Recording contains no audio")
     return np.asarray(levels, dtype=np.float64)
+
+
+def _band_power(
+    frames: NDArray[np.float64], samplerate: int, band_hz: tuple[float, float]
+) -> NDArray[np.float64]:
+    length = frames.shape[1]
+    window = np.hanning(length)[None, :, None]
+    spectrum = np.fft.rfft(frames * window, axis=1)
+    hz = np.fft.rfftfreq(length, 1 / samplerate)
+    low, high = band_hz
+    power = 2 * np.sum(np.abs(spectrum[:, (hz >= low) & (hz <= high)]) ** 2, axis=(1, 2))
+    result: NDArray[np.float64] = power / max(
+        1.0, length * float(np.sum(window**2)) * frames.shape[2]
+    )
+    return result
 
 
 class MasterRenderer(Protocol):

@@ -3,12 +3,32 @@ import {
   mapAnalysis,
   mapJob,
   mapSong,
+  mapRecording,
   type BackendAnalysis,
   type BackendJob,
   type BackendSong,
 } from './pythonMappers';
 
 describe('song metadata mapping', () => {
+  it('retains the saved room result without turning an unavailable score into zero', () => {
+    const recording = mapRecording({
+      recordingId: 'take',
+      filePath: '',
+      duration: 1,
+      sampleRate: 44100,
+      channels: 1,
+      createdAt: '',
+      songId: 'song',
+      songRevision: 1,
+      sizeBytes: 0,
+      roomPerformance: { roomId: 'duet', performanceId: 7, overallScore: null },
+    });
+    expect(recording.roomPerformance).toEqual({
+      roomId: 'duet',
+      performanceId: 7,
+      overallScore: undefined,
+    });
+  });
   it('keeps recognized genre, artwork and music video for library and karaoke', () => {
     const song = mapSong({
       songId: 'song-1',
@@ -67,20 +87,23 @@ describe('processing job mapping', () => {
     [{ processingBackend: 'Oracle' }, 'Oracle'],
     [{ providers: { separation: 'oracle-pc' } }, 'Oracle'],
     [{ processingBackend: 'Kaggle' }, 'Kaggle'],
-  ] as const)('maps remote processing reports without losing history: %j', (report, expected) => {
-    const job = mapJob({
-      jobId: 'job-remote',
-      type: 'SongProcessing',
-      state: 'Succeeded',
-      entityId: 'song-1',
-      stage: 'Completed',
-      stageProgress: 1,
-      overallProgress: 1,
-      error: null,
-      report,
-    } satisfies BackendJob);
-    expect(job.processingBackend).toBe(expected);
-  });
+  ] as const)(
+    'maps remote processing reports without losing history: %j',
+    (report, expected) => {
+      const job = mapJob({
+        jobId: 'job-remote',
+        type: 'SongProcessing',
+        state: 'Succeeded',
+        entityId: 'song-1',
+        stage: 'Completed',
+        stageProgress: 1,
+        overallProgress: 1,
+        error: null,
+        report,
+      } satisfies BackendJob);
+      expect(job.processingBackend).toBe(expected);
+    },
+  );
 
   it('keeps processing timestamps used to show elapsed time', () => {
     const job = mapJob({

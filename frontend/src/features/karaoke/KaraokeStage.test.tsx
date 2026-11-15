@@ -13,14 +13,21 @@ vi.mock('@neo-ui-kit/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@neo-ui-kit/react')>()),
   MelodyRoll: (props: MelodyRollProps) => {
     probe.props.push(props);
-    useEffect(() => { probe.mounts++; }, []);
+    useEffect(() => {
+      probe.mounts++;
+    }, []);
     return <div data-testid="roll" />;
   },
 }));
 vi.mock('../../providers/store', () => ({
-  store: { preferences: { reducedMotion: false, headingFont: 'default' } },
+  store: {
+    preferences: { reducedMotion: false, headingFont: 'default' },
+    online: { room: null },
+  },
 }));
-vi.mock('./useSmoothPosition', () => ({ useSmoothPosition: (position: number) => position }));
+vi.mock('./useSmoothPosition', () => ({
+  useSmoothPosition: (position: number) => position,
+}));
 vi.mock('./useLyricFill', () => ({ useLyricFill: () => undefined }));
 vi.mock('./usePianoRollLayout', () => ({
   usePianoRollLayout: () => ({ layout: null, active: false }),
@@ -37,7 +44,10 @@ vi.mock('./show/ShowLayers', () => {
   return {
     useShowEngine: () => engine,
     StageFx: () => null,
-    RollFx: ({ playing }: { playing: boolean }) => { probe.playing = playing; return null; },
+    RollFx: ({ playing }: { playing: boolean }) => {
+      probe.playing = playing;
+      return null;
+    },
   };
 });
 
@@ -45,21 +55,60 @@ const document: EditorDocument = {
   revision: 1,
   lyrics: 'one\ntwo\nthree\nfour',
   words: ['one', 'two', 'three', 'four'].map((text, index) => ({
-    id: `w${index}`, text, start: 20 + index, end: 20.5 + index,
+    id: `w${index}`,
+    text,
+    start: 20 + index,
+    end: 20.5 + index,
   })),
   notes: Array.from({ length: 4 }, (_, index) => ({
-    id: `n${index}`, wordId: `w${index}`, pitch: 60, start: 20 + index, end: 20.5 + index,
+    id: `n${index}`,
+    wordId: `w${index}`,
+    pitch: 60,
+    start: 20 + index,
+    end: 20.5 + index,
   })),
 };
-const view = (position: number) => <KaraokeStage
-  songTitle="Song" document={document} position={position} playing rate={1}
-  layers={{ showNotes: true, showLyrics: true }} vocalRange="auto"
-/>;
-beforeEach(() => { probe.props.length = 0; probe.mounts = 0; });
+const view = (position: number, source = document) => (
+  <KaraokeStage
+    songTitle="Song"
+    document={source}
+    position={position}
+    playing
+    rate={1}
+    layers={{ showNotes: true, showLyrics: true }}
+    vocalRange="auto"
+  />
+);
+beforeEach(() => {
+  probe.props.length = 0;
+  probe.mounts = 0;
+});
 
-it('passes future phrases to the roll before their text becomes current', () => {
-  render(view(19));
-  expect(probe.props.at(-1)?.notes?.map((note) => note.id)).toEqual(['n0', 'n1', 'n2', 'n3']);
+it('shows both lyric lines at three with a fully visible backdrop', () => {
+  render(view(17.01));
+  expect(screen.getByRole('timer')).toHaveTextContent('3');
+  const current = screen.getByText('one');
+  expect(screen.getByText('two')).toBeInTheDocument();
+  const panel = current.closest('.lyricsPanel');
+  expect(panel).not.toHaveAttribute('hidden');
+  expect(panel).toHaveStyle({ opacity: '1' });
+});
+
+it('does not reveal lyrics before the three second countdown', () => {
+  render(view(16.5));
+  expect(screen.queryByText('one')).not.toBeInTheDocument();
+  expect(screen.queryByText('two')).not.toBeInTheDocument();
+});
+
+it.each([false, true])('keeps future notes paired with eligible lyric lines (activity: %s)', (filtered) => {
+  const source = filtered
+    ? { ...document, vocalActivity: [[20, 20.5]] as const }
+    : document;
+  render(view(19, source));
+  expect(probe.props.at(-1)?.notes?.map((note) => note.id)).toEqual([
+    'n0',
+    ...(filtered ? [] : ['n1', 'n2', 'n3']),
+  ]);
 });
 
 it('keeps the roll mounted through empty sections and reveals it at the note window edge', () => {
@@ -70,6 +119,9 @@ it('keeps the roll mounted through empty sections and reveals it at the note win
   expect(panel).toHaveAttribute('inert');
   expect(probe.playing).toBe(false);
   rerender(view(14));
+  expect(panel).toHaveAttribute('hidden');
+  expect(probe.playing).toBe(false);
+  rerender(view(17.01));
   expect(panel).not.toHaveAttribute('hidden');
   expect(probe.playing).toBe(true);
   rerender(view(80));
@@ -80,11 +132,13 @@ it('keeps the roll mounted through empty sections and reveals it at the note win
 });
 
 it('uses the selected zoom window to determine when a note enters', () => {
-  const { rerender } = render(view(14));
+  const { rerender } = render(view(17));
   const panel = screen.getByTestId('roll').closest('.pianoRoll');
   expect(panel).not.toHaveAttribute('hidden');
-  act(() => { probe.props.at(-1)?.onWindowChange?.(4); });
+  act(() => {
+    probe.props.at(-1)?.onWindowChange?.(2);
+  });
   expect(panel).toHaveAttribute('hidden');
-  rerender(view(17));
+  rerender(view(19));
   expect(panel).not.toHaveAttribute('hidden');
 });

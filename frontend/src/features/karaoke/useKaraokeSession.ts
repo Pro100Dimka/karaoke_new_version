@@ -204,19 +204,27 @@ export const useKaraokeSession = (
     playbackGeneration.current++;
     dispatch({ type: 'STOPPING' });
     setRecording('stopping');
-    const result = await recordingWork.finish();
+    const result = await recordingWork.finish(roomPlayback?.finalPerformance());
     if (result.recordingId) {
       setRecordingId(result.recordingId);
       notify(tr('recordingSaved'), 'success');
     }
     if (!result.saved) {
+      store.cancelPlaylist();
       setRecording('failed');
       notify(tr('recordingFailed'), 'error');
+    }
+    if (result.saved && room?.playlist && room.performanceId !== undefined) {
+      try {
+        await roomPlayback?.advancePlaylist(room.performanceId);
+      } catch (error) {
+        notify(error instanceof Error ? error.message : String(error), 'error');
+      }
     }
     setRecording((current) => (current === 'failed' ? current : 'idle'));
     dispatch({ type: 'FINISH' });
     return result.saved;
-  }, [notify, recordingWork]);
+  }, [notify, recordingWork, roomPlayback, room]);
   const finishLocalWorkRef = useRef(finishLocalWork);
   finishLocalWorkRef.current = finishLocalWork;
   const finishLocalPerformanceRef = useRef<() => Promise<boolean>>(undefined);
@@ -225,26 +233,31 @@ export const useKaraokeSession = (
   );
   const finishLocalPerformance = finishLocalPerformanceRef.current;
 
-  const finishPerformance = useCallback(async () => {
-    if (room) {
-      if (!canControlRoom(room)) return false;
-      try {
-        await roomPlayback?.control('Stop');
-      } catch (error) {
-        fail(error);
-        return false;
+  const finishPerformance = useCallback(
+    async (naturalEnd = false) => {
+      if (room) {
+        if (naturalEnd && room.role !== 'host') return finishLocalPerformance();
+        if (!canControlRoom(room)) return false;
+        try {
+          await roomPlayback?.control('Stop', undefined, naturalEnd);
+        } catch (error) {
+          fail(error);
+          return false;
+        }
+        if (!(await finishLocalPerformance())) return false;
+        try {
+          if (!naturalEnd || !room.playlist) await roomPlayback?.clearSong();
+        } catch (error) {
+          fail(error);
+          return false;
+        }
+        return true;
       }
-      if (!(await finishLocalPerformance())) return false;
-      try {
-        await roomPlayback?.clearSong();
-      } catch (error) {
-        fail(error);
-        return false;
-      }
-      return true;
-    }
-    return finishLocalPerformance();
-  }, [room, roomPlayback, fail, finishLocalPerformance]);
+      if (!naturalEnd) store.cancelPlaylist();
+      return finishLocalPerformance();
+    },
+    [room, roomPlayback, fail, finishLocalPerformance],
+  );
 
   // A synchronized Back/Stop must finalize the local take before this route disappears. RoomSync
   // deliberately leaves navigation to this shared solo lifecycle so analysis and exit animation run.
@@ -305,7 +318,7 @@ export const useKaraokeSession = (
     dispatch({ type: 'AUDIO_LOST' });
   }, [recordingWork, recordingCoordinator, room, mode]);
   const onFinished = useCallback(
-    () => void finishPerformance(),
+    () => void finishPerformance(true),
     [finishPerformance],
   );
   const positionPolling = usePositionPolling({
@@ -513,9 +526,14 @@ export const useKaraokeSession = (
     setMonitoring,
   });
   const updateKaraokeNoteScore = useCallback(
-    (score: KaraokeNoteScore) =>
-      recordingCoordinator.updateKaraokeNoteScore(score),
-    [recordingCoordinator],
+    (score: KaraokeNoteScore) => {
+      recordingCoordinator.updateKaraokeNoteScore(score);
+      if (room?.performanceId !== undefined)
+        void roomPlayback
+          ?.publishPerformance(room.performanceId, score)
+          .catch(() => undefined);
+    },
+    [recordingCoordinator, roomPlayback, room?.performanceId],
   );
   // A poll started just before a seek can still resolve just after it, carrying the pre-seek position;
   // applying that would flash the highlight, piano roll and scene video (all driven by this same position)

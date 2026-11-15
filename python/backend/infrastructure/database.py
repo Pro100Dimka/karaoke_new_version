@@ -49,12 +49,13 @@ class Database:
     def engine(self) -> Engine:
         return self._engine
 
-    def create(self) -> "SqlUnitOfWork":
+    def create(self, *, write: bool = False) -> "SqlUnitOfWork":
         return SqlUnitOfWork(
             self._sessions(),
             self._publish,
             lambda played: self._played_revision if played else self._catalog_revision,
             self._catalog_lock,
+            write=write,
         )
 
     def _publish(self, changes: dict[str, list[str]]) -> None:
@@ -94,10 +95,13 @@ class SqlUnitOfWork(UnitOfWork):
         notify: Callable[[dict[str, list[str]]], None] | None = None,
         revision: Callable[[bool], str] | None = None,
         lock: AbstractContextManager[object] | None = None,
+        *,
+        write: bool = False,
     ) -> None:
         self._session = session
         self._notify = notify
         self._catalog_lock = lock or nullcontext()
+        self._transaction_lock = self._catalog_lock if write else nullcontext()
         self.songs = SqlSongRepository(session, revision, self._catalog_lock)
         self.projects = SqlProjectRevisionRepository(session)
         self.jobs = SqlJobRepository(session)
@@ -109,6 +113,7 @@ class SqlUnitOfWork(UnitOfWork):
         self.idempotency = SqlIdempotencyRepository(session)
 
     def __enter__(self) -> "SqlUnitOfWork":
+        self._transaction_lock.__enter__()
         return self
 
     def __exit__(
@@ -119,17 +124,20 @@ class SqlUnitOfWork(UnitOfWork):
     ) -> bool | None:
         try:
             try:
-                if exc_type is not None:
-                    self.rollback()
-            finally:
-                self._session.close()
-        except SQLAlchemyError as cleanup_error:
-            raise DependencyError(
-                "DatabaseCleanupFailed", "Database transaction cleanup failed"
-            ) from cleanup_error
-        if isinstance(exc, SQLAlchemyError):
-            raise DependencyError("DatabaseReadFailed", "Database operation failed") from exc
-        return None
+                try:
+                    if exc_type is not None:
+                        self.rollback()
+                finally:
+                    self._session.close()
+            except SQLAlchemyError as cleanup_error:
+                raise DependencyError(
+                    "DatabaseCleanupFailed", "Database transaction cleanup failed"
+                ) from cleanup_error
+            if isinstance(exc, SQLAlchemyError):
+                raise DependencyError("DatabaseReadFailed", "Database operation failed") from exc
+            return None
+        finally:
+            self._transaction_lock.__exit__(exc_type, exc, traceback)
 
     def commit(self) -> None:
         changes = {

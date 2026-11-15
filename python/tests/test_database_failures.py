@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 from unittest.mock import Mock
 
 import pytest
@@ -54,10 +55,23 @@ def test_integrity_validation_closes_its_connection(tmp_path, monkeypatch, fail)
 def test_rollback_failure_still_closes_the_unit_of_work():
     session = Mock(spec=Session)
     session.rollback.side_effect = SQLAlchemyError("injected rollback failure")
+    lock = threading.RLock()
     with pytest.raises(DependencyError):
-        with SqlUnitOfWork(session):
+        with SqlUnitOfWork(session, lock=lock, write=True):
             raise ValueError("original operation failure")
     session.close.assert_called_once()
+    released = []
+
+    def probe_lock():
+        acquired = lock.acquire(blocking=False)
+        released.append(acquired)
+        if acquired:
+            lock.release()
+
+    probe = threading.Thread(target=probe_lock)
+    probe.start()
+    probe.join(2)
+    assert released == [True]
 
 
 def test_failed_multi_step_migration_rolls_back_ddl_and_schema_version(tmp_path, monkeypatch):

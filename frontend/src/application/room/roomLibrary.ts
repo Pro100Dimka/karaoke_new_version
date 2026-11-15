@@ -12,6 +12,7 @@ const asRemoteSong = (song: RoomSongDto): SongDto => ({
   createdAt: '1970-01-01T00:00:00.000Z',
   coverState: 'Fallback',
   activeRevision: song.revision,
+  sourceHash: song.sourceHash,
   projectFormatVersion: 1,
   roomOwnerId: song.ownerParticipantId,
 });

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import FastAPI, Response
 from pydantic import Field
 
@@ -43,7 +45,13 @@ class VoicePeersDto(VoiceJoinDto):
 
 class VoiceParticipantGainDto(VoicePeersDto):
     source_participant_id: str = Field(min_length=1, max_length=128)
-    gain: float = Field(ge=0.0, le=2.0)
+    gain: float = Field(ge=0.0, le=4.0)
+
+
+class VoiceParticipantEffectDto(VoicePeersDto):
+    source_participant_id: str = Field(min_length=1, max_length=128)
+    effect: Literal["reverb", "echo", "delay", "noiseSuppression", "octave", "autoTune"]
+    value: float = Field(ge=-1.0, le=1.0)
 
 
 class VoicePeer(ApiModel):
@@ -129,6 +137,7 @@ def _add_mix_routes(app: FastAPI, relay: VoiceRelay, repository: RoomRepository)
         return relay.participant_levels(_authenticated_room(relay, repository, body))
 
     _add_gain_route(app, relay, repository)
+    _add_effect_route(app, relay, repository)
 
 
 def _add_gain_route(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
@@ -145,4 +154,23 @@ def _add_gain_route(app: FastAPI, relay: VoiceRelay, repository: RoomRepository)
             body.gain,
         ):
             raise ForbiddenError("RoomVoiceTokenInvalid", "Voice token or participant is invalid")
+        return Response(status_code=204)
+
+
+def _add_effect_route(app: FastAPI, relay: VoiceRelay, repository: RoomRepository) -> None:
+    @app.post("/voice/participant-effect", status_code=204)
+    def voice_participant_effect(body: VoiceParticipantEffectDto) -> Response:
+        room_id = _authenticated_room(relay, repository, body)
+        room_member(repository, room_id, body.source_participant_id)
+        if not relay.set_recipient_source_effect(
+            room_id,
+            body.participant_id,
+            int(body.voice_token, 16),
+            body.source_participant_id,
+            body.effect,
+            body.value,
+        ):
+            raise ForbiddenError(
+                "RoomVoiceEffectInvalid", "Voice effect recipient or source is invalid"
+            )
         return Response(status_code=204)

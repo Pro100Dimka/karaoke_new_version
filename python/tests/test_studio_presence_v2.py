@@ -47,7 +47,7 @@ def test_single_plan_keeps_steady_singing_steady(tmp_path):
 def test_single_plan_is_independent_of_input_gain(tmp_path, scale):
     _, voice = tone()
     actual, _, _ = render_plan(tmp_path, voice * scale, voice)
-    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-1.5, abs=0.2)
+    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(0, abs=0.2)
 
 
 def test_short_loud_and_quiet_words_are_leveled_by_one_controller(tmp_path):
@@ -105,11 +105,12 @@ def test_unvoiced_breath_keeps_its_level_relative_to_neighboring_singing(tmp_pat
 
 def test_breath_protection_preserves_a_quiet_harmonic_word(tmp_path):
     time, music = tone()
-    voice = sum(0.025 / harmonic * np.sin(2 * np.pi * 140 * harmonic * time)
-                for harmonic in range(1, 9))
+    voice = sum(
+        0.025 / harmonic * np.sin(2 * np.pi * 140 * harmonic * time) for harmonic in range(1, 9)
+    )
     voice[(time >= 4) & (time < 4.4)] *= 0.2
     actual, _, _ = render_plan(tmp_path, voice, music)
-    assert rms_db(actual[round(4.1 * 8000):round(4.3 * 8000)]) > rms_db(actual[8000:16000]) - 4
+    assert rms_db(actual[round(4.1 * 8000) : round(4.3 * 8000)]) > rms_db(actual[8000:16000]) - 4
 
 
 def test_presence_accounts_for_attenuation_from_unvoiced_protection(tmp_path, monkeypatch):
@@ -124,7 +125,7 @@ def test_presence_accounts_for_attenuation_from_unvoiced_protection(tmp_path, mo
     _, voice = tone()
     actual, plan, qc = render_plan(tmp_path, voice, voice)
 
-    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(-1.5, abs=0.2)
+    assert rms_db(actual[8000:-8000]) - rms_db(voice[8000:-8000]) == pytest.approx(0, abs=0.2)
     assert plan.report["presenceCompensationDb"] == pytest.approx(3, abs=0.2)
     assert qc["p90ErrorDb"] < 1
 
@@ -136,7 +137,9 @@ def test_breath_protection_does_not_guess_a_gain_without_voiced_neighbors(tmp_pa
     sf.write(voice, np.random.default_rng(91).normal(0, 0.01, 8000 * 3), 8000)
     times = np.arange(0.01, 3, 0.02)
     desired = np.sin(times) * 5
-    actual, report = _protect_unvoiced(voice, times, desired, np.ones(len(times), bool), threading.Event())
+    actual, report = _protect_unvoiced(
+        voice, times, desired, np.ones(len(times), bool), threading.Event()
+    )
     np.testing.assert_array_equal(actual, desired)
     assert report["protectedSeconds"] == 0
 
@@ -182,7 +185,7 @@ def test_balance_keeps_vocal_harmonics_audible_above_a_shared_bass_body(tmp_path
     section = actual[8000:-8000]
     axis = np.arange(len(section)) / 8000
     amplitude = 2 * abs(np.mean(section * np.exp(-2j * np.pi * 900 * axis)))
-    assert 20 * np.log10(amplitude / 0.05) == pytest.approx(-1.5, abs=0.5)
+    assert 20 * np.log10(amplitude / 0.05) == pytest.approx(0, abs=0.5)
     assert plan.report["presenceCompensationDb"] > 0
 
 
@@ -195,7 +198,7 @@ def test_center_presence_does_not_raise_voice_over_side_only_music(tmp_path):
     assert plan.report["presenceCompensationDb"] == 0
 
 
-def test_presence_caps_a_bass_heavy_voice_at_three_db_above_the_backing(tmp_path):
+def test_presence_cap_includes_the_requested_one_and_half_db_vocal_lift(tmp_path):
     from backend.recordings.studio_delivery import measure_mix_loudness
 
     time, music = tone(frequency=900)
@@ -208,7 +211,8 @@ def test_presence_caps_a_bass_heavy_voice_at_three_db_above_the_backing(tmp_path
         threading.Event(),
     )
     assert plan.report["presenceCompensationDb"] == pytest.approx(4.5)
-    assert np.median(vocal[10:-10] - backing[10:-10]) <= 3.1
+    assert plan.report["vocalLiftDb"] == 1.5
+    assert np.median(vocal[10:-10] - backing[10:-10]) == pytest.approx(4.5, abs=0.1)
 
 
 def test_antiphase_stereo_is_not_canceled(tmp_path):

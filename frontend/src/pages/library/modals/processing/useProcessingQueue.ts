@@ -27,10 +27,20 @@ export const useProcessingQueue = (songs: ReadonlyMap<string, SongDto>) => {
   });
   useEffect(() => writeJson(hiddenJobsKey, [...hidden]), [hidden]);
 
-  const visible = useMemo(
-    () => jobs.filter((job) => !hidden.has(job.id)),
-    [jobs, hidden],
-  );
+  const visible = useMemo(() => {
+    const imports: ProcessingJobDto[] = [...songs.values()]
+      .filter((song) => song.status === 'importing')
+      .map((song) => ({
+        id: song.id,
+        type: 'SongImport',
+        songId: song.id,
+        state: 'queued',
+        stage: song.stage ?? 'Queued',
+        progress: song.progress ?? 0,
+        createdAt: song.createdAt,
+      }));
+    return [...imports, ...jobs].filter((job) => !hidden.has(job.id));
+  }, [jobs, hidden, songs]);
   const ordered = useMemo(
     () => orderProcessingJobs(visible, songs),
     [visible, songs],

@@ -114,7 +114,7 @@ def test_recorded_bass_resonance_does_not_cancel_a_different_reference_tail():
     existing = SpaceProfile(
         decay_seconds=0.55, reverb_gain=0.36, decay_count=4, tail_band_hz=(200, 250)
     )
-    assert _planned_space(expected, existing).reverb_gain == pytest.approx(0.23)
+    assert _planned_space(expected, existing).reverb_gain == pytest.approx(0.115)
 
 
 @pytest.mark.parametrize("local_gain", [0.0, 0.2])
@@ -140,7 +140,7 @@ def test_full_reference_supplies_only_a_missing_tail(tmp_path, monkeypatch, loca
     )
     expected = profiles[local] if local_gain else profiles[full]
     assert report["applied"]["decay_seconds"] == expected.decay_seconds
-    assert report["applied"]["reverb_gain"] == expected.reverb_gain
+    assert report["applied"]["reverb_gain"] == expected.reverb_gain * 0.5
     assert report["reverbEvidenceSource"] == ("performed-section" if local_gain else "full-song")
 
 
@@ -208,11 +208,11 @@ def test_reference_matching_preserves_sources_and_creates_separate_output(tmp_pa
 
 
 @pytest.mark.parametrize(
-    "reference_db, expected_db, varying_effect",
-    [(-80, -3, False), (-12, -3, False), (-2, -3, False), (6, -3, False), (-2, -3, True)],
+    "reference_db, varying_effect",
+    [(-80, False), (-12, False), (-2, False), (6, False), (-2, True)],
 )
 def test_master_balance_uses_backing_independently_of_reference_level(
-    tmp_path: Path, monkeypatch, reference_db, expected_db, varying_effect
+    tmp_path: Path, monkeypatch, reference_db, varying_effect
 ):
     from backend.infrastructure.process_runner import ProcessRunner
     from backend.recordings.studio_master import FfmpegStudioMasterRenderer
@@ -268,12 +268,13 @@ def test_master_balance_uses_backing_independently_of_reference_level(
     delivery_gain = 10 ** (result.processing["delivery"]["gainDb"] / 20)
     vocal = rendered / delivery_gain - backing
     measured = 10 * np.log10(np.mean(vocal**2) / np.mean(backing**2))
-    assert measured == pytest.approx(expected_db, abs=1)
+    # Equal broadband levels retain the requested vocal lift regardless of reference gain.
+    assert measured == pytest.approx(1.5, abs=1)
     assert result.processing["gainPlan"]["method"] == "single-context-envelope"
     if varying_effect:
         for section in (slice(8000, 16000), slice(32000, 40000)):
             level = 10 * np.log10(np.mean(vocal[section] ** 2) / np.mean(backing[section] ** 2))
-            assert level == pytest.approx(expected_db, abs=1)
+            assert level == pytest.approx(1.5, abs=1)
 
 
 @pytest.mark.parametrize("dark,seconds", [(True, 4), (False, 4), (True, 1)])

@@ -76,7 +76,14 @@ export interface KeyboardLightingPreferences {
   sensitivity: number;
 }
 
+export interface KaraokePlaylist {
+  id: string;
+  name: string;
+  songIds: string[];
+}
+
 export interface Preferences {
+  karaokePlaylists: KaraokePlaylist[];
   theme: ThemeName;
   /** Typeface of titles. */
   headingFont: AppFont;
@@ -113,6 +120,7 @@ export interface Preferences {
   /** 0..1, applied to the microphone in karaoke; the program settings' monitoring test always plays the clean voice. */
   noiseSuppression: number;
   radioStation: string;
+  radioYoutubePlaylist: string;
   radioVolume: number;
   displayName: string;
   /** This computer's profile photo, stored beside the display name for restart-safe rendering. */
@@ -140,6 +148,7 @@ export const defaultAudioRequest = (): RequestedAudioConfiguration => ({
 const storageKey = localKey('preferences');
 
 export const defaultPreferences = (): Preferences => ({
+  karaokePlaylists: [],
   theme: 'dark',
   headingFont: defaultHeadingFont,
   textFont: defaultTextFont,
@@ -172,6 +181,7 @@ export const defaultPreferences = (): Preferences => ({
   },
   noiseSuppression: 0,
   radioStation: '',
+  radioYoutubePlaylist: '',
   radioVolume: 35,
   displayName: '',
   profilePhoto: '',
@@ -325,6 +335,31 @@ export const parsePreferences = (raw: unknown): Preferences => {
     raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   return {
     theme: oneOf(value.theme, ['dark', 'light', 'green', 'violet'], base.theme),
+    karaokePlaylists: Array.isArray(value.karaokePlaylists)
+      ? value.karaokePlaylists.flatMap((item: unknown) => {
+          if (!item || typeof item !== 'object') return [];
+          const entry = item as Record<string, unknown>;
+          if (
+            typeof entry.id !== 'string' ||
+            typeof entry.name !== 'string' ||
+            !Array.isArray(entry.songIds)
+          )
+            return [];
+          return [
+            {
+              id: entry.id,
+              name: entry.name.slice(0, 100),
+              songIds: [
+                ...new Set(
+                  entry.songIds.filter(
+                    (id): id is string => typeof id === 'string',
+                  ),
+                ),
+              ].slice(0, 200),
+            },
+          ];
+        })
+      : [],
     headingFont: oneOf(value.headingFont, appFontIds, base.headingFont),
     textFont: parseTextFont(value, base.textFont),
     fontDefaults: currentFontDefaults,
@@ -392,6 +427,10 @@ export const parsePreferences = (raw: unknown): Preferences => {
         ? value.radioStation
         : base.radioStation,
     radioVolume: percentage(value.radioVolume, base.radioVolume),
+    radioYoutubePlaylist:
+      typeof value.radioYoutubePlaylist === 'string'
+        ? value.radioYoutubePlaylist.slice(0, 1000)
+        : base.radioYoutubePlaylist,
     displayName:
       typeof value.displayName === 'string'
         ? value.displayName.slice(0, 40)

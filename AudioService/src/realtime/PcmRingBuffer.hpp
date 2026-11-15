@@ -39,6 +39,8 @@ class PcmRingBuffer {
                                     std::span<MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t peek(std::span<float> output, std::uint32_t frames) const noexcept;
     std::uint32_t discard(std::uint32_t frames) noexcept;
+    // Untimed frames (time zero) are retained. Uses the same publication lease as PCM reads.
+    std::uint32_t discardBefore(MonotonicTicks firstAllowedTime) noexcept;
     [[nodiscard]] std::uint32_t availableFrames() const noexcept;
     [[nodiscard]] std::uint32_t freeFrames() const noexcept;
     [[nodiscard]] std::uint32_t capacityFrames() const noexcept {

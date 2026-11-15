@@ -82,6 +82,11 @@ class ReconcileLibrary:
                 self._issue("SourceMissing", song.song_id, RecoveryAction.MANUAL_ACTION_REQUIRED)
             )
             self._mark(song, SongStatus.SOURCE_MISSING)
+        issues.extend(self._project_issues(song))
+        return issues
+
+    def _project_issues(self, song: Song) -> list[ReconciliationIssue]:
+        issues: list[ReconciliationIssue] = []
         try:
             manifest = self._validator.validate(
                 song.song_id,
@@ -99,7 +104,10 @@ class ReconcileLibrary:
             )
             self._mark(song, SongStatus.PROJECT_INVALID)
         else:
-            if song.status in {SongStatus.CANCELLED, SongStatus.FAILED} and READY_ARTIFACTS.issubset(
+            if song.status in {
+                SongStatus.CANCELLED,
+                SongStatus.FAILED,
+            } and READY_ARTIFACTS.issubset(
                 artifact.logical_name for artifact in manifest.artifacts
             ):
                 self._mark(song, SongStatus.READY)

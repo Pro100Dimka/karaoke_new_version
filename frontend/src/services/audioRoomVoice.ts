@@ -6,6 +6,7 @@ import {
 } from '../contracts/clients';
 import type {
   RequestedAudioConfiguration,
+  RoomVoiceEffect,
   RuntimeAudioConfiguration,
 } from '../contracts/models';
 import {
@@ -24,8 +25,6 @@ import {
   refreshClock,
 } from './audioSession';
 
-type RemoteEffect =
-  'reverb' | 'echo' | 'delay' | 'noiseSuppression' | 'octave' | 'autoTune';
 
 interface VoiceSession {
   roomId: string;
@@ -42,7 +41,7 @@ interface VoiceState {
   roomPlayoutDelayMilliseconds: number;
   /** Personal volumes, keyed by participant (the server mix is one of them). */
   gains: Map<string, number>;
-  effects: Map<string, Map<RemoteEffect, number>>;
+  effects: Map<string, Map<RoomVoiceEffect, number>>;
   muted: Set<string>;
 }
 
@@ -57,6 +56,7 @@ const voice: VoiceState = {
 const forgetParticipant = (participantId: string) => {
   voice.gains.delete(participantId);
   voice.muted.delete(participantId);
+  voice.effects.delete(participantId);
 };
 
 /** A person's personal volume lives in the server mix-minus, so it is replayed to the relay. */
@@ -71,6 +71,8 @@ const restoreRelayGain = async (
   }
   try {
     await setGain(participantId, voice.muted.has(participantId) ? 0 : gain);
+    for (const [effect, value] of voice.effects.get(participantId) ?? [])
+      await desktopBridge().setRoomVoiceParticipantEffect(participantId, effect, value);
   } catch {
     // A remembered person may belong to an old room. Their preference is local and must not
     // prevent the new room voice session from reconnecting.
@@ -94,7 +96,8 @@ const restoreServerMix = async (
 const restoreRemoteParticipants = async (): Promise<void> => {
   if (voice.session && !voice.gains.has(roomServerMixParticipantId))
     voice.gains.set(roomServerMixParticipantId, 1);
-  for (const [participantId, gain] of voice.gains) {
+  for (const participantId of new Set([...voice.gains.keys(), ...voice.effects.keys()])) {
+    const gain = voice.gains.get(participantId) ?? 1;
     if (participantId === roomServerMixParticipantId)
       await restoreServerMix(participantId, gain);
     else await restoreRelayGain(participantId, gain);
@@ -136,6 +139,7 @@ type RoomVoiceMethods = Pick<
   AudioServiceClient,
   | 'setParticipantMuted'
   | 'participantMuted'
+  | 'participantVolume'
   | 'setParticipantVolume'
   | 'roomLevels'
   | 'setParticipantEffect'
@@ -163,6 +167,7 @@ export const createRoomVoice = (
   },
 
   participantMuted: (participantId) => voice.muted.has(participantId),
+  participantVolume: (participantId) => voice.gains.get(participantId) ?? 1,
 
   async setParticipantVolume(participantId, gain) {
     voice.gains.set(participantId, gain);
@@ -183,11 +188,13 @@ export const createRoomVoice = (
   },
 
   async setParticipantEffect(participantId, effect, value) {
+    if (participantId === roomServerMixParticipantId)
+      await command('SetRemoteEffect', { participantId, effect, value });
+    else await desktopBridge().setRoomVoiceParticipantEffect(participantId, effect, value);
     const effects =
-      voice.effects.get(participantId) ?? new Map<RemoteEffect, number>();
+      voice.effects.get(participantId) ?? new Map<RoomVoiceEffect, number>();
     effects.set(effect, value);
     voice.effects.set(participantId, effects);
-    await command('SetRemoteEffect', { participantId, effect, value });
   },
 
   async roomTiming() {

@@ -46,6 +46,30 @@ export const uk = {
   guideLyricsFillTitle: 'Як читати підсвічування та ноти',
   guideLyricsFillBody:
     'Текст на сцені відображається великими літерами. Підсвічування рухається словом разом із вокалом; на протяжних звуках довше виділяється голосна. На панелі нот кружечок показує висоту звуку з мікрофона, а рухомі ноти слугують орієнтиром мелодії. Для роботи кружечка виберіть вхід та увімкніть мікрофон.',
+  playlists: 'Плейлисти',
+  playlistSaved: 'Збережені плейлисти',
+  playlistNew: 'Новий плейлист',
+  playlistName: 'Назва плейлиста',
+  playlistHint:
+    'Пісні звучать за порядком. Кожен запис зберігається. «Стоп» завершує плейлист.',
+  playlistOrder: 'Порядок пісень',
+  playlistUnavailable: 'Пісня недоступна',
+  playlistMoveUp: 'Вище',
+  playlistMoveDown: 'Нижче',
+  playlistRemove: 'Прибрати з плейлиста',
+  playlistEmpty:
+    'Виберіть пісні прапорцями в бібліотеці та натисніть «Додати до плейлиста».',
+  playlistAddTo: 'Додати до плейлиста',
+  playlistDestination: 'Плейлист для вибраних пісень',
+  playlistCreateAndAdd: 'Створити й додати',
+  playlistAdded: 'Додано пісень до плейлиста: {count}',
+  playlistLimit: 'У плейлисті може бути не більше 200 пісень.',
+  playlistUnavailableHint:
+    'Перед запуском відновіть або приберіть недоступні пісні.',
+  playlistRoomBusy:
+    'Перед запуском плейлиста зупиніть поточне виконання в кімнаті.',
+  playlistPlay: 'Співати плейлист',
+
   errorProcessingNotConfigured:
     'Укажіть ключ доступу до обробки в налаштуваннях ENV.',
   errorProcessingAccessDenied: 'Сервер відхилив ключ доступу до обробки.',
@@ -1503,6 +1527,25 @@ export const uk = {
   kaggleDeployProgressTitle: 'Kaggle запускає GPU-ноутбук',
   kaggleDeployProgressTiming:
     'Минуло {elapsed} · перший запуск зазвичай триває 3–10 хвилин',
+  processingRetry: 'Повторити обробку',
+  processingRetryStarted: 'Пісню знову додано до черги обробки',
+  processingRetryFailed: 'Не вдалося повторити обробку',
+  processingSendReport: 'Надіслати звіт про помилку',
+  processingReportSending: 'Надсилаємо звіт…',
+  processingReportSent: 'Звіт надіслано на сервер. Номер: {id}',
+  processingReportFailed:
+    'Не вдалося надіслати звіт. Перевірте підключення та дозвіл надсилання логів, потім спробуйте ще раз.',
+  processingReportHint:
+    'На сервер розробника буде надіслано відомості про помилку, діагностику та останні логи програми. Аудіо й записи не надсилаються.',
+  processingErrorCode: 'Код помилки',
+  processingErrorDetails: 'Технічні подробиці',
+  processingInterruptedHelp:
+    'Обробку було перервано до завершення. Можна повторити її або надіслати звіт.',
+  roomPerformanceOverall: 'Спільна оцінка',
+  roomPerformancePersonal: 'Особиста оцінка',
+  roomPerformanceDuetHint:
+    'Тиша не оцінюється. Враховується лише заспівана частина.',
+  roomPerformanceUnavailable: 'Спільна оцінка поки недоступна',
   processingQueue: 'Черга обробки',
   processingLoadFailed: 'Не вдалося завантажити чергу обробки.',
   processingEmpty: 'Немає завдань обробки.',
@@ -1513,7 +1556,7 @@ export const uk = {
   processingStarted: 'Обробку запущено',
   processingSongUnavailable: 'Пісню видалено з бібліотеки',
   processingFailedHelp:
-    'Обробку не завершено. Причину можна переглянути у відомостях про завдання. Щоб додати пісню знову, видаліть її з бібліотеки.',
+    'Обробку не завершено. Можна повторити спробу або надіслати звіт. Якщо докладної причини немає, її не було збережено в завданні.',
   processingSummary:
     'Усього завдань: {total} · У роботі: {active} · Очікують: {queued}',
   processingMoveUp: 'Вище в черзі',
@@ -1703,4 +1746,28 @@ export const uk = {
   editorFollow: 'Стежити за курсором',
   editorZoomReset: 'Початковий масштаб',
   editorDeleteNotes: 'Видалити вибрані ноти',
+  radioControls: 'Керування музикою',
+  radioPlayer: 'Музика в бібліотеці',
+  radioSource: 'Джерело музики',
+  radioLoading: 'Завантаження',
+  radioPlaying: 'Грає',
+  radioPaused: 'Пауза',
+  radioPlaylistUrl: 'Посилання на YouTube-плейлист',
+  radioPlaylistHint:
+    'Відкритий плейлист або доступ за посиланням. Треки йдуть за порядком, потім плейлист повторюється.',
+  radioPlaylistInvalid:
+    'Встав посилання на YouTube-плейлист із list= в адресі.',
+  radioUsePlaylist: 'Грати цей плейлист',
+  radioPlaylistSource: 'Твій плейлист',
+  radioLiveStream: 'Прямий ефір',
+  radioPlayback: 'Керування відтворенням',
+  radioPreviousTrack: 'Попередній трек',
+  radioNextTrack: 'Наступний трек',
+  radioPreviousStation: 'Попередня станція',
+  radioNextStation: 'Наступна станція',
+  radioPause: 'Призупинити музику',
+  radioPlay: 'Увімкнути музику',
+  radioUnavailable: 'Станція недоступна. Спробуй іншу.',
+  radioYoutubeUnavailable:
+    'Не вдалося ввімкнути трек. Перевір доступ до плейлиста або обери наступний трек.',
 } satisfies Record<keyof typeof en, string>;

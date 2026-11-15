@@ -8,14 +8,14 @@ back and collects singers until D - R.
 
 The deadline is chosen from measurements every participant publishes before a song starts:
 
-- the route requirement: the observed arrival and return upper envelopes over the last 30 s,
+- the route requirement: the usual arrival and return requirements from measured packet history,
   plus a render guard, measured by AudioService without the relay's collection wait;
 - the return requirement: how long the server's mix takes from leaving the relay to this listener's
-  socket receive (the recent upper envelope of arrival lateness minus the time the mix spent before
+  socket receive (arrival lateness minus the time the mix spent before
   the relay sent it). It excludes later decoding, scheduling and output submission; future output
   presentation shortens the remaining delivery budget, so this metric is not a physical guarantee;
 - the arrival requirement: how late the voices this listener hears reach the relay after their
-  position (the recent upper envelope of the mix's own report of its latest voice).
+  position (the mix's own report of its latest voice).
 
 Neither of the last two contains anything the relay waited, so a larger deadline cannot make them
 larger: the deadline does not feed back into its own requirement.
@@ -63,8 +63,7 @@ class RoomTimingPolicy:
     collection_budget_ms: float = 20.0
     # With no voice arriving at all, the relay still emits each position after this long.
     no_ingress_budget_ms: float = 20.0
-    # Conversation has a 250 ms deadline, so it can wait through capture and network bursts
-    # without dropping a position while another singer's packet is still on its way.
+    # Conversation allows a larger collection window within its measured deadline.
     conversation_collection_budget_ms: float = 40.0
     conversation_no_ingress_budget_ms: float = 40.0
     # The relay sends at most one mix per this interval. A forced mix may leave one interval after
@@ -197,7 +196,7 @@ def _returns_measured(routes: list[TimedRoute]) -> bool:
 
 
 def _idle_timing(routes: list[TimedRoute], policy: RoomTimingPolicy) -> RoomTiming:
-    """Hold the conversation deadline and reserve through ordinary route fluctuations."""
+    """Use measured routes for conversation once the initial reserve is calibrated."""
     idle_policy = replace(policy, maximum_room_delay_ms=policy.maximum_idle_delay_ms)
     whole_route = max(route.voice_latency_ms for route in routes)
     if not _returns_measured(routes):
@@ -206,11 +205,9 @@ def _idle_timing(routes: list[TimedRoute], policy: RoomTimingPolicy) -> RoomTimi
             policy.idle_return_reserve_floor_ms,
             TimingSource.IDLE_CONVERSATION,
         )
-    measured = _measured_timing(routes, whole_route, idle_policy)
-    return RoomTiming(
-        policy.maximum_idle_delay_ms,
-        max(policy.idle_return_reserve_floor_ms, measured.return_reserve_ms),
-        TimingSource.IDLE_CONVERSATION,
+    return replace(
+        _measured_timing(routes, whole_route, idle_policy),
+        source=TimingSource.IDLE_CONVERSATION,
     )
 
 

@@ -1,4 +1,3 @@
-import { Grid } from '@neo-ui-kit/react';
 import type { useRoomLibrary } from '../songs/useRoomLibrary';
 import LibraryActions from './filters&actions/actions';
 import type { LibraryView } from './filters&actions/useLibraryView';
@@ -8,33 +7,49 @@ import LibraryHeader from './header';
 type Props = {
   view: LibraryView;
   setQuery(query: string): void;
-  setViewFilters(update: (current: LibraryViewFilters) => LibraryViewFilters): void;
+  setViewFilters(
+    update: (current: LibraryViewFilters) => LibraryViewFilters,
+  ): void;
   roomLibrary: ReturnType<typeof useRoomLibrary>;
   openProcessing(): void;
   onOpenRoom(): void;
+  onOpenPlaylists(): void;
+  playlistsDisabled: boolean;
 };
 
 const Hero = ({
-  view, setQuery, setViewFilters, roomLibrary,
-  openProcessing, onOpenRoom,
+  view,
+  setQuery,
+  setViewFilters,
+  roomLibrary,
+  openProcessing,
+  onOpenRoom,
+  onOpenPlaylists,
+  playlistsDisabled,
 }: Props) => (
-  <Grid columns={12} gap={10} style={{ position: 'relative' }}>
-    <Grid span={{ base: 'full' }} style={{ zIndex: 2 }}>
+  <>
+    <div
+      style={{
+        position: 'relative',
+        zIndex: 2,
+        marginBottom: 'calc(var(--ad-space-10) - var(--ad-space-4))',
+      }}
+    >
       <LibraryHeader onOpenProcessing={openProcessing} />
-    </Grid>
-    <Grid span={{ base: 'full' }}>
-      <LibraryActions
-        view={view}
-        onQueryChange={setQuery}
-        onFiltersChange={(filters) => setViewFilters(() => filters)}
-        roomRole={roomLibrary.room?.role}
-        collaborativeControl={roomLibrary.room?.collaborativeControl}
-        onCollaborativeControlChange={roomLibrary.setCollaborativeControl}
-        onOpenRoom={onOpenRoom}
-        onViewChange={roomLibrary.publishView}
-      />
-    </Grid>
-  </Grid>
+    </div>
+    <LibraryActions
+      view={view}
+      onQueryChange={setQuery}
+      onFiltersChange={(filters) => setViewFilters(() => filters)}
+      roomRole={roomLibrary.room?.role}
+      collaborativeControl={roomLibrary.room?.collaborativeControl}
+      onCollaborativeControlChange={roomLibrary.setCollaborativeControl}
+      onOpenRoom={onOpenRoom}
+      onOpenPlaylists={onOpenPlaylists}
+      playlistsDisabled={playlistsDisabled}
+      onViewChange={roomLibrary.publishView}
+    />
+  </>
 );
 
 export default Hero;

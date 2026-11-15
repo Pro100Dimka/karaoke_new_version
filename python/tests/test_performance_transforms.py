@@ -265,16 +265,19 @@ def test_one_pitch_detection_outlier_does_not_destroy_the_whole_stability_score(
     assert 98 < result.note_stability_percent < 100
 
 
-def test_pitch_within_karaoke_tolerance_can_still_be_unsteady() -> None:
+def test_stability_accepts_wider_tolerance_but_rejects_large_pitch_wobbles() -> None:
     document = LyricsDocument("Song", "Artist", 2, 120, "A", "la", ())
     reference = _vocal_contour()
-    actual = tuple(
-        PitchPoint(p.time, p.frequency * 2 ** ((0.8 if i % 2 else -0.8) / 12), p.confidence)
-        for i, p in enumerate(reference)
-    )
-    result = score_pitch(document, actual, performance_duration=2, reference_pitch=reference)
-    assert result.pitch_accuracy_percent == pytest.approx(100)
-    assert result.note_stability_percent < 25
+    for deviation, expected in ((0.8, 100), (1.2, 0)):
+        actual = tuple(
+            PitchPoint(
+                p.time, p.frequency * 2 ** ((deviation if i % 2 else -deviation) / 12), p.confidence
+            )
+            for i, p in enumerate(reference)
+        )
+        result = score_pitch(document, actual, performance_duration=2, reference_pitch=reference)
+        assert result.pitch_accuracy_percent == pytest.approx(expected)
+        assert result.note_stability_percent == pytest.approx(expected)
 
 
 def test_two_good_samples_cannot_award_perfect_pitch_to_an_unmeasurable_recording() -> None:

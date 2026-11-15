@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
 from backend.domain_errors import ConflictError
 from backend.runtime import Clock
 from backend.persistence import UnitOfWorkFactory
@@ -34,12 +32,11 @@ class CancelProcessing:
         if state not in {JobState.CANCELLING, JobState.CANCELLED}:
             return
         status = SongStatus.CANCELLING if state is JobState.CANCELLING else SongStatus.CANCELLED
-        with self._uow.create() as transaction:
-            song = transaction.songs.get(song_id)
-            if song and song.status in {
-                SongStatus.QUEUED,
-                SongStatus.PROCESSING,
-                SongStatus.CANCELLING,
-            }:
-                transaction.songs.update(replace(song, status=status, updated_at=self._clock.now()))
-                transaction.commit()
+        with self._uow.create(write=True) as transaction:
+            transaction.songs.update_status(
+                song_id,
+                status,
+                self._clock.now(),
+                from_statuses=(SongStatus.QUEUED, SongStatus.PROCESSING, SongStatus.CANCELLING),
+            )
+            transaction.commit()

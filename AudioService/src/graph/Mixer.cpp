@@ -1,4 +1,5 @@
 #include "graph/Mixer.hpp"
+#include "dsp/BasicProcessors.hpp"
 
 #include <algorithm>
 
@@ -28,5 +29,5 @@ void Mixer::add(std::span<float> output, std::span<const float> source, float ga
 }
 void Mixer::clampToFullScale(std::span<float> output) const noexcept {
     for (auto& sample : output)
-        sample = std::clamp(sample, -1.0F, 1.0F);
+        sample = softLimitSample(sample);
 }

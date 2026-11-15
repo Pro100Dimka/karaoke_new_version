@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from contextlib import ExitStack
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import threading
 
 from backend.analysis.domain import AnalysisResult, AnalysisState
@@ -20,6 +20,21 @@ from backend.projects.ports import ProjectStorage
 from backend.runtime import Clock, IdGenerator
 from backend.songs.ports import FileHasher
 from backend.version import ANALYSIS_ALGORITHM_VERSION
+
+
+def _live_score(live: AnalysisResult) -> ScoreSummary:
+    if live.state is AnalysisState.FAILED:
+        raise DomainError(
+            "AnalysisPitchUncertain", "Too little reliable microphone pitch evidence", 422
+        )
+    return ScoreSummary(
+        live.pitch_accuracy_percent or 0.0,
+        live.mean_semitone_deviation or 0.0,
+        live.rhythm_accuracy_percent or 0.0,
+        live.note_stability_percent or 0.0,
+        (),
+        (),
+    )
 
 
 class StartRecordingAnalysis:
@@ -140,18 +155,7 @@ class StartRecordingAnalysis:
         recording = self._recording(running.recording_id)
         live = live_result(recording)
         if live is not None:
-            if live.state is AnalysisState.FAILED:
-                raise DomainError(
-                    "AnalysisPitchUncertain", "Too little reliable microphone pitch evidence", 422
-                )
-            return ScoreSummary(
-                live.pitch_accuracy_percent or 0.0,
-                live.mean_semitone_deviation or 0.0,
-                live.rhythm_accuracy_percent or 0.0,
-                live.note_stability_percent or 0.0,
-                (),
-                (),
-            )
+            return _live_score(live)
         reference = decode_document(
             self._projects.read_text_artifact(running.song_id, running.song_revision, "lyricsSync")
         )
@@ -169,8 +173,14 @@ class StartRecordingAnalysis:
             reference_start=reference_audio_start(adjustments),
         )
         context.progress("Scoring", 0.0, 0.95)
+        note_score = metadata.get("karaokeNoteScore")
         return score_pitch(
-            reference, actual, adjustments, recording.duration, reference_pitch=expected
+            reference,
+            actual,
+            adjustments,
+            recording.duration,
+            note_score if isinstance(note_score, Mapping) else None,
+            reference_pitch=expected,
         )
 
     def _succeeded(self, running: AnalysisResult, score: ScoreSummary) -> AnalysisResult:

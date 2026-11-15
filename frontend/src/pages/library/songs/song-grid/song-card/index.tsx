@@ -14,8 +14,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { memo, useState } from 'react';
 import { refreshSongs } from '../../../../../components/api-service';
-import type { SongDto } from '../../../../../contracts/models';
-import { ask } from '../../../../../providers/dialog';
+import type {
+  ProcessingJobDto,
+  SongDto,
+} from '../../../../../contracts/models';
+import { ProcessingErrorDialog } from '../../../modals/processing/ProcessingError';
 import { desktopClient } from '../../../../../services/desktopClient';
 import { pythonClient } from '../../../../../services/pythonClient';
 import {
@@ -32,11 +35,12 @@ const actionMeta: Record<
 > = {
   play: { label: 'play', icon: 'play' },
   cancelQueued: { label: 'cancelQueueItem', icon: 'stop' },
-  processingDetails: { label: 'openProcessingDetails', icon: 'processing' },
+  processingDetails: { label: 'openProcessingDetails', icon: 'list' },
   recordings: { label: 'recordings', icon: 'headphones' },
   settings: { label: 'songSettings', icon: 'settings' },
   folder: { label: 'openFolder', icon: 'folder' },
   viewError: { label: 'viewError', icon: 'warning' },
+  retry: { label: 'processingRetry', icon: 'refresh' },
   delete: {
     label: 'deleteSong',
     icon: 'trash',
@@ -82,23 +86,36 @@ export const SongCard = memo(
     useLocale();
     const client = useQueryClient();
     const guarded = useGuardedAction();
-    const { confirmDelete } = useSongActions();
+    const {
+      confirmDelete,
+      retryProcessing,
+      retrying,
+      reportProcessingError,
+      reporting,
+    } = useSongActions();
+    const [failure, setFailure] = useState<{ job?: ProcessingJobDto }>();
+    const retry = async () => {
+      if (await retryProcessing(song.id)) setFailure(undefined);
+    };
     const showError = async () => {
-      let message = tr('errorProjectInvalid');
+      setFailure({});
       try {
-        const failed = (await pythonClient.listJobs()).find(
-          (job) => job.songId === song.id && job.error,
-        );
-        if (failed?.error)
-          message = `${failed.error.code}: ${failed.error.message}`;
+        const jobs = (await pythonClient.listJobs())
+          .filter(
+            (job) =>
+              job.songId === song.id &&
+              ['failed', 'interrupted'].includes(job.state),
+          )
+          .sort((a, b) =>
+            (b.finishedAt ?? b.createdAt ?? '').localeCompare(
+              a.finishedAt ?? a.createdAt ?? '',
+            ),
+          );
+        const job = jobs.find((item) => item.id === song.jobId) ?? jobs[0];
+        setFailure((current) => (current ? { job } : current));
       } catch {
-        // Keep the generic explanation when job details are unavailable.
+        // The fallback explanation and report action remain available offline.
       }
-      await ask({
-        title: `${song.artist} — ${song.title}`,
-        body: message,
-        actions: [{ id: 'ok', label: tr('close'), appearance: 'primary' }],
-      });
     };
     const [failedArtwork, setFailedArtwork] = useState<string | null>(null);
     const presentation = songStatusPresentation[song.status];
@@ -119,6 +136,7 @@ export const SongCard = memo(
       folder: () =>
         void desktopClient.revealProject(song.id, song.activeRevision),
       viewError: () => void showError(),
+      retry: () => void retry(),
       delete: () => void confirmDelete(song),
     } satisfies Record<SongActionId, () => void>;
     const primary = presentation.primaryAction;
@@ -237,7 +255,10 @@ export const SongCard = memo(
                   }
                   label={tr(actionMeta[id].label)}
                   variant={id === primary ? 'primary' : 'ghost'}
-                  disabled={id === 'play' && playbackDisabled}
+                  disabled={
+                    (id === 'play' && playbackDisabled) ||
+                    (id === 'retry' && Boolean(retrying))
+                  }
                   onClick={actions[id]}
                 />
               ))}
@@ -253,6 +274,23 @@ export const SongCard = memo(
             </Stack>
           </Stack>
         </Grid>
+        <ProcessingErrorDialog
+          open={Boolean(failure)}
+          title={[song.artist, song.title].filter(Boolean).join(' - ')}
+          job={failure?.job}
+          onClose={() => setFailure(undefined)}
+          fallback={
+            song.status === 'invalid' ? 'errorProjectInvalid' : undefined
+          }
+          onRetry={
+            ['failed', 'invalid'].includes(song.status)
+              ? () => void retry()
+              : undefined
+          }
+          onReport={() => void reportProcessingError(song.id, failure?.job)}
+          retrying={Boolean(retrying)}
+          reporting={reporting}
+        />
       </Card>
     );
   },

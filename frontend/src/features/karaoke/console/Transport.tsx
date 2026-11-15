@@ -79,7 +79,7 @@ export const Transport = ({
             icon={action.icon}
             label={tr(action.label)}
             disabled={disabled}
-            onClick={action.run}
+            onClick={() => action.run()}
           />
         ))}
       </div>

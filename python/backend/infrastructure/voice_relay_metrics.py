@@ -36,6 +36,8 @@ _NATIVE_COUNTERS = (
     "ingress_peak",
     "recipient_nonzero_packets",
     "recipient_peak",
+    "effect_latency_frames",
+    "concealed_source_frames",
 )
 _NATIVE_DURATIONS = ("latest_gap_ms", "maximum_gap_ms", "last_send_monotonic_ms")
 # Stages only the Python mixer measures; the native relay reports none of them.

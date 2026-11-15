@@ -8,10 +8,17 @@ import {
 import { memo } from 'react';
 import type { MixerChannelGains } from '../../../contracts/models';
 import { fixedKnobWidth } from '../../../shared/ui/knobWidth';
+import {
+  mixerGain,
+  volumeFromKnob,
+  volumeToKnob,
+} from '../../../shared/utils/mixerLevel';
 import { ConsoleSection } from './ConsoleSection';
 import { EffectPresets } from './EffectPresets';
 import {
   voiceEffects,
+  effectFromKnob,
+  effectToKnob,
   type EffectPreset,
   type VoiceEffectId,
   type VoiceEffectValues,
@@ -78,8 +85,8 @@ export const MixerPanel = memo(
     const effectKnobs: Knob[] = voiceEffects.map((effect) => ({
       ...effect,
       disabled: !microphoneAvailable,
-      value: effects[effect.id],
-      onChange: (value) => onEffectChange(effect.id, value),
+      value: effectToKnob(effects[effect.id]),
+      onChange: (value) => onEffectChange(effect.id, effectFromKnob(value)),
     }));
     const channelKnobs: Knob[] = channels.map((channel) => ({
       id: channel.id,
@@ -89,8 +96,14 @@ export const MixerPanel = memo(
       step: 0.01,
       initial: channel.initial,
       disabled: channel.needsMicrophone && !microphoneAvailable,
-      value: gains[channel.id],
-      onChange: (value) => onGainChange(channel.id, value),
+      value: channel.needsMicrophone
+        ? gains[channel.id]
+        : volumeToKnob(mixerGain(channel.id, gains[channel.id])),
+      onChange: (value) =>
+        onGainChange(
+          channel.id,
+          channel.needsMicrophone ? value : Math.cbrt(volumeFromKnob(value)),
+        ),
     }));
     const knob = (item: Knob) => (
       <RotaryKnob
@@ -102,7 +115,7 @@ export const MixerPanel = memo(
         max={item.max}
         step={item.step}
         diameter={knobDiameter}
-        displayScale={100}
+        displayScale={item.id === 'mic' ? 25 : 100}
         resetValue={item.initial}
         disabled={item.disabled}
         value={item.value}

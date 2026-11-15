@@ -18,7 +18,10 @@ it('sorts queued and active jobs first, then creation time, then ID', () => {
   ];
   const original = [...jobs];
   expect(orderProcessingJobs(jobs, new Map()).map((item) => item.id)).toEqual([
-    'c', 'd', 'a', 'b',
+    'c',
+    'd',
+    'b',
+    'a',
   ]);
   expect(jobs).toEqual(original);
 });
@@ -34,8 +37,23 @@ it('uses the song creation time when present and puts missing dates last', () =>
     ['missing', { createdAt: '2025-01-01' } as SongDto],
   ]);
   expect(orderProcessingJobs(jobs, songs).map((item) => item.id)).toEqual([
-    'missing', 'job', 'invalid',
+    'job',
+    'missing',
+    'invalid',
   ]);
+});
+
+it('keeps the newest unprocessed songs above older queued and completed songs', () => {
+  expect(
+    orderProcessingJobs(
+      [
+        job('old', 'processing', '2026-01-01'),
+        job('done', 'completed', '2026-12-01'),
+        job('new', 'queued', '2026-02-01'),
+      ],
+      new Map(),
+    ).map((item) => item.id),
+  ).toEqual(['new', 'old', 'done']);
 });
 
 it('handles empty snapshots and stable ties', () => {

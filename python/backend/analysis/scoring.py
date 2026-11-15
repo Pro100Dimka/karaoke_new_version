@@ -4,36 +4,21 @@ import math
 import statistics
 from bisect import bisect_left
 from collections import Counter
-from dataclasses import dataclass
 from itertools import pairwise
 from typing import Mapping, Sequence
 
 from backend.ai.domain import PitchPoint
-from backend.analysis.domain import SectionResult
+from backend.analysis.domain import (
+    SectionResult,
+    ScoreSummary as ScoreSummary,
+    PlaybackAdjustment as PlaybackAdjustment,
+)
 from backend.domain_errors import DomainError
 from backend.lyrics.domain import LyricsDocument, Note
 
 
 KARAOKE_PITCH_TOLERANCE_SEMITONES = 1.0
 GREEN_NOTE_COVERAGE = 0.5
-
-
-@dataclass(frozen=True, slots=True)
-class ScoreSummary:
-    pitch_accuracy_percent: float
-    mean_semitone_deviation: float
-    rhythm_accuracy_percent: float
-    note_stability_percent: float
-    sections: Sequence[SectionResult]
-    problem_regions: Sequence[dict[str, float]]
-
-
-@dataclass(frozen=True, slots=True)
-class PlaybackAdjustment:
-    elapsed_seconds: float
-    source_seconds: float
-    playback_rate: float
-    key_shift: float
 
 
 def reference_audio_start(raw: Sequence[Mapping[str, object]]) -> float | None:
@@ -77,6 +62,7 @@ def score_pitch(
             reference_pitch,
             adjustments,
             performance_duration if performance_duration is not None else reference.duration,
+            ignore_silence=(note_score or {}).get("ignoreSilence") is True,
         )
     return _score_notes(reference, actual, adjustments, performance_duration, note_score)
 
@@ -127,25 +113,20 @@ def _score_contours(
     reference: Sequence[PitchPoint],
     adjustments: Sequence[PlaybackAdjustment],
     duration: float,
+    *,
+    ignore_silence: bool = False,
 ) -> ScoreSummary:
     """Compare voiced audio frames, retaining the original singer's vibrato and rests."""
     frames = _contour_frames(actual, reference, adjustments, duration)
-    assessed = [
-        time
-        for time, _, sung, error, required in frames
-        if error is not None or (required and not sung)
-    ]
-    if len(assessed) < sum(required for _, _, _, _, required in frames) * 0.25:
-        raise DomainError(
-            "AnalysisPitchUncertain", "Recording has too little reliable pitch evidence", 422
-        )
-    union = sum(target or sung for _, target, sung, _, _ in frames)
-    intersection = sum(target and sung for _, target, sung, _, _ in frames)
+    frames = [frame for frame in frames if not ignore_silence or frame[2]]
+    assessed = _assessed_times(frames, ignore_silence)
+    union = sum(any(frame[1:3]) for frame in frames)
+    intersection = sum(all(frame[1:3]) for frame in frames)
     signed = [error for _, _, _, error, _ in frames if error is not None]
     compared = [(time, abs(error)) for time, _, _, error, _ in frames if error is not None]
     hits = sum(abs(error) <= KARAOKE_PITCH_TOLERANCE_SEMITONES for error in signed)
     center = statistics.mean(signed) if signed else 0.0
-    steady = sum(abs(error - center) <= KARAOKE_PITCH_TOLERANCE_SEMITONES / 2 for error in signed)
+    steady = sum(abs(error - center) <= KARAOKE_PITCH_TOLERANCE_SEMITONES for error in signed)
     step = _pitch_sample_seconds(actual)
     problems = tuple(
         {"start": time, "end": time + step, "deviation": deviation}
@@ -160,6 +141,22 @@ def _score_contours(
         _sections(compared, document.duration, assessed),
         problems,
     )
+
+
+def _assessed_times(
+    frames: Sequence[tuple[float, bool, bool, float | None, bool]], ignore_silence: bool
+) -> list[float]:
+    assessed = [
+        time
+        for time, _, sung, error, required in frames
+        if error is not None or (required and not sung)
+    ]
+    minimum = max(int(ignore_silence), sum(frame[4] for frame in frames) * 0.25)
+    if len(assessed) < minimum:
+        raise DomainError(
+            "AnalysisPitchUncertain", "Recording has too little reliable pitch evidence", 422
+        )
+    return assessed
 
 
 def _contour_frames(
@@ -282,7 +279,7 @@ def _score_note(note: Note, values: Sequence[tuple[float, float, float]]) -> tup
     covered = max(0.0, min(note.end, offset) - max(note.start, onset))
     deviations = [value[1] for value in values]
     spread = statistics.pstdev(deviations) if len(deviations) >= 2 else 2.0
-    return 100.0 * min(1.0, covered / duration), 100.0 * max(0.0, 1.0 - spread)
+    return 100.0 * min(1.0, covered / duration), 100.0 * max(0.0, 1.0 - spread / 2)
 
 
 def _saved_note_percentage(note_score: Mapping[str, object] | None) -> float | None:

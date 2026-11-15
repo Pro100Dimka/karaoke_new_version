@@ -26,6 +26,8 @@ struct NetworkTestAccess {
         auto* slot = engine.slotForId("__room_server_mix__");
         slot->arrivalRoute.note(arrival);
         slot->returnRoute.note(returned);
+        slot->arrivalHistory.note(arrival);
+        slot->returnHistory.note(returned);
     }
     static void excludeVoice(NetworkAudioEngine& engine, std::string_view participant) {
         auto* slot = engine.slotForId(participant);
@@ -87,10 +89,15 @@ struct NetworkTestAccess {
                            });
     }
     static bool queueVoice(NetworkAudioEngine& engine, std::string_view participant,
-                           std::span<const float> samples, bool real = true) {
+                           std::span<const float> samples, bool real = true,
+                           std::uint64_t presentationFrame = 0) {
         auto* slot = engine.slotForId(participant);
+        std::vector<MonotonicTicks> times;
+        if (presentationFrame != 0)
+            for (std::size_t frame = 0; frame < samples.size(); ++frame)
+                times.push_back(static_cast<MonotonicTicks>(presentationFrame + frame));
         return slot && slot->queue.push(samples, static_cast<std::uint32_t>(samples.size()),
-                                        static_cast<std::uint8_t>(real));
+                                        static_cast<std::uint8_t>(real), nullptr, times);
     }
     static void noteVoiceDecision(NetworkAudioEngine& engine, std::string_view participant,
                                   std::uint32_t sequence, bool late) {
@@ -206,6 +213,8 @@ struct NetworkTestAccess {
              ++packet) {
             slot->lateness.note(IngressFrames + collectionFrames + ReturnFrames);
             slot->returnRoute.note(ReturnFrames);
+            slot->returnHistory.note(ReturnFrames);
+            slot->arrivalHistory.note(IngressFrames);
             slot->arrivalRoute.note(IngressFrames);
         }
         slot->remoteStreamEpoch = 7;
@@ -455,6 +464,60 @@ void outgoingVoiceDiagnosticsExposeTheClientSendCadence() {
     expect(diagnostics.lastSendStreamEpoch != 0,
            "client send diagnostics identify the network stream epoch");
     engine.stop();
+}
+
+void roomDeadlineTrimKeepsTheCurrentVoiceContinuous() {
+    NetworkAudioEngine network;
+    constexpr std::uint32_t frames = 120;
+    constexpr std::uint64_t start = 1'000'000;
+    network.prepare(48'000, 1, 4'800, frames, GenerationId{1});
+    network.setSharedTimeline(true);
+    network.setRoomPlayoutDelay(55.0F);
+    expect(network.addRemoteParticipant("singer"), "voice registers");
+    NetworkTestAccess::bypassRemoteEffects(network, "singer");
+    std::vector<float> first(frames, 0.25F), current(frames + 2, -0.25F), output(frames);
+    current[0] = current[1] = 0.25F;
+    expect(NetworkTestAccess::queueVoice(network, "singer", first, true, start),
+           "the earlier real waveform is queued at its position");
+    (void)network.renderRemote(GenerationId{1}, output, frames, start);
+    const auto previous = output.back();
+    expect(NetworkTestAccess::queueVoice(network, "singer", current, true, start + frames - 3),
+           "two expired samples precede the current opposite-phase waveform");
+    (void)network.renderRemote(GenerationId{1}, output, frames, start + frames);
+    expect(std::abs(output.front() - previous) < 0.01F && output.back() == -0.25F,
+           "dropping expired samples crossfades into current PCM without a half-scale click");
+    expect(network.diagnostics().participants.front().expiredPlayoutFrames == 2 &&
+               network.diagnostics().participants.front().queueFillFrames == 0,
+           "continuity never retains expired samples or adds a delayed packet");
+}
+
+void roomHotMicrophoneDoesNotHitAHardQuantizerCorner() {
+    UdpSocket receiver;
+    receiver.bind(0);
+    receiver.setReceiveTimeoutMs(1000);
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 1'024, 120, GenerationId{1});
+    network.setLocalParticipant("singer");
+    network.setSessionToken(77);
+    network.setSharedTimeline(true);
+    network.startSend("127.0.0.1", receiver.localPort());
+    std::array<float, 120> voice{};
+    for (std::size_t frame = 0; frame < voice.size(); ++frame)
+        voice[frame] = (0.97F + 0.06F * static_cast<float>(frame) / 119.0F) / 1.6F;
+    network.pushLocal(GenerationId{1}, voice, 120, 48'000, 1.6F);
+    std::array<std::byte, 2048> bytes{};
+    const auto size = receiver.receive(bytes);
+    const auto decoded = PcmVoiceCodec::decode(
+        std::span<const std::byte>{bytes.data(), size}.subspan(AudioPacketHeaderBytes), 120);
+    network.stop();
+    expect(decoded.size() == 120 && decoded.front() > 0.95F &&
+               decoded.back() > decoded[90] && decoded.back() < 0.9999F,
+           "makeup gain crosses full scale through a smooth knee instead of a flat clipped top");
+    Mixer mixer;
+    std::array<float, 5> master{0.5F, 0.97F, 1.0F, 1.03F, 2.11F};
+    mixer.clampToFullScale(master);
+    expect(master[0] == 0.5F && master[2] < master[3] && master[3] < 1.0F && master[4] <= 1.0F,
+           "the final mix keeps quiet audio and smooths loud voice peaks without buffering");
 }
 
 void centralRoomMixerReceivesPcmFromTheFirstSharedTimelinePacket() {
@@ -1225,6 +1288,65 @@ void remoteParticipantEffectsAreIsolated() {
     expect(alice.reverb == 0.6F && alice.echo == 0.4F && alice.delay == 0.3F &&
                alice.noiseSuppression && alice.octave == -1.0F && bob.reverb == 0.0F,
            "participant effects remain isolated");
+}
+
+void remoteOctaveDoesNotAddAnExtraPitchWindow() {
+    constexpr std::uint32_t sampleRate = 48'000;
+    constexpr std::uint32_t frames = sampleRate / 50U;
+    for (const float octave : {-1.0F, 1.0F}) {
+        NetworkAudioEngine network;
+        network.prepare(sampleRate, 1, sampleRate / 2U, 120, GenerationId{1});
+        expect(network.addRemoteParticipant("singer"), "remote singer registers");
+        expect(network.setRemoteEffect("singer", "octave", octave), "octave is enabled");
+        std::vector<float> voice(frames);
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
+            voice[frame] = 0.25F * std::sin(2.0F * 3.14159265F * 220.0F * frame / sampleRate);
+        expect(NetworkTestAccess::queueVoice(network, "singer", voice), "voice is queued");
+        std::vector<float> output(frames);
+        expect(network.renderRemote(GenerationId{1}, output, frames) == frames,
+               "ready PCM reaches the render callback");
+        expect(std::ranges::any_of(output, [](float sample) { return std::abs(sample) > 0.01F; }),
+               "both octave directions reach output within twenty milliseconds of ready PCM");
+    }
+}
+
+void roomRenderStallNeverPlaysExpiredQueuedVoice() {
+    for (const std::uint32_t rate : {44'100U, 48'000U}) {
+        constexpr std::uint32_t packetFrames = SharedRoomPacketFrames;
+        const auto block = deviceFramesForVoicePacket(0, rate);
+        const auto base = static_cast<std::uint64_t>(rate) * 1'000U;
+        const auto transportBase = static_cast<std::uint64_t>(VoiceProtocolSampleRateHz) * 1'000U;
+        NetworkAudioEngine network;
+        network.prepare(rate, 1, rate / 2U, block, GenerationId{1});
+        network.setSharedTimeline(true);
+        network.setRoomPlayoutDelay(60.0F);
+        expect(network.addRemoteParticipant("__room_server_mix__"), "server mix registers");
+        NetworkTestAccess::bypassRemoteEffects(network, "__room_server_mix__");
+        NetworkTestAccess::useSinglePacketReorder(network, "__room_server_mix__");
+        std::vector<float> output(block);
+        (void)network.renderRemote(GenerationId{1}, output, block, base);
+        const auto queuePacket = [&](std::uint32_t sequence, std::uint64_t timestamp, float value) {
+            NetworkAudioPacket packet{sequence, timestamp | SharedAudioTimelineFlag, 1,
+                                      static_cast<std::uint16_t>(packetFrames),
+                                      PcmVoiceCodec::encode(std::vector<float>(packetFrames, value)),
+                                      VoiceCodec::Pcm16};
+            NetworkTestAccess::pumpRemotePackets(network, "__room_server_mix__", std::move(packet));
+        };
+        const auto delay = VoiceProtocolSampleRateHz * 60U / 1'000U;
+        for (std::uint32_t i = 0; i < 2; ++i)
+            queuePacket(i, transportBase - delay + (i + 1U) * packetFrames, 0.25F);
+        expect(NetworkTestAccess::queuedFrames(network, "__room_server_mix__") >= block * 2U,
+               "timely packets are queued before the driver stalls");
+        const auto resumedAt = base + block + rate * 30U / 1'000U;
+        (void)network.renderRemote(GenerationId{1}, output, block, resumedAt);
+        expect(std::ranges::all_of(output, [](float sample) { return sample == 0.0F; }),
+               "a delayed render cuts stale voice instead of adding thirty milliseconds");
+        const auto next = resumedAt + block;
+        queuePacket(2, scaleFramePosition(next, rate, VoiceProtocolSampleRateHz) - delay, 0.75F);
+        (void)network.renderRemote(GenerationId{1}, output, block, next);
+        expect(std::ranges::any_of(output, [](float sample) { return sample > 0.1F; }),
+               "current voice resumes immediately without an added recovery buffer");
+    }
 }
 
 void networkRejectsStaleGeneration() {
@@ -3582,9 +3704,30 @@ void directContinuityBudgetRetainsBurstsAndExpiresThem() {
         NetworkTestAccess::noteRelayRoute(network, i == 0 ? 2'880 : 480,
                                         i == 0 ? 5'760 : 960);
     const auto measured = network.diagnostics().participants.front();
-    expect(measured.arrivalRequirementFrames == 2'904 &&
-               measured.returnRequirementFrames == 5'784,
-           "published relay requirements retain a rare burst on both route legs");
+    expect(measured.arrivalRequirementFrames == 624 &&
+               measured.returnRequirementFrames == 1104,
+           "published relay requirements discard an isolated burst on both route legs");
+}
+
+void roomServerRouteBurstDoesNotFreezeAnEntireSongAtItsTail() {
+    NetworkAudioEngine network;
+    network.prepare(48'000, 1, 24'000, 120, GenerationId{1});
+    expect(network.addRemoteParticipant("__room_server_mix__"), "relay route registers");
+    constexpr auto block = StableLatenessHistory::BlockPackets;
+    for (std::uint32_t packet = 0; packet < block * 6; ++packet) {
+        // A half-second return burst in the last ten seconds contaminates the rolling p99
+        // for thirty seconds, although the other five measured blocks remain fast.
+        const auto burst = packet >= block * 5 && packet < block * 5 + 200;
+        NetworkTestAccess::noteRelayRoute(network, 20 * 48, (burst ? 220 : 20) * 48);
+    }
+    const auto measured = network.diagnostics().participants.front();
+    expect(measured.returnRequirementFrames < 25 * 48 &&
+               measured.arrivalRequirementFrames < 25 * 48,
+           "an isolated return burst is cut instead of delaying every voice for a whole song");
+    for (std::uint32_t packet = 0; packet < block * 12; ++packet)
+        NetworkTestAccess::noteRelayRoute(network, 20 * 48, 90 * 48);
+    expect(network.diagnostics().participants.front().returnRequirementFrames >= 90 * 48,
+           "sustained route deterioration still changes the next song's measured requirement");
 }
 
 void roomNetworkWorkersUseMultimediaScheduling() {

@@ -17,9 +17,6 @@ def main() -> None:
     resources = Path(sys.argv[1]).resolve(strict=True)
     assert Path(sys.executable).is_relative_to(resources / "python-runtime")
     assert sys.flags.isolated, "Run the packaged interpreter with -I"
-    kaggle = resources / "kaggle"
-    assert (kaggle / "ad_voice_p100.ipynb").is_file()
-    assert (kaggle / "ad_voice_server.py").is_file()
     os.environ["PATH"] = os.pathsep.join(
         (str(resources / "tools"), str(Path(os.environ["SystemRoot"]) / "System32"))
     )
@@ -36,11 +33,12 @@ def main() -> None:
         "fastapi",
         "sqlalchemy",
         "yt_dlp",
+        "yt_dlp_ejs",
         "demucs.pretrained",
         "whisper",
         "torchcrepe",
-        "gradio_client",
-        "kaggle.api.kaggle_api_extended",
+        "backend.infrastructure.oracle_ai_provider",
+        "backend.remote_worker",
         "shazamio",
         "uroman",
         "backend.main",
@@ -75,9 +73,14 @@ def main() -> None:
         sf.write(wav, audio, 48000)
         loaded, rate = sf.read(wav)
         assert loaded.shape == audio.shape and rate == 48000
-    for tool in ("ffmpeg", "ffprobe"):
+    assert (resources / "tools" / "node-LICENSE.txt").is_file()
+    for tool, flag in {
+        "ffmpeg": "-version",
+        "ffprobe": "-version",
+        "node": "--version",
+    }.items():
         subprocess.run(
-            [str(resources / "tools" / f"{tool}.exe"), "-version"],
+            [str(resources / "tools" / f"{tool}.exe"), flag],
             cwd=resources / "tools",
             check=True,
             stdout=subprocess.DEVNULL,

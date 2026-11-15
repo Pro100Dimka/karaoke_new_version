@@ -1,5 +1,6 @@
 import type { KaraokeOpenMode } from '../application/karaoke/karaokeMachine';
-import { radioStations } from '../app/radioStations';
+import { radioStations, youtubeSource } from '../app/radioStations';
+import type { YoutubeRadioTrack } from '../services/youtubeRadio';
 import type { ServiceStatus } from '../app/serviceStatus';
 import { setLocale } from '@neo-ui-kit/react';
 import { makeAutoObservable, observable, observableRef } from 'mobx';
@@ -37,6 +38,7 @@ class Store {
   };
 
   playback = {
+    playlist: null as { name: string; songIds: string[]; index: number } | null,
     launch: null as { songId: string; mode: KaraokeOpenMode } | null,
     returned: null as {
       performanceReturn?: boolean;
@@ -45,8 +47,27 @@ class Store {
     } | null,
   };
   prepareKaraoke(songId: string, mode: KaraokeOpenMode) {
+    const playlist = this.playback.playlist;
+    if (playlist && playlist.songIds[playlist.index] !== songId)
+      this.cancelPlaylist();
     this.playback.launch = { songId, mode };
     this.playback.returned = null;
+  }
+  startPlaylist(name: string, songIds: string[]) {
+    const first = songIds[0];
+    if (!first) return;
+    this.playback.playlist = { name, songIds, index: 0 };
+    this.prepareKaraoke(first, 'AutoStart');
+  }
+  advancePlaylist(songId: string): string | undefined {
+    const playlist = this.playback.playlist;
+    if (!playlist || playlist.songIds[playlist.index] !== songId) return;
+    const next = playlist.songIds[++playlist.index];
+    if (!next) this.playback.playlist = null;
+    return next;
+  }
+  cancelPlaylist() {
+    this.playback.playlist = null;
   }
   returnFromKaraoke(value: typeof this.playback.returned) {
     this.playback.returned = value;
@@ -89,13 +110,18 @@ class Store {
     libraryActive: false,
     preparedKey: '',
     prepareRequest: 0,
+    loading: false,
+    error: false,
+    youtubeTrack: null as YoutubeRadioTrack | null,
+    youtubeResolvedAt: 0,
     get volume() {
       return store.preferences.radioVolume;
     },
     get stationId() {
       const id =
         store.online.room?.radioStationId ?? store.preferences.radioStation;
-      return radioStations.some((station) => station.id === id)
+      return radioStations.some((station) => station.id === id) ||
+        youtubeSource(id)
         ? id
         : (radioStations[0]?.id ?? '');
     },

@@ -17,6 +17,9 @@ from backend.recordings.studio_reference import mapped_reference_times
 from backend.recordings.studio_quality import inspect_master
 
 PitchAnalyzer = Callable[[Path], Sequence[PitchPoint]]
+_PITCH_DEADBAND_SEMITONES = 0.35
+_PITCH_CORRECTION_STRENGTH = 0.35
+_PITCH_CORRECTION_LIMIT_SEMITONES = 0.35
 
 
 class PitchRender(Protocol):
@@ -81,8 +84,17 @@ def _pitch_curve(
     error -= 12 * np.round(error / 12)
     eligible &= abs(error) < 2.5
     eligible = minimum_filter1d(eligible.astype(float), size=9, mode="constant") > 0
-    # Correct sustained note drift without following syllables or natural vibrato.
-    correction = np.where(eligible, np.clip(-0.6 * error, -0.75, 0.75), 0.0)
+    # Leave small pitch variations intact; only gently reduce sustained drift.
+    drift = np.sign(error) * np.maximum(abs(error) - _PITCH_DEADBAND_SEMITONES, 0.0)
+    correction = np.where(
+        eligible,
+        np.clip(
+            -_PITCH_CORRECTION_STRENGTH * drift,
+            -_PITCH_CORRECTION_LIMIT_SEMITONES,
+            _PITCH_CORRECTION_LIMIT_SEMITONES,
+        ),
+        0.0,
+    )
     correction = gaussian_filter1d(median_filter(correction, size=31), sigma=8)
     return times, correction, voice, target, eligible
 
@@ -95,10 +107,13 @@ def _render_correction(render: PitchRender, times: np.ndarray, correction: np.nd
     escaped = "".join("\\" + c if c in "\\'[],;" else c for c in value)
     try:
         with commands.open("w", encoding="utf-8") as output:
+            previous_ratio = "1.000000000"
             for index in range(len(times)):
                 _check_cancel(render.cancel)
-                ratio = 2 ** (correction[index] / 12)
-                output.write(f"{times[index]:.3f} rubberband@tune pitch {ratio:.9f};\n")
+                ratio = f"{2 ** (correction[index] / 12):.9f}"
+                if ratio != previous_ratio:
+                    output.write(f"{times[index]:.3f} rubberband@tune pitch {ratio};\n")
+                    previous_ratio = ratio
         graph = (
             f"[0:a]asendcmd=f={escaped},rubberband@tune=tempo=1:pitch=1:"
             "formant=preserved:pitchq=consistency:transients=smooth:channels=together,"
@@ -169,6 +184,34 @@ def _pitch_improvement(
     }
 
 
+def _pitch_dynamics_quality(render: PitchRender, candidate: Path) -> dict[str, object]:
+    powers = []
+    with sf.SoundFile(render.vocal) as dry, sf.SoundFile(candidate) as wet:
+        if (dry.frames, dry.samplerate, dry.channels) != (wet.frames, wet.samplerate, wet.channels):
+            return {"accepted": False, "reason": "changed-audio-format"}
+        for original in dry.blocks(blocksize=round(dry.samplerate * 0.04), always_2d=True):
+            _check_cancel(render.cancel)
+            shifted = wet.read(len(original), always_2d=True)
+            powers.append((float(np.mean(original**2)), float(np.mean(shifted**2))))
+    if not powers or not np.isfinite(powers).all():
+        return {"accepted": False, "reason": "invalid-audio-envelope"}
+    levels = 10 * np.log10(np.maximum(np.asarray(powers), 1e-20))
+    active = levels[:, 0] > max(-70.0, float(np.percentile(levels[:, 0], 80)) - 20)
+    if not active.any():
+        return {"accepted": False, "reason": "insufficient-active-audio"}
+    changes = levels[active, 1] - levels[active, 0]
+    # Ignore constant gain; a pitch shift must preserve the singer's local dynamics.
+    deviation = changes - np.median(changes)
+    p90 = float(np.percentile(np.abs(deviation), 90))
+    dropout_fraction = float(np.mean(deviation < -6.0))
+    return {
+        "accepted": p90 <= 3.0 and dropout_fraction <= 0.01,
+        "p90LevelDeviationDb": p90,
+        "dropoutFraction": dropout_fraction,
+        "windowMs": 40,
+    }
+
+
 def _normalize_pitch(render: PitchRender, candidate: Path) -> float:
     levels = [_profile(path, render.cancel, voice_band=True) for path in (render.vocal, candidate)]
     energy = [float(np.mean(10 ** (level / 10))) for level in levels]
@@ -210,13 +253,21 @@ def apply_reference_pitch(render: PitchRender) -> dict[str, object]:
         return {"applied": False, "method": "no-confident-pitch-correction"}
     candidate = _render_correction(render, times, correction)
     try:
-        verification = _pitch_improvement(render.pitch(candidate), times, voice, target, eligible)
+        dynamics = _pitch_dynamics_quality(render, candidate)
+        verification = (
+            _pitch_improvement(render.pitch(candidate), times, voice, target, eligible)
+            if dynamics["accepted"]
+            else {"accepted": False, "reason": "pitch-render-changed-dynamics"}
+        )
+        verification["dynamics"] = dynamics
         accepted = bool(verification["accepted"])
         gain = _normalize_pitch(render, candidate) if accepted else 0.0
         return {
             "applied": accepted,
             "method": "soft-reference-pitch-nearest-octave",
-            "limitSemitones": 0.75,
+            "limitSemitones": _PITCH_CORRECTION_LIMIT_SEMITONES,
+            "deadbandSemitones": _PITCH_DEADBAND_SEMITONES,
+            "correctionStrength": _PITCH_CORRECTION_STRENGTH,
             "correctedSeconds": corrected * 0.01,
             "normalizationGainDb": gain,
             "verification": verification,

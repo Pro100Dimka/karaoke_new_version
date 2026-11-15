@@ -4,7 +4,12 @@ import type {
 } from '../application/karaoke/KaraokePorts';
 import { command } from './audioSession';
 import { desktopBridge } from './desktopBridge';
-import type { KaraokeNoteScore, PitchFrame, SongDto } from '../contracts/models';
+import type {
+  KaraokeNoteScore,
+  PitchFrame,
+  RoomPerformanceSummary,
+  SongDto,
+} from '../contracts/models';
 
 interface RecordingTarget {
   recordingId: string;
@@ -153,7 +158,10 @@ const expectedSourceSeconds = (take: NonNullable<typeof active>): number => {
 /** A jump bigger than this (a seek, a room correction, a recovery) starts a new timeline entry. */
 const repositionToleranceSeconds = 0.25;
 
-const stop = async (): Promise<RecordingStatus> => {
+const stop = async (
+  roomResult?: Promise<RoomPerformanceSummary | undefined>,
+  onCaptured?: () => Promise<void>,
+): Promise<RecordingStatus> => {
   if (!active) return { recording: false };
   const current = active;
   if (current.interrupted) {
@@ -204,6 +212,8 @@ const stop = async (): Promise<RecordingStatus> => {
   ) {
     throw new Error('Recording metadata does not match the saved audio');
   }
+  await onCaptured?.();
+  const roomPerformance = await roomResult;
   await python({
     method: 'POST',
     path: '/recordings',
@@ -219,6 +229,7 @@ const stop = async (): Promise<RecordingStatus> => {
       songRevision: current.song.activeRevision,
       gaps: native.gaps,
       sessionMetadata: {
+        ...(roomPerformance ? { roomPerformance } : {}),
         playbackAdjustments: current.playbackAdjustments,
         karaokeNoteScore: current.karaokeNoteScore,
         nativeRecording: native,
@@ -469,7 +480,10 @@ export const recordingCoordinator = {
     active.karaokeNoteScore = score;
   },
 
-  stop() {
-    return transition('stop', stop);
+  stop(
+    roomPerformance?: Promise<RoomPerformanceSummary | undefined>,
+    onCaptured?: () => Promise<void>,
+  ) {
+    return transition('stop', () => stop(roomPerformance, onCaptured));
   },
 };

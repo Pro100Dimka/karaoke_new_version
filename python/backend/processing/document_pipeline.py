@@ -67,9 +67,12 @@ def _repeat_support(lines: list[str], words: tuple[WordTiming, ...]) -> list[flo
         # Keep the same majority and the required confirmed phrase entry.
         evidence.append(
             max(
-                sum(len(_lyrics_key(word.text)) for word in supported) / max(1, len(_lyrics_key(line))),
+                sum(len(_lyrics_key(word.text)) for word in supported)
+                / max(1, len(_lyrics_key(line))),
                 len(supported) / len(span),
-            ) if span and _word_support(span[0]) else 0.0
+            )
+            if span and _word_support(span[0])
+            else 0.0
         )
         first = last
     return evidence

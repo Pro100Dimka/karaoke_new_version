@@ -91,7 +91,7 @@ try {
     & tar.exe -czf $archive --exclude=__pycache__ --exclude=*.pyc `
         -C $pythonRoot backend pyproject.toml `
         -C $projectRoot AudioService/src/relay AudioService/src/network/NetworkPacket.hpp `
-        AudioService/src/network/RoomAudioContract.hpp
+        AudioService/src/network/RoomAudioContract.hpp AudioService/src/network/PcmVoiceCodec.hpp AudioService/src/dsp AudioService/src/common/Types.hpp
     if ($LASTEXITCODE -ne 0) { throw "Could not create Room Server package" }
 
     Write-Host "Uploading to $HostName..."

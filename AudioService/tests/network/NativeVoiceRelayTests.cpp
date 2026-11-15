@@ -125,7 +125,7 @@ void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus() {
 void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies() {
     NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
-    relay.setRecipientSourceGain("room", "alice", "bob", 0.25F);
+    relay.setRecipientSourceGain("room", "alice", "bob", 4.0F);
     const RelayEndpoint alice{"10.0.0.1", 41001};
     const RelayEndpoint bob{"10.0.0.2", 41002};
     const auto alicePacket = packet("alice", 0x1111, 1, 48'000, 100);
@@ -134,14 +134,163 @@ void nativeVoiceRelayAppliesPersonalGainAndRejectsDuplicateCopies() {
     const auto output = relay.receive(bobPacket, bob, 10.001, 1.001);
 
     expect(std::ranges::all_of(samples(forTarget(output, alice).bytes),
-                               [](auto value) { return value == 250; }),
-           "personal gain changes only this recipient's server mix");
+                               [](auto value) { return value == 4000; }),
+           "fourfold personal gain changes only this recipient's server mix");
     expect(std::ranges::all_of(samples(forTarget(output, bob).bytes),
                                [](auto value) { return value == 100; }),
            "the other recipient keeps the unmodified source");
     expect(relay.receive(alicePacket, alice, 10.002, 1.002).empty() &&
                relay.receive(bobPacket, bob, 10.003, 1.003).empty(),
            "redundant upstream copies cannot emit a second mix for one position");
+}
+
+void nativeVoiceRelayIsolatesPersonalEffectsBeforeMixing() {
+    constexpr std::array<std::string_view, 6> effects{
+        "reverb", "echo", "delay", "noiseSuppression", "octave", "autoTune"};
+    constexpr std::array<std::string_view, 3> names{"alice", "bob", "carol"};
+    const std::array<RelayEndpoint, 3> endpoints{
+        RelayEndpoint{"10.0.0.1", 41001}, RelayEndpoint{"10.0.0.2", 41002},
+        RelayEndpoint{"10.0.0.3", 41003}};
+    for (const auto effect : effects) {
+        NativeVoiceRelay relay;
+        for (std::size_t index = 0; index < names.size(); ++index)
+            relay.expect("room", std::string(names[index]), index + 1);
+        relay.setEligibleParticipants("room", names);
+        expect(!relay.setRecipientSourceEffect("room", "alice", "alice", effect, 1.0F),
+               "personal effects cannot introduce delayed self-monitoring");
+        expect(relay.setRecipientSourceEffect("room", "alice", "bob", effect, 1.0F),
+               "all exposed effects have a server implementation");
+        std::vector<RelayDatagram> output;
+        for (std::size_t index = 0; index < names.size(); ++index) {
+            const auto emitted = relay.receive(packet(names[index], index + 1, 1, 48'000,
+                                                       static_cast<std::int16_t>((index + 1) * 1000)),
+                                               endpoints[index], 10.0 + index * 0.001,
+                                               1.0 + index * 0.001);
+            output.insert(output.end(), emitted.begin(), emitted.end());
+        }
+        expect(output.size() == 3, "effects preserve one mix-minus per listener");
+        const auto altered = samples(forTarget(output, endpoints[0]).bytes);
+        expect(std::ranges::any_of(altered, [](auto value) { return value != 5000; }),
+               "the selected source is processed before its listener's mix");
+        expect(std::ranges::all_of(samples(forTarget(output, endpoints[1]).bytes),
+                                  [](auto value) { return value == 4000; }) &&
+                   std::ranges::all_of(samples(forTarget(output, endpoints[2]).bytes),
+                                       [](auto value) { return value == 3000; }),
+               "another listener and the source retain bit-exact dry mix-minus");
+        expect(relay.setRecipientSourceEffect("room", "alice", "bob", effect, 0.0F),
+               "effects can be disabled during singing");
+        output.clear();
+        for (std::size_t index = 0; index < names.size(); ++index) {
+            const auto emitted = relay.receive(packet(names[index], index + 1, 2, 48'120,
+                                                       static_cast<std::int16_t>((index + 1) * 1000)),
+                                               endpoints[index], 10.01 + index * 0.001,
+                                               1.0025 + index * 0.001);
+            output.insert(output.end(), emitted.begin(), emitted.end());
+        }
+        expect(std::ranges::all_of(samples(forTarget(output, endpoints[0]).bytes),
+                                  [](auto value) { return value == 5000; }),
+               "disabling the last effect immediately restores exact dry audio");
+    }
+}
+
+void nativeVoiceRelayConcealsOnlyTheMissingSourceWithoutDelayingTheMix() {
+    NativeVoiceRelay relay;
+    constexpr std::array<std::string_view, 4> names{"alice", "bob", "carol", "dave"};
+    const std::array<RelayEndpoint, 4> endpoints{
+        RelayEndpoint{"10.0.0.1", 41001}, RelayEndpoint{"10.0.0.2", 41002},
+        RelayEndpoint{"10.0.0.3", 41003}, RelayEndpoint{"10.0.0.4", 41004}};
+    for (std::size_t index = 0; index < names.size(); ++index)
+        relay.expect("room", std::string(names[index]), index + 1);
+    relay.setEligibleParticipants("room", names);
+    relay.setRoomPlayoutDelay("room", 55.0, 10.0, 1.0);
+    for (std::size_t index = 0; index < names.size(); ++index)
+        (void)relay.receive(packet(names[index], index + 1, 1, 48'000,
+                                   static_cast<std::int16_t>((index + 1) * 1000)),
+                            endpoints[index], 10.02 + index * 0.0001,
+                            1.02 + index * 0.0001);
+    for (const auto index : {0U, 2U, 3U})
+        (void)relay.receive(packet(names[index], index + 1, 2, 48'120,
+                                   static_cast<std::int16_t>((index + 1) * 1000)),
+                            endpoints[index], 10.023, 1.023);
+    const auto closed = relay.flush(10.048, 1.048);
+    expect(serverMixPackets(closed) == 3,
+           "missing source never extends the fixed mix deadline for the other listeners");
+    if (serverMixPackets(closed) != 3)
+        return;
+    const auto heardByAlice = samples(forTarget(closed, endpoints[0]).bytes);
+    expect(heardByAlice.front() > 8'000 && heardByAlice.back() > 8'000,
+           "a missing source has a bounded waveform continuation instead of an abrupt zero");
+    expect(relay.receive(packet("bob", 2, 3, 48'120, 16'000), endpoints[1],
+                         10.049, 1.049).empty(),
+           "the old packet is still rejected after its position closed");
+    std::vector<RelayDatagram> recovered;
+    for (std::size_t index = 0; index < names.size(); ++index) {
+        auto emitted = relay.receive(packet(names[index], index + 1, 4, 48'240,
+                                             static_cast<std::int16_t>((index + 1) * 1000)),
+                                      endpoints[index], 10.0492 + index * 0.0001,
+                                      1.0492 + index * 0.0001);
+        recovered.insert(recovered.end(), emitted.begin(), emitted.end());
+    }
+    auto due = relay.flush(10.0511, 1.0511);
+    recovered.insert(recovered.end(), due.begin(), due.end());
+    expect(serverMixPackets(recovered) == 4,
+           "a recovered source rejoins at the current position");
+    if (serverMixPackets(recovered) != 4)
+        return;
+    const auto current = samples(forTarget(recovered, endpoints[0]).bytes);
+    expect(std::ranges::all_of(current, [](auto value) { return value <= 9'000; }),
+           "concealment cannot replay the late 16000-valued packet into a later position");
+    expect(std::ranges::all_of(samples(forTarget(recovered, endpoints[1]).bytes),
+                               [](auto value) { return value == 8'000; }),
+           "the missing singer's own mix retains all three other voices unchanged");
+    for (std::uint32_t step = 1; step <= 45; ++step) {
+        const auto position = 48'240U + step * SharedRoomPacketFrames;
+        const auto mediaTime = static_cast<double>(position) / VoiceProtocolSampleRateHz;
+        std::vector<RelayDatagram> output;
+        for (const auto index : {0U, 2U, 3U}) {
+            auto emitted = relay.receive(packet(names[index], index + 1, step + 4, position,
+                                                 static_cast<std::int16_t>((index + 1) * 1000)),
+                                          endpoints[index], 9.0 + mediaTime + 0.044,
+                                          mediaTime + 0.044);
+            output.insert(output.end(), emitted.begin(), emitted.end());
+        }
+        auto expired = relay.flush(9.0 + mediaTime + 0.0455, mediaTime + 0.0455);
+        output.insert(output.end(), expired.begin(), expired.end());
+        if (step == 45)
+            expect(std::ranges::all_of(samples(forTarget(output, endpoints[0]).bytes),
+                                       [](auto value) { return value == 7'000; }),
+                   "source concealment ends after 100 ms and cannot sustain an absent singer");
+    }
+    expect(relay.recipientMetrics("room", "alice").concealedSourceFrames > 0,
+           "diagnostics distinguish synthesized continuity from authentic source ingress");
+}
+
+void nativeVoiceRelayKeepsLoudMixPeaksDistinct() {
+    NativeVoiceRelay relay;
+    constexpr std::array<std::string_view, 3> names{"alice", "bob", "carol"};
+    const std::array<RelayEndpoint, 3> endpoints{
+        RelayEndpoint{"10.0.0.1", 41001}, RelayEndpoint{"10.0.0.2", 41002},
+        RelayEndpoint{"10.0.0.3", 41003}};
+    for (std::size_t index = 0; index < names.size(); ++index)
+        relay.expect("room", std::string(names[index]), index + 1);
+    relay.setEligibleParticipants("room", names);
+    std::array<std::int16_t, 2> peaks{};
+    for (std::uint32_t position = 0; position < peaks.size(); ++position) {
+        std::vector<RelayDatagram> output;
+        const std::array<std::int16_t, 3> input{1'000,
+            static_cast<std::int16_t>(32'000 + position * 500), 0};
+        for (std::size_t index = 0; index < names.size(); ++index) {
+            auto emitted = relay.receive(packet(names[index], index + 1, position,
+                                                 48'000 + position * SharedRoomPacketFrames,
+                                                 input[index]), endpoints[index],
+                                          10.0 + position * 0.0025 + index * 0.0001,
+                                          1.0 + position * 0.0025 + index * 0.0001);
+            output.insert(output.end(), emitted.begin(), emitted.end());
+        }
+        peaks[position] = samples(forTarget(output, endpoints[2]).bytes).front();
+    }
+    expect(peaks[0] > 30'000 && peaks[1] > peaks[0] && peaks[1] < 32'767,
+           "loud singers retain distinct peaks instead of hitting a hard PCM corner");
 }
 
 void nativeVoiceRelayQuantizesOnlyTheCompleteRecipientMix() {
@@ -433,8 +582,8 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
     const auto partial = relay.flush(10.0701, 1'000.0701);
     expect(serverMixPackets(partial) == 1 &&
                std::ranges::all_of(samples(forTarget(partial, alice).bytes),
-                                   [](auto value) { return value == 0; }),
-           "the fixed deadline emits silence only for the missing remote contribution");
+                                   [](auto value) { return value > 0 && value <= 1'000; }),
+           "the fixed deadline continues only a bounded missing-source waveform");
     const auto lateBob = packet("bob", 0x2222, 2, 48'000'000, 2'000);
     expect(relay.receive(lateBob, bob, 10.071, 1'000.071).empty(),
            "a packet that missed its position is never rendered later");
@@ -445,9 +594,9 @@ void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
     const auto recoveredToBob = relay.receive(
         packet("alice", 0x1111, 3, nextPosition, 400), alice, 10.0723, 1'000.0723);
     expect(serverMixPackets(recoveredToAlice) == 1 && serverMixPackets(recoveredToBob) == 1 &&
-               std::ranges::all_of(samples(forTarget(recoveredToAlice, alice).bytes),
-                                   [](auto value) { return value == 2'000; }),
-           "timely voice resumes at the next position without replaying the missed position");
+               samples(forTarget(recoveredToAlice, alice).bytes).front() > 1'000 &&
+               samples(forTarget(recoveredToAlice, alice).bytes).back() == 2'000,
+           "current voice crossfades into its own position without replaying the missed packet");
 
     relay.setGeneration("room", 2);
     const auto cadenceBase = 48'000'000U + 32U * SharedRoomPacketFrames;
@@ -502,8 +651,8 @@ void nativeVoiceRelayKeepsSingingInputsUntilTheAuthoritativeDeadline() {
            "a genuinely absent singer is excluded immediately after the fixed deadline");
     if (serverMixPackets(missed) == 1)
         expect(std::ranges::all_of(samples(forTarget(missed, alice).bytes),
-                                   [](auto value) { return value == 0; }),
-               "the hard deadline emits silence for the missing remote contribution");
+                                   [](auto value) { return value > 0 && value <= 2'000; }),
+               "the hard deadline uses bounded continuity without waiting for the missing packet");
     expect(serverMixPackets(
                relay.receive(packet("bob", 0x2222, 3, next, 2'000), bob, 10.0902, 1'000.0902)) == 0,
            "a truly late singing packet is never replayed after its closed position");
@@ -598,8 +747,8 @@ void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
     expect(std::ranges::all_of(samples(forTarget(partial, bob).bytes),
                                [](auto value) { return value == 100; }) &&
                std::ranges::all_of(samples(forTarget(partial, alice).bytes),
-                                   [](auto value) { return value == 0; }),
-           "partial N-singer output preserves per-recipient gain, mute, and mix-minus");
+                                   [](auto value) { return value == 11'000; }),
+           "partial output preserves personal gain and mute while concealing only absent sources");
     const auto metrics = relay.recipientMetrics("room", "bob");
     expect(metrics.completePositions == 1 && metrics.partialPositions == 1 &&
                metrics.missingContributions == 1,
@@ -832,7 +981,7 @@ void nativeVoiceRelayReleasesOrderedSingingMixesAtTheFixedDeadline() {
         expect(received.size() == 1 && relay.excludedParticipants("room") == 0,
                "three or four singers cannot advance Bob past his still-on-time missing remote voice");
         collect(relay.flush(10.0 + closeElapsed, 1'000.0 + closeElapsed));
-        const auto remoteSum = static_cast<std::int16_t>((count - 2U) * 100U);
+        const auto remoteSum = static_cast<std::int16_t>((count - 1U) * 100U);
         expect(received.size() == 2 && relay.excludedParticipants("room") == 1,
                "the unresolved older position closes at the unchanged 72.5 ms deadline");
         expect(serverMixPackets(relay.receive(
@@ -921,8 +1070,8 @@ void nativeVoiceRelayEmitsSilenceWhenAnEntireDuePositionHasNoIngress() {
                (header.timestampFrame & ~SharedAudioTimelineFlag) ==
                    base + SharedRoomPacketFrames * 2U &&
                std::ranges::all_of(samples(forTarget(silence, alice).bytes),
-                                   [](auto value) { return value == 0; }),
-           "the missing position is represented by on-time silence instead of a downstream gap");
+                                   [](auto value) { return value > 0 && value <= 2'000; }),
+           "the missing position uses bounded continuity on time instead of a downstream gap");
 
     const auto followingSilence = relay.flush(10.0776, 1'000.0776);
     expect(serverMixPackets(followingSilence) == 2 &&

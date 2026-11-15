@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager, nullcontext
 from datetime import datetime
 from pathlib import Path
 
-from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select
+from sqlalchemy import Select, and_, asc, delete, desc, func, or_, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement, SQLColumnExpression
 
@@ -136,6 +136,26 @@ class SqlSongRepository:
             raise KeyError(song.song_id)
         _apply(row, song)
         self.changed.add(song.song_id)
+
+    def update_status(
+        self,
+        song_id: str,
+        status: SongStatus,
+        updated_at: datetime,
+        *,
+        from_statuses: Sequence[SongStatus],
+    ) -> None:
+        changed = self._session.scalar(
+            update(SongRow)
+            .where(
+                SongRow.song_id == song_id,
+                SongRow.status.in_([value.value for value in from_statuses]),
+            )
+            .values(status=status.value, updated_at=updated_at)
+            .returning(SongRow.song_id)
+        )
+        if changed is not None:
+            self.changed.add(song_id)
 
     def delete(self, song_id: str) -> None:
         for model in (AnalysisRow, RecordingRow, ProjectRevisionRow):

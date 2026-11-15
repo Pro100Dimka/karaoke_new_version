@@ -195,10 +195,9 @@ test('the installed app bundles Electron, Python, AudioService and FFmpeg', () =
   assert.match(release, /ffmpeg\.exe/i);
 });
 
-test('the installed app bundles the matching Kaggle notebook and worker', () => {
-  assert.match(release, /robocopy "%ROOT%kaggle" "%RESOURCES%\\kaggle"/i);
-  assert.match(release, /ad_voice_p100\.ipynb/i);
-  assert.match(release, /ad_voice_server\.py/i);
+test('the installed app bundles the processing backend without the Kaggle payload', () => {
+  assert.match(release, /robocopy "%PYTHON%\\backend" "%RESOURCES%\\python-app\\backend"/i);
+  assert.doesNotMatch(release, /ad_voice_p100\.ipynb|ad_voice_server\.py|build_notebook\.py/i);
 });
 
 test('release cleanup leaves only the finished installer', () => {
@@ -260,9 +259,10 @@ test('release checks the isolated bundled runtime before building Setup', () => 
   assert.ok(smokeAt < release.lastIndexOf('"%ISCC%"'));
 });
 
-test('runtime verification includes the Kaggle deployment payload', () => {
-  assert.match(runtimeVerifier, /kaggle\s*\/\s*"ad_voice_p100\.ipynb"/);
-  assert.match(runtimeVerifier, /kaggle\s*\/\s*"ad_voice_server\.py"/);
+test('runtime verification includes the Oracle provider and processing PC worker', () => {
+  assert.match(runtimeVerifier, /"backend\.infrastructure\.oracle_ai_provider"/);
+  assert.match(runtimeVerifier, /"backend\.remote_worker"/);
+  assert.doesNotMatch(runtimeVerifier, /gradio_client|kaggle\.api/);
 });
 
 test('runtime verification does not contaminate the staged payload with bytecode', () => {

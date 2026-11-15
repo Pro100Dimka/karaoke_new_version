@@ -217,6 +217,7 @@ def test_migration_can_retry_after_a_snapshot_was_saved_but_staging_failed(
         assert retry.status_code == 200, retry.text
         assert retry.json()["revision"] == revision + 1
 
+
 @pytest.mark.parametrize("status", ["Cancelled", "Failed"])
 @pytest.mark.parametrize("project", ["ready", "corrupt", "incomplete", "missing_source"])
 def test_reconciliation_restores_only_a_complete_valid_finished_project(tmp_path, status, project):
@@ -248,8 +249,10 @@ def test_reconciliation_restores_only_a_complete_valid_finished_project(tmp_path
         assert response.status_code == 202, response.text
         assert wait_for_job(client, response.json()["jobId"])["state"] == "Succeeded"
         expected = {
-            "ready": "Ready", "corrupt": "ProjectInvalid",
-            "incomplete": status, "missing_source": "SourceMissing",
+            "ready": "Ready",
+            "corrupt": "ProjectInvalid",
+            "incomplete": status,
+            "missing_source": "SourceMissing",
         }[project]
         after = client.get(f"/songs/{song_id}").json()
         assert after["status"] == expected

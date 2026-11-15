@@ -1,3 +1,5 @@
+export type { RoomVoiceEffect } from '../../electron/ipcChannels';
+
 export type SettingsTab =
   'appearance' | 'audio' | 'ai' | 'environment' | 'advanced';
 export type ThemeName = 'dark' | 'light' | 'green' | 'violet';
@@ -14,6 +16,7 @@ export type SongLanguage = 'Auto' | 'Ukrainian' | 'Russian' | 'English';
 type CoverState = 'Embedded' | 'Custom' | 'Fallback';
 
 export interface KaraokeNoteScore {
+  ignoreSilence?: boolean;
   /** Present only for the timestamped live scorer; legacy UI counters are not final analysis. */
   version?: 3;
   expectedPitchSeconds?: number;
@@ -28,6 +31,7 @@ export interface KaraokeNoteScore {
 
 export interface SongDto {
   id: string;
+  sourceHash?: string;
   title: string;
   artist: string;
   album?: string;
@@ -60,6 +64,7 @@ export interface RoomSongDto {
   album?: string;
   genre?: string;
   durationSeconds: number;
+  sourceHash?: string;
 }
 
 export interface ProcessingJobDto {
@@ -230,6 +235,8 @@ export interface MixerChannelGains {
 }
 
 export interface ParticipantDto {
+  performanceAccuracy?: number;
+  performanceSungSeconds?: number;
   id: string;
   name: string;
   role: 'host' | 'participant';
@@ -254,7 +261,18 @@ export interface ParticipantDto {
   voiceEligible?: boolean;
 }
 
+export interface RoomPlaylist {
+  name: string;
+  songs: { songId: string; revision: number }[];
+  index: number;
+}
+
 export interface RoomStateDto {
+  playlist?: RoomPlaylist;
+  lastPerformanceId?: number;
+  lastPerformanceAccuracy?: number;
+  performanceId?: number;
+  performanceAccuracy?: number;
   code: string;
   hostId: string;
   songId?: string;
@@ -295,7 +313,14 @@ export interface RoomStateDto {
   connectionStatus?: 'connected' | 'reconnecting';
 }
 
+export interface RoomPerformanceSummary {
+  roomId: string;
+  performanceId: number;
+  overallScore?: number;
+}
+
 export interface RecordingDto {
+  roomPerformance?: RoomPerformanceSummary;
   id: string;
   filePath: string;
   songId: string;

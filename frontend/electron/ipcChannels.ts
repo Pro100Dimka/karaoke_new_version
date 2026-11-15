@@ -1,3 +1,5 @@
+export const roomVoiceEffects = ['reverb', 'echo', 'delay', 'noiseSuppression', 'octave', 'autoTune'] as const;
+export type RoomVoiceEffect = (typeof roomVoiceEffects)[number];
 export const ipcChannels = {
   minimize: 'desktop:minimize',
   toggleMaximize: 'desktop:toggle-maximize',
@@ -13,12 +15,14 @@ export const ipcChannels = {
   reveal: 'desktop:reveal',
   openExternal: 'desktop:open-external',
   copyText: 'desktop:copy-text',
+  sendErrorReport: 'desktop:send-error-report',
   pythonRequest: 'services:python-request',
   roomRequest: 'services:room-request',
   joinRoomVoice: 'services:join-room-voice',
   leaveRoomVoice: 'services:leave-room-voice',
   roomVoiceLevels: 'services:room-voice-levels',
   setRoomVoiceParticipantGain: 'services:set-room-voice-participant-gain',
+  setRoomVoiceParticipantEffect: 'services:set-room-voice-participant-effect',
   uploadRoomProject: 'services:upload-room-project',
   downloadRoomProject: 'services:download-room-project',
   cancelRoomProjectTransfer: 'services:cancel-room-project-transfer',

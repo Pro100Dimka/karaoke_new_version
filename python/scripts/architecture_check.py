@@ -326,6 +326,7 @@ def _dead_module_checks(graph: dict[str, set[str]]) -> list[str]:
     entrypoints = {
         "backend",
         "backend.main",
+        "backend.remote_worker",  # launched by start-processing-worker.bat and song subprocesses
         "backend.ai_worker",
         "backend.ai_worker.__main__",
         "backend.infrastructure.installer_downloads",  # launched by Inno Setup after unpacking

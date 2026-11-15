@@ -26,6 +26,7 @@ it('ignores a selection response after leaving or switching rooms', async () => 
     ),
     setCollaborativeControl: vi.fn(async () => snapshot('A')),
     updateSharedState: vi.fn(async () => snapshot('A')),
+    startPlaylist: vi.fn(async () => snapshot('A')),
   };
   const audio = {
     joinVoiceSession: vi.fn(async () => undefined),
@@ -56,6 +57,7 @@ it('does not apply an older song selection after a newer selection', async () =>
     ),
     setCollaborativeControl: vi.fn(async () => snapshot('A')),
     updateSharedState: vi.fn(async () => snapshot('A')),
+    startPlaylist: vi.fn(async () => snapshot('A')),
   };
   const session = new RoomSessionController(
     room,
@@ -85,6 +87,7 @@ it('does not let an old shared-view response replace a new song selection', asyn
     leaveRoom: vi.fn(async () => undefined),
     closeRoom: vi.fn(async () => undefined),
     selectRoomSong: vi.fn(async () => snapshot('A')),
+    startPlaylist: vi.fn(async () => snapshot('A')),
     setCollaborativeControl: vi.fn(async () => snapshot('A')),
     updateSharedState: vi.fn(
       () =>

@@ -1,4 +1,4 @@
-import type { SongDto } from '../../contracts/models';
+import type { RoomPerformanceSummary, SongDto } from '../../contracts/models';
 import type {
   KaraokeAudioPort,
   KaraokeBackendPort,
@@ -52,18 +52,30 @@ export class KaraokeRecordingCoordinator {
     }
   }
 
-  async finish(): Promise<{ saved: boolean; recordingId?: string }> {
+  async finish(
+    roomPerformance?: Promise<RoomPerformanceSummary | undefined>,
+  ): Promise<{ saved: boolean; recordingId?: string }> {
     this.invalidate();
     const generation = this.generation;
     let recordingId: string | undefined;
     let saved = true;
+    let audioStopped = false;
+    const stopAudio = async () => {
+      if (audioStopped || !this.isCurrent(generation)) return;
+      audioStopped = true;
+      await this.audio.stop().catch(() => undefined);
+    };
     try {
-      recordingId = (await this.recording.stop()).recordingId;
+      recordingId = (
+        await (roomPerformance
+          ? this.recording.stop(roomPerformance, stopAudio)
+          : this.recording.stop())
+      ).recordingId;
     } catch {
       saved = false;
     }
-    if (this.isCurrent(generation))
-      await this.audio.stop().catch(() => undefined);
+    await stopAudio();
+    await roomPerformance;
     return { saved, recordingId };
   }
 }
