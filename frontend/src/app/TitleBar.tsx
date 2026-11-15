@@ -174,7 +174,7 @@ export const TitleBar = () => {
   const controlsRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const element = controlsRef.current;
-    if (!modal || !element) return;
+    if (!modal || !element?.isConnected) return;
     // A dialog descendant escapes modal inertness; the popover top layer escapes
     // the kit dialog's overflow clipping and animated containing block.
     element.showPopover();
