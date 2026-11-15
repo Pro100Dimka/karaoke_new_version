@@ -13,7 +13,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { observer } from 'mobx-react-lite';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { RecordingDto, SongDto } from '../../../../contracts/models';
-import { formatBytes } from '../../../../shared/utils/format';
+import { formatBytes, formatTime } from '../../../../shared/utils/format';
 import { PerformanceAnalysisModal } from '../analysis';
 import { RecordingCard } from './RecordingCard';
 import './recordings.css';
@@ -46,7 +46,7 @@ const PerformancesSignature = () => (
   </svg>
 );
 
-/** A song's takes: listen, rename, analyze, reveal or delete each, as a list or a grid. */
+/** The song's archive with a focused player and an optional gallery of its takes. */
 export const RecordingsModal = observer(
   ({
     requestedSong,
@@ -76,6 +76,7 @@ export const RecordingsModal = observer(
     } = actions;
     const locale = useLocale();
     const [view, setView] = useState<View>('list');
+    const [selectedId, setSelectedId] = useState('');
     const listRef = useRef<HTMLUListElement>(null);
     // Progress notifications are frequent. Keep the callbacks' identities stable so
     // unaffected cards can preserve their waveform/player subtrees.
@@ -121,9 +122,12 @@ export const RecordingsModal = observer(
           !recording.sourceRecordingId || !ids.has(recording.sourceRecordingId),
       );
     }, [recordings]);
-    // Mount only the visible recording cards in long lists. Every card owns
-    // controls, observers, and sometimes a waveform/player; mounting thousands
-    // of them synchronously blocks the dialog's first frame.
+    const selectedIndex = Math.max(
+      0,
+      performances.findIndex(({ id }) => id === selectedId),
+    );
+    const selected = performances[selectedIndex];
+    // Virtualize long archives; the focused view mounts only one player.
     const virtualized = view === 'list' && performances.length > 40;
     const getScrollElement = useCallback(() => listRef.current, []);
     const getItemKey = useCallback(
@@ -134,8 +138,8 @@ export const RecordingsModal = observer(
       count: virtualized ? performances.length : 0,
       getScrollElement,
       getItemKey,
-      estimateSize: () => 170,
-      gap: 12,
+      estimateSize: () => 78,
+      gap: 8,
       overscan: 4,
     });
     const visibleRows = virtualized ? virtualizer.getVirtualItems() : [];
@@ -188,36 +192,84 @@ export const RecordingsModal = observer(
       );
     } else if (recordings.length > 0) {
       recordingsContent = (
-        <ul
-          ref={listRef}
-          className="recordingsList"
-          data-view={view}
-          aria-label={tr('recordings')}
-          style={
-            virtualized
-              ? { paddingTop: topPadding, paddingBottom: bottomPadding }
-              : undefined
-          }
-        >
-          {listItems.map(({ recording, index }) => (
-            <RecordingCard
-              key={recording.id}
-              measureElement={
-                virtualized ? virtualizer.measureElement : undefined
-              }
-              recording={recording}
-              versions={versions.get(recording.id)}
-              index={index}
-              name={names.get(recording.id) ?? ''}
-              onRename={renameTake}
-              onAnalyze={analyzeTake}
-              progress={progress}
-              failures={failures}
-              onCancelAnalysis={cancelTakeAnalysis}
-              onDelete={deleteTake}
-            />
-          ))}
-        </ul>
+        <div className="recordingsWorkspace" data-view={view}>
+          {view === 'list' && (
+            <aside className="recordingsArchive">
+              <Typography variant="eyebrow" tone="muted">
+                {tr('recordingsCount', { count: performances.length })}
+              </Typography>
+              <ul
+                ref={listRef}
+                className="recordingsNavigator"
+                aria-label={tr('recordings')}
+                style={
+                  virtualized
+                    ? { paddingTop: topPadding, paddingBottom: bottomPadding }
+                    : undefined
+                }
+              >
+                {listItems.map(({ recording, index }) => (
+                  <li
+                    key={recording.id}
+                    data-index={index}
+                    ref={virtualized ? virtualizer.measureElement : undefined}
+                  >
+                    <button
+                      type="button"
+                      className="recordingChoice"
+                      aria-pressed={selected?.id === recording.id}
+                      onClick={() => setSelectedId(recording.id)}
+                    >
+                      <span className="recordingChoiceNumber">
+                        {String(
+                          numbers.get(recording.id) ?? index + 1,
+                        ).padStart(2, '0')}
+                      </span>
+                      <span className="recordingChoiceCopy">
+                        <strong>{names.get(recording.id)}</strong>
+                        <span>
+                          {formatTime(recording.durationSeconds)} ·{' '}
+                          {formatBytes(recording.sizeBytes)}
+                        </span>
+                      </span>
+                      <Icon
+                        name={
+                          selected?.id === recording.id ? 'wave' : 'chevron'
+                        }
+                      />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
+          <ul
+            className={
+              view === 'list' ? 'recordingsFeatured' : 'recordingsList'
+            }
+            data-view={view}
+            aria-label={tr('songPerformances')}
+          >
+            {(view === 'list' && selected
+              ? [{ recording: selected, index: selectedIndex }]
+              : listItems
+            ).map(({ recording, index }) => (
+              <RecordingCard
+                key={recording.id}
+                recording={recording}
+                versions={versions.get(recording.id)}
+                index={index}
+                name={names.get(recording.id) ?? ''}
+                onRename={renameTake}
+                onAnalyze={analyzeTake}
+                progress={progress}
+                failures={failures}
+                onCancelAnalysis={cancelTakeAnalysis}
+                onDelete={deleteTake}
+              />
+            ))}
+          </ul>
+        </div>
       );
     } else {
       recordingsContent = (
@@ -247,9 +299,9 @@ export const RecordingsModal = observer(
                   {tr('songPerformances')}
                 </Typography>
                 {song.title}
+                <span className="recordingsArtist">{song.artist}</span>
               </>
             }
-            description={tr('recordingsHint')}
             closeLabel={tr('closeDialog')}
             cancelLabel={false}
             confirmLabel={false}
@@ -281,9 +333,11 @@ export const RecordingsModal = observer(
                     },
                   ]}
                 />
-                <Typography variant="caption" tone="muted">
-                  {tr('recordingsCount', { count: performances.length })}
-                </Typography>
+                {view === 'grid' && (
+                  <Typography variant="caption" tone="muted">
+                    {tr('recordingsCount', { count: performances.length })}
+                  </Typography>
+                )}
                 <Typography variant="caption" className="recordingsSize">
                   <Icon name="database" />
                   {tr('recordingsTotalSize', { size: formatBytes(totalSize) })}

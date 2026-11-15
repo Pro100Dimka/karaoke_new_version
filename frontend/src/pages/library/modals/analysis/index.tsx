@@ -128,8 +128,17 @@ export const PerformanceAnalysisModal = ({
       icon="wave"
       title={
         <>
-          {tr('performanceAnalysis')} :{' '}
-          {song ? `${song.artist} — ${song.title}` : ''}
+          <span className="analysisSongTitle">
+            {song?.title ?? tr('performanceAnalysis')}
+          </span>
+          {song && (
+            <span className="analysisArtist">
+              {song.artist}
+              <span className="analysisEyebrow">
+                {tr('performanceAnalysis')}
+              </span>
+            </span>
+          )}
         </>
       }
       closeLabel={tr('closeDialog')}

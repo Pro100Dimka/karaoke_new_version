@@ -216,7 +216,7 @@ export const SongCard = memo(
                 <IconButton
                   round
                   size="sm"
-                  variant="primary"
+                  variant="secondary"
                   icon="music"
                   style={{ flexShrink: 0 }}
                   label={tr('recordingRehearsal')}

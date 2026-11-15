@@ -4,6 +4,7 @@ import { useGuardedAction } from '../../songs/useGuardedAction';
 import { audioClient as preview } from '../../../../services/audioClient';
 import { useState } from 'react';
 import {
+  AnimatedBorder,
   Button,
   tr,
   IconButton,
@@ -53,12 +54,12 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
 };
 
 const ReadyRecordingPlayer = ({ recording }: { recording: RecordingDto }) => (
-  <div className="recordingPlayer">
+  <AnimatedBorder className="recordingPlayer">
     <RecordingTransport recording={recording} />
     <div className="recordingVolume">
       <RecordingVolume />
     </div>
-  </div>
+  </AnimatedBorder>
 );
 
 const RecordingVolume = () => {
@@ -97,6 +98,7 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
     <>
       <IconButton
         round
+        aria-pressed={playing}
         variant="primary"
         icon={playing ? 'pause' : 'play'}
         label={tr(playing ? 'pause' : 'playRecording')}
@@ -110,8 +112,9 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
           label={tr('recordingPosition')}
           onSeek={(seconds) => void seek(seconds)}
         />
-        <Typography variant="caption" tone="muted">
-          {formatTime(position)} / {formatTime(recording.durationSeconds)}
+        <Typography variant="caption" tone="muted" className="recordingTimes">
+          <span>{formatTime(position)}</span>
+          <span>{formatTime(recording.durationSeconds)}</span>
         </Typography>
       </div>
     </>

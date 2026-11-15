@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-15",
+  "scope": "visual interface",
+  "launcher": "start-multy.bat",
+  "cdpPorts": [
+    9341,
+    9342
+  ],
+  "hostPid": 36504,
+  "guestPid": 11496,
+  "participants": 2,
+  "themes": [
+    "dark/red",
+    "light"
+  ],
+  "actions": [
+    "create room",
+    "join by full code",
+    "open own effects",
+    "open participant effects",
+    "switch theme",
+    "leave"
+  ],
+  "audioAlgorithmsChanged": false,
+  "microphoneAndSingerTimingVerified": false,
+  "laterGuestPass": {
+    "pid": 31976,
+    "theme": "light",
+    "enteredRoom": true,
+    "leftRoom": true,
+    "closed": true
+  },
+  "primaryWorkingWindowKeptOpen": true
+}

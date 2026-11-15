@@ -52,15 +52,15 @@ export const visuals = {
   mixer: { image: 'karaoke', focus: [19.11, 86.71, 13.06, 9.17] },
   effects: { image: 'karaoke', focus: [56.26, 86.71, 24.63, 9.17] },
   display: { image: 'karaoke', focus: [33.48, 92.67, 21.48, 2.93] },
-  takes: { image: 'recordings', focus: [25, 8.52, 50, 82.96] },
-  'takes-play': { image: 'recordings', focus: [33.59, 33.24, 2.39, 4.25] },
-  'takes-file': { image: 'recordings', focus: [67.04, 28.61, 2.39, 4.25] },
-  'takes-analyze': { image: 'recordings', focus: [64.78, 29.14, 1.79, 3.18] },
+  takes: { image: 'recordings', focus: [15.26, 2.03, 69.48, 95.93] },
+  'takes-play': { image: 'recordings', focus: [37.78, 51.81, 3.47, 7.12] },
+  'takes-file': { image: 'recordings', focus: [75.81, 70.5, 2.11, 4.32] },
+  'takes-analyze': { image: 'recordings', focus: [73.14, 70.5, 2.11, 4.32] },
   'takes-versions': {
     image: 'recording-versions',
     focus: [33.59, 25.32, 28.23, 4],
   },
-  analysis: { image: 'analysis', focus: [50.12, 58.95, 22.9, 14.84] },
+  analysis: { image: 'analysis', focus: [51.35, 74, 12.63, 5.6] },
 } as const satisfies Record<
   string,
   { image: string; focus: readonly [number, number, number, number] }

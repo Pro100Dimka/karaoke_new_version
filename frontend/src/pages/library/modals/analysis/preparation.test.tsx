@@ -67,6 +67,7 @@ it('replaces both playback cards with preparation status until the original is r
     onClose: vi.fn(),
   };
   const view = render(<PerformanceAnalysisModal {...props} />);
+  expect(screen.getByText('performanceAnalysis')).toBeTruthy();
   expect(screen.queryByTestId('recording-player')).toBeNull();
   expect(screen.getByRole('status')).toBeTruthy();
   expect(screen.queryByRole('button')).toBeNull();

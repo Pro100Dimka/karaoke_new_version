@@ -1,0 +1,73 @@
+{
+  "date": "2026-11-15",
+  "recordedAtUtc": "2026-11-15T11:19:03.144547+00:00",
+  "themes": [
+    "dark/red",
+    "light",
+    "green",
+    "violet"
+  ],
+  "viewports": [
+    [
+      1612,
+      787
+    ],
+    [
+      1442,
+      787
+    ],
+    [
+      1024,
+      768
+    ]
+  ],
+  "checks": {
+    "typescript": 0,
+    "architecture": 0,
+    "productionBuild": 0,
+    "automatedTestsRun": false,
+    "newTestCases": 0,
+    "newTestFiles": 0
+  },
+  "manual": {
+    "singleFocusedPlayer": true,
+    "archiveSelection": true,
+    "galleryView": true,
+    "sourceMasterSwitch": true,
+    "playPause": true,
+    "previousPreviewStopsOnTakeChange": true,
+    "playbackFrameOpacity": 0.95,
+    "buttonWaveCenterDifferencePx": 0,
+    "noHorizontalGalleryScrollAt1024": true,
+    "guideImagesLoaded": true,
+    "rendererErrorsInFinalGuestPass": []
+  },
+  "frameSampling": {
+    "normalFrames": {
+      "frames": 53,
+      "median": 32.69999999999709,
+      "p95": 33,
+      "over34ms": 0
+    },
+    "throttledFrames": {
+      "frames": 53,
+      "median": 32.700000000004366,
+      "p95": 33.099999999998545,
+      "over34ms": 0
+    },
+    "context": "bundled renderer, two instances open, CDP frame sampling, not a physical laptop benchmark"
+  },
+  "display": {
+    "activeRemoteAdapter": "Microsoft Remote Display Adapter",
+    "reportedRefreshHz": 32,
+    "physicalAdapter": "NVIDIA GeForce RTX 3060",
+    "physicalRefreshHz": 60,
+    "physicalLaptopTest": false
+  },
+  "closing": {
+    "verificationGuestClosed": true,
+    "guestOriginalThemeRestored": "light",
+    "primaryWorkingWindowKeptOpen": true
+  },
+  "implementationScope": "renderer layout, materials, theme contrast and guide visuals; no audio processing algorithm changes"
+}

@@ -35,6 +35,14 @@
   padding: var(--ad-space-4) clamp(0.75rem, 2vw, 1.5rem)
     clamp(0.75rem, 2vw, 1.5rem);
 }
+.main-theme[data-ad-color-scheme='light']
+  .advancedAboutPlanet
+  > canvas[data-ready] {
+  opacity: 0.12;
+}
+.main-theme[data-ad-color-scheme='light'] .advancedAboutPromise {
+  color: var(--ad-primary-700);
+}
 @media (width < 1024px) {
   .advancedAboutCard {
     grid-column: 1 / -1;
