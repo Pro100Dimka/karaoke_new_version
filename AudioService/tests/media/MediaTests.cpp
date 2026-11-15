@@ -622,6 +622,11 @@ void radioStopsWhenPreviewActivates() {
     controller.activate(MediaContext::EditorPreview);
     expect(controller.snapshot(MediaSlot::Radio).state == PlaybackState::Ready,
            "leaving Radio stops its foreground source");
+    controller.load(MediaSlot::Radio, mediaPath().string());
+    expect(controller.waitUntilReady(MediaSlot::Radio) == PlaybackState::Ready,
+           "radio can prepare while another foreground context is active");
+    expect(controller.context() == MediaContext::EditorPreview,
+           "preparing radio preserves the foreground context until playback");
 }
 
 void staleDecodedPcmNeverLeaksAfterSeek() {

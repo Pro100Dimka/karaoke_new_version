@@ -639,7 +639,6 @@ std::optional<ControlResponse> AudioService::handleRadioControl(const ControlReq
     switch (request.command) {
     case ControlCommand::LoadRadioStation:
         media_.load(MediaSlot::Radio, std::string(request.value("url")));
-        media_.activate(MediaContext::Radio);
         return ControlResponse{ControlStatus::Ok, "RadioLoading"};
     case ControlCommand::PlayRadio:
         media_.play(MediaContext::Radio);

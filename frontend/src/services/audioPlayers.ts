@@ -144,6 +144,18 @@ export const createAudioPlayers = (
     return ops.snapshot('playing');
   };
 
+  const stopPreview: AudioPlayers['stopRecordingPreview'] = async (
+    owner,
+    recordingId,
+  ) => {
+    if (recordingId !== undefined && previewRecordingId !== recordingId) return;
+    if (!ownsPreview(owner)) return;
+    previewGeneration += 1;
+    previewOwner = undefined;
+    await ops.command('StopRecordingPreview');
+    previewRecordingId = null;
+  };
+
   return {
     async loadRadio(url) {
       await ops.ensureSession();
@@ -156,6 +168,7 @@ export const createAudioPlayers = (
       );
     },
     async playRadio() {
+      await stopPreview();
       await ops.command('PlayRadio');
     },
     async pauseRadio() {
@@ -183,15 +196,7 @@ export const createAudioPlayers = (
       if (generation !== previewGeneration || !ownsPreview(owner)) return;
       await ops.command('SeekRecordingPreview', { frame });
     },
-    async stopRecordingPreview(owner, recordingId) {
-      if (recordingId !== undefined && previewRecordingId !== recordingId)
-        return;
-      if (!ownsPreview(owner)) return;
-      previewGeneration += 1;
-      previewOwner = undefined;
-      await ops.command('StopRecordingPreview');
-      previewRecordingId = null;
-    },
+    stopRecordingPreview: stopPreview,
     async setPreviewVolume(gain) {
       await ops.command('SetGain', { target: 'preview', value: gain });
     },

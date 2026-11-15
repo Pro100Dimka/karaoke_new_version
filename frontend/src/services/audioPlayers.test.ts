@@ -75,6 +75,13 @@ describe('recording preview ownership', () => {
     expect(
       (await players.recordingPreviewStatus(second)).recordingId,
     ).toBeNull();
+    command.mockClear();
+    await players.playRadio();
+    expect(command.mock.calls.map(([name]) => name)).toEqual([
+      'StopRecordingPreview',
+      'PlayRadio',
+    ]);
+    expect((await players.recordingPreviewStatus()).recordingId).toBeNull();
   });
   it('ignores controls and cleanup from a player replaced by another player of the same take', async () => {
     const { players, command } = setup();
@@ -98,7 +105,7 @@ describe('recording preview ownership', () => {
     );
   });
 
-  it.each(['stop', 'replace'])(
+  it.each(['stop', 'replace', 'radio'])(
     'does not play an obsolete load after %s',
     async (operation) => {
       const { players, command, pythonRequest } = setup();
@@ -120,6 +127,7 @@ describe('recording preview ownership', () => {
       );
       await vi.waitFor(() => expect(pythonRequest).toHaveBeenCalledOnce());
       if (operation === 'stop') await players.stopRecordingPreview(first);
+      else if (operation === 'radio') await players.playRadio();
       else await players.playRecording('second', second);
       command.mockClear();
       finish({ ok: true, status: 200, body: { filePath: 'first.wav' } });
