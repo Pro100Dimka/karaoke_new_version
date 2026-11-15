@@ -131,11 +131,18 @@ export const useSongRecordings = (
           }));
       });
     } catch (failure) {
-      if (!ownsRun() || toAppError(failure).code === 'JobCancelled')
+      const error = toAppError(failure);
+      if (!ownsRun() || error.code === 'JobCancelled') return null;
+      if (error.code === 'AnalysisPitchUncertain') {
+        if (request === requests.current.analysis) {
+          setAnalysisRecordId(null);
+          setAnalysisSong(null);
+        }
         return null;
+      }
       setAnalysisFailures((items) => ({
         ...items,
-        [recordingId]: errorstring(toAppError(failure)) ?? 'actionFailed',
+        [recordingId]: errorstring(error) ?? 'actionFailed',
       }));
       throw failure;
     } finally {
