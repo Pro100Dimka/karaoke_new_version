@@ -21,6 +21,7 @@ type AudioPlayers = Pick<
   | 'stopRadio'
   | 'setRadioGain'
   | 'playRecording'
+  | 'playSongPreview'
   | 'pauseRecordingPreview'
   | 'seekRecordingPreview'
   | 'stopRecordingPreview'
@@ -56,6 +57,7 @@ export const createAudioPlayers = (
 ): AudioPlayers => {
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
+  let previewKind: 'recording' | 'song' = 'recording';
   let previewGeneration = 0;
   const ownsPreview = (owner?: symbol) =>
     owner === undefined || owner === previewOwner;
@@ -92,6 +94,56 @@ export const createAudioPlayers = (
     throw new Error(`AudioService ${what} timed out`);
   };
 
+  const playPreview = async (
+    recordingId: string,
+    owner: symbol | undefined,
+    kind: 'recording' | 'song',
+  ): Promise<PlaybackSnapshot> => {
+    const generation = ++previewGeneration;
+    previewOwner = owner;
+    const assertCurrent = () => {
+      if (generation !== previewGeneration)
+        throw new Error('Recording preview cancelled');
+    };
+    await ops.ensureSession();
+    assertCurrent();
+    const response = await ops.pythonRequest({
+      method: 'GET',
+      path: `/${kind === 'song' ? 'songs' : 'recordings'}/${encodeURIComponent(recordingId)}`,
+    });
+    assertCurrent();
+    if (!response.ok || !response.body || typeof response.body !== 'object')
+      throw new Error('Recording not found');
+    const data = response.body as Record<string, unknown>;
+    const { fileStatus } = data;
+    const filePath = data[kind === 'song' ? 'sourcePath' : 'filePath'];
+    if (['Preparing', 'PreparationFailed'].includes(String(fileStatus)))
+      throw new Error('Recording preparation is not complete');
+    if (typeof filePath !== 'string')
+      throw new Error('Recording file path is invalid');
+    const state = Number((await ops.diagnostics()).PreviewState ?? 0);
+    assertCurrent();
+    const loadRequired =
+      previewRecordingId !== recordingId ||
+      previewKind !== kind ||
+      state === finishedState;
+    if (loadRequired) {
+      await ops.command('LoadRecordingPreview', { path: filePath });
+      await waitFor(
+        'PreviewState',
+        [readyState, playingState, pausedState],
+        previewPollMilliseconds,
+        'recording',
+        assertCurrent,
+      );
+      previewRecordingId = recordingId;
+      previewKind = kind;
+    }
+    if (loadRequired || state !== playingState)
+      await ops.command('PlayRecordingPreview');
+    return ops.snapshot('playing');
+  };
+
   return {
     async loadRadio(url) {
       await ops.ensureSession();
@@ -115,46 +167,8 @@ export const createAudioPlayers = (
     async setRadioGain(gain) {
       await ops.command('SetRadioGain', { value: gain });
     },
-    async playRecording(recordingId, owner) {
-      const generation = ++previewGeneration;
-      previewOwner = owner;
-      const assertCurrent = () => {
-        if (generation !== previewGeneration)
-          throw new Error('Recording preview cancelled');
-      };
-      await ops.ensureSession();
-      assertCurrent();
-      const response = await ops.pythonRequest({
-        method: 'GET',
-        path: `/recordings/${encodeURIComponent(recordingId)}`,
-      });
-      assertCurrent();
-      if (!response.ok || !response.body || typeof response.body !== 'object')
-        throw new Error('Recording not found');
-      const { filePath, fileStatus } = response.body as Record<string, unknown>;
-      if (['Preparing', 'PreparationFailed'].includes(String(fileStatus)))
-        throw new Error('Recording preparation is not complete');
-      if (typeof filePath !== 'string')
-        throw new Error('Recording file path is invalid');
-      const state = Number((await ops.diagnostics()).PreviewState ?? 0);
-      assertCurrent();
-      const loadRequired =
-        previewRecordingId !== recordingId || state === finishedState;
-      if (loadRequired) {
-        await ops.command('LoadRecordingPreview', { path: filePath });
-        await waitFor(
-          'PreviewState',
-          [readyState, playingState, pausedState],
-          previewPollMilliseconds,
-          'recording',
-          assertCurrent,
-        );
-        previewRecordingId = recordingId;
-      }
-      if (loadRequired || state !== playingState)
-        await ops.command('PlayRecordingPreview');
-      return ops.snapshot('playing');
-    },
+    playRecording: (id, owner) => playPreview(id, owner, 'recording'),
+    playSongPreview: (id, owner) => playPreview(id, owner, 'song'),
     async pauseRecordingPreview(owner) {
       if (!ownsPreview(owner)) return;
       await ops.command('PauseRecordingPreview');

@@ -63,6 +63,7 @@ describe('song metadata mapping', () => {
       artist: 'Artist',
       album: null,
       originalFilename: 'Artist - Original.wav',
+      sourcePath: 'E:/library/original.wav',
       detectedBpm: 128.5,
       detectedKey: 'Am',
       duration: 180,
@@ -76,6 +77,7 @@ describe('song metadata mapping', () => {
 
     expect(song).toMatchObject({
       filename: 'Artist - Original.wav',
+      sourcePath: 'E:/library/original.wav',
       detectedBpm: 128.5,
       detectedKey: 'Am',
     });

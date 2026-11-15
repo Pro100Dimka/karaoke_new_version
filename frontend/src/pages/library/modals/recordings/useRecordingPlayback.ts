@@ -11,7 +11,10 @@ import type { RecordingDto } from '../../../../contracts/models';
  * Playback of one take through AudioService. Only one take is loaded at a time: when another player loads its own take,
  * this one notices the lost ownership and falls back to idle.
  */
-export const useRecordingPlayback = (recording: RecordingDto) => {
+export const useRecordingPlayback = (
+  recording: Pick<RecordingDto, 'id'>,
+  original = false,
+) => {
   const [playing, setPlaying] = useState(false);
   const [position, setPosition] = useState(0);
   const owns = useRef(false);
@@ -35,7 +38,10 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
         return;
       }
       owns.current = true;
-      await preview.playRecording(id, owner.current);
+      await preview[original ? 'playSongPreview' : 'playRecording'](
+        id,
+        owner.current,
+      );
       if (request !== generation.current) return;
       if (pendingSeek.current !== null) {
         await preview.seekRecordingPreview(pendingSeek.current, owner.current);
@@ -50,7 +56,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
         reportOperationFailure('errors.previewPlayback', error);
       }
     }
-  }, [id, playing, release, preview]);
+  }, [id, original, playing, release, preview]);
 
   const seek = useCallback(
     async (seconds: number) => {
@@ -95,7 +101,7 @@ export const useRecordingPlayback = (recording: RecordingDto) => {
         void preview.stopRecordingPreview(owner.current).catch(() => undefined);
       }
     };
-  }, [id, preview, release]);
+  }, [id, original, preview, release]);
 
   return { playing, position, toggle, seek };
 };

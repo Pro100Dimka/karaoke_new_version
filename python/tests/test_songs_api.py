@@ -47,6 +47,7 @@ def test_import_get_update_delete_song(client, tmp_path: Path) -> None:
     fetched = client.get(f"/songs/{song_id}")
     assert fetched.status_code == 200
     assert fetched.json()["title"] == "Original"
+    assert Path(fetched.json()["sourcePath"]).read_bytes() == source.read_bytes()
 
     updated = client.patch(
         f"/songs/{song_id}",

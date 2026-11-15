@@ -1,6 +1,7 @@
 import { reportOperationFailure, clearOperationFailure } from '../errors';
 import { useEffect, useState } from 'react';
 import { desktopClient } from '../../services/desktopClient';
+import { pythonClient } from '../../services/pythonClient';
 
 /** Peaks for a waveform, reloaded when `key` changes; null while loading or when they cannot be read. */
 const usePeaks = (
@@ -49,5 +50,12 @@ export const useWaveformPeaks = (
 /** A saved take, for its player's waveform. */
 export const useRecordingPeaks = (
   recordingId: string,
+  original = false,
 ): readonly number[] | null =>
-  usePeaks(() => desktopClient.recordingPeaks(recordingId, 240), recordingId);
+  usePeaks(
+    () =>
+      original
+        ? pythonClient.songWaveformPeaks(recordingId, 240)
+        : desktopClient.recordingPeaks(recordingId, 240),
+    `${original ? 'song' : 'recording'}:${recordingId}`,
+  );

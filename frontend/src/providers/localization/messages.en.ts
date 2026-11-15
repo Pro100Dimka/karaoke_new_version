@@ -1654,6 +1654,7 @@ export const en = {
   analysisRecommendation: 'Recommendation',
   studioMasterTitle: 'A&D Studio Master',
   recordingOriginal: 'Original',
+  originalSong: 'Original song',
   recordingVersion: 'Performance version',
   studioMasterDescription:
     'Enhances your voice with clarity, depth, and richness, perfectly blending vocals with music for a professional sound.',

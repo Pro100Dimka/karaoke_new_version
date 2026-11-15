@@ -161,6 +161,7 @@ export interface PythonClient {
     languages: readonly SongLanguage[];
   }>;
   getSong(songId: string): Promise<SongDto>;
+  songWaveformPeaks(songId: string, bins: number): Promise<readonly number[]>;
   importSong(
     path: string,
     metadata?: ImportMetadata,
@@ -454,6 +455,7 @@ export interface AudioServiceClient {
   setDspParameter(name: string, value: number): Promise<void>;
   setDspEnabled(enabled: boolean): Promise<void>;
   playRecording(recordingId: string, owner?: symbol): Promise<PlaybackSnapshot>;
+  playSongPreview(songId: string, owner?: symbol): Promise<PlaybackSnapshot>;
   pauseRecordingPreview(owner?: symbol): Promise<void>;
   seekRecordingPreview(positionSeconds: number, owner?: symbol): Promise<void>;
   stopRecordingPreview(owner?: symbol, recordingId?: string): Promise<void>;

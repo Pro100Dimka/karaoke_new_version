@@ -15,6 +15,7 @@ from backend.songs.domain import Language, Song, SongStatus
 class SongDto(ApiModel):
     song_id: str
     source_hash: str | None = None
+    source_path: str | None = None
     title: str
     artist: str
     album: str | None
@@ -119,6 +120,7 @@ class CompatibilityDto(ApiModel):
 def song_dto(song: Song) -> SongDto:
     return SongDto(
         song_id=song.song_id,
+        source_path=str(song.source_path) if song.source_path else None,
         source_hash=(
             song.source_identity if re.fullmatch(r"[a-f0-9]{64}", song.source_identity) else None
         ),

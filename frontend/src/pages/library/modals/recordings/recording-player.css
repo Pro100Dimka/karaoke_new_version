@@ -55,8 +55,6 @@
   display: grid;
   justify-items: center;
   inline-size: auto;
-  padding-inline-start: 0.5rem;
-  border-inline-start: 1px solid var(--app-edge);
   align-self: start;
   margin-block-start: calc((var(--recording-wave-height) - 58px) / 2);
 }

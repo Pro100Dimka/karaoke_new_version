@@ -31,6 +31,7 @@ export interface KaraokeNoteScore {
 
 export interface SongDto {
   id: string;
+  sourcePath?: string;
   sourceHash?: string;
   title: string;
   artist: string;

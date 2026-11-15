@@ -1668,6 +1668,7 @@ export const ru = {
   analysisRecommendation: 'Рекомендация',
   studioMasterTitle: 'A&D Studio Master',
   recordingOriginal: 'Оригинал',
+  originalSong: 'Оригинальная песня',
   recordingVersion: 'Версия выступления',
   studioMasterDescription:
     'Придаст голосу чистоту, глубину и объём, идеально сведёт вокал с музыкой для профессионального звучания.',

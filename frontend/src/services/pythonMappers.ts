@@ -17,6 +17,7 @@ export interface BackendSong {
   videoUrl?: string | null;
   recognitionProvider?: string | null;
   originalFilename?: string | null;
+  sourcePath?: string | null;
   detectedBpm?: number | null;
   detectedKey?: string | null;
   duration: number | null;
@@ -142,6 +143,7 @@ export const mapSong = (song: BackendSong): SongDto => ({
   videoUrl: song.videoUrl ?? undefined,
   recognitionProvider: song.recognitionProvider ?? undefined,
   filename: song.originalFilename ?? undefined,
+    sourcePath: song.sourcePath ?? undefined,
   detectedBpm: song.detectedBpm ?? undefined,
   detectedKey: song.detectedKey ?? undefined,
   language: songLanguage(song.language),

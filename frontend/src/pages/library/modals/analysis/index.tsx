@@ -25,6 +25,9 @@ import type {
   SongDto,
 } from '../../../../contracts/models';
 import { RecordingPlayer } from '../recordings/RecordingPlayer';
+import { desktopClient } from '../../../../services/desktopClient';
+import { pythonClient } from '../../../../services/pythonClient';
+import { useGuardedAction } from '../../songs/useGuardedAction';
 import './analysis.css';
 import {
   analysisMetrics,
@@ -92,6 +95,7 @@ export const PerformanceAnalysisModal = ({
   onCancelAnalysis,
 }: PerformanceAnalysisModalProps) => {
   useLocale();
+  const guarded = useGuardedAction();
   const [viewedId, setViewedId] = useState(analysis?.recordingId);
   useEffect(() => setViewedId(analysis?.recordingId), [analysis?.recordingId]);
   const list = analysis ? takeList(recordings, analysis) : recordings;
@@ -112,6 +116,30 @@ export const PerformanceAnalysisModal = ({
     studioMaster?.recordingId === viewed?.id ? studioMaster : null;
   const master = recordings.find(
     (recording) => recording.sourceRecordingId === viewed?.id,
+  );
+  const fileActions = (recording: RecordingDto) => (
+    <Stack direction="row" gap={2}>
+      {[
+        {
+          icon: 'folder',
+          label: tr('openFolder'),
+          variant: 'secondary' as const,
+          onClick: () =>
+            void guarded(async () => {
+              const current = await pythonClient.getRecording(recording.id);
+              await desktopClient.revealInExplorer(current.filePath);
+            }),
+        },
+        {
+          icon: 'trash',
+          label: tr('recordingDelete'),
+          variant: 'danger' as const,
+          onClick: () => onDelete(recording),
+        },
+      ].map((action) => (
+        <IconButton key={action.icon} size="sm" {...action} />
+      ))}
+    </Stack>
   );
 
   const preparingPanel = (
@@ -268,6 +296,7 @@ export const PerformanceAnalysisModal = ({
                         }
                       >
                         <ProgressBar
+                          variant="wave"
                           label={tr(metric.label)}
                           value={analysis[metric.key]}
                         />
@@ -278,6 +307,34 @@ export const PerformanceAnalysisModal = ({
                     ))}
                   </div>
                 </>
+              )}
+              {song?.sourcePath && (
+                <Card
+                  border
+                  padding="sm"
+                  level={4}
+                  icon="music"
+                  title={tr('originalSong')}
+                  className="analysisSong"
+                  actions={
+                    <IconButton
+                      size="sm"
+                      icon="folder"
+                      label={tr('openFolder')}
+                      onClick={() =>
+                        void guarded(async () => {
+                          const current = await pythonClient.getSong(song.id);
+                          if (current.sourcePath)
+                            await desktopClient.revealInExplorer(
+                              current.sourcePath,
+                            );
+                        })
+                      }
+                    />
+                  }
+                >
+                  <RecordingPlayer key={song.id} song={song} />
+                </Card>
               )}
               <div className="analysisTakes">
                 {viewed.fileStatus === 'Preparing' ? (
@@ -291,15 +348,7 @@ export const PerformanceAnalysisModal = ({
                       icon="mic"
                       title={tr('studioMasterSourceTitle')}
                       className="analysisOriginal"
-                      actions={
-                        <IconButton
-                          size="sm"
-                          variant="danger"
-                          icon="trash"
-                          label={tr('recordingDelete')}
-                          onClick={() => onDelete(viewed)}
-                        />
-                      }
+                      actions={fileActions(viewed)}
                     >
                       <RecordingPlayer key={viewed.id} recording={viewed} />
                     </Card>
@@ -315,17 +364,7 @@ export const PerformanceAnalysisModal = ({
                           master ? '' : 'studioMasterDescription',
                         )}
                         className={master ? 'analysisMaster' : 'analysisStudio'}
-                        actions={
-                          master && (
-                            <IconButton
-                              size="sm"
-                              variant="danger"
-                              icon="trash"
-                              label={tr('recordingDelete')}
-                              onClick={() => onDelete(master)}
-                            />
-                          )
-                        }
+                        actions={master && fileActions(master)}
                       >
                         {master ? (
                           <RecordingPlayer key={master.id} recording={master} />

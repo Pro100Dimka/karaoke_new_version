@@ -36,7 +36,7 @@ const setup = () => {
 
 describe('recording preview ownership', () => {
   it('hands a playing take to another player without an invalid duplicate native Play', async () => {
-    const { players, command, diagnostics } = setup();
+    const { players, command, diagnostics, pythonRequest } = setup();
     await players.playRecording('take', Symbol('first'));
     diagnostics.mockResolvedValue({
       PreviewState: '3',
@@ -58,6 +58,23 @@ describe('recording preview ownership', () => {
     expect((await players.recordingPreviewStatus(second)).recordingId).toBe(
       'take',
     );
+    command.mockResolvedValue('');
+    pythonRequest.mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { filePath: 'test-recording.wav', sourcePath: 'original-song.mp3' },
+    });
+    await players.playSongPreview('take', Symbol('original'));
+    expect(pythonRequest).toHaveBeenLastCalledWith({
+      method: 'GET',
+      path: '/songs/take',
+    });
+    expect(command).toHaveBeenCalledWith('LoadRecordingPreview', {
+      path: 'original-song.mp3',
+    });
+    expect(
+      (await players.recordingPreviewStatus(second)).recordingId,
+    ).toBeNull();
   });
   it('ignores controls and cleanup from a player replaced by another player of the same take', async () => {
     const { players, command } = setup();

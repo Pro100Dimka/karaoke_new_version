@@ -209,6 +209,13 @@ export const pythonClient: PythonClient = {
     );
   },
 
+  songWaveformPeaks(songId, bins) {
+    return request<number[]>(
+      'GET',
+      `/songs/${encodeURIComponent(songId)}/waveform?bins=${bins}`,
+    );
+  },
+
   async importSong(path, metadata, options) {
     const started = await request<BackendJob>(
       'POST',

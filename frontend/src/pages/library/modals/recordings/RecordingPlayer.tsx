@@ -14,7 +14,7 @@ import {
   Waveform,
   useLocale,
 } from '@neo-ui-kit/react';
-import type { RecordingDto } from '../../../../contracts/models';
+import type { RecordingDto, SongDto } from '../../../../contracts/models';
 import { formatTime } from '../../../../shared/utils/format';
 import { useRecordingPeaks } from '../../../../shared/hooks/useWaveformPeaks';
 import { useRecordingPlayback } from './useRecordingPlayback';
@@ -26,10 +26,18 @@ import {
 import './recording-player.css';
 
 /** Player of one take: play/pause, seekable waveform, time and a persistent volume knob. */
-export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
+export const RecordingPlayer = ({
+  recording,
+  song,
+}:
+  | { recording: RecordingDto; song?: never }
+  | { song: SongDto; recording?: never }) => {
   useLocale();
   const guarded = useGuardedAction();
-  if (['Preparing', 'PreparationFailed'].includes(recording.fileStatus ?? ''))
+  if (
+    recording &&
+    ['Preparing', 'PreparationFailed'].includes(recording.fileStatus ?? '')
+  )
     return (
       <div role="status">
         {recording.fileStatus === 'Preparing' && (
@@ -54,17 +62,15 @@ export const RecordingPlayer = ({ recording }: { recording: RecordingDto }) => {
         )}
       </div>
     );
-  return <ReadyRecordingPlayer recording={recording} />;
+  return (
+    <AnimatedBorder className="recordingPlayer">
+      <RecordingTransport media={song ?? recording} original={!!song} />
+      <div className="recordingVolume">
+        <RecordingVolume />
+      </div>
+    </AnimatedBorder>
+  );
 };
-
-const ReadyRecordingPlayer = ({ recording }: { recording: RecordingDto }) => (
-  <AnimatedBorder className="recordingPlayer">
-    <RecordingTransport recording={recording} />
-    <div className="recordingVolume">
-      <RecordingVolume />
-    </div>
-  </AnimatedBorder>
-);
 
 const RecordingVolume = () => {
   useLocale();
@@ -74,7 +80,6 @@ const RecordingVolume = () => {
       diameter={58}
       style={fixedKnobWidth(58)}
       label={tr('recordingVolume')}
-      showLabel
       min={0}
       max={1}
       step={0.01}
@@ -95,10 +100,19 @@ const RecordingVolume = () => {
   );
 };
 
-const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
+const RecordingTransport = ({
+  media,
+  original,
+}: {
+  media: Pick<RecordingDto, 'id' | 'durationSeconds'>;
+  original: boolean;
+}) => {
   useLocale();
-  const peaks = useRecordingPeaks(recording.id);
-  const { playing, position, toggle, seek } = useRecordingPlayback(recording);
+  const peaks = useRecordingPeaks(media.id, original);
+  const { playing, position, toggle, seek } = useRecordingPlayback(
+    media,
+    original,
+  );
   return (
     <>
       <IconButton
@@ -106,20 +120,20 @@ const RecordingTransport = ({ recording }: { recording: RecordingDto }) => {
         aria-pressed={playing}
         variant="primary"
         icon={playing ? 'pause' : 'play'}
-        label={tr(playing ? 'pause' : 'playRecording')}
+        label={tr(playing ? 'pause' : original ? 'play' : 'playRecording')}
         onClick={() => void toggle()}
       />
       <div className="recordingTimeline">
         <Waveform
           points={peaks ?? undefined}
           position={position}
-          duration={recording.durationSeconds}
+          duration={media.durationSeconds}
           label={tr('recordingPosition')}
           onSeek={(seconds) => void seek(seconds)}
         />
         <Typography variant="caption" tone="muted" className="recordingTimes">
           <span>{formatTime(position)}</span>
-          <span>{formatTime(recording.durationSeconds)}</span>
+          <span>{formatTime(media.durationSeconds)}</span>
         </Typography>
       </div>
     </>

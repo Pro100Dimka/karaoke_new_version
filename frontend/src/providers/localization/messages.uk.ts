@@ -1624,6 +1624,7 @@ export const uk = {
     'Недостатньо надійних даних про висоту голосу. Перевірте якість запису та рівень мікрофона.',
   studioMasterTitle: 'A&D Studio Master',
   recordingOriginal: 'Оригінал',
+  originalSong: 'Оригінальна пісня',
   recordingVersion: 'Версія виступу',
   studioMasterDescription:
     'Надасть голосу чистоти, глибини й об’єму, ідеально поєднає вокал із музикою для професійного звучання.',
