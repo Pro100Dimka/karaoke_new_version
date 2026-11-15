@@ -42,6 +42,7 @@ interface KaraokeConsoleProps {
   state: KaraokeState;
   session: KaraokeSession;
   visible: boolean;
+  onToggle?: () => void;
   hasNotes: boolean;
   hasLyrics: boolean;
   range: NoteRange | null;
@@ -57,6 +58,7 @@ export const KaraokeConsole = ({
   state,
   session,
   visible,
+  onToggle,
   hasNotes,
   hasLyrics,
   range,
@@ -173,8 +175,19 @@ export const KaraokeConsole = ({
         width={consoleWidth}
         shown={shown}
         label={tr('karaokeConsole')}
+        onExpand={onToggle}
       >
         <Card border shell padding="sm" className="karaokeConsoleCard">
+          {onToggle && !panel.detached && (
+            <IconButton
+              className="consoleCollapseButton"
+              size="sm"
+              variant="secondary"
+              icon="minus"
+              label={tr('hideConsole')}
+              onClick={onToggle}
+            />
+          )}
           {dockButtons}
           <div className="consoleTopRow">
             <Observer>

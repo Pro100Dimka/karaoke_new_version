@@ -110,10 +110,15 @@ html[data-tv-screen] body {
 }
 
 .karaokeNav {
-  padding-top: var(--ad-space-10);
+  padding-block: 0.25rem;
   display: flex;
   gap: var(--ad-space-2);
   justify-self: start;
+}
+.main-theme .karaokeBackButton.ad-button {
+  border-color: rgb(from var(--ad-primary) r g b / 0.3);
+  background: rgb(from var(--ad-neutral-950) r g b / 0.94);
+  box-shadow: inset 0 1px 0 rgb(from var(--ad-text) r g b / 0.08);
 }
 
 .karaokeTop {

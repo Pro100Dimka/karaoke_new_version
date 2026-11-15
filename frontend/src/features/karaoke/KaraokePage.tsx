@@ -133,6 +133,7 @@ export const KaraokeScreen = observer(
     const opensWithIntro = opensWithFullIntroduction(mode);
     const [startReleased, setStartReleased] = useState(!opensWithIntro);
     const [introFinished, setIntroFinished] = useState(!opensWithIntro);
+    const [readyVideo, setReadyVideo] = useState('');
     // Changing a portal's container remounts its children. Move the same surface instead.
     const [surface] = useState(() => {
       const element = window.document.createElement('div');
@@ -173,6 +174,11 @@ export const KaraokeScreen = observer(
     };
 
     const song = load.kind === 'ready' ? load.song : null;
+    const videoUrl = sceneVideoUrl(
+      mode,
+      session.songPrefs?.videoUrl,
+      song?.videoUrl,
+    );
     // Escape on the TV brings Karaoke back to the laptop; on the laptop it leaves.
     useKaraokeShortcuts(
       session,
@@ -190,7 +196,10 @@ export const KaraokeScreen = observer(
     const introduction = introFinished ? null : (
       <KaraokeIntro
         song={load.kind === 'ready' ? load.song : null}
-        ready={state.kind !== 'preparing' && state.kind !== 'recovering'}
+        ready={
+          !['preparing', 'recovering'].includes(state.kind) &&
+          (mode === 'RoomPrepared' || !videoUrl || readyVideo === videoUrl)
+        }
         onStart={() => setStartReleased(true)}
         onDone={() => setIntroFinished(true)}
       />
@@ -319,11 +328,8 @@ export const KaraokeScreen = observer(
         {() => (
           <SceneBackdrop
             theme={theme}
-            videoUrl={sceneVideoUrl(
-              mode,
-              session.songPrefs?.videoUrl,
-              song.videoUrl,
-            )}
+            videoUrl={videoUrl}
+            onReady={setReadyVideo}
             positionSeconds={session.position}
             playing={state.kind === 'playing'}
             rate={session.speed}
@@ -372,14 +378,6 @@ export const KaraokeScreen = observer(
         <KaraokeHeader
           inline={onTv}
           visible={autoHide.headerVisible && introFinished}
-          consoleToggle={
-            session.autoHideConsole
-              ? null
-              : {
-                  visible: autoHide.consoleVisible,
-                  onToggle: autoHide.toggleHidden,
-                }
-          }
           onBack={() => void backToLibrary()}
         />
         {state.kind === 'failed' ? (
@@ -429,6 +427,11 @@ export const KaraokeScreen = observer(
                   state={state}
                   session={session}
                   visible={autoHide.consoleVisible}
+                  onToggle={
+                    !session.autoHideConsole && introFinished
+                      ? autoHide.toggleHidden
+                      : undefined
+                  }
                   hasNotes={capabilities.hasNotes}
                   hasLyrics={capabilities.hasLyrics}
                   range={range}

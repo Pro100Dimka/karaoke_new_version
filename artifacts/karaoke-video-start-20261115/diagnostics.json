@@ -1,0 +1,57 @@
+{
+  "before": {
+    "delayMs": 6500,
+    "intro": false,
+    "elapsed": "0:01",
+    "readyState": 0
+  },
+  "waiting": {
+    "trace": [
+      {
+        "type": "loadstart",
+        "time": 1843.6000000000931,
+        "ready": 0,
+        "position": 0
+      }
+    ],
+    "intro": true,
+    "elapsed": "0:00",
+    "ready": 0
+  },
+  "started": {
+    "trace": [
+      {
+        "type": "loadstart",
+        "time": 1843.6000000000931,
+        "ready": 0,
+        "position": 0
+      },
+      {
+        "type": "loadeddata",
+        "time": 8337.600000000093,
+        "ready": 4,
+        "position": 0
+      },
+      {
+        "type": "canplay",
+        "time": 8337.600000000093,
+        "ready": 4,
+        "position": 0
+      },
+      {
+        "type": "playing",
+        "time": 10765.400000000373,
+        "ready": 4,
+        "position": 0.000713
+      }
+    ],
+    "intro": false,
+    "elapsed": "0:09",
+    "ready": 4
+  },
+  "fallback": {
+    "intro": false,
+    "elapsed": "0:01",
+    "src": "scene://local/clip-05.webm"
+  }
+}

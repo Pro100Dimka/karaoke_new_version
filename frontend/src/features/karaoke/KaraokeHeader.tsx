@@ -1,12 +1,10 @@
 import { createPortal } from 'react-dom';
 import { titleBarLeadingId } from '../../app/TitleBar';
-import { IconButton, tr, useLocale } from '@neo-ui-kit/react';
+import { Button, tr, useLocale } from '@neo-ui-kit/react';
 
 interface KaraokeHeaderProps {
   /** The buttons fade out while the pointer is idle during playback. */
   visible: boolean;
-  /** Manual console toggle; only offered while auto-hide is off. */
-  consoleToggle: { visible: boolean; onToggle(): void } | null;
   /** Drawn in place rather than in the title bar: on the TV, which has no title bar. */
   inline?: boolean;
   onBack(): void;
@@ -14,7 +12,6 @@ interface KaraokeHeaderProps {
 
 export const KaraokeHeader = ({
   visible,
-  consoleToggle,
   inline = false,
   onBack,
 }: KaraokeHeaderProps) => {
@@ -23,22 +20,14 @@ export const KaraokeHeader = ({
   const header = (
     <header className="karaokeTop" data-hidden={!visible || undefined}>
       <div className="karaokeNav">
-        <IconButton
-          round
+        <Button
+          className="karaokeBackButton"
           icon="back"
-          size="lg"
+          size="sm"
+          variant="secondary"
           label={tr('library')}
           onClick={onBack}
         />
-        {consoleToggle && (
-          <IconButton
-            round
-            size="lg"
-            icon={consoleToggle.visible ? 'down' : 'up'}
-            label={tr(consoleToggle.visible ? 'hideConsole' : 'showConsole')}
-            onClick={consoleToggle.onToggle}
-          />
-        )}
       </div>
     </header>
   );

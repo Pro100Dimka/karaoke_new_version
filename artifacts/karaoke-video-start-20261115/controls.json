@@ -1,0 +1,54 @@
+{
+  "centeredEdges": [
+    {
+      "edge": "top",
+      "rect": {
+        "x": 945,
+        "y": 66,
+        "width": 30,
+        "height": 30,
+        "top": 66,
+        "right": 975,
+        "bottom": 96,
+        "left": 945
+      },
+      "viewport": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "edge": "right",
+      "rect": {
+        "x": 1882,
+        "y": 525,
+        "width": 30,
+        "height": 30,
+        "top": 525,
+        "right": 1912,
+        "bottom": 555,
+        "left": 1882
+      },
+      "viewport": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "narrowRestore": {
+    "rect": {
+      "x": 497,
+      "y": 730,
+      "width": 30,
+      "height": 30,
+      "top": 730,
+      "right": 527,
+      "bottom": 760,
+      "left": 497
+    },
+    "viewport": [
+      1024,
+      768
+    ]
+  }
+}

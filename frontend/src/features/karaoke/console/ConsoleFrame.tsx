@@ -7,7 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react';
-import { refreshMotion } from '@neo-ui-kit/react';
+import { IconButton, refreshMotion, tr } from '@neo-ui-kit/react';
 import { useHostWindow } from '../../../shared/ui/hostWindow';
 import type { useDetachedPanel } from '../../../shared/ui/useDetachedPanel';
 import type { ConsolePlacement } from './KaraokeConsole';
@@ -32,6 +32,7 @@ interface ConsoleFrameProps {
   dock?: ConsolePlacement;
   vertical: boolean;
   onFloat(): void;
+  onExpand?: () => void;
 }
 
 /**
@@ -48,6 +49,7 @@ export const ConsoleFrame = ({
   dock = 'free',
   vertical,
   onFloat,
+  onExpand,
 }: ConsoleFrameProps) => {
   useEffect(refreshMotion, [shown]);
   const host = useHostWindow();
@@ -174,47 +176,75 @@ export const ConsoleFrame = ({
           free: { left: center, top: bottom },
         }[dock];
 
+  const restorePosition = {
+    top: {
+      left: '50%',
+      top: viewport.top,
+      translate: '-50% 0',
+    },
+    bottom: {
+      left: '50%',
+      bottom: 8,
+      translate: '-50% 0',
+    },
+    left: { left: 8, top: '50%', translate: '0 -50%' },
+    right: { right: 8, top: '50%', translate: '0 -50%' },
+  }[dock === 'free' ? 'bottom' : dock];
+
   return (
-    <aside
-      className="karaokeConsolePanel"
-      aria-label={label}
-      data-hidden={!shown || undefined}
-      data-ad-paused={!shown || undefined}
-      aria-hidden={!shown}
-      data-dock={panel.detached ? undefined : dock}
-      data-orientation={vertical ? 'vertical' : 'horizontal'}
-      ref={frameRef}
-      style={{
-        inlineSize: size.width,
-        blockSize: size.height,
-        ...(panel.detached ? {} : position),
-      }}
-      onPointerDown={panel.detached ? undefined : beginMove}
-      onPointerMove={panel.detached ? undefined : move}
-      onPointerUp={
-        panel.detached
-          ? undefined
-          : () => {
-              grab.current = null;
-              floating.handleUp();
-            }
-      }
-      onPointerCancel={
-        panel.detached
-          ? undefined
-          : () => {
-              grab.current = null;
-              floating.handleCancel();
-            }
-      }
-    >
-      <div
-        ref={surfaceRef}
-        className="consoleSurface"
-        style={{ inlineSize: width, zoom: scale }}
+    <>
+      {!shown && !panel.detached && onExpand && (
+        <IconButton
+          className="consoleExpandButton"
+          size="sm"
+          variant="secondary"
+          icon="window"
+          label={tr('showConsole')}
+          style={restorePosition}
+          onClick={onExpand}
+        />
+      )}
+      <aside
+        className="karaokeConsolePanel"
+        aria-label={label}
+        data-hidden={!shown || undefined}
+        data-ad-paused={!shown || undefined}
+        aria-hidden={!shown}
+        data-dock={panel.detached ? undefined : dock}
+        data-orientation={vertical ? 'vertical' : 'horizontal'}
+        ref={frameRef}
+        style={{
+          inlineSize: size.width,
+          blockSize: size.height,
+          ...(panel.detached ? {} : position),
+        }}
+        onPointerDown={panel.detached ? undefined : beginMove}
+        onPointerMove={panel.detached ? undefined : move}
+        onPointerUp={
+          panel.detached
+            ? undefined
+            : () => {
+                grab.current = null;
+                floating.handleUp();
+              }
+        }
+        onPointerCancel={
+          panel.detached
+            ? undefined
+            : () => {
+                grab.current = null;
+                floating.handleCancel();
+              }
+        }
       >
-        {children}
-      </div>
-    </aside>
+        <div
+          ref={surfaceRef}
+          className="consoleSurface"
+          style={{ inlineSize: width, zoom: scale }}
+        >
+          {children}
+        </div>
+      </aside>
+    </>
   );
 };

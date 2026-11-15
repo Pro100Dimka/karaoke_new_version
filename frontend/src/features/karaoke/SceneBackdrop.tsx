@@ -14,6 +14,7 @@ interface SceneBackdropProps {
   positionSeconds: number;
   playing: boolean;
   rate: number;
+  onReady?(videoUrl: string): void;
 }
 
 const driftToleranceSeconds = 0.35;
@@ -33,7 +34,8 @@ const isYoutubeUrl = (value: string): boolean => {
 
 /**
  * Visual companion only: the video is always muted and follows the AudioService position.
- * Priority: song video, then the theme background; a failing video never affects audio.
+ * Priority: song video, then the theme background. Initial readiness releases the solo introduction;
+ * subsequent buffering and fallback never change the audio timeline.
  */
 export const SceneBackdrop = ({
   theme,
@@ -41,6 +43,7 @@ export const SceneBackdrop = ({
   positionSeconds,
   playing,
   rate,
+  onReady,
 }: SceneBackdropProps) => {
   const { document } = useHostWindow();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -72,6 +75,11 @@ export const SceneBackdrop = ({
   // The song's own video is worth following exactly; the generic scene fallback is a short ambient clip
   // (see main.ts's sceneVideoUrl handler) meant to loop, since most songs outlast it.
   const isOwnVideo = source !== '' && source === videoUrl;
+
+  useEffect(() => {
+    if (!isOwnVideo || (videoRef.current?.readyState ?? 0) >= 3)
+      onReady?.(videoUrl);
+  }, [isOwnVideo, onReady, source, videoUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -141,6 +149,7 @@ export const SceneBackdrop = ({
           muted
           playsInline
           preload="auto"
+          onCanPlay={() => onReady?.(videoUrl)}
           onError={(event) => {
             setFailedUrl(source);
             reportOperationFailure('errors.video', event.currentTarget.error);
