@@ -1,6 +1,6 @@
 import { act, render, screen } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { MelodyRollProps } from '@neo-ui-kit/react';
 import type { EditorDocument } from '../../application/editor/editorModel';
 import { KaraokeStage } from './KaraokeStage';
@@ -28,7 +28,6 @@ vi.mock('../../providers/store', () => ({
 vi.mock('./useSmoothPosition', () => ({
   useSmoothPosition: (position: number) => position,
 }));
-vi.mock('./useLyricFill', () => ({ useLyricFill: () => undefined }));
 vi.mock('./usePianoRollLayout', () => ({
   usePianoRollLayout: () => ({ layout: null, active: false }),
 }));
@@ -83,15 +82,49 @@ beforeEach(() => {
   probe.props.length = 0;
   probe.mounts = 0;
 });
+afterEach(() => vi.restoreAllMocks());
 
-it('shows both lyric lines at three with a fully visible backdrop', () => {
-  render(view(17.01));
+it('shows both lyric lines at three, fitting their width without resizing during highlighting', () => {
+  const computedStyle = window.getComputedStyle.bind(window);
+  vi.spyOn(window, 'getComputedStyle').mockImplementation((element) => {
+    const style = computedStyle(element);
+    style.fontSize =
+      (element instanceof HTMLElement && element.style.fontSize) ||
+      (element.matches('.ad-lyrics-current') ? '64px' : '32px');
+    return style;
+  });
+  vi.spyOn(Element.prototype, 'clientWidth', 'get').mockReturnValue(200);
+  const measure = vi
+    .spyOn(Element.prototype, 'scrollWidth', 'get')
+    .mockImplementation(function (this: Element) {
+      return this.matches('.ad-lyrics-current') ? 400 : 160;
+    });
+  const { rerender } = render(view(17.01));
   expect(screen.getByRole('timer')).toHaveTextContent('3');
   const current = screen.getByText('one');
   expect(screen.getByText('two')).toBeInTheDocument();
   const panel = current.closest('.lyricsPanel');
   expect(panel).not.toHaveAttribute('hidden');
   expect(panel).toHaveStyle({ opacity: '1' });
+  const line = current.closest('.ad-lyrics-current');
+  expect(line).toHaveStyle({ fontSize: '31.68px', whiteSpace: 'nowrap' });
+  expect(screen.getByText('two').closest('.ad-lyrics-next')).toHaveStyle({
+    fontSize: '32px',
+  });
+  const measurements = measure.mock.calls.length;
+  rerender(view(20.2));
+  expect(line).toHaveStyle({ fontSize: '31.68px' });
+  expect(measure).toHaveBeenCalledTimes(measurements);
+  measure.mockReturnValue(2000);
+  rerender(view(20.2, { ...document }));
+  expect(current.closest('.ad-lyrics-current')).toHaveStyle({
+    fontSize: '24px',
+    whiteSpace: 'normal',
+  });
+  expect(screen.getByText('two').closest('.ad-lyrics-next')).toHaveStyle({
+    fontSize: '18px',
+    whiteSpace: 'normal',
+  });
 });
 
 it('does not reveal lyrics before the three second countdown', () => {
@@ -100,16 +133,19 @@ it('does not reveal lyrics before the three second countdown', () => {
   expect(screen.queryByText('two')).not.toBeInTheDocument();
 });
 
-it.each([false, true])('keeps future notes paired with eligible lyric lines (activity: %s)', (filtered) => {
-  const source = filtered
-    ? { ...document, vocalActivity: [[20, 20.5]] as const }
-    : document;
-  render(view(19, source));
-  expect(probe.props.at(-1)?.notes?.map((note) => note.id)).toEqual([
-    'n0',
-    ...(filtered ? [] : ['n1', 'n2', 'n3']),
-  ]);
-});
+it.each([false, true])(
+  'keeps future notes paired with eligible lyric lines (activity: %s)',
+  (filtered) => {
+    const source = filtered
+      ? { ...document, vocalActivity: [[20, 20.5]] as const }
+      : document;
+    render(view(19, source));
+    expect(probe.props.at(-1)?.notes?.map((note) => note.id)).toEqual([
+      'n0',
+      ...(filtered ? [] : ['n1', 'n2', 'n3']),
+    ]);
+  },
+);
 
 it('keeps the roll mounted through empty sections and reveals it at the note window edge', () => {
   const { rerender } = render(view(0));

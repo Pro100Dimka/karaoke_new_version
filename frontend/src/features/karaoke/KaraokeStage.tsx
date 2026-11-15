@@ -241,6 +241,7 @@ const Lyrics = ({
     position,
     font,
     syllableProgress,
+    textVisible ? (next?.words ?? noWords) : noWords,
   );
   return (
     <>

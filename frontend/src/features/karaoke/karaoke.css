@@ -160,8 +160,7 @@ html[data-tv-screen] body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: max-content;
-  max-width: 86%;
+  width: 86%;
   padding: 0.6rem 1.2rem;
   isolation: isolate;
 }
@@ -177,7 +176,13 @@ html[data-tv-screen] body {
 }
 .lyrics.ad-karaoke-lyrics {
   padding: 0;
+  min-width: 0;
+  justify-items: stretch;
   text-transform: uppercase;
+}
+.lyrics.ad-karaoke-lyrics > p {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .lyrics.ad-karaoke-lyrics .ad-lyrics-current {
   font-size: calc(clamp(1.75rem, 1rem + 3.2vw, 3.25rem) * 1.5);

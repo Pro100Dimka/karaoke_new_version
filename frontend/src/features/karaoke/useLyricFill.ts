@@ -46,13 +46,14 @@ const paint = (
   }
 };
 
-/** The UI kit fills physical width and rounds to whole percent. Measure only on layout changes. */
+/** Fit complete lines before measuring their letter fills, only when layout or text changes. */
 export const useLyricFill = (
   id: string,
   words: readonly EditorWord[],
   position: number,
   font: string,
   progress = letterProgress,
+  nextWords?: readonly EditorWord[],
 ): void => {
   const host = useHostWindow();
   const measured = useRef<MeasuredWord[]>([]);
@@ -60,11 +61,30 @@ export const useLyricFill = (
   clock.current = position;
   useLayoutEffect(() => {
     const observeLine = () => {
-      const line = host.document
-        .getElementById(id)
-        ?.querySelector<HTMLElement>('.ad-lyrics-current');
-      if (!line) return;
+      const root = host.document.getElementById(id);
+      const line = root?.querySelector<HTMLElement>('.ad-lyrics-current');
+      if (!root || !line) return;
+      let width = 0;
       const measure = () => {
+        width = root.clientWidth;
+        if (!width) return;
+        for (const [selector, minimum] of [
+          ['.ad-lyrics-current', 24],
+          ['.ad-lyrics-next', 18],
+        ] as const) {
+          const row = root.querySelector<HTMLElement>(selector);
+          if (!row) continue;
+          row.style.removeProperty('font-size');
+          row.style.whiteSpace = 'nowrap';
+          row.style.textAlign = 'left';
+          const base = parseFloat(host.getComputedStyle(row).fontSize);
+          const natural = row.scrollWidth;
+          const fitted = natural > width ? base * (width - 2) / natural : base;
+          const size = Math.max(Math.min(base, minimum), fitted);
+          row.style.fontSize = `${size}px`;
+          row.style.whiteSpace = fitted < size ? 'normal' : 'nowrap';
+          row.style.removeProperty('text-align');
+        }
         const elements = line.querySelectorAll<HTMLElement>('.ad-lyric-word');
         measured.current = words.flatMap((word, index) => {
           const element = elements[index];
@@ -78,8 +98,10 @@ export const useLyricFill = (
       const observer =
         typeof ResizeObserver === 'undefined'
           ? undefined
-          : new ResizeObserver(measure);
-      observer?.observe(line);
+          : new ResizeObserver(() => {
+              if (root.clientWidth !== width) measure();
+            });
+      observer?.observe(root);
       const fonts = line.ownerDocument.fonts;
       fonts?.addEventListener('loadingdone', measure);
       return () => {
@@ -98,7 +120,7 @@ export const useLyricFill = (
       host.cancelAnimationFrame(frame);
       stop?.();
     };
-  }, [id, host, words, font, progress]);
+  }, [id, host, words, nextWords, font, progress]);
   // A new line or measurement resets the painted values; only changing fills need a DOM write.
   useLayoutEffect(() => paint(measured.current, position, progress));
 };
