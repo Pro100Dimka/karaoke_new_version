@@ -1,9 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { useSongPlayback } from '../songs/useSongActions';
 
-const AddSongModal = lazy(() =>
-  import('./add-song').then(({ AddSongModal }) => ({ default: AddSongModal })),
-);
 const RoomModal = lazy(() =>
   import('../../../features/room/RoomModal').then(({ RoomModal }) => ({
     default: RoomModal,
@@ -16,8 +13,6 @@ const ProcessingModal = lazy(() =>
 );
 
 type Props = {
-  droppedPath: string | null;
-  closeAddSong(): void;
   roomOpen: boolean;
   invitationCode?: string;
   closeRoom(): void;
@@ -28,8 +23,6 @@ type Props = {
 
 /** Independent boundaries keep one modal's loading from hiding another. */
 export const LibraryModals = ({
-  droppedPath,
-  closeAddSong,
   roomOpen,
   invitationCode,
   closeRoom,
@@ -38,11 +31,6 @@ export const LibraryModals = ({
   onPlay,
 }: Props) => (
   <>
-    {droppedPath !== null && (
-      <Suspense fallback={null}>
-        <AddSongModal open initialPath={droppedPath} onClose={closeAddSong} />
-      </Suspense>
-    )}
     {roomOpen && (
       <Suspense fallback={null}>
         <RoomModal open invitationCode={invitationCode} onClose={closeRoom} />

@@ -9,7 +9,6 @@ export const useLibraryDesktop = (onInvitation: (code: string) => void) => {
   const backendReady = store.application.services.python.kind === 'ready';
   const { addSong, importFiles } = useLibraryImport();
   const [dragging, setDragging] = useState(false);
-  const [droppedPath, setDroppedPath] = useState<string | null>(null);
 
   const handlers = useRef({ addSong, importFiles, onInvitation });
   handlers.current = { addSong, importFiles, onInvitation };
@@ -52,14 +51,11 @@ export const useLibraryDesktop = (onInvitation: (code: string) => void) => {
       .map((file) => desktopClient.pathForFile(file))
       .filter((path): path is string => Boolean(path));
 
-    if (paths.length > 1) void importFiles(paths);
-    else if (paths[0]) setDroppedPath(paths[0]);
+    void importFiles(paths);
   };
 
   return {
     dragging,
-    droppedPath,
-    closeAddSong: () => setDroppedPath(null),
     onDragOver,
     onDragLeave,
     onDrop,

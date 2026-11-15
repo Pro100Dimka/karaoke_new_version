@@ -164,8 +164,6 @@ const LibraryPage = observer(() => {
       </Stack>
 
       <LibraryModals
-        droppedPath={desktop.droppedPath}
-        closeAddSong={desktop.closeAddSong}
         roomOpen={roomOpen}
         invitationCode={invitationCode}
         closeRoom={closeRoom}
