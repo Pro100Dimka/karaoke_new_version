@@ -77,8 +77,26 @@ export const SceneBackdrop = ({
   const isOwnVideo = source !== '' && source === videoUrl;
 
   useEffect(() => {
-    if (!isOwnVideo || (videoRef.current?.readyState ?? 0) >= 3)
+    const video = videoRef.current;
+    if (!isOwnVideo || !video) {
       onReady?.(videoUrl);
+      return;
+    }
+    const quality = video.getVideoPlaybackQuality();
+    let frameReady = quality.totalVideoFrames > quality.droppedVideoFrames;
+    const release = () => {
+      if (frameReady && video.readyState >= 3) onReady?.(videoUrl);
+    };
+    const frame = video.requestVideoFrameCallback(() => {
+      frameReady = true;
+      release();
+    });
+    video.addEventListener('canplay', release);
+    release();
+    return () => {
+      video.cancelVideoFrameCallback(frame);
+      video.removeEventListener('canplay', release);
+    };
   }, [isOwnVideo, onReady, source, videoUrl]);
 
   useEffect(() => {
@@ -149,7 +167,6 @@ export const SceneBackdrop = ({
           muted
           playsInline
           preload="auto"
-          onCanPlay={() => onReady?.(videoUrl)}
           onError={(event) => {
             setFailedUrl(source);
             reportOperationFailure('errors.video', event.currentTarget.error);

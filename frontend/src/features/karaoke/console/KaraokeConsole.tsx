@@ -42,6 +42,7 @@ interface KaraokeConsoleProps {
   state: KaraokeState;
   session: KaraokeSession;
   visible: boolean;
+  controlsVisible: boolean;
   onToggle?: () => void;
   hasNotes: boolean;
   hasLyrics: boolean;
@@ -58,6 +59,7 @@ export const KaraokeConsole = ({
   state,
   session,
   visible,
+  controlsVisible,
   onToggle,
   hasNotes,
   hasLyrics,
@@ -174,6 +176,7 @@ export const KaraokeConsole = ({
         onFloat={() => changeDock('free')}
         width={consoleWidth}
         shown={shown}
+        controlsVisible={controlsVisible}
         label={tr('karaokeConsole')}
         onExpand={onToggle}
       >

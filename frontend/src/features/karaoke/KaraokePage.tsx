@@ -427,6 +427,7 @@ export const KaraokeScreen = observer(
                   state={state}
                   session={session}
                   visible={autoHide.consoleVisible}
+                  controlsVisible={autoHide.headerVisible && introFinished}
                   onToggle={
                     !session.autoHideConsole && introFinished
                       ? autoHide.toggleHidden

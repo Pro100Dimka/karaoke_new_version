@@ -55,6 +55,11 @@
 .consoleExpandButton.ad-icon-button {
   position: fixed;
   z-index: 6;
+  transition: opacity var(--ad-duration-normal) var(--ad-ease-standard);
+}
+.consoleExpandButton[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .main-theme :is(.consoleCollapseButton, .consoleExpandButton).ad-icon-button {
@@ -65,6 +70,12 @@
     inset 0 1px 0 rgb(from var(--ad-text) r g b / 0.08),
     0 3px 12px rgb(0 0 0 / 0.2);
   color: var(--ad-text);
+}
+.main-theme .consoleExpandButton.ad-icon-button {
+  --ad-size-h: 2.75rem;
+}
+.consoleExpandButton > .ad-icon {
+  --ad-icon-size: 1.25rem;
 }
 
 .consoleDockButton.ad-icon-button {

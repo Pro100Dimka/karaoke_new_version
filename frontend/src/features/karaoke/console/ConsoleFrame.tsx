@@ -27,6 +27,7 @@ interface ConsoleFrameProps {
   /** The console's designed width in pixels. */
   width: number;
   shown: boolean;
+  controlsVisible: boolean;
   label: string;
   children: ReactNode;
   dock?: ConsolePlacement;
@@ -44,6 +45,7 @@ export const ConsoleFrame = ({
   placement,
   width,
   shown,
+  controlsVisible,
   label,
   children,
   dock = 'free',
@@ -196,10 +198,12 @@ export const ConsoleFrame = ({
       {!shown && !panel.detached && onExpand && (
         <IconButton
           className="consoleExpandButton"
-          size="sm"
+          size="lg"
           variant="secondary"
-          icon="window"
+          icon="sliders"
           label={tr('showConsole')}
+          data-hidden={!controlsVisible || undefined}
+          tabIndex={controlsVisible ? 0 : -1}
           style={restorePosition}
           onClick={onExpand}
         />
