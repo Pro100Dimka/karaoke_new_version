@@ -280,7 +280,7 @@ def _transfer_job(
             raise RuntimeError("Processing PC has insufficient free storage")
         output, files = execute(payload, incoming, root / "sessions", cancel)
         if cancel.is_set():
-            return
+            raise DomainError("JobCancelled", "Processing was cancelled", 409)
         response = incoming / "result.zip"
         write_bundle(response, output, files)
         with response.open("rb") as content:

@@ -32,13 +32,25 @@ const ids = (...values: string[]) => new Set(values);
 describe('editor operations', () => {
   it('moves a note without letting it leave its word', () => {
     const moved = moveNotes(document, ids('n1'), 2, 5);
-    expect(moved.notes[0]).toMatchObject({ pitch: 62, start: 2.2, end: 3 });
+    expect(moved.notes[0]).toMatchObject({ pitch: 62, start: 1.2, end: 2 });
   });
 
   it('moves a multi-selection by the same limited shift', () => {
     const moved = moveNotes(document, ids('n1', 'n2'), 0, 5);
     expect(moved.notes[0]?.start).toBe(1);
     expect(moved.notes[1]?.end).toBe(3);
+    const precise: EditorDocument = {
+      revision: 0,
+      words: [{ id: 'word', text: 'la', start: 1.0004, end: 2.0007 }],
+      notes: [
+        { id: 'note', wordId: 'word', pitch: 60, start: 1.0004, end: 2.0007 },
+      ],
+    };
+    expect(moveNotes(precise, ids('note'), 1, 0).notes[0]).toMatchObject({
+      pitch: 61,
+      start: 1.0004,
+      end: 2.0007,
+    });
   });
 
   it('moves a large selection without changing independent note constraints', () => {
@@ -63,13 +75,26 @@ describe('editor operations', () => {
     );
     expect(result.notes).toHaveLength(20);
     expect(result.notes[0]).toMatchObject({ pitch: 62, start: 0.3, end: 0.9 });
-    expect(result.notes[19]).toMatchObject({ pitch: 62, start: 19.3, end: 19.9 });
+    expect(result.notes[19]).toMatchObject({
+      pitch: 62,
+      start: 19.3,
+      end: 19.9,
+    });
   });
 
   it('resizes without crossing the opposite edge or a neighbouring note', () => {
     expect(resizeNote(document, 'n1', 'end', 2.5).notes[0]?.end).toBe(2);
     expect(resizeNote(document, 'n2', 'start', 0.1).notes[1]?.start).toBe(1.8);
     expect(resizeNote(document, 'n3', 'end', 4).notes[2]?.end).toBe(4.03);
+    const short: EditorDocument = {
+      revision: 0,
+      words: [{ id: 'word', text: 'a', start: 1.0004, end: 1.0204 }],
+      notes: [
+        { id: 'note', wordId: 'word', pitch: 60, start: 1.0004, end: 1.0204 },
+      ],
+    };
+    expect(resizeNote(short, 'note', 'end', 0).notes[0]?.end).toBe(1.0204);
+    expect(resizeNote(short, 'note', 'start', 2).notes[0]?.start).toBe(1.0004);
   });
 
   it('merges only notes of the same word', () => {
@@ -103,16 +128,26 @@ describe('editor operations', () => {
 
   it('batch alignment handles empty, missing and many selected notes', () => {
     expect(alignBoundary(document, ids(), 'start', 2)).toBe(document);
-    expect(alignBoundary(document, ids('missing'), 'start', 2)).toEqual(document);
+    expect(alignBoundary(document, ids('missing'), 'start', 2)).toEqual(
+      document,
+    );
     const words = Array.from({ length: 1000 }, (_, i) => ({
-      id: `w${i}`, text: 'la', start: i, end: i + 1,
+      id: `w${i}`,
+      text: 'la',
+      start: i,
+      end: i + 1,
     }));
     const notes = words.map((word, i) => ({
-      id: `n${i}`, wordId: word.id, pitch: 60,
-      start: i + 0.1, end: i + 0.9,
+      id: `n${i}`,
+      wordId: word.id,
+      pitch: 60,
+      start: i + 0.1,
+      end: i + 0.9,
     }));
     const large = { revision: 0, words, notes };
-    const selected = new Set(notes.filter((_, i) => i % 2 === 0).map(n => n.id));
+    const selected = new Set(
+      notes.filter((_, i) => i % 2 === 0).map((n) => n.id),
+    );
     const aligned = alignBoundary(large, selected, 'end', 0);
     expect(aligned.notes[0]?.end).toBe(0.13);
     expect(aligned.notes[1]).toBe(notes[1]);

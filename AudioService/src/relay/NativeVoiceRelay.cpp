@@ -286,8 +286,6 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
                                                      RelayEndpoint source,
                                                      double monotonicSeconds,
                                                      double wallSeconds) {
-    (void)monotonicSeconds;
-    (void)wallSeconds;
     AudioPacketHeader header{};
     if (!decodeAudioPacketHeader(bytes, header) || header.codec != VoiceCodec::Pcm16 ||
         header.channels != 1 || header.frames != SharedRoomPacketFrames ||
@@ -299,6 +297,9 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
         return {};
     auto& room = rooms_[participant->second.room];
     const auto mediaStart = header.timestampFrame & ~SharedAudioTimelineFlag;
+    if (!std::isfinite(wallSeconds) ||
+        mediaSeconds(mediaStart) > wallSeconds + room_audio_contract::MaximumLiveDelayMilliseconds / 1'000.0)
+        return {};
     if (room.latestInputEnd > mediaStart && room.latestInputEnd - mediaStart > TimelineRestartFrames)
         return {};
     if (!participant->second.hasEndpoint)
@@ -613,7 +614,8 @@ std::vector<RelayDatagram> NativeVoiceRelay::finish(std::string_view roomId,
         std::uint32_t ingress = 0;
         for (const auto& [sourceKey, frames] : pending.ingressFrames) {
             if (sourceKey != recipientKey && audible.contains(sourceKey))
-                ingress = std::max(ingress, frames);
+                // Reserve zero for absent voices; encode an on-time voice as one protocol frame.
+                ingress = std::max(ingress, std::max(1U, frames));
         }
         const auto sendLateness = protocolFrames(sentWall - mediaSeconds(position.timestamp));
         const auto report = encodeServerMixStageReport(

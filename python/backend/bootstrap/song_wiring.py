@@ -55,9 +55,7 @@ def build_song_cases(
     start, melody = _build_processing(runtime, project, processing, recognition, catalog_lookup)
     save_editor = _save_editor(runtime, project)
     importer = _import_song(runtime, project, recognition)
-    get_song = GetSong(
-        runtime.database, project.projects, runtime.hasher, runtime.config.roots.songs
-    )
+    get_song = GetSong(runtime.database, project.projects, runtime.hasher)
     return SongCases(
         importer,
         StartSongImport(processing.jobs, importer),

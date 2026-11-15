@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 class Socket(Protocol):
     async def send_json(self, data: object) -> None: ...
 
+    async def close(self, code: int = 1000) -> None: ...
+
 
 class SocialHub:
     """
@@ -55,6 +57,30 @@ class SocialHub:
                 self._rooms.pop(account_id, None)
             else:
                 self._rooms[account_id] = room_id
+
+    def revoke(self, account_ids: tuple[str, ...]) -> None:
+        with self._lock:
+            sockets = tuple(
+                socket for account in account_ids for socket in self._sockets.pop(account, ())
+            )
+            for account in account_ids:
+                self._rooms.pop(account, None)
+            for socket in sockets:
+                self._send_locks.pop(socket, None)
+        if self._loop is not None:
+            self._loop.call_soon_threadsafe(self._spawn_close, sockets)
+
+    def _spawn_close(self, sockets: tuple[Socket, ...]) -> None:
+        task = asyncio.create_task(self._close(sockets))
+        self._tasks.add(task)
+        task.add_done_callback(self._tasks.discard)
+
+    async def _close(self, sockets: tuple[Socket, ...]) -> None:
+        for socket in sockets:
+            try:
+                await socket.close(code=1008)
+            except (WebSocketDisconnect, RuntimeError, OSError):
+                logger.debug("Revoked socket was already closed", exc_info=True)
 
     def disconnect(self, account_id: str, socket: Socket) -> bool:
         """Removes the socket; True when the account has no open app left."""
@@ -113,6 +139,9 @@ class SocialHub:
         if lock is None:
             return
         async with lock:
+            with self._lock:
+                if self._send_locks.get(socket) is not lock:
+                    return
             await socket.send_json(message)
 
     def _spawn(self, account_id: str) -> None:

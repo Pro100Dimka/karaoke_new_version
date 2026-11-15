@@ -119,6 +119,11 @@ void nativeVoiceRelayPreservesTheV3WireProtocolAndBuildsMixMinus() {
                "each recipient hears only the other eligible singer");
         expect(header.sessionToken == (datagram.target == alice ? aliceToken : bobToken),
                "each personalized packet keeps the recipient authentication token");
+        const auto stage = decodeServerMixStageReport(
+            header.reportedParticipantKey |
+            (static_cast<std::uint32_t>(header.reportedLossPermille) << 24U));
+        expect(stage.ingressFrames > 0,
+               "a zero-latency voice still supplies an arrival calibration sample");
     }
 }
 
@@ -1315,6 +1320,14 @@ void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek() {
     const auto duplicate = relay.receive(packet("bob", 0x2222, 2, oldPosition, 1'000), bob, 10.003, 3.003);
     expect(serverMixPackets(duplicate) == 0,
            "one stale packet cannot reset the room or replay an already mixed position");
+    (void)relay.receive(packet("alice", 0x1111, 3, oldPosition + 3'600U * VoiceProtocolSampleRateHz, 200),
+                        alice, 10.004, 3.004);
+    const auto firstResumed = relay.receive(
+        packet("alice", 0x1111, 4, oldPosition + SharedRoomPacketFrames, 200), alice, 10.005, 3.005);
+    const auto resumed = relay.receive(
+        packet("bob", 0x2222, 4, oldPosition + SharedRoomPacketFrames, 2'000), bob, 10.006, 3.006);
+    expect(serverMixPackets(firstResumed) + serverMixPackets(resumed) == 2,
+           "a future timestamp cannot stop either singer's current packets");
     relay.setGeneration("room", 2);
     (void)relay.receive(packet("alice", 0x1111, 2, seekPosition, 200), alice, 10.002, 0.5);
     const auto output = relay.receive(

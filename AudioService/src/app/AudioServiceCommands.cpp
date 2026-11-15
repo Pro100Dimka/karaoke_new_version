@@ -13,12 +13,17 @@ namespace {
 constexpr float MaxAcousticLatencyMs = 500.0F;
 constexpr double NanosecondsPerMillisecond = 1.0e6;
 [[nodiscard]] bool roomE2eEnabled() noexcept {
+#ifdef _WIN32
     char* value = nullptr;
     std::size_t length = 0;
     const auto error = _dupenv_s(&value, &length, "AD_VOICE_ROOM_E2E");
     const auto enabled = error == 0 && value != nullptr && std::string_view{value} == "1";
     std::free(value);
     return enabled;
+#else
+    const auto* value = std::getenv("AD_VOICE_ROOM_E2E");
+    return value != nullptr && std::string_view{value} == "1";
+#endif
 }
 } // namespace
 

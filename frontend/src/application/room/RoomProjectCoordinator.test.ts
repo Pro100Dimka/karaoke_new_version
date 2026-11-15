@@ -6,6 +6,15 @@ import { RoomProjectCoordinator } from './RoomProjectCoordinator';
 it('refreshes the library on changes without reading it every second', async () => {
   vi.useFakeTimers();
   const { services, scope } = setup();
+  const publishedSong = {
+    id: 'song',
+    activeRevision: 1,
+    status: 'ready',
+    title: 'Old title',
+    artist: 'Old artist',
+    projectHash: 'a'.repeat(64),
+  } as SongDto;
+  services.python.listSongs.mockResolvedValue([publishedSong]);
   let changed: () => void = () => undefined;
   const unsubscribe = vi.fn();
   const coordinator = new RoomProjectCoordinator(scope, {
@@ -22,9 +31,14 @@ it('refreshes the library on changes without reading it every second', async () 
     coordinator.setPythonReady(true);
     await vi.advanceTimersByTimeAsync(5000);
     expect(services.python.listSongs).toHaveBeenCalledTimes(1);
+    expect(services.room.publishLibrary).toHaveBeenCalledTimes(1);
+    services.python.listSongs.mockResolvedValue([
+      { ...publishedSong, title: 'New title', artist: 'New artist' },
+    ]);
     changed();
     await vi.advanceTimersByTimeAsync(0);
     expect(services.python.listSongs).toHaveBeenCalledTimes(2);
+    expect(services.room.publishLibrary).toHaveBeenCalledTimes(2);
     coordinator.stop();
     expect(unsubscribe).toHaveBeenCalledOnce();
   } finally {

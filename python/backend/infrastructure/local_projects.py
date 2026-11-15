@@ -50,6 +50,11 @@ class LocalProjectStorage:
                 "ProjectInvalid", "Project manifest is invalid", songId=song_id
             ) from exc
 
+    def video_path(self, song_id: str, revision: int, *, prefer_local: bool = False) -> Path:
+        local = self._roots.songs / song_id / "media" / "clip.mp4"
+        archived = self._revision_root(song_id, revision) / "media" / "clip.mp4"
+        return local if prefer_local or not archived.is_file() else archived
+
     def read_text_artifact(self, song_id: str, revision: int, logical_name: str) -> str:
         path = self.artifact_path(song_id, revision, logical_name)
         try:
@@ -80,11 +85,18 @@ class LocalProjectStorage:
         revision: int,
         files: Mapping[Path, Path],
         texts: Mapping[Path, str],
+        *,
+        base_revision: int | None = None,
     ) -> Path:
-        working = self.begin_revision(song_id, revision)
+        working = (
+            self.begin_revision(song_id, revision)
+            if base_revision is None
+            else self.clone_revision(song_id, base_revision, revision)
+        )
         for relative, source in files.items():
             target = working / relative
             target.parent.mkdir(parents=True, exist_ok=True)
+            target.unlink(missing_ok=True)
             shutil.copyfile(source, target)
         for relative, text in texts.items():
             atomic_write_text(working / relative, text)

@@ -10,6 +10,9 @@
 #include <vector>
 
 struct AnalysisTestAccess {
+    static bool publishChecked(AnalysisEngine& engine, GenerationId generation, std::span<const float> samples) {
+        return engine.queue_.push(SourceGenerationId{generation.value()}, samples, static_cast<std::uint32_t>(samples.size()));
+    }
     static void wake(AnalysisEngine& engine) {
         engine.wakeWorker();
     }
@@ -54,6 +57,9 @@ void analysisRetainsCaptureTimesAcrossPollingAndRejectsOldGeneration() {
     }
     analysis.setGeneration(GenerationId{10});
     expect(analysis.pitchHistory().empty(), "reconfiguration discards old pitch evidence");
+    AnalysisTestAccess::stop(analysis);
+    expect(!AnalysisTestAccess::publishChecked(analysis, GenerationId{9}, samples),
+           "a producer checked before reset cannot publish its old PCM after reset");
 }
 
 void analysisStopNeverLosesTheWorkerWakeup() {

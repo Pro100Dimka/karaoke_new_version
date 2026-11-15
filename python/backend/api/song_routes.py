@@ -19,7 +19,7 @@ from backend.songs.domain import SongStatus
 from backend.songs.import_song import ImportSongRequest
 from backend.songs.queries import ListSongsQuery
 from backend.songs.update_song import UpdateSongRequest
-from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
+from backend.songs.prepare_clip import LOCAL_CLIP
 from backend.api.system_routes import JobDto, _job
 
 router = APIRouter(prefix="/songs")
@@ -168,7 +168,7 @@ def update_song(song_id: str, body: UpdateSongDto, request: Request, app: Contai
 @router.get("/{song_id}/clip", name="song_clip")
 def get_song_clip(song_id: str, app: ContainerDep) -> FileResponse:
     song = app.songs.get_song.execute(song_id)
-    path = clip_path(song, app.roots.songs)
+    path = app.songs.get_song.clip_path(song)
     if song.video_url != LOCAL_CLIP or path is None or not path.is_file():
         raise NotFoundError("ClipMissing", "Downloaded song clip is unavailable")
     return FileResponse(path, media_type="video/mp4", filename="clip.mp4")

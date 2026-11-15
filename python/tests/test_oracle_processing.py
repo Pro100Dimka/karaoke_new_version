@@ -34,9 +34,9 @@ def relay(tmp_path, monkeypatch):
         yield module, client
 
 
-@pytest.mark.parametrize("cancel_running", [False, True])
+@pytest.mark.parametrize("cancel_running", [False, "ack", "lease", "worker"])
 def test_relay_separates_credentials_and_returns_result_only_after_completion(
-    relay, cancel_running
+    relay, cancel_running, tmp_path, monkeypatch
 ):
     module, client = relay
     client_headers = {"X-Processing-Key": module.CLIENT_KEY}
@@ -59,8 +59,45 @@ def test_relay_separates_credentials_and_returns_result_only_after_completion(
     assert client.get(route, headers=owner).json()["progress"] == progress
     if cancel_running:
         assert client.delete(route, headers=owner).status_code == 204
-        for _ in range(2):
-            assert client.post(worker_route + "/failed", headers=worker).status_code == 204
+        if cancel_running == "lease":
+            module.cleanup()
+            with module.database() as db:
+                assert (
+                    db.execute(
+                        "SELECT reserved FROM jobs WHERE id=?", (ticket["jobId"],)
+                    ).fetchone()[0]
+                    > 0
+                )
+                db.execute("UPDATE jobs SET deadline=0 WHERE id=?", (ticket["jobId"],))
+            module.cleanup()
+        elif cancel_running == "worker":
+            from types import SimpleNamespace
+            import backend.remote_worker as remote
+
+            root = tmp_path / "worker"
+            (root / "temp").mkdir(parents=True)
+            (root / "sessions").mkdir()
+
+            def execute(payload, incoming, sessions, cancel):
+                cancel.set()
+                return {}, {}
+
+            monkeypatch.setattr(remote, "execute", execute)
+            monkeypatch.setattr(
+                remote,
+                "run_in_background",
+                lambda *args: SimpleNamespace(join=lambda **kwargs: None),
+            )
+            transport = SimpleNamespace(
+                download=lambda path, output, headers: write_bundle(output, {}, {}),
+                request=lambda method, path, **kwargs: client.request(
+                    method, "/processing" + path, headers=worker
+                ),
+            )
+            remote.run_job(transport, claim, root, threading.Event())
+        else:
+            for _ in range(2):
+                assert client.post(worker_route + "/failed", headers=worker).status_code == 204
         with module.database() as db:
             assert (
                 db.execute("SELECT reserved FROM jobs WHERE id=?", (ticket["jobId"],)).fetchone()[0]

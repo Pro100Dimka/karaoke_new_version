@@ -1212,8 +1212,9 @@ void wavWriterRejectsUnrepresentableFormatsAndPartialFrames() {
 }
 
 void wavWriterSanitizesNonFiniteSamples() {
+    for (const auto floating : {false, true}) {
     WavWriter writer;
-    writer.open((tempRoot / "nonfinite.wav").string(), 48000, 1);
+    writer.open((tempRoot / "nonfinite.wav").string(), 48000, 1, floating);
     std::feclearexcept(FE_ALL_EXCEPT);
     writer.write(std::array<float, 3>{std::numeric_limits<float>::quiet_NaN(),
                                       std::numeric_limits<float>::infinity(), 0.5F});
@@ -1226,6 +1227,7 @@ void wavWriterSanitizesNonFiniteSamples() {
     decoder.read(pcm, 3);
     expect(pcm[0] == 0.0F && pcm[1] == 0.0F && pcm[2] > 0.49F,
            "invalid PCM becomes silence without damaging valid samples");
+    }
 }
 
 void recordingOverrunsPreserveTheAudioTimeline() {

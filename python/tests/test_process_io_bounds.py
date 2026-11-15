@@ -24,14 +24,29 @@ def test_process_output_is_bounded_before_returning_a_result(monkeypatch, stream
 
 
 def test_timeout_applies_while_a_child_does_not_read_stdin():
-    started = time.monotonic()
-    with pytest.raises(DependencyError, match="timed out"):
-        ProcessRunner().run(
-            [sys.executable, "-c", "import threading; threading.Event().wait(2)"],
-            timeout_seconds=0.1,
-            input_data=b"x" * (1 << 20),
-        )
-    assert time.monotonic() - started < 1, "a blocked stdin write must not defeat the deadline"
+    stop = threading.Event()
+
+    def occupy_interpreter():
+        while not stop.is_set():
+            sum(range(1000))
+
+    contender = threading.Thread(target=occupy_interpreter)
+    watchdog = threading.Timer(2, stop.set)
+    contender.start()
+    watchdog.start()
+    try:
+        started = time.monotonic()
+        with pytest.raises(DependencyError, match="timed out"):
+            ProcessRunner().run(
+                [sys.executable, "-c", "import threading; threading.Event().wait(2)"],
+                timeout_seconds=0.1,
+                input_data=b"x" * (1 << 20),
+            )
+        assert time.monotonic() - started < 1, "process startup and blocked input must stay bounded"
+    finally:
+        stop.set()
+        watchdog.cancel()
+        contender.join()
 
 
 def test_complete_output_and_input_survive_chunked_pipe_io():

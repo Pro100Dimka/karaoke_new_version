@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 
 from backend.domain_errors import DomainError
@@ -10,6 +10,8 @@ from backend.packages.ports import PackageArchive
 from backend.packages.security import PackageSecurityValidator
 from backend.persistence import UnitOfWorkFactory
 from backend.projects.domain import ProjectRevision
+from backend.projects.ports import ProjectStorage
+from backend.projects.fingerprint import manifest_fingerprint
 from backend.songs.domain import Song
 from backend.version import PACKAGE_FORMAT_VERSION, PROJECT_FORMAT_VERSION
 
@@ -23,6 +25,7 @@ class PackageInspection:
     conflict: PackageConflict
     existing_song_id: str | None
     uncompressed_bytes: int
+    local_revision: int | None = None
 
 
 class InspectPackage:
@@ -31,10 +34,12 @@ class InspectPackage:
         uow: UnitOfWorkFactory,
         archive: PackageArchive,
         security: PackageSecurityValidator,
+        projects: ProjectStorage,
     ) -> None:
         self._uow = uow
         self._archive = archive
         self._security = security
+        self._projects = projects
 
     def execute(self, path: Path) -> PackageInspection:
         entries = self._archive.inspect(path)
@@ -50,6 +55,7 @@ class InspectPackage:
             conflict,
             existing.song_id if existing else (manifest.song.song_id if revision else None),
             size,
+            revision.revision if revision else None,
         )
 
     def _decode(self, path: Path) -> PackageManifest:
@@ -65,6 +71,29 @@ class InspectPackage:
                 song.song_id if song else manifest.song.song_id,
                 manifest.revision,
             )
+            song_id = song.song_id if song else manifest.song.song_id
+            if revision is not None and revision.fingerprint == manifest.revision_fingerprint:
+                return song, revision
+            candidates = sorted(self._projects.revisions(song_id), reverse=True)
+            for candidate in candidates:
+                stored = transaction.projects.get(song_id, candidate)
+                if stored is None:
+                    continue
+                try:
+                    project = self._projects.load_manifest(song_id, candidate)
+                except DomainError:
+                    continue
+                if (
+                    candidate != manifest.revision
+                    and project.provenance.get("importedRevisionFingerprint")
+                    != manifest.revision_fingerprint
+                ):
+                    continue
+                normalized = replace(
+                    project, song_id=manifest.song.song_id, revision=manifest.revision
+                )
+                if manifest_fingerprint(normalized) == manifest.revision_fingerprint:
+                    return song, replace(stored, fingerprint=manifest.revision_fingerprint)
         return song, revision
 
 

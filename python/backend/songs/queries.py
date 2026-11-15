@@ -9,7 +9,7 @@ from backend.domain_errors import DomainError, NotFoundError
 from backend.persistence import UnitOfWorkFactory
 from backend.songs.domain import Song, SongStatus
 from backend.songs.ports import FileHasher, MediaInspector, SongPage, SongSearch, SongSummary
-from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
+from backend.songs.prepare_clip import LOCAL_CLIP
 from backend.projects.ports import ProjectStorage
 from backend.projects.fingerprint import project_content_fingerprint
 
@@ -26,22 +26,19 @@ class ListSongsQuery:
 
 class GetSong:
     def __init__(
-        self, uow: UnitOfWorkFactory, projects: ProjectStorage, hasher: FileHasher, songs_root: Path
+        self, uow: UnitOfWorkFactory, projects: ProjectStorage, hasher: FileHasher
     ) -> None:
         self._uow = uow
         self._projects = projects
         self._hasher = hasher
-        self._songs_root = songs_root
 
     def project_hash(self, song: Song) -> str | None:
         if song.status is not SongStatus.READY:
             return None
         video = song.video_url
         if video == LOCAL_CLIP:
-            path = clip_path(song, self._songs_root)
+            path = self.clip_path(song)
             try:
-                if path is None:
-                    return None
                 info = path.stat()
                 video = self._clip_hash(path, (info.st_size, info.st_mtime_ns, info.st_ctime_ns))
             except OSError:
@@ -57,6 +54,11 @@ class GetSong:
     def _clip_hash(self, path: Path, signature: tuple[int, int, int]) -> str:
         """File size and timestamps invalidate the checksum after a clip changes."""
         return self._hasher(path)
+
+    def clip_path(self, song: Song) -> Path:
+        return self._projects.video_path(
+            song.song_id, song.active_revision, prefer_local="video" in song.user_overrides
+        )
 
     def execute(self, song_id: str) -> Song:
         with self._uow.create() as transaction:

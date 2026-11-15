@@ -58,7 +58,7 @@ describe('friends socket', () => {
     const socket = createSocialSocket('wss://server/social/socket', (message) =>
       delivered.push(message),
     );
-    socket.setPresence({
+    const initial = socket.setPresence({
       displayName: 'Anna',
       participantId: 'seat',
       roomId: null,
@@ -68,7 +68,7 @@ describe('friends socket', () => {
     const [connection] = FakeSocket.made;
     connection.open();
     connection.push({ type: 'inbox', friends: [] });
-    socket.setPresence({
+    const changed = socket.setPresence({
       displayName: 'Anna',
       participantId: 'seat',
       roomId: 'room',
@@ -90,6 +90,8 @@ describe('friends socket', () => {
       },
     ]);
     expect(delivered).toEqual([{ type: 'inbox', friends: [] }]);
+    connection.push({ type: 'presenceAck', revision: 2 });
+    await Promise.all([initial, changed]);
     socket.stop();
   });
 
@@ -115,34 +117,56 @@ describe('friends socket', () => {
     socket.stop();
   });
 
-  it('waits until the server has applied presence before completing the update', async () => {
-    const { createSocialSocket } = await import('./SocialSocket');
-    const socket = createSocialSocket('wss://server/social/socket', vi.fn());
-    socket.start();
-    await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
-    const [connection] = FakeSocket.made;
-    connection.open();
+  it.each(['ack', 'close', 'stop', 'timeout'] as const)(
+    'settles presence on %s',
+    async (outcome) => {
+      const { createSocialSocket } = await import('./SocialSocket');
+      const socket = createSocialSocket('wss://server/social/socket', vi.fn());
+      socket.start();
+      await vi.waitFor(() => expect(FakeSocket.made).toHaveLength(1));
+      const [connection] = FakeSocket.made;
+      connection.open();
 
-    let applied = false;
-    const update = socket
-      .setPresence({
-        displayName: 'Anna',
-        participantId: 'seat',
+      let applied = false;
+      let failure: unknown;
+      const update = socket
+        .setPresence({
+          displayName: 'Anna',
+          participantId: 'seat',
+          roomId: 'room',
+        })
+        .then(
+          () => {
+            applied = true;
+          },
+          (error) => {
+            failure = error;
+          },
+        );
+      await Promise.resolve();
+      expect(applied).toBe(false);
+      expect(connection.sent.at(-1)).toMatchObject({
         roomId: 'room',
-      })
-      .then(() => {
-        applied = true;
+        revision: 1,
       });
-    await Promise.resolve();
-    expect(applied).toBe(false);
-    expect(connection.sent.at(-1)).toMatchObject({
-      roomId: 'room',
-      revision: 1,
-    });
 
-    connection.push({ type: 'presenceAck', revision: 1 });
-    await update;
-    expect(applied).toBe(true);
-    socket.stop();
-  });
+      await {
+        ack: async () => connection.push({ type: 'presenceAck', revision: 1 }),
+        close: async () => connection.close(),
+        stop: async () => socket.stop(),
+        timeout: async () => vi.advanceTimersByTimeAsync(15_000),
+      }[outcome]();
+      await Promise.resolve();
+      if (outcome === 'ack') {
+        await update;
+        expect(applied).toBe(true);
+      } else {
+        expect(failure).toBeInstanceOf(Error);
+        expect(applied).toBe(false);
+        await update;
+      }
+      socket.stop();
+      expect(vi.getTimerCount()).toBe(0);
+    },
+  );
 });

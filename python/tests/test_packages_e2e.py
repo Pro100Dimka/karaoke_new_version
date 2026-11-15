@@ -262,6 +262,16 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
         assert response.status_code == 200, response.text
         assert response.content == clip_bytes
         assert target_client.get(f"/songs/{song['songId']}").json()["projectHash"] == clip_hash
+        replacement = tmp_path / "replacement.mp4"
+        replacement.write_bytes(b"\x00\x00\x00\x18ftypnew-selected-video")
+        changed = target_client.patch(
+            f"/songs/{song['songId']}", json={"videoPath": str(replacement)}
+        )
+        assert changed.status_code == 200, changed.text
+        assert (
+            target_client.get(f"/songs/{song['songId']}/clip").content == replacement.read_bytes()
+        )
+        assert changed.json()["projectHash"] != clip_hash
 
 
 def test_reexported_imported_room_project_keeps_its_clip(tmp_path: Path) -> None:
@@ -283,11 +293,17 @@ def test_reexported_imported_room_project_keeps_its_clip(tmp_path: Path) -> None
         original = Path(wait_for_job(source_client, exported.json()["jobId"])["report"]["path"])
 
     relay_root = tmp_path / "reexport-relay"
-    with app_client(relay_root) as relay_client:
+    with app_client(relay_root, ai_providers=(FakeAiProvider(),)) as relay_client:
         imported = relay_client.post(
             "/packages/import", json={"path": str(original), "decision": "SafeOnly"}
         )
         assert wait_for_job(relay_client, imported.json()["jobId"])["state"] == "Succeeded"
+        assert relay_client.get(f"/songs/{song['songId']}/clip").content == clip_bytes
+        reprocessed = relay_client.post(f"/songs/{song['songId']}/processing/melody")
+        assert reprocessed.status_code == 202, reprocessed.text
+        result = wait_for_job(relay_client, reprocessed.json()["jobId"])
+        assert result["state"] == "Succeeded", result
+        assert relay_client.get(f"/songs/{song['songId']}/clip").content == clip_bytes
         exported = relay_client.post(f"/packages/export/{song['songId']}")
         relayed = Path(wait_for_job(relay_client, exported.json()["jobId"])["report"]["path"])
 
@@ -341,9 +357,11 @@ def test_reimport_of_same_revision_adds_a_clip_that_was_missing_locally(tmp_path
 
 
 @pytest.mark.parametrize("with_clip", [False, True])
+@pytest.mark.parametrize("divergent", [False, True])
 def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
     tmp_path: Path,
     with_clip: bool,
+    divergent: bool,
 ) -> None:
     source = tmp_path / "same-song.wav"
     write_wav(source)
@@ -383,16 +401,47 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
                 "UPDATE songs SET video_url='local:clip' WHERE song_id=?", (target_song["songId"],)
             )
         assert target_song["songId"] != source_song["songId"]
+        old_revision = None
+        if divergent:
+            path = f"/songs/{target_song['songId']}/editor"
+            document = target_client.get(path).json()
+            document["document"]["words"][0]["notes"][0]["note"] += 3
+            saved = target_client.put(
+                path,
+                json={"expectedRevision": document["revision"], "document": document["document"]},
+            )
+            assert saved.status_code == 200, saved.text
+            old_revision = (
+                target_root
+                / "songs"
+                / target_song["songId"]
+                / "revisions"
+                / str(saved.json()["revision"])
+                / "lyricsSync.json"
+            )
+            old_content = old_revision.read_bytes()
         inspected = target_client.post("/packages/inspect", json={"path": str(package)}).json()
-        assert inspected["conflict"] == "NewerRevision"
+        assert inspected["conflict"] == ("DivergentRevision" if divergent else "NewerRevision")
 
         started = target_client.post(
             "/packages/import",
-            json={"path": str(package), "decision": "SafeOnly"},
+            json={"path": str(package), "decision": "AcceptDivergent" if divergent else "SafeOnly"},
         )
         job = wait_for_job(target_client, started.json()["jobId"])
         assert job["state"] == "Succeeded", job
         assert job["report"]["songId"] == target_song["songId"]
+        repeated = target_client.post("/packages/inspect", json={"path": str(package)}).json()
+        assert repeated["conflict"] == "SameRevision"
+        active = target_client.get(f"/songs/{target_song['songId']}").json()["activeRevision"]
+        again = target_client.post(
+            "/packages/import", json={"path": str(package), "decision": "SafeOnly"}
+        )
+        assert wait_for_job(target_client, again.json()["jobId"])["state"] == "Succeeded"
+        assert (
+            target_client.get(f"/songs/{target_song['songId']}").json()["activeRevision"] == active
+        )
+        if old_revision:
+            assert old_revision.read_bytes() == old_content
         imported_song_id = target_song["songId"]
 
     with app_client(target_root, ai_providers=(FakeAiProvider(),)) as restarted_client:
@@ -403,12 +452,23 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
         clip_response = restarted_client.get(f"/songs/{imported_song_id}/clip")
         if with_clip:
             assert clip_response.content == b"current-project-video"
+            replacement = tmp_path / "managed-replacement.mp4"
+            replacement.write_bytes(b"\x00\x00\x00\x18ftypmanaged-replacement")
+            changed = restarted_client.patch(
+                f"/songs/{imported_song_id}", json={"videoPath": str(replacement)}
+            )
+            assert changed.status_code == 200, changed.text
+            assert (
+                restarted_client.get(f"/songs/{imported_song_id}/clip").content
+                == replacement.read_bytes()
+            )
+            assert changed.json()["projectHash"] != source_hash
             exported = restarted_client.post(f"/packages/export/{imported_song_id}")
             package = Path(
                 wait_for_job(restarted_client, exported.json()["jobId"])["report"]["path"]
             )
             with zipfile.ZipFile(package) as archive:
-                assert archive.read("media/clip.mp4") == b"current-project-video"
+                assert archive.read("media/clip.mp4") == replacement.read_bytes()
         else:
             assert clip_response.status_code == 404
             assert imported.json()["videoUrl"] is None

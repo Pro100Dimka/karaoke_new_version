@@ -44,11 +44,16 @@ void retainPeak(std::atomic<float>& target, float value) noexcept {
 } // namespace
 
 NetworkAudioEngine::NetworkAudioEngine(RecordingEngine* recording) : recording_(recording) {
+#ifdef _WIN32
     char* trace = nullptr;
     std::size_t length = 0;
     if (_dupenv_s(&trace, &length, "AD_VOICE_ROOM_PACKET_TRACE") == 0)
         packetTraceEnabled_ = trace != nullptr && std::strcmp(trace, "1") == 0;
     std::free(trace);
+#else
+    const auto* trace = std::getenv("AD_VOICE_ROOM_PACKET_TRACE");
+    packetTraceEnabled_ = trace != nullptr && std::strcmp(trace, "1") == 0;
+#endif
     for (auto& slot : remote_)
         slot = std::make_unique<RemoteSlot>();
 }

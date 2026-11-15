@@ -74,6 +74,13 @@ export const moveNotes = (
   let high = Infinity;
   let pitchLow = -Infinity;
   let pitchHigh = Infinity;
+  const unselected = new Map<string, EditorNote[]>();
+  for (const note of document.notes) {
+    if (ids.has(note.id)) continue;
+    const siblings = unselected.get(note.wordId) ?? [];
+    siblings.push(note);
+    unselected.set(note.wordId, siblings);
+  }
   for (const note of selected) {
     pitchLow = Math.max(pitchLow, minPitch - note.pitch);
     pitchHigh = Math.min(pitchHigh, maxPitch - note.pitch);
@@ -81,6 +88,12 @@ export const moveNotes = (
     if (!word) continue;
     low = Math.max(low, word.start - note.start);
     high = Math.min(high, word.end - note.end);
+    for (const sibling of unselected.get(note.wordId) ?? []) {
+      if (sibling.end <= note.start)
+        low = Math.max(low, sibling.end - note.start);
+      if (sibling.start >= note.end)
+        high = Math.min(high, sibling.start - note.end);
+    }
   }
   const shift = clamp(
     deltaSeconds,
@@ -89,6 +102,8 @@ export const moveNotes = (
   );
   const pitchShift = clamp(deltaPitch, pitchLow, pitchHigh);
   if (shift === 0 && pitchShift === 0) return document;
+  const movedTime = (time: number) =>
+    shift === 0 ? time : clamp(round(time + shift), time + low, time + high);
   return withNotes(
     document,
     document.notes.map((note) =>
@@ -96,8 +111,8 @@ export const moveNotes = (
         ? {
             ...note,
             pitch: note.pitch + pitchShift,
-            start: round(note.start + shift),
-            end: round(note.end + shift),
+            start: movedTime(note.start),
+            end: movedTime(note.end),
           }
         : note,
     ),
@@ -127,7 +142,11 @@ export const resizeNote = (
     );
     next = {
       ...note,
-      start: round(clamp(seconds, floor, note.end - minNoteSeconds)),
+      start: clamp(
+        round(seconds),
+        floor,
+        note.end - Math.min(minNoteSeconds, note.end - floor),
+      ),
     };
   } else {
     const ceiling = Math.min(
@@ -138,7 +157,11 @@ export const resizeNote = (
     );
     next = {
       ...note,
-      end: round(clamp(seconds, note.start + minNoteSeconds, ceiling)),
+      end: clamp(
+        round(seconds),
+        note.start + Math.min(minNoteSeconds, ceiling - note.start),
+        ceiling,
+      ),
     };
   }
   return withNotes(
@@ -237,11 +260,19 @@ export const alignBoundary = (
       edge === 'start'
         ? {
             ...note,
-            start: round(clamp(seconds, boundary, note.end - minNoteSeconds)),
+            start: clamp(
+              round(seconds),
+              boundary,
+              note.end - Math.min(minNoteSeconds, note.end - boundary),
+            ),
           }
         : {
             ...note,
-            end: round(clamp(seconds, note.start + minNoteSeconds, boundary)),
+            end: clamp(
+              round(seconds),
+              note.start + Math.min(minNoteSeconds, boundary - note.start),
+              boundary,
+            ),
           };
   }
   return changed ? withNotes(document, notes) : document;

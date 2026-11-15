@@ -85,11 +85,12 @@ class PcmRingBuffer {
 
 class GenerationPcmRingBuffer {
   public:
-    void prepare(std::uint32_t capacityFrames, std::uint32_t channels);
+    void prepare(std::uint32_t capacityFrames, std::uint32_t channels, bool trackFrameTimes = false);
     void reset(SourceGenerationId generation) noexcept;
     [[nodiscard]] bool push(SourceGenerationId generation, std::span<const float> samples,
-                            std::uint32_t frames) noexcept;
-    [[nodiscard]] std::uint32_t pop(std::span<float> output, std::uint32_t frames) noexcept;
+                            std::uint32_t frames, std::span<const MonotonicTicks> frameTimes = {}) noexcept;
+    [[nodiscard]] std::uint32_t pop(std::span<float> output, std::uint32_t frames,
+                                   std::span<MonotonicTicks> frameTimes = {}) noexcept;
     [[nodiscard]] std::uint32_t peek(std::span<float> output, std::uint32_t frames) const noexcept;
     std::uint32_t discard(std::uint32_t frames) noexcept;
     [[nodiscard]] std::uint32_t availableFrames() const noexcept {

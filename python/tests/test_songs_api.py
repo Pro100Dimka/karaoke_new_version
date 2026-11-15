@@ -186,10 +186,17 @@ def test_custom_cover_can_be_served_and_removed(
                 song = transaction.songs.get(song_id)
                 transaction.songs.update(
                     replace(
-                        song, active_revision=2, detected_bpm=120, status=type(song.status).READY
+                        song,
+                        active_revision=2,
+                        detected_bpm=120,
+                        status=type(song.status).READY,
+                        video_url=LOCAL_CLIP,
                     )
                 )
                 transaction.commit()
+            clip = tmp_path / "downloaded.mp4"
+            clip.write_bytes(b"\x00\x00\x00\x18ftypdownloaded")
+            storage.copy_clip(song_id, clip)
             return result
 
         monkeypatch.setattr(storage, "copy_cover", copy_with_publication)
@@ -209,6 +216,8 @@ def test_custom_cover_can_be_served_and_removed(
         assert updated.json()["activeRevision"] == 2
         assert updated.json()["detectedBpm"] == 120
         assert removed.json()["status"] == "Ready"
+        assert updated.json()["videoUrl"].endswith(f"/songs/{song_id}/clip")
+        assert client.get(f"/songs/{song_id}/clip").status_code == 200
 
 
 def test_processed_song_exposes_detected_bpm_and_key(client, tmp_path: Path) -> None:

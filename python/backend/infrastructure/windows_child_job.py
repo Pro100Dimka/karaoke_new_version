@@ -52,6 +52,8 @@ class WindowsChildJob:
         if cpu_fraction is not None and not 0 < cpu_fraction <= 1:
             raise ValueError("cpu_fraction must be in (0, 1]")
         self._api = ctypes.WinDLL("kernel32", use_last_error=True)
+        # Snapshot iteration is nonblocking; avoid a GIL handoff for every system thread.
+        self._threads = ctypes.PyDLL("kernel32", use_last_error=True)
         signatures = {
             "CreateJobObjectW": ([ctypes.c_void_p, wintypes.LPCWSTR], wintypes.HANDLE),
             "SetInformationJobObject": (
@@ -68,7 +70,8 @@ class WindowsChildJob:
             "CloseHandle": ([wintypes.HANDLE], wintypes.BOOL),
         }
         for name, (arguments, result) in signatures.items():
-            function = getattr(self._api, name)
+            library = self._threads if name in ("Thread32First", "Thread32Next") else self._api
+            function = getattr(library, name)
             function.argtypes, function.restype = arguments, result
         self._handle = self._api.CreateJobObjectW(None, None)
         if not self._handle:
@@ -115,7 +118,7 @@ class WindowsChildJob:
         try:
             entry = _ThreadEntry()
             entry.size = ctypes.sizeof(entry)
-            available = self._api.Thread32First(snapshot, ctypes.byref(entry))
+            available = self._threads.Thread32First(snapshot, ctypes.byref(entry))
             while available:
                 if entry.process_id == pid:
                     thread = self._api.OpenThread(0x0002, False, entry.thread_id)
@@ -127,7 +130,7 @@ class WindowsChildJob:
                     finally:
                         self._api.CloseHandle(thread)
                     return
-                available = self._api.Thread32Next(snapshot, ctypes.byref(entry))
+                available = self._threads.Thread32Next(snapshot, ctypes.byref(entry))
             raise OSError("The suspended subprocess has no initial thread")
         finally:
             self._api.CloseHandle(snapshot)

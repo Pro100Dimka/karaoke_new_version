@@ -105,6 +105,12 @@ def cleanup() -> None:
             "WHERE state='running' AND deadline<?",
             (now,),
         )
+        cancelled = db.execute(
+            "SELECT id FROM jobs WHERE state='cancelled' AND reserved>0 AND deadline<?",
+            (now,),
+        ).fetchall()
+        for row in cancelled:
+            release_cancelled(db, row["id"])
 
 
 def job_for(request: Request, job_id: str, worker: bool = False) -> sqlite3.Row:
@@ -295,7 +301,10 @@ def heartbeat(
     row = job_for(request, job_id, True)
     reserve_egress()
     with database() as db:
-        db.execute("UPDATE jobs SET deadline=? WHERE id=?", (time.time() + 90, job_id))
+        db.execute(
+            "UPDATE jobs SET deadline=? WHERE id=? AND state='running'",
+            (time.time() + 90, job_id),
+        )
         if progress is not None:
             db.execute(
                 "INSERT OR REPLACE INTO progress VALUES (?,?)",

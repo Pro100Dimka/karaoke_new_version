@@ -31,7 +31,7 @@ def _dev_tool_commands(require: bool) -> tuple[list[str], ...]:
     else:
         missing.append("ruff")
     if _tool_available("mypy"):
-        commands.append([sys.executable, "-m", "mypy", "backend", "scripts"])
+        commands.append([sys.executable, "-m", "mypy", "--platform", "win32", "backend", "scripts"])
     else:
         missing.append("mypy")
     if require and missing:

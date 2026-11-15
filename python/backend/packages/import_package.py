@@ -55,7 +55,7 @@ class ImportPackage:
             try:
                 same_revision = self._is_same_revision(inspection)
                 if not same_revision or not self._publication.revision_exists(
-                    song_id, inspection.manifest.revision
+                    song_id, inspection.local_revision or inspection.manifest.revision
                 ):
                     published = self._publication.execute(archive_path, inspection, song_id)
                 if same_revision:
@@ -89,7 +89,12 @@ class ImportPackage:
         with self._uow.create() as transaction:
             existing = transaction.songs.get(song_id)
             song = self._updated_song(
-                existing, inspection, song_id, now, published.project_format_version
+                existing,
+                inspection,
+                song_id,
+                now,
+                published.project_format_version,
+                published.revision,
             )
             if existing:
                 transaction.songs.update(song)
@@ -98,22 +103,15 @@ class ImportPackage:
             transaction.projects.add(
                 ProjectRevision(
                     song_id,
-                    manifest.revision,
+                    published.revision,
                     published.fingerprint,
                     published.project_format_version,
                     manifest.lineage_id,
                     now,
                 )
             )
-            transaction.history.add(
-                HistoryEvent(
-                    self._ids.new(),
-                    "PackageImported",
-                    now,
-                    "Song",
-                    song_id,
-                )
-            )
+            event = HistoryEvent(self._ids.new(), "PackageImported", now, "Song", song_id)
+            transaction.history.add(event)
             transaction.commit()
         return song
 
@@ -124,19 +122,10 @@ class ImportPackage:
         song_id: str,
         now: datetime,
         project_format_version: int,
+        revision: int,
     ) -> Song:
-        manifest = inspection.manifest
-        if existing:
-            return replace(
-                existing,
-                active_revision=manifest.revision,
-                project_format_version=project_format_version,
-                status=SongStatus.READY,
-                video_url=manifest.song.video_url,
-                updated_at=now,
-            )
-        identity = manifest.song
-        return Song(
+        identity = inspection.manifest.song
+        song = existing or Song(
             song_id=song_id,
             title=identity.title,
             artist=identity.artist,
@@ -144,7 +133,7 @@ class ImportPackage:
             source_state=SourceState.PACKAGE_ONLY,
             source_path=None,
             status=SongStatus.READY,
-            active_revision=manifest.revision,
+            active_revision=revision,
             project_format_version=project_format_version,
             created_at=now,
             updated_at=now,
@@ -157,6 +146,15 @@ class ImportPackage:
             recognition_provider=identity.recognition_provider,
             recognition_external_id=identity.recognition_external_id,
             cover_state=CoverState.FALLBACK,
+        )
+        return replace(
+            song,
+            active_revision=revision,
+            project_format_version=project_format_version,
+            status=SongStatus.READY,
+            video_url=identity.video_url,
+            user_overrides=song.user_overrides - {"video"},
+            updated_at=now,
         )
 
     @staticmethod
@@ -198,6 +196,7 @@ class ImportPackage:
                 song_id,
                 self._clock.now(),
                 inspection.manifest.project_format_version,
+                inspection.local_revision or inspection.manifest.revision,
             )
             if song is None:
                 transaction.songs.add(activated)

@@ -13,7 +13,7 @@ from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.projects.ports import ProjectStorage
 from backend.runtime import Clock, IdGenerator
 from backend.songs.domain import Song
-from backend.songs.prepare_clip import LOCAL_CLIP, clip_path
+from backend.songs.prepare_clip import LOCAL_CLIP
 from backend.songs.ports import FileHasher
 from backend.storage.ports import WorkStorage
 from backend.version import PACKAGE_FORMAT_VERSION
@@ -91,10 +91,10 @@ class ExportPackage:
             source = snapshot / artifact.relative_path
             files[relative] = source
             artifacts.append(PackageArtifact(relative, self._hasher(source)))
-        local_clip = snapshot / "media" / "clip.mp4"
-        if not local_clip.is_file():
-            local_clip = clip_path(song) or local_clip
-        if song.video_url == LOCAL_CLIP and local_clip.is_file():
+        local_clip = self._projects.video_path(
+            song.song_id, revision.revision, prefer_local="video" in song.user_overrides
+        )
+        if song.video_url == LOCAL_CLIP and local_clip is not None and local_clip.is_file():
             relative = PurePosixPath("media/clip.mp4")
             files[relative] = local_clip
             artifacts.append(PackageArtifact(relative, self._hasher(local_clip)))

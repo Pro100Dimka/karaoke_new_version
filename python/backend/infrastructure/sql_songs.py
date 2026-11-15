@@ -137,22 +137,34 @@ class SqlSongRepository:
         _apply(row, song)
         self.changed.add(song.song_id)
 
-    def update_metadata(self, song: Song) -> Song:
+    def update_metadata(self, song: Song, fields: frozenset[str]) -> Song:
+        columns: dict[str, dict[str, str | None]] = {
+            "title": {"title": song.title, "title_normalized": normalize_search(song.title)},
+            "artist": {"artist": song.artist, "artist_normalized": normalize_search(song.artist)},
+            "language": {"language": song.language.value},
+            "video": {"video_url": song.video_url},
+            "cover": {
+                "cover_path": str(song.cover_path) if song.cover_path else None,
+                "cover_state": song.cover_state.value,
+            },
+        }
+        values = {name: value for field in fields for name, value in columns[field].items()}
+        provenance = {
+            field: song.metadata_provenance[field]
+            for field in fields
+            if field in song.metadata_provenance
+        }
+        overrides = {field: True if field in song.user_overrides else None for field in fields}
         row = self._session.scalar(
             update(SongRow)
             .where(SongRow.song_id == song.song_id)
             .values(
-                title=song.title,
-                title_normalized=normalize_search(song.title),
-                artist=song.artist,
-                artist_normalized=normalize_search(song.artist),
-                language=song.language.value,
-                video_url=song.video_url,
-                cover_path=str(song.cover_path) if song.cover_path else None,
-                cover_state=song.cover_state.value,
+                **values,
                 updated_at=song.updated_at,
-                metadata_provenance_json=dumps(song.metadata_provenance),
-                user_overrides_json=dumps({key: True for key in song.user_overrides}),
+                metadata_provenance_json=func.json_patch(
+                    SongRow.metadata_provenance_json, dumps(provenance)
+                ),
+                user_overrides_json=func.json_patch(SongRow.user_overrides_json, dumps(overrides)),
             )
             .returning(SongRow),
             execution_options={"populate_existing": True},

@@ -3,12 +3,14 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+import pytest
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketTestSession
+from starlette.websockets import WebSocketDisconnect
 
 from backend.api.room_server_app import create_room_server_app
 
@@ -294,7 +296,10 @@ def test_a_profile_photo_survives_a_server_restart(tmp_path: Path) -> None:
     assert base64.b64decode(shown["data"]) == _PNG
 
 
-def test_friends_survive_a_server_restart_and_move_with_the_transfer_code(tmp_path: Path) -> None:
+@pytest.mark.parametrize("during_handshake", [False, True])
+def test_friends_survive_a_server_restart_and_move_with_the_transfer_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, during_handshake: bool
+) -> None:
     database = tmp_path / "rooms.sqlite3"
     with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
         with ExitStack() as stack:
@@ -302,11 +307,39 @@ def test_friends_survive_a_server_restart_and_move_with_the_transfer_code(tmp_pa
         transfer_code = client.get("/social/me", headers=_headers("anna")).json()["transferCode"]
     with TestClient(create_room_server_app(relay_port=0, room_database=database)) as client:
         with ExitStack() as stack:
-            still = _inbox(_open(client, stack, "anna"))
-        moved = client.post(
-            "/social/transfer", headers=_headers("new-pc"), json={"transferCode": transfer_code}
-        ).json()
-        with ExitStack() as stack:
+            if during_handshake:
+                from backend.api import social_socket
+
+                arrive = social_socket._arrive
+
+                def transfer_before_connect(social, hello):
+                    me = arrive(social, hello)
+                    if hello.device == _device("anna"):
+                        social.accounts.claim(
+                            social.accounts.identify(_device("new-pc")),
+                            transfer_code,
+                            _device("new-pc"),
+                        )
+                    return me
+
+                monkeypatch.setattr(social_socket, "_arrive", transfer_before_connect)
+                with pytest.raises(WebSocketDisconnect):
+                    _inbox(_open(client, stack, "anna"))
+                monkeypatch.setattr(social_socket, "_arrive", arrive)
+                assert (
+                    _inbox(_open(client, stack, "new-pc"))["friends"][0]["displayName"] == "boris"
+                )
+                return
+            old_socket = _open(client, stack, "anna")
+            still = _inbox(old_socket)
+            moved = client.post(
+                "/social/transfer", headers=_headers("new-pc"), json={"transferCode": transfer_code}
+            ).json()
+            client.portal.call(client.app.state.container.social.hub.push, moved["accountId"])
+            with pytest.raises(WebSocketDisconnect):
+                for _ in range(8):
+                    message = old_socket.receive_json()
+                    assert message.get("me", {}).get("transferCode") != moved["transferCode"]
             on_new_computer = _inbox(_open(client, stack, "new-pc"))
 
     assert [friend["displayName"] for friend in still["friends"]] == ["boris"]

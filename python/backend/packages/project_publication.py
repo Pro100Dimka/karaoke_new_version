@@ -5,7 +5,7 @@ from pathlib import Path
 from pathlib import PurePosixPath
 
 from backend.domain_errors import DomainError
-from backend.packages.domain import PackageCompatibility
+from backend.packages.domain import PackageCompatibility, PackageConflict
 from backend.packages.inspect_package import PackageInspection
 from backend.packages.ports import PackageArchive
 from backend.projects.domain import ProjectManifest
@@ -25,6 +25,7 @@ class PublishedPackageProject:
     recovery_entry: RecoveryEntry
     fingerprint: str
     project_format_version: int
+    revision: int
 
 
 class PackageProjectPublication:
@@ -59,22 +60,16 @@ class PackageProjectPublication:
             self._verify_artifacts(inspection, workspace)
             project = self._read_project(workspace)
             self._validate_identity(inspection, project)
-            if project.song_id != song_id:
-                project = replace(project, song_id=song_id)
-                self._projects.write_working_text(
-                    workspace,
-                    Path("manifest.json"),
-                    encode_manifest(project),
-                )
+            project = self._local_project(project, inspection, song_id, workspace)
             project = self._upgrade_if_supported(inspection, project, workspace)
             self._validator.validate_working(project, workspace, require_ready=True)
             entry = self._journal.begin(
                 RecoveryOperation.PACKAGE_IMPORT,
-                {"songId": song_id, "revision": inspection.manifest.revision},
+                {"songId": song_id, "revision": project.revision},
             )
             self._projects.publish_revision(
                 song_id,
-                inspection.manifest.revision,
+                project.revision,
                 workspace,
             )
             published = True
@@ -82,6 +77,7 @@ class PackageProjectPublication:
                 entry,
                 manifest_fingerprint(project),
                 project.project_format_version,
+                project.revision,
             )
         finally:
             if not published:
@@ -89,6 +85,32 @@ class PackageProjectPublication:
 
     def complete(self, published: PublishedPackageProject) -> None:
         self._journal.complete(published.recovery_entry.transaction_id)
+
+    def _local_project(
+        self, project: ProjectManifest, inspection: PackageInspection, song_id: str, workspace: Path
+    ) -> ProjectManifest:
+        revision = (
+            inspection.local_revision
+            if inspection.conflict is PackageConflict.SAME_REVISION
+            else None
+        ) or inspection.manifest.revision
+        if self._projects.revision_exists(song_id, revision):
+            revision = max(self._projects.revisions(song_id), default=revision) + 1
+        if (project.song_id, project.revision) == (song_id, revision):
+            return project
+        project = replace(
+            project,
+            song_id=song_id,
+            revision=revision,
+            provenance={
+                **project.provenance,
+                "importedRevisionFingerprint": inspection.manifest.revision_fingerprint,
+            },
+        )
+        self._projects.write_working_text(
+            workspace, Path("manifest.json"), encode_manifest(project)
+        )
+        return project
 
     def revision_exists(self, song_id: str, revision: int) -> bool:
         return self._projects.revision_exists(song_id, revision)
@@ -105,7 +127,7 @@ class PackageProjectPublication:
             self._verify_artifacts(inspection, workspace)
             self._projects.install_revision_artifact(
                 song_id,
-                inspection.manifest.revision,
+                inspection.local_revision or inspection.manifest.revision,
                 Path(*clip_path.parts),
                 workspace.joinpath(*clip_path.parts),
             )

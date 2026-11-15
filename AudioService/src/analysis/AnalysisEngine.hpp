@@ -51,7 +51,7 @@ class AnalysisEngine {
     void wakeWorker() noexcept;
     void workerMain() noexcept;
 
-    PcmRingBuffer queue_;
+    GenerationPcmRingBuffer queue_;
     std::array<MonotonicTicks, MaxBlockFrames> captureTimes_{}; // sole realtime producer
     mutable std::mutex pitchMutex_; // analysis worker/control only; never taken by push()
     std::deque<PitchObservation> pitchHistory_;

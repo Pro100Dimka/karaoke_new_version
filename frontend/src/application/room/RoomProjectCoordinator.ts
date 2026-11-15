@@ -260,9 +260,18 @@ export class RoomProjectCoordinator {
         const songs = library.songs;
         if (this.library !== library || !this.scope.isCurrent()) return;
         const key = songs
-          .map(
-            (song) =>
-              `${song.id}:${song.activeRevision}:${song.projectHash ?? ''}`,
+          .map((song) =>
+            JSON.stringify([
+              song.id,
+              song.activeRevision,
+              song.title,
+              song.artist,
+              song.album,
+              song.genre,
+              song.durationSeconds,
+              song.sourceHash,
+              song.projectHash,
+            ]),
           )
           .sort()
           .join('|');

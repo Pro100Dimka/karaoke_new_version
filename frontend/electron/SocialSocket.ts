@@ -10,6 +10,7 @@ export interface SocialPresence {
 // Reconnecting after the server went away backs off to this; a connected socket costs nothing.
 const maximumRetryMilliseconds = 30_000;
 const firstRetryMilliseconds = 1_000;
+const presenceTimeoutMilliseconds = 15_000;
 
 /**
  * The one connection the app keeps to the room server for friends: being connected is being
@@ -26,17 +27,33 @@ export const createSocialSocket = (
     roomId: null,
   };
   let revision = 0;
-  const pending = new Map<number, () => void>();
+  const pending = new Map<
+    number,
+    {
+      resolve(): void;
+      reject(error: Error): void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
   let socket: WebSocket | undefined;
   let retry: NodeJS.Timeout | undefined;
   let retryMilliseconds = firstRetryMilliseconds;
   let stopped = true;
+
+  const failPending = (message: string) => {
+    for (const update of pending.values()) {
+      clearTimeout(update.timer);
+      update.reject(new Error(message));
+    }
+    pending.clear();
+  };
 
   const connect = async (): Promise<void> => {
     retry = undefined;
     try {
       requireSecureRoomUrl(url);
     } catch {
+      failPending('Presence connection is unavailable');
       deliver({ type: 'offline' });
       return;
     }
@@ -49,6 +66,7 @@ export const createSocialSocket = (
       opened.send(JSON.stringify({ device: secret, ...presence, revision }));
     });
     opened.addEventListener('message', (event) => {
+      if (socket !== opened) return;
       try {
         const message = JSON.parse(String(event.data)) as unknown;
         if (
@@ -58,10 +76,11 @@ export const createSocialSocket = (
           typeof (message as { revision?: unknown }).revision === 'number'
         ) {
           const acknowledged = (message as { revision: number }).revision;
-          for (const [requested, resolve] of pending) {
+          for (const [requested, update] of pending) {
             if (requested <= acknowledged) {
               pending.delete(requested);
-              resolve();
+              clearTimeout(update.timer);
+              update.resolve();
             }
           }
           return;
@@ -74,6 +93,7 @@ export const createSocialSocket = (
     opened.addEventListener('close', () => {
       if (socket !== opened) return;
       socket = undefined;
+      failPending('Presence connection closed before acknowledgement');
       deliver({ type: 'offline' });
       if (stopped) return;
       retry = setTimeout(() => void connect(), retryMilliseconds);
@@ -94,9 +114,14 @@ export const createSocialSocket = (
     setPresence(next: SocialPresence): Promise<void> {
       presence = next;
       revision += 1;
-      const applied = new Promise<void>((resolve) =>
-        pending.set(revision, resolve),
-      );
+      const requested = revision;
+      const applied = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(requested);
+          reject(new Error('Presence acknowledgement timed out'));
+        }, presenceTimeoutMilliseconds);
+        pending.set(requested, { resolve, reject, timer });
+      });
       if (socket?.readyState === WebSocket.OPEN)
         socket.send(JSON.stringify({ ...presence, revision }));
       return applied;
@@ -104,6 +129,7 @@ export const createSocialSocket = (
     stop(): void {
       stopped = true;
       clearTimeout(retry);
+      failPending('Presence connection stopped');
       socket?.close();
       socket = undefined;
     },

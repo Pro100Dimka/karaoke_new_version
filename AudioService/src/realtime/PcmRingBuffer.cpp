@@ -199,8 +199,8 @@ std::uint32_t PcmRingBuffer::pop(std::span<float> output, std::uint32_t frames,
     return count;
 }
 
-void GenerationPcmRingBuffer::prepare(std::uint32_t capacityFrames, std::uint32_t channels) {
-    ring_.prepare(capacityFrames, channels);
+void GenerationPcmRingBuffer::prepare(std::uint32_t capacityFrames, std::uint32_t channels, bool trackFrameTimes) {
+    ring_.prepare(capacityFrames, channels, false, trackFrameTimes);
 }
 
 void GenerationPcmRingBuffer::reset(SourceGenerationId generation) noexcept {
@@ -209,21 +209,22 @@ void GenerationPcmRingBuffer::reset(SourceGenerationId generation) noexcept {
 }
 
 bool GenerationPcmRingBuffer::push(SourceGenerationId generation, std::span<const float> samples,
-                                   std::uint32_t frames) noexcept {
+                                   std::uint32_t frames, std::span<const MonotonicTicks> frameTimes) noexcept {
     if (!ring_.enter())
         return false;
     // Check identity under the same lease that protects publication from reset.
     const auto accepted = generation == generation_.load(std::memory_order_acquire) &&
-                          ring_.pushAvailable(samples, frames) &&
+                          ring_.pushAvailable(samples, frames, 1, nullptr, frameTimes) &&
                           generation == generation_.load(std::memory_order_acquire);
     ring_.leave();
     return accepted;
 }
 
-std::uint32_t GenerationPcmRingBuffer::pop(std::span<float> output, std::uint32_t frames) noexcept {
+std::uint32_t GenerationPcmRingBuffer::pop(std::span<float> output, std::uint32_t frames,
+                                          std::span<MonotonicTicks> frameTimes) noexcept {
     const auto generation = generation_.load(std::memory_order_acquire);
     const auto epoch = ring_.epoch();
-    const auto count = ring_.pop(output, frames);
+    const auto count = ring_.pop(output, frames, {}, nullptr, frameTimes);
     if (generation != generation_.load(std::memory_order_acquire) || epoch != ring_.epoch()) {
         std::fill_n(output.data(), static_cast<std::size_t>(count) * ring_.channels(), 0.0F);
         return 0;

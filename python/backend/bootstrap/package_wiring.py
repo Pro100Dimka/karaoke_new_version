@@ -26,6 +26,7 @@ def build_package_cases(
         runtime.database,
         archive,
         PackageSecurityValidator(runtime.config.packages),
+        project.projects,
     )
     export = _package_export(runtime, project, processing, archive)
     publication = PackageProjectPublication(

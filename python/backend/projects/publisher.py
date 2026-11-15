@@ -76,6 +76,7 @@ class ProjectPublisher:
             melody,
             lyrics,
             provenance,
+            expected_revision,
         )
         entry = self._journal.begin(
             RecoveryOperation.PROJECT_PUBLISH,
@@ -111,6 +112,7 @@ class ProjectPublisher:
         melody: Path,
         lyrics: LyricsDocument,
         provenance: Mapping[str, object],
+        source_revision: int,
     ) -> tuple[ProjectManifest, Path]:
         runner, cancel = ProcessRunner(), threading.Event()
         instrumental, reference_vocal, melody = (
@@ -125,12 +127,14 @@ class ProjectPublisher:
             melody,
             lyrics_text,
             provenance,
+            source_revision,
         )
         working = self._storage.stage_revision(
             song_id,
             revision,
             self._audio_files(instrumental, reference_vocal, melody),
             self._text_files(lyrics_text, manifest),
+            base_revision=source_revision,
         )
         self._validator.validate_working(manifest, working, require_ready=True)
         return manifest, working
@@ -212,8 +216,16 @@ class ProjectPublisher:
         melody: Path,
         lyrics_text: str,
         provenance: Mapping[str, object],
+        source_revision: int,
     ) -> ProjectManifest:
         artifacts = self._artifacts(instrumental, reference_vocal, melody, lyrics_text)
+        previous = self._storage.load_manifest(song_id, source_revision)
+        names = {artifact.logical_name for artifact in artifacts}
+        artifacts += tuple(
+            artifact
+            for artifact in previous.artifacts
+            if artifact.category is ArtifactCategory.PORTABLE and artifact.logical_name not in names
+        )
         return ProjectManifest(PROJECT_FORMAT_VERSION, song_id, revision, artifacts, provenance)
 
     def _artifacts(

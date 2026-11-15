@@ -23,7 +23,8 @@ void AnalysisEngine::wakeWorker() noexcept {
 void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
                              std::uint32_t queueFrames, GenerationId generation) {
     stopWorker();
-    queue_.prepare(queueFrames, channels, false, true);
+    queue_.prepare(queueFrames, channels, true);
+    queue_.reset(SourceGenerationId{generation.value()});
     {
         std::lock_guard lock(pitchMutex_);
         pitchHistory_.clear();
@@ -42,9 +43,9 @@ void AnalysisEngine::prepare(std::uint32_t channels, std::uint32_t sampleRateHz,
 }
 
 void AnalysisEngine::setGeneration(GenerationId generation) noexcept {
-    generation_.store(generation, std::memory_order_release);
-    queue_.clear();
     std::lock_guard lock(pitchMutex_);
+    queue_.reset(SourceGenerationId{generation.value()});
+    generation_.store(generation, std::memory_order_release);
     pitchHistory_.clear();
     pitchHz_.store(0.0F, std::memory_order_relaxed);
 }
@@ -64,7 +65,7 @@ void AnalysisEngine::push(GenerationId generation, std::span<const float> sample
     }
     for (std::uint32_t frame = 0; frame < frames; ++frame)
         captureTimes_[frame] = capturedAt == 0 ? 0 : capturedAt + static_cast<MonotonicTicks>(frame) * 1'000'000'000 / rate;
-    if (!queue_.push(samples, frames, 1, nullptr, {captureTimes_.data(), frames})) {
+    if (!queue_.push(SourceGenerationId{generation.value()}, samples, frames, {captureTimes_.data(), frames})) {
         droppedFrames_.fetch_add(frames, std::memory_order_relaxed);
         return;
     }
@@ -221,7 +222,7 @@ void AnalysisEngine::workerMain() noexcept {
 
         const auto offset = static_cast<std::size_t>(retainedFrames) * channels;
         const auto frames = queue_.pop(std::span<float>{scratch}.subspan(offset), neededFrames,
-                                      {}, nullptr, std::span<MonotonicTicks>{captureTimes}.subspan(retainedFrames));
+                                      std::span<MonotonicTicks>{captureTimes}.subspan(retainedFrames));
         if (workGeneration != generation_.load(std::memory_order_acquire)) {
             staleFrames_.fetch_add(frames, std::memory_order_relaxed);
             continue;

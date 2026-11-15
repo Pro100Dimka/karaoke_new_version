@@ -54,6 +54,13 @@ void WavWriter::write(std::span<const float> samples) {
         samples.size() > (maximumDataBytes - dataBytes_) / sampleBytes)
         throw std::length_error("recording exceeds the RIFF WAV size limit");
     if (floatingCapture_) {
+        std::vector<float> sanitized;
+        if (std::ranges::any_of(samples, [](float sample) { return !std::isfinite(sample); })) {
+            sanitized.assign(samples.begin(), samples.end());
+            for (auto& sample : sanitized)
+                if (!std::isfinite(sample)) sample = 0.0F;
+            samples = sanitized;
+        }
         for (const auto sample : samples)
             peak_ = std::max(peak_, std::abs(sample));
         const auto bytes = samples.size_bytes();
