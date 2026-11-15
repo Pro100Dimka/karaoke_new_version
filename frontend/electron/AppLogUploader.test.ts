@@ -24,6 +24,25 @@ it('sends explicit error reports with redacted recent logs after periodic flushi
   expect(entries.every((entry) => entry.message.includes(id))).toBe(true);
   expect(entries.some((entry) => entry.source === 'python')).toBe(true);
   expect(JSON.stringify(entries)).not.toContain('private-token');
+  send.mockClear();
+  logs.addSnapshot(
+    'audio-diagnostics',
+    'SessionState: Running\n'.repeat(300) +
+      'Authorization: Bearer private-token\nLastFailureMessage: output failed',
+  );
+  await logs.flush();
+  const snapshots = send.mock.calls.flatMap(([batch]) => batch);
+  expect(snapshots.length).toBeGreaterThan(1);
+  expect(
+    snapshots.every(
+      (entry) =>
+        entry.source === 'audio-diagnostics' && entry.message.length <= 4096,
+    ),
+  ).toBe(true);
+  expect(JSON.stringify(snapshots)).not.toContain('private-token');
+  expect(snapshots.at(-1)?.message).toContain(
+    'LastFailureMessage: output failed',
+  );
 });
 
 it('does not claim an explicit report was sent when uploading fails', async () => {

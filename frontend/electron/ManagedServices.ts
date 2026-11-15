@@ -83,6 +83,8 @@ const pythonExecutable = (): string => {
 export class ManagedServices {
   private python: ServiceProcess | null = null;
   private audio: ServiceProcess | null = null;
+  private diagnosticsEnabled = false;
+  private capturingDiagnostics = false;
 
   constructor(
     private readonly backendEndpoint: BackendEndpoint,
@@ -91,12 +93,48 @@ export class ManagedServices {
       level: string,
       data: Buffer,
     ) => void = () => undefined,
+    private readonly diagnostics?: (text: string) => void,
   ) {}
+
+  async captureAudioDiagnostics(reason: string): Promise<void> {
+    if (!this.diagnosticsEnabled || !this.audio || this.capturingDiagnostics)
+      return;
+    this.capturingDiagnostics = true;
+    try {
+      const response = await sendAudioRequest(
+        { command: 'GetDiagnostics' },
+        1000,
+      );
+      if (this.diagnosticsEnabled)
+        this.diagnostics?.(
+          JSON.stringify({
+            version: app.getVersion(),
+            reason,
+            status: response.status,
+            diagnostics: response.text,
+          }),
+        );
+    } catch (error) {
+      if (this.diagnosticsEnabled)
+        this.log(
+          'audio-service',
+          'error',
+          Buffer.from(
+            `Audio diagnostics unavailable (${reason}): ${String(error)}\n`,
+          ),
+        );
+    } finally {
+      this.capturingDiagnostics = false;
+    }
+  }
 
   start(dataRoot: string): void {
     const files = environmentFiles(dataRoot);
     seedEnvironmentFiles(files);
-    setServerLogUploadsDisabled(serverLogUploadsDisabled(dataRoot));
+    const uploadsDisabled = serverLogUploadsDisabled(dataRoot);
+    setServerLogUploadsDisabled(uploadsDisabled);
+    this.diagnosticsEnabled =
+      !uploadsDisabled && this.diagnostics !== undefined;
     const executablePath = app.isPackaged
       ? `${path.join(process.resourcesPath, 'tools')}${path.delimiter}${process.env.PATH ?? ''}`
       : process.env.PATH;
@@ -145,16 +183,21 @@ export class ManagedServices {
       path.dirname(executable),
       process.env,
       {
-        exited: (code, signal) =>
+        exited: (code, signal) => {
           this.log(
             'audio-service',
             'error',
             Buffer.from(
               `AudioService exited unexpectedly: code=${code}, signal=${signal}; automatic restart scheduled\n`,
             ),
-          ),
+          );
+          void this.captureAudioDiagnostics('process-exited');
+        },
         stdout: (data) => this.log('audio-service', 'info', data),
-        stderr: (data) => this.log('audio-service', 'error', data),
+        stderr: (data) => {
+          this.log('audio-service', 'error', data);
+          void this.captureAudioDiagnostics('stderr');
+        },
       },
     );
     this.audio.start();
@@ -162,6 +205,7 @@ export class ManagedServices {
 
   /** Ends both at once, for a process that is exiting anyway. */
   stop(): void {
+    this.diagnosticsEnabled = false;
     const services = [this.audio, this.python];
     this.audio = null;
     this.python = null;
@@ -170,6 +214,7 @@ export class ManagedServices {
 
   /** Asks each to shut down cleanly (AudioService leaves the room voice first), then ends them. */
   async stopGracefully(): Promise<void> {
+    this.diagnosticsEnabled = false;
     const { audio, python } = this;
     await Promise.allSettled([
       audio?.stop(() => sendAudioRequest({ command: 'ShutdownService' })),

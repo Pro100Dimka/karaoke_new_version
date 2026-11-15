@@ -99,8 +99,10 @@ appLogs.captureConsole(console);
 trustedIpc.handle(ipcChannels.sendErrorReport, (_event, text: unknown) =>
   appLogs.sendReport(requireString(text, 'report')),
 );
-const services = new ManagedServices(backendEndpoint, (source, level, data) =>
-  appLogs.write(source, level, data),
+const services = new ManagedServices(
+  backendEndpoint,
+  (source, level, data) => appLogs.write(source, level, data),
+  (text) => appLogs.addSnapshot('audio-diagnostics', text),
 );
 const storageRoot = () => backendDataRoot || configuredStorageRoot();
 
@@ -213,7 +215,11 @@ const openMainWindow = (roomParticipant: string): void => {
     rendererUrl,
     trustedIpc,
     roomParticipant,
-    log: (source, level, message) => appLogs.add(source, level, message),
+    log: (source, level, message) => {
+      appLogs.add(source, level, message);
+      if (['error', 'critical'].includes(level.toLowerCase()))
+        void services.captureAudioDiagnostics(`${source}-error`);
+    },
     closeConfirmed: () => closeConfirmed,
     closeToTray: () => trayRadio.closeToTray(),
     reveal: revealMainWindow,
@@ -245,6 +251,7 @@ registerServiceIpc(
   trustedIpc,
   backendEndpoint,
   createKeyboardLightingProvider(),
+  (reason) => void services.captureAudioDiagnostics(reason),
 );
 
 // One instance owns the services and the audio pipe; a second launch must not kill them, it only focuses the window.

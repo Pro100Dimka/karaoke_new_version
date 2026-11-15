@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events';
 import type { IpcMainInvokeEvent } from 'electron';
 import { expect, it, vi } from 'vitest';
 import { registerServiceIpc } from './ServiceIpc';
+import { sendAudioRequest } from './AudioServiceTransport';
 import { ipcChannels } from './ipcChannels';
 import type { TrustedIpc } from './TrustedIpc';
 
@@ -13,7 +14,7 @@ vi.mock('./AudioServiceTransport', () => ({
 vi.mock('./RoomServerTransport', () => ({}));
 vi.mock('./SocialIdentity', () => ({}));
 
-it('keeps audio streams through iframe loads and hash navigation, but releases them on renderer replacement', () => {
+it('keeps audio streams through hash navigation and reports only audio command failures', async () => {
   const handlers = new Map<string, Parameters<TrustedIpc['handle']>[1]>();
   const ipc: TrustedIpc = {
     handle: (channel, listener) => {
@@ -28,10 +29,12 @@ it('keeps audio streams through iframe loads and hash navigation, but releases t
   const event = { sender } as unknown as IpcMainInvokeEvent;
   const stop = vi.fn();
   subscribe.mockReturnValue(stop);
+  const audioEvent = vi.fn();
   registerServiceIpc(
     ipc,
     {} as Parameters<typeof registerServiceIpc>[1],
     {} as Parameters<typeof registerServiceIpc>[2],
+    audioEvent,
   );
   const listen = () =>
     handlers.get(ipcChannels.audioSubscribe)!(event, {
@@ -57,4 +60,18 @@ it('keeps audio streams through iframe loads and hash navigation, but releases t
   listen();
   sender.emit('destroyed');
   expect(stop).toHaveBeenCalledTimes(2);
+  const request = handlers.get(ipcChannels.audioRequest)!;
+  vi.mocked(sendAudioRequest).mockResolvedValueOnce({
+    status: 1,
+    text: 'output failed',
+  });
+  await request(event, { command: 'Play' });
+  expect(audioEvent).toHaveBeenLastCalledWith('command-failed:Play');
+  audioEvent.mockClear();
+  vi.mocked(sendAudioRequest).mockResolvedValueOnce({
+    status: 0,
+    text: 'Playing',
+  });
+  await request(event, { command: 'Play' });
+  expect(audioEvent).not.toHaveBeenCalled();
 });

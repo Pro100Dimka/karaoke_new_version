@@ -12,6 +12,10 @@ const mocks = vi.hoisted(() => ({
   frontendEnv: '',
   files: new Map<string, string>(),
   setServerLogUploadsDisabled: vi.fn(),
+  audioRequest: vi.fn(async () => ({
+    status: 0,
+    text: 'SessionState: Running\nPlaybackState: 3\n',
+  })),
 }));
 
 vi.mock('electron', () => ({
@@ -20,6 +24,7 @@ vi.mock('electron', () => ({
       return mocks.packaged;
     },
     getPath: () => 'C:/Users/test/AppData/Roaming/AD Voice',
+    getVersion: () => '1.1.38',
   },
 }));
 vi.mock('node:fs', () => ({
@@ -40,6 +45,9 @@ vi.mock('./RoomServerTransport', () => ({
   leaveRoomVoice: vi.fn(),
   setServerLogUploadsDisabled: mocks.setServerLogUploadsDisabled,
 }));
+vi.mock('./AudioServiceTransport', () => ({
+  sendAudioRequest: mocks.audioRequest,
+}));
 vi.mock('./AppPaths', () => ({
   audioExecutable: () => 'D:/app/AudioService.exe',
   projectRoot: () => 'D:/app',
@@ -57,6 +65,9 @@ vi.mock('./ServiceProcess', () => ({
       mocks.services.push({ command, env, observer });
     }
     start() {}
+    stop() {
+      return Promise.resolve();
+    }
   },
 }));
 
@@ -66,6 +77,7 @@ afterEach(() => {
   mocks.services.length = 0;
   mocks.files.clear();
   mocks.setServerLogUploadsDisabled.mockReset();
+  mocks.audioRequest.mockClear();
   vi.unstubAllEnvs();
   Reflect.deleteProperty(process, 'resourcesPath');
 });
@@ -120,11 +132,13 @@ it('applies a bundled log opt-out on the first packaged launch after seeding fro
   expect(mocks.setServerLogUploadsDisabled).toHaveBeenCalledWith(true);
 });
 
-it('sends Python and AudioService stdout and stderr to the log without losing backend readiness', async () => {
+it('sends service output and automatic audio diagnostics without losing backend readiness', async () => {
   const { ManagedServices } = await import('./ManagedServices');
   const endpoint = { started: vi.fn(), stopped: vi.fn(), stdout: vi.fn() };
   const log = vi.fn();
-  new ManagedServices(endpoint as never, log).start('D:/data');
+  const diagnostics = vi.fn();
+  const services = new ManagedServices(endpoint as never, log, diagnostics);
+  services.start('D:/data');
   const python = mocks.services.find(
     (service) => service.command !== 'D:/app/AudioService.exe',
   );
@@ -141,4 +155,16 @@ it('sends Python and AudioService stdout and stderr to the log without losing ba
     ['audio-service', 'error', failed],
   ]);
   expect(python?.env.PYTHONIOENCODING).toBe('utf-8');
+  await services.captureAudioDiagnostics('command-failed:Play');
+  expect(mocks.audioRequest).toHaveBeenCalledWith(
+    { command: 'GetDiagnostics' },
+    1000,
+  );
+  expect(diagnostics).toHaveBeenCalledOnce();
+  expect(JSON.parse(diagnostics.mock.calls[0]![0])).toMatchObject({
+    reason: 'stderr',
+    status: 0,
+    diagnostics: 'SessionState: Running\nPlaybackState: 3\n',
+  });
+  services.stop();
 });

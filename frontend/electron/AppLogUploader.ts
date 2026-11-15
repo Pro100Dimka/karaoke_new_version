@@ -204,6 +204,18 @@ export class AppLogUploader {
     if (this.recent.length > 60) this.recent.shift();
   }
 
+  addSnapshot(source: string, text: string): void {
+    const id = randomUUID();
+    const report = redact(text);
+    const parts = Math.ceil(report.length / 3000);
+    for (let index = 0; index < parts; index++)
+      this.add(
+        source,
+        'error',
+        `${id} (${index + 1}/${parts})\n${report.slice(index * 3000, (index + 1) * 3000)}`,
+      );
+  }
+
   /** Explicit reports keep recent service logs even after the periodic upload consumed them. */
   async sendReport(text: string): Promise<string> {
     if (serverLogUploadsDisabled())

@@ -60,6 +60,7 @@ const errorMessage = (error: unknown, fallback: string): string =>
 const registerBackendRequests = (
   trustedIpc: TrustedIpc,
   backendEndpoint: BackendEndpoint,
+  audioEvent: (reason: string) => void,
 ) => {
   const subscriptions = new Map<string, () => void>();
   const stopNotifications = () => {
@@ -120,8 +121,10 @@ const registerBackendRequests = (
         : undefined;
     try {
       const response = await sendAudioRequest({ command, args });
-      if (response.status !== 0)
+      if (response.status !== 0) {
         console.error(`AudioService ${command} failed: ${response.text}`);
+        audioEvent(`command-failed:${command}`);
+      }
       if (command === 'GetDiagnostics' && response.status === 0)
         return {
           ...response,
@@ -132,6 +135,7 @@ const registerBackendRequests = (
       // The pipe does not exist until AudioService has finished starting; report that as an ordinary failed response.
       const text = `AudioService unavailable: ${errorMessage(error, 'AudioService is unreachable')}`;
       console.error(`AudioService ${command} failed: ${text}`);
+      audioEvent(`transport-failed:${command}`);
       return { status: -1, text };
     }
   });
@@ -203,8 +207,9 @@ export const registerServiceIpc = (
   trustedIpc: TrustedIpc,
   backendEndpoint: BackendEndpoint,
   keyboardLighting: ReturnType<typeof createKeyboardLightingProvider>,
+  audioEvent: (reason: string) => void = () => undefined,
 ): void => {
-  registerBackendRequests(trustedIpc, backendEndpoint);
+  registerBackendRequests(trustedIpc, backendEndpoint, audioEvent);
   registerRoomRequests(trustedIpc);
   registerKeyboardLighting(trustedIpc, keyboardLighting);
 };
