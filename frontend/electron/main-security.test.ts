@@ -46,6 +46,18 @@ const window = Object.assign(new EventEmitter(), {
 });
 let trustedRendererUrl = '';
 
+vi.mock('./AppLogUploader', () => ({
+  AppLogUploader: class {
+    captureConsole = vi.fn();
+    start = vi.fn();
+    stop = vi.fn().mockResolvedValue(undefined);
+    write = vi.fn();
+    add = vi.fn();
+    sendReport = vi.fn().mockResolvedValue(undefined);
+  },
+  sendAppLogs: vi.fn().mockResolvedValue(undefined),
+}));
+
 // The desktop shell (taskbar, tray, jump list, links, Discord, updates) has its own tests; here it stays out of the way.
 vi.mock('./DesktopLaunch', () => ({
   startDesktopLaunch: () => ({ secondLaunch: vi.fn(), stop: vi.fn() }),

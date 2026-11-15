@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 import tarfile
@@ -120,13 +121,20 @@ def deployment_sandbox(tmp_path: Path):
     proc = tmp_path / "proc"
     (proc / "123/task/123").mkdir(parents=True)
     script = (ROOT / "scripts/deploy-room-server.sh").read_text(encoding="utf-8")
-    for original_path, sandbox in (
-        ("/opt/karaoke-room-server", root),
-        ("/tmp", temporary),
-        ("/etc/systemd/system", config),
-        ("/proc", proc),
-    ):
-        script = script.replace(original_path, _bash_path(sandbox))
+    replacements = {
+        original_path: _bash_path(sandbox)
+        for original_path, sandbox in (
+            ("/opt/karaoke-room-server", root),
+            ("/tmp", temporary),
+            ("/etc/systemd/system", config),
+            ("/proc", proc),
+        )
+    }
+    script = re.sub(
+        "|".join(re.escape(p) for p in replacements),
+        lambda match: replacements[match.group()],
+        script,
+    )
     deployed_script = tmp_path / "deploy.sh"
     deployed_script.write_text(script, encoding="utf-8", newline="\n")
     state = tmp_path / "service-state"

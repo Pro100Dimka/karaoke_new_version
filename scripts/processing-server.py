@@ -234,17 +234,14 @@ def status(request: Request, job_id: str) -> dict[str, object]:
 
 @app.delete("/processing/jobs/{job_id}", status_code=204)
 def cancel(request: Request, job_id: str) -> Response:
-    row = job_for(request, job_id)
+    job_for(request, job_id)
     reserve_egress()
     with database() as db:
+        previous = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
         # The worker observes cancellation before another model step and during its subprocess.
         db.execute("UPDATE jobs SET state='cancelled' WHERE id=?", (job_id,))
-        previous = db.execute(
-            "SELECT reserved FROM jobs WHERE id=?", (job_id,)
-        ).fetchone()
-        if previous and row["state"] in ["queued", "done", "failed"]:
-            shutil.rmtree(ROOT / job_id, ignore_errors=True)
-            db.execute("UPDATE jobs SET reserved=0 WHERE id=?", (job_id,))
+        if previous and previous["state"] in ["queued", "done", "failed"]:
+            release_cancelled(db, job_id)
     return Response(status_code=204)
 
 
@@ -317,9 +314,16 @@ async def worker_result(request: Request, job_id: str) -> Response:
     reserve_egress()
     await upload(request, ROOT / job_id / "result.zip", size)
     with database() as db:
-        db.execute(
-            "UPDATE jobs SET state='done' WHERE id=? AND state='running'", (job_id,)
+        completed = (
+            db.execute(
+                "UPDATE jobs SET state='done' WHERE id=? AND state='running'", (job_id,)
+            ).rowcount
+            > 0
         )
+        if not completed:
+            release_cancelled(db, job_id)
+    if not completed:
+        raise HTTPException(409, "Processing job is no longer running")
     return Response(status_code=204)
 
 
@@ -333,7 +337,18 @@ def worker_failed(request: Request, job_id: str) -> Response:
             "WHERE id=? AND state='running'",
             (job_id,),
         )
+        state = db.execute("SELECT state FROM jobs WHERE id=?", (job_id,)).fetchone()
+        if state and state["state"] == "cancelled":
+            release_cancelled(db, job_id)
     return Response(status_code=204)
+
+
+def release_cancelled(db: sqlite3.Connection, job_id: str) -> None:
+    directory = ROOT / job_id
+    if directory.exists():
+        shutil.rmtree(directory)
+    db.execute("DELETE FROM progress WHERE job_id=?", (job_id,))
+    db.execute("UPDATE jobs SET reserved=0 WHERE id=?", (job_id,))
 
 
 if __name__ == "__main__":

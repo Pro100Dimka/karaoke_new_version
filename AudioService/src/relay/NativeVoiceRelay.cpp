@@ -70,9 +70,6 @@ double RelayDeadlineSlack::quantileMs(std::uint32_t permille) const noexcept {
     return (static_cast<double>(BinCount / 2U) - 1.0) * BinMilliseconds;
 }
 
-NativeVoiceRelay::NativeVoiceRelay(double collectionWindowMilliseconds)
-    : collectionWindowSeconds_(std::max(0.0, collectionWindowMilliseconds / 1'000.0)) {}
-
 std::uint32_t NativeVoiceRelay::participantKey(std::string_view participant) noexcept {
     std::uint32_t value = 2'166'136'261U;
     for (const auto character : participant) {
@@ -89,7 +86,11 @@ bool NativeVoiceRelay::expect(std::string room, std::string participant, std::ui
     if (participants_.contains(token) ||
         (existing != rooms_.end() && existing->second.members.contains(key)))
         return false;
-    Participant value{room, std::move(participant), key, token};
+    Participant value{};
+    value.room = room;
+    value.id = std::move(participant);
+    value.key = key;
+    value.token = token;
     participants_.emplace(token, std::move(value));
     rooms_[room].members.emplace(key, token);
     return true;
@@ -218,13 +219,6 @@ double NativeVoiceRelay::collectionAllowance(const Room& room) noexcept {
     return std::max(0.0, room.playoutDelaySeconds - room.returnReserveSeconds);
 }
 
-double NativeVoiceRelay::collectionWindow(const Room& room) const noexcept {
-    return room.playoutDelaySeconds * 1'000.0 > room_audio_contract::MaximumLiveDelayMilliseconds
-               ? std::max(collectionWindowSeconds_,
-                          room_audio_contract::ConversationCollectionBudgetMilliseconds / 1'000.0)
-               : collectionWindowSeconds_;
-}
-
 double NativeVoiceRelay::noIngressWindow(const Room& room) noexcept {
     return (room.playoutDelaySeconds * 1'000.0 > room_audio_contract::MaximumLiveDelayMilliseconds
                 ? room_audio_contract::ConversationNoIngressBudgetMilliseconds
@@ -303,17 +297,16 @@ std::vector<RelayDatagram> NativeVoiceRelay::receive(std::span<const std::byte> 
     auto participant = participants_.find(header.sessionToken);
     if (participant == participants_.end() || participant->second.key != header.participantKey)
         return {};
+    auto& room = rooms_[participant->second.room];
+    const auto mediaStart = header.timestampFrame & ~SharedAudioTimelineFlag;
+    if (room.latestInputEnd > mediaStart && room.latestInputEnd - mediaStart > TimelineRestartFrames)
+        return {};
     if (!participant->second.hasEndpoint)
         participant->second.lastProbeEcho = monotonicSeconds;
     participant->second.endpoint = std::move(source);
     participant->second.hasEndpoint = true;
     participant->second.lastPacketMonotonic = monotonicSeconds;
     participant->second.active = true;
-    auto& room = rooms_[participant->second.room];
-    const auto mediaStart = header.timestampFrame & ~SharedAudioTimelineFlag;
-    if (room.latestInputEnd != 0 &&
-        mediaStart + TimelineRestartFrames < room.latestInputEnd)
-        resetTimeline(room, true);
     room.latestInputEnd = std::max(room.latestInputEnd, mediaStart + header.frames);
     const auto arrivalLateness = wallSeconds - mediaSeconds(mediaStart);
     if (room.playoutDelaySeconds > 0.0) {

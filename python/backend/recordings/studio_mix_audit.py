@@ -142,13 +142,6 @@ def _audit_result(
     }
 
 
-def reference_voice_band_balance(
-    vocal: Path, backing: Path, *, block_frames: int = 16384
-) -> float | None:
-    result = reference_voice_band_distribution(vocal, backing, block_frames=block_frames)
-    return result["median"] if result else None
-
-
 def _seek_reference(
     v: sf.SoundFile, b: sf.SoundFile, time_range: tuple[float, float] | None
 ) -> int | None:

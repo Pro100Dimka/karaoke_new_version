@@ -33,6 +33,7 @@ export interface SongDto {
   id: string;
   sourcePath?: string;
   sourceHash?: string;
+  projectHash?: string;
   title: string;
   artist: string;
   album?: string;
@@ -66,6 +67,7 @@ export interface RoomSongDto {
   genre?: string;
   durationSeconds: number;
   sourceHash?: string;
+  projectHash?: string;
 }
 
 export interface ProcessingJobDto {

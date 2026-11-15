@@ -168,16 +168,7 @@ def update_song(song_id: str, body: UpdateSongDto, request: Request, app: Contai
 @router.get("/{song_id}/clip", name="song_clip")
 def get_song_clip(song_id: str, app: ContainerDep) -> FileResponse:
     song = app.songs.get_song.execute(song_id)
-    path = clip_path(song)
-    if path is None:
-        path = (
-            app.roots.songs
-            / song.song_id
-            / "revisions"
-            / str(song.active_revision)
-            / "media"
-            / "clip.mp4"
-        )
+    path = clip_path(song, app.roots.songs)
     if song.video_url != LOCAL_CLIP or path is None or not path.is_file():
         raise NotFoundError("ClipMissing", "Downloaded song clip is unavailable")
     return FileResponse(path, media_type="video/mp4", filename="clip.mp4")
@@ -191,6 +182,8 @@ def delete_song(song_id: str, app: ContainerDep) -> Response:
 
 def _song_dto(song: Song, request: Request) -> SongDto:
     result = song_dto(song)
+    app: ApplicationContainer = request.app.state.container
+    result.project_hash = app.songs.get_song.project_hash(song)
     if song.cover_path is not None or (song.artwork_url or "").startswith(("https://", "http://")):
         result.artwork_url = str(request.url_for("song_cover", song_id=song.song_id))
     if song.video_url == LOCAL_CLIP:

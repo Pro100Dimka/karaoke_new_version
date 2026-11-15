@@ -1533,11 +1533,11 @@ void performanceCompanionPreservesTheAlignedBacking() { checkPerformanceHeadroom
 
 void performanceHeadroomFinalizesAllOutputChannels() {
     RecordingEngine recording;
-    for (const auto level : {1.6F, 0.01F}) {
+    for (const auto [voice, level] : {std::pair{1.6F, 1.6F}, std::pair{0.01F, 0.01F}, std::pair{0.65F, 1.25F}}) {
         const auto path = tempRoot / ("headroom-six-channels-" + std::to_string(level) + ".wav");
         recording.prepare("six", path.string(), 48'000, 6, RecordingTap::PerformanceMix, 8192);
         recording.start(SessionFrame{0}, 0);
-        recording.observeVoicePeak(level);
+        recording.observeVoicePeak(voice);
         const std::vector<float> pcm(5000U * 6U, level);
         recording.push(GenerationId{0}, RecordingTap::PerformanceMix, SessionFrame{0}, pcm, 5000);
         const auto result = recording.stop(SessionFrame{5000});
@@ -1549,7 +1549,7 @@ void performanceHeadroomFinalizesAllOutputChannels() {
         std::vector<float> actual(pcm.size());
         expect(format.channels == 6 && format.totalFrames == 5000 && decoder.read(actual, 5000) == 5000,
                "every output channel and frame survives headroom finalization");
-        const auto expected = std::min(level, 0.70794578F);
+        const auto expected = voice == level ? std::min(level, 0.70794578F) : 0.999F;
         expect(std::ranges::all_of(actual, [expected](float value) { return std::abs(value - expected) < 0.0001F; }),
                "loud voice is attenuated; a new quiet take neither inherits the old gain nor amplifies noise");
     }

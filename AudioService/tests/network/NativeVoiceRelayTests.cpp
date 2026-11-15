@@ -563,7 +563,7 @@ void nativeVoiceRelayClearsOldPositionsWhenTheGenerationChanges() {
 }
 
 void nativeVoiceRelayClosesPartialPositionsAtTheFixedDeadline() {
-    NativeVoiceRelay relay(8.0);
+    NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
@@ -712,7 +712,7 @@ void nativeVoiceRelayKeepsSingingInputsUntilTheAuthoritativeDeadline() {
 }
 
 void nativeVoiceRelayBoundsPartialCollectionForManySingers() {
-    NativeVoiceRelay relay(8.0);
+    NativeVoiceRelay relay;
     relay.expect("room", "alice", 0x1111);
     relay.expect("room", "bob", 0x2222);
     relay.expect("room", "carol", 0x3333);
@@ -1000,7 +1000,7 @@ void nativeVoiceRelayReleasesOrderedSingingMixesAtTheFixedDeadline() {
 }
 
 void nativeVoiceRelayClosesDuePositionsWhileOtherIngressContinues() {
-    NativeVoiceRelay relay(8.0);
+    NativeVoiceRelay relay;
     configureTwoSingerRoom(relay);
     relay.setRoomPlayoutDelay("room", 80.0);
     const RelayEndpoint alice{"10.0.0.1", 41001};
@@ -1311,6 +1311,11 @@ void nativeVoiceRelayStartsANewGenerationAfterABackwardSeek() {
     (void)relay.receive(packet("bob", 0x2222, 1, oldPosition, 1'000), bob, 10.001, 3.001);
 
     constexpr auto seekPosition = 24'000U;
+    (void)relay.receive(packet("alice", 0x1111, 2, seekPosition, 200), alice, 10.002, 3.002);
+    const auto duplicate = relay.receive(packet("bob", 0x2222, 2, oldPosition, 1'000), bob, 10.003, 3.003);
+    expect(serverMixPackets(duplicate) == 0,
+           "one stale packet cannot reset the room or replay an already mixed position");
+    relay.setGeneration("room", 2);
     (void)relay.receive(packet("alice", 0x1111, 2, seekPosition, 200), alice, 10.002, 0.5);
     const auto output = relay.receive(
         packet("bob", 0x2222, 2, seekPosition, 2'000), bob, 10.003, 0.503);

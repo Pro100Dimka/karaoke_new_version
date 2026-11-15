@@ -228,20 +228,6 @@ bool applyControl(NativeVoiceRelay& relay, std::string_view line) {
     return values[0] == "PING";
 }
 
-std::optional<std::string> environment(std::string_view name) {
-#ifdef _WIN32
-    char* value = nullptr;
-    std::size_t length = 0;
-    if (_dupenv_s(&value, &length, std::string(name).c_str()) != 0 || value == nullptr)
-        return std::nullopt;
-    std::string result(value);
-    std::free(value);
-    return result;
-#else
-    const auto* value = std::getenv(std::string(name).c_str());
-    return value == nullptr ? std::nullopt : std::optional<std::string>{value};
-#endif
-}
 } // namespace
 
 int main(int argc, char** argv) {
@@ -256,13 +242,7 @@ int main(int argc, char** argv) {
             throw std::runtime_error("Usage: NativeVoiceRelay [--port PORT]");
         }
 
-        auto collectionWindowMilliseconds = room_audio_contract::CollectionBudgetMilliseconds;
-        if (const auto configured = environment("AD_VOICE_RELAY_COLLECTION_WINDOW_MS")) {
-            std::istringstream input(*configured);
-            if (!(input >> collectionWindowMilliseconds) || collectionWindowMilliseconds < 0.0)
-                throw std::runtime_error("Invalid AD_VOICE_RELAY_COLLECTION_WINDOW_MS");
-        }
-        NativeVoiceRelay relay(collectionWindowMilliseconds);
+        NativeVoiceRelay relay;
         RelaySocket socket(port);
         std::mutex relayMutex;
         std::atomic running{true};

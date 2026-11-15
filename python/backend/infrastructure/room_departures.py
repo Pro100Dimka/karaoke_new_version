@@ -21,7 +21,7 @@ class RoomDepartures:
 
     def __init__(
         self,
-        leave: Callable[[str, str], None],
+        leave: Callable[[str, str, str], None],
         online: Callable[[str], bool],
         grace_seconds: float,
         wait: Callable[[float], Awaitable[None]] = asyncio.sleep,
@@ -55,7 +55,7 @@ class RoomDepartures:
         if self._online(account_id):
             return
         try:
-            await anyio.to_thread.run_sync(self._leave, room_id, participant_id)
+            await anyio.to_thread.run_sync(self._leave, room_id, participant_id, account_id)
         except DomainError:
             return  # the room closed or the participant left meanwhile
         logger.info(

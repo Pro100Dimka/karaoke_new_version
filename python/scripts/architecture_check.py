@@ -12,7 +12,6 @@ MAX_FILE_LINES = 500
 MAX_FUNCTION_LINES = 40
 MAX_CONSTRUCTOR_DEPENDENCIES = 9
 WARNING_FILE_LINES = 300
-WARN_FUNCTION_LINES = 30
 MAX_BRANCH_NODES = 12
 _ALLOWED_ANY = {"backend/serialization.py"}
 _ALLOWED_SUBPROCESS = {"backend/infrastructure/process_runner.py"}
@@ -100,19 +99,6 @@ def check_project() -> list[str]:
     errors.extend(_layout_checks())
     errors.extend(_test_checks())
     return errors
-
-
-def check_warnings() -> list[str]:
-    warnings: list[str] = []
-    for path in BACKEND_ROOT.rglob("*.py"):
-        relative = path.relative_to(PROJECT_ROOT).as_posix()
-        text = path.read_text(encoding="utf-8")
-        lines = text.splitlines()
-        if len(lines) > WARNING_FILE_LINES:
-            warnings.append(f"{relative}: {len(lines)} lines requires responsibility review")
-        tree = ast.parse(text, filename=str(path))
-        warnings.extend(_size_and_dependency_warnings(relative, tree))
-    return warnings
 
 
 def _modules() -> dict[str, Path]:
@@ -370,25 +356,6 @@ def _base_name(node: ast.expr) -> str:
     return ""
 
 
-def _size_and_dependency_warnings(relative: str, tree: ast.Module) -> list[str]:
-    warnings: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            size = (node.end_lineno or node.lineno) - node.lineno + 1
-            if size > WARN_FUNCTION_LINES:
-                warnings.append(
-                    f"{relative}:{node.lineno}: {node.name} has {size} lines; review responsibility"
-                )
-            if node.name == "__init__":
-                arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
-                count = sum(argument.arg not in {"self", "cls"} for argument in arguments)
-                if count > MAX_CONSTRUCTOR_DEPENDENCIES:
-                    warnings.append(
-                        f"{relative}:{node.lineno}: constructor has {count} dependencies"
-                    )
-    return warnings
-
-
 def _layout_checks() -> list[str]:
     errors: list[str] = []
     present = {
@@ -419,7 +386,7 @@ def _test_checks() -> list[str]:
     missing = sorted(_REQUIRED_TEST_FILES - present)
     if missing:
         errors.append(f"required contract/fault tests are missing: {missing}")
-    ci = PROJECT_ROOT / ".github" / "workflows" / "ci.yml"
+    ci = PROJECT_ROOT.parent / ".github" / "workflows" / "ci.yml"
     if not ci.exists():
         errors.append(".github/workflows/ci.yml is required")
     elif "--require-dev-tools" not in ci.read_text(encoding="utf-8"):

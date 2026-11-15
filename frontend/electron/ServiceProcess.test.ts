@@ -139,7 +139,12 @@ describe('service process lifecycle', () => {
     expect(processMocks.spawnSync).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     await stopping;
-    expect(processMocks.spawnSync).toHaveBeenCalledTimes(1);
+    if (process.platform === 'win32') {
+      expect(processMocks.spawnSync).toHaveBeenCalledTimes(1);
+    } else {
+      expect(child.kill).toHaveBeenCalledOnce();
+      expect(processMocks.spawnSync).not.toHaveBeenCalled();
+    }
     expect(vi.getTimerCount()).toBe(0);
   });
   beforeEach(() => {
@@ -185,11 +190,16 @@ describe('service process lifecycle', () => {
     service.start();
     service.stop();
 
-    expect(processMocks.spawnSync).toHaveBeenCalledWith(
-      'taskkill',
-      ['/pid', '303', '/T', '/F'],
-      { windowsHide: true },
-    );
+    if (process.platform === 'win32') {
+      expect(processMocks.spawnSync).toHaveBeenCalledWith(
+        'taskkill',
+        ['/pid', '303', '/T', '/F'],
+        { windowsHide: true },
+      );
+    } else {
+      expect(child.kill).toHaveBeenCalledOnce();
+      expect(processMocks.spawnSync).not.toHaveBeenCalled();
+    }
   });
 
   describe('crash restart backoff', () => {

@@ -393,7 +393,7 @@ void PitchShiftProcessor::process(std::span<float> samples, std::uint32_t frames
     // At 100% this is the deliberate Cher/T-Pain hard-tune sound. Lower knob values
     // lengthen the retune time so the same control can still be used more gently.
     const auto retuneSeconds = 0.050F - 0.0499F * amount;
-    const auto smoothing = 1.0F - std::exp(-1.0F / (retuneSeconds * sampleRateHz_));
+    const auto smoothing = 1.0F - std::exp(-1.0F / (retuneSeconds * static_cast<float>(sampleRateHz_)));
     const auto window =
         static_cast<double>(shortDelay_ ? pitchWindowFrames(amount) : latencyFrames());
     // Each sample is written before the taps are read. One frame of lookbehind keeps both

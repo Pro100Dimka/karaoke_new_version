@@ -42,7 +42,7 @@ class UpdateSong:
             if song is None:
                 raise NotFoundError("SongNotFound", "Song was not found", songId=song_id)
             updated = self._apply(song, request)
-            transaction.songs.update(updated)
+            updated = transaction.songs.update_metadata(updated)
             transaction.commit()
         return updated
 
@@ -65,7 +65,7 @@ class UpdateSong:
                 user_overrides=frozenset(overrides),
                 updated_at=self._clock.now(),
             )
-            transaction.songs.update(updated)
+            updated = transaction.songs.update_metadata(updated)
             transaction.commit()
         return updated
 

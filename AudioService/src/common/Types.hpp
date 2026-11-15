@@ -242,15 +242,3 @@ inline MonotonicTicks monotonicTicksNow() noexcept {
                std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }
-
-inline std::uint32_t nearestSupported(std::uint32_t requested,
-                                      const std::vector<std::uint32_t>& supported,
-                                      std::uint32_t fallback) {
-    if (supported.empty())
-        return fallback;
-    return *std::min_element(supported.begin(), supported.end(), [requested](auto a, auto b) {
-        const auto da = a > requested ? a - requested : requested - a;
-        const auto db = b > requested ? b - requested : requested - b;
-        return da < db;
-    });
-}

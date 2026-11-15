@@ -15,6 +15,7 @@ interface DownloadOptions {
   attemptTimeoutMilliseconds?: number;
   signal?: AbortSignal;
   cancel?: () => void;
+  hasProgress?: () => boolean;
 }
 
 const activeTransferReadiness = new Set<
@@ -111,6 +112,7 @@ export const downloadAvailableRoomProject = async (
             };
             options.signal?.addEventListener('abort', onAbort, { once: true });
             timeout = setTimeout(() => {
+              if (options.hasProgress?.()) return;
               options.cancel?.();
               reject(
                 new Error(

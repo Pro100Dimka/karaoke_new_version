@@ -100,6 +100,39 @@ describe('room model', () => {
     expect(
       localReadiness(target, [{ id: 's', status: 'ready', activeRevision: 2 }]),
     ).toBe('Ready');
+    const project = {
+      ownerParticipantId: 'a',
+      songId: 's',
+      revision: 2,
+      title: 'S',
+      artist: 'A',
+      durationSeconds: 1,
+      sourceHash: 'a'.repeat(64),
+      projectHash: 'b'.repeat(64),
+    };
+    const shared = { ...target, sharedSongs: [project] };
+    expect(
+      localReadiness(shared, [
+        {
+          id: 'local',
+          status: 'ready',
+          activeRevision: 7,
+          sourceHash: project.sourceHash,
+          projectHash: 'c'.repeat(64),
+        },
+      ]),
+    ).toBe('MissingSong');
+    expect(
+      localReadiness(shared, [
+        {
+          id: 'local',
+          status: 'ready',
+          activeRevision: 7,
+          sourceHash: project.sourceHash,
+          projectHash: project.projectHash,
+        },
+      ]),
+    ).toBe('Ready');
     expect(
       localReadiness(target, [{ id: 's', status: 'ready', activeRevision: 1 }]),
     ).toBe('MissingSong');

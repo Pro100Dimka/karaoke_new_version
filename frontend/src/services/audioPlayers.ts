@@ -58,6 +58,7 @@ export const createAudioPlayers = (
   let previewRecordingId: string | null = null;
   let previewOwner: symbol | undefined;
   let previewKind: 'recording' | 'song' = 'recording';
+  let previewServiceInstanceId: string | undefined;
   let previewGeneration = 0;
   const ownsPreview = (owner?: symbol) =>
     owner === undefined || owner === previewOwner;
@@ -121,12 +122,15 @@ export const createAudioPlayers = (
       throw new Error('Recording preparation is not complete');
     if (typeof filePath !== 'string')
       throw new Error('Recording file path is invalid');
-    const state = Number((await ops.diagnostics()).PreviewState ?? 0);
+    const values = await ops.diagnostics();
+    const state = Number(values.PreviewState ?? 0);
     assertCurrent();
     const loadRequired =
       previewRecordingId !== recordingId ||
       previewKind !== kind ||
-      state === finishedState;
+      [0, finishedState, failedState].includes(state) ||
+      (values.ServiceInstanceId !== undefined &&
+        values.ServiceInstanceId !== previewServiceInstanceId);
     if (loadRequired) {
       await ops.command('LoadRecordingPreview', { path: filePath });
       await waitFor(
@@ -138,6 +142,7 @@ export const createAudioPlayers = (
       );
       previewRecordingId = recordingId;
       previewKind = kind;
+      previewServiceInstanceId = values.ServiceInstanceId;
     }
     if (loadRequired || state !== playingState)
       await ops.command('PlayRecordingPreview');

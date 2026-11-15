@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import secrets
 
 # Letters and digits that cannot be misread for one another when a code is read aloud or retyped.
@@ -33,3 +34,9 @@ def normalize_code(value: str) -> str:
 def device_key(device_secret: str) -> str:
     """What the server keeps of a computer's secret: enough to recognise it, never to send it."""
     return hashlib.sha256(device_secret.encode()).hexdigest()
+
+
+def device_participant_id(device_secret: str) -> str:
+    """The same private device-to-room identity derivation used by the desktop profile."""
+    key = hmac.new(device_secret.encode(), b"ad-voice-room-key", hashlib.sha256).hexdigest()
+    return hashlib.sha256(f"ad-voice-room-participant:{key}".encode()).hexdigest()[:32]

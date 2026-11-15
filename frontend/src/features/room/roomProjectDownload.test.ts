@@ -6,11 +6,17 @@ import {
 } from '../../application/room/roomProjectDownload';
 
 describe('room project download', () => {
-  it('cancels the underlying IPC transfer on timeout', async () => {
-    const cancel = vi.fn();
-    await expect(
-      downloadAvailableRoomProject(
-        () => new Promise(() => {}),
+  it.each([false, true])(
+    'cancels only a transfer without progress (%s)',
+    async (started) => {
+      vi.useFakeTimers();
+      const cancel = vi.fn();
+      let finish!: (path: string) => void;
+      const outcome = downloadAvailableRoomProject(
+        () =>
+          new Promise<string>((resolve) => {
+            finish = resolve;
+          }),
         vi.fn(),
         {
           roomId: 'room',
@@ -18,11 +24,28 @@ describe('room project download', () => {
           songId: 'song',
           revision: 1,
         },
-        { attemptTimeoutMilliseconds: 1, cancel },
-      ),
-    ).rejects.toThrow('timed out');
-    expect(cancel).toHaveBeenCalledOnce();
-  });
+        { attemptTimeoutMilliseconds: 1, cancel, hasProgress: () => started },
+      ).then(
+        (path) => path,
+        (error: Error) => error,
+      );
+      try {
+        await vi.advanceTimersByTimeAsync(2);
+        finish('archive.zip');
+        if (started) {
+          expect(await outcome).toBe('archive.zip');
+          expect(cancel).not.toHaveBeenCalled();
+        } else {
+          expect(await outcome).toMatchObject({
+            message: expect.stringContaining('timed out'),
+          });
+          expect(cancel).toHaveBeenCalledOnce();
+        }
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
   it('stops retries when the room lifetime ends', async () => {
     const controller = new AbortController();
     const download = vi

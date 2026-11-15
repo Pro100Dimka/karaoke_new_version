@@ -115,47 +115,54 @@ const findIscc = readFileSync(
   'utf8',
 );
 
-test('public release ignores developer secrets and private bundling requires an explicit file', () => {
-  const root = mkdtempSync(join(tmpdir(), 'advoice-release-env-'));
-  try {
-    mkdirSync(join(root, 'python'));
-    mkdirSync(join(root, 'local-secrets', 'env'), { recursive: true });
-    const example = join(root, 'python', '.env.example');
-    const privateFile = join(root, 'local-secrets', 'env', 'python.env');
-    writeFileSync(example, '');
-    writeFileSync(privateFile, 'TEST_KEY=not-a-real-key\n');
-    const selector = join(root, 'select.bat');
-    writeFileSync(
-      selector,
-      release.slice(0, release.indexOf('cd /d "%ROOT%"')) +
-        '\necho SELECTED:%RELEASE_ENV%\nexit /b 0\n:fail\nexit /b 1\n',
-    );
-    const select = (args = []) =>
-      spawnSync(
-        process.env.ComSpec ?? 'cmd.exe',
-        ['/d', '/c', selector, ...args],
-        {
-          encoding: 'utf8',
-          windowsHide: true,
-          env: { ...process.env, AD_VOICE_ENV_FILE: privateFile },
-        },
+test(
+  'public release ignores developer secrets and private bundling requires an explicit file',
+  { skip: process.platform !== 'win32' },
+  () => {
+    const root = mkdtempSync(join(tmpdir(), 'advoice-release-env-'));
+    try {
+      mkdirSync(join(root, 'python'));
+      mkdirSync(join(root, 'local-secrets', 'env'), { recursive: true });
+      const example = join(root, 'python', '.env.example');
+      const privateFile = join(root, 'local-secrets', 'env', 'python.env');
+      writeFileSync(example, '');
+      writeFileSync(privateFile, 'TEST_KEY=not-a-real-key\n');
+      const selector = join(root, 'select.bat');
+      writeFileSync(
+        selector,
+        release.slice(0, release.indexOf('cd /d "%ROOT%"')) +
+          '\necho SELECTED:%RELEASE_ENV%\nexit /b 0\n:fail\nexit /b 1\n',
       );
-    const selected = (result) =>
-      result.stdout
-        .split(/\r?\n/)
-        .find((line) => line.startsWith('SELECTED:'))
-        ?.slice(9);
-    const publicBuild = select();
-    assert.equal(publicBuild.status, 0);
-    assert.equal(selected(publicBuild), example);
-    const privateBuild = select(['--private-env', privateFile]);
-    assert.equal(privateBuild.status, 0);
-    assert.equal(selected(privateBuild), privateFile);
-    assert.equal(select(['--private-env', join(root, 'absent.env')]).status, 1);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
+      const select = (args = []) =>
+        spawnSync(
+          process.env.ComSpec ?? 'cmd.exe',
+          ['/d', '/c', selector, ...args],
+          {
+            encoding: 'utf8',
+            windowsHide: true,
+            env: { ...process.env, AD_VOICE_ENV_FILE: privateFile },
+          },
+        );
+      const selected = (result) =>
+        result.stdout
+          .split(/\r?\n/)
+          .find((line) => line.startsWith('SELECTED:'))
+          ?.slice(9);
+      const publicBuild = select();
+      assert.equal(publicBuild.status, 0);
+      assert.equal(selected(publicBuild), example);
+      const privateBuild = select(['--private-env', privateFile]);
+      assert.equal(privateBuild.status, 0);
+      assert.equal(selected(privateBuild), privateFile);
+      assert.equal(
+        select(['--private-env', join(root, 'absent.env')]).status,
+        1,
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+);
 
 test('release uses an isolated native build and installs its compiler runtime', () => {
   assert.doesNotMatch(release, /-B "%AUDIO%\\build"/i);
@@ -196,8 +203,14 @@ test('the installed app bundles Electron, Python, AudioService and FFmpeg', () =
 });
 
 test('the installed app bundles the processing backend without the Kaggle payload', () => {
-  assert.match(release, /robocopy "%PYTHON%\\backend" "%RESOURCES%\\python-app\\backend"/i);
-  assert.doesNotMatch(release, /ad_voice_p100\.ipynb|ad_voice_server\.py|build_notebook\.py/i);
+  assert.match(
+    release,
+    /robocopy "%PYTHON%\\backend" "%RESOURCES%\\python-app\\backend"/i,
+  );
+  assert.doesNotMatch(
+    release,
+    /ad_voice_p100\.ipynb|ad_voice_server\.py|build_notebook\.py/i,
+  );
 });
 
 test('release cleanup leaves only the finished installer', () => {
@@ -260,7 +273,10 @@ test('release checks the isolated bundled runtime before building Setup', () => 
 });
 
 test('runtime verification includes the Oracle provider and processing PC worker', () => {
-  assert.match(runtimeVerifier, /"backend\.infrastructure\.oracle_ai_provider"/);
+  assert.match(
+    runtimeVerifier,
+    /"backend\.infrastructure\.oracle_ai_provider"/,
+  );
   assert.match(runtimeVerifier, /"backend\.remote_worker"/);
   assert.doesNotMatch(runtimeVerifier, /gradio_client|kaggle\.api/);
 });

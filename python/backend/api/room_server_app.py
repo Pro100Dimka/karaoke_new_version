@@ -114,7 +114,9 @@ def _room_cleanup(
         if room is None:
             projects.remove(room_id)
 
-    def leave(room_id: str, participant_id: str) -> None:
+    def leave(room_id: str, participant_id: str, account_id: str) -> None:
+        if social.accounts.owners((participant_id,)).get(participant_id) != account_id:
+            raise DomainError("RoomIdentityInvalid", "The participant owner has changed", 403)
         cases.leave.execute(room_id, participant_id)
 
     repository.listen(on_room)

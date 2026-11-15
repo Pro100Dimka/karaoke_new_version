@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -10,7 +11,11 @@ from backend.storage.domain import StorageRoots
 from tests.conftest import app_client, write_wav
 
 
-pytestmark = pytest.mark.integration
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.windows,
+    pytest.mark.skipif(os.name != "nt", reason="Recovery requires exclusive Windows file access"),
+]
 
 
 def test_startup_recovers_finalized_orphan_recording_descriptor(tmp_path: Path) -> None:

@@ -224,13 +224,6 @@ class NetworkAudioEngine {
     }
     void setFollowedParticipant(std::string_view participantId,
                                 std::uint32_t minimumDelayMs = DefaultRoomFollowMinimumMs) noexcept;
-    /** Playout delay of the followed singer's voice; 0 when not following. */
-    [[nodiscard]] std::uint32_t followTargetDelayFrames() const noexcept {
-        return followedKey_.load(std::memory_order_acquire) != 0 && sharedTimelineEnabled() &&
-                       followEngaged_.load(std::memory_order_acquire)
-                   ? followTargetDelayFrames_.load(std::memory_order_acquire)
-                   : 0U;
-    }
     [[nodiscard]] bool addRemoteParticipant(std::string participantId);
     [[nodiscard]] bool removeRemoteParticipant(std::string_view participantId) noexcept;
     void clearRemoteParticipants() noexcept;

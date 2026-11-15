@@ -35,6 +35,7 @@ void WavWriter::open(const std::string& path, std::uint32_t sampleRateHz, std::u
     dataBytes_ = 0;
     filePath_ = path;
     floatingCapture_ = floatingCapture;
+    peak_ = 0.0F;
     writeHeader(0);
     if (!file_) {
         abandon();
@@ -53,6 +54,8 @@ void WavWriter::write(std::span<const float> samples) {
         samples.size() > (maximumDataBytes - dataBytes_) / sampleBytes)
         throw std::length_error("recording exceeds the RIFF WAV size limit");
     if (floatingCapture_) {
+        for (const auto sample : samples)
+            peak_ = std::max(peak_, std::abs(sample));
         const auto bytes = samples.size_bytes();
         file_.write(reinterpret_cast<const char*>(samples.data()), static_cast<std::streamsize>(bytes));
         if (!file_)
@@ -103,6 +106,8 @@ void WavWriter::close(float gain, bool preserveFloat) {
     if (!std::isfinite(gain) || gain < 0.0F || gain > 1.0F || (preserveFloat && gain != 1.0F))
         throw std::invalid_argument("invalid recording attenuation");
     if (floatingCapture_ && !preserveFloat) {
+        // The full saved mix can peak above every individual voice or backing stem.
+        gain = std::min(gain, 0.999F / std::max(peak_, 0.999F));
         // Preserve unclipped capture until a complete PCM16 replacement is safely published.
         writeHeader(static_cast<std::uint32_t>(dataBytes_));
         file_.flush();

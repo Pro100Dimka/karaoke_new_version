@@ -200,7 +200,10 @@ void MediaSource::seek(std::uint64_t sourceFrame, MonotonicTicks startAtTicks) {
     if (state_.load(std::memory_order_acquire) == PlaybackState::Finished)
         publishState(PlaybackState::Ready);
 }
-void MediaSource::requestSeekLocked(double sourceFrame) noexcept {
+void MediaSource::requestSeekLocked(double sourceFrame, bool preserveClock) noexcept {
+    auto anchor = preserveClock ? startAtTicks_.load(std::memory_order_relaxed) : 0;
+    if (anchor != 0 && presentationGeneration_.load(std::memory_order_relaxed) == generation_.load(std::memory_order_relaxed))
+        anchor = std::max(anchor, presentationEndTicks_.load(std::memory_order_relaxed));
     startAtTicks_.store(0, std::memory_order_relaxed);
     clockPhase_ = 0;
     resyncing_ = false;
@@ -215,6 +218,7 @@ void MediaSource::requestSeekLocked(double sourceFrame) noexcept {
     seekFrame_ = frameNumber(sourceFrame);
     seekRequested_ = true;
     requestedGeneration_ = next;
+    if (anchor != 0) armClock(anchor);
     requestWake();
 }
 std::uint64_t MediaSource::sourceFrameFromTimeline(std::uint64_t outputFrame) const noexcept {
@@ -236,7 +240,7 @@ void MediaSource::setRate(float rate) noexcept {
     if (rate_.exchange(rate, std::memory_order_relaxed) == rate)
         return;
     if (state_.load(std::memory_order_acquire) != PlaybackState::Empty)
-        requestSeekLocked(sourcePosition_.load(std::memory_order_relaxed));
+        requestSeekLocked(sourcePosition_.load(std::memory_order_relaxed), true);
 }
 void MediaSource::setTranspose(float semitones) noexcept {
     if (!std::isfinite(semitones))
@@ -247,7 +251,7 @@ void MediaSource::setTranspose(float semitones) noexcept {
     if (transpose_.exchange(semitones, std::memory_order_relaxed) == semitones)
         return;
     if (state_.load(std::memory_order_acquire) != PlaybackState::Empty)
-        requestSeekLocked(sourcePosition_.load(std::memory_order_relaxed));
+        requestSeekLocked(sourcePosition_.load(std::memory_order_relaxed), true);
 }
 void MediaSource::setLoop(bool enabled, std::uint64_t startFrame, std::uint64_t endFrame) {
     std::lock_guard lock(mutex_);

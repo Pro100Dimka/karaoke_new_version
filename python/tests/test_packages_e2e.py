@@ -5,6 +5,7 @@ import json
 import shutil
 import sqlite3
 import zipfile
+from dataclasses import replace
 from pathlib import Path
 
 from tests.conftest import app_client, write_wav
@@ -15,6 +16,9 @@ from backend.domain_errors import ConflictError
 from backend.lyrics.domain import LyricsDocument
 from backend.projects.operations import SongOperation, SongOperationRegistry
 from backend.packages.policy import PackagePolicy
+from backend.projects.fingerprint import project_content_fingerprint
+from backend.infrastructure.local_projects import LocalProjectStorage
+from backend.storage.domain import StorageRoots
 
 
 pytestmark = [pytest.mark.integration, pytest.mark.e2e]
@@ -55,6 +59,15 @@ def test_export_inspect_and_import_same_revision_are_idempotent(tmp_path: Path) 
     write_wav(source)
     with app_client(tmp_path / "runtime", ai_providers=(FakeAiProvider(),)) as client:
         song, package = make_ready_and_export(client, source)
+        current = client.get(f"/songs/{song['songId']}").json()
+        projects = LocalProjectStorage(StorageRoots.under(tmp_path / "runtime"))
+        manifest = projects.load_manifest(str(song["songId"]), current["activeRevision"])
+        identity = project_content_fingerprint(manifest)
+        assert identity == current["projectHash"]
+        assert (
+            project_content_fingerprint(replace(manifest, song_id="another", revision=90))
+            == identity
+        )
         inspected = client.post("/packages/inspect", json={"path": str(package)})
         assert inspected.status_code == 200, inspected.text
         assert inspected.json()["conflict"] == "SameRevision"
@@ -220,6 +233,7 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
     clip_bytes = b"room-video-clip"
     with app_client(source_root, ai_providers=(FakeAiProvider(),)) as source_client:
         song, _ = make_ready_and_export(source_client, source)
+        before_hash = source_client.get(f"/songs/{song['songId']}").json()["projectHash"]
         clip = source_root / "songs" / song["songId"] / "media" / "clip.mp4"
         clip.parent.mkdir(parents=True, exist_ok=True)
         clip.write_bytes(clip_bytes)
@@ -228,6 +242,12 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
                 "UPDATE songs SET video_url = ? WHERE song_id = ?",
                 ("local:clip", song["songId"]),
             )
+        clip_hash = source_client.get(f"/songs/{song['songId']}").json()["projectHash"]
+        assert clip_hash != before_hash
+        clip.write_bytes(b"different-video")
+        assert source_client.get(f"/songs/{song['songId']}").json()["projectHash"] != clip_hash
+        clip.write_bytes(clip_bytes)
+        assert source_client.get(f"/songs/{song['songId']}").json()["projectHash"] == clip_hash
         exported = source_client.post(f"/packages/export/{song['songId']}")
         export_job = wait_for_job(source_client, exported.json()["jobId"])
         package = Path(export_job["report"]["path"])
@@ -241,6 +261,7 @@ def test_exported_room_project_keeps_the_downloaded_song_clip(tmp_path: Path) ->
         response = target_client.get(f"/songs/{song['songId']}/clip")
         assert response.status_code == 200, response.text
         assert response.content == clip_bytes
+        assert target_client.get(f"/songs/{song['songId']}").json()["projectHash"] == clip_hash
 
 
 def test_reexported_imported_room_project_keeps_its_clip(tmp_path: Path) -> None:
@@ -319,8 +340,10 @@ def test_reimport_of_same_revision_adds_a_clip_that_was_missing_locally(tmp_path
         assert response.content == clip_bytes
 
 
+@pytest.mark.parametrize("with_clip", [False, True])
 def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
     tmp_path: Path,
+    with_clip: bool,
 ) -> None:
     source = tmp_path / "same-song.wav"
     write_wav(source)
@@ -332,6 +355,18 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
             json={"expectedRevision": editor["revision"], "document": editor["document"]},
         )
         assert saved.status_code == 200, saved.text
+        if with_clip:
+            clip = (
+                tmp_path / "source-runtime" / "songs" / source_song["songId"] / "media" / "clip.mp4"
+            )
+            clip.parent.mkdir(parents=True, exist_ok=True)
+            clip.write_bytes(b"current-project-video")
+            with sqlite3.connect(tmp_path / "source-runtime" / "app.db") as database:
+                database.execute(
+                    "UPDATE songs SET video_url='local:clip' WHERE song_id=?",
+                    (source_song["songId"],),
+                )
+        source_hash = source_client.get(f"/songs/{source_song['songId']}").json()["projectHash"]
         exported = source_client.post(f"/packages/export/{source_song['songId']}")
         export_job = wait_for_job(source_client, exported.json()["jobId"])
         assert export_job["state"] == "Succeeded", export_job
@@ -340,6 +375,13 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
     target_root = tmp_path / "target-runtime"
     with app_client(target_root, ai_providers=(FakeAiProvider(),)) as target_client:
         target_song, _ = make_ready_and_export(target_client, source)
+        old_clip = target_root / "songs" / target_song["songId"] / "media" / "clip.mp4"
+        old_clip.parent.mkdir(parents=True, exist_ok=True)
+        old_clip.write_bytes(b"previous-local-video")
+        with sqlite3.connect(target_root / "app.db") as database:
+            database.execute(
+                "UPDATE songs SET video_url='local:clip' WHERE song_id=?", (target_song["songId"],)
+            )
         assert target_song["songId"] != source_song["songId"]
         inspected = target_client.post("/packages/inspect", json={"path": str(package)}).json()
         assert inspected["conflict"] == "NewerRevision"
@@ -357,6 +399,19 @@ def test_package_import_remaps_manifest_when_same_source_has_a_local_song_id(
         imported = restarted_client.get(f"/songs/{imported_song_id}")
         assert imported.status_code == 200, imported.text
         assert imported.json()["status"] == "Ready"
+        assert imported.json()["projectHash"] == source_hash
+        clip_response = restarted_client.get(f"/songs/{imported_song_id}/clip")
+        if with_clip:
+            assert clip_response.content == b"current-project-video"
+            exported = restarted_client.post(f"/packages/export/{imported_song_id}")
+            package = Path(
+                wait_for_job(restarted_client, exported.json()["jobId"])["report"]["path"]
+            )
+            with zipfile.ZipFile(package) as archive:
+                assert archive.read("media/clip.mp4") == b"current-project-video"
+        else:
+            assert clip_response.status_code == 404
+            assert imported.json()["videoUrl"] is None
 
 
 def test_exported_package_preserves_recognized_song_metadata(tmp_path: Path) -> None:

@@ -139,14 +139,6 @@ def _side_plan(
     }
 
 
-def apply_fallback_space(
-    renderer: MasterRenderer, voice: Path, backing: Path, target: Path, cancel: threading.Event
-) -> dict[str, object]:
-    _check_cancel(cancel)
-    shutil.copyfile(voice, target)
-    return {"applied": False, "method": "no-supported-spatial-evidence"}
-
-
 def _match_stereo_width(
     voice: Path, target: Path, reference_ratio: float, cancel: threading.Event
 ) -> dict[str, object]:

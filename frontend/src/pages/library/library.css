@@ -122,12 +122,10 @@
 
 /* Adding a song: one big picker, the file's facts, progress and the two actions. */
 
-.addSongForm,
 .songSettingsForm {
   display: grid;
   gap: var(--ad-space-4);
 }
-.addSongActions,
 .songSettingsActions {
   display: flex;
   flex-wrap: wrap;

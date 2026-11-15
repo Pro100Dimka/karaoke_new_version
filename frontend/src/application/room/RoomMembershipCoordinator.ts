@@ -7,10 +7,7 @@ import type {
 import type { RoomStateDto } from '../../contracts/models';
 import type { RoomSessionScope } from './RoomSessionController';
 
-type MembershipPort = Pick<
-  RoomClient,
-  'transferHost' | 'removeParticipant' | 'startSyncCheck'
->;
+type MembershipPort = Pick<RoomClient, 'transferHost' | 'removeParticipant'>;
 type VoicePort = Pick<AudioServiceClient, 'removeRemoteParticipant'>;
 type ClipboardPort = Pick<DesktopClient, 'copyText'>;
 
@@ -69,10 +66,5 @@ export class RoomMembershipCoordinator {
       this.scope.setSnapshot(snapshot)
       ? snapshot
       : undefined;
-  }
-
-  checkTiming(): Promise<RoomStateDto | undefined> {
-    if (!this.scope.isCurrent()) return Promise.resolve(undefined);
-    return this.commit(this.room.startSyncCheck(this.scope.code));
   }
 }

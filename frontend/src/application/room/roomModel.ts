@@ -77,9 +77,10 @@ type LibraryEntry = {
   status: string;
   activeRevision: number;
   sourceHash?: string;
+  projectHash?: string;
 };
 
-/** Match the imported audio bytes across independently created local song ids and revisions. */
+/** Match the published artifact checksums independently of local song ids and revision numbers. */
 export const localRoomSong = <T extends LibraryEntry>(
   room: RoomStateDto,
   library: readonly T[],
@@ -87,10 +88,10 @@ export const localRoomSong = <T extends LibraryEntry>(
 ): T | undefined => {
   const hash = room.sharedSongs?.find(
     (song) => song.songId === room.songId && song.revision === room.revision,
-  )?.sourceHash;
+  )?.projectHash;
   return library.find((song) => {
     if (song.status !== 'ready') return false;
-    if (hash && /^[a-f0-9]{64}$/.test(hash)) return song.sourceHash === hash;
+    if (hash && /^[a-f0-9]{64}$/.test(hash)) return song.projectHash === hash;
     return (
       [importedLocalSongId, room.songId].includes(song.id) &&
       song.activeRevision === room.revision

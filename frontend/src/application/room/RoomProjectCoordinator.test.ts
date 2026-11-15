@@ -220,48 +220,71 @@ it('coalesces byte progress and ignores an old readiness response after import b
   coordinator.stop();
 });
 
-it('cancels an in-flight project upload when the session stops', async () => {
-  const { coordinator, services, setRoom, getRoom } = setup();
-  setRoom({
-    ...getRoom(),
-    songId: 'song',
-    revision: 1,
-    participants: [
+it.each([false, true])(
+  'cancels an in-flight project upload when the session stops (same source: %s)',
+  async (sameSource) => {
+    const { coordinator, services, setRoom, getRoom } = setup();
+    setRoom({
+      ...getRoom(),
+      songId: 'song',
+      revision: 1,
+      sharedSongs: sameSource
+        ? [
+            {
+              songId: 'guest-song',
+              revision: 2,
+              title: 'Song',
+              artist: 'Artist',
+              durationSeconds: 60,
+              ownerParticipantId: 'guest',
+              sourceHash: 'a'.repeat(64),
+              projectHash: 'c'.repeat(64),
+            },
+          ]
+        : [],
+      participants: [
+        {
+          id: 'guest',
+          name: 'Guest',
+          role: 'participant',
+          self: false,
+          connected: true,
+          muted: false,
+          volume: 1,
+          readiness: 'missing',
+        },
+      ],
+    });
+    services.python.listSongs.mockResolvedValue([
       {
-        id: 'guest',
-        name: 'Guest',
-        role: 'participant',
-        self: false,
-        connected: true,
-        muted: false,
-        volume: 1,
-        readiness: 'missing',
-      },
-    ],
-  });
-  services.python.listSongs.mockResolvedValue([
-    { id: 'song', activeRevision: 1, status: 'ready' } as SongDto,
-  ]);
-  let finish!: () => void;
-  services.desktop.uploadRoomProject.mockReturnValue(
-    new Promise<void>((resolve) => {
-      finish = resolve;
-    }),
-  );
+        id: 'song',
+        activeRevision: 1,
+        status: 'ready',
+        sourceHash: 'a'.repeat(64),
+        projectHash: 'b'.repeat(64),
+      } as SongDto,
+    ]);
+    let finish!: () => void;
+    services.desktop.uploadRoomProject.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
 
-  coordinator.start();
-  coordinator.setPythonReady(true);
-  await vi.waitFor(() =>
-    expect(services.desktop.uploadRoomProject).toHaveBeenCalledOnce(),
-  );
-  const transferId =
-    services.desktop.uploadRoomProject.mock.calls[0]?.[0].transferId;
-  coordinator.stop();
-  expect(services.desktop.cancelRoomProjectTransfer).toHaveBeenCalledWith(
-    transferId,
-  );
-  finish();
-});
+    coordinator.start();
+    coordinator.setPythonReady(true);
+    await vi.waitFor(() =>
+      expect(services.desktop.uploadRoomProject).toHaveBeenCalledOnce(),
+    );
+    const transferId =
+      services.desktop.uploadRoomProject.mock.calls[0]?.[0].transferId;
+    coordinator.stop();
+    expect(services.desktop.cancelRoomProjectTransfer).toHaveBeenCalledWith(
+      transferId,
+    );
+    finish();
+  },
+);
 
 it('reconciles local readiness without declaring the server room playable early', async () => {
   const { coordinator, services, getRoom, setRoom } = setup();

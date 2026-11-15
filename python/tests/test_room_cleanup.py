@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import time
 from pathlib import Path
 
@@ -37,10 +39,12 @@ def test_songs_of_rooms_that_no_longer_exist_are_swept_away(tmp_path: Path) -> N
 
 
 def test_an_app_closed_without_leaving_is_taken_out_and_its_empty_room_closes() -> None:
+    key = hmac.new(("d" * 40).encode(), b"ad-voice-room-key", hashlib.sha256).hexdigest()
+    participant = hashlib.sha256(f"ad-voice-room-participant:{key}".encode()).hexdigest()[:32]
     app = create_room_server_app(relay_port=0, departure_grace_seconds=0)
     with TestClient(app) as client:
         room_id = client.post(
-            "/rooms", json={"participantId": "host-seat", "displayName": "Host"}
+            "/rooms", json={"participantId": participant, "displayName": "Host"}
         ).json()["roomId"]
         rooms: ObservableRoomRepository = app.state.container.rooms_repository
         with client.websocket_connect("/social/socket") as socket:
@@ -48,7 +52,7 @@ def test_an_app_closed_without_leaving_is_taken_out_and_its_empty_room_closes() 
                 {
                     "device": "d" * 40,
                     "displayName": "Host",
-                    "participantId": "host-seat",
+                    "participantId": participant,
                     "roomId": room_id,
                 }
             )
@@ -77,7 +81,10 @@ def test_only_the_latest_departure_counts_and_a_returning_app_keeps_its_place() 
             await grace.wait()
 
         departures = RoomDepartures(
-            lambda room, seat: left.append((room, seat)), lambda account: online[account], 60, wait
+            lambda room, seat, account: left.append((room, seat)),
+            lambda account: online[account],
+            60,
+            wait,
         )
         departures.gone("anna", "seat", "room")
         departures.gone("anna", "seat", "room")  # reconnected and went away again
@@ -109,7 +116,7 @@ def test_server_shutdown_cancels_departures_without_removing_room_members() -> N
                 cancelled.set()
 
         departures = RoomDepartures(
-            lambda room, seat: left.append((room, seat)), lambda _: False, 60, wait
+            lambda room, seat, account: left.append((room, seat)), lambda _: False, 60, wait
         )
         departures.gone("anna", "seat", "room")
         await waiting.wait()

@@ -86,6 +86,7 @@ class RoomSong:
     genre: str | None
     duration_seconds: float
     source_hash: str | None = None
+    project_hash: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

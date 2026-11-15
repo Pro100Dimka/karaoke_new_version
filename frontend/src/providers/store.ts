@@ -4,7 +4,7 @@ import type { YoutubeRadioTrack } from '../services/youtubeRadio';
 import type { ServiceStatus } from '../app/serviceStatus';
 import { setLocale } from '@neo-ui-kit/react';
 import { makeAutoObservable, observable, observableRef } from 'mobx';
-import type { Language, ThemeName, RoomStateDto } from '../contracts/models';
+import type { Language, RoomStateDto } from '../contracts/models';
 import {
   loadPreferences,
   savePreferences,
@@ -157,10 +157,6 @@ class Store {
     if (patch.language) setLocale(patch.language);
     this.preferences = { ...this.preferences, ...patch };
     savePreferences(this.preferences);
-  }
-
-  setTheme(theme: ThemeName) {
-    this.updatePreferences({ theme });
   }
 
   setLanguage(language: Language) {

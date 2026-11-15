@@ -266,7 +266,6 @@ class RealtimeEngine final : public IAudioCallback {
     std::uint32_t addMedia(MediaSlot slot, std::span<float> output, std::uint32_t frames,
                            float gain, MonotonicTicks presentationTicks = 0) noexcept;
     void renderTone(std::span<float> output, std::uint32_t frames, float level) noexcept;
-    [[nodiscard]] std::uint32_t followRoomDelay(std::uint32_t targetFrames) noexcept;
     void notePresentationContinuity(MonotonicTicks presentationTicks,
                                     std::uint32_t frames) noexcept;
     void publishOutputLatency(MonotonicTicks presentationTicks, MonotonicTicks renderAt) noexcept;
@@ -412,7 +411,6 @@ class RealtimeEngine final : public IAudioCallback {
     std::atomic<float> masterOutputPeak_{0.0F};
     bool songUnderway_{false}; // render thread: sounded since it last stopped
     VoiceLoudness ownVoice_;   // this singer's level while singing (render thread notes)
-    std::uint32_t followAppliedFrames_{0};           // render thread
     std::atomic<std::uint32_t> roomFollowFrames_{0}; // written by render
     std::atomic<MonotonicTicks> roomFollowTicks_{0}; // written by render
     PerformanceAligner aligner_; // render; exclusive control during a drained performance lease

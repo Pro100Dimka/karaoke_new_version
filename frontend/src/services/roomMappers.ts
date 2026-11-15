@@ -59,6 +59,7 @@ export interface BackendRoom {
     genre: string | null;
     durationSeconds: number;
     sourceHash?: string | null;
+    projectHash?: string | null;
   }>;
   transferProgress?: number;
 }
@@ -166,5 +167,6 @@ export const mapRoom = (
     genre: song.genre ?? undefined,
     durationSeconds: song.durationSeconds,
     sourceHash: song.sourceHash ?? undefined,
+    projectHash: song.projectHash ?? undefined,
   })),
 });

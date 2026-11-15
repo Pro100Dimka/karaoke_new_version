@@ -15,6 +15,7 @@ from backend.songs.domain import Language, Song, SongStatus
 class SongDto(ApiModel):
     song_id: str
     source_hash: str | None = None
+    project_hash: str | None = None
     source_path: str | None = None
     title: str
     artist: str

@@ -126,6 +126,7 @@ def _encode_song(song: RoomSong) -> dict[str, object]:
         "genre": song.genre,
         "durationSeconds": song.duration_seconds,
         "sourceHash": song.source_hash,
+        "projectHash": song.project_hash,
     }
 
 
@@ -164,6 +165,7 @@ def _decode_songs(raw: dict[str, object]) -> tuple[RoomSong, ...]:
             str(song["genre"]) if song.get("genre") is not None else None,
             float(song["durationSeconds"]),
             str(song["sourceHash"]) if song.get("sourceHash") is not None else None,
+            str(song["projectHash"]) if song.get("projectHash") is not None else None,
         )
         for song in encoded
         if isinstance(song, dict)

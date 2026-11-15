@@ -25,4 +25,5 @@ class WavWriter {
     std::uint64_t dataBytes_{0};
     std::string filePath_;
     bool floatingCapture_{false};
+    float peak_{0.0F};
 };

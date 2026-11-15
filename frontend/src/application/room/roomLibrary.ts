@@ -13,6 +13,7 @@ const asRemoteSong = (song: RoomSongDto): SongDto => ({
   coverState: 'Fallback',
   activeRevision: song.revision,
   sourceHash: song.sourceHash,
+  projectHash: song.projectHash,
   projectFormatVersion: 1,
   roomOwnerId: song.ownerParticipantId,
 });
@@ -27,10 +28,13 @@ export const mergeRoomLibrary = (
   for (const shared of sharedSongs) {
     if (shared.ownerParticipantId === selfParticipantId) continue;
     const local = merged.get(shared.songId);
-    if (local?.activeRevision === shared.revision && local.status === 'ready')
-      continue;
+    const sameProject = shared.projectHash
+      ? local?.projectHash === shared.projectHash
+      : local?.activeRevision === shared.revision;
+    if (sameProject && local?.status === 'ready') continue;
     if (
       !local ||
+      !sameProject ||
       shared.revision > local.activeRevision ||
       local.status !== 'ready'
     ) {
@@ -41,7 +45,7 @@ export const mergeRoomLibrary = (
 };
 
 export const roomProjectKey = (roomCode: string, song: SongDto): string =>
-  `${roomCode}:${song.id}:${song.activeRevision}`;
+  `${roomCode}:${song.id}:${song.activeRevision}${song.projectHash ? `:${song.projectHash}` : ''}`;
 /** Room archives are produced on demand; publishing metadata must never package the entire library. */
 export const selectedRoomProjectUpload = (
   roomCode: string,

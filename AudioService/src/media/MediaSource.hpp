@@ -78,7 +78,7 @@ class MediaSource {
         ~RenderPause();
         MediaSource& source;
     };
-    void requestSeekLocked(double sourceFrame) noexcept;
+    void requestSeekLocked(double sourceFrame, bool preserveClock = false) noexcept;
     void armClock(MonotonicTicks startAtTicks);
     void workerMain() noexcept;
     [[nodiscard]] bool waitForWorkerRequest(std::string& loadPath, bool& doLoad, bool& doSeek,

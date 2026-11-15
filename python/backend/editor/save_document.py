@@ -52,7 +52,7 @@ class SaveEditorDocument:
 
     def _save(self, song_id: str, expected_revision: int, document: LyricsDocument) -> int:
         manifest, lineage_id = self._load_base(song_id, expected_revision, document.duration)
-        new_revision = expected_revision + 1
+        new_revision = max((expected_revision, *self._projects.revisions(song_id))) + 1
         updated_manifest = _updated_manifest(manifest, new_revision, document)
         working = self._projects.clone_revision(song_id, expected_revision, new_revision)
         lyrics_text = encode_document(document)

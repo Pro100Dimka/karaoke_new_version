@@ -8,6 +8,7 @@ from backend.api.social_dto import HelloDto, PresenceDto
 from backend.bootstrap.social_wiring import SocialCases
 from backend.infrastructure.room_departures import RoomDepartures
 from backend.social.domain import Account
+from backend.domain_errors import DomainError
 
 router = APIRouter()
 
@@ -18,14 +19,14 @@ _POLICY_VIOLATION = 1008
 def _arrive(social: SocialCases, hello: HelloDto) -> Account:
     me = social.accounts.identify(hello.device)
     return social.accounts.report_presence(
-        me, hello.display_name, hello.participant_id, hello.room_id
+        me, hello.display_name, hello.participant_id, hello.room_id, hello.device
     )
 
 
-def _report(social: SocialCases, me: Account, update: PresenceDto) -> Account:
+def _report(social: SocialCases, me: Account, update: PresenceDto, device: str) -> Account:
     """Keeps what the app told; friends are told only when it changes what they see."""
     updated = social.accounts.report_presence(
-        me, update.display_name, update.participant_id, update.room_id
+        me, update.display_name, update.participant_id, update.room_id, device
     )
     if (updated.display_name, updated.room_id) != (me.display_name, me.room_id):
         social.friends.announce(updated)
@@ -46,10 +47,10 @@ async def social_socket(websocket: WebSocket) -> None:
     await websocket.accept()
     try:
         hello = HelloDto.model_validate(await websocket.receive_json())
-    except (ValidationError, ValueError, WebSocketDisconnect):
+        me = await anyio.to_thread.run_sync(_arrive, social, hello)
+    except (ValidationError, ValueError, WebSocketDisconnect, DomainError):
         await websocket.close(code=_POLICY_VIOLATION)
         return
-    me = await anyio.to_thread.run_sync(_arrive, social, hello)
     presence: PresenceDto = hello
     first = social.hub.connect(me.account_id, websocket)
     social.hub.set_room(me.account_id, me.room_id)
@@ -59,10 +60,13 @@ async def social_socket(websocket: WebSocket) -> None:
         if first:
             await anyio.to_thread.run_sync(social.friends.announce, me)
         while True:
-            presence = PresenceDto.model_validate(await websocket.receive_json())
-            me = await anyio.to_thread.run_sync(_report, social, me, presence)
+            update = PresenceDto.model_validate(await websocket.receive_json())
+            me = await anyio.to_thread.run_sync(_report, social, me, update, hello.device)
+            presence = update
             social.hub.set_room(me.account_id, me.room_id)
             await social.hub.send(websocket, {"type": "presenceAck", "revision": presence.revision})
+    except DomainError:
+        await websocket.close(code=_POLICY_VIOLATION)
     except (WebSocketDisconnect, ValidationError, ValueError):
         pass
     finally:

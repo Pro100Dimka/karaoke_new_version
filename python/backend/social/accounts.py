@@ -3,9 +3,15 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Callable
 
-from backend.domain_errors import DomainError, NotFoundError
+from backend.domain_errors import DomainError, ForbiddenError, NotFoundError
 from backend.runtime import Clock, IdGenerator
-from backend.social.codes import device_key, new_friend_code, new_transfer_code, normalize_code
+from backend.social.codes import (
+    device_key,
+    device_participant_id,
+    new_friend_code,
+    new_transfer_code,
+    normalize_code,
+)
 from backend.social.domain import Account
 from backend.social.ports import AccountStore, VisitStore
 
@@ -77,9 +83,20 @@ class Accounts:
         return updated
 
     def report_presence(
-        self, account: Account, display_name: str, participant_id: str | None, room_id: str | None
+        self,
+        account: Account,
+        display_name: str,
+        participant_id: str | None,
+        room_id: str | None,
+        device_secret: str,
     ) -> Account:
         """The app is open (and in `room_id`, as `participant_id`); keeps the profile name."""
+        if (
+            participant_id is not None and participant_id != device_participant_id(device_secret)
+        ) or (room_id and not participant_id):
+            raise ForbiddenError(
+                "RoomIdentityInvalid", "Presence may name only this device's participant"
+            )
         current = self._current(account)
         name = display_name.strip()[:_MAXIMUM_NAME_LENGTH] or current.display_name
         updated = replace(

@@ -14,7 +14,11 @@ const setup = () => {
     });
   const diagnostics = vi
     .fn<AudioPlayerOperations['diagnostics']>()
-    .mockResolvedValue({ PreviewState: '2', RuntimeOutputSampleRate: '48000' });
+    .mockResolvedValue({
+      PreviewState: '2',
+      RuntimeOutputSampleRate: '48000',
+      ServiceInstanceId: 'first',
+    });
   const players = createAudioPlayers({
     command,
     pythonRequest,
@@ -138,13 +142,31 @@ describe('recording preview ownership', () => {
   );
 });
 
-it('reloads a recording after its preview was stopped and released', async () => {
-  const { players, command } = setup();
-  await players.playRecording('take');
-  await players.stopRecordingPreview();
-  expect((await players.recordingPreviewStatus()).recordingId).toBeNull();
-  await players.playRecording('take');
-  expect(
-    command.mock.calls.filter(([name]) => name === 'LoadRecordingPreview'),
-  ).toHaveLength(2);
-});
+it.each(['stopped', 'empty', 'failed', 'restarted'])(
+  'reloads a recording when the preview is %s',
+  async (state) => {
+    const { players, command, diagnostics } = setup();
+    await players.playRecording('take');
+    if (state === 'stopped') {
+      await players.stopRecordingPreview();
+      expect((await players.recordingPreviewStatus()).recordingId).toBeNull();
+    } else {
+      diagnostics.mockResolvedValue({
+        PreviewState: state === 'empty' ? '0' : state === 'failed' ? '7' : '2',
+        ServiceInstanceId: state === 'restarted' ? 'second' : 'first',
+      });
+      command.mockImplementation(async (name) => {
+        if (name === 'LoadRecordingPreview')
+          diagnostics.mockResolvedValue({
+            PreviewState: '2',
+            ServiceInstanceId: 'second',
+          });
+        return '';
+      });
+    }
+    await players.playRecording('take');
+    expect(
+      command.mock.calls.filter(([name]) => name === 'LoadRecordingPreview'),
+    ).toHaveLength(2);
+  },
+);

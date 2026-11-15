@@ -123,6 +123,7 @@ class RoomSongDto(ApiModel):
     genre: str | None = Field(default=None, max_length=300)
     duration_seconds: float = Field(ge=0)
     source_hash: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    project_hash: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class PublishLibraryDto(ActorDto):
@@ -375,6 +376,7 @@ def publish_library(room_id: str, body: PublishLibraryDto, app: ContainerDep) ->
             song.genre,
             song.duration_seconds,
             song.source_hash,
+            song.project_hash,
         )
         for song in body.songs
     )
@@ -485,4 +487,5 @@ def _room_song(song: RoomSong) -> RoomSongDto:
         genre=song.genre,
         duration_seconds=song.duration_seconds,
         source_hash=song.source_hash,
+        project_hash=song.project_hash,
     )

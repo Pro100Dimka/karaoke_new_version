@@ -415,6 +415,15 @@ void mediaRejectsNonFiniteProcessingParameters() {
         const auto snapshot = source.snapshot();
         expect(snapshot.rate == 1 && snapshot.transpose == 0 && processor.latencyFrames() == 0,
                "invalid direct processing parameters preserve the previous finite configuration");
+        source.prepareOutput(48000, 1, 4096);
+        source.load(mediaPath().string());
+        (void)source.waitUntilReady();
+        const auto start = monotonicTicksNow() + 2'000'000'000LL;
+        source.play(start);
+        (source.*parameter.sourceSetter)(1.5F);
+        std::vector<float> output(128, 1.0F);
+        expect(source.scheduledStartTicks() == start && source.render(output, 128, start - 1'000'000'000LL) == 0,
+               "finite processing changes preserve the scheduled start and never play early");
     }
 }
 

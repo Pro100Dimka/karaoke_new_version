@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Any
@@ -15,6 +17,11 @@ _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
 def _device(name: str) -> str:
     return f"{name:-<40}"
+
+
+def _participant(name: str) -> str:
+    key = hmac.new(_device(name).encode(), b"ad-voice-room-key", hashlib.sha256).hexdigest()
+    return hashlib.sha256(f"ad-voice-room-participant:{key}".encode()).hexdigest()[:32]
 
 
 def _headers(name: str) -> dict[str, str]:
@@ -43,7 +50,7 @@ def test_presence_update_is_acknowledged_after_the_server_applies_it() -> None:
         socket.send_json(
             {
                 "displayName": "anna",
-                "participantId": "anna-seat",
+                "participantId": _participant("anna"),
                 "roomId": "room-1",
                 "revision": 7,
             }
@@ -130,10 +137,10 @@ def test_a_declined_room_invitation_is_answered_to_the_one_who_asked() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         anna, boris, boris_id = _friends(client, stack)
         room = client.post(
-            "/rooms", json={"participantId": "anna-seat", "displayName": "anna"}
+            "/rooms", json={"participantId": _participant("anna"), "displayName": "anna"}
         ).json()
         anna.send_json(
-            {"displayName": "anna", "participantId": "anna-seat", "roomId": room["roomId"]}
+            {"displayName": "anna", "participantId": _participant("anna"), "roomId": room["roomId"]}
         )
         _inbox(boris)  # anna is now in a room
         client.post(
@@ -158,10 +165,10 @@ def test_a_friend_can_request_entry_only_from_the_host_of_the_room() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         anna, boris, boris_id = _friends(client, stack)
         room = client.post(
-            "/rooms", json={"participantId": "anna-seat", "displayName": "anna"}
+            "/rooms", json={"participantId": _participant("anna"), "displayName": "anna"}
         ).json()
         anna.send_json(
-            {"displayName": "anna", "participantId": "anna-seat", "roomId": room["roomId"]}
+            {"displayName": "anna", "participantId": _participant("anna"), "roomId": room["roomId"]}
         )
         friend_view = _inbox(boris)["friends"][0]
 
@@ -183,9 +190,11 @@ def test_an_accepted_invitation_gives_the_room_to_join() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
         anna, boris, boris_id = _friends(client, stack)
         room_id = client.post(
-            "/rooms", json={"participantId": "anna-seat", "displayName": "anna"}
+            "/rooms", json={"participantId": _participant("anna"), "displayName": "anna"}
         ).json()["roomId"]
-        anna.send_json({"displayName": "anna", "participantId": "anna-seat", "roomId": room_id})
+        anna.send_json(
+            {"displayName": "anna", "participantId": _participant("anna"), "roomId": room_id}
+        )
         _inbox(boris)
         client.post(
             "/social/invites",
@@ -211,16 +220,17 @@ def test_only_friends_are_invited_and_only_into_the_room_one_is_in() -> None:
 
 def test_room_history_tells_who_was_there_and_for_how_long() -> None:
     with TestClient(create_room_server_app(relay_port=0)) as client, ExitStack() as stack:
-        anna = _open(client, stack, "anna", participantId="anna-seat")
-        _open(client, stack, "boris", participantId="boris-seat")
+        anna = _open(client, stack, "anna", participantId=_participant("anna"))
+        _open(client, stack, "boris", participantId=_participant("boris"))
         _inbox(anna)
         room_id = client.post(
-            "/rooms", json={"participantId": "anna-seat", "displayName": "Anna"}
+            "/rooms", json={"participantId": _participant("anna"), "displayName": "Anna"}
         ).json()["roomId"]
         client.post(
-            f"/rooms/{room_id}/join", json={"participantId": "boris-seat", "displayName": "Boris"}
+            f"/rooms/{room_id}/join",
+            json={"participantId": _participant("boris"), "displayName": "Boris"},
         )
-        client.post(f"/rooms/{room_id}/leave", json={"participantId": "boris-seat"})
+        client.post(f"/rooms/{room_id}/leave", json={"participantId": _participant("boris")})
         stays = client.get("/social/history", headers=_headers("anna")).json()
 
     assert [stay["roomId"] for stay in stays] == [room_id]
@@ -317,12 +327,19 @@ def test_a_profile_photo_is_still_offered_after_the_app_reports_its_presence() -
         )
         # The app goes on reporting where it is, with the account it connected with.
         anna.send_json(
-            {"displayName": "anna", "participantId": "anna-seat", "roomId": "room-1", "revision": 2}
+            {
+                "displayName": "anna",
+                "participantId": _participant("anna"),
+                "roomId": "room-1",
+                "revision": 2,
+            }
         )
         while anna.receive_json().get("type") != "presenceAck":
             pass
         seen = client.post(
-            "/social/people", headers=_headers("boris"), json={"participantIds": ["anna-seat"]}
+            "/social/people",
+            headers=_headers("boris"),
+            json={"participantIds": [_participant("anna")]},
         ).json()
 
     assert saved.json()["avatarVersion"] == 1

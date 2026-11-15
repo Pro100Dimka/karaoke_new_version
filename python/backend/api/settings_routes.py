@@ -62,12 +62,6 @@ class ConfigurationValidationDto(ApiModel):
     message: str
 
 
-class KaggleActionDto(ApiModel):
-    state: str
-    message: str
-    url: str | None = None
-
-
 def _environment_entry(value: EnvironmentEntry) -> EnvironmentEntryDto:
     # Secrets are write-only over the API: the client learns only whether one is configured.
     return EnvironmentEntryDto(

@@ -165,13 +165,34 @@ def test_song_exposes_and_searches_original_filename(client, tmp_path: Path) -> 
     assert [item["songId"] for item in found.json()["items"]] == [created["songId"]]
 
 
-def test_custom_cover_can_be_served_and_removed(client, tmp_path: Path) -> None:
+@pytest.mark.parametrize("publish_during_copy", [False, True])
+def test_custom_cover_can_be_served_and_removed(
+    client, tmp_path: Path, monkeypatch, publish_during_copy
+) -> None:
     source = tmp_path / "cover-song.wav"
     cover = tmp_path / "cover.png"
     write_wav(source)
     cover.write_bytes(b"\x89PNG\r\n\x1a\ncustom-cover")
     created = import_song(client, source)
     song_id = str(created["songId"])
+    if publish_during_copy:
+        storage = client.app.state.container.songs.update_song._storage
+        original = storage.copy_cover
+        database = client.app.state.container.database
+
+        def copy_with_publication(*args):
+            result = original(*args)
+            with database.create(write=True) as transaction:
+                song = transaction.songs.get(song_id)
+                transaction.songs.update(
+                    replace(
+                        song, active_revision=2, detected_bpm=120, status=type(song.status).READY
+                    )
+                )
+                transaction.commit()
+            return result
+
+        monkeypatch.setattr(storage, "copy_cover", copy_with_publication)
 
     updated = client.patch(f"/songs/{song_id}", json={"coverPath": str(cover)})
     served = client.get(f"/songs/{song_id}/cover")
@@ -184,6 +205,10 @@ def test_custom_cover_can_be_served_and_removed(client, tmp_path: Path) -> None:
     assert served.content == cover.read_bytes()
     assert removed.status_code == 200
     assert removed.json()["coverState"] != "Custom"
+    if publish_during_copy:
+        assert updated.json()["activeRevision"] == 2
+        assert updated.json()["detectedBpm"] == 120
+        assert removed.json()["status"] == "Ready"
 
 
 def test_processed_song_exposes_detected_bpm_and_key(client, tmp_path: Path) -> None:

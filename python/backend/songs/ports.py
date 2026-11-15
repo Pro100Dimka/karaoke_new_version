@@ -59,6 +59,8 @@ class SongRepository(Protocol):
 
     def update(self, song: Song) -> None: ...
 
+    def update_metadata(self, song: Song) -> Song: ...
+
     def update_status(
         self,
         song_id: str,

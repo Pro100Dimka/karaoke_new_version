@@ -34,7 +34,10 @@ def relay(tmp_path, monkeypatch):
         yield module, client
 
 
-def test_relay_separates_credentials_and_returns_result_only_after_completion(relay):
+@pytest.mark.parametrize("cancel_running", [False, True])
+def test_relay_separates_credentials_and_returns_result_only_after_completion(
+    relay, cancel_running
+):
     module, client = relay
     client_headers = {"X-Processing-Key": module.CLIENT_KEY}
     worker_headers = {"X-Processing-Key": module.WORKER_KEY}
@@ -54,6 +57,18 @@ def test_relay_separates_credentials_and_returns_result_only_after_completion(re
         client.post(worker_route + "/heartbeat", headers=worker, json=progress).status_code == 200
     )
     assert client.get(route, headers=owner).json()["progress"] == progress
+    if cancel_running:
+        assert client.delete(route, headers=owner).status_code == 204
+        for _ in range(2):
+            assert client.post(worker_route + "/failed", headers=worker).status_code == 204
+        with module.database() as db:
+            assert (
+                db.execute("SELECT reserved FROM jobs WHERE id=?", (ticket["jobId"],)).fetchone()[0]
+                == 0
+            )
+        assert not (module.ROOT / ticket["jobId"]).exists()
+        assert client.get(route, headers=owner).json()["state"] == "cancelled"
+        return
     assert client.put(worker_route + "/result", content=b"ready", headers=worker).status_code == 204
     assert client.get(route + "/result", headers=owner).content == b"ready"
     assert client.delete(route, headers=owner).status_code == 204
@@ -175,7 +190,11 @@ def test_processing_limits_preserve_actionable_errors(status, code):
 
 
 @pytest.mark.parametrize("cancelled", [False, True])
-def test_transport_uploads_once_downloads_only_completed_result_and_cleans_job(tmp_path, cancelled):
+def test_transport_uploads_once_downloads_only_completed_result_and_cleans_job(
+    tmp_path, cancelled, monkeypatch
+):
+    for key in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        monkeypatch.delenv(key, raising=False)
     source, result = tmp_path / "source.zip", tmp_path / "result.zip"
     source.write_bytes(b"source bundle")
     cancel = threading.Event()

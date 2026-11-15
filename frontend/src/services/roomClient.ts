@@ -299,6 +299,7 @@ export const roomClient: RoomClient = {
           genre: song.genre,
           durationSeconds: song.durationSeconds,
           sourceHash: song.sourceHash,
+          projectHash: song.projectHash,
         })),
     });
   },

@@ -67,6 +67,8 @@ def test_editor_save_requires_expected_revision(tmp_path: Path) -> None:
         opened = client.get(f"/songs/{song['songId']}/editor")
         assert opened.status_code == 200, opened.text
         editor = opened.json()
+        original_hash = client.get(f"/songs/{song['songId']}").json()["projectHash"]
+        assert len(original_hash) == 64
         document = editor["document"]
         document["words"][0]["notes"][0]["note"] = 70
 
@@ -76,6 +78,8 @@ def test_editor_save_requires_expected_revision(tmp_path: Path) -> None:
         )
         assert saved.status_code == 200, saved.text
         assert saved.json()["revision"] == editor["revision"] + 1
+        changed_hash = client.get(f"/songs/{song['songId']}").json()["projectHash"]
+        assert changed_hash != original_hash
 
         stale = client.put(
             f"/songs/{song['songId']}/editor",
@@ -83,6 +87,18 @@ def test_editor_save_requires_expected_revision(tmp_path: Path) -> None:
         )
         assert stale.status_code == 409
         assert stale.json()["code"] == "RevisionConflict"
+        database = client.app.state.container.database
+        with database.create(write=True) as transaction:
+            current = transaction.songs.get(str(song["songId"]))
+            transaction.songs.update(replace(current, active_revision=editor["revision"]))
+            transaction.commit()
+        restored = client.put(
+            f"/songs/{song['songId']}/editor",
+            json={"expectedRevision": editor["revision"], "document": document},
+        )
+        assert restored.status_code == 200, restored.text
+        assert restored.json()["revision"] > saved.json()["revision"]
+        assert client.get(f"/songs/{song['songId']}").json()["projectHash"] == changed_hash
 
 
 def test_editor_reset_restores_ai_baseline_as_new_revision(tmp_path: Path) -> None:

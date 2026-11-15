@@ -262,7 +262,7 @@ export class RoomProjectCoordinator {
         const key = songs
           .map(
             (song) =>
-              `${song.id}:${song.activeRevision}:${song.sourceHash ?? ''}`,
+              `${song.id}:${song.activeRevision}:${song.projectHash ?? ''}`,
           )
           .sort()
           .join('|');
@@ -299,8 +299,8 @@ export class RoomProjectCoordinator {
             !selected.sharedSongs?.some(
               (item) =>
                 item.ownerParticipantId === person.id &&
-                song.sourceHash &&
-                item.sourceHash === song.sourceHash,
+                song.projectHash &&
+                item.projectHash === song.projectHash,
             ),
         );
         if (!needsArchive) return;
@@ -506,6 +506,7 @@ export class RoomProjectCoordinator {
           },
           {
             signal: active.abort.signal,
+            hasProgress: () => (this.scope.getRoom()?.transferBytes ?? 0) > 0,
             cancel: () =>
               void this.ports.desktop
                 .cancelRoomProjectTransfer(active.id)
@@ -547,6 +548,19 @@ export class RoomProjectCoordinator {
         );
         const refreshedLibrary = await this.ports.python.listSongs();
         if (!isCurrent()) return;
+        const selectedProject = this.scope.getRoom();
+        if (
+          selectedProject?.sharedSongs?.some(
+            (song) =>
+              song.songId === songId &&
+              song.revision === revision &&
+              song.projectHash,
+          ) &&
+          !localRoomSong(selectedProject, refreshedLibrary, imported.id)
+        )
+          throw new Error(
+            'Downloaded project does not match the selected room project',
+          );
         this.transfer = { type: 'idle' };
         return refreshedLibrary;
       } catch (error) {

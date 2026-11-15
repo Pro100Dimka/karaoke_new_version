@@ -29,10 +29,14 @@ class ClipDownloader(Protocol):
     ) -> bool: ...
 
 
-def clip_path(song: Song) -> Path | None:
-    if song.source_path is None:
-        return None
-    return song.source_path.parent.parent / "media" / "clip.mp4"
+def clip_path(song: Song, songs_root: Path | None = None) -> Path | None:
+    local = song.source_path.parent.parent / "media" / "clip.mp4" if song.source_path else None
+    if songs_root is None:
+        return local
+    imported = (
+        songs_root / song.song_id / "revisions" / str(song.active_revision) / "media" / "clip.mp4"
+    )
+    return imported if imported.is_file() or local is None else local
 
 
 class PrepareSongClip:

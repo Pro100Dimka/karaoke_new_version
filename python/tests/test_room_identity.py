@@ -1,13 +1,69 @@
 from __future__ import annotations
 
 import pytest
+import hashlib
+import hmac
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from backend.api.room_identity import ROOM_KEY_HEADER, participant_id_for
 from backend.api.room_server_app import create_room_server_app
 from backend.room.serialization import RoomLocks
 
 pytestmark = pytest.mark.real_room_keys
+
+
+@pytest.mark.parametrize("stage", ["hello", "presence"])
+def test_social_socket_cannot_claim_another_devices_participant(stage: str) -> None:
+    device = "owner-device-secret" * 3
+    key = hmac.new(device.encode(), b"ad-voice-room-key", hashlib.sha256).hexdigest()
+    participant = participant_id_for(key)
+    app = create_room_server_app(relay_port=0, departure_grace_seconds=0)
+    with TestClient(app) as client:
+        room = client.post(
+            "/rooms", headers=as_(key), json={"participantId": participant, "displayName": "Owner"}
+        ).json()
+        with client.websocket_connect("/social/socket") as owner:
+            owner.send_json(
+                {
+                    "device": device,
+                    "displayName": "Owner",
+                    "participantId": participant,
+                    "roomId": room["roomId"],
+                }
+            )
+            owner.receive_json()
+            owner.receive_json()
+            account = app.state.container.social.accounts.identify(device)
+            with client.websocket_connect("/social/socket") as attacker:
+                message = {
+                    "displayName": "Attacker",
+                    "participantId": participant,
+                    "roomId": room["roomId"],
+                }
+                attacker.send_json(
+                    {
+                        "device": "attacker-device-secret" * 3,
+                        **(message if stage == "hello" else {"displayName": "Attacker"}),
+                    }
+                )
+                if stage == "presence":
+                    attacker.receive_json()
+                    attacker.receive_json()
+                    attacker.send_json(message)
+                with pytest.raises(WebSocketDisconnect) as closed:
+                    attacker.receive_json()
+                assert closed.value.code == 1008
+            assert app.state.container.social.accounts.owners((participant,)) == {
+                participant: account.account_id
+            }
+            other = app.state.container.social.accounts.identify("attacker-device-secret" * 3)
+            client.portal.call(
+                app.state.container.departures.gone, other.account_id, participant, room["roomId"]
+            )
+            client.portal.call(app.state.container.departures.settled)
+            assert client.get(f"/rooms/{room['roomId']}").status_code == 200
+
 
 HOST_KEY = "h" * 64
 GUEST_KEY = "g" * 64

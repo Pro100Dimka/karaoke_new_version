@@ -132,7 +132,7 @@ class ImportPackage:
                 active_revision=manifest.revision,
                 project_format_version=project_format_version,
                 status=SongStatus.READY,
-                video_url=manifest.song.video_url or existing.video_url,
+                video_url=manifest.song.video_url,
                 updated_at=now,
             )
         identity = manifest.song

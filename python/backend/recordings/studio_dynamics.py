@@ -7,8 +7,6 @@ from numpy.typing import NDArray
 from scipy.ndimage import (
     gaussian_filter1d,
     median_filter,
-    minimum_filter1d,
-    uniform_filter1d,
 )
 from scipy.signal import find_peaks
 import soundfile as sf
@@ -69,56 +67,6 @@ def _balance_curve(
     noise = voice <= max(-70.0, upper - 45.0)
     gains[noise] = np.minimum(gains[noise], 0.0)
     return np.clip(gains, -18.0, _MAX_BOOST_DB), reliable
-
-
-def _presence_activity(
-    voice: NDArray[np.float64], backing: NDArray[np.float64]
-) -> NDArray[np.bool_]:
-    floor = min(
-        float(np.percentile(voice, 80)) - 6.0,
-        max(-70.0, float(np.percentile(voice, 10)) + 9.0),
-    )
-    return (voice > floor) & (backing > -60)
-
-
-def _protect_vocal_presence(
-    gains: NDArray[np.float64],
-    voice: NDArray[np.float64],
-    backing: NDArray[np.float64],
-) -> tuple[NDArray[np.float64], dict[str, float]]:
-    """Keep vocal presence steady when the accompaniment grows.
-
-    Track slow accompaniment changes, not individual drum hits. The adjustment
-    never boosts pauses and is capped to avoid excessive noise or pumping.
-    """
-    if not len(gains) or len(gains) != len(voice) or len(voice) != len(backing):
-        return gains, {"presenceBoostMaxDb": 0.0}
-    active = _presence_activity(voice, backing)
-    if np.count_nonzero(active) < 10:
-        return gains, {"presenceBoostMaxDb": 0.0}
-    # A quiet intro should not establish the target level for the climax.
-    local_backing = median_filter(backing, size=31, mode="nearest")
-    reference_backing = float(np.percentile(local_backing[active], 35))
-    positions = np.arange(len(voice))
-    # Keep short syllables in the detector; a median discards their peaks and
-    # leaves the preceding quiet-word boost active over a louder syllable.
-    levels = np.interp(positions, positions[active], (voice + gains)[active])
-    output_voice = gaussian_filter1d(levels, sigma=0.05 / _PROFILE_SECONDS, mode="nearest")
-    reference_voice = float(np.median(output_voice[active & (local_backing <= reference_backing)]))
-    rise = np.maximum(local_backing - reference_backing, 0.0)
-    quiet_word = np.clip(reference_voice - output_voice, 0.0, 4.0)
-    # Preserve crescendos; allow the same bounded soft-word leveling as the
-    # performance envelope when musical rise compensation uses its gain budget.
-    desired = rise - (output_voice - reference_voice)
-    ceiling = np.minimum(rise, _MAX_BOOST_DB) + quiet_word
-    extra = np.where(rise > 1.0, np.clip(desired, 0.0, ceiling), 0.0)
-    extra *= np.clip(_slow_gain_envelope(active.astype(float), seconds=0.3), 0.0, 1.0)
-    result = gains + np.minimum(extra, np.maximum(0.0, _MAX_BOOST_DB + quiet_word - gains))
-    return result, {
-        "presenceBoostMaxDb": float(np.max(extra)),
-        "presenceBoostMeanDb": float(np.mean(extra[active])),
-        "backingReferenceDbfs": reference_backing,
-    }
 
 
 def _voice_filters(
@@ -188,20 +136,6 @@ def _tone_filters(
         "referenceTrebleRatioDb": reference_ratio,
         **cuts,
     }
-
-
-def _backing_curve(
-    backing: NDArray[np.float64], original: NDArray[np.float64]
-) -> NDArray[np.float64]:
-    reliable = (backing > -60) & (original > -60)
-    if not reliable.any():
-        return np.zeros_like(backing)
-    offset = float(np.median((backing - original)[reliable]))
-    desired = np.minimum(original + offset - backing, _MAX_BOOST_DB)
-    positions = np.arange(len(backing))
-    gains = np.interp(positions, positions[reliable], desired[reliable])
-    gains = uniform_filter1d(median_filter(gains, size=21, mode="nearest"), size=11, mode="nearest")
-    return _smooth_boosts(gains, reliable)
 
 
 def _tone_envelope(centers: np.ndarray, frames: list[np.ndarray]) -> np.ndarray:
@@ -305,23 +239,6 @@ def _clarity_filters(
     if amount:
         filters.append(f"treble=f=5500:t=q:w=0.7:g={2 * amount:.6f}")
     return amount
-
-
-def _smooth_boosts(gains: np.ndarray, reliable: np.ndarray, *, causal: bool = False) -> np.ndarray:
-    # Keep noise protection separate from the direction of vocal level tracking.
-    ceiling = uniform_filter1d(minimum_filter1d(reliable.astype(float), size=11), size=9)
-    gains = np.minimum(gains, ceiling * _MAX_BOOST_DB)
-    if causal:
-        # Never let a later quiet syllable attenuate earlier words. Reacquire after rests.
-        for index in range(1, len(gains)):
-            if reliable[index] and reliable[index - 1]:
-                gains[index] = np.clip(gains[index], gains[index - 1] - 1.2, gains[index - 1] + 1.2)
-        return gains
-    for indices in (range(1, len(gains)), range(len(gains) - 2, -1, -1)):
-        step = indices.step
-        for index in indices:
-            gains[index] = min(gains[index], gains[index - step] + 0.3)
-    return gains
 
 
 def _spectral_evidence(

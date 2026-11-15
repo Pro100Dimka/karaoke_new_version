@@ -137,6 +137,31 @@ class SqlSongRepository:
         _apply(row, song)
         self.changed.add(song.song_id)
 
+    def update_metadata(self, song: Song) -> Song:
+        row = self._session.scalar(
+            update(SongRow)
+            .where(SongRow.song_id == song.song_id)
+            .values(
+                title=song.title,
+                title_normalized=normalize_search(song.title),
+                artist=song.artist,
+                artist_normalized=normalize_search(song.artist),
+                language=song.language.value,
+                video_url=song.video_url,
+                cover_path=str(song.cover_path) if song.cover_path else None,
+                cover_state=song.cover_state.value,
+                updated_at=song.updated_at,
+                metadata_provenance_json=dumps(song.metadata_provenance),
+                user_overrides_json=dumps({key: True for key in song.user_overrides}),
+            )
+            .returning(SongRow),
+            execution_options={"populate_existing": True},
+        )
+        if row is None:
+            raise KeyError(song.song_id)
+        self.changed.add(song.song_id)
+        return _to_domain(row)
+
     def update_status(
         self,
         song_id: str,

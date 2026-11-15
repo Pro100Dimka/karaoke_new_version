@@ -895,7 +895,7 @@ class NetworkTimingEstimator {
     for (std::uint32_t frame = 0; frame < outputFrames; ++frame) {
         const auto position = outputFrames == 1 || inputFrames == 1
                                   ? 0.0F
-                                  : static_cast<float>(frame) * (inputFrames - 1U) /
+                                  : static_cast<float>(frame) * static_cast<float>(inputFrames - 1U) /
                                         static_cast<float>(outputFrames - 1U);
         const auto left = static_cast<std::uint32_t>(position);
         const auto right = std::min(left + 1U, inputFrames - 1U);
@@ -1042,8 +1042,7 @@ template <typename T>
 [[nodiscard]] inline T read(std::span<const std::byte> bytes, std::size_t offset) noexcept {
     T value{0};
     for (std::size_t index = 0; index < sizeof(T); ++index)
-        value |= static_cast<T>(std::to_integer<unsigned char>(bytes[offset + index]))
-                 << (index * 8U);
+        value = static_cast<T>(value | (static_cast<std::uint64_t>(std::to_integer<unsigned char>(bytes[offset + index])) << (index * 8U)));
     return value;
 }
 } // namespace AudioPacketWire

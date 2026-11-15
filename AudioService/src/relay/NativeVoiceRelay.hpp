@@ -70,8 +70,6 @@ struct RelayRecipientMetrics {
  * the service wrapper serializes them with receive/flush calls. */
 class NativeVoiceRelay {
   public:
-    explicit NativeVoiceRelay(
-        double collectionWindowMilliseconds = room_audio_contract::CollectionBudgetMilliseconds);
     static std::uint32_t participantKey(std::string_view participant) noexcept;
 
     /**
@@ -188,7 +186,6 @@ class NativeVoiceRelay {
                                                      double sentWall,
                                                      bool force);
     [[nodiscard]] static double collectionAllowance(const Room& room) noexcept;
-    [[nodiscard]] double collectionWindow(const Room& room) const noexcept;
     [[nodiscard]] static double noIngressWindow(const Room& room) noexcept;
     [[nodiscard]] bool hasReadyRecipient(const Room& room, const Pending& pending) const;
     [[nodiscard]] bool positionFinished(const Room& room, const Pending& pending) const;
@@ -205,5 +202,4 @@ class NativeVoiceRelay {
 
     std::unordered_map<std::uint64_t, Participant> participants_; // by session token
     std::unordered_map<std::string, Room> rooms_;
-    double collectionWindowSeconds_{room_audio_contract::CollectionBudgetMilliseconds / 1'000.0};
 };

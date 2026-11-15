@@ -626,15 +626,6 @@ void RealtimeEngine::publishOutputLatency(MonotonicTicks presentationTicks,
     latency_.set(LatencyRegistry::Stage::OutputDriver, 0, 0,
                  static_cast<std::uint32_t>(std::min<std::int64_t>(frames, UINT32_MAX)));
 }
-// A song keeps one follow shift from its first sounding frame until it stops, pauses included.
-// Letting it follow the leader's measured delay mid-song moved the follower's music (and the voice
-// the leader hears from it) by tens of milliseconds whenever the follower's network wavered, and a
-// pause could switch following off for the rest of the song. Between songs it is taken at once.
-std::uint32_t RealtimeEngine::followRoomDelay(std::uint32_t targetFrames) noexcept {
-    if (!songUnderway_)
-        followAppliedFrames_ = targetFrames;
-    return followAppliedFrames_;
-}
 // Consecutive blocks should be presented back to back; a break means the device clock (or its
 // timestamp) jumped, and everything scheduled on presentation times moves with it.
 void RealtimeEngine::notePresentationContinuity(MonotonicTicks presentationTicks,

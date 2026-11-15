@@ -9,6 +9,7 @@ import type {
 export interface BackendSong {
   songId: string;
   sourceHash?: string | null;
+  projectHash?: string | null;
   title: string;
   artist: string;
   album: string | null;
@@ -135,6 +136,7 @@ export const coverState = (value: string): SongDto['coverState'] =>
 export const mapSong = (song: BackendSong): SongDto => ({
   id: song.songId,
   sourceHash: song.sourceHash ?? undefined,
+  projectHash: song.projectHash ?? undefined,
   title: song.title,
   artist: song.artist,
   album: song.album ?? undefined,
@@ -143,7 +145,7 @@ export const mapSong = (song: BackendSong): SongDto => ({
   videoUrl: song.videoUrl ?? undefined,
   recognitionProvider: song.recognitionProvider ?? undefined,
   filename: song.originalFilename ?? undefined,
-    sourcePath: song.sourcePath ?? undefined,
+  sourcePath: song.sourcePath ?? undefined,
   detectedBpm: song.detectedBpm ?? undefined,
   detectedKey: song.detectedKey ?? undefined,
   language: songLanguage(song.language),
