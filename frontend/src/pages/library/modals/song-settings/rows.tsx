@@ -248,6 +248,7 @@ export const getRows = ({
           />
           <SplitButton
             size="sm"
+            variant="secondary"
             icon="folder"
             label={tr('openFolder')}
             onClick={() =>

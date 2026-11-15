@@ -46,6 +46,24 @@
   grid-template-columns: auto minmax(0, 1fr) 9rem;
   align-items: start;
   gap: var(--ad-space-4);
+  border: 1px solid var(--app-edge);
+  border-radius: 1.25rem;
+  background: var(--app-panel);
+}
+.processingJob > .ad-border {
+  opacity: 0.35;
+}
+.processingJob[data-state='completed'] > .ad-border {
+  display: none;
+}
+.processingJob[data-state='completed'] .processingSteps > li .ad-step-node {
+  color: var(--ad-secondary);
+  background: rgb(from var(--ad-primary) r g b / 0.09);
+  box-shadow: inset 0 0 0 1px rgb(from var(--ad-primary) r g b / 0.2);
+}
+.processingJob[data-state='completed'] .ad-steps > li + li::before {
+  background: rgb(from var(--ad-primary) r g b / 0.18);
+  box-shadow: none;
 }
 .processingCover {
   width: clamp(3.5rem, 8vw, 4.5rem);

@@ -134,15 +134,29 @@
   justify-content: flex-end;
   gap: var(--ad-space-2);
 }
+.songSettingsActions {
+  border-block-start: 1px solid var(--app-edge);
+  padding-block-start: 1rem;
+}
+.songSettingsActions > :first-child {
+  margin-inline-end: auto;
+}
+.songSettingsDialog > .ad-header {
+  padding-block-end: 1rem;
+  border-block-end: 1px solid var(--app-edge);
+}
+.main-theme .songSettingsDialog.ad-dialog[data-ad-material] {
+  background: var(--ad-neutral-950);
+}
 
 .songSettingsMedia {
   display: grid;
   gap: var(--ad-space-3);
   min-inline-size: 0;
   padding: var(--ad-space-4);
-  border: 1px solid rgb(255 255 255 / 0.1);
-  border-radius: var(--ad-radius-lg, 1rem);
-  background: rgb(0 0 0 / 0.16);
+  border: 1px solid var(--app-edge);
+  border-radius: 1.25rem;
+  background: var(--app-panel);
 }
 .songSettingsMediaHeader {
   display: flex;
@@ -152,6 +166,8 @@
 }
 .songSettingsMediaHeader h3 {
   margin: 0;
+  font-family: var(--ad-font-family-sans);
+  font-weight: 600;
 }
 .songSettingsMediaPreview {
   display: grid;
@@ -159,7 +175,7 @@
   height: 12rem;
   overflow: hidden;
   border-radius: var(--ad-radius);
-  background: rgb(0 0 0 / 0.2);
+  background: var(--ad-neutral-950);
 }
 .songSettingsMediaPreview img,
 .songSettingsMediaPreview video {

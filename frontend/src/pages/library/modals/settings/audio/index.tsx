@@ -32,7 +32,7 @@ const AudioPanel = observer(() => {
   };
   return (
     <>
-      <Grid columns={12} gap={3} style={{ height: '100%' }}>
+      <Grid columns={12} gap={3} className="audioSettingsGrid">
         <AudioFields
           status={status}
           monitoring={monitoring}

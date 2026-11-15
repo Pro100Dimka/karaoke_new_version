@@ -36,7 +36,6 @@
   :is(.ad-button, .ad-icon-button, .ad-toggle-button, .ad-split-button):where(
     :not([data-ad-round], .ad-split-button-main, .ad-split-button-trigger)
   ) {
-  --ad-btn-radius: 0.875rem;
   border-color: var(--app-edge);
   color: var(--ad-text);
   background:
@@ -138,13 +137,6 @@
   ):active:not(:disabled) {
   transform: translateY(1px);
   box-shadow: inset 0 2px 5px rgb(0 0 0 / 0.22);
-}
-
-.main-theme
-  .ad-icon-button:where(
-    :not([data-ad-round], .ad-split-button-main, .ad-split-button-trigger)
-  ) {
-  border-radius: 0.75rem;
 }
 
 .main-theme

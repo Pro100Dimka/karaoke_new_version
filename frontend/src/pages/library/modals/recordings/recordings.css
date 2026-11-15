@@ -2,7 +2,7 @@
 .recordingsDialog.ad-dialog {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  height: min(56rem, calc(100dvh - 2rem));
+  height: min(46rem, calc(100dvh - 2rem));
   overflow: hidden;
   width: min(70rem, calc(100vw - 3rem));
   padding: clamp(1.25rem, 3vw, 2rem);
@@ -48,11 +48,12 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: min(40rem, 75%);
+  width: min(24rem, 45%);
   height: auto;
   min-height: 0;
   border-radius: 0;
   background: none;
+  opacity: 0.24;
   mask-image:
     linear-gradient(to right, transparent, #000 35%),
     linear-gradient(#000 50%, transparent);
@@ -187,7 +188,6 @@
   grid-template-columns: 9rem minmax(0, 1fr);
   padding: 1.5rem;
   gap: 1.25rem 1.5rem;
-  min-height: 100%;
 }
 .recordingsFeatured .recordingMain {
   display: contents;
@@ -240,6 +240,15 @@
   padding: 1.25rem;
   grid-template-columns: 4rem minmax(0, 1fr) 4.5rem;
   gap: 1.25rem;
+  border: 0;
+  border-radius: 0;
+  border-block-start: 1px solid var(--app-edge);
+  padding-inline: 0;
+  background: none;
+  box-shadow: none;
+}
+.recordingsFeatured .recordingPlayer > .ad-border {
+  display: none;
 }
 .recordingsFeatured .recordingPlayer > .ad-icon-button {
   --ad-size-h: 3.5rem;
@@ -327,7 +336,6 @@
 }
 .recordingActions > .ad-icon-button {
   --ad-size-h: 2.125rem;
-  border-radius: 0.625rem;
 }
 .recordingActions .ad-icon {
   filter: none;

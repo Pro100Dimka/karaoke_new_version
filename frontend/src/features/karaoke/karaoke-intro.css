@@ -5,7 +5,13 @@
   z-index: calc(var(--ad-z-system) - 1);
   display: grid;
   place-items: center;
-  background: #000;
+  background:
+    radial-gradient(
+      ellipse at 50% 55%,
+      rgb(from var(--ad-primary) r g b / 0.12),
+      transparent 70%
+    ),
+    #000;
   opacity: 1;
   transition: opacity 0.8s var(--ad-ease-standard);
 }
@@ -19,15 +25,6 @@
   inline-size: min(54rem, calc(100vw - 2rem));
   min-block-size: min(20rem, 60vh);
   overflow: hidden;
-}
-/* A planet glows behind the announcement on the black screen. */
-.karaokeIntroPlanet.ad-planet {
-  position: absolute;
-  inset: 0;
-  aspect-ratio: auto;
-  border-radius: 0;
-  background: none;
-  opacity: 0.7;
 }
 .karaokeIntroSparkles.ad-sparkles {
   font-size: var(--ad-font-size-h3);

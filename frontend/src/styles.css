@@ -42,8 +42,9 @@ body,
   width: 100%;
 }
 
-.settingsDialog {
-  height: min(45rem, calc(100dvh - 2rem));
+.settingsDialog.ad-dialog {
+  max-height: calc(100dvh - 2rem);
+  width: min(78rem, calc(100vw - 3rem));
   grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -59,7 +60,7 @@ body,
 }
 
 .settingsBody {
-  min-height: min(18rem, 50dvh);
+  min-height: 0;
 }
 
 .settingsBody .ad-card {
@@ -70,14 +71,34 @@ body,
 }
 
 .settingsBody .ad-card > .ad-border {
-  opacity: 0.7;
+  opacity: 0.4;
+}
+
+.audioSettingsGrid {
+  align-items: stretch;
+}
+.audioSettingsGrid > .ad-grid-item:first-child .ad-form-field:not([data-custom]) {
+  grid-column: span 6;
+}
+.audioSettingsGrid > .ad-grid-item:first-child .ad-form-field:nth-child(2) {
+  grid-column: 1 / -1;
+}
+.audioSettingsGrid strong {
+  font-family: var(--ad-font-family-sans);
+  font-weight: 500;
+}
+
+@media (width >= 1024px) {
+  .audioSettingsGrid > .ad-grid-item:nth-child(-n + 3) {
+    grid-column: span 4;
+  }
 }
 
 .appearanceDetails {
   align-content: start;
 }
 
-.libraryPage {
+.routeSurface:has(.libraryPage) {
   background: rgb(from var(--ad-neutral-950) r g b / 0.48);
 }
 

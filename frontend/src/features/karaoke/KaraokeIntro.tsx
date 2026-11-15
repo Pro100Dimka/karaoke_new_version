@@ -7,7 +7,6 @@ import {
   GlowText,
   Icon,
   NeonWaves,
-  Planet,
   Reveal,
   Sparkles,
   Stack,
@@ -70,7 +69,6 @@ export const KaraokeIntro = ({
       data-leaving={leaving || undefined}
       aria-live="polite"
     >
-      <Planet className="karaokeIntroPlanet" />
       {song && (
         <Reveal effect="zoom" className="karaokeIntroReveal">
           <Card border shell padding="none" className="karaokeIntroCard">
