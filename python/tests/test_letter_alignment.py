@@ -2907,7 +2907,10 @@ def test_actual_verse_entry_survives_missing_first_words_in_independent_recognit
     assert 28.0 <= result["words"][7]["start"] <= 29.3
 
 
-def test_catalog_and_recognized_phrase_jointly_keep_a_short_line_out_of_the_following_pause():
+@pytest.mark.parametrize("catalogued", [True, False])
+def test_catalog_and_recognized_phrase_jointly_keep_a_short_line_out_of_the_following_pause(
+    catalogued,
+):
     from backend.ai_worker.speech import _alignment_windows
 
     lyrics = "carry our voices\nreturn to shore"
@@ -2916,6 +2919,8 @@ def test_catalog_and_recognized_phrase_jointly_keep_a_short_line_out_of_the_foll
         for word, start in zip(lyrics.split(), (2.0, 2.3, 2.7, 20.0, 20.3, 20.7))
     ]
     hints = [{"start": 2.0, "text": "carry our voices"}, {"start": 20.0, "text": "return to shore"}]
+    if not catalogued:
+        hints = hints[1:]
     whole = [
         AlignedWord(word, start, start + 0.3, (), 0.8)
         for word, start in zip(lyrics.split(), (5.0, 6.0, 7.0, 20.0, 20.3, 20.7))

@@ -7,18 +7,26 @@ import soundfile as sf
 import pytest
 
 from backend.recordings.studio_space import SpaceProfile, _render_separate_buses
-from scipy.signal import fftconvolve
+from scipy.signal import butter, fftconvolve, sosfilt
 
 
 @pytest.mark.parametrize("delay", [0.1, 0.2])
-def test_diffuse_field_adds_delayed_space_without_changing_the_center(tmp_path, monkeypatch, delay):
+@pytest.mark.parametrize("band", [(150, 500), (500, 3500)])
+def test_diffuse_field_adds_delayed_space_without_changing_the_center(
+    tmp_path, monkeypatch, delay, band
+):
     import backend.recordings.studio_space as module
 
     rate = 8000
     rng = np.random.default_rng(91)
     time = np.arange(rate * 18) / rate
     envelope = np.where((time % 1.5) < 0.65, 1.0, 0.05)
-    mono = rng.normal(0, 0.04, len(time)) * envelope
+    mono = (
+        sosfilt(
+            butter(2, band, fs=rate, btype="bandpass", output="sos"), rng.normal(0, 0.04, len(time))
+        )
+        * envelope
+    )
     impulse = np.zeros(round(rate * 0.4))
     start = round(delay * rate)
     impulse[start : start + rate // 10] = rng.normal(size=rate // 10)
@@ -26,9 +34,22 @@ def test_diffuse_field_adds_delayed_space_without_changing_the_center(tmp_path, 
     side = fftconvolve(mono, impulse)[: len(mono)]
     dry = np.column_stack((mono, mono))
     reference = np.column_stack((mono + side, mono - side))
+    if band == (150, 500):
+        # Independent upper-band production must not hide supported low-band ambience.
+        upper = sosfilt(
+            butter(4, [1500, 3500], fs=rate, btype="bandpass", output="sos"),
+            rng.normal(0, 0.03, reference.shape),
+            axis=0,
+        )
+        reference += upper
     source, ref, before, after = [tmp_path / f"{n}.wav" for n in ["dry", "ref", "before", "after"]]
     sf.write(source, dry, rate, subtype="FLOAT")
     sf.write(ref, reference, rate, subtype="FLOAT")
+    from backend.recordings.studio_field import plan_diffuse_field
+
+    plan = plan_diffuse_field(ref, rate, threading.Event())
+    assert plan is not None
+    assert plan.band_hz == band
     with monkeypatch.context() as context:
         context.setattr(module, "plan_diffuse_field", lambda *a: None, raising=False)
         module.apply_reference_space(object(), ref, source, source, before, threading.Event())

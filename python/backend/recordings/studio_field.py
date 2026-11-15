@@ -17,6 +17,7 @@ class DiffuseFieldPlan:
     response: np.ndarray
     ratio: float
     improvement: float
+    band_hz: tuple[int, int] = (500, 3500)
 
 
 def _delayed_kernel(envelopes: np.ndarray) -> tuple[np.ndarray, float] | None:
@@ -35,6 +36,8 @@ def _delayed_kernel(envelopes: np.ndarray) -> tuple[np.ndarray, float] | None:
         except RuntimeError:
             return None
         error = float(np.mean((windows[~training] @ kernel - side[~training]) ** 2))
+        if error >= float(np.var(side[~training])) * 0.95:
+            return None
         scores.append(1 - error / max(base_error, 1e-20))
         kernels.append(kernel)
     if min(scores) < 0.05:
@@ -52,11 +55,15 @@ def plan_diffuse_field(
     envelopes = _field_envelopes(reference, cancel)
     if len(envelopes) < 450:
         return None
-    fitted = _delayed_kernel(envelopes[:, 1])
-    if fitted is None:
+    candidates = []
+    for index, band in enumerate(((150, 500), (500, 3500))):
+        fitted = _delayed_kernel(envelopes[:, index])
+        if fitted is not None:
+            candidates.append((fitted[1] * envelopes[:, index, 1].sum(), index, band, fitted))
+    if not candidates:
         return None
-    kernel, improvement = fitted
-    observed = float(envelopes[:, 1, 1].sum() / max(envelopes[:, 1, 0].sum(), 1e-20))
+    _, index, band, (kernel, improvement) = max(candidates, key=lambda item: item[0])
+    observed = float(envelopes[:, index, 1].sum() / max(envelopes[:, index, 0].sum(), 1e-20))
     ratio = min(float(kernel.sum()), observed)
     if ratio < 1e-4:
         return None
@@ -64,19 +71,23 @@ def plan_diffuse_field(
     power = np.interp(time, np.arange(len(kernel)) * 0.02, kernel, right=0)
     noise = np.random.default_rng(0).normal(size=len(time)) * np.sqrt(power)
     noise[: round(rate * 0.02)] = 0
-    response = sosfilt(butter(2, [500, 3500], fs=rate, btype="bandpass", output="sos"), noise)
+    response = sosfilt(butter(2, band, fs=rate, btype="bandpass", output="sos"), noise)
     response /= max(float(np.linalg.norm(response)), 1e-12)
-    return DiffuseFieldPlan(response, ratio, improvement)
+    return DiffuseFieldPlan(response, ratio, improvement, band)
 
 
 def _field_energy(
-    voice: Path, paths: Mapping[str, Path], gains: Mapping[str, float], cancel: threading.Event
+    voice: Path,
+    paths: Mapping[str, Path],
+    gains: Mapping[str, float],
+    cancel: threading.Event,
+    band_hz: tuple[int, int] = (500, 3500),
 ) -> np.ndarray:
     energy = np.zeros((3, 3))
     with ExitStack() as stack:
         dry = stack.enter_context(sf.SoundFile(voice))
         readers = {name: stack.enter_context(sf.SoundFile(path)) for name, path in paths.items()}
-        band = butter(2, [500, 3500], fs=dry.samplerate, btype="bandpass", output="sos")
+        band = butter(2, band_hz, fs=dry.samplerate, btype="bandpass", output="sos")
         state = np.zeros((len(band), 2, 3))
         for block in dry.blocks(blocksize=32768, always_2d=True):
             _check_cancel(cancel)
@@ -104,7 +115,7 @@ def calibrate_diffuse_field(
     peak_limit: float,
     cancel: threading.Event,
 ) -> tuple[float, dict[str, object]]:
-    energy = _field_energy(voice, paths, gains, cancel)
+    energy = _field_energy(voice, paths, gains, cancel, plan.band_hz)
     mid, side, diffuse = map(float, np.diag(energy))
     cross = float(energy[1, 2])
     target = plan.ratio * mid
@@ -120,6 +131,7 @@ def calibrate_diffuse_field(
     return gain, {
         "applied": gain > 0,
         "method": "cross-validated-delayed-side-energy",
+        "bandHz": list(plan.band_hz),
         "heldOutImprovement": plan.improvement,
         "targetSideToMidRatio": plan.ratio,
         "beforeSideToMidRatio": float(side / max(mid, 1e-20)),

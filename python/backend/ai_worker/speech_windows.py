@@ -381,39 +381,37 @@ def _recognized_catalog_windows(
     whole: Sequence[AlignedWord],
     supported: Mapping[int, tuple[float, float]],
 ) -> list[Window]:
-    windows = unhinted_windows(
-        [
+    result: list[Window] = []
+    for window in windows:
+        window = unhinted_windows([*result[-1:], window], whole, _MARGIN_SECONDS)[-1]
+        interval = supported.get(window.first)
+        if (
+            window.heard_start is None
+            and interval is not None
+            and window.start <= interval[0] < interval[1] <= window.end
+        ):
+            window = replace(
+                window,
+                start=max(window.start, interval[0] - _MARGIN_SECONDS),
+                heard_start=interval[0],
+            )
+        phrase, _ = recognized_phrase(
+            window,
+            words[window.first : window.last],
+            heard,
+            _MARGIN_SECONDS,
+            allow_utterance=window.first - 1 in supported and window.last in supported,
+        )
+        result.append(
             phrase_window(
                 window,
-                recognized_phrase(
-                    window,
-                    words[window.first : window.last],
-                    heard,
-                    _MARGIN_SECONDS,
-                    allow_utterance=window.first - 1 in supported and window.last in supported,
-                )[0],
+                phrase,
                 whole[window.first].start,
                 supported.get(window.last - 1),
                 _MARGIN_SECONDS,
             )
-            for window in windows
-        ],
-        whole,
-        _MARGIN_SECONDS,
-    )
-    windows = [
-        replace(
-            window,
-            start=max(window.start, interval[0] - _MARGIN_SECONDS),
-            heard_start=interval[0],
         )
-        if window.heard_start is None
-        and (interval := supported.get(window.first)) is not None
-        and window.start <= interval[0] < interval[1] <= window.end
-        else window
-        for window in windows
-    ]
-    return windows
+    return result
 
 
 def _contradicted_window(

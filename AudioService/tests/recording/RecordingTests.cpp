@@ -1634,53 +1634,71 @@ void denseDiagnosticVocalMarkersBoundDropoutDuration() {
 }
 
 void performanceMixContainsConfiguredAutoTune() {
-    auto backend = std::make_unique<FakeAudioBackend>();
-    auto* fake = backend.get();
-    AudioService service{std::move(backend)};
-    service.start();
-    service.session().prepare(RequestedConfiguration{});
-    service.session().start();
-    service.realtime().setDspEnabled(true);
-    expect(service.realtime().setDspParameter("autotune.amount", 1.0F),
-           "performance recording accepts full hard-tune");
-    const auto musicPath = tempRoot / "recording-autotune-silent-music.wav";
-    WavWriter silentMusic;
-    silentMusic.open(musicPath.string(), 48000, 2);
-    silentMusic.write(std::vector<float>(48000 * 4U * 2U, 0.0F));
-    silentMusic.close();
-    service.media().load(MediaSlot::Music, musicPath.string());
-    expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
-           "silent backing is ready for the karaoke performance recording");
-    service.media().play(MediaContext::Karaoke);
-    const auto path = tempRoot / "recording-performance-autotune.wav";
-    service.recording().prepare("performance-autotune", path.string(), 48000, 2,
-                                RecordingTap::PerformanceMix, 48000 * 3U);
-    service.recording().start(SessionFrame{0}, 0);
-    constexpr std::uint32_t rate = 48'000, frames = 128;
-    constexpr double inputFrequency = 448.0;
-    constexpr double twoPi = 6.28318530717958647692;
-    std::vector<float> capture(frames), render(frames * 2U);
-    double phase = 0.0;
-    for (std::uint32_t block = 0; block < rate * 3U / frames; ++block) {
-        for (auto& sample : capture) {
-            sample = 0.3F * static_cast<float>(std::sin(phase));
-            phase += twoPi * inputFrequency / rate;
+    constexpr std::array effects{
+        std::pair{"autotune.amount", 1.0F}, std::pair{"reverb.mix", 0.35F},
+        std::pair{"echo.amount", 0.7F}, std::pair{"delay.mix", 0.7F}};
+    for (const auto& [effect, amount] : effects) {
+        auto backend = std::make_unique<FakeAudioBackend>();
+        auto* fake = backend.get();
+        AudioService service{std::move(backend)};
+        service.start();
+        service.session().prepare(RequestedConfiguration{});
+        service.session().start();
+        service.realtime().setDspEnabled(true);
+        expect(service.realtime().setDspParameter(effect, amount),
+               "performance recording accepts the configured voice effect");
+        expect(service.realtime().setDspParameter("delay.ms", 320.0F) &&
+               service.realtime().setDspParameter("delay.feedback", 0.35F),
+               "recorded delay uses the karaoke repeat timing");
+        const auto musicPath = tempRoot / "recording-autotune-silent-music.wav";
+        WavWriter silentMusic;
+        silentMusic.open(musicPath.string(), 48000, 2);
+        silentMusic.write(std::vector<float>(48000 * 4U * 2U, 0.0F));
+        silentMusic.close();
+        service.media().load(MediaSlot::Music, musicPath.string());
+        expect(service.media().waitUntilReady(MediaSlot::Music) == PlaybackState::Ready,
+               "silent backing is ready for the karaoke performance recording");
+        service.media().play(MediaContext::Karaoke);
+        const auto path = tempRoot / "recording-performance-autotune.wav";
+        service.recording().prepare("performance-autotune", path.string(), 48000, 2,
+                                    RecordingTap::PerformanceMix, 48000 * 3U, true);
+        service.recording().start(SessionFrame{0}, 0, service.realtime().performanceLeadFrames());
+        constexpr std::uint32_t rate = 48'000, frames = 128;
+        constexpr double inputFrequency = 448.0;
+        constexpr double twoPi = 6.28318530717958647692;
+        std::vector<float> capture(frames), render(frames * 2U);
+        double phase = 0.0;
+        for (std::uint32_t block = 0; block < rate * 3U / frames; ++block) {
+            for (auto& sample : capture) {
+                sample = block * frames < rate * 2U
+                    ? 0.3F * static_cast<float>(std::sin(phase)) : 0.0F;
+                phase += twoPi * inputFrequency / rate;
+            }
+            fake->pump(capture, 1, render, 2, block * frames, block * frames);
         }
-        fake->pump(capture, 1, render, 2, block * frames, block * frames);
-    }
-    service.recording().stop(service.realtime().sessionFrame());
+        (void)service.realtime().finishRecording(RecordingState::Finished);
 
-    WavDecoder decoder;
-    decoder.open(path.string());
-    std::vector<float> recorded(rate * 3U * 2U);
-    const auto recordedFrames = decoder.read(recorded, rate * 3U);
-    const auto first = (recordedFrames - rate) * 2U;
-    std::uint32_t crossings = 0;
-    for (std::size_t index = first + 2U; index < recordedFrames * 2U; index += 2U)
-        if (recorded[index - 2U] <= 0.0F && recorded[index] > 0.0F)
-            ++crossings;
-    expect(crossings >= 380 && crossings <= 430,
-           "performance mix records the exaggerated auto-tune instead of a dry microphone");
+        WavDecoder decoder;
+        decoder.open(path.string());
+        std::vector<float> recorded(rate * 3U * 2U);
+        const auto recordedFrames = decoder.read(recorded, rate * 3U);
+        expect(recordedFrames >= rate * 5U / 2U, "performance retains the captured timeline");
+        const auto first = rate * 2U;
+        std::uint32_t crossings = 0;
+        for (std::size_t index = first + 2U; index < first + rate; index += 2U)
+            if (recorded[index - 2U] <= 0.0F && recorded[index] > 0.0F)
+                ++crossings;
+        if (std::string_view{effect} == "autotune.amount") {
+            expect(crossings >= 190 && crossings <= 215,
+                   "performance mix records the exaggerated auto-tune instead of a dry microphone");
+        } else {
+            float tailPeak = 0.0F;
+            for (std::size_t index = rate * 4U + rate / 5U; index < rate * 5U; ++index)
+                tailPeak = std::max(tailPeak, std::abs(recorded[index]));
+            expect(tailPeak > 0.0001F,
+                   "saved performance retains the voice effect after the singer stops");
+        }
+    }
 }
 
 namespace {
