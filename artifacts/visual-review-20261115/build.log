@@ -1,0 +1,120 @@
+=== A&D Voice: preparing the normal dev profile and one isolated guest ===
+[frontend] node_modules match package-lock.json; nothing to install
+[audio] Версия MSBuild 17.14.51+25f168cee для .NET Framework
+[frontend] > ad-voice-frontend@1.1.36 electron:install
+[frontend] > install-electron
+[python] packages match requirements.lock; nothing to install
+[python] done in 0.4 s
+[audio]   opus.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\_deps\opus-build\Release\opus.lib
+[audio]   audioservice_core.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\audioservice_core.lib
+[audio]   AudioService.vcxproj -> D:\Git\karaoke_new_version\AudioService\build\Release\AudioService.exe
+[audio] done in 0.5 s
+[frontend] > ad-voice-frontend@1.1.36 electron:compile
+[frontend] > tsc -p electron/tsconfig.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.js
+[frontend] vite v7.3.6 building client environment for production...
+[frontend] <script src="./theme-boot.js"> in "/index.html" can't be bundled without type="module" attribute
+[frontend] transforming...
+[frontend]   dist-electron\preload.js  13.3kb
+[frontend] Done in 2ms
+[frontend] ✓ 426 modules transformed.
+[frontend] rendering chunks...
+[frontend] [plugin vite:reporter]
+[frontend] (!) D:/Git/karaoke_new_version/frontend/src/features/karaoke/KaraokePage.tsx is dynamically imported by D:/Git/karaoke_new_version/frontend/src/pages/index.tsx but also statically imported by D:/Git/karaoke_new_version/frontend/src/features/karaoke/KaraokeHost.tsx, dynamic import will not move module into another chunk.
+[frontend] computing gzip size...
+[frontend] dist/vendor/three/examples/jsm/shaders/CopyShader.js                    0.73 kB
+[frontend] dist/vendor/three/examples/jsm/shaders/AfterimageShader.js              1.05 kB
+[frontend] dist/index.html                                                         1.07 kB │ gzip:   0.58 kB
+[frontend] dist/vendor/three/examples/jsm/shaders/LuminosityHighPassShader.js      1.29 kB
+[frontend] dist/vendor/three/examples/jsm/shaders/OutputShader.js                  1.88 kB
+[frontend] dist/assets/lightWorker-BPcvVSVT.js                                     2.52 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/ShaderPass.js             3.23 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/OutputPass.js             4.18 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/Pass.js                   4.22 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/RenderPass.js             4.28 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/AfterimagePass.js         4.34 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/MaskPass.js               4.69 kB
+[frontend] dist/assets/notice-info-BJoqCB9H.ogg                                    4.85 kB
+[frontend] dist/assets/light-icons-E6tRZn_u.webp                                   5.81 kB
+[frontend] dist/assets/notice-error-NWGV4Ti6.ogg                                   6.39 kB
+[frontend] dist/assets/dark-backgrounds-_eTNckS0.webp                              8.46 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/EffectComposer.js         8.48 kB
+[frontend] dist/assets/green-icons-Clng0eyE.webp                                   8.80 kB
+[frontend] dist/assets/violet-icons-BCRmRNVi.webp                                  8.86 kB
+[frontend] dist/assets/dark-icons-BpjEBC8K.webp                                    9.01 kB
+[frontend] dist/assets/notice-invitation-Umwk5RZr.ogg                              9.46 kB
+[frontend] dist/assets/violet-backgrounds-DDKcVKCC.webp                           11.21 kB
+[frontend] dist/assets/notice-warning-Dg8ijBkm.ogg                                11.70 kB
+[frontend] dist/assets/notice-success-CfXTXBUJ.ogg                                14.17 kB
+[frontend] dist/vendor/three/examples/jsm/postprocessing/UnrealBloomPass.js       14.92 kB
+[frontend] dist/assets/green-backgrounds-u7RNciEH.webp                            16.13 kB
+[frontend] dist/assets/rollFxWorker-dK5QFmIw.js                                   16.52 kB
+[frontend] dist/assets/room-join-DXqEmYCN.mp3                                     35.78 kB
+[frontend] dist/vendor/three/examples/jsm/controls/OrbitControls.js               38.78 kB
+[frontend] dist/assets/MelodixText-600-hCHLX-Jz.woff2                             49.26 kB
+[frontend] dist/assets/MelodixText-700-DK1QpEHt.woff2                             50.08 kB
+[frontend] dist/assets/MelodixText-500-Bb05MmCQ.woff2                             50.78 kB
+[frontend] dist/assets/MelodixText-800-WGXvo1aj.woff2                             51.47 kB
+[frontend] dist/assets/MelodixText-900-BRGoNORD.woff2                             51.91 kB
+[frontend] dist/assets/MelodixText-400-Fd7OHz5A.woff2                             53.42 kB
+[frontend] dist/assets/MelodixText-300-CT_PYRAW.woff2                             57.28 kB
+[frontend] dist/assets/MelodixText-200-D4bv5AbX.woff2                             60.88 kB
+[frontend] dist/assets/MelodixText-100-CEDIqC7e.woff2                             62.04 kB
+[frontend] dist/assets/Melodix-400-C5pzQxb4.woff2                                 80.67 kB
+[frontend] dist/assets/Melodix-300-or4EARLq.woff2                                 89.17 kB
+[frontend] dist/assets/Melodix-900-P-iTCOh0.woff2                                 95.28 kB
+[frontend] dist/assets/Melodix-800-Zb3gCB2U.woff2                                 96.08 kB
+[frontend] dist/assets/Melodix-600-BTQfd2XW.woff2                                 96.40 kB
+[frontend] dist/assets/Melodix-700-Bdrql3SJ.woff2                                 96.74 kB
+[frontend] dist/assets/Melodix-200-DU5zZnAB.woff2                                 98.02 kB
+[frontend] dist/assets/Melodix-500-B02Gfpkf.woff2                                 98.04 kB
+[frontend] dist/assets/Melodix-100-Cx5X0wk6.woff2                                107.02 kB
+[frontend] dist/assets/room-leave-DLIUSZLh.mp3                                   133.02 kB
+[frontend] dist/assets/performance-art-DQyoRgXx.svg                              223.95 kB │ gzip:  40.65 kB
+[frontend] dist/assets/light-sQA1-5T0.webp                                       227.87 kB
+[frontend] dist/assets/modal-CyvUpMne.webp                                       280.73 kB
+[frontend] dist/assets/green-TrTpErXL.webp                                       298.86 kB
+[frontend] dist/assets/violet-C3ApnNpS.webp                                      304.50 kB
+[frontend] dist/assets/dark-Bu57Wb5w.webp                                        319.46 kB
+[frontend] dist/vendor/three/build/three.module.js                               631.04 kB
+[frontend] dist/assets/light-CjFxnVv_.webp                                     1,378.94 kB
+[frontend] dist/assets/light-DfufcQFF.webp                                     1,379.30 kB
+[frontend] dist/vendor/three/build/three.core.js                               1,408.57 kB
+[frontend] dist/assets/green-BAEDeHPU.webp                                     1,731.23 kB
+[frontend] dist/assets/dark-v9GWWgqS.webp                                      1,734.20 kB
+[frontend] dist/assets/green-BB6Ljv_0.webp                                     1,738.64 kB
+[frontend] dist/assets/dark-dXR9RQ92.webp                                      1,741.64 kB
+[frontend] dist/assets/violet-DvaCrN4m.webp                                    1,935.17 kB
+[frontend] dist/assets/violet-BrbJiYwj.webp                                    1,942.61 kB
+[frontend] dist/assets/index-BRjEnqzE.css                                          0.77 kB │ gzip:   0.40 kB
+[frontend] dist/assets/RoomModal-DHB3CelY.css                                      0.81 kB │ gzip:   0.41 kB
+[frontend] dist/assets/index-CmQ06SnX.css                                          1.58 kB │ gzip:   0.63 kB
+[frontend] dist/assets/index-BfgNIJY0.css                                          2.40 kB │ gzip:   0.87 kB
+[frontend] dist/assets/index-7sOUY7pa.css                                          2.51 kB │ gzip:   0.92 kB
+[frontend] dist/assets/index-BiC8mBLj.css                                          5.69 kB │ gzip:   1.61 kB
+[frontend] dist/assets/index-CqBy7vi2.css                                         10.74 kB │ gzip:   2.67 kB
+[frontend] dist/assets/index-C7-RznvU.css                                        226.55 kB │ gzip:  42.37 kB
+[frontend] dist/assets/useMutationState-Dl_DkB-p.js                                0.58 kB │ gzip:   0.39 kB
+[frontend] dist/assets/useInfiniteQuery-icP_pT8M.js                                1.12 kB │ gzip:   0.48 kB
+[frontend] dist/assets/index-w0I-MWFe.js                                           2.65 kB │ gzip:   1.33 kB
+[frontend] dist/assets/RoomModal-B6wlFoOp.js                                       2.78 kB │ gzip:   1.22 kB
+[frontend] dist/assets/index-i_jz2MD3.js                                           6.54 kB │ gzip:   2.34 kB
+[frontend] dist/assets/index-FFR19ICA.js                                           8.13 kB │ gzip:   3.30 kB
+[frontend] dist/assets/index-DvLoqf3Z.js                                           8.56 kB │ gzip:   3.60 kB
+[frontend] dist/assets/index-BE8YJuFZ.js                                           8.89 kB │ gzip:   3.57 kB
+[frontend] dist/assets/index-DiYrZQ86.js                                           9.85 kB │ gzip:   3.90 kB
+[frontend] dist/assets/api-service-cBRwrWU6.js                                     9.94 kB │ gzip:   3.81 kB
+[frontend] dist/assets/index-dZWqpEFn.js                                          13.26 kB │ gzip:   5.19 kB
+[frontend] dist/assets/index-D7HZnCv9.js                                          22.19 kB │ gzip:   7.02 kB
+[frontend] dist/assets/index-DLaFh0LE.js                                          53.17 kB │ gzip:  15.27 kB
+[frontend] dist/assets/index-CAJt1YiS.js                                          96.46 kB │ gzip:  32.83 kB
+[frontend] dist/assets/index-K8kPxWd_.js                                       1,511.21 kB │ gzip: 455.01 kB
+[frontend] (!) Some chunks are larger than 500 kB after minification. Consider:
+[frontend] - Using dynamic import() to code-split the application
+[frontend] - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+[frontend] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[frontend] ✓ built in 2.19s
+[frontend] done in 4.2 s
+[build] all steps done in 4.3 s
+[app] AD Voice Dev: PID 14632, backend port selected at startup
+[app] AD Voice Multi 2: PID 44440, backend port selected at startup
+[app] Two independent instances were launched.

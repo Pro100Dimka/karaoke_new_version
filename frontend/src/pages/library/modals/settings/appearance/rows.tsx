@@ -68,13 +68,14 @@ export const AppearanceFields = observer(
       label: tr(label),
     }));
     return (
-      <Grid columns={12} gap={3}>
+      <Grid columns={12} gap={3} className="appearanceLayout">
         <Grid span={{ base: 'full', md: 3, lg: 4 }}>
           <Card
+            className="appearanceThemes"
             border
             title={tr('theme')}
             icon="palette"
-            style={{ height: '100%', background: 'transparent' }}
+            style={{ background: 'transparent' }}
           >
             <Grid
               columns={12}
@@ -101,8 +102,8 @@ export const AppearanceFields = observer(
           </Card>
         </Grid>
         <Grid span={{ base: 'full', md: 9, lg: 8 }}>
-          <Grid columns={12} gap={3} style={{ height: '100%' }}>
-            <Grid span={{ base: 'full', lg: 6 }}>
+          <Grid columns={12} gap={3} className="appearanceDetails">
+            <Grid span={{ base: 'full', md: 6 }}>
               <Card
                 border
                 title={tr('profile')}
@@ -146,7 +147,7 @@ export const AppearanceFields = observer(
                 </Grid>
               </Card>
             </Grid>
-            <Grid span={{ base: 'full', lg: 6 }}>
+            <Grid span={{ base: 'full', md: 6 }}>
               <Card
                 border
                 title={tr('radio')}

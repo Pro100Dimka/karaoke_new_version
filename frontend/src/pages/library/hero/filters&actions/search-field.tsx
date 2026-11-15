@@ -83,6 +83,7 @@ export default function LibrarySearchField(props: SearchProps) {
   return (
     <>
       <TextField
+        className="librarySearch"
         style={{ flex: '1 1 20rem' }}
         maxLength={300}
         role="searchbox"
@@ -108,6 +109,7 @@ export default function LibrarySearchField(props: SearchProps) {
         }
       />
       <Popover
+        className="libraryFilters"
         open={open}
         onOpenChange={setOpen}
         anchorRef={anchor}

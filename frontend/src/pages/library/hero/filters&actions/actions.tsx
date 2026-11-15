@@ -45,6 +45,7 @@ const LibraryActions = observer((props: LibraryActionsProps) => {
   return (
     <Stack
       role="toolbar"
+      className="libraryToolbar"
       aria-label={tr('library')}
       direction="row"
       align="center"

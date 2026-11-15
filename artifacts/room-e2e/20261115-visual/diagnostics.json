@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-15",
+  "scope": "visual-only",
+  "launcher": "start-multy.bat",
+  "cdp_ports": [
+    9341,
+    9342
+  ],
+  "host_pid": 34164,
+  "guest_pid": 44860,
+  "themes": [
+    "dark",
+    "light"
+  ],
+  "joined_participants": 2,
+  "ui_actions": [
+    "create",
+    "join",
+    "open-self-effects",
+    "open-remote-effects",
+    "switch-theme",
+    "leave"
+  ],
+  "room_audio_changed": false,
+  "microphone_audio_verified": false,
+  "singer_skew_verified": false,
+  "remaining_processes": []
+}

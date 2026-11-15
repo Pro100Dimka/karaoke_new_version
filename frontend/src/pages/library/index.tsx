@@ -100,6 +100,7 @@ const LibraryPage = observer(() => {
   return (
     <Stack
       as="main"
+      className="libraryPage"
       ref={pageRef}
       style={{ height: '100%', minHeight: 0, overflowX: 'hidden', overflowY: 'auto' }}
       onDragOver={desktop.onDragOver}

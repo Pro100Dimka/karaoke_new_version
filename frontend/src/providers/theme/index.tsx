@@ -11,6 +11,7 @@ const ThemeConfig = observer(({ children }: PropsWithChildren) => {
   return (
     <ThemeProvider
       theme={library}
+      colorScheme={library === 'light' ? 'light' : 'dark'}
       style={{
         '--app-background': `url("${background}")`,
         '--app-font-heading': fonts[headingFont][1],

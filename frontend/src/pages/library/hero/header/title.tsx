@@ -4,7 +4,7 @@ import { store } from '../../../../providers/store';
 import { appThemes } from '../../../../providers/theme/variants';
 
 const LibraryTitle = observer(() => (
-  <Stack direction="row" align="center" gap={6}>
+  <Stack className="libraryIdentity" direction="row" align="center" gap={6}>
     <ImageShine
       src={appThemes[store.interface.theme].icon}
       style={{ flex: 1 }}

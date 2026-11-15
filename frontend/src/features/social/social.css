@@ -17,6 +17,10 @@
   gap: var(--ad-space-3);
   align-items: center;
   min-inline-size: 0;
+  padding: var(--ad-space-3);
+  border: 1px solid rgb(from var(--ad-primary) r g b / 0.12);
+  border-radius: var(--ad-radius);
+  background: rgb(from var(--ad-neutral-950) r g b / 0.5);
 }
 
 .personRowText {
@@ -26,6 +30,9 @@
 }
 
 .personRowName {
+  font-family: var(--ad-font-family-sans);
+  font-size: 1rem;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

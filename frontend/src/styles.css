@@ -62,6 +62,46 @@ body,
   min-height: min(18rem, 50dvh);
 }
 
+.appearanceDetails {
+  align-content: start;
+}
+
+.libraryPage {
+  background: rgb(from var(--ad-neutral-950) r g b / 0.32);
+}
+
+.libraryToolbar {
+  padding-inline: var(--ad-space-3);
+  border: 1px solid rgb(from var(--ad-primary) r g b / 0.16);
+  border-radius: var(--ad-radius);
+  background: rgb(from var(--ad-neutral-950) r g b / 0.96);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.12);
+}
+
+.appearanceThemes .ad-theme-picker[data-gallery] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.libraryFilters.ad-popover {
+  max-width: min(34rem, var(--ad-popover-available-width, calc(100vw - 2rem)));
+  width: min(34rem, calc(100vw - 2rem));
+  padding: var(--ad-space-4);
+}
+
+.radioPopover.ad-popover {
+  max-width: min(26rem, var(--ad-popover-available-width, calc(100vw - 6rem)));
+}
+
+@media (width < 1100px) {
+  .appearanceLayout > .ad-grid-item {
+    grid-column: 1 / -1;
+  }
+
+  .appearanceThemes .ad-theme-picker[data-gallery] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .settingsBody > .ad-grid .ad-grid-item {
   animation-duration: 160ms;
   animation-delay: 0s;

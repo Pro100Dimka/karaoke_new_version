@@ -1,5 +1,6 @@
 import {
   Dialog,
+  EmptyState,
   Icon,
   Loader,
   Planet,
@@ -220,9 +221,7 @@ export const RecordingsModal = observer(
       );
     } else {
       recordingsContent = (
-        <Typography tone="muted" className="recordingsEmpty">
-          {tr('noRecordings')}
-        </Typography>
+        <EmptyState icon="mic" title={tr('noRecordings')} description="" />
       );
     }
 

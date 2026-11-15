@@ -21,6 +21,7 @@ import type {
 } from '../../contracts/social';
 import { PersonAvatar } from './PersonAvatar';
 import { useSocialAction } from './useSocialAction';
+import './social.css';
 
 const Alert = ({
   person,
@@ -105,7 +106,9 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={invite.inviteId}
           person={invite.sender}
-          text={tr('social.roomInviteAlert', { name: invite.sender.displayName })}
+          text={tr('social.roomInviteAlert', {
+            name: invite.sender.displayName,
+          })}
           actions={
             <>
               <Button
@@ -135,7 +138,9 @@ const OnlineSocialAlerts = observer(({ inbox }: { inbox: OnlineInbox }) => {
         <Alert
           key={`join:${request.person.accountId}:${request.roomId}`}
           person={request.person}
-          text={tr('social.joinRequested', { name: request.person.displayName })}
+          text={tr('social.joinRequested', {
+            name: request.person.displayName,
+          })}
           actions={
             <Button
               size="sm"

@@ -1,0 +1,659 @@
+[check] Full frontend checks; existing test suites are preserved.
+[frontend] > ad-voice-frontend@1.1.36 typecheck
+[frontend] > tsc -b tsconfig.app.json --pretty false && tsc -p electron/tsconfig.json --noEmit --pretty false
+[frontend] > ad-voice-frontend@1.1.36 test
+[frontend] > node scripts/check-architecture.mjs && vitest run && node --test "electron/*.test.mjs" "scripts/*.test.mjs"
+[frontend] Architecture check passed.
+[frontend]  RUN  v4.1.11 D:/Git/karaoke_new_version/frontend
+[frontend] first error
+[frontend] current error
+[frontend] Service failed to start: AudioService.exe: missing executable
+[frontend] Service failed to start: service.exe: failed
+[frontend] current
+[frontend]  Test Files  151 passed (151)
+[frontend]       Tests  1030 passed (1030)
+[frontend]    Start at  03:07:09
+[frontend]    Duration  11.49s (transform 6.01s, setup 25.22s, import 14.66s, tests 24.28s, environment 116.56s)
+[frontend] TAP version 13
+[frontend] # Subtest: personal-control PCM sampling waits for audible remote return
+[frontend] ok 1 - personal-control PCM sampling waits for audible remote return
+[frontend]   ---
+[frontend]   duration_ms: 1.0862
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the 60-second room scenario exercises both directions, simultaneous singing, and reconnect
+[frontend] ok 2 - the 60-second room scenario exercises both directions, simultaneous singing, and reconnect
+[frontend]   ---
+[frontend]   duration_ms: 0.4338
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: production negotiation rejects the historic 160-to-10ms fallback
+[frontend] ok 3 - production negotiation rejects the historic 160-to-10ms fallback
+[frontend]   ---
+[frontend]   duration_ms: 0.33
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: final PCM continuity survives a short phase discontinuity but exposes sustained silence
+[frontend] ok 4 - final PCM continuity survives a short phase discontinuity but exposes sustained silence
+[frontend]   ---
+[frontend]   duration_ms: 6.9062
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: final PCM tone level measures personal volume attenuation
+[frontend] ok 5 - final PCM tone level measures personal volume attenuation
+[frontend]   ---
+[frontend]   duration_ms: 5.4776
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: final PCM level survives 100-ms phase resets
+[frontend] ok 6 - final PCM level survives 100-ms phase resets
+[frontend]   ---
+[frontend]   duration_ms: 9.2096
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: final PCM level survives off-grid 120-frame phase resets
+[frontend] ok 7 - final PCM level survives off-grid 120-frame phase resets
+[frontend]   ---
+[frontend]   duration_ms: 8.0095
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: isolated PCM level follows gain when the received tone shifts frequency
+[frontend] ok 8 - isolated PCM level follows gain when the received tone shifts frequency
+[frontend]   ---
+[frontend]   duration_ms: 10.7699
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: final PCM tone presence rejects other frequencies
+[frontend] ok 9 - final PCM tone presence rejects other frequencies
+[frontend]   ---
+[frontend]   duration_ms: 6.1395
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the production room test accepts only a safe explicit live deadline
+[frontend] ok 10 - the production room test accepts only a safe explicit live deadline
+[frontend]   ---
+[frontend]   duration_ms: 0.4353
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: reconnect recovery cuts are reported without hiding cuts during active singing
+[frontend] ok 11 - reconnect recovery cuts are reported without hiding cuts during active singing
+[frontend]   ---
+[frontend]   duration_ms: 0.1955
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: soak scenarios are explicit and keep steady and seek results separate
+[frontend] ok 12 - soak scenarios are explicit and keep steady and seek results separate
+[frontend]   ---
+[frontend]   duration_ms: 0.2075
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the production-path E2E can target an explicit external Room Server
+[frontend] ok 13 - the production-path E2E can target an explicit external Room Server
+[frontend]   ---
+[frontend]   duration_ms: 0.2457
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: transport-only mode isolates relay cadence from the independent participant-control gate
+[frontend] ok 14 - transport-only mode isolates relay cadence from the independent participant-control gate
+[frontend]   ---
+[frontend]   duration_ms: 0.0586
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: pipeline analyzer classifies every large gap and correlates client send and receive stalls
+[frontend] ok 15 - pipeline analyzer classifies every large gap and correlates client send and receive stalls
+[frontend]   ---
+[frontend]   duration_ms: 0.2435
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: backend-switch analyzer identifies the first PCM stage that is silent before recreation
+[frontend] ok 16 - backend-switch analyzer identifies the first PCM stage that is silent before recreation
+[frontend]   ---
+[frontend]   duration_ms: 0.2097
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: public relay probe uses the production 120-frame shared-timeline PCM packet
+[frontend] ok 17 - public relay probe uses the production 120-frame shared-timeline PCM packet
+[frontend]   ---
+[frontend]   duration_ms: 0.1886
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: local two-PC impairment replays exactly one seeded network sequence
+[frontend] ok 18 - local two-PC impairment replays exactly one seeded network sequence
+[frontend]   ---
+[frontend]   duration_ms: 3.1168
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: local two-PC impairment models a latency jump and recovery
+[frontend] ok 19 - local two-PC impairment models a latency jump and recovery
+[frontend]   ---
+[frontend]   duration_ms: 0.1191
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: local two-PC impairment deterministically models packet reordering
+[frontend] ok 20 - local two-PC impairment deterministically models packet reordering
+[frontend]   ---
+[frontend]   duration_ms: 0.132
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a ten-second network outage drops every packet and then recovers
+[frontend] ok 21 - a ten-second network outage drops every packet and then recovers
+[frontend]   ---
+[frontend]   duration_ms: 0.2041
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: burst loss drops consecutive packets instead of independent random packets
+[frontend] ok 22 - burst loss drops consecutive packets instead of independent random packets
+[frontend]   ---
+[frontend]   duration_ms: 0.2108
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: clock drift, latency jump, jitter and loss coexist in one deterministic profile
+[frontend] ok 23 - clock drift, latency jump, jitter and loss coexist in one deterministic profile
+[frontend]   ---
+[frontend]   duration_ms: 0.1279
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: opposite directions can use strongly asymmetric routes
+[frontend] ok 24 - opposite directions can use strongly asymmetric routes
+[frontend]   ---
+[frontend]   duration_ms: 0.1287
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers
+[frontend] ok 25 - a scheduled CPU stall delays packets by 20 to 500 milliseconds and recovers
+[frontend]   ---
+[frontend]   duration_ms: 0.0922
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: bandwidth shaping creates a bounded busy-Wi-Fi queue
+[frontend] ok 26 - bandwidth shaping creates a bounded busy-Wi-Fi queue
+[frontend]   ---
+[frontend]   duration_ms: 0.2379
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: fault injection marks corrupted, stale and wrong-token packets deterministically
+[frontend] ok 27 - fault injection marks corrupted, stale and wrong-token packets deterministically
+[frontend]   ---
+[frontend]   duration_ms: 0.2384
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room project transfer streams packages instead of loading them into memory
+[frontend] ok 28 - room project transfer streams packages instead of loading them into memory
+[frontend]   ---
+[frontend]   duration_ms: 0.7124
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room project transfer reports byte progress and supports cancellation
+[frontend] ok 29 - room project transfer reports byte progress and supports cancellation
+[frontend]   ---
+[frontend]   duration_ms: 0.2134
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: development startup does not terminate the installed app audio service
+[frontend] ok 30 - development startup does not terminate the installed app audio service
+[frontend]   ---
+[frontend]   duration_ms: 0.6288
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: ordinary startup loads the same room server environment as multi-instance startup
+[frontend] ok 31 - ordinary startup loads the same room server environment as multi-instance startup
+[frontend]   ---
+[frontend]   duration_ms: 0.087
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: ordinary startup lets npx resolve the installed Electron executable
+[frontend] ok 32 - ordinary startup lets npx resolve the installed Electron executable
+[frontend]   ---
+[frontend]   duration_ms: 0.1051
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: development and installed profiles share the already downloaded AI model store
+[frontend] ok 33 - development and installed profiles share the already downloaded AI model store
+[frontend]   ---
+[frontend]   duration_ms: 0.1028
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models
+[frontend] ok 34 - two-instance launcher reuses the normal dev profile and isolates only the guest while sharing models
+[frontend]   ---
+[frontend]   duration_ms: 0.1572
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the primary multi-instance window keeps the ordinary dev social identity
+[frontend] ok 35 - the primary multi-instance window keeps the ordinary dev social identity
+[frontend]   ---
+[frontend]   duration_ms: 0.1048
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the production multi launcher provides isolated profiles for the automated room E2E
+[frontend] ok 36 - the production multi launcher provides isolated profiles for the automated room E2E
+[frontend]   ---
+[frontend]   duration_ms: 0.0639
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room E2E reconnect invokes the production audio client lifecycle
+[frontend] ok 37 - room E2E reconnect invokes the production audio client lifecycle
+[frontend]   ---
+[frontend]   duration_ms: 0.0664
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room smoke scenarios do not assume fixed backend ports
+[frontend] ok 38 - room smoke scenarios do not assume fixed backend ports
+[frontend]   ---
+[frontend]   duration_ms: 0.4328
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release leaves only the Windows installer and no ISO media
+[frontend] ok 39 - release leaves only the Windows installer and no ISO media
+[frontend]   ---
+[frontend]   duration_ms: 0.307
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: Electron uses the modern Node 16 module resolver
+[frontend] ok 40 - Electron uses the modern Node 16 module resolver
+[frontend]   ---
+[frontend]   duration_ms: 0.1191
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: development launcher closes both Electron and Vite on every termination signal
+[frontend] ok 41 - development launcher closes both Electron and Vite on every termination signal
+[frontend]   ---
+[frontend]   duration_ms: 0.1133
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: normal startup prepares services before window readiness behind update and migration gates
+[frontend] ok 42 - normal startup prepares services before window readiness behind update and migration gates
+[frontend]   ---
+[frontend]   duration_ms: 0.6788
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: startup splash contains only the glowing theme icon on a transparent page
+[frontend] ok 43 - startup splash contains only the glowing theme icon on a transparent page
+[frontend]   ---
+[frontend]   duration_ms: 0.1936
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: splash forces a transparent compositor surface before it is shown
+[frontend] ok 44 - splash forces a transparent compositor surface before it is shown
+[frontend]   ---
+[frontend]   duration_ms: 0.2895
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: content policy permits recognized cover art and only local downloaded clips
+[frontend] ok 45 - content policy permits recognized cover art and only local downloaded clips
+[frontend]   ---
+[frontend]   duration_ms: 0.1471
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: packaged Electron launches its bundled backend and media tools
+[frontend] ok 46 - packaged Electron launches its bundled backend and media tools
+[frontend]   ---
+[frontend]   duration_ms: 0.1219
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: development and installed apps use isolated profiles and service endpoints
+[frontend] ok 47 - development and installed apps use isolated profiles and service endpoints
+[frontend]   ---
+[frontend]   duration_ms: 0.2267
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: every room participant binds an ephemeral local UDP port
+[frontend] ok 48 - every room participant binds an ephemeral local UDP port
+[frontend]   ---
+[frontend]   duration_ms: 0.1544
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: packaged settings are seeded once and remain in writable user data
+[frontend] ok 49 - packaged settings are seeded once and remain in writable user data
+[frontend]   ---
+[frontend]   duration_ms: 0.2401
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: data storage root is persisted outside the project and selectable from settings
+[frontend] ok 50 - data storage root is persisted outside the project and selectable from settings
+[frontend]   ---
+[frontend]   duration_ms: 0.2691
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: AudioControl uses the configured endpoint and reads a complete large diagnostic reply
+[frontend] ok 51 - AudioControl uses the configured endpoint and reads a complete large diagnostic reply
+[frontend]   ---
+[frontend]   duration_ms: 76.3379
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: AudioControl propagates a rejected command as a nonzero exit status
+[frontend] ok 52 - AudioControl propagates a rejected command as a nonzero exit status
+[frontend]   ---
+[frontend]   duration_ms: 76.1217
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: AudioControl reports an empty or truncated pipe reply as failure
+[frontend] ok 53 - AudioControl reports an empty or truncated pipe reply as failure
+[frontend]   ---
+[frontend]   duration_ms: 157.6766
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: architecture boundaries reject private service state and reverse dependencies
+[frontend] ok 54 - architecture boundaries reject private service state and reverse dependencies
+[frontend]   ---
+[frontend]   duration_ms: 11.3156
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: architecture boundaries reject unlisted service modules
+[frontend] ok 55 - architecture boundaries reject unlisted service modules
+[frontend]   ---
+[frontend]   duration_ms: 6.4045
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: architecture boundaries allow public feature APIs but reject internal mappers
+[frontend] ok 56 - architecture boundaries allow public feature APIs but reject internal mappers
+[frontend]   ---
+[frontend]   duration_ms: 5.6747
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: feature boundary rejects a newly named private transport
+[frontend] ok 57 - feature boundary rejects a newly named private transport
+[frontend]   ---
+[frontend]   duration_ms: 6.1357
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: feature boundary also rejects a lazy private service import
+[frontend] ok 58 - feature boundary also rejects a lazy private service import
+[frontend]   ---
+[frontend]   duration_ms: 8.2697
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the type rule accepts property names and comments but rejects explicit unsafe types
+[frontend] ok 59 - the type rule accepts property names and comments but rejects explicit unsafe types
+[frontend]   ---
+[frontend]   duration_ms: 473.2505
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: native test processes never delete a shared temporary directory
+[frontend] ok 60 - native test processes never delete a shared temporary directory
+[frontend]   ---
+[frontend]   duration_ms: 59.3203
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release fingerprint changes when shipped relay or executable policies change
+[frontend]     # Subtest: AudioService/build-release/Release/NativeVoiceRelay.exe
+[frontend]     ok 1 - AudioService/build-release/Release/NativeVoiceRelay.exe
+[frontend]       ---
+[frontend]       duration_ms: 120.1571
+[frontend]       type: 'test'
+[frontend]       ...
+[frontend]     # Subtest: frontend/scripts/harden-electron.mjs
+[frontend]     ok 2 - frontend/scripts/harden-electron.mjs
+[frontend]       ---
+[frontend]       duration_ms: 112.4287
+[frontend]       type: 'test'
+[frontend]       ...
+[frontend]     # Subtest: scripts/sign-release.bat
+[frontend]     ok 3 - scripts/sign-release.bat
+[frontend]       ---
+[frontend]       duration_ms: 115.2687
+[frontend]       type: 'test'
+[frontend]       ...
+[frontend]     # Subtest: enabling or changing signing invalidates an unsigned installer
+[frontend]     ok 4 - enabling or changing signing invalidates an unsigned installer
+[frontend]       ---
+[frontend]       duration_ms: 218.6698
+[frontend]       type: 'test'
+[frontend]       ...
+[frontend]     1..4
+[frontend] ok 61 - release fingerprint changes when shipped relay or executable policies change
+[frontend]   ---
+[frontend]   duration_ms: 570.3697
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: public release ignores developer secrets and private bundling requires an explicit file
+[frontend] ok 62 - public release ignores developer secrets and private bundling requires an explicit file
+[frontend]   ---
+[frontend]   duration_ms: 91.9425
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release uses an isolated native build and installs its compiler runtime
+[frontend] ok 63 - release uses an isolated native build and installs its compiler runtime
+[frontend]   ---
+[frontend]   duration_ms: 0.2352
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: developer setup retains native regression tests in its shared build directory
+[frontend] ok 64 - developer setup retains native regression tests in its shared build directory
+[frontend]   ---
+[frontend]   duration_ms: 0.3381
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release produces a conventional offline Setup.exe without ISO media
+[frontend] ok 65 - release produces a conventional offline Setup.exe without ISO media
+[frontend]   ---
+[frontend]   duration_ms: 0.4464
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the installed app bundles Electron, Python, AudioService and FFmpeg
+[frontend] ok 66 - the installed app bundles Electron, Python, AudioService and FFmpeg
+[frontend]   ---
+[frontend]   duration_ms: 0.2035
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the installed app bundles the matching Kaggle notebook and worker
+[frontend] ok 67 - the installed app bundles the matching Kaggle notebook and worker
+[frontend]   ---
+[frontend]   duration_ms: 0.0981
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release cleanup leaves only the finished installer
+[frontend] ok 68 - release cleanup leaves only the finished installer
+[frontend]   ---
+[frontend]   duration_ms: 0.1036
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a private release bundles the configured environment without printing its values
+[frontend] ok 69 - a private release bundles the configured environment without printing its values
+[frontend]   ---
+[frontend]   duration_ms: 0.0573
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the branded icon is embedded into the installed executable before Setup is built
+[frontend] ok 70 - the branded icon is embedded into the installed executable before Setup is built
+[frontend]   ---
+[frontend]   duration_ms: 0.0801
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the installer defaults to the first fixed drive outside C and falls back to the user profile
+[frontend] ok 71 - the installer defaults to the first fixed drive outside C and falls back to the user profile
+[frontend]   ---
+[frontend]   duration_ms: 0.163
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release packaging excludes development-only Python and AudioService artifacts
+[frontend] ok 72 - release packaging excludes development-only Python and AudioService artifacts
+[frontend]   ---
+[frontend]   duration_ms: 0.1153
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release checks the isolated bundled runtime before building Setup
+[frontend] ok 73 - release checks the isolated bundled runtime before building Setup
+[frontend]   ---
+[frontend]   duration_ms: 0.0462
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: runtime verification includes the Kaggle deployment payload
+[frontend] ok 74 - runtime verification includes the Kaggle deployment payload
+[frontend]   ---
+[frontend]   duration_ms: 0.0575
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: runtime verification does not contaminate the staged payload with bytecode
+[frontend] ok 75 - runtime verification does not contaminate the staged payload with bytecode
+[frontend]   ---
+[frontend]   duration_ms: 0.1724
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: developer setup installs every external tool required by release
+[frontend] ok 76 - developer setup installs every external tool required by release
+[frontend]   ---
+[frontend]   duration_ms: 0.0951
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release builds every executable installed by the AudioService runtime component
+[frontend] ok 77 - release builds every executable installed by the AudioService runtime component
+[frontend]   ---
+[frontend]   duration_ms: 0.0635
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release removes a stale Setup before invoking the compiler
+[frontend] ok 78 - release removes a stale Setup before invoking the compiler
+[frontend]   ---
+[frontend]   duration_ms: 0.0485
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: build entry points explicitly provision Electron's lazy binary download
+[frontend] ok 79 - build entry points explicitly provision Electron's lazy binary download
+[frontend]   ---
+[frontend]   duration_ms: 0.2358
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a terminated installer compiler cannot report a previous Setup as successful
+[frontend] ok 80 - a terminated installer compiler cannot report a previous Setup as successful
+[frontend]   ---
+[frontend]   duration_ms: 0.0599
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release locks the Electron fuses and signs every shipped binary last
+[frontend] ok 81 - release locks the Electron fuses and signs every shipped binary last
+[frontend]   ---
+[frontend]   duration_ms: 0.0639
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: release signs the shipped NativeVoiceRelay with the other application binaries
+[frontend] ok 82 - release signs the shipped NativeVoiceRelay with the other application binaries
+[frontend]   ---
+[frontend]   duration_ms: 0.0634
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room catalog queries use the selected client's backend bridge
+[frontend] ok 83 - room catalog queries use the selected client's backend bridge
+[frontend]   ---
+[frontend]   duration_ms: 0.8665
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: room catalog failures are reported instead of becoming an empty ready library
+[frontend] ok 84 - room catalog failures are reported instead of becoming an empty ready library
+[frontend]   ---
+[frontend]   duration_ms: 0.3346
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: dev startup prepares frontend dependencies without bundling the renderer
+[frontend] ok 85 - dev startup prepares frontend dependencies without bundling the renderer
+[frontend]   ---
+[frontend]   duration_ms: 3.7508
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: dev startup refuses preparation while this project's application is active
+[frontend] ok 86 - dev startup refuses preparation while this project's application is active
+[frontend]   ---
+[frontend]   duration_ms: 1.316
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a failed dev preparation exits without waiting for an interactive keypress
+[frontend] ok 87 - a failed dev preparation exits without waiting for an interactive keypress
+[frontend]   ---
+[frontend]   duration_ms: 72.3128
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: full frontend checks keep type checking and the complete existing test command
+[frontend] ok 88 - full frontend checks keep type checking and the complete existing test command
+[frontend]   ---
+[frontend]   duration_ms: 1.2039
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: focused frontend checks select the renderer and Node test runners separately
+[frontend] ok 89 - focused frontend checks select the renderer and Node test runners separately
+[frontend]   ---
+[frontend]   duration_ms: 1.3336
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: full backend checks retain the strict existing quality runner
+[frontend] ok 90 - full backend checks retain the strict existing quality runner
+[frontend]   ---
+[frontend]   duration_ms: 1.0532
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: focused backend checks keep pytest file and node selection
+[frontend] ok 91 - focused backend checks keep pytest file and node selection
+[frontend]   ---
+[frontend]   duration_ms: 1.2265
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: full audio checks build the test binary and run the registered CTest suite
+[frontend] ok 92 - full audio checks build the test binary and run the registered CTest suite
+[frontend]   ---
+[frontend]   duration_ms: 1.1249
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: focused checks use the installed test runner and reject native option flags
+[frontend] ok 93 - focused checks use the installed test runner and reject native option flags
+[frontend]   ---
+[frontend]   duration_ms: 2.1137
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: each requested native regression test runs separately after one build
+[frontend] ok 94 - each requested native regression test runs separately after one build
+[frontend]   ---
+[frontend]   duration_ms: 1.3614
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: all checks include frontend, strict backend and native tests
+[frontend] ok 95 - all checks include frontend, strict backend and native tests
+[frontend]   ---
+[frontend]   duration_ms: 1.1217
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: check failures propagate and invalid scopes or paths never run commands
+[frontend] ok 96 - check failures propagate and invalid scopes or paths never run commands
+[frontend]   ---
+[frontend]   duration_ms: 4.7017
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: startup detects the running project before npm can replace locked binaries
+[frontend] ok 97 - startup detects the running project before npm can replace locked binaries
+[frontend]   ---
+[frontend]   duration_ms: 5.7556
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: the launcher transfers and releases only its own running marker
+[frontend] ok 98 - the launcher transfers and releases only its own running marker
+[frontend]   ---
+[frontend]   duration_ms: 2.2627
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: multi launcher keeps normal storage and prevents dotenv from restoring it for the guest
+[frontend] ok 99 - multi launcher keeps normal storage and prevents dotenv from restoring it for the guest
+[frontend]   ---
+[frontend]   duration_ms: 1.166
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: a clean frontend install uses an exact npm UI release without patching node_modules
+[frontend] ok 100 - a clean frontend install uses an exact npm UI release without patching node_modules
+[frontend]   ---
+[frontend]   duration_ms: 0.5714
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] # Subtest: npm ci also provisions the Electron executable
+[frontend] ok 101 - npm ci also provisions the Electron executable
+[frontend]   ---
+[frontend]   duration_ms: 0.0717
+[frontend]   type: 'test'
+[frontend]   ...
+[frontend] 1..101
+[frontend] # tests 105
+[frontend] # suites 0
+[frontend] # pass 105
+[frontend] # fail 0
+[frontend] # cancelled 0
+[frontend] # skipped 0
+[frontend] # todo 0
+[frontend] # duration_ms 767.0059
+[frontend] done in 13.4 s
+[build] all steps done in 13.4 s

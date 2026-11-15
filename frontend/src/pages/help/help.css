@@ -21,6 +21,9 @@
   letter-spacing: var(--ad-letter-spacing-heading);
   color: var(--ad-text);
 }
+.main-theme[data-ad-color-scheme='light'] .helpPage {
+  --help-accent: var(--ad-primary-800);
+}
 .helpPage .ad-button {
   color: var(--ad-text);
   border-radius: var(--ad-radius);
