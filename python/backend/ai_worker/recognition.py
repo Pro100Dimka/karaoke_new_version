@@ -3,21 +3,27 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from collections import Counter
 from dataclasses import replace
-from itertools import groupby
 import threading
 from pathlib import Path
 from types import MappingProxyType
 
 import numpy as np
-import torch
 from faster_whisper.transcribe import Segment
 from whisper.audio import CHUNK_LENGTH
 
-from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE, _evenly, ordered
+from backend.ai_worker.vocal_recovery import (
+    recover_vocalizations as recover_vocalizations,
+    with_acoustic_repeats as with_acoustic_repeats,
+)
+from backend.ai_worker.lead_vocals import (
+    backing_overlap_indices as backing_overlap_indices,
+    with_lead_vocals as with_lead_vocals,
+)
+from backend.ai_worker.guidance_phrases import heard_words as heard_words
+from backend.ai_worker.ctc import AlignedWord, Window, _CRAMMED_WORD_SECONDS, _PREFERENCE
 from backend.ai.domain import WordTiming
-from backend.processing.reporting import _timing_load, rate_reviews
-from backend.ai_worker.timing import _bridged, _runs
-from backend.ai_worker.ctc_tokens import _character_tokens
+from backend.processing.reporting import rate_reviews
+from backend.ai_worker.timing import _runs
 from backend.ai_worker.word_guidance import _key, _matching_blocks, phrase_window, recognized_phrase
 from backend.lyrics.phrases import _line_matches, _lyrics_key, performed_phrases
 
@@ -26,390 +32,16 @@ _STEP = 0.01
 HeardWord = tuple[str, float, float]
 
 
-def backing_overlap_indices(
-    words: Sequence[AlignedWord],
-    views: Sequence[list[HeardWord]],
-    activity: np.ndarray,
-    periodicity: np.ndarray,
-    *,
-    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]] | None = None,
-    lead_entries: dict[int, float] | None = None,
-) -> frozenset[int]:
-    """Keep solo replies, excluding extra words that obstruct an independently heard lead."""
-    known = {_key(word.text) for word in words if "AcousticRepeatRetimed" in word.diagnostics}
-    if len(views) < 2:
-        return frozenset()
-    backing = set()
-    for index, word in enumerate(words):
-        if "AcousticRepeatRetimed" in word.diagnostics:
-            continue
-        phrase = words[index + 1 : index + 5]
-        if len(phrase) < 3:
-            continue
-        # A forced extra token can occupy a lead word and push its onset to the right.
-        # Harmonic activity there belongs to the lead too, not necessarily to the token.
-        displaced = any(
-            key == _key(phrase[0].text)
-            and start + _MARGIN <= phrase[0].start
-            and start < word.start
-            and end >= word.end
-            for view in views
-            for key, start, end in view
-        )
-        if not displaced and (
-            _key(word.text) not in known
-            or word.score > _PREFERENCE
-            or word.end - word.start < 0.25
-        ):
-            continue
-        first, last = max(0, round(word.start / _STEP)), min(len(activity), round(word.end / _STEP))
-        if not displaced and np.count_nonzero(activity[first:last] & (periodicity[first:last] >= 0.7)) >= 10:
-            continue
-        window = Window(
-            index + 1,
-            index + 1 + len(phrase),
-            word.start,
-            phrase[-1].end + _MARGIN,
-            phrase[0].start,
-        )
-        texts = [item.text for item in phrase]
-        matches = [(view, recognized_phrase(window, texts, view, _MARGIN)[1]) for view in views]
-        supported = [
-            intervals for _, intervals in matches if index + 1 in intervals and len(intervals) >= 2
-        ]
-        if not supported:
-            continue
-        context_end = min(
-            window.end,
-            max(end for intervals in supported for _, end in intervals.values()) + _MARGIN,
-        )
-        context_start = max(
-            0.0, context_end - CHUNK_LENGTH,
-            words[max(0, index - len(phrase))].start - _MARGIN,
-        )
-        agreed = []
-        replaced_view = False
-        for view, intervals in matches:
-            tolerance = 0.0
-            if any(
-                key == _key(word.text) and start < word.end and end > word.start
-                for key, start, end in view
-            ):
-                break
-            lead = intervals.get(index + 1)
-            if (lead is None or len(intervals) < 2) and recognize is not None and not replaced_view:
-                try:
-                    results = recognize([(context_start, context_end, None)]).get(
-                        "contexts", []
-                    )
-                except (FileNotFoundError, OSError, RuntimeError, ValueError):
-                    break
-                local = heard_words(results[0]) if (
-                    isinstance(results, list) and results and isinstance(results[0], dict)
-                ) else []
-                replaced_view = True
-                if any(
-                    key == _key(word.text) and start < word.end and end > word.start
-                    for key, start, end in local
-                ):
-                    break
-                _, intervals = recognized_phrase(
-                    window, texts, local, _MARGIN
-                )
-                lead = intervals.get(index + 1)
-                tolerance = _MARGIN
-            if lead is None or len(intervals) < 2:
-                break
-            if displaced and not (
-                lead[0] + _MARGIN <= phrase[0].start
-                and lead[0] < word.start
-                and lead[1] >= word.end
-            ):
-                break
-            lead_start = lead[0] - tolerance
-            overlap = max(0.0, min(word.end, lead[1]) - max(word.start, lead_start))
-            if overlap < (word.end - word.start) / 2:
-                break
-            agreed.append(lead[0] if displaced else max(word.start, lead_start))
-        if len(agreed) == len(views) and max(agreed) - min(agreed) <= _MARGIN:
-            backing.add(index)
-            if displaced and lead_entries is not None:
-                lead_entries[index + 1] = float(np.median(agreed))
-    return frozenset(backing)
 
 
-def with_lead_vocals(
-    words: list[AlignedWord],
-    views: Sequence[list[HeardWord]],
-    activity: np.ndarray,
-    periodicity: np.ndarray,
-    *,
-    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]] | None = None,
-) -> list[AlignedWord]:
-    entries: dict[int, float] = {}
-    backing = backing_overlap_indices(
-        words, views, activity, periodicity, recognize=recognize, lead_entries=entries
-    )
-    if not backing:
-        return words
-    lead = ordered([
-        replace(
-            word, start=entries[index],
-            letters=_evenly([word.text], entries[index], word.end)[0].letters,
-            diagnostics=(*word.diagnostics, "IndependentLeadEntry", "ApproximateLetterTiming"),
-        ) if index in entries else word
-        for index, word in enumerate(words) if index not in backing
-    ])
-    remaining = iter(lead)
-    return [
-        replace(word, diagnostics=(*word.diagnostics, "BackingVocalOverlap"))
-        if index in backing else next(remaining)
-        for index, word in enumerate(words)
-    ]
 
 
-def with_acoustic_repeats(
-    words: list[AlignedWord],
-    onsets: Sequence[float],
-    acoustic: tuple[np.ndarray, np.ndarray],
-    activity: np.ndarray,
-    levels: np.ndarray,
-    heard: Mapping[int, tuple[float, float]],
-) -> list[AlignedWord]:
-    """Retain every written repeat, recovering short consonant breaks missed by loudness onsets."""
-    harmonic, periodicity = acoustic
-    result = list(words)
-
-    def core(start: float, end: float) -> np.ndarray:
-        first, last = max(0, round(start / _STEP)), min(len(activity), round(end / _STEP))
-        return harmonic[first:last][activity[first:last] & (periodicity[first:last] >= 0.7)]
-
-    for _, grouped in groupby(range(len(words)), key=lambda index: _key(words[index].text)):
-        indices = list(grouped)
-        first, last = indices[0], indices[-1]
-        if (
-            len(indices) < 2
-            or last + 1 == len(words)
-            or _timing_load(words[first].text)[1] != 1
-            or words[first].end - words[first].start < 0.25
-            or any(index in heard or words[index].score > _PREFERENCE for index in indices)
-        ):
-            continue
-        following = words[last + 1]
-        left = max(words[first - 1].end if first else 0, words[first].start - _MARGIN)
-        entries = [entry for entry in onsets if left <= entry < following.start]
-        if not entries or abs(entries[0] - words[first].start) > _MARGIN:
-            continue
-        reference = core(
-            entries[0], min(words[first].end, entries[1] if len(entries) > 1 else following.start)
-        )
-        negative = core(following.start, following.end)
-        if min(len(reference), len(negative)) < 10:
-            continue
-        matches: list[tuple[float, float]] = []
-        for start, stop in zip(entries, [*entries[1:], following.start]):
-            features = core(start, stop)
-            if len(features) < 10:
-                continue
-            same = max(0.0, float(np.median(1 - (features @ reference.T).max(axis=1))))
-            other = max(0.0, float(np.median(1 - (features @ negative.T).max(axis=1))))
-            if same > 0.05 or same >= other / 2:
-                continue
-            frame_first, frame_last = round(start / _STEP), round(stop / _STEP)
-            sounding = (
-                activity[frame_first:frame_last]
-                & (periodicity[frame_first:frame_last] >= 0.5)
-                & (
-                    levels[frame_first:frame_last]
-                    >= np.percentile(levels[frame_first:frame_last], 95) - 20
-                )
-            )
-            # Bridge detector flicker, but retain a consonant-sized interruption even
-            # when its energy never falls far enough for a new loudness onset.
-            islands = [(a, b) for a, b in _runs(_bridged(sounding, 2), True) if b - a >= 10]
-            if islands:
-                bounds = [
-                    float(start),
-                    *((frame_first + end) * _STEP for _, end in islands[:-1]),
-                    (frame_first + int(np.flatnonzero(sounding)[-1]) + 1) * _STEP,
-                ]
-                matches.extend(zip(bounds, bounds[1:]))
-        if len(matches) != len(indices):
-            continue
-        for index, (start, end) in zip(indices, matches):
-            word = words[index]
-            flags = tuple(
-                flag
-                for flag in word.diagnostics
-                if flag
-                not in {
-                    "TimingReviewRequired",
-                    "OnsetReviewRequired",
-                    "BoundaryConflict",
-                    "BoundaryClipped",
-                }
-            )
-            result[index] = replace(
-                word,
-                start=start,
-                end=end,
-                letters=_evenly([word.text], start, end)[0].letters,
-                diagnostics=(*flags, "AcousticRepeatRetimed", "ApproximateLetterTiming"),
-            )
-    return result
 
 
-def recover_vocalizations(
-    words: Sequence[AlignedWord],
-    scores: torch.Tensor | None,
-    step: float,
-    activity: np.ndarray,
-    periodicity: np.ndarray,
-    recognize: Callable[[Sequence[tuple[float, float, str | None]]], Mapping[str, object]],
-) -> list[AlignedWord]:
-    """Recover or extend held vowels only when recognition agrees with CTC and phonation."""
-    words = [word for word in words if "BackingVocalOverlap" not in word.diagnostics]
-    if scores is None or not words or not activity.any():
-        return []
-    vowels = [token[0] for token in _character_tokens("aeiou")]
-    probabilities = scores.exp()
-    # A CTC blank is an unlabelled frame, not a competing sung consonant.
-    vowel_support = probabilities[:, vowels] / probabilities[:, 1:].sum(
-        dim=1, keepdim=True
-    ).clamp_min(1e-12)
-    vowel_support = vowel_support.masked_fill(probabilities[:, vowels] <= _PREFERENCE, 0)
-    gaps: list[tuple[float, float, int | None]] = list(
-        zip(
-            [0.0, *(word.end for word in words)],
-            [*(word.start for word in words), len(activity) * _STEP],
-            [None] * (len(words) + 1),
-        )
-    )
-    for index, word in enumerate(words):
-        text = _key(word.text)
-        if text and len(set(text)) == 1 and _character_tokens(text[0])[0] in [[v] for v in vowels]:
-            gaps.append(
-                (
-                    words[index - 1].end if index else 0,
-                    words[index + 1].start if index + 1 < len(words) else len(activity) * _STEP,
-                    index,
-                )
-            )
-    candidates = []
-    for left, right, owner in gaps:
-        first, last = max(0, round(left / _STEP)), min(len(activity), round(right / _STEP))
-        flags = activity[first:last] & (periodicity[first:last] >= 0.5)
-        for run_first, run_last in _runs(_bridged(flags, round(0.3 / _STEP)), True):
-            if (run_last - run_first) * _STEP < 0.8 or flags[run_first:run_last].mean() < 0.6:
-                continue
-            begin, finish = (first + run_first) * _STEP, (first + run_last) * _STEP
-            if owner is not None and not (
-                begin < words[owner].end
-                and words[owner].start < finish
-                and finish - words[owner].end >= 0.3
-            ):
-                continue
-            local = vowel_support[round(begin / step) : round(finish / step)]
-            if local.numel() and float(local.max()) >= 0.5:
-                context_start = max(left, begin - _MARGIN)
-                candidates.append(
-                    (
-                        begin,
-                        finish,
-                        context_start,
-                        min(right, finish + _MARGIN, context_start + CHUNK_LENGTH),
-                        owner,
-                    )
-                )
-    extended_runs = [
-        (begin, finish) for begin, finish, _, _, owner in candidates if owner is not None
-    ]
-    candidates = [
-        item
-        for item in candidates
-        if item[4] is not None
-        or not any(begin <= item[0] and item[1] <= finish for begin, finish in extended_runs)
-    ]
-    if not candidates:
-        return []
-    try:
-        results = recognize([(start, end, None) for _, _, start, end, _ in candidates]).get(
-            "contexts", []
-        )
-    except (FileNotFoundError, OSError, RuntimeError, ValueError):
-        return []
-    recovered: list[AlignedWord] = []
-    for (begin, finish, _, _, owner), result in zip(
-        candidates, results if isinstance(results, list) else []
-    ):
-        segments = result.get("segments", [])
-        if not isinstance(segments, list):
-            continue
-        segments = [
-            segment for segment in segments
-            if float(segment.get("start", begin)) < finish
-            and float(segment.get("end", finish)) > begin
-        ]
-        recognized = "".join(_key(str(segment.get("text", ""))) for segment in segments)
-        for segment in segments:
-            text = _key(str(segment.get("text", "")))
-            if not text or len(set(text)) != 1:
-                continue
-            tokens = _character_tokens(text[0])[0]
-            if len(tokens) != 1 or tokens[0] not in vowels:
-                continue
-            start = max(begin, float(segment["start"]) - _MARGIN)
-            end = min(finish, float(segment["end"]) + _MARGIN)
-            if set(recognized) == {text[0]} and start < end:
-                start, end = begin, finish
-            local = scores[round(start / step) : round(end / step), tokens[0]]
-            if end - start < 0.8 or not local.numel():
-                continue
-            confidence = float(local.max().exp())
-            support = vowel_support[
-                round(start / step) : round(end / step), vowels.index(tokens[0])
-            ]
-            if float(support.max()) >= 0.5:
-                if owner is not None:
-                    word = words[owner]
-                    if (
-                        set(recognized) != {text[0]}
-                        or _character_tokens(_key(word.text)[0])[0] != tokens
-                    ):
-                        continue
-                    recovered.append(
-                        replace(
-                            word,
-                            end=max(word.end, end),
-                            letters=_evenly([word.text], word.start, max(word.end, end))[0].letters,
-                            diagnostics=(
-                                *word.diagnostics,
-                                "VocalizationRetimed",
-                                "ApproximateLetterTiming",
-                            ),
-                        )
-                    )
-                    break
-                previous = recovered[-1] if recovered else None
-                if previous is not None and start < previous.end:
-                    if previous.text == text[0].upper():
-                        recovered[-1] = replace(
-                            previous,
-                            end=max(previous.end, end),
-                            score=max(previous.score, confidence),
-                        )
-                else:
-                    recovered.append(
-                        AlignedWord(
-                            text[0].upper(),
-                            start,
-                            end,
-                            (start,),
-                            confidence,
-                            ("RecoveredVocalization",),
-                        )
-                    )
-    return recovered
+
+
+
+
 
 
 def boundary_conflicts(words: Sequence[AlignedWord]) -> set[int]:
@@ -538,16 +170,7 @@ def serialize(segments: Iterable[Segment], offset: float = 0.0) -> dict[str, obj
     return {"text": "".join(str(item["text"]) for item in serialized), "segments": serialized}
 
 
-def heard_words(result: Mapping[str, object], *, include_untimed: bool = False) -> list[HeardWord]:
-    heard: list[HeardWord] = []
-    segments = result.get("segments")
-    for segment in segments if isinstance(segments, list) else []:
-        words = segment.get("words") if isinstance(segment, dict) else None
-        for word in words if isinstance(words, list) else []:
-            key = _key(str(word.get("word", "")))
-            if key and (include_untimed or float(word["start"]) < float(word["end"])):
-                heard.append((key, float(word["start"]), float(word["end"])))
-    return heard
+
 
 
 def heard_timings(

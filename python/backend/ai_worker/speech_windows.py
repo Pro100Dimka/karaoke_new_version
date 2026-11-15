@@ -68,22 +68,7 @@ def _windows(
         ]
     if not blocks:
         return [Window(0, len(words), 0.0, total)]
-    # A long exact match still contains separate sung occurrences. A single CTC
-    # path can skip the first repeat and crush the last one despite correct ASR.
-    phrases: list[difflib.Match] = []
-    for block in blocks:
-        first = 0
-        for last in range(1, block.size + 1):
-            if (
-                last == block.size
-                or last - first >= _MINIMUM_BLOCK
-                and (
-                    heard[block.b + last][1] - heard[block.b + last - 1][2] >= 0.35
-                    or heard[block.b + last][1] - heard[block.b + first][1] >= 12
-                )
-            ):
-                phrases.append(difflib.Match(block.a + first, block.b + first, last - first))
-                first = last
+    phrases = _recognized_blocks(blocks, heard)
     windows: list[Window] = []
     text_cursor, audio_cursor = 0, 0.0
     for block in phrases:
@@ -136,7 +121,10 @@ def _line_first_words(
             # Repeat verification may retain fewer copies than a catalogue cue.
             # Keep its entry only for an exact repeated prefix at the current cursor.
             for size in range(1, len(line) // 2 + 1):
-                if len(line) % size == 0 and keys[cursor:cursor + size] * (len(line) // size) == line:
+                if (
+                    len(line) % size == 0
+                    and keys[cursor : cursor + size] * (len(line) // size) == line
+                ):
                     first, line = cursor, line[:size]
                     text = " ".join(text.split()[:size])
                     break
@@ -155,16 +143,7 @@ def _shifted_hints(
 ) -> list[dict[str, object]]:
     """Correct stale cues using independent recognition or a well-supported adjacent CTC path."""
     lines = _line_first_words(words, hints)
-    differences = [whole[first].start - start for first, start, _ in lines]
-    shift = 0.0
-    if len(differences) >= _CATALOG_SHIFT_MINIMUM_LINES:
-        middle = float(np.median(differences))
-        spread = float(np.percentile(differences, 75) - np.percentile(differences, 25))
-        if (
-            abs(middle) >= _CATALOG_SHIFT_MINIMUM_SECONDS
-            and spread <= _CATALOG_SHIFT_MAXIMUM_SPREAD_SECONDS
-        ):
-            shift = middle
+    shift = _catalog_shift(lines, whole)
     supported = _heard_timings(words, list(heard), whole, minimum_block=_MINIMUM_BLOCK)
     result: list[dict[str, object]] = []
     previous_entry: float | None = None
@@ -181,26 +160,17 @@ def _shifted_hints(
                 entry = interval[0]
         elif line_index and previous_entry is not None and not phrase_support:
             previous_first, _, previous_text = lines[line_index - 1]
-            if (
-                previous_first + len(previous_text.split()) == first
-                and abs(whole[previous_first].start - previous_entry) <= _MARGIN_SECONDS
-                and whole[first - 1].end > entry + _MARGIN_SECONDS
-                and whole[first].start > entry + _MARGIN_SECONDS
-                and min(whole[first - 1].score, whole[first].score) > _PREFERENCE
-                and sum(word.score > _PREFERENCE for word in whole[previous_first:first])
-                >= _MINIMUM_BLOCK
-                and sum(
-                    word.score > _PREFERENCE for word in whole[first:first + len(text.split())]
-                ) >= _MINIMUM_BLOCK
+            if _continued_entry(
+                previous_first,
+                first,
+                len(text.split()),
+                len(previous_text.split()),
+                previous_entry,
+                entry,
+                whole,
             ):
                 entry = whole[first].start
-        # A repeated phrase must not borrow the timestamp of a neighbouring occurrence.
-        lower = previous_entry if previous_entry is not None else float("-inf")
-        if line_index:
-            lower = max(lower, lines[line_index - 1][1] + shift)
-        upper = lines[line_index + 1][1] + shift if line_index + 1 < len(lines) else float("inf")
-        if not lower < entry < upper:
-            entry = start + shift
+        entry = _bounded_entry(lines, line_index, previous_entry, entry, shift)
         result.append({"start": entry, "text": text})
         previous_entry = entry
     return result
@@ -274,65 +244,8 @@ def _alignment_windows(
         windows = _hint_windows(lyrics, hints, total, onsets)
         if windows:
             supported = _heard_timings(words, heard, whole, minimum_block=_MINIMUM_BLOCK)
-            windows = unhinted_windows(
-                [
-                    phrase_window(
-                        window,
-                        recognized_phrase(
-                            window,
-                            words[window.first : window.last],
-                            heard,
-                            _MARGIN_SECONDS,
-                            allow_utterance=window.first - 1 in supported
-                            and window.last in supported,
-                        )[0],
-                        whole[window.first].start,
-                        supported.get(window.last - 1),
-                        _MARGIN_SECONDS,
-                    )
-                    for window in windows
-                ],
-                whole,
-                _MARGIN_SECONDS,
-            )
-            windows = [
-                replace(
-                    window,
-                    start=max(window.start, interval[0] - _MARGIN_SECONDS),
-                    heard_start=interval[0],
-                )
-                if window.heard_start is None
-                and (interval := supported.get(window.first)) is not None
-                and window.start <= interval[0] < interval[1] <= window.end
-                else window
-                for window in windows
-            ]
-            for window in windows:
-                cores = whole[window.first : window.last]
-                corroborated = sum(
-                    core.score > _PREFERENCE
-                    and position in supported
-                    and supported[position][0] - _MARGIN_SECONDS
-                    <= core.start
-                    <= supported[position][1] + _MARGIN_SECONDS
-                    for position, core in enumerate(cores, window.first)
-                )
-                contained = sum(window.start <= core.start < core.end <= window.end for core in cores)
-                conflicting = any(
-                    core.score > _PREFERENCE
-                    and position in supported
-                    and (
-                        core.start < supported[position][0] - _MARGIN_SECONDS
-                        or core.end > supported[position][1] + _MARGIN_SECONDS
-                    )
-                    for position, core in enumerate(cores, window.first)
-                )
-                if corroborated >= _MINIMUM_BLOCK and contained * 2 < len(cores) and not conflicting:
-                    # Independent recognition and phonetic cores contradict these catalogue cues.
-                    # Reuse acoustic phrase windows instead of squeezing words into stale crops.
-                    # Conflicting cores may instead join different occurrences of a repeat.
-                    break
-            else:
+            windows = _recognized_catalog_windows(windows, words, heard, whole, supported)
+            if not any(_contradicted_window(window, whole, supported) for window in windows):
                 return windows
     return _phrase_windows(lyrics, heard, total, whole) or _windows(words, heard, total, whole)
 
@@ -399,3 +312,149 @@ def _unique_anchors(
             if before <= candidate[1] <= candidate[2] <= after:
                 blocks.append(difflib.Match(index, len(expanded), 1))
                 expanded.append(candidate)
+
+
+def _recognized_blocks(
+    blocks: Sequence[difflib.Match],
+    heard: Sequence[HeardWord],
+) -> list[difflib.Match]:
+    # A long exact match still contains separate sung occurrences. A single CTC
+    # path can skip the first repeat and crush the last one despite correct ASR.
+    phrases: list[difflib.Match] = []
+    for block in blocks:
+        first = 0
+        for last in range(1, block.size + 1):
+            if (
+                last == block.size
+                or last - first >= _MINIMUM_BLOCK
+                and (
+                    heard[block.b + last][1] - heard[block.b + last - 1][2] >= 0.35
+                    or heard[block.b + last][1] - heard[block.b + first][1] >= 12
+                )
+            ):
+                phrases.append(difflib.Match(block.a + first, block.b + first, last - first))
+                first = last
+    return phrases
+
+
+def _catalog_shift(
+    lines: Sequence[tuple[int, float, str]],
+    whole: Sequence[AlignedWord],
+) -> float:
+    differences = [whole[first].start - start for first, start, _ in lines]
+    shift = 0.0
+    if len(differences) >= _CATALOG_SHIFT_MINIMUM_LINES:
+        middle = float(np.median(differences))
+        spread = float(np.percentile(differences, 75) - np.percentile(differences, 25))
+        if (
+            abs(middle) >= _CATALOG_SHIFT_MINIMUM_SECONDS
+            and spread <= _CATALOG_SHIFT_MAXIMUM_SPREAD_SECONDS
+        ):
+            shift = middle
+    return shift
+
+
+def _continued_entry(
+    previous_first: int,
+    first: int,
+    count: int,
+    previous_count: int,
+    previous_entry: float,
+    entry: float,
+    whole: Sequence[AlignedWord],
+) -> bool:
+    return (
+        previous_first + previous_count == first
+        and abs(whole[previous_first].start - previous_entry) <= _MARGIN_SECONDS
+        and whole[first - 1].end > entry + _MARGIN_SECONDS
+        and whole[first].start > entry + _MARGIN_SECONDS
+        and min(whole[first - 1].score, whole[first].score) > _PREFERENCE
+        and sum(word.score > _PREFERENCE for word in whole[previous_first:first]) >= _MINIMUM_BLOCK
+        and sum(word.score > _PREFERENCE for word in whole[first : first + count]) >= _MINIMUM_BLOCK
+    )
+
+
+def _recognized_catalog_windows(
+    windows: list[Window],
+    words: list[str],
+    heard: list[HeardWord],
+    whole: Sequence[AlignedWord],
+    supported: Mapping[int, tuple[float, float]],
+) -> list[Window]:
+    windows = unhinted_windows(
+        [
+            phrase_window(
+                window,
+                recognized_phrase(
+                    window,
+                    words[window.first : window.last],
+                    heard,
+                    _MARGIN_SECONDS,
+                    allow_utterance=window.first - 1 in supported and window.last in supported,
+                )[0],
+                whole[window.first].start,
+                supported.get(window.last - 1),
+                _MARGIN_SECONDS,
+            )
+            for window in windows
+        ],
+        whole,
+        _MARGIN_SECONDS,
+    )
+    windows = [
+        replace(
+            window,
+            start=max(window.start, interval[0] - _MARGIN_SECONDS),
+            heard_start=interval[0],
+        )
+        if window.heard_start is None
+        and (interval := supported.get(window.first)) is not None
+        and window.start <= interval[0] < interval[1] <= window.end
+        else window
+        for window in windows
+    ]
+    return windows
+
+
+def _contradicted_window(
+    window: Window,
+    whole: Sequence[AlignedWord],
+    supported: Mapping[int, tuple[float, float]],
+) -> bool:
+    cores = whole[window.first : window.last]
+    corroborated = sum(
+        core.score > _PREFERENCE
+        and position in supported
+        and supported[position][0] - _MARGIN_SECONDS
+        <= core.start
+        <= supported[position][1] + _MARGIN_SECONDS
+        for position, core in enumerate(cores, window.first)
+    )
+    contained = sum(window.start <= core.start < core.end <= window.end for core in cores)
+    conflicting = any(
+        core.score > _PREFERENCE
+        and position in supported
+        and (
+            core.start < supported[position][0] - _MARGIN_SECONDS
+            or core.end > supported[position][1] + _MARGIN_SECONDS
+        )
+        for position, core in enumerate(cores, window.first)
+    )
+    return corroborated >= _MINIMUM_BLOCK and contained * 2 < len(cores) and not conflicting
+
+
+def _bounded_entry(
+    lines: Sequence[tuple[int, float, str]],
+    line_index: int,
+    previous_entry: float | None,
+    entry: float,
+    shift: float,
+) -> float:
+    # A repeated phrase must not borrow the timestamp of a neighbouring occurrence.
+    lower = previous_entry if previous_entry is not None else float("-inf")
+    if line_index:
+        lower = max(lower, lines[line_index - 1][1] + shift)
+    upper = lines[line_index + 1][1] + shift if line_index + 1 < len(lines) else float("inf")
+    if not lower < entry < upper:
+        entry = lines[line_index][1] + shift
+    return entry

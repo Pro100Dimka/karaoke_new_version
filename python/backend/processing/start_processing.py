@@ -148,12 +148,11 @@ class StartProcessing:
         processing_backend: ProcessingBackend,
         correlation_id: str | None,
     ) -> Job:
-        song_id = song.song_id
         source_bytes = self._source_size(song)
         admission = _Admission(
             ready_revision=song.active_revision if song.status is SongStatus.READY else None
         )
-        self._persistence.set_status(song_id, SongStatus.QUEUED)
+        self._persistence.set_status(song.song_id, SongStatus.QUEUED)
 
         # Register the turn in the same order in which workers receive their jobs.
         with self._admission_changed, ExitStack() as pending:
@@ -162,9 +161,9 @@ class StartProcessing:
             job = self._jobs.start(
                 JobType.SONG_PROCESSING,
                 lambda context: self._run(
-                    song_id, mode, online_lyrics, providers, context, admission.execution()
+                    song.song_id, mode, online_lyrics, providers, context, admission.execution()
                 ),
-                entity_id=song_id,
+                entity_id=song.song_id,
                 mode=mode,
                 correlation_id=correlation_id,
                 initial_report={
@@ -172,7 +171,7 @@ class StartProcessing:
                     "songTitle": song.title,
                     "songArtist": song.artist,
                 },
-                on_finally=lambda: self._finish(song_id, admission),
+                on_finally=lambda: self._finish(song.song_id, admission),
                 admit=lambda cancel: self._admit(
                     admission, providers, source_bytes, compute_mode, cancel
                 ),
@@ -248,8 +247,11 @@ class StartProcessing:
             and song.status in {SongStatus.CANCELLED, SongStatus.CANCELLING, SongStatus.FAILED}
         ):
             final_status = (
-                SongStatus.READY if previous_ready
-                else SongStatus.CANCELLED if cancelled else SongStatus.FAILED
+                SongStatus.READY
+                if previous_ready
+                else SongStatus.CANCELLED
+                if cancelled
+                else SongStatus.FAILED
             )
             self._persistence.set_status_if_present(song_id, final_status)
 

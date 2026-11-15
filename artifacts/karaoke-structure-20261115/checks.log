@@ -1,0 +1,39 @@
+[check] Focused checks only, not a full verification. Run the full affected suite before completion.
+[backend] ........................................................................ [  9%]
+[backend] ........................................................................ [ 18%]
+[backend] ........................................................................ [ 28%]
+[backend] ........................................................................ [ 37%]
+[backend] ........................................................................ [ 47%]
+[backend] ........................................................................ [ 56%]
+[backend] ........................................................................ [ 66%]
+[backend] ........................................................................ [ 75%]
+[backend] ........................................................................ [ 85%]
+[backend] ........................................................................ [ 94%]
+[backend] .......................F................                                 [100%]
+[backend] ================================== FAILURES ===================================
+[backend] __________ test_pitch_within_karaoke_tolerance_can_still_be_unsteady __________
+[backend]     def test_pitch_within_karaoke_tolerance_can_still_be_unsteady() -> None:
+[backend]         document = LyricsDocument("Song", "Artist", 2, 120, "A", "la", ())
+[backend]         reference = _vocal_contour()
+[backend]         actual = tuple(
+[backend]             PitchPoint(p.time, p.frequency * 2 ** ((0.8 if i % 2 else -0.8) / 12), p.confidence)
+[backend]             for i, p in enumerate(reference)
+[backend]         )
+[backend]         result = score_pitch(document, actual, performance_duration=2, reference_pitch=reference)
+[backend]         assert result.pitch_accuracy_percent == pytest.approx(100)
+[backend] >       assert result.note_stability_percent < 25
+[backend] E       assert 100.0 < 25
+[backend] E        +  where 100.0 = ScoreSummary(pitch_accuracy_percent=100.0, mean_semitone_deviation=0.8000000000000006, rhythm_accuracy_percent=100.0, ...sult(start=0.0, end=2, pitch_accuracy_percent=100.0, mean_semitone_deviation=0.8000000000000006),), problem_regions=()).note_stability_percent
+[backend] tests\test_performance_transforms.py:277: AssertionError
+[backend] ============================== warnings summary ===============================
+[backend] .venv\Lib\site-packages\fastapi\testclient.py:1
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+[backend]     from starlette.testclient import TestClient as TestClient  # noqa
+[backend] .venv\Lib\site-packages\starlette\testclient.py:53
+[backend]   D:\Git\karaoke_new_version\python\.venv\Lib\site-packages\starlette\testclient.py:53: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+[backend]     _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+[backend] -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+[backend] =========================== short test summary info ===========================
+[backend] FAILED tests/test_performance_transforms.py::test_pitch_within_karaoke_tolerance_can_still_be_unsteady
+[backend] 1 failed, 759 passed, 2 warnings in 64.89s (0:01:04)
+[backend] failed (1): D:\Git\karaoke_new_version\python\.venv\Scripts\python.exe -m pytest -q tests/test_letter_alignment.py tests/test_lrclib_provider.py tests/test_phrase_boundary_recovery.py tests/test_processing_ownership.py tests/test_processing_execution.py tests/test_note_construction.py tests/test_refine_words.py tests/test_word_sync_finalization.py tests/test_sung_end_boundaries.py tests/test_silent_prefix_review.py tests/test_word_timing_review.py tests/test_confirmed_voice_onsets.py tests/test_letter_timing_evidence.py tests/test_ctc_sustained_tail.py tests/test_guidance_acoustic_fallback.py tests/test_ctc_window_recovery.py tests/test_sung_boundary_regressions.py tests/test_performance_transforms.py

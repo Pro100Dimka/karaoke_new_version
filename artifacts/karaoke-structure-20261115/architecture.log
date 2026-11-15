@@ -1,0 +1,22 @@
+ERROR: backend/remote_worker.py: 501 lines exceeds 500
+ERROR: backend/remote_worker.py:39: execute has 128 lines; limit is 40
+ERROR: backend/remote_worker.py:39: execute complexity proxy 25 exceeds 12
+ERROR: backend/remote_worker.py:169: run_job has 65 lines; limit is 40
+ERROR: backend/remote_worker.py:236: process_song_task has 170 lines; limit is 40
+ERROR: backend/remote_worker.py:236: process_song_task complexity proxy 17 exceeds 12
+ERROR: backend/remote_worker.py:236: local imports are forbidden
+ERROR: backend/remote_worker.py:408: main has 87 lines; limit is 40
+ERROR: backend/remote_worker.py:408: main complexity proxy 20 exceeds 12
+ERROR: backend/remote_worker.py:408: local imports are forbidden
+ERROR: backend/remote_worker.py:224: broad exception handler is forbidden
+ERROR: backend/remote_worker.py: thread creation must go through job_executor.py
+ERROR: backend/infrastructure/oracle_ai_provider.py:139: process_song has 98 lines; limit is 40
+ERROR: backend/infrastructure/processing_transport.py:102: invoke has 48 lines; limit is 40
+ERROR: backend/infrastructure/processing_transport.py:30: Any is outside the serialization boundary
+ERROR: backend/infrastructure/processing_transport.py:66: Any is outside the serialization boundary
+ERROR: backend/infrastructure/processing_transport.py: JSON library access must go through serialization.py
+ERROR: backend/infrastructure/speech_session.py:95: _receive has 46 lines; limit is 40
+ERROR: backend/processing/orchestrator.py:63: run has 41 lines; limit is 40
+ERROR: backend/settings/environment.py:139: _verify_remote has 42 lines; limit is 40
+ERROR: backend.infrastructure.kaggle_ai_provider: production module has no production importer
+ERROR: backend.remote_worker: production module has no production importer

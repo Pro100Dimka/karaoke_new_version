@@ -176,6 +176,42 @@ def with_voice_onsets(
         voiced = voiced_frames(samples, _VOICE_RATE, _VOICE_HOP)
     step = _VOICE_HOP / _VOICE_RATE
     heard = heard or {}
+    words = _recover_vowel_onsets(words, samples, voiced, heard)
+    found = _voice_entries(words, voiced, step)
+    if not found and len(samples):
+        found = _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))
+    lags = [words[index].start - onset for index, onset in found.items()]
+    lag = min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags)))) if lags else 0.0
+    return _calibrated_onsets(words, found, lag)
+
+
+def _voice_entries(
+    words: Sequence[AlignedWord], voiced: np.ndarray, step: float, onsets: np.ndarray | None = None
+) -> dict[int, float]:
+    """Find local voice entries without dropping quieter recognized initial consonants."""
+    if onsets is None:
+        onsets = (np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1) * step
+    found: dict[int, float] = {}
+    for index, word in enumerate(words):
+        after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
+        nearby = onsets[
+            (onsets >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
+            & (onsets <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
+        ]
+        if not after_pause:
+            # The acoustic pause can be clear even when the preceding CTC core ends late.
+            nearby = nearby[nearby >= words[index - 1].end]
+        if len(nearby):
+            onset = float(nearby[np.argmin(np.abs(nearby - word.start))])
+            # A quiet initial consonant can precede the louder vowel or nasal entry.
+            found[index] = min(word.start, onset)
+    return found
+
+
+def _vowel_onset_indices(
+    words: Sequence[AlignedWord],
+    heard: Mapping[int, tuple[float, float]],
+) -> set[int]:
     vocalizations = {
         index
         for index, word in enumerate(words)
@@ -190,6 +226,17 @@ def with_voice_onsets(
         )
         and re.fullmatch(r"([aeiouyаеёиоуыэюяіїє])\1{2,}", word.text.casefold())
     }
+    return vocalizations
+
+
+def _recover_vowel_onsets(
+    words: list[AlignedWord],
+    samples: np.ndarray,
+    voiced: np.ndarray,
+    heard: Mapping[int, tuple[float, float]],
+) -> list[AlignedWord]:
+    step = _VOICE_HOP / _VOICE_RATE
+    vocalizations = _vowel_onset_indices(words, heard)
     if vocalizations:
         onsets = vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP)
         words = list(words)
@@ -217,11 +264,14 @@ def with_voice_onsets(
                 letters=(start,) * len(word.text),
                 diagnostics=(*word.diagnostics, "OnsetRecovered", "ApproximateLetterTiming"),
             )
-    found = _voice_entries(words, voiced, step)
-    if not found and len(samples):
-        found = _voice_entries(words, voiced, step, vocal_onsets(samples, _VOICE_RATE, _VOICE_HOP))
-    lags = [words[index].start - onset for index, onset in found.items()]
-    lag = min(_LARGEST_LAG_SECONDS, max(0.0, float(np.median(lags)))) if lags else 0.0
+    return words
+
+
+def _calibrated_onsets(
+    words: Sequence[AlignedWord],
+    found: Mapping[int, float],
+    lag: float,
+) -> list[AlignedWord]:
     result: list[AlignedWord] = []
     floor = 0.0
     for index, word in enumerate(words):
@@ -246,26 +296,3 @@ def with_voice_onsets(
         )
         floor = start
     return result
-
-
-def _voice_entries(
-    words: Sequence[AlignedWord], voiced: np.ndarray, step: float, onsets: np.ndarray | None = None
-) -> dict[int, float]:
-    """Find local voice entries without dropping quieter recognized initial consonants."""
-    if onsets is None:
-        onsets = (np.flatnonzero(voiced[1:] & ~voiced[:-1]) + 1) * step
-    found: dict[int, float] = {}
-    for index, word in enumerate(words):
-        after_pause = index == 0 or word.start - words[index - 1].end >= _PAUSE_SECONDS
-        nearby = onsets[
-            (onsets >= word.start - _ONSET_SEARCH_BEFORE_SECONDS)
-            & (onsets <= word.start + _ONSET_SEARCH_AFTER_SECONDS)
-        ]
-        if not after_pause:
-            # The acoustic pause can be clear even when the preceding CTC core ends late.
-            nearby = nearby[nearby >= words[index - 1].end]
-        if len(nearby):
-            onset = float(nearby[np.argmin(np.abs(nearby - word.start))])
-            # A quiet initial consonant can precede the louder vowel or nasal entry.
-            found[index] = min(word.start, onset)
-    return found

@@ -8,6 +8,8 @@ from difflib import SequenceMatcher
 from typing import Sequence
 
 from backend.domain_errors import ConflictError
+from backend.lyrics.ports import LyricsCandidate
+from backend.text_normalization import clean_lyrics
 
 
 def _lyrics_key(text: str) -> str:
@@ -263,3 +265,91 @@ def _line_anchors(
         else:
             j += 1
     return anchors
+
+
+def _lyrics_match(expected: str, actual: str) -> bool:
+    left = expected.casefold().split()
+    right = actual.casefold().split()
+    return SequenceMatcher(None, left, right, autojunk=False).ratio() >= 0.90
+
+
+def _same_vocabulary(expected: str, actual: str) -> bool:
+    vocabularies = [
+        " ".join(sorted({_lyrics_key(word) for word in text.split() if _lyrics_key(word)}))
+        for text in (expected, actual)
+    ]
+    return _lyrics_match(*vocabularies)
+
+
+def _best_catalog_version(
+    candidates: Sequence[LyricsCandidate],
+    distances: dict[LyricsCandidate, float],
+    transcripts: Sequence[str],
+) -> LyricsCandidate:
+    coverage = {item: _performed_coverage(item.lyrics, transcripts) for item in candidates}
+    best = max(coverage.values())
+    # A few accidental matches cannot distinguish versions more reliably than the
+    # recognizer's own unmatched words. Within that uncertainty, use recording duration.
+    uncertainty = sum(len(heard.split()) for heard in transcripts) - best
+    vocabularies = [{_lyrics_key(word) for word in heard.split()} for heard in transcripts]
+    unexplained = dict.fromkeys(candidates, 0)
+    for item in candidates:
+        for line in clean_lyrics(item.lyrics, "Auto").splitlines():
+            words = [_lyrics_key(word) for word in line.split()]
+            if len(words) >= 3:
+                # Missing repeats or one missed adlib do not prove another recording.
+                # Entire lines of unfamiliar words are different evidence.
+                unexplained[item] += sum(
+                    len(words)
+                    for vocabulary in vocabularies
+                    if sum(word not in vocabulary for word in words) * 2 > len(words)
+                )
+    supported = [item for item in candidates if best - coverage[item] <= uncertainty]
+    least_unexplained = min(unexplained[item] for item in supported)
+    return min(
+        (item for item in supported if unexplained[item] - least_unexplained <= uncertainty),
+        key=lambda item: (
+            distances[item],
+            -len(item.lyrics.split()),
+        ),
+    )
+
+
+def _performed_coverage(lyrics: str, transcripts: Sequence[str]) -> int:
+    expected = [_lyrics_key(word) for word in clean_lyrics(lyrics, "Auto").split()]
+    return sum(
+        block.size
+        for heard in transcripts
+        for block in SequenceMatcher(
+            None, expected, [_lyrics_key(word) for word in heard.split()], autojunk=False
+        ).get_matching_blocks()
+    )
+
+
+def _timed_catalog_version(
+    eligible: Sequence[LyricsCandidate],
+    candidate: LyricsCandidate,
+    distances: dict[LyricsCandidate, float],
+) -> LyricsCandidate | None:
+    return next(
+        (
+            item
+            for item in eligible
+            if distances[item] == distances[candidate]
+            and item.timing_hints
+            and _lyrics_match(candidate.lyrics, item.lyrics)
+        ),
+        None,
+    )
+
+
+def _catalog_distances(
+    candidates: Sequence[LyricsCandidate],
+    duration: float | None,
+) -> dict[LyricsCandidate, float]:
+    return {
+        item: abs(duration - item.duration)
+        if duration is not None and item.duration is not None
+        else (math.inf if duration is not None else 0.0)
+        for item in candidates
+    }

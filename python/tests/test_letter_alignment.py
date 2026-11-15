@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+from backend.ai_worker import speech_alignment
 from backend.ai_worker import ctc_emission, ctc_tokens, guidance_candidates
 
 from pathlib import Path
@@ -1010,7 +1012,7 @@ def test_alignment_recovers_a_leading_phrase_before_a_late_full_song_asr_anchor(
     samples = np.zeros(32 * _RATE, np.float32)
     monkeypatch.setattr(speech, "read_mono", lambda *_: samples)
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, heard))
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
     monkeypatch.setattr(
         speech,
         "_accelerated_guidance",
@@ -1029,17 +1031,17 @@ def test_alignment_recovers_a_leading_phrase_before_a_late_full_song_asr_anchor(
         observed.extend(recognized)
         return [Window(0, 3, 0, 32)]
 
-    monkeypatch.setattr(speech, "_alignment_windows", windows)
+    monkeypatch.setattr(speech_alignment, "_alignment_windows", windows)
     monkeypatch.setattr(
-        speech, "contextual_guidance", lambda _w, windows, _whole, times, *_: (windows, times)
+        speech_alignment, "contextual_guidance", lambda _w, windows, _whole, times, *_: (windows, times)
     )
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
-    monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **__: words)
-    monkeypatch.setattr(speech, "singing_frames", lambda *_: np.zeros(3200, bool))
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.zeros(3200, bool))
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda values, *_: values)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda values, *_: values)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "with_word_guidance", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "singing_frames", lambda *_: np.zeros(3200, bool))
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.zeros(3200, bool))
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda values, *_: values)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda values, *_: values)
 
     speech.align(Path("voice.wav"), "carry our voices", "English")
 
@@ -1367,10 +1369,10 @@ def test_alignment_computes_singing_evidence_once_for_guidance_and_word_endings(
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
         speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, []
     ))
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(
-        speech, "contextual_guidance", lambda w, windows, whole, times, *_: (windows, times)
+        speech_alignment, "contextual_guidance", lambda w, windows, whole, times, *_: (windows, times)
     )
     calls = []
     source_evidence = timing._source_evidence
@@ -1422,11 +1424,11 @@ def test_alignment_loads_one_speech_model_for_its_refinements_only(
     monkeypatch.setattr(speech, "_speech_model", load)
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(3 * _RATE, np.float32))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, []))
-    monkeypatch.setattr(speech, "_alignment_windows", lambda *_: [Window(0, 1, 0, 3)])
-    monkeypatch.setattr(speech, "contextual_guidance", refine)
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
-    monkeypatch.setattr(speech, "with_word_guidance", lambda *_, **_kw: words)
+    monkeypatch.setattr(speech_alignment, "_alignment_windows", lambda *_: [Window(0, 1, 0, 3)])
+    monkeypatch.setattr(speech_alignment, "contextual_guidance", refine)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "with_word_guidance", lambda *_, **_kw: words)
     for _ in range(2):
         speech.align(Path("vocal.wav"), "ah", "English")
     assert len(loaded) == (2 + fail_first if refinements else 0)
@@ -2198,8 +2200,8 @@ def test_speech_alignment_reports_supported_score_instead_of_perfect_confidence(
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_args: (
         speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, []
     ))
-    monkeypatch.setattr(speech, "align_words", lambda *_args: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_args: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_args, **_options: words)
 
     result = speech.align(Path("vocal.wav"), "stay", "English")
 
@@ -2219,8 +2221,8 @@ def test_speech_alignment_exposes_independent_boundary_conflicts_with_positive_s
             speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, [("stay", 1.0, 2.0)]
         )
     )
-    monkeypatch.setattr(speech, "align_words", lambda *_args: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_args, **_options: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_args: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_args, **_options: words)
 
     word = speech.align(Path("vocal.wav"), "stay", "English")["words"][0]
 
@@ -2660,17 +2662,17 @@ def test_fuzzy_phrase_start_reaches_alignment_choice_as_independent_evidence(mon
     heard = [("мынавстречуновымзвездам", start, start + 3) for start in (10, 20)]
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40 * _RATE))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (None, 0.02, heard))
-    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: whole)
     captured = {}
 
     def align_guided(*args, **_options):
         captured.update(args[4])
         return whole
 
-    monkeypatch.setattr(speech, "align_guided", align_guided)
-    monkeypatch.setattr(speech, "with_word_guidance", lambda words, *args, **kwargs: words)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", align_guided)
+    monkeypatch.setattr(speech_alignment, "with_word_guidance", lambda words, *args, **kwargs: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
     speech.align(Path("voice.wav"), lyrics, "Russian")
     assert captured.get(0) == pytest.approx(10)
     assert captured.get(4) == pytest.approx(20)
@@ -2833,10 +2835,10 @@ def test_actual_verse_entry_survives_missing_first_words_in_independent_recognit
         )
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40 * _RATE, dtype=np.float32))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, heard))
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.array([28.18]))
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.array([28.18]))
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
 
     result = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"])
 
@@ -3029,10 +3031,10 @@ def test_recognized_word_intervals_preserve_a_genuine_fast_cluster(monkeypatch):
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
         speech.torch.full((100, 28), -np.log(28)), 0.02, heard
     ))
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda value, *_: value)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda value, *_: value)
 
     result = speech.align(Path("voice.wav"), "I a go", "English")["words"]
 
@@ -3056,8 +3058,8 @@ def test_a_supported_word_run_does_not_cap_a_quiet_long_vowel_at_its_asr_endpoin
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (
         speech.torch.full((len(samples) // 320, 28), -np.log(28)), 0.02, heard
     ))
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
 
     result = speech.align(Path("voice.wav"), "we stay here", "English")["words"]
 
@@ -3077,8 +3079,8 @@ def test_a_recognition_run_cannot_replace_strong_acoustic_cores_with_weak_late_t
     monkeypatch.setattr(
         speech, "_alignment_evidence", lambda *_: (torch.zeros(350, 28), 0.02, heard)
     )
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
     monkeypatch.setattr(
         ctc,
         "_align_window",
@@ -3086,8 +3088,8 @@ def test_a_recognition_run_cannot_replace_strong_acoustic_cores_with_weak_late_t
             AlignedWord(chunk[0], w.start, w.start + 0.2, (w.start,), 0.1)
         ],
     )
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda value, *_: value)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda value, *_: value)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda value, *_: value)
 
     result = speech.align(Path("voice.wav"), "we sing here", "English")["words"]
 
@@ -3154,10 +3156,10 @@ def test_actual_alternative_stem_keeps_a_short_reply_out_of_the_instrumental_bre
         scores = torch.from_numpy(fixture[fixture_prefix + "_scores"])
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(40 * _RATE, dtype=np.float32))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
 
     words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"])["words"]
 
@@ -3181,9 +3183,9 @@ def test_a_misrecognized_prefix_keeps_its_word_order_before_a_supported_last_wor
         speech, "read_mono", lambda path, *_: backing if path.name == "backing.wav" else vocal
     )
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.ones(4000, dtype=bool))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
 
     words = speech.align(
         Path("voice.wav"), case["lyrics"], "Russian", case["hints"], Path("backing.wav")
@@ -3282,10 +3284,10 @@ def test_a_recognized_word_overlapping_the_next_coarse_window_still_guides_its_o
         scores = torch.from_numpy(fixture[prefix + "_scores"])
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(16 * _RATE, np.float32))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.array(case["onsets"]))
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(1600, bool))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.array(case["onsets"]))
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.ones(1600, bool))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
 
     words = speech.align(Path("voice.wav"), case["lyrics"], "Russian", case["hints"])["words"]
 
@@ -3574,11 +3576,11 @@ def test_clean_import_recovers_a_phrase_missing_from_full_recording_recognition(
     windows = [Window(**item) for item in case["windows"]]
     monkeypatch.setattr(speech, "read_mono", lambda *_: np.zeros(37 * _RATE, np.float32))
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
-    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
-    monkeypatch.setattr(speech, "_alignment_windows", lambda *_: windows)
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: np.ones(3701, bool))
-    monkeypatch.setattr(speech, "with_voice_onsets", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: whole)
+    monkeypatch.setattr(speech_alignment, "_alignment_windows", lambda *_: windows)
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: np.ones(3701, bool))
+    monkeypatch.setattr(speech_alignment, "with_voice_onsets", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
     local = {
         "segments": [{"words": [dict(word=k, start=a, end=b) for k, a, b in case["recognized"]]}]
     }
@@ -3677,9 +3679,9 @@ def test_fresh_phrase_recovery_preserves_the_acoustic_entry_after_the_previous_v
         speech, "read_mono", lambda path, *_: backing if path.name == "backing.wav" else vocal
     )
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (scores, 0.02, case["heard"]))
-    monkeypatch.setattr(speech, "align_words", lambda *_: whole)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: whole)
     monkeypatch.setattr(
-        speech, "_alignment_windows", lambda *_: [Window(**w) for w in case["windows"]]
+        speech_alignment, "_alignment_windows", lambda *_: [Window(**w) for w in case["windows"]]
     )
     local = {
         "segments": [{"words": [dict(word=k, start=a, end=b) for k, a, b in case["recognized"]]}]

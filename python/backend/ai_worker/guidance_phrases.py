@@ -1,11 +1,13 @@
 from __future__ import annotations
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
 import difflib
 from difflib import SequenceMatcher
 import numpy as np
 from backend.ai_worker import ctc
 from backend.lyrics.discovery import _line_matches, _lyrics_key
+
+HeardWord = tuple[str, float, float]
 
 
 def recognized_phrase(
@@ -33,21 +35,7 @@ def recognized_phrase(
     if span is None or (window.heard_start is None and (best is None or best[0] < len(key) * 0.5)):
         return None, {}
     first, last = span
-    start = heard[first][1]
-    if (
-        window.heard_start is not None
-        and start <= window.heard_start < heard[first][2]
-        and start < window.start - margin
-    ):
-        # ASR may attach preceding silence to the first word. Its interval is
-        # spelling evidence, not permission to move a confirmed search entry back.
-        start = window.start
-    phrase = replace(
-        window,
-        start=min(window.start, start) if best is not None else window.start,
-        end=min(window.end, heard[last - 1][2] + margin),
-        heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
-    )
+    phrase = _recognized_window(window, heard, first, last, best is not None, margin)
     return phrase, _character_intervals(
         words, heard[first:last], window.first
     ) if best is not None else {}
@@ -261,3 +249,41 @@ def _matching_scores(
             )
             scores[i, j] = max(scores[i + 1, j], scores[i, j + 1], match)
     return scores
+
+
+def heard_words(result: Mapping[str, object], *, include_untimed: bool = False) -> list[HeardWord]:
+    heard: list[HeardWord] = []
+    segments = result.get("segments")
+    for segment in segments if isinstance(segments, list) else []:
+        words = segment.get("words") if isinstance(segment, dict) else None
+        for word in words if isinstance(words, list) else []:
+            key = _key(str(word.get("word", "")))
+            if key and (include_untimed or float(word["start"]) < float(word["end"])):
+                heard.append((key, float(word["start"]), float(word["end"])))
+    return heard
+
+
+def _recognized_window(
+    window: ctc.Window,
+    heard: Sequence[HeardWord],
+    first: int,
+    last: int,
+    matched: bool,
+    margin: float,
+) -> ctc.Window:
+    start = heard[first][1]
+    if (
+        window.heard_start is not None
+        and start <= window.heard_start < heard[first][2]
+        and start < window.start - margin
+    ):
+        # ASR may attach preceding silence to the first word. Its interval is
+        # spelling evidence, not permission to move a confirmed search entry back.
+        start = window.start
+    phrase = replace(
+        window,
+        start=min(window.start, start) if matched else window.start,
+        end=min(window.end, heard[last - 1][2] + margin),
+        heard_start=window.heard_start if window.heard_start is not None else heard[first][1],
+    )
+    return phrase

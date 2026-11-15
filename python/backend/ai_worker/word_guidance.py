@@ -86,33 +86,7 @@ def with_word_guidance(
     result = list(words)
     for window in windows:
         pass_.apply(result, window)
-    for index, word in enumerate(result):
-        if _silent_prefix_entry(word, scores, frame_seconds, voiced) is None:
-            continue
-        candidates, recovered = _review_candidates(
-            [word],
-            scores,
-            frame_seconds,
-            voiced,
-            # CTC's trailing unmatched-audio state needs a frame after the final phoneme.
-            ctc.Window(index, index + 1, word.start, word.end + frame_seconds),
-            frozenset({index}),
-            heard,
-            onsets,
-        )
-        interval = heard.get(index)
-        if (
-            recovered
-            and candidates
-            and (
-                candidates[0].score > ctc._PREFERENCE
-                and (interval is None or interval[0] - margin <= candidates[0].start < interval[1])
-            )
-        ):
-            result[index] = candidates[0]
-        elif "OnsetReviewRequired" not in word.diagnostics:
-            result[index] = replace(word, diagnostics=(*word.diagnostics, "OnsetReviewRequired"))
-    return result
+    return pass_._recover_openings(result)
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,8 +102,44 @@ class _GuidancePass:
     reviewed: frozenset[int]
     alternatives: Sequence[Sequence[tuple[str, float, float]]] = ()
 
-    def apply(self, result: list[ctc.AlignedWord], window: ctc.Window) -> None:
-        phrase, local = max(
+    def _recover_openings(self, result: list[ctc.AlignedWord]) -> list[ctc.AlignedWord]:
+        for index, word in enumerate(result):
+            if _silent_prefix_entry(word, self.scores, self.frame_seconds, self.voiced) is None:
+                continue
+            candidates, recovered = _review_candidates(
+                [word],
+                self.scores,
+                self.frame_seconds,
+                self.voiced,
+                # CTC's trailing unmatched-audio state needs a frame after the final phoneme.
+                ctc.Window(index, index + 1, word.start, word.end + self.frame_seconds),
+                frozenset({index}),
+                self.heard,
+                self.onsets,
+            )
+            interval = self.heard.get(index)
+            if (
+                recovered
+                and candidates
+                and (
+                    candidates[0].score > ctc._PREFERENCE
+                    and (
+                        interval is None
+                        or interval[0] - self.margin <= candidates[0].start < interval[1]
+                    )
+                )
+            ):
+                result[index] = candidates[0]
+            elif "OnsetReviewRequired" not in word.diagnostics:
+                result[index] = replace(
+                    word, diagnostics=(*word.diagnostics, "OnsetReviewRequired")
+                )
+        return result
+
+    def _phrase(
+        self, window: ctc.Window
+    ) -> tuple[ctc.Window | None, dict[int, tuple[float, float]]]:
+        return max(
             (
                 recognized_phrase(
                     window,
@@ -142,22 +152,13 @@ class _GuidancePass:
             ),
             key=lambda match: len(match[1]),
         )
+
+    def apply(self, result: list[ctc.AlignedWord], window: ctc.Window) -> None:
+        phrase, local = self._phrase(window)
         timings = dict(self.heard) | local
         first, last = max(0, window.first - 1), min(len(self.words), window.last + 1)
         options = [[word] for word in result[first:last]]
-        alternatives = self._alternatives(window, phrase, timings)
-        for index, candidate, interval in alternatives:
-            known = self.heard.get(index)
-            if (
-                candidate.score <= 0
-                and self.words[index].score > 0
-                and known is not None
-                and _crosses_confirmed_entry(self.words[index], candidate, known, self.onsets)
-            ):
-                # A fuzzy spelling split cannot replace a measured entry with interpolation.
-                continue
-            options[index - first].append(candidate)
-            timings[index] = interval
+        self._add_alternatives(options, first, window, phrase, timings)
         boundary = _boundary_pair(
             result,
             self.scores,
@@ -181,6 +182,14 @@ class _GuidancePass:
             margin=self.margin,
             boundary=boundary,
         )
+        self._mark_entries(result, window, timings)
+
+    def _mark_entries(
+        self,
+        result: list[ctc.AlignedWord],
+        window: ctc.Window,
+        timings: Mapping[int, tuple[float, float]],
+    ) -> None:
         for index in range(max(1, window.first), window.last):
             preceding, current = timings.get(index - 1), timings.get(index)
             word = result[index]
@@ -199,6 +208,28 @@ class _GuidancePass:
                 result[index] = replace(
                     word, diagnostics=(*word.diagnostics, "RecognizedPhraseEntry")
                 )
+
+    def _add_alternatives(
+        self,
+        options: list[list[ctc.AlignedWord]],
+        first: int,
+        window: ctc.Window,
+        phrase: ctc.Window | None,
+        timings: dict[int, tuple[float, float]],
+    ) -> None:
+        alternatives = self._alternatives(window, phrase, timings)
+        for index, candidate, interval in alternatives:
+            known = self.heard.get(index)
+            if (
+                candidate.score <= 0
+                and self.words[index].score > 0
+                and known is not None
+                and _crosses_confirmed_entry(self.words[index], candidate, known, self.onsets)
+            ):
+                # A fuzzy spelling split cannot replace a measured entry with interpolation.
+                continue
+            options[index - first].append(candidate)
+            timings[index] = interval
 
     def _alternatives(
         self,

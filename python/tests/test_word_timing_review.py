@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from backend.ai_worker import speech_alignment
+
 from pathlib import Path
 
 import numpy as np
@@ -278,27 +280,27 @@ def _isolated_pipeline(
     monkeypatch.setattr(
         speech, "_alignment_evidence", lambda *_: (_emissions(candidate), 0.02, heard)
     )
-    monkeypatch.setattr(speech, "align_words", lambda *_: original)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: original)
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: original)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: original)
     monkeypatch.setattr(
-        speech, "_alignment_windows", lambda *_: [ctc.Window(0, len(original), 0, 4)]
+        speech_alignment, "_alignment_windows", lambda *_: [ctc.Window(0, len(original), 0, 4)]
     )
     monkeypatch.setattr(
-        speech, "contextual_guidance",
+        speech_alignment, "contextual_guidance",
         lambda _w, windows, *_: (windows, timings if contextual is None else contextual),
     )
-    monkeypatch.setattr(speech, "singing_frames", lambda *_: activity)
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: activity)
-    monkeypatch.setattr(speech, "vocal_onsets", lambda *_: np.empty(0))
+    monkeypatch.setattr(speech_alignment, "singing_frames", lambda *_: activity)
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: activity)
+    monkeypatch.setattr(speech_alignment, "vocal_onsets", lambda *_: np.empty(0))
     monkeypatch.setattr(ctc_singing, "voiced_frames", lambda *_: activity)
     monkeypatch.setattr(
-        speech,
+        speech_alignment,
         "with_voice_onsets",
         ctc.with_voice_onsets if refine_onsets else lambda value, *_: value,
     )
-    monkeypatch.setattr(speech, "with_sung_ends", lambda value, *_: value)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda value, *_: value)
     monkeypatch.setattr(
-        speech,
+        speech_alignment,
         "with_word_guidance",
         lambda value, *_, reviewed=frozenset(), **__: candidate if reviewed else value,
     )
@@ -312,7 +314,7 @@ def test_extending_an_existing_vocalization_updates_its_payload_without_duplicat
 
     original = [_word('before', 0, 1), _word('А', 1.5, 1.7), _word('after', 3, 3.5)]
     extended = replace(original[1], end=2.7, diagnostics=("VocalizationRetimed",))
-    monkeypatch.setattr(speech, "recover_vocalizations", lambda *args: [extended])
+    monkeypatch.setattr(speech_alignment, "recover_vocalizations", lambda *args: [extended])
     result = _isolated_pipeline(monkeypatch, original, original)
     assert [word["text"] for word in result] == ["before", "А", "after"]
     assert (result[1]["start"], result[1]["end"]) == (1.5, 2.7)
@@ -341,7 +343,7 @@ def test_local_onset_repair_does_not_recalibrate_distant_unchanged_words(monkeyp
         _word("далеко", 2.5, 2.8),
     ]
     candidate = [_word("дом", 1.05, 1.5, 0.99), *original[1:]]
-    monkeypatch.setattr(speech, "rate_review_indices", lambda *_, **__: {0})
+    monkeypatch.setattr(speech_alignment, "rate_review_indices", lambda *_, **__: {0})
     result = _isolated_pipeline(
         monkeypatch, original, candidate, activity=_activity((1, 3)), refine_onsets=True
     )
@@ -361,8 +363,8 @@ def test_unchanged_local_review_keeps_timings_without_repeating_audio_postproces
 
     def measured_align(*args, **kwargs):
         with (
-            patch.object(speech, "with_voice_onsets", wraps=speech.with_voice_onsets) as onsets,
-            patch.object(speech, "with_sung_ends", wraps=speech.with_sung_ends) as ends,
+            patch.object(speech_alignment, "with_voice_onsets", wraps=speech_alignment.with_voice_onsets) as onsets,
+            patch.object(speech_alignment, "with_sung_ends", wraps=speech_alignment.with_sung_ends) as ends,
         ):
             result = align(*args, **kwargs)
             assert onsets.call_count == ends.call_count == 1
@@ -391,11 +393,11 @@ def test_accepted_local_repair_reuses_unchanged_audio_features(monkeypatch):
                     calls[_name] += 1
                     return _compute(*args)
 
-                for module in (ctc_singing, speech):
+                for module in (ctc_singing, speech_alignment):
                     if hasattr(module, name):
                         patches.enter_context(patch.object(module, name, measured))
             for name in ("with_voice_onsets", "with_sung_ends"):
-                patches.enter_context(patch.object(speech, name, getattr(ctc, name)))
+                patches.enter_context(patch.object(speech_alignment, name, getattr(ctc, name)))
             result = align(*args, **kwargs, instrumental=Path("backing.wav"))
         assert calls == {"voiced_frames": 1, "harmonic_evidence": 1}
         return result
@@ -452,7 +454,7 @@ def test_prompted_word_spans_do_not_disable_independent_acoustic_repeat_validati
         observed.append(args[-1])
         return words
 
-    monkeypatch.setattr(speech, "with_acoustic_repeats", repeats)
+    monkeypatch.setattr(speech_alignment, "with_acoustic_repeats", repeats)
     _isolated_pipeline(
         monkeypatch, original, original, heard=[("sing", 2, 2.8)],
         contextual={0: (0.6, 1.4), 1: (2, 2.8)},

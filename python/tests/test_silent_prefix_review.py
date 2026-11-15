@@ -1,3 +1,4 @@
+from backend.ai_worker import speech_alignment
 from dataclasses import replace
 from pathlib import Path
 
@@ -44,13 +45,15 @@ def _guide(words, scores, activity, *, reviewed=frozenset(), heard=None):
 
 
 @pytest.mark.parametrize("text", ["вдруг", "вдома"])
-def test_a_weak_opening_in_silence_is_flagged_before_onset_normalization(text):
+def test_a_weak_opening_in_silence_is_recovered_before_onset_normalization(text):
     words, scores, activity = _case(text)
 
     flagged = _guide(words, scores, activity)
 
-    assert "OnsetReviewRequired" in flagged[0].diagnostics
-    assert replace(flagged[0], diagnostics=()) == words[0]
+    assert "OnsetRecovered" in flagged[0].diagnostics
+    assert flagged[0].start == pytest.approx(0.92)
+    assert flagged[0].letters[1:] == words[0].letters[1:]
+    assert flagged[0].end == words[0].end
     assert flagged[1:] == words[1:]
 
 
@@ -101,7 +104,7 @@ def test_strong_ctc_evidence_preserves_a_quiet_initial_consonant():
 
 def test_an_intervening_active_sound_prevents_silent_prefix_recovery():
     words, scores, activity = _case()
-    activity[40:55] = True
+    activity[40:100] = True
 
     assert _guide(words, scores, activity) == words
     assert _guide(words, scores, activity, reviewed=frozenset({0})) == words
@@ -149,11 +152,10 @@ def test_an_onset_only_repair_keeps_an_unchanged_neighbours_frame_jitter(monkeyp
 
 def test_a_silent_prefix_review_does_not_override_an_independent_contradiction():
     words, scores, activity = _case()
-    flagged = _guide(words, scores, activity)
 
     assert (
-        _guide(flagged, scores, activity, reviewed=frozenset({0}), heard={0: (0.18, 1.46)})
-        == flagged
+        _guide(words, scores, activity, reviewed=frozenset({0}), heard={0: (0.18, 1.46)})
+        == words
     )
 
 
@@ -196,18 +198,18 @@ def _committed_review(monkeypatch, original, recovered, onset=1.0):
     audio = np.zeros(len(activity) * 160, dtype=np.float32)
     monkeypatch.setattr(speech, "read_mono", lambda *_: audio)
     monkeypatch.setattr(speech, "_alignment_evidence", lambda *_: (torch.zeros(1, 28), _STEP, []))
-    monkeypatch.setattr(speech, "align_words", lambda *_: words)
-    monkeypatch.setattr(speech, "align_guided", lambda *_, **__: words)
-    monkeypatch.setattr(speech, "recover_leading_words", lambda _text, _words, heard, _asr: heard)
-    monkeypatch.setattr(speech, "_alignment_windows", lambda *_: [])
-    monkeypatch.setattr(speech, "contextual_guidance", lambda _words, windows, *_: (windows, {}))
-    monkeypatch.setattr(speech, "singing_frames", lambda *_: activity)
-    monkeypatch.setattr(speech, "voiced_frames", lambda *_: activity)
-    monkeypatch.setattr(speech, "with_sung_ends", lambda words, *_: words)
-    monkeypatch.setattr(speech, "with_sung_letters", lambda words, *_: words)
-    monkeypatch.setattr(speech, "rate_review_indices", lambda *_, **__: {0})
+    monkeypatch.setattr(speech_alignment, "align_words", lambda *_: words)
+    monkeypatch.setattr(speech_alignment, "align_guided", lambda *_, **__: words)
+    monkeypatch.setattr(speech_alignment, "recover_leading_words", lambda _text, _words, heard, _asr: heard)
+    monkeypatch.setattr(speech_alignment, "_alignment_windows", lambda *_: [])
+    monkeypatch.setattr(speech_alignment, "contextual_guidance", lambda _words, windows, *_: (windows, {}))
+    monkeypatch.setattr(speech_alignment, "singing_frames", lambda *_: activity)
+    monkeypatch.setattr(speech_alignment, "voiced_frames", lambda *_: activity)
+    monkeypatch.setattr(speech_alignment, "with_sung_ends", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "with_sung_letters", lambda words, *_: words)
+    monkeypatch.setattr(speech_alignment, "rate_review_indices", lambda *_, **__: {0})
     monkeypatch.setattr(
-        speech,
+        speech_alignment,
         "with_word_guidance",
         lambda words, *, reviewed=frozenset(), **_: [recovered, neighbour] if reviewed else words,
     )

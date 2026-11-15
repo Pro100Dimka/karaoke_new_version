@@ -1,70 +1,74 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass
-from functools import partial
-from pathlib import Path
+from collections.abc import (
+    Callable as Callable,
+    Iterable as Iterable,
+    Mapping as Mapping,
+    Sequence as Sequence,
+)
+from dataclasses import dataclass as dataclass
+from functools import partial as partial
+from pathlib import Path as Path
 
 import numpy as np
 import torch
 import whisper
 
-from backend.ai.catalog import SPEECH_MODEL
-from backend.ai_worker.ctc_bounds import (
-    _preserved_onset_letters as _preserved_onset_letters,
-)
-from backend.ai_worker.audio_io import read_mono
+from backend.ai.catalog import SPEECH_MODEL as SPEECH_MODEL
+from backend.ai_worker.speech_alignment import _AlignmentPass as _AlignmentPass
+from backend.ai_worker.ctc_bounds import _preserved_onset_letters as _preserved_onset_letters
+from backend.ai_worker.audio_io import read_mono as read_mono
 from backend.ai_worker.ctc import (
-    AlignedWord,
-    Window,
-    align_guided,
-    align_words,
-    emission,
-    frame_stride_samples,
+    AlignedWord as AlignedWord,
+    Window as Window,
+    align_guided as align_guided,
+    align_words as align_words,
+    emission as emission,
+    frame_stride_samples as frame_stride_samples,
     _model as alignment_model,
-    ordered,
-    with_sung_ends,
-    with_sung_letters,
-    with_voice_onsets,
+    ordered as ordered,
+    with_sung_ends as with_sung_ends,
+    with_sung_letters as with_sung_letters,
+    with_voice_onsets as with_voice_onsets,
 )
-from backend.ai_worker.paths import model_directory, model_file
+from backend.ai_worker.paths import model_directory as model_directory, model_file as model_file
 from backend.ai_worker.runtime import (
-    AlignmentReuse,
-    WHISPER_LANGUAGES,
-    cached_encoder,
-    cpu_threads,
-    device,
+    AlignmentReuse as AlignmentReuse,
+    WHISPER_LANGUAGES as WHISPER_LANGUAGES,
+    cached_encoder as cached_encoder,
+    cpu_threads as cpu_threads,
+    device as device,
 )
 from backend.ai_worker.timing import (
-    audible_frames,
-    _levels,
-    harmonic_evidence,
-    singing_frames,
-    vocal_onsets,
-    voiced_frames,
+    audible_frames as audible_frames,
+    _levels as _levels,
+    harmonic_evidence as harmonic_evidence,
+    singing_frames as singing_frames,
+    vocal_onsets as vocal_onsets,
+    voiced_frames as voiced_frames,
 )
 from backend.ai_worker.recognition import (
-    HeardWord,
-    alignment_payload,
-    boundary_conflicts,
-    guidance_positions,
-    contextual_guidance,
-    phrase_coverage,
-    independent_words,
-    independent_timings,
-    recover_leading_words,
-    recover_vocalizations,
-    with_acoustic_repeats,
-    with_lead_vocals,
-    heard_words,
+    HeardWord as HeardWord,
+    alignment_payload as alignment_payload,
+    boundary_conflicts as boundary_conflicts,
+    guidance_positions as guidance_positions,
+    contextual_guidance as contextual_guidance,
+    phrase_coverage as phrase_coverage,
+    independent_words as independent_words,
+    independent_timings as independent_timings,
+    recover_leading_words as recover_leading_words,
+    recover_vocalizations as recover_vocalizations,
+    with_acoustic_repeats as with_acoustic_repeats,
+    with_lead_vocals as with_lead_vocals,
+    heard_words as heard_words,
     heard_timings as _heard_timings,
-    rate_review_indices,
+    rate_review_indices as rate_review_indices,
 )
 from backend.ai_worker.word_guidance import (
-    _character_intervals,
-    _key,
-    with_word_guidance,
+    _character_intervals as _character_intervals,
+    _key as _key,
+    with_word_guidance as with_word_guidance,
 )
 
 from backend.ai_worker.speech_windows import (
@@ -347,194 +351,3 @@ def align(
     return _AlignmentPass(audio, backing, scores, step, words, lyrics, heard, views).run(
         timing_hints, recognize
     )
-
-
-@dataclass(slots=True)
-class _AlignmentPass:
-    audio: np.ndarray
-    backing: np.ndarray | None
-    scores: torch.Tensor
-    step: float
-    words: list[str]
-    lyrics: str
-    heard: list[HeardWord]
-    views: list[list[HeardWord]]
-
-    def run(
-        self,
-        timing_hints: Sequence[Mapping[str, object]],
-        recognize: partial[Mapping[str, object]],
-    ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-        whole = align_words(self.scores, self.step, self.words)
-        self.heard = recover_leading_words(self.lyrics, whole, self.heard, recognize)
-        guided, guide, voiced, activity, supported = self._guide_alignment(
-            timing_hints, whole, recognize
-        )
-        return self._refine_alignment(supported, guided, guide, voiced, activity, recognize)
-
-    def _guide_alignment(
-        self,
-        timing_hints: Sequence[Mapping[str, object]],
-        whole: list[AlignedWord],
-        recognize: partial[Mapping[str, object]],
-    ) -> tuple[
-        list[AlignedWord],
-        partial[list[AlignedWord]],
-        np.ndarray,
-        np.ndarray,
-        dict[int, tuple[float, float]],
-    ]:
-        windows = _alignment_windows(self.lyrics, timing_hints, self.heard, whole, self.audio)
-        windows, supported = contextual_guidance(
-            self.words,
-            windows,
-            whole,
-            _heard_timings(
-                self.words, self.heard, whole, minimum_block=_MINIMUM_BLOCK, windows=windows
-            ),
-            activity := singing_frames(self.audio, self.backing, _SAMPLE_RATE, _HOP),
-            recognize,
-        )
-        positions = guidance_positions(
-            _heard_timings(self.words, self.heard, whole, windows=windows) | supported, windows
-        )
-        guided, guide, voiced = self._guided_words(windows, supported, whole, positions)
-        return guided, guide, voiced, activity, supported
-
-    def _guided_words(
-        self,
-        windows: Sequence[Window],
-        supported: dict[int, tuple[float, float]],
-        whole: list[AlignedWord],
-        positions: Mapping[int, float],
-    ) -> tuple[list[AlignedWord], partial[list[AlignedWord]], np.ndarray]:
-        voiced = voiced_frames(self.audio, _SAMPLE_RATE, _HOP)
-        guide = partial(
-            with_word_guidance,
-            scores=self.scores,
-            frame_seconds=self.step,
-            windows=windows,
-            heard=supported,
-            voiced=voiced,
-            margin=_MARGIN_SECONDS,
-            recognized=self.heard,
-            alternatives=self.views,
-            onsets=vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
-        )
-        guided = guide(
-            align_guided(
-                self.scores,
-                self.step,
-                self.words,
-                windows,
-                positions,
-                voiced,
-                whole,
-                anchors={index: positions[index] for index in supported},
-            )
-        )
-        return guided, guide, voiced
-
-    def _refine_alignment(
-        self,
-        supported: dict[int, tuple[float, float]],
-        guided: list[AlignedWord],
-        guide: partial[list[AlignedWord]],
-        voiced: np.ndarray,
-        activity: np.ndarray,
-        recognize: partial[Mapping[str, object]],
-    ) -> dict[str, list[dict[str, float | str | list[float] | list[str]]]]:
-        acoustic = harmonic_evidence(self.audio, _SAMPLE_RATE, _HOP)
-        harmonics = acoustic if self.backing is not None else None
-        audible = audible_frames(self.audio, _HOP)
-        started = with_voice_onsets(
-            guided, self.audio, voiced,
-            supported | independent_timings(self.words, [self.heard, *self.views], guided),
-        )
-
-        def sung_ends(values: list[AlignedWord]) -> list[AlignedWord]:
-            return with_sung_ends(
-                values, self.audio, self.backing, activity, harmonics, audible, acoustic[1]
-            )
-
-        timed = ordered(sung_ends(started))
-        intervals = supported | independent_timings(self.words, [self.heard, *self.views], timed)
-        reviewed = rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
-        reviewed |= boundary_conflicts(guided)
-        timed, recovered = self._recover_alignment(
-            guided, started, timed, reviewed, intervals, guide, activity, voiced, sung_ends
-        )
-        timed = with_sung_letters(timed, self.scores, self.step, activity, intervals)
-        timed = with_acoustic_repeats(
-            timed,
-            vocal_onsets(self.audio, _SAMPLE_RATE, _HOP).tolist(),
-            acoustic,
-            activity,
-            _levels(self.audio, _HOP)[0],
-            independent_timings(self.words, [self.heard, *self.views], timed),
-        )
-        timed = with_lead_vocals(
-            timed, self.views, activity, acoustic[1], recognize=recognize
-        )
-        vowels = recover_vocalizations(
-            timed, self.scores, self.step, activity, acoustic[1], recognize
-        )
-        extended = {
-            (word.start, word.text): word
-            for word in vowels
-            if "VocalizationRetimed" in word.diagnostics
-        }
-        timed = [extended.get((word.start, word.text), word) for word in timed]
-        recovered_vowels = [word for word in vowels if "RecoveredVocalization" in word.diagnostics]
-        payload = alignment_payload(
-            timed,
-            independent_timings(self.words, [self.heard, *self.views], timed),
-            recovered=recovered,
-            reviewed=frozenset(
-                rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
-            ),
-        )
-        payload["words"].extend(alignment_payload(recovered_vowels, {})["words"])
-        entries = [word.start for word in timed]
-        for index in range(len(timed) - 2, -1, -1):
-            if "BackingVocalOverlap" in timed[index].diagnostics:
-                entries[index] = entries[index + 1]
-        payload["words"] = [
-            value
-            for _, value in sorted(
-                zip([*entries, *(word.start for word in recovered_vowels)], payload["words"]),
-                key=lambda pair: pair[0],
-            )
-        ]
-        return payload
-
-    def _recover_alignment(
-        self,
-        guided: list[AlignedWord],
-        started: list[AlignedWord],
-        timed: list[AlignedWord],
-        reviewed: set[int],
-        intervals: Mapping[int, tuple[float, float]],
-        guide: partial[list[AlignedWord]],
-        activity: np.ndarray,
-        voiced: np.ndarray,
-        sung_ends: Callable[[list[AlignedWord]], list[AlignedWord]],
-    ) -> tuple[list[AlignedWord], frozenset[int]]:
-        recovered: frozenset[int] = frozenset()
-        if reviewed:
-            cores = guide(guided, heard=intervals, voiced=activity, reviewed=frozenset(reviewed))
-            if cores != guided:
-                adjusted = with_voice_onsets(cores, self.audio, voiced)
-                # Recalibrating one onset must not shift distant unchanged cores. Keep
-                # jointly accepted neighbours, then recompute the affected preceding ends.
-                local = [
-                    _preserved_onset_letters(guided[i], cores[i], started[i], word)
-                    if cores[i] != guided[i]
-                    else started[i]
-                    for i, word in enumerate(adjusted)
-                ]
-                repaired = ordered(sung_ends(local))
-                # Commit the accepted sequence together: restoring its old neighbour cuts it again.
-                recovered = frozenset(i for i, word in enumerate(repaired) if word != timed[i])
-                timed = repaired
-        return timed, recovered

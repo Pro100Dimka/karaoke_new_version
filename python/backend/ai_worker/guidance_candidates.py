@@ -287,18 +287,7 @@ def _silent_prefix_entry(
         or _onset_confidence(word, scores, step) > ctc._PREFERENCE
     ):
         return None
-    anchors = []
-    for moment, tokens in zip(word.letters[1:], ctc._character_tokens(word.text)[1:]):
-        frame, anchor = round(moment / step), round(moment / voice_step)
-        if (
-            not tokens
-            or not 0 <= frame < len(scores)
-            or not first <= anchor < len(voiced)
-            or not voiced[anchor]
-            or float(scores[frame, tokens[0]].exp()) <= ctc._PREFERENCE
-        ):
-            continue
-        anchors.append(anchor)
+    anchors = _supported_letter_anchors(word, scores, step, voiced, first)
     needed = round(ctc._SILENCE_ENDS_WORD_SECONDS / voice_step)
     for anchor in anchors:
         prefix = voiced[first : anchor + 1]
@@ -357,3 +346,26 @@ def _core_candidates(
         # supplies no acoustic evidence against a CTC core already inside that span.
         candidates.extend(ctc._evenly([word.text], start, end))
     return candidates
+
+
+def _supported_letter_anchors(
+    word: ctc.AlignedWord,
+    scores: torch.Tensor,
+    step: float,
+    voiced: np.ndarray,
+    first: int,
+) -> list[int]:
+    voice_step = ctc._VOICE_HOP / ctc._VOICE_RATE
+    anchors = []
+    for moment, tokens in zip(word.letters[1:], ctc._character_tokens(word.text)[1:]):
+        frame, anchor = round(moment / step), round(moment / voice_step)
+        if (
+            not tokens
+            or not 0 <= frame < len(scores)
+            or not first <= anchor < len(voiced)
+            or not voiced[anchor]
+            or float(scores[frame, tokens[0]].exp()) <= ctc._PREFERENCE
+        ):
+            continue
+        anchors.append(anchor)
+    return anchors

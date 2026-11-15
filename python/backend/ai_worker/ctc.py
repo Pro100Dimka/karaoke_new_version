@@ -130,22 +130,7 @@ def align_guided(
         reference = list(whole[window.first : window.last])
         window, entry = _guided_bounds(window, entry, following, reference, voiced)
         recovery_end = _recovery_end(following, whole, window, reference)
-        guided = _align_window(
-            scores,
-            frame_seconds,
-            chunk,
-            window,
-            recovery_bounds=(result[-1].end if result else 0.0, recovery_end),
-        )
-        if result and not _follows_word(guided, result, voiced):
-            bounded = replace(window, start=max(window.start, result[-1].end))
-            if bounded.start < bounded.end:
-                retry = _align_window(
-                    scores, frame_seconds, chunk, bounded,
-                    recovery_bounds=(result[-1].end, recovery_end),
-                )
-                if _follows_word(retry, result, voiced):
-                    guided = retry
+        guided = _guided_crop(scores, frame_seconds, chunk, window, result, recovery_end, voiced)
         candidates = _guided_candidates(
             guided, reference, result, whole, window, following, entry, voiced
         )
@@ -354,3 +339,34 @@ def _follows_word(
             <= _implausible([result[-1]], voiced)
         )
     )
+
+
+def _guided_crop(
+    scores: torch.Tensor,
+    frame_seconds: float,
+    chunk: Sequence[str],
+    window: Window,
+    result: list[AlignedWord],
+    recovery_end: float,
+    voiced: np.ndarray | None,
+) -> list[AlignedWord]:
+    guided = _align_window(
+        scores,
+        frame_seconds,
+        chunk,
+        window,
+        recovery_bounds=(result[-1].end if result else 0.0, recovery_end),
+    )
+    if result and not _follows_word(guided, result, voiced):
+        bounded = replace(window, start=max(window.start, result[-1].end))
+        if bounded.start < bounded.end:
+            retry = _align_window(
+                scores,
+                frame_seconds,
+                chunk,
+                bounded,
+                recovery_bounds=(result[-1].end, recovery_end),
+            )
+            if _follows_word(retry, result, voiced):
+                guided = retry
+    return guided
