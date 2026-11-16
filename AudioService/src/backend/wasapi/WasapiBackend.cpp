@@ -487,6 +487,8 @@ struct WasapiBackend::Impl {
     ComPtr<IAudioClock> renderClock;
     UINT64 renderClockFrequency{0};
     UINT64 submittedRenderFrames{0};
+    MonotonicTicks nextRenderPresentationNs{0};
+    std::atomic<std::uint64_t> renderClockInaccurateReads{0};
     WAVEFORMATEX* inputFormat{nullptr};
     WAVEFORMATEX* outputFormat{nullptr};
     HANDLE captureEvent{nullptr}, renderEvent{nullptr}, stopEvent{nullptr};
@@ -767,6 +769,7 @@ struct WasapiBackend::Impl {
         renderClock.Reset();
         renderClockFrequency = 0;
         submittedRenderFrames = 0;
+        nextRenderPresentationNs = 0;
         sharedQueue = {};
         silentRenderFrames = 0;
         inputRaw.store(false, std::memory_order_relaxed);
@@ -1395,11 +1398,23 @@ struct WasapiBackend::Impl {
             return;
         UINT64 position = 0, qpc = 0;
         std::uint64_t confirmedSkip = 0;
-        auto presentation =
+        auto presentation = nextRenderPresentationNs != 0 ? nextRenderPresentationNs :
             monotonicTicksNow() + static_cast<MonotonicTicks>(runtime.outputLatencyFrames) *
                                       1'000'000'000LL / outputFormat->nSamplesPerSec;
-        if (renderClock && SUCCEEDED(renderClock->GetPosition(&position, &qpc)) &&
-            renderClockFrequency != 0) {
+        auto clockResult = renderClock ? renderClock->GetPosition(&position, &qpc) : E_NOINTERFACE;
+        // S_FALSE is inaccurate. Retry once, never infer a device stall from an uncertain sample.
+        if (clockResult == S_FALSE) {
+            renderClockInaccurateReads.fetch_add(1, std::memory_order_relaxed);
+            clockResult = renderClock->GetPosition(&position, &qpc);
+            if (clockResult == S_FALSE)
+                renderClockInaccurateReads.fetch_add(1, std::memory_order_relaxed);
+        }
+        const auto clockAccurate = clockResult == S_OK && renderClockFrequency != 0;
+        if (!clockAccurate) {
+            starveWindowQpc = 0;
+            stalledRenderWindows = 0;
+        }
+        if (clockAccurate) {
             const auto whole = position / renderClockFrequency;
             const auto remainder = position % renderClockFrequency;
             position = whole * outputFormat->nSamplesPerSec +
@@ -1432,9 +1447,9 @@ struct WasapiBackend::Impl {
             const auto callbackAt = monotonicTicksNow();
             BackendAudioBuffer renderBuffer{
                 nullptr, renderScratch.data(), chunk, outputFormat->nChannels,
-                static_cast<std::int64_t>(position + frameOffset),
-                static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
-                                                      outputFormat->nSamplesPerSec),
+                clockAccurate ? static_cast<std::int64_t>(position + frameOffset) : -1,
+                clockAccurate ? static_cast<MonotonicTicks>(qpc + frameOffset * 10'000'000 /
+                                                      outputFormat->nSamplesPerSec) : -1,
                 0, presentation + static_cast<MonotonicTicks>(offset) *
                                       1'000'000'000LL / outputFormat->nSamplesPerSec};
             renderBuffer.captureTiming.wakeObservedNs = lastWakeObservedAt;
@@ -1471,6 +1486,9 @@ struct WasapiBackend::Impl {
             std::memcpy(diagnosticPcm.data() + diagnosticFrames * outputFormat->nBlockAlign,
                         data, static_cast<std::size_t>(available) * outputFormat->nBlockAlign);
         if (streamSucceeded(render->ReleaseBuffer(available, 0))) {
+            nextRenderPresentationNs = presentation +
+                static_cast<MonotonicTicks>(available) * 1'000'000'000LL /
+                    outputFormat->nSamplesPerSec;
             const auto submittedAt = monotonicTicksNow();
             callback->onRenderSubmitted(submittedAt);
             // The peak decays over roughly a second, so one slow write keeps the margin wide.
@@ -1911,6 +1929,8 @@ BackendSnapshot WasapiBackend::snapshot() const noexcept {
         impl_->renderTimingPressureFrames.load(std::memory_order_relaxed);
     result.renderConfirmedUnderrunFrames =
         impl_->renderClockSkipFrames.load(std::memory_order_relaxed);
+    result.renderClockInaccurateReads =
+        impl_->renderClockInaccurateReads.load(std::memory_order_relaxed);
     result.renderQueueEscalations =
         impl_->renderQueueEscalations.load(std::memory_order_relaxed);
     const auto copy = [](WasapiPcm::MeasurementQuantiles source) {

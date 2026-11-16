@@ -167,6 +167,8 @@ struct Render : ComStub<IAudioRenderClient> {
 };
 struct Clock : ComStub<IAudioClock> {
     UINT64 frames{1000}, ticks{900000};
+    HRESULT positionResult{S_OK};
+    unsigned inaccurateCalls{0};
     HRESULT STDMETHODCALLTYPE GetFrequency(UINT64* value) override {
         *value = 48000;
         return S_OK;
@@ -174,7 +176,11 @@ struct Clock : ComStub<IAudioClock> {
     HRESULT STDMETHODCALLTYPE GetPosition(UINT64* position, UINT64* time) override {
         *position = frames;
         *time = ticks;
-        return S_OK;
+        if (inaccurateCalls != 0) {
+            --inaccurateCalls;
+            return S_FALSE;
+        }
+        return positionResult;
     }
     HRESULT STDMETHODCALLTYPE GetCharacteristics(DWORD* value) override {
         *value = 0;
@@ -1068,33 +1074,54 @@ void Tests::wasapiDetectsDeviceLossWithoutEndpointEvents() {
 }
 
 void Tests::wasapiExclusiveRecoversOnlySustainedClockStall() {
-    Fixture fixture{WasapiMode::Exclusive};
-    fixture.inputAvailable = false;
-    fixture.output.client.silentEvents = true;
-    fixture.output.client.render.frames = 128;
-    fixture.output.client.clock.frames = 0;
-    fixture.output.client.clock.ticks = monotonicTicksNow() / 100;
-    auto request = fixture.request(128);
-    request.inputDeviceId.clear();
-    (void)fixture.backend.open(request);
-    fixture.backend.start(fixture.callback, GenerationId{1});
-    SetEvent(fixture.output.client.event);
-    expect(fixture.output.client.state.attempted.wait(), "render establishes its clock baseline");
-    struct Step { UINT64 played; bool running; };
-    constexpr std::array steps{Step{12'800, true}, Step{1'280, true}, Step{12'800, true},
-                               Step{1'280, true}, Step{1'280, true}, Step{1'280, false}};
-    for (const auto& step : steps) {
-        ResetEvent(fixture.output.client.state.attempted.handle);
-        fixture.output.client.clock.frames += step.played;
-        fixture.output.client.clock.ticks += 2'666'667;
+    struct ClockCase { HRESULT result; unsigned inaccurateCalls; };
+    constexpr std::array cases{ClockCase{S_OK, 0}, ClockCase{S_FALSE, 0}, ClockCase{S_OK, 1}};
+    for (const auto clock : cases) {
+        Fixture fixture{WasapiMode::Exclusive};
+        fixture.inputAvailable = false;
+        fixture.output.client.silentEvents = true;
+        fixture.output.client.render.frames = 128;
+        fixture.output.client.clock.frames = 0;
+        fixture.output.client.clock.ticks = monotonicTicksNow() / 100;
+        auto request = fixture.request(128);
+        request.inputDeviceId.clear();
+        (void)fixture.backend.open(request);
+        fixture.backend.start(fixture.callback, GenerationId{1});
         SetEvent(fixture.output.client.event);
-        expect(fixture.output.client.state.attempted.wait(), "successful driver calls service the buffer");
-        expect(fixture.backend.snapshot().running == step.running,
-               "only sustained exclusive clock slowdown requests recovery");
+        expect(fixture.output.client.state.attempted.wait(), "render establishes its clock baseline");
+        fixture.output.client.clock.positionResult = clock.result;
+        struct Step { UINT64 played; bool running; };
+        constexpr std::array steps{Step{12'800, true}, Step{1'280, true}, Step{12'800, true},
+                                   Step{1'280, true}, Step{1'280, true}, Step{1'280, false}};
+        unsigned turn = 0;
+        for (const auto& step : steps) {
+            ResetEvent(fixture.output.client.state.attempted.handle);
+            fixture.output.client.clock.frames += step.played;
+            fixture.output.client.clock.ticks += 2'666'667;
+            fixture.output.client.clock.inaccurateCalls = clock.inaccurateCalls;
+            SetEvent(fixture.output.client.event);
+            expect(fixture.output.client.state.attempted.wait(), "successful driver calls service the buffer");
+            expect(fixture.backend.snapshot().running == (clock.result == S_FALSE || step.running),
+                   "only sustained slowdown from accurate clock samples requests recovery");
+            if (clock.result == S_FALSE) {
+                const auto& previous = fixture.callback.renders[turn];
+                const auto& current = fixture.callback.renders[turn + 1];
+                expect(current.devicePosition == -1 && current.timestamp == -1 &&
+                           current.presentationTicks == previous.presentationTicks +
+                               128LL * 1'000'000'000 / 48000,
+                       "an inaccurate reading cannot jump the queued voice presentation timeline");
+            }
+            ++turn;
+        }
+        fixture.backend.stop();
+        expect((WaitForSingleObject(fixture.callback.backendEvent.handle, 0) == WAIT_OBJECT_0) ==
+                   (clock.result == S_OK),
+               "inaccurate exclusive clock samples cannot cause a fatal device restart");
+        expect(fixture.backend.name() == "WASAPI Exclusive" &&
+                   fixture.backend.snapshot().renderClockInaccurateReads ==
+                       (clock.result == S_FALSE ? 12U : clock.inaccurateCalls * 6U),
+               "clock uncertainty is reported without switching backend or retrying without a bound");
     }
-    fixture.backend.stop();
-    expect(WaitForSingleObject(fixture.callback.backendEvent.handle, 0) == WAIT_OBJECT_0,
-           "a stalled device reports an event for control-thread recovery");
 }
 
 void Tests::wasapiLatencyFailureDoesNotPublishInvalidMeasurements() {

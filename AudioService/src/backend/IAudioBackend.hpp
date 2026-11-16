@@ -104,6 +104,7 @@ struct BackendSnapshot {
     // Additional USB transport omitted by WDM timestamps; -1 when the vendor API is unavailable.
     // Display-only: never applied to audio/room timestamps or acoustic calibration profiles.
     double inputUsbLatencyMs{-1.0}, outputUsbLatencyMs{-1.0};
+    std::uint64_t renderClockInaccurateReads{0};
 };
 
 class IAudioBackend {

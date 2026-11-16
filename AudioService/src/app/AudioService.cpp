@@ -938,6 +938,7 @@ std::string AudioService::diagnostics(bool playbackOnly) {
         << "AudioThreadId: " << backend.audioThreadId << '\n';
     if (backend.audioThreadId != 0)
         out << "WasapiTimingDurations: WALL_TIME_NOT_CPU_TIME\n"
+            << "RenderClockInaccurateReads: " << backend.renderClockInaccurateReads << '\n'
             << "WasapiDeadlineMissesScope: POST_WAKE_SERVICE_WALL_TIME\n"
             << "WasapiSchedulerReadyTimeAvailable: 0\n";
     for (const auto& [name, unit, values] : metrics)

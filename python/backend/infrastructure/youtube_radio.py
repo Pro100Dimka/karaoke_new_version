@@ -43,9 +43,15 @@ class YoutubeRadio:
     def _playlist_item(
         self, playlist_id: str, index: int
     ) -> tuple[dict[str, JsonValue], dict[str, JsonValue], int]:
+        url = f"https://www.youtube.com/playlist?list={playlist_id}"
+        if re.fullmatch(r"RD[A-Za-z0-9_-]{11}", playlist_id):
+            url = (
+                f"https://www.youtube.com/watch?v={playlist_id[2:]}"
+                f"&list={playlist_id}&start_radio=1"
+            )
         for position in [index] if index == 1 else [index, 1]:
             playlist = self._extract(
-                f"https://www.youtube.com/playlist?list={playlist_id}",
+                url,
                 ["--flat-playlist", "--playlist-items", str(position)],
             )
             entries = playlist.get("entries")

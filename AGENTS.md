@@ -23,6 +23,9 @@
 
 ## Non-negotiable room-audio architecture
 
+- When Windows audio is selected in a room, use WASAPI Exclusive. Do not switch to
+  Shared to work around clicks, dropouts, or clock failures.
+
 For the synchronized-room work, `Room Server` is the only conductor and the central audio
 mixer. This is an architectural requirement, not an implementation suggestion.
 

@@ -15,13 +15,15 @@ def result(value):
     return ProcessResult(0, dumps(value).encode(), b"")
 
 
-def test_playlist_resolves_only_the_requested_song_without_downloading():
+@pytest.mark.parametrize("playlist_id", ["PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y", "RD2DrxMxk-5Bk"])
+@pytest.mark.parametrize("index", [1, 7])
+def test_playlist_resolves_only_the_requested_song_without_downloading(playlist_id, index):
     processes = Mock(spec=ProcessRunner)
     processes.run.side_effect = [
         result(
             {
                 "title": "My playlist",
-                "playlist_count": 1200,
+                "playlist_count": None if playlist_id.startswith("RD") else 1200,
                 "entries": [{"id": "QUsg4kgvwBo", "title": "Sunrise"}],
             }
         ),
@@ -34,13 +36,20 @@ def test_playlist_resolves_only_the_requested_song_without_downloading():
             }
         ),
     ]
-    track = YoutubeRadio(processes).resolve("PLRBp0Fe2GpglTnOLbhyrHAVaWsCIEX53Y", 7)
-    assert track["index"] == 7 and track["count"] == 1200
+    track = YoutubeRadio(processes).resolve(playlist_id, index)
+    assert track["index"] == index
+    assert track["count"] == (0 if playlist_id.startswith("RD") else 1200)
     assert track["playlistTitle"] == "My playlist"
     assert track["title"] == "Sunrise" and track["artist"] == "NCS"
     calls = [call.args[0] for call in processes.run.call_args_list]
     assert "--flat-playlist" in calls[0]
-    assert calls[0][calls[0].index("--playlist-items") + 1] == "7"
+    assert calls[0][calls[0].index("--playlist-items") + 1] == str(index)
+    expected = (
+        "https://www.youtube.com/watch?v=2DrxMxk-5Bk&list=RD2DrxMxk-5Bk&start_radio=1"
+        if playlist_id.startswith("RD")
+        else f"https://www.youtube.com/playlist?list={playlist_id}"
+    )
+    assert calls[0][-1] == expected
     assert all("--skip-download" in args and "--no-cache-dir" in args for args in calls)
     assert calls[1][-1] == "https://www.youtube.com/watch?v=QUsg4kgvwBo"
 
