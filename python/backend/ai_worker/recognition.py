@@ -314,8 +314,13 @@ def _ending_window(
     text = words[last.first : last.last]
     while first > 0 and words[windows[first - 1].first : windows[first - 1].last] == text:
         first -= 1
+    repeated = first < len(windows) - 1 or any(
+        all(text[index] == text[index % size] for index in range(size, len(text)))
+        for size in range(1, len(text) // 2 + 1)
+        if len(text) % size == 0
+    )
     if (
-        first == len(windows) - 1
+        not repeated
         or all(k in timings for k in range(windows[first].first, last.last))
         or not activity.any()
     ):

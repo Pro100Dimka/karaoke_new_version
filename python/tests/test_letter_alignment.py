@@ -1572,7 +1572,11 @@ def test_alignment_reuses_independent_recognition_instead_of_decoding_it_again(
     np.testing.assert_array_equal(calls[-1], np.full(160, 2.0))
 
 
-def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_replies() -> None:
+@pytest.mark.parametrize("grouped", [False, True])
+def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_replies(
+    monkeypatch, grouped
+) -> None:
+    import torch
     from backend.ai_worker.ctc import Window
     from backend.ai_worker.recognition import contextual_guidance
 
@@ -1583,6 +1587,8 @@ def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_repli
             [(228, 231.68), (232.14, 235.24), (234.04, 237), (235.8, 238.8)]
         )
     ]
+    if grouped:
+        windows = [Window(0, len(words), 228, 250)]
     whole = [
         AlignedWord(word, 243 + i * 0.3, 243.2 + i * 0.3, (), 0.02) for i, word in enumerate(words)
     ]
@@ -1616,11 +1622,29 @@ def test_repeated_outro_uses_joint_recognition_instead_of_compressing_late_repli
         whole,
         timings,
         activity,
-        lambda contexts: {"contexts": [result for _ in contexts]},
+        lambda contexts: {
+            "contexts": [
+                result if prompt == "дозволиш мені" else {"segments": []}
+                for _, _, prompt in contexts
+            ]
+        },
     )
     assert supported[6] == pytest.approx(spans[6])
     assert supported[7] == pytest.approx(spans[7])
-    assert revised[-1].heard_start == pytest.approx(239.78)
+    assert revised[-1].heard_start == pytest.approx(spans[0 if grouped else 6][0])
+    monkeypatch.setattr(speech_alignment, "recover_vocalizations", lambda *args: [])
+    monkeypatch.setattr(speech_alignment, "rate_review_indices", lambda *args, **kwargs: set())
+    alignment = speech_alignment._AlignmentPass(
+        np.zeros(1), None, torch.empty(0), 0.02, words, " ".join(words), [], []
+    )
+    timed = [
+        AlignedWord(text, start, end, (), 0.02)
+        for text, (start, end) in zip(words, spans, strict=True)
+    ]
+    payload = alignment._vocalization_payload(
+        timed, activity, np.zeros_like(activity), lambda _: {}, frozenset(), supported
+    )
+    assert all("RecognizedWord" in word["diagnostics"] for word in payload["words"])
 
 
 def test_partial_catalog_uses_independently_recognized_entry_before_weak_global_path():

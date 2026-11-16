@@ -210,7 +210,7 @@ class _AlignmentPass:
         recovered_vowels = [word for word in vowels if "RecoveredVocalization" in word.diagnostics]
         payload = alignment_payload(
             timed,
-            independent_timings(self.words, [self.heard, *self.views], timed),
+            {**intervals, **independent_timings(self.words, [self.heard, *self.views], timed)},
             recovered=recovered,
             reviewed=frozenset(
                 rate_review_indices(timed, self.lyrics, heard=intervals, activity=activity)
