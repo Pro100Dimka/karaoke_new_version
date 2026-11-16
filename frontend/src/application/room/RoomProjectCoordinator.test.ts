@@ -65,7 +65,7 @@ const setup = () => {
   };
   let progress: (value: {
     transferId: string;
-    direction: 'download';
+    direction: 'upload' | 'download';
     transferredBytes: number;
     totalBytes: number;
   }) => void = () => undefined;
@@ -128,12 +128,44 @@ const setup = () => {
     },
     progress: (value: {
       transferId: string;
-      direction: 'download';
+      direction: 'upload' | 'download';
       transferredBytes: number;
       totalBytes: number;
     }) => progress(value),
   };
 };
+
+it('counts video archive upload before download and keeps byte updates within one percent', async () => {
+  const { coordinator, getRoom, setRoom, progress, services } = setup();
+  setRoom({ ...getRoom(), transferId: 'transfer', transferProgress: 10 });
+  coordinator.start();
+  progress({
+    transferId: 'transfer',
+    direction: 'upload',
+    transferredBytes: 500_000_000,
+    totalBytes: 1_000_000_000,
+  });
+  await vi.waitFor(() => expect(getRoom().transferProgress).toBe(23));
+  expect(getRoom().transferTotalBytes).toBe(1_000_000_000);
+  expect(getRoom().transferPhase).toBe('upload');
+  const calls = services.room.setRoomReadiness.mock.calls.length;
+  progress({
+    transferId: 'transfer',
+    direction: 'upload',
+    transferredBytes: 500_001_000,
+    totalBytes: 1_000_000_000,
+  });
+  await vi.waitFor(() => expect(getRoom().transferBytes).toBe(500_001_000));
+  expect(services.room.setRoomReadiness).toHaveBeenCalledTimes(calls);
+  progress({
+    transferId: 'transfer',
+    direction: 'download',
+    transferredBytes: 0,
+    totalBytes: 1_000_000_000,
+  });
+  await vi.waitFor(() => expect(getRoom().transferProgress).toBe(35));
+  coordinator.stop();
+});
 
 it.each(['direct', 'mapped', 'hash'])(
   'loads selected artwork from the %s local copy',

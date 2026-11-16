@@ -143,18 +143,23 @@ def _write_archive(
     completed = 0
     with zipfile.ZipFile(destination, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
         for path, source in files.items():
-            if progress is None:
-                bundle.write(source, path.as_posix(), compress_type=compression.get(path))
-            else:
-                info = zipfile.ZipInfo.from_file(source, path.as_posix())
-                info.compress_type = compression.get(path, zipfile.ZIP_DEFLATED)
-                with (
-                    source.open("rb") as stream,
-                    bundle.open(info, "w", force_zip64=True) as output,
-                ):
-                    while chunk := stream.read(1024 * 1024):
-                        output.write(chunk)
-                        completed += len(chunk)
+            media_compression = (
+                zipfile.ZIP_STORED
+                if path.suffix.lower()
+                in (".mp4", ".webm", ".flac", ".mp3", ".m4a", ".ogg", ".opus")
+                else zipfile.ZIP_DEFLATED
+            )
+            file_compression = compression.get(path, media_compression)
+            info = zipfile.ZipInfo.from_file(source, path.as_posix())
+            info.compress_type = file_compression
+            with (
+                source.open("rb") as stream,
+                bundle.open(info, "w", force_zip64=True) as output,
+            ):
+                while chunk := stream.read(1024 * 1024):
+                    output.write(chunk)
+                    completed += len(chunk)
+                    if progress:
                         progress(completed / total)
         for path, text in texts.items():
             bundle.writestr(

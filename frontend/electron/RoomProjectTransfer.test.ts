@@ -19,6 +19,7 @@ import {
   registerRoomProjectTransferHandlers,
   stallWatch,
   uploadRoomProject,
+  downloadRoomProject,
 } from './RoomProjectTransfer';
 import { ipcChannels } from './ipcChannels';
 
@@ -39,6 +40,44 @@ afterEach(() => {
 });
 
 const roots: string[] = [];
+
+it('reports the complete archive upload while waiting for Oracle, including clip bytes', async () => {
+  const progress = vi.fn();
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'RoomProjectNotFound',
+          details: {
+            uploadBytes: 900_000_000,
+            uploadTotalBytes: 1_000_000_000,
+          },
+        }),
+        { status: 404, headers: { 'content-type': 'application/json' } },
+      ),
+    ),
+  );
+  await expect(
+    downloadRoomProject(
+      'https://example.org',
+      'room',
+      'guest',
+      'song',
+      1,
+      join(tmpdir(), 'not-created-project.zip'),
+      'transfer',
+      undefined,
+      progress,
+    ),
+  ).rejects.toThrow('(404)');
+  expect(progress).toHaveBeenCalledWith({
+    transferId: 'transfer',
+    direction: 'upload',
+    transferredBytes: 900_000_000,
+    totalBytes: 1_000_000_000,
+  });
+});
 afterEach(async () => {
   await Promise.all(
     roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),

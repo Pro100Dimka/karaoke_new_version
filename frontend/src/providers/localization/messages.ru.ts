@@ -366,6 +366,7 @@ export const ru = {
   recordingsCount: 'Записей: {count}',
   recordingsTotalSize: 'Общий размер: {size}',
   transferLabel: 'Передача проекта',
+  transferPublishing: 'Подготовка и отправка проекта на сервер',
   transferRemaining: 'Осталось ~ {minutes} мин',
   transferRemainingSoon: 'Осталось меньше минуты',
   linkExcellent: 'Отлично',

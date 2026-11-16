@@ -118,7 +118,35 @@ export const downloadRoomProject = async (
     signal,
   });
   if (!response.ok || !response.body) {
-    await response.body?.cancel();
+    if (
+      response.status === 404 &&
+      response.headers.get('content-type')?.includes('application/json')
+    ) {
+      const pending: unknown = await response.json().catch(() => undefined);
+      const details =
+        pending && typeof pending === 'object' && 'details' in pending
+          ? pending.details
+          : undefined;
+      if (
+        details &&
+        typeof details === 'object' &&
+        'uploadBytes' in details &&
+        'uploadTotalBytes' in details &&
+        typeof details.uploadBytes === 'number' &&
+        Number.isSafeInteger(details.uploadBytes) &&
+        details.uploadBytes >= 0 &&
+        typeof details.uploadTotalBytes === 'number' &&
+        Number.isSafeInteger(details.uploadTotalBytes) &&
+        details.uploadTotalBytes >= details.uploadBytes
+      )
+        progress?.({
+          transferId,
+          direction: 'upload',
+          transferredBytes: details.uploadBytes,
+          totalBytes: details.uploadTotalBytes,
+        });
+    }
+    if (!response.bodyUsed) await response.body?.cancel();
     throw new Error(`Room project download failed (${response.status})`);
   }
   // Electron's DOM stream types and Node's stream/web types are structurally

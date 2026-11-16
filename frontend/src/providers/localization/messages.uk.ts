@@ -358,6 +358,7 @@ export const uk = {
   recordingsCount: 'Записів: {count}',
   recordingsTotalSize: 'Загальний розмір: {size}',
   transferLabel: 'Передача проєкту',
+  transferPublishing: 'Підготовка та надсилання проєкту на сервер',
   transferRemaining: 'Залишилось ~ {minutes} хв',
   transferRemainingSoon: 'Залишилось менше хвилини',
   linkExcellent: 'Відмінно',

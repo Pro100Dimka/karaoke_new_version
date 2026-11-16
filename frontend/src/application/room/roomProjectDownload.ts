@@ -16,6 +16,7 @@ interface DownloadOptions {
   signal?: AbortSignal;
   cancel?: () => void;
   hasProgress?: () => boolean;
+  transferredBytes?: () => number;
 }
 
 const activeTransferReadiness = new Set<
@@ -48,6 +49,7 @@ export const preserveLocalRoomTransfer = (
     ),
     transferBytes: previous.transferBytes,
     transferTotalBytes: previous.transferTotalBytes,
+    transferPhase: previous.transferPhase,
     transferError: previous.transferError,
   };
 };
@@ -77,6 +79,7 @@ export const roomTransferFailure = (
   transferId: undefined,
   transferBytes: undefined,
   transferTotalBytes: undefined,
+  transferPhase: undefined,
   transferError: true,
   transferConflict: conflict,
 });
@@ -98,6 +101,7 @@ export const downloadAvailableRoomProject = async (
     1,
     options.attemptTimeoutMilliseconds ?? 300_000,
   );
+  let previousBytes = options.transferredBytes?.() ?? 0;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     options.signal?.throwIfAborted();
     try {
@@ -128,6 +132,9 @@ export const downloadAvailableRoomProject = async (
         if (onAbort) options.signal?.removeEventListener('abort', onAbort);
       }
     } catch (error) {
+      const bytes = options.transferredBytes?.() ?? 0;
+      if (bytes > previousBytes) attempt = 0;
+      previousBytes = bytes;
       if (!projectIsStillPublishing(error) || attempt === attempts) throw error;
       await wait(intervalMilliseconds);
     }

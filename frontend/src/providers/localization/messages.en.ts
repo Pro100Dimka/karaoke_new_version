@@ -363,6 +363,7 @@ export const en = {
   recordingsCount: 'Recordings: {count}',
   recordingsTotalSize: 'Total size: {size}',
   transferLabel: 'Project transfer',
+  transferPublishing: 'Preparing and uploading project',
   transferRemaining: 'About {minutes} min left',
   transferRemainingSoon: 'Less than a minute left',
   linkExcellent: 'Excellent',

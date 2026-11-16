@@ -70,10 +70,18 @@ def test_export_keeps_repetitive_files_and_texts_within_configured_ratio(
     output = tmp_path / "export.zip"
     policy = PackagePolicy(max_compression_ratio=max_ratio)
     archive = ZipPackageArchive(policy)
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"already-encoded-video")
+    flac = tmp_path / "vocal.flac"
+    flac.write_bytes(b"already-encoded-audio")
 
     archive.build(
         output,
-        {PurePosixPath(source.name): source},
+        {
+            PurePosixPath(source.name): source,
+            PurePosixPath(clip.name): clip,
+            PurePosixPath(flac.name): flac,
+        },
         {PurePosixPath("text.txt"): text, PurePosixPath("metadata.json"): '{"title":"Song"}'},
     )
 
@@ -82,6 +90,9 @@ def test_export_keeps_repetitive_files_and_texts_within_configured_ratio(
         assert bundle.read(source.name) == source.read_bytes()
         assert bundle.read("text.txt").decode() == text
         assert bundle.getinfo("metadata.json").compress_type == zipfile.ZIP_DEFLATED
+        for media in (clip, flac):
+            assert bundle.getinfo(media.name).compress_type == zipfile.ZIP_STORED
+            assert bundle.read(media.name) == media.read_bytes()
 
 
 def test_suspicious_compression_ratio_is_rejected() -> None:

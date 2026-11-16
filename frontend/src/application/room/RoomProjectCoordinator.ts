@@ -176,7 +176,6 @@ export class RoomProjectCoordinator {
         if (
           !current ||
           current.transferId !== progress.transferId ||
-          progress.direction !== 'download' ||
           (current.transferProgress ?? 0) >= 70
         )
           return;
@@ -184,8 +183,22 @@ export class RoomProjectCoordinator {
           progress.totalBytes > 0
             ? Math.min(1, progress.transferredBytes / progress.totalBytes)
             : 0;
-        const transferProgress = 10 + Math.round(ratio * 55);
-        const posted = `${progress.transferId}:${transferProgress}`;
+        const { start, span } = {
+          upload: { start: 10, span: 25 },
+          download: { start: 35, span: 30 },
+        }[progress.direction];
+        const transferProgress = Math.max(
+          current.transferProgress ?? 0,
+          start + Math.round(ratio * span),
+        );
+        this.scope.setSnapshot({
+          ...current,
+          transferProgress,
+          transferPhase: progress.direction,
+          transferBytes: progress.transferredBytes,
+          transferTotalBytes: progress.totalBytes,
+        });
+        const posted = `${progress.transferId}:${progress.direction}:${transferProgress}`;
         if (posted === postedProgress) return;
         postedProgress = posted;
         try {
@@ -204,11 +217,15 @@ export class RoomProjectCoordinator {
           )
             return;
           this.scope.setSnapshot({
-            ...snapshot,
-            transferProgress,
+            ...preserveLocalRoomTransfer(latest, snapshot),
+            transferProgress: Math.max(
+              latest.transferProgress ?? 0,
+              transferProgress,
+            ),
             transferId: progress.transferId,
-            transferBytes: progress.transferredBytes,
-            transferTotalBytes: progress.totalBytes,
+            transferBytes: latest.transferBytes,
+            transferTotalBytes: latest.transferTotalBytes,
+            transferPhase: latest.transferPhase,
           });
           clearOperationFailure('errors.roomProgress');
         } catch (error) {
@@ -327,7 +344,11 @@ export class RoomProjectCoordinator {
       value: number,
       details?: Pick<
         RoomStateDto,
-        'transferId' | 'transferBytes' | 'transferTotalBytes' | 'transferError'
+        | 'transferId'
+        | 'transferBytes'
+        | 'transferTotalBytes'
+        | 'transferError'
+        | 'transferPhase'
       >,
     ) => {
       const current = this.scope.getRoom();
@@ -360,6 +381,7 @@ export class RoomProjectCoordinator {
           transferId: active.id,
           transferBytes: 0,
           transferTotalBytes: 0,
+          transferPhase: undefined,
           transferError: false,
         });
         const downloading = await this.ports.room.setRoomReadiness(
@@ -375,6 +397,7 @@ export class RoomProjectCoordinator {
           transferId: active.id,
           transferBytes: 0,
           transferTotalBytes: 0,
+          transferPhase: undefined,
           transferError: false,
         });
         archive = await downloadAvailableRoomProject(
@@ -398,6 +421,7 @@ export class RoomProjectCoordinator {
           {
             signal: active.abort.signal,
             hasProgress: () => (this.scope.getRoom()?.transferBytes ?? 0) > 0,
+            transferredBytes: () => this.scope.getRoom()?.transferBytes ?? 0,
             cancel: () =>
               void this.ports.desktop
                 .cancelRoomProjectTransfer(active.id)

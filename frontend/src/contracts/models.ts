@@ -300,6 +300,7 @@ export interface RoomStateDto {
   transferId?: string;
   transferBytes?: number;
   transferTotalBytes?: number;
+  transferPhase?: 'upload' | 'download';
   transferError?: boolean;
   /** The failed import met this singer's own, different copy of the song (see roomProjectDownload). */
   transferConflict?: boolean;

@@ -6,6 +6,31 @@ import {
 } from '../../application/room/roomProjectDownload';
 
 describe('room project download', () => {
+  it.each([true, false])(
+    'waits for an active upload but bounds stalled publication (%s)',
+    async (moving) => {
+      let bytes = 0;
+      const download = vi.fn(async () => {
+        if (moving) bytes += 100;
+        if (download.mock.calls.length < 5)
+          throw new Error('Room project download failed (404)');
+        return 'archive.zip';
+      });
+      const outcome = downloadAvailableRoomProject(
+        download,
+        vi.fn(async () => undefined),
+        { roomId: 'room', participantId: 'guest', songId: 'song', revision: 1 },
+        { attempts: 2, transferredBytes: () => bytes },
+      );
+      if (moving) {
+        await expect(outcome).resolves.toBe('archive.zip');
+        expect(download).toHaveBeenCalledTimes(5);
+      } else {
+        await expect(outcome).rejects.toThrow('(404)');
+        expect(download).toHaveBeenCalledTimes(2);
+      }
+    },
+  );
   it.each([false, true])(
     'cancels only a transfer without progress (%s)',
     async (started) => {

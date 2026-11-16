@@ -6,7 +6,7 @@ import hashlib
 import os
 import re
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Callable
 
 import anyio
 from fastapi import FastAPI, Header, Request, Response
@@ -35,7 +35,9 @@ def _project_path(root: Path, room_id: str, song_id: str, revision: int, uploade
     return root / room_id / folder / _project_name(song_id, revision)
 
 
-async def store_project(request: Request, target: Path) -> None:
+async def store_project(
+    request: Request, target: Path, on_progress: Callable[[int], None] | None = None
+) -> None:
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(f".{target.name}.{UuidGenerator().new()}.upload")
     received = 0
@@ -46,12 +48,39 @@ async def store_project(request: Request, target: Path) -> None:
                 if received > _maximum_project_bytes:
                     raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
                 await output.write(chunk)
+                if on_progress:
+                    on_progress(received)
         await anyio.to_thread.run_sync(os.replace, temporary, target)
     finally:
         await anyio.to_thread.run_sync(temporary.unlink, True)
 
 
+async def _tracked_upload(
+    request: Request, target: Path, uploads: dict[Path, tuple[object, int, int]]
+) -> None:
+    try:
+        total = int(request.headers.get("content-length", "0"))
+    except ValueError as exc:
+        raise DomainError("ValidationError", "Invalid project content length", 422) from exc
+    if total < 0 or total > _maximum_project_bytes:
+        raise DomainError("ProjectTooLarge", "Room project exceeds size limit", 413)
+    token = object()
+    uploads[target] = (token, 0, total)
+
+    def moved(received: int) -> None:
+        if uploads.get(target, (None, 0, 0))[0] is token:
+            uploads[target] = (token, received, total)
+
+    try:
+        await store_project(request, target, moved)
+    finally:
+        if uploads.get(target, (None, 0, 0))[0] is token:
+            uploads.pop(target, None)
+
+
 def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> None:
+    uploads: dict[Path, tuple[object, int, int]] = {}
+
     @app.put("/rooms/{room_id}/projects/{song_id}/{revision}", status_code=204)
     async def upload_project(
         room_id: str,
@@ -64,22 +93,28 @@ def add_project_routes(app: FastAPI, repository: RoomRepository, root: Path) -> 
         room = await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         if project_source(room, song_id, revision) != participant_id:
             raise ForbiddenError("RoomPermissionDenied", "Only the song owner may upload it")
-        await store_project(
-            request, _project_path(root, room_id, song_id, revision, participant_id)
+        await _tracked_upload(
+            request, _project_path(root, room_id, song_id, revision, participant_id), uploads
         )
         return Response(status_code=204)
 
     @app.get("/rooms/{room_id}/projects/{song_id}/{revision}")
-    def download_project(
+    async def download_project(
         room_id: str,
         song_id: str,
         revision: int,
         participant_id: Annotated[str, Header(alias="X-Participant-Id")],
     ) -> FileResponse:
         room_id = normalize_room_id(room_id)
-        room = room_member(repository, room_id, participant_id)
+        room = await anyio.to_thread.run_sync(room_member, repository, room_id, participant_id)
         source = project_source(room, song_id, revision)
         target = None if source is None else _project_path(root, room_id, song_id, revision, source)
-        if target is None or not target.is_file():
-            raise NotFoundError("RoomProjectNotFound", "Room project has not been uploaded")
+        pending = uploads.get(target) if target is not None else None
+        if pending is not None or target is None or not target.is_file():
+            details = {"uploadBytes": pending[1], "uploadTotalBytes": pending[2]} if pending else {}
+            raise NotFoundError(
+                "RoomProjectNotFound",
+                "Room project has not been uploaded",
+                **details,
+            )
         return FileResponse(target, media_type="application/zip", filename=target.name)

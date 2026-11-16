@@ -14,6 +14,7 @@ import {
 import { useRef, useState } from 'react';
 import type { RoomStateDto } from '../../contracts/models';
 import { useTransferEta } from './useTransferEta';
+import { formatBytes } from '../../shared/utils/format';
 
 // The code is shown as its first four groups; copying gives all of it.
 const shownCode = (code: string): string =>
@@ -161,7 +162,12 @@ export const RoomHeadCard = ({
         </div>
         {transferring || failure ? (
           <Typography variant="caption" tone="muted" truncate>
-            {tr('transferLabel')}
+            {tr(
+              room.transferPhase === 'upload' ||
+                (progress !== undefined && progress < 35)
+                ? 'transferPublishing'
+                : 'transferLabel',
+            )}
           </Typography>
         ) : null}
         {transferring && (
@@ -174,6 +180,12 @@ export const RoomHeadCard = ({
               {progress}%
             </Typography>
           </div>
+        )}
+        {transferring && (room.transferTotalBytes ?? 0) > 0 && (
+          <Typography variant="caption" tone="muted">
+            {formatBytes(room.transferBytes ?? 0)} /{' '}
+            {formatBytes(room.transferTotalBytes ?? 0)}
+          </Typography>
         )}
         <TransferNote room={room} actions={actions} failure={failure} />
       </div>
