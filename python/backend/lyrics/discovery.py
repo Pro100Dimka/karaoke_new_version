@@ -175,7 +175,7 @@ class LyricsDiscovery:
         found: LyricsDiscoveryResult | None,
         execution: ExecutionContext,
         prefetched: Sequence[str] | None = None,
-    ) -> tuple[Sequence[str], tuple[Language, str] | None]:
+    ) -> tuple[Sequence[str], tuple[Language, Sequence[str]] | None]:
         sources = [reference_vocal]
         if found and song.source_path and song.source_path.is_file():
             sources.append(song.source_path)
@@ -184,15 +184,15 @@ class LyricsDiscovery:
         ending = lyrics_ending_start(song, found)
         if prefetched is not None:
             return prefetched[: len(sources)], (
-                (language, prefetched[-1]) if ending is not None else None
+                (language, prefetched[len(sources) :]) if ending is not None else None
             )
         if isinstance(asr, BatchTranscriber):
             requests = [(source, 0.0) for source in sources]
             if ending is not None:
-                requests.append((reference_vocal, ending))
+                requests.extend((source, ending) for source in sources)
             transcripts = asr.transcribe_many(requests, language, cancel, execution=execution)
             return transcripts[: len(sources)], (
-                (language, transcripts[-1]) if ending is not None else None
+                (language, transcripts[len(sources) :]) if ending is not None else None
             )
         return (
             [asr.transcribe(source, language, cancel, execution=execution) for source in sources],
@@ -207,20 +207,30 @@ class LyricsDiscovery:
         cancel: threading.Event,
         found: LyricsDiscoveryResult,
         execution: ExecutionContext,
-        recognized: tuple[Language, str] | None = None,
+        recognized: tuple[Language, Sequence[str]] | None = None,
     ) -> LyricsDiscoveryResult:
         # Keep the preceding phrase in context: a short sung answer alone is often decoded as silence.
         if found.source == "ASR" or not song.duration or song.duration <= 48:
             return found
         language = lyrics_language(song, found.lyrics)
+        sources = [vocal]
+        if song.source_path and song.source_path != vocal and song.source_path.is_file():
+            sources.append(song.source_path)
         heard = (
             recognized[1]
             if recognized is not None and recognized[0] is language
-            else asr.transcribe(
-                vocal, language, cancel, execution=execution, start_seconds=song.duration - 48
-            )
+            else [
+                asr.transcribe(
+                    source, language, cancel, execution=execution, start_seconds=song.duration - 48
+                )
+                for source in sources
+            ]
         )
-        return _with_completed_repeats(found, clean_lyrics(heard, language.value), cancel)
+        # Separation can suppress quiet replies. Reconcile each view independently so
+        # hearing the same reply in both cannot count it twice.
+        for transcript in heard:
+            found = _with_completed_repeats(found, clean_lyrics(transcript, language.value), cancel)
+        return found
 
     def _recognized_version(
         self, song: Song, found: LyricsDiscoveryResult | None, transcripts: Sequence[str]
@@ -293,7 +303,8 @@ class LyricsDiscovery:
             timed = decode_lrc(text)
             return LyricsDiscoveryResult(
                 "\n".join(line for _, line in timed) if timed else text.strip(),
-                "LocalSidecar" if sidecar else "EmbeddedLyrics", (),
+                "LocalSidecar" if sidecar else "EmbeddedLyrics",
+                (),
                 tuple(LyricLineTiming(start, line) for start, line in timed),
             )
         return None

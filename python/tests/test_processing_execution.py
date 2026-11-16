@@ -50,14 +50,14 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
         def transcribe_stream(self, requests, count, language, cancel, *, execution):
             self.executions["recognition"] = execution
             assert language is Language.UKRAINIAN
-            assert count == 2
+            assert count == 4
             for audio, start in requests(threading.Event()):
                 assert audio.is_file()
                 self.requests.append((audio, start))
                 first.set()
                 if failure == "recognition":
                     raise DependencyError("RecognitionFailed", "recognition failed")
-            return ("Привіт світ", "Привіт світ")
+            return ("Привіт світ",) * count
 
         def transcribe(self, *args, **options):
             raise AssertionError("Prepared recognition must not run again")
@@ -78,7 +78,7 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
     provider = StreamingProvider()
     lyrics = FakeLyricsProvider([])
     source = tmp_path / "song.wav"
-    write_wav(source)
+    write_wav(source, seconds=49)
     with app_client(
         tmp_path / "runtime", ai_providers=(provider,), lyrics_providers=(lyrics,)
     ) as client:
@@ -105,7 +105,10 @@ def test_original_recognition_overlaps_separation_and_uses_the_catalogue_languag
             assert client.get(f"/songs/{song['songId']}").json()["activeRevision"] == 1
             return
         assert job["state"] == "Succeeded", job
-        assert len(provider.requests) == 2 and lyrics.outcomes == []
+        assert len(provider.requests) == 4 and lyrics.outcomes == []
+        assert [start for _, start in provider.requests] == [0, 0, 1, 1]
+        assert provider.requests[2][0] == provider.requests[1][0]
+        assert provider.requests[3][0] == provider.requests[0][0]
         assert {item.numeric_cpu_threads for item in provider.executions.values()} == {4}
         assert sum(item.cpu_threads for item in provider.executions.values()) == 4
         assert sum(item.cpu_fraction for item in provider.executions.values()) == pytest.approx(0.5)

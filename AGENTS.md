@@ -1,6 +1,6 @@
 # Working launch and verification
 
-- Installed builds keep their profiles, libraries, models, caches and temporary files inside the installation directory. On this machine, development profiles use `E:\ADVoiceData` through `AD_VOICE_PROFILE_ROOT`; development temporary files and caches stay on E:. Never fall back to C: when E: is unavailable.
+- Installed builds keep their profiles, libraries, models, caches and temporary files inside the installation directory. On this machine, development profiles, libraries and models use the checkout's `.dev-data` directory on D: through `AD_VOICE_PROFILE_ROOT`. Development temporary files stay on the project's drive, reusable tool caches use `D:\Caches`. Never fall back to C:.
 
 - Use `start.bat dev` for non-room renderer work: Vite hot-reloads React/CSS without rebuilding `dist`. Electron, Python and AudioService changes need a restart. An already running application must be closed normally before changing launch modes; do not kill a user's recording or processing job. Use `start.bat` to verify the bundled renderer when the change requires it.
 - Run checks from the repository root with `check.bat`. It preserves the existing test commands and returns a nonzero exit code on failure. Checks do not run npm/pip installation; use the existing installer if required tools are missing.
@@ -16,8 +16,8 @@
 
 - Add the reproducing test first and confirm it fails before implementation. Focused checks are intermediate feedback, not completion evidence. Run the full affected suite after the final edit; rerun it if relevant source, tests, configuration or dependencies change. Do not omit tests, lower thresholds, ignore failures, or use an old successful run to validate changed code.
 - No-argument `check.bat` runs all full suites. These commands do not replace scenario-specific browser, real-device, room, synchronization or release gates below. Keep every gate applicable to the change.
-- `check.bat` puts per-process temporary files and supported caches under `E:\CodexTemp\ADVoice-checks` when E: exists. For assistant-launched application runs, set TEMP/TMP and any isolated test data under the task's directory on E:; share existing model files instead of copying them. Do not relocate the normal user's profile.
-- Save full check output under the task's E: directory and inspect the summary or failure details. Preserve the command's exit code before reading the log. Keep output focused instead of returning entire successful logs to the model.
+- `check.bat` puts temporary test data under `.dev-data\temp\checks` and supported reusable caches under the project's drive `Caches` directory. For manually launched application checks, keep TEMP/TMP and isolated test data in the task directory on the project's drive; share existing model files instead of copying them. Do not relocate the normal user's profile without a request.
+- Save full check output under the task directory on the project's drive and inspect the summary or failure details. Preserve the command's exit code before reading the log. Keep output focused instead of returning entire successful logs to the model.
 
 # Room work completion gate
 

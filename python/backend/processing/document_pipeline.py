@@ -221,6 +221,7 @@ class BuildProcessingDocument:
         execution: ExecutionContext,
     ) -> PreparedLyrics:
         ending = lyrics_ending_start(song, source.found)
+        count = 4 if ending is not None else 2
         language = lyrics_language(song, source.found.lyrics if source.found else "")
 
         def requests(stopped: threading.Event) -> Iterator[tuple[Path, float]]:
@@ -233,6 +234,7 @@ class BuildProcessingDocument:
             yield vocal, 0.0
             if ending is not None:
                 yield vocal, ending
+                yield original, ending
 
         results = self._stages.run(
             "LyricsDiscovery",
@@ -240,7 +242,7 @@ class BuildProcessingDocument:
             reports,
             context,
             lambda: asr.transcribe_stream(
-                requests, 2 + int(ending is not None), language, context.cancel, execution=execution
+                requests, count, language, context.cancel, execution=execution
             ),
             progress=0.60,
         )

@@ -16,6 +16,7 @@ out/
 *.tsbuildinfo
 
 # Runtime data of the local app (database, models, recordings, logs)
+.dev-data/
 python/data/
 *.db
 *.db-shm

@@ -117,7 +117,12 @@ test('a failed dev preparation exits without waiting for an interactive keypress
   if (process.platform !== 'win32') return;
   const project = mkdtempSync(join(tmpdir(), 'advoice-dev-failure-'));
   mkdirSync(join(project, 'scripts'));
-  writeFileSync(join(project, 'scripts', 'build-steps.mjs'), 'process.exit(7)');
+  writeFileSync(
+    join(project, 'scripts', 'build-steps.mjs'),
+    `import {writeFileSync} from 'node:fs';
+     writeFileSync('startup-environment.json', JSON.stringify({models:process.env.AD_VOICE_MODELS}));
+     process.exit(7);`,
+  );
   writeFileSync(
     join(project, 'start.bat'),
     readFileSync(new URL('../../start.bat', import.meta.url)),
@@ -145,7 +150,14 @@ test('a failed dev preparation exits without waiting for an interactive keypress
     assert.equal(
       timedOut,
       false,
-      'Codex must receive startup failure instead of hanging at pause',
+      'Startup failure must return instead of hanging at pause',
+    );
+    const environment = JSON.parse(
+      readFileSync(join(project, 'startup-environment.json'), 'utf8'),
+    );
+    assert.equal(
+      path.resolve(environment.models),
+      join(project, '.dev-data', 'AD Voice', 'backend-data', 'models'),
     );
   } finally {
     rmSync(project, { recursive: true, force: true });

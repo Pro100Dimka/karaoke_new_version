@@ -174,7 +174,7 @@ def test_deferred_transcription_keeps_one_worker_and_both_alignment_views(tmp_pa
     provider.align(vocal, "vocal", Language.ENGLISH, cancel, execution=EXECUTION)
     assert loads_object(provider._runner.options["input_data"].decode()) == {
         **evidence[1],
-        "alternatives": [evidence[0]],
+        "alternatives": [evidence[0], {**evidence[2], "startSeconds": 48.0}],
     }
 
 
@@ -184,7 +184,10 @@ def test_local_transcription_group_retains_independent_views_for_alignment(tmp_p
     vocal, source = tmp_path / "vocal.wav", tmp_path / "source.mp3"
     vocal.write_bytes(b"vocal")
     source.write_bytes(b"original")
-    evidence = [{"text": text, "segments": []} for text in ["verse", "chorus", "ending"]]
+    evidence = [
+        {"text": text, "segments": [{"words": [{"word": text, "start": 1, "end": 2}]}]}
+        for text in ["verse", "chorus", "ending"]
+    ]
     provider = _provider(dumps({"transcriptions": evidence}).encode(), provider_id="local-torch")
     cancel = threading.Event()
     result = provider.transcribe_many(
@@ -209,8 +212,12 @@ def test_local_transcription_group_retains_independent_views_for_alignment(tmp_p
     provider.align(vocal, "verse chorus", Language.ENGLISH, cancel, execution=EXECUTION)
     assert loads_object(runner.options["input_data"].decode()) == {
         **evidence[0],
-        "alternatives": [evidence[1]],
+        "alternatives": [evidence[1], {**evidence[2], "startSeconds": 48.0}],
     }
+    from backend.ai_worker.recognition import heard_words
+
+    ending = loads_object(runner.options["input_data"].decode())["alternatives"][-1]
+    assert heard_words(ending) == [("ending", 49.0, 50.0)]
 
 
 @pytest.mark.parametrize("payload", [{}, {"transcriptions": []}, {"transcriptions": [None]}])

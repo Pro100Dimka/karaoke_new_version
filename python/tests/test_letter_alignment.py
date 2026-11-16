@@ -1836,6 +1836,37 @@ def test_alignment_uses_the_more_complete_independent_audio_view(monkeypatch):
     assert len(calls) == 2
     np.testing.assert_array_equal(calls[1], np.full(160, 2.0))
 
+    complete = heard_words(case["mixed"])
+    split = len(complete) // 2
+    offset = complete[split][1]
+
+    def payload(words, start=0):
+        return {
+            "segments": [
+                {
+                    "words": [
+                        {"word": word, "start": begin - start, "end": end - start}
+                        for word, begin, end in words
+                    ]
+                }
+            ]
+        }
+
+    recognition = {
+        **payload(complete[:split]),
+        "alternatives": [{**payload(complete[split:], offset), "startSeconds": offset}],
+    }
+    _, _, heard = speech._alignment_evidence(
+        Path("vocals.wav"),
+        np.ones(160),
+        "Ukrainian",
+        "\n".join(case["expected"]),
+        np.ones(160),
+        recognition=recognition,
+    )
+    assert heard == complete
+    assert len(calls) == 2
+
 
 @pytest.mark.parametrize("target", ["cpu", "cuda"])
 def test_verified_local_checkpoint_restores_official_word_alignment_heads(monkeypatch, target):

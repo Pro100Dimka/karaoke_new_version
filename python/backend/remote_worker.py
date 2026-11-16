@@ -326,7 +326,7 @@ def _configure_worker(root: Path, settings: Mapping[str, str | None]) -> str | N
         ],
     )
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    models = Path(settings.get("AD_VOICE_MODELS") or "E:/ADVoiceData/AD Voice/backend-data/models")
+    models = Path(settings.get("AD_VOICE_MODELS") or root.parent / "AD Voice/backend-data/models")
     if any(not (models / spec.model_id / spec.version / "model.bin").is_file() for spec in CATALOG):
         raise RuntimeError(
             "Required processing models are missing; download them in the application first"
@@ -381,16 +381,15 @@ def _poll_jobs(transport: ProcessingTransport, root: Path, stop: threading.Event
 
 
 def main() -> None:
-    settings = dotenv_values(
-        Path(__file__).parents[2] / "local-secrets" / "env" / "processing-worker.env"
-    )
+    project = Path(__file__).resolve().parents[2]
+    settings = dotenv_values(project / "local-secrets" / "env" / "processing-worker.env")
     root = Path(
         os.environ.get("AD_VOICE_PROCESSING_WORKER_DATA")
         or settings.get("AD_VOICE_PROCESSING_WORKER_DATA")
-        or "E:/ADVoiceData/ProcessingWorker"
+        or project / ".dev-data" / "ProcessingWorker"
     )
-    if not Path("E:/").is_dir() or root.drive.upper() != "E:":
-        raise RuntimeError("The processing worker requires its data and caches on E:")
+    if not root.is_absolute() or root.drive.casefold() != project.drive.casefold():
+        raise RuntimeError("The processing worker requires an absolute path on the project drive")
     for name in ["temp", "sessions", "cache"]:
         (root / name).mkdir(parents=True, exist_ok=True)
     if sys.argv[1:] == ["--stop"]:

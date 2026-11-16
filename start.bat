@@ -8,8 +8,8 @@ echo === A^&D Voice: starting ===
 
 rem Python environment, AudioService and the frontend are prepared at the same time.
 set "AD_VOICE_PYTHON=%ROOT%python\.venv\Scripts\python.exe"
-rem Reuse the checksum-verified models already downloaded by the installed profile.
-set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
+rem Development models stay with this checkout, independently of the installed application.
+set "AD_VOICE_MODELS=%ROOT%.dev-data\AD Voice\backend-data\models"
 set "AD_VOICE_AUDIO_SERVICE=%ROOT%AudioService\build\Release\AudioService.exe"
 
 rem "start.bat dev" runs the renderer on the Vite dev server: saved frontend changes hot-reload, no rebuild.

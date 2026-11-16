@@ -253,13 +253,14 @@ def _matching_scores(
 
 def heard_words(result: Mapping[str, object], *, include_untimed: bool = False) -> list[HeardWord]:
     heard: list[HeardWord] = []
+    offset = float(str(result.get("startSeconds", 0)))
     segments = result.get("segments")
     for segment in segments if isinstance(segments, list) else []:
         words = segment.get("words") if isinstance(segment, dict) else None
         for word in words if isinstance(words, list) else []:
             key = _key(str(word.get("word", "")))
             if key and (include_untimed or float(word["start"]) < float(word["end"])):
-                heard.append((key, float(word["start"]), float(word["end"])))
+                heard.append((key, float(word["start"]) + offset, float(word["end"]) + offset))
     return heard
 
 

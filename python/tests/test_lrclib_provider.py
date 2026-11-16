@@ -112,18 +112,26 @@ def test_an_earlier_standalone_prefix_cannot_consume_the_final_sung_replies(hear
     assert result.splitlines() == text.splitlines() + ["дозволиш мені"] * 4
 
 
-def test_discovery_checks_the_ending_with_its_preceding_phrase_when_whole_song_asr_misses_replies():
+def test_discovery_checks_the_ending_with_its_preceding_phrase_when_whole_song_asr_misses_replies(
+    tmp_path,
+):
     from dataclasses import replace
 
     chorus = "Хочеш я твоїм кольором буду\nЯкщо ти ним бути дозволиш мені"
+    original = tmp_path / "original.mp3"
+    original.write_bytes(b"original")
     starts = []
 
     class EndingAi(FakeAiProvider):
         def transcribe(self, vocal, language, cancel, *, execution, start_seconds=0):
             starts.append(start_seconds)
-            return chorus + (" До свалиш мені" * 4 if start_seconds else " Дякую за перегляд")
+            return chorus + (
+                " До свалиш мені" * (4 if vocal == original else 1)
+                if start_seconds
+                else " Дякую за перегляд"
+            )
 
-    song = replace(_song("8 ий колір", "Моторролла"), duration=264.22855)
+    song = replace(_song("8 ий колір", "Моторролла"), duration=264.22855, source_path=original)
     discovery = LyricsDiscovery(
         _NoSidecar(),
         (
@@ -142,7 +150,7 @@ def test_discovery_checks_the_ending_with_its_preceding_phrase_when_whole_song_a
         execution=EXECUTION,
     )
     assert result.lyrics.splitlines() == chorus.splitlines() + ["дозволиш мені"] * 4
-    assert starts == [0, pytest.approx(song.duration - 48)]
+    assert starts == [0, 0, *[pytest.approx(song.duration - 48)] * 2]
 
 
 @pytest.mark.parametrize("duration", [48.0, 49.0, None])
@@ -157,7 +165,10 @@ def test_first_discovery_groups_independent_views_and_preserves_ending_recovery(
     class GroupedAi(FakeAiProvider):
         def transcribe_many(self, requests, language, cancel, *, execution):
             received.extend(requests)
-            return tuple(chorus + (" До свалиш мені" * 4 if start else "") for _, start in requests)
+            return tuple(
+                chorus + (" До свалиш мені" * (4 if audio == original else 1) if start else "")
+                for audio, start in requests
+            )
 
         def transcribe(self, *_args, **_kwargs):
             pytest.fail("The grouped ending must not start another worker")
@@ -177,10 +188,10 @@ def test_first_discovery_groups_independent_views_and_preserves_ending_recovery(
     )
     expected = [(vocal, 0.0), (original, 0.0)]
     if duration is not None and duration > 48:
-        expected.append((vocal, duration - 48))
+        expected.extend([(vocal, duration - 48), (original, duration - 48)])
     assert received == expected
     assert result.lyrics.splitlines() == chorus.splitlines() + (
-        ["дозволиш мені"] * 4 if len(expected) == 3 else []
+        ["дозволиш мені"] * 4 if len(expected) == 4 else []
     )
 
 
@@ -319,13 +330,16 @@ def test_searches_by_cleaned_title_and_artist_and_returns_plain_text(tmp_path, s
             path.with_suffix(".lrc").write_text(raw, encoding="utf-8")
         else:
             song = replace(song, embedded_lyrics=raw)
-        found = LyricsDiscovery(LocalSidecarLyricsReader(), (), LyricsMatchPolicy()).lookup(
-            song, threading.Event(), False
-        ).found
+        found = (
+            LyricsDiscovery(LocalSidecarLyricsReader(), (), LyricsMatchPolicy())
+            .lookup(song, threading.Event(), False)
+            .found
+        )
         assert found is not None
         assert found.lyrics == "Кофе мой друг\nМузыка мой драйв"
         assert found.timing_hints == (
-            LyricLineTiming(10.5, "Кофе мой друг"), LyricLineTiming(14.0, "Музыка мой драйв")
+            LyricLineTiming(10.5, "Кофе мой друг"),
+            LyricLineTiming(14.0, "Музыка мой драйв"),
         )
         return
     fetch = _Recorder(_ROWS)
@@ -689,7 +703,7 @@ def test_original_mix_recovers_sung_repeats_missed_in_the_vocal_stem(
     assert result.lyrics.splitlines() == [
         line.translate(str.maketrans("", "", ",.!?")) for line in case["expected"]
     ]
-    assert calls == [vocal, original, vocal]
+    assert calls == [vocal, original, vocal, original]
 
 
 def test_partial_recognition_does_not_force_an_unrelated_catalog_phrase_into_a_chorus():

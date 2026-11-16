@@ -125,12 +125,37 @@ def test_relay_enforces_free_transfer_limit_before_upload(relay, monkeypatch):
 
 @pytest.mark.parametrize("cancelled", [False, True])
 def test_worker_runs_complete_song_in_disposable_subprocess(tmp_path, monkeypatch, cancelled):
+    import os
     from types import SimpleNamespace
 
+    from backend import remote_worker
     from backend.remote_worker import execute
     from backend.processing import worker_song
     from backend.processing.domain import JobState
     from backend.serialization import loads_object
+
+    with monkeypatch.context() as setup:
+        setup.setattr(os, "environ", dict(os.environ))
+        root = tmp_path / "worker" / "ProcessingWorker"
+        models = root.parent / "AD Voice" / "backend-data" / "models"
+        for spec in remote_worker.CATALOG:
+            model = models / spec.model_id / spec.version / "model.bin"
+            model.parent.mkdir(parents=True)
+            model.write_bytes(b"model")
+        setup.setenv("AD_VOICE_PROCESSING_WORKER_DATA", str(root))
+        setup.setattr(sys, "argv", ["remote_worker", "--stop"])
+        setup.setattr(remote_worker, "dotenv_values", lambda _: {})
+        remote_worker.main()
+        assert (root / "stop.request").is_file()
+        setup.setattr(
+            remote_worker.SystemRuntimeProbe,
+            "inspect",
+            lambda _: SimpleNamespace(cuda_available=True, gpu_name="GPU"),
+        )
+        assert remote_worker._configure_worker(root, {}) == "GPU"
+        assert Path(os.environ["AD_VOICE_MODELS"]) == models
+        assert Path(os.environ["TEMP"]) == root / "temp"
+        assert Path(os.environ["AD_VOICE_DATA"]) == root
 
     incoming, sessions = tmp_path / "incoming", tmp_path / "sessions"
     incoming.mkdir()

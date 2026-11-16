@@ -3,15 +3,15 @@ setlocal
 set "ROOT=%~dp0"
 cd /d "%ROOT%"
 rem Per-process scratch/cache only; no Windows-wide settings or user profiles change.
-if exist E:\ (
-  if not exist E:\CodexTemp\ADVoice-checks mkdir E:\CodexTemp\ADVoice-checks
-  set "TEMP=E:\CodexTemp\ADVoice-checks"
-  set "TMP=E:\CodexTemp\ADVoice-checks"
-  set "TMPDIR=E:\CodexTemp\ADVoice-checks"
-  set "npm_config_cache=E:\CodexTemp\ADVoice-checks\npm-cache"
-  set "PYTHONPYCACHEPREFIX=E:\CodexTemp\ADVoice-checks\pycache"
-  set "MYPY_CACHE_DIR=E:\CodexTemp\ADVoice-checks\mypy-cache"
-  set "RUFF_CACHE_DIR=E:\CodexTemp\ADVoice-checks\ruff-cache"
-)
+set "CHECK_TEMP=%ROOT%.dev-data\temp\checks"
+if not exist "%CHECK_TEMP%" mkdir "%CHECK_TEMP%"
+set "TEMP=%CHECK_TEMP%"
+set "TMP=%CHECK_TEMP%"
+set "TMPDIR=%CHECK_TEMP%"
+set "npm_config_cache=%~d0\Caches\npm"
+set "PIP_CACHE_DIR=%~d0\Caches\pip"
+set "PYTHONPYCACHEPREFIX=%~d0\Caches\python"
+set "MYPY_CACHE_DIR=%~d0\Caches\mypy"
+set "RUFF_CACHE_DIR=%~d0\Caches\ruff"
 node "%ROOT%scripts\build-steps.mjs" check %*
 exit /b %ERRORLEVEL%

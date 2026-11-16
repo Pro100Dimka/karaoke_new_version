@@ -126,7 +126,7 @@ if not exist "%VENV_DIR%\Scripts\python.exe" (
 
 echo.
 echo [5/5] Python packages, frontend dependencies, AudioService and the frontend (in parallel)...
-set "AD_VOICE_MODELS=%APPDATA%\AD Voice\backend-data\models"
+set "AD_VOICE_MODELS=%ROOT%.dev-data\AD Voice\backend-data\models"
 node.exe "%ROOT%scripts\build-steps.mjs" install
 if errorlevel 1 goto :fail
 if not exist "%AUDIO_DIR%\build\Release\AudioService.exe" (

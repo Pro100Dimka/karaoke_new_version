@@ -21,7 +21,7 @@ from backend.songs.domain import Language
 from backend.processing.compute_policy import ComputeDevice, ExecutionContext
 from backend.processing.policies import ResourceBudget
 
-_RecognitionKey = tuple[threading.Event, Path, Language, str, str]
+_RecognitionKey = tuple[threading.Event, Path, Language, str, str, float]
 
 
 class CommandAiProvider:
@@ -115,9 +115,7 @@ class CommandAiProvider:
         execution: ExecutionContext,
         start_seconds: float = 0.0,
     ) -> str:
-        key = (
-            self._recognition_key(vocal, language, cancel, execution) if not start_seconds else None
-        )
+        key = self._recognition_key(vocal, language, cancel, execution, start_seconds)
         payload = self._invoke(
             "transcribe",
             [
@@ -149,7 +147,7 @@ class CommandAiProvider:
                 for audio, start in requests
             )
         keys = [
-            self._recognition_key(audio, language, cancel, execution) if not start else None
+            self._recognition_key(audio, language, cancel, execution, start)
             for audio, start in requests
         ]
         payload = self._invoke(
@@ -188,9 +186,7 @@ class CommandAiProvider:
 
         def chunks(stopped: threading.Event) -> Iterator[bytes]:
             for audio, start in requests(stopped):
-                keys.append(
-                    self._recognition_key(audio, language, cancel, execution) if not start else None
-                )
+                keys.append(self._recognition_key(audio, language, cancel, execution, start))
                 yield (
                     dumps({"requests": [{"input": str(audio), "startSeconds": start}]}) + "\n"
                 ).encode("utf-8")
@@ -220,17 +216,31 @@ class CommandAiProvider:
             raise DependencyError("AiProviderInvalidOutput", "AI provider field text is invalid")
         if key is not None and isinstance(payload.get("segments"), list):
             with self._recognition_lock:
-                self._recognitions[key] = payload
+                self._recognitions[key] = (
+                    {**payload, "startSeconds": key[-1]} if key[-1] else payload
+                )
                 if len(self._recognitions) > 4:
                     self._recognitions.pop(next(iter(self._recognitions)))
         return transcript
 
     def _recognition_key(
-        self, vocal: Path, language: Language, cancel: threading.Event, execution: ExecutionContext
+        self,
+        vocal: Path,
+        language: Language,
+        cancel: threading.Event,
+        execution: ExecutionContext,
+        start_seconds: float = 0.0,
     ) -> _RecognitionKey | None:
         if self._descriptor.provider_id != "local-torch" or not vocal.is_file():
             return None
-        return cancel, vocal.resolve(), language, execution.device.value, sha256_file(vocal)
+        return (
+            cancel,
+            vocal.resolve(),
+            language,
+            execution.device.value,
+            sha256_file(vocal),
+            start_seconds,
+        )
 
     def _recognition_for(
         self, vocal: Path, language: Language, cancel: threading.Event, execution: ExecutionContext
@@ -246,7 +256,7 @@ class CommandAiProvider:
             for other, payload in cached
             if other != key
             and (other[0], other[2], other[3]) == (key[0], key[2], key[3])
-            and self._recognition_key(other[1], language, cancel, execution) == other
+            and self._recognition_key(other[1], language, cancel, execution, other[-1]) == other
         ]
         return {**recognition, "alternatives": alternatives}
 

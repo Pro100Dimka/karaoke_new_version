@@ -106,11 +106,13 @@ def independent_words(
     candidates = [heard_words(recognition if recognition is not None else recognize(vocal))]
     alternatives = recognition.get("alternatives", []) if recognition is not None else []
     if isinstance(alternatives, list):
-        candidates.extend(
-            words
-            for view in alternatives
-            if isinstance(view, dict) and (words := heard_words(view))
-        )
+        for view in alternatives:
+            if isinstance(view, dict) and (words := heard_words(view)):
+                # A separately decoded ending extends the preceding timeline. A suffix
+                # alone cannot beat whole-song coverage when choosing alignment anchors.
+                offset = float(str(view.get("startSeconds", 0)))
+                prefix = [word for word in candidates[0] if word[2] <= offset] if offset else []
+                candidates.append([*prefix, *words])
     if instrumental is not None and len(candidates) == 1:
         backing = np.pad(
             instrumental[: len(samples)], (0, max(0, len(samples) - len(instrumental)))
